@@ -13,6 +13,7 @@ mod exporter_kdf;
 mod group;
 mod identity;
 mod message;
+mod public_group_state;
 mod recovery;
 mod signal;
 
@@ -33,6 +34,7 @@ pub use exporter_kdf::*;
 pub use group::*;
 pub use identity::*;
 pub use message::*;
+pub use public_group_state::*;
 pub use recovery::*;
 pub use signal::*;
 
@@ -208,6 +210,33 @@ mod tests {
 
         assert_eq!(current, binding);
         group.verify_current_governance_binding(&expected).unwrap();
+    }
+
+    #[test]
+    fn public_group_state_material_round_trips_through_rfc_validation() {
+        let alice = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
+        )
+        .unwrap();
+        let group = alice
+            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000005")
+            .unwrap();
+        let (group_info, ratchet_tree) = group.public_group_state_bytes().unwrap();
+
+        let leaves = validate_public_group_state(
+            &group_info,
+            &ratchet_tree,
+            &group.group_id(),
+            group.epoch(),
+        )
+        .unwrap();
+        assert_eq!(leaves.len(), 1);
+        assert_eq!(leaves[0].leaf_index, 0);
+        assert_eq!(
+            leaves[0].principal_id.as_str(),
+            "did:webvh:z6mkfixture:alice.example"
+        );
     }
 
     #[test]

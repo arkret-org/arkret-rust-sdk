@@ -9,15 +9,17 @@ use arkret_models_collaboration::agent_operations::{
     AgentList, AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
     AgentRenewPairingOutcome, AgentRenewPairingRequestBody, AgentResumeRequestBody,
     AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
-    AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody,
-    AgentSidecarEnsureOutcome, AgentSidecarEnsureRequestBody, AgentSidecarList, AgentSidecarView,
-    AgentView,
+    AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody, AgentSidecarList,
+    AgentSidecarView, AgentView,
 };
 use arkret_models_collaboration::agent_signer_evidence::{
     AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBodyBody,
 };
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
+};
+use arkret_models_collaboration::protocol_journey::{
+    SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
 use arkret_wire::{GrantId, RealmId, SidecarId};
 use reqwest::Method;
@@ -232,8 +234,8 @@ impl Client {
     /// (`ak.self.agent.sidecar.command.ensure`).
     pub async fn agent_sidecar_ensure(
         &self,
-        request: &AgentSidecarEnsureRequestBody,
-    ) -> Result<AgentSidecarEnsureOutcome> {
+        request: &SidecarEnsureRequestBody,
+    ) -> Result<SidecarEnsureOutcome> {
         self.post(AGENT_SIDECAR_ENSURE_PATH, request).await
     }
 

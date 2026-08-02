@@ -238,6 +238,9 @@ pub struct EventInitialSubmission {
     pub cba_proof_bundles: Vec<CbaProofBundle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_proposal_receipt: Option<ControlProposalReceipt>,
+    /// Present only for an `ak.member.state` compensation submission.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
 }
 
 /// Previously receipted publication evidence transported between peers.
@@ -252,6 +255,9 @@ pub struct EventFederationSubmission {
     pub ingress_receipts: Vec<IngressReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_proposal_receipt: Option<ControlProposalReceipt>,
+    /// Byte-identical transport-only evidence forwarded from self admission.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
 }
 
 /// Bindings that hold for every submission regardless of Realm policy.
@@ -303,6 +309,34 @@ fn validate_control_proposal_receipt(
     Ok(())
 }
 
+fn validate_membership_compensation_evidence(
+    event: &Event,
+    evidence: Option<&crate::MembershipCompensationSubmissionEvidence>,
+) -> Result<()> {
+    let Some(evidence) = evidence else {
+        return Ok(());
+    };
+    evidence.validate_bindings()?;
+    let core = &evidence.delegation.core;
+    if event.kind.as_str() != "ak.member.state"
+        || event.executed_by.as_ref() != Some(&core.executor_service_id)
+        || event.authorization_ref.as_ref().map(|value| value.as_str())
+            != Some(evidence.delegation.delegation_id.as_str())
+        || event.actor_id != core.join_actor_id
+        || event.realm_id != core.resource
+        || event
+            .payload
+            .get("actor_id")
+            .and_then(serde_json::Value::as_str)
+            != Some(core.subject_id.as_str())
+    {
+        return Err(Error::Protocol(
+            "membership compensation evidence does not bind the submitted Event".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 impl EventInitialSubmission {
     /// Build the default online submission path. Authorization is evaluated
     /// atomically against current accepted state by the receiver.
@@ -312,6 +346,7 @@ impl EventInitialSubmission {
             authorization_lease: None,
             cba_proof_bundles: Vec::new(),
             control_proposal_receipt: None,
+            membership_compensation_evidence: None,
         }
     }
 
@@ -323,6 +358,7 @@ impl EventInitialSubmission {
             authorization_lease: Some(authorization_lease),
             cba_proof_bundles: Vec::new(),
             control_proposal_receipt: None,
+            membership_compensation_evidence: None,
         }
     }
 
@@ -350,6 +386,10 @@ impl EventInitialSubmission {
             &self.event,
             self.control_proposal_receipt.as_ref(),
             context,
+        )?;
+        validate_membership_compensation_evidence(
+            &self.event,
+            self.membership_compensation_evidence.as_ref(),
         )?;
         if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
             return Err(Error::Protocol(format!(
@@ -387,6 +427,10 @@ impl EventFederationSubmission {
             &self.event,
             self.control_proposal_receipt.as_ref(),
             context,
+        )?;
+        validate_membership_compensation_evidence(
+            &self.event,
+            self.membership_compensation_evidence.as_ref(),
         )?;
         if self.ingress_receipts.len() > MAX_FEDERATION_INGRESS_RECEIPTS {
             return Err(Error::Protocol(format!(
@@ -587,6 +631,7 @@ mod tests {
             authorization_lease: None,
             ingress_receipts: Vec::new(),
             control_proposal_receipt: None,
+            membership_compensation_evidence: None,
         };
         submission.validate_structural().unwrap();
     }
@@ -598,6 +643,7 @@ mod tests {
             authorization_lease: Some(lease_for(&intent())),
             ingress_receipts: Vec::new(),
             control_proposal_receipt: None,
+            membership_compensation_evidence: None,
         };
         assert!(submission.validate_structural().is_err());
     }

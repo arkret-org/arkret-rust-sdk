@@ -39,6 +39,7 @@ mod endpoints_events;
 mod endpoints_identity;
 mod endpoints_join_policy;
 mod endpoints_misc;
+mod endpoints_peer;
 mod endpoints_security;
 mod endpoints_signal;
 mod error;
@@ -843,10 +844,13 @@ mod tests {
     mod events_submit_tests {
         use std::collections::BTreeMap;
 
-        use arkret_models_collaboration::http_bodies::{
-            DirectConversationResolveRequestBody, MimiReportAbuseRequestBody,
-        };
+        use arkret_models_collaboration::http_bodies::MimiReportAbuseRequestBody;
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
+        use arkret_models_collaboration::protocol_journey::{
+            ContactPeer, DirectConversationLookupMarker, DirectConversationLookupRequestBody,
+            DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
+            DirectConversationResolveStateOutcome,
+        };
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
         use arkret_models_crypto::MlsGovernanceProofRequestBodyBody;
         use arkret_models_discovery::{
@@ -985,6 +989,7 @@ mod tests {
                 // Event cites no seal_ref / seal_basis, so it needs none.
                 cba_proof_bundles: Vec::new(),
                 control_proposal_receipt: None,
+                membership_compensation_evidence: None,
             }
         }
 
@@ -1642,29 +1647,34 @@ mod tests {
         async fn direct_conversation_resolve_posts_spec_path_and_current_shape() {
             let canned = r#"{
                 "state":"found",
-                "realm_id":"ak:realm:01904100-0000-7000-8000-d10000000001",
-                "main_strand_id":"ak:strand:01904100-0000-7000-8000-d10000000002",
-                "binding_event_ref":"ak:event:01904100-0000-7000-8000-d10000000003",
-                "created":false
+                "coordinates": {
+                    "pair_key":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "realm_id":"ak:realm:01904100-0000-7000-8000-d10000000001",
+                    "main_strand_id":"ak:strand:01904100-0000-7000-8000-d10000000002",
+                    "binding_event_ref":"ak:event:01904100-0000-7000-8000-d10000000003"
+                },
+                "send_blockers": []
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
-            let request = DirectConversationResolveRequestBody {
-                peer: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-                create: true,
-                idempotency_key: Some("dm-alice-bob".to_owned()),
-                peer_claim_request: None,
-            };
+            let request =
+                DirectConversationResolveRequestBody::Lookup(DirectConversationLookupRequestBody {
+                    peer: ContactPeer::Human {
+                        principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+                    },
+                    create: DirectConversationLookupMarker,
+                });
 
             let response = client.direct_conversation_resolve(&request).await.unwrap();
+            let DirectConversationResolveOutcome::State(
+                DirectConversationResolveStateOutcome::Found { coordinates, .. },
+            ) = response
+            else {
+                panic!("expected found direct conversation");
+            };
             assert_eq!(
-                response.state,
-                arkret_models_collaboration::http_bodies::DirectConversationResolveState::Found
+                coordinates.binding_event_ref.as_str(),
+                "ak:event:01904100-0000-7000-8000-d10000000003"
             );
-            assert_eq!(
-                response.binding_event_ref.as_ref().map(|id| id.as_str()),
-                Some("ak:event:01904100-0000-7000-8000-d10000000003")
-            );
-            assert_eq!(response.created, Some(false));
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
@@ -1673,9 +1683,13 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(parsed["peer"], "did:webvh:z6mkfixture:bob.example");
-            assert_eq!(parsed["create"], true);
-            assert_eq!(parsed["idempotency_key"], "dm-alice-bob");
+            assert_eq!(parsed["peer"]["kind"], "human");
+            assert_eq!(
+                parsed["peer"]["principal_id"],
+                "did:webvh:z6mkfixture:bob.example"
+            );
+            assert_eq!(parsed["create"], false);
+            assert!(parsed.get("idempotency_key").is_none());
         }
 
         #[tokio::test]

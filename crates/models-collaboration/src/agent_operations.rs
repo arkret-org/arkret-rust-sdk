@@ -721,8 +721,9 @@ pub struct AgentProjection {
     pub slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
-    pub status: AgentLifecycleState,
-    pub runtime_state: AgentRuntimeState,
+    pub lifecycle: AgentLifecycleState,
+    pub readiness: AgentReadiness,
+    pub presence: AgentPresence,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -735,6 +736,71 @@ pub struct AgentProjection {
         with = "optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentReadinessState {
+    Ready,
+    NotReady,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentReadinessBlocker {
+    RuntimeKeyMissing,
+    PairingOpen,
+    RecoveryStale,
+    SessionMissing,
+    KeypackageEmpty,
+    ReplyCapabilityMissing,
+    MlsRejoinRequired,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentReadiness {
+    pub state: AgentReadinessState,
+    pub blockers: Vec<AgentReadinessBlocker>,
+}
+
+impl AgentReadiness {
+    pub fn validate(&self) -> Result<()> {
+        let unique = self.blockers.iter().collect::<BTreeSet<_>>();
+        let valid_cardinality = match self.state {
+            AgentReadinessState::Ready => self.blockers.is_empty(),
+            AgentReadinessState::NotReady => !self.blockers.is_empty(),
+        };
+        if unique.len() != self.blockers.len() || !valid_cardinality {
+            return Err(Error::Protocol(
+                "Agent readiness state and blockers are inconsistent".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentPresenceState {
+    Online,
+    Offline,
+    Unknown,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentPresence {
+    pub state: AgentPresenceState,
+    #[serde(with = "canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(with = "canonical_timestamp")]
+    pub refresh_after: DateTime<Utc>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -775,6 +841,7 @@ pub struct AgentLifecycleOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentList {
     pub agents: Vec<AgentProjection>,
@@ -784,11 +851,10 @@ pub struct AgentList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentView {
     pub agent: AgentProjection,
-    pub status: AgentLifecycleState,
-    pub runtime_state: AgentRuntimeState,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub grants: Vec<GrantSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -819,6 +885,7 @@ pub struct AgentResumeRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AgentDeactivateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<NonEmptyString>,
@@ -826,26 +893,77 @@ pub struct AgentDeactivateRequestBody {
     /// principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub lifecycle_event: EventInitialSubmission,
-    /// Closed `ak.agent.key.revoke` Events covering every active Agent key.
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Vec<serde_json::Value>))
-    )]
-    pub key_revocation_events: Vec<EventInitialSubmission>,
-    /// Closed controller-authored `ak.capability.revoke` Events covering every
-    /// unrevoked grant held by the Agent in its owning Realm.
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Vec<serde_json::Value>))
-    )]
-    pub capability_revocation_events: Vec<EventInitialSubmission>,
+}
+
+impl AgentDeactivateRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        let event = &self.lifecycle_event.event;
+        if event.kind.as_str() != EventKind::SELF_AGENT_DEACTIVATE {
+            return Err(Error::Protocol(
+                "agent deactivation lifecycle_event must be ak.self.agent.deactivate".to_owned(),
+            ));
+        }
+        let payload_reason = event.payload.get("reason").and_then(Value::as_str);
+        if payload_reason != self.reason.as_ref().map(NonEmptyString::as_str) {
+            return Err(Error::Protocol(
+                "agent deactivation request reason must equal lifecycle Event payload reason"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AgentGrantAttachRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub grant: CapabilityGrant,
+    pub grant_event: EventInitialSubmission,
+    pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
+}
+
+impl AgentGrantAttachRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        self.requested_scope_disclosure.validate()?;
+        let event = &self.grant_event.event;
+        if event.kind.as_str() != EventKind::CAPABILITY_GRANT {
+            return Err(Error::Protocol(
+                "Agent grant attach requires an ak.capability.grant Event".to_owned(),
+            ));
+        }
+        event.validate_proof_bindings()?;
+        let payload: crate::events_payloads::capability::CapabilityGrantPayload =
+            event.payload_as()?;
+        let grant = &payload.grant;
+        let subject = match &grant.subject {
+            CapabilitySubject::Did(subject) => subject,
+            CapabilitySubject::Selector(_) => {
+                return Err(Error::Protocol(
+                    "Agent grant attach requires the path Agent as grant subject".to_owned(),
+                ));
+            }
+        };
+        if payload.grant_id != grant.id
+            || grant.issuer != event.actor_id
+            || grant.realm_id.as_ref() != Some(&event.realm_id)
+            || event.scope_ref.realm_id() != &event.realm_id
+            || self.requested_scope_disclosure.agent_id != *subject
+            || self.requested_scope_disclosure.controller_id != event.actor_id
+            || grant.actions.iter().any(|action| {
+                !self
+                    .requested_scope_disclosure
+                    .requested_scope
+                    .actions
+                    .contains(action)
+            })
+        {
+            return Err(Error::Protocol(
+                "Agent grant Event exceeds or does not match requested-scope disclosure".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2140,8 +2258,6 @@ pub struct KeyState {
     pub controller_id: Did,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
-    pub status: AgentLifecycleState,
-    pub runtime_state: AgentRuntimeState,
     pub pcr_recovery: AgentPcrRecoveryState,
     /// Immutable global Agent ceiling captured by provisioning.
     pub requested_scope: AgentKeyScope,
@@ -2172,18 +2288,6 @@ pub struct KeyState {
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_authorizations: Vec<AgentKeyAuthorizationState>,
-}
-
-impl KeyState {
-    /// Derive the read-only runtime readiness axis from this projection's own
-    /// facts (`key-management.md` §3.6.1). Producers MUST set `runtime_state`
-    /// to this value rather than tracking a second writable state machine.
-    pub fn derived_runtime_state(&self) -> AgentRuntimeState {
-        AgentRuntimeState::derive(
-            !self.active_authorizations.is_empty(),
-            self.pairing_request_id.is_some(),
-        )
-    }
 }
 
 #[cfg(test)]

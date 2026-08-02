@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-02.2;
-//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b
-//! Entries: reason_codes=456
+//! Input: registry/error-code-registry.json; version=2026-08-03.2;
+//! sha256=2581369970dda0321f81cbb97dc0fb06d5ce2d06ab7f5fd7933b98e73b7e74d7
+//! Entries: reason_codes=458
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -20,7 +20,6 @@ pub enum ReasonCode {
     AeadNonceDerivationInvalid,
     AeadNonceSenderDomainCollision,
     AgentDeactivated,
-    AgentDeactivationRevocationsIncomplete,
     AgentGrantConstraintMissing,
     AgentGrantExceedsRequestedScope,
     AgentGrantExpiryRequired,
@@ -359,6 +358,7 @@ pub enum ReasonCode {
     RecoveryProofKindUnknown,
     RecoverySessionChallengeMismatch,
     RecoverySessionTerminal,
+    RecoveryStale,
     RecoveryTargetNotInBottom,
     RecoveryWitnessInvalid,
     RecoveryWitnessMissing,
@@ -383,6 +383,7 @@ pub enum ReasonCode {
     RiskPolicy,
     RsvpBasisNotCausal,
     RsvpOccurrenceNotCanonical,
+    RuntimeKeyMissing,
     ScheduleFrontierTooLarge,
     ScopeExpansionForbidden,
     ScopeIncomparable,
@@ -406,6 +407,7 @@ pub enum ReasonCode {
     ServicePrerotationInvalid,
     SessionFocusAlreadyCommitted,
     SessionFocusNoSplitBrain,
+    SessionMissing,
     ShareCommitmentMismatch,
     SidecarCreateDenied,
     SidecarExposureAckRequired,
@@ -488,8 +490,6 @@ impl ReasonCode {
     pub const AEAD_NONCE_SENDER_DOMAIN_COLLISION: &'static str =
         "aead_nonce_sender_domain_collision";
     pub const AGENT_DEACTIVATED: &'static str = "agent_deactivated";
-    pub const AGENT_DEACTIVATION_REVOCATIONS_INCOMPLETE: &'static str =
-        "agent_deactivation_revocations_incomplete";
     pub const AGENT_GRANT_CONSTRAINT_MISSING: &'static str = "agent_grant_constraint_missing";
     pub const AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &'static str =
         "agent_grant_exceeds_requested_scope";
@@ -912,6 +912,7 @@ impl ReasonCode {
     pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str =
         "recovery_session_challenge_mismatch";
     pub const RECOVERY_SESSION_TERMINAL: &'static str = "recovery_session_terminal";
+    pub const RECOVERY_STALE: &'static str = "recovery_stale";
     pub const RECOVERY_TARGET_NOT_IN_BOTTOM: &'static str = "recovery_target_not_in_bottom";
     pub const RECOVERY_WITNESS_INVALID: &'static str = "recovery_witness_invalid";
     pub const RECOVERY_WITNESS_MISSING: &'static str = "recovery_witness_missing";
@@ -938,6 +939,7 @@ impl ReasonCode {
     pub const RISK_POLICY: &'static str = "risk_policy";
     pub const RSVP_BASIS_NOT_CAUSAL: &'static str = "rsvp_basis_not_causal";
     pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
+    pub const RUNTIME_KEY_MISSING: &'static str = "runtime_key_missing";
     pub const SCHEDULE_FRONTIER_TOO_LARGE: &'static str = "schedule_frontier_too_large";
     pub const SCOPE_EXPANSION_FORBIDDEN: &'static str = "scope_expansion_forbidden";
     pub const SCOPE_INCOMPARABLE: &'static str = "scope_incomparable";
@@ -962,6 +964,7 @@ impl ReasonCode {
     pub const SERVICE_PREROTATION_INVALID: &'static str = "service_prerotation_invalid";
     pub const SESSION_FOCUS_ALREADY_COMMITTED: &'static str = "session_focus_already_committed";
     pub const SESSION_FOCUS_NO_SPLIT_BRAIN: &'static str = "session_focus_no_split_brain";
+    pub const SESSION_MISSING: &'static str = "session_missing";
     pub const SHARE_COMMITMENT_MISMATCH: &'static str = "share_commitment_mismatch";
     pub const SIDECAR_CREATE_DENIED: &'static str = "sidecar_create_denied";
     pub const SIDECAR_EXPOSURE_ACK_REQUIRED: &'static str = "sidecar_exposure_ack_required";
@@ -1039,9 +1042,6 @@ impl ReasonCode {
             Self::AeadNonceDerivationInvalid => "aead_nonce_derivation_invalid",
             Self::AeadNonceSenderDomainCollision => "aead_nonce_sender_domain_collision",
             Self::AgentDeactivated => "agent_deactivated",
-            Self::AgentDeactivationRevocationsIncomplete => {
-                "agent_deactivation_revocations_incomplete"
-            }
             Self::AgentGrantConstraintMissing => "agent_grant_constraint_missing",
             Self::AgentGrantExceedsRequestedScope => "agent_grant_exceeds_requested_scope",
             Self::AgentGrantExpiryRequired => "agent_grant_expiry_required",
@@ -1446,6 +1446,7 @@ impl ReasonCode {
             Self::RecoveryProofKindUnknown => "recovery_proof_kind_unknown",
             Self::RecoverySessionChallengeMismatch => "recovery_session_challenge_mismatch",
             Self::RecoverySessionTerminal => "recovery_session_terminal",
+            Self::RecoveryStale => "recovery_stale",
             Self::RecoveryTargetNotInBottom => "recovery_target_not_in_bottom",
             Self::RecoveryWitnessInvalid => "recovery_witness_invalid",
             Self::RecoveryWitnessMissing => "recovery_witness_missing",
@@ -1472,6 +1473,7 @@ impl ReasonCode {
             Self::RiskPolicy => "risk_policy",
             Self::RsvpBasisNotCausal => "rsvp_basis_not_causal",
             Self::RsvpOccurrenceNotCanonical => "rsvp_occurrence_not_canonical",
+            Self::RuntimeKeyMissing => "runtime_key_missing",
             Self::ScheduleFrontierTooLarge => "schedule_frontier_too_large",
             Self::ScopeExpansionForbidden => "scope_expansion_forbidden",
             Self::ScopeIncomparable => "scope_incomparable",
@@ -1495,6 +1497,7 @@ impl ReasonCode {
             Self::ServicePrerotationInvalid => "service_prerotation_invalid",
             Self::SessionFocusAlreadyCommitted => "session_focus_already_committed",
             Self::SessionFocusNoSplitBrain => "session_focus_no_split_brain",
+            Self::SessionMissing => "session_missing",
             Self::ShareCommitmentMismatch => "share_commitment_mismatch",
             Self::SidecarCreateDenied => "sidecar_create_denied",
             Self::SidecarExposureAckRequired => "sidecar_exposure_ack_required",
@@ -1575,9 +1578,6 @@ impl ReasonCode {
             "aead_nonce_derivation_invalid" => Self::AeadNonceDerivationInvalid,
             "aead_nonce_sender_domain_collision" => Self::AeadNonceSenderDomainCollision,
             "agent_deactivated" => Self::AgentDeactivated,
-            "agent_deactivation_revocations_incomplete" => {
-                Self::AgentDeactivationRevocationsIncomplete
-            }
             "agent_grant_constraint_missing" => Self::AgentGrantConstraintMissing,
             "agent_grant_exceeds_requested_scope" => Self::AgentGrantExceedsRequestedScope,
             "agent_grant_expiry_required" => Self::AgentGrantExpiryRequired,
@@ -1982,6 +1982,7 @@ impl ReasonCode {
             "recovery_proof_kind_unknown" => Self::RecoveryProofKindUnknown,
             "recovery_session_challenge_mismatch" => Self::RecoverySessionChallengeMismatch,
             "recovery_session_terminal" => Self::RecoverySessionTerminal,
+            "recovery_stale" => Self::RecoveryStale,
             "recovery_target_not_in_bottom" => Self::RecoveryTargetNotInBottom,
             "recovery_witness_invalid" => Self::RecoveryWitnessInvalid,
             "recovery_witness_missing" => Self::RecoveryWitnessMissing,
@@ -2008,6 +2009,7 @@ impl ReasonCode {
             "risk_policy" => Self::RiskPolicy,
             "rsvp_basis_not_causal" => Self::RsvpBasisNotCausal,
             "rsvp_occurrence_not_canonical" => Self::RsvpOccurrenceNotCanonical,
+            "runtime_key_missing" => Self::RuntimeKeyMissing,
             "schedule_frontier_too_large" => Self::ScheduleFrontierTooLarge,
             "scope_expansion_forbidden" => Self::ScopeExpansionForbidden,
             "scope_incomparable" => Self::ScopeIncomparable,
@@ -2031,6 +2033,7 @@ impl ReasonCode {
             "service_prerotation_invalid" => Self::ServicePrerotationInvalid,
             "session_focus_already_committed" => Self::SessionFocusAlreadyCommitted,
             "session_focus_no_split_brain" => Self::SessionFocusNoSplitBrain,
+            "session_missing" => Self::SessionMissing,
             "share_commitment_mismatch" => Self::ShareCommitmentMismatch,
             "sidecar_create_denied" => Self::SidecarCreateDenied,
             "sidecar_exposure_ack_required" => Self::SidecarExposureAckRequired,
@@ -2215,12 +2218,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "agent_deactivated",
         applies_to: &["auth_decision", "service_call", "event_envelope"],
-        description: "A request targeted an agent principal whose current `ak.component.agent.status.v1` cell is `deactivated` (terminal). The endpoint MUST fail closed; no resume path exists, and `ak.agent.key.revoke` / `ak.capability.revoke` fan-out is expected to be complete or in progress. Callers MUST NOT treat this as a transient error. See zh/identity/key-management.md §3.6 §4.11.",
-    },
-    ReasonCodeDescriptor {
-        code: "agent_deactivation_revocations_incomplete",
-        applies_to: &["service_call"],
-        description: "Sub-reason for failed_precondition when ak.self.agent.command.deactivate does not supply revocation Events covering every authoritative active Agent key and unrevoked Agent grant, or when accepted revoke Events have not yet left both authoritative projections empty. The lifecycle Event MUST remain unaccepted and the Agent MUST remain non-terminal; after refreshing the authoritative projection, callers may replay every still-applicable signed Event id and add signed Events for newly observed residual facts. See zh/identity/key-management.md §3.6.1 Lifecycle.",
+        description: "A request targeted an Agent principal whose current `ak.component.agent.status.v1` cell is `deactivated` (terminal). The endpoint MUST fail closed and no resume path exists. The accepted parent lifecycle witness is sufficient to make all subordinate authorization ineffective; asynchronous cleanup need not synthesize key/grant revoke Events and cannot restore authority. Callers MUST NOT treat this as transient. See zh/identity/key-management.md §3.6 §4.11.",
     },
     ReasonCodeDescriptor {
         code: "agent_grant_constraint_missing",
@@ -3543,7 +3541,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "pairing_expired",
         applies_to: &["auth_decision", "event_envelope"],
-        description: "Agent bootstrap pairing window elapsed before the first runtime key authorization completed, so the derived agent runtime_state projection reports pairing_expired (the controller lifecycle intent axis is unaffected). Pairing expiry does not create, revoke, or rewrite Realm grants. Never applies to previously keyed agents: an expired runtime replacement re-pairing handle has no side effects and returns runtime_state to ready. See zh/identity/account-lifecycle.md §9.1 and zh/identity/key-management.md §3.6.1.",
+        description: "Agent bootstrap pairing window elapsed before the first runtime key authorization completed. Generic list/get views close the open handle and report readiness not_ready with runtime_key_missing; only the pairing poll may return its operation-local runtime_state=pairing_expired diagnostic. Pairing expiry does not create, revoke or rewrite Realm grants. It never applies to previously keyed Agents: an expired replacement handle only clears open fields and pairing_open readiness.",
     },
     ReasonCodeDescriptor {
         code: "pairing_request_expired",
@@ -3926,6 +3924,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A recovery-session submit_proof or a new RecoveryTransaction binding targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. Recovery sessions have no public complete operation. See zh/crypto-media/device-lifecycle.md §15 and artifacts/schemas/recovery-session.schema.json.",
     },
     ReasonCodeDescriptor {
+        code: "recovery_stale",
+        applies_to: &["agent_readiness"],
+        description: "Closed generic Agent readiness blocker: the controller-owned PCR recovery material no longer satisfies the current recovery policy or active runtime-key state.",
+    },
+    ReasonCodeDescriptor {
         code: "recovery_target_not_in_bottom",
         applies_to: &["state_resolution", "auth_decision"],
         description: "An ak.state.conflict_recovery reset named a target_cell that is not in ⊥. The reset replaces a cell rather than joining into it, so allowing it on a live cell would make recovery a general overwrite channel that bypasses every lattice and every precondition. This is the converse of cell_in_bottom_state, which rejects an ordinary write against a cell that is in ⊥. See zh/authz/event-auth-state-resolution.md §9.5.",
@@ -4050,6 +4053,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "payload.occurrence is neither JSON null nor a canonical instance key (YYYY-MM-DD for all-day, YYYY-MM-DDTHH:MM:SS[Zone] for timed), including when its date component is not a real proleptic-Gregorian date. Receivers MUST reject instead of rewriting the key, since the cell subject derives from the signed value. See zh/models/calendar-event.md.",
     },
     ReasonCodeDescriptor {
+        code: "runtime_key_missing",
+        applies_to: &["agent_readiness"],
+        description: "Closed generic Agent readiness blocker: no active accepted runtime key exists. It is durable subject-level readiness state and MUST NOT be inferred from a missing session or target-Realm grant.",
+    },
+    ReasonCodeDescriptor {
         code: "schedule_frontier_too_large",
         applies_to: &["event_envelope", "schema_validation"],
         description: "The observed Calendar schedule revision frontier exceeds the 128-entry bound shared with causal_refs, so entry.schedule_basis_refs cannot express it. The producer MUST converge the schedule before responding and MUST NOT truncate the basis. See zh/conformance/scalability-constraints.md. It is raised by the authoring client when the observed frontier itself exceeds the bound; a wire Event that actually carries more than 128 refs is instead rejected by schema maxItems as schema_violation.",
@@ -4163,6 +4171,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "session_focus_no_split_brain",
         applies_to: &["service_call"],
         description: "The committed `ak.call.state.session_focus` is authoritative and write-once: once it exists, a connect / token-exchange failure against that focus MUST be surfaced as focus-unavailable (`focus_unavailable_for_client`) and clients MUST NOT silently fall back to a different focus to keep the media path up. Naming the invariant explicitly closes the split-brain attack where two subsets of a conference converge on different SFUs. See zh/crypto-media/media-service-binding.md §5 and §2 (`foci[].health_endpoint`).",
+    },
+    ReasonCodeDescriptor {
+        code: "session_missing",
+        applies_to: &["direct_conversation_readiness"],
+        description: "Closed target-specific Direct Conversation readiness blocker: the otherwise authorized Agent has no current session for the requested send path. It MUST NOT appear in generic Agent readiness.",
     },
     ReasonCodeDescriptor {
         code: "share_commitment_mismatch",

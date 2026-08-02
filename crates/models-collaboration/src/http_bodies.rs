@@ -1219,11 +1219,9 @@ pub enum ContactState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum DirectConversationBindingState {
-    Active,
-    Retired,
-    Duplicate,
-    NonCanonical,
+pub enum DirectConversationSummaryState {
+    Found,
+    Suspended,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1231,28 +1229,77 @@ pub enum DirectConversationBindingState {
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationResolveState {
     Found,
-    AuthoringRequired,
-    NotFound,
-    Retired,
-    NonCanonical,
+    CreationRequired,
+    Suspended,
+    TemporarilyUnavailable,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DirectConversationAuthoringKind {
+pub enum DirectConversationNextAction {
     RemoteKeypackageClaim,
     DirectConversationMaterialization,
+    Retry,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectConversationOperationState {
+    Reserved,
+    Materializing,
+    Found,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectConversationOperation {
+    pub operation_id: NonEmptyString,
+    pub pair_key: Hash,
+    pub coordinator_service_id: Did,
+    pub operation_state: DirectConversationOperationState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub main_strand_id: Option<StrandId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl DirectConversationOperation {
+    pub fn validate_shape(&self) -> Result<()> {
+        match self.operation_state {
+            DirectConversationOperationState::Reserved if self.expires_at.is_some() => Ok(()),
+            DirectConversationOperationState::Materializing
+            | DirectConversationOperationState::Found
+                if self.expires_at.is_none()
+                    && self.realm_id.is_some()
+                    && self.main_strand_id.is_some() =>
+            {
+                Ok(())
+            }
+            _ => Err(Error::Protocol(
+                "direct conversation durable operation shape is invalid".to_owned(),
+            )),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationSummary {
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding_event_ref: Option<EventId>,
-    pub state: DirectConversationBindingState,
+    pub state: DirectConversationSummaryState,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1398,21 +1445,36 @@ pub struct ContactTombstone {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectConversationResolveRequestBody {
     pub peer: Did,
     #[serde(default, skip_serializing_if = "is_false")]
     pub create: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<String>,
+    pub idempotency_key: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peer_claim_request: Option<PeerKeyPackagesClaimRequestBody>,
+}
+
+impl DirectConversationResolveRequestBody {
+    pub fn validate_shape(&self) -> Result<()> {
+        if self.peer_claim_request.is_some() && (!self.create || self.idempotency_key.is_none()) {
+            return Err(Error::Protocol(
+                "peer_claim_request requires create=true and idempotency_key".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationMaterializationDraft {
-    pub materialization_id: NonEmptyString,
+    pub operation_id: NonEmptyString,
+    pub operation_state: DirectConversationOperationState,
+    pub pair_key: Hash,
+    pub coordinator_service_id: Did,
     pub claim_nonce: Base64UrlString,
     pub mls_group_id: MlsGroupId,
     pub mls_genesis_event_ref: EventId,
@@ -1423,25 +1485,17 @@ pub struct DirectConversationMaterializationDraft {
     pub claim_receipt: Option<PeerKeyPackageClaimReceipt>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub realm_event: Event,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub creator_member_event: Option<Event>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub peer_member_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub main_strand_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub binding_event: Event,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
 }
 
 impl DirectConversationMaterializationDraft {
     pub fn expected_event_ids(&self) -> Vec<&EventId> {
         let mut event_ids = vec![&self.realm_event.event_id];
-        if let Some(event) = &self.creator_member_event {
-            event_ids.push(&event.event_id);
-        }
         event_ids.extend([
             &self.peer_member_event.event_id,
             &self.main_strand_event.event_id,
@@ -1451,15 +1505,12 @@ impl DirectConversationMaterializationDraft {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        let mut expected = vec![
+        let expected = vec![
             (&self.realm_event, EventKind::REALM_CREATE),
             (&self.peer_member_event, EventKind::MEMBER_STATE),
             (&self.main_strand_event, EventKind::STRAND_CREATE),
             (&self.binding_event, EventKind::DIRECT_CONVERSATION_BOUND),
         ];
-        if let Some(event) = &self.creator_member_event {
-            expected.push((event, EventKind::MEMBER_STATE));
-        }
         if expected
             .iter()
             .any(|(event, kind)| event.kind.as_str() != *kind || !event.proofs.is_empty())
@@ -1468,10 +1519,8 @@ impl DirectConversationMaterializationDraft {
                 "direct conversation materialization Event draft shape is invalid".into(),
             ));
         }
-        if self.creator_member_event.as_ref().is_some_and(|event| {
-            self.realm_event.realm_id != event.realm_id
-                || self.realm_event.actor_id != event.actor_id
-        }) || self.realm_event.realm_id != self.peer_member_event.realm_id
+        if self.operation_state != DirectConversationOperationState::Materializing
+            || self.realm_event.realm_id != self.peer_member_event.realm_id
             || self.realm_event.realm_id != self.main_strand_event.realm_id
             || self.realm_event.actor_id != self.peer_member_event.actor_id
             || self.realm_event.actor_id != self.main_strand_event.actor_id
@@ -1527,8 +1576,10 @@ impl DirectConversationMaterializationDraft {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectConversationResolveOutcome {
     pub state: DirectConversationResolveState,
+    pub pair_key: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1536,9 +1587,9 @@ pub struct DirectConversationResolveOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub created: Option<bool>,
+    pub operation: Option<DirectConversationOperation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authoring_kind: Option<DirectConversationAuthoringKind>,
+    pub next_action: Option<DirectConversationNextAction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_authorization_draft: Option<PeerKeyPackagesClaimAuthorizationDraft>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1548,41 +1599,71 @@ pub struct DirectConversationResolveOutcome {
 impl DirectConversationResolveOutcome {
     pub fn validate_shape(&self) -> Result<()> {
         match self.state {
-            DirectConversationResolveState::AuthoringRequired => {
-                if self.created != Some(false) {
+            DirectConversationResolveState::CreationRequired => {
+                let operation = self.operation.as_ref().ok_or_else(|| {
+                    Error::Protocol("creation_required must carry a durable operation".into())
+                })?;
+                operation.validate_shape()?;
+                if operation.pair_key != self.pair_key {
                     return Err(Error::Protocol(
-                        "authoring_required must carry created=false".into(),
+                        "direct conversation operation pair_key mismatch".into(),
                     ));
                 }
-                match self.authoring_kind {
-                    Some(DirectConversationAuthoringKind::RemoteKeypackageClaim)
+                match self.next_action {
+                    Some(DirectConversationNextAction::RemoteKeypackageClaim)
                         if self.claim_authorization_draft.is_some()
                             && self.materialization_draft.is_none() =>
                     {
                         Ok(())
                     }
-                    Some(DirectConversationAuthoringKind::DirectConversationMaterialization)
+                    Some(DirectConversationNextAction::DirectConversationMaterialization)
+                        if operation.operation_state
+                            == DirectConversationOperationState::Materializing
+                            && self.claim_authorization_draft.is_none()
+                            && self.materialization_draft.as_ref().is_some_and(|draft| {
+                                draft.validate_shape().is_ok()
+                                    && draft.operation_id == operation.operation_id
+                                    && draft.pair_key == operation.pair_key
+                                    && draft.coordinator_service_id
+                                        == operation.coordinator_service_id
+                                    && draft.realm_event.realm_id
+                                        == *operation.realm_id.as_ref().unwrap()
+                            }) =>
+                    {
+                        Ok(())
+                    }
+                    Some(DirectConversationNextAction::Retry)
                         if self.claim_authorization_draft.is_none()
-                            && self
-                                .materialization_draft
-                                .as_ref()
-                                .is_some_and(|draft| draft.validate_shape().is_ok()) =>
+                            && self.materialization_draft.is_none() =>
                     {
                         Ok(())
                     }
                     _ => Err(Error::Protocol(
-                        "authoring_required fields do not match authoring_kind".into(),
+                        "creation_required fields do not match next_action".into(),
                     )),
                 }
             }
-            _ if self.authoring_kind.is_none()
-                && self.claim_authorization_draft.is_none()
-                && self.materialization_draft.is_none() =>
+            DirectConversationResolveState::Found | DirectConversationResolveState::Suspended
+                if self.realm_id.is_some()
+                    && self.main_strand_id.is_some()
+                    && self.binding_event_ref.is_some()
+                    && self.operation.is_none()
+                    && self.next_action.is_none()
+                    && self.claim_authorization_draft.is_none()
+                    && self.materialization_draft.is_none() =>
+            {
+                Ok(())
+            }
+            DirectConversationResolveState::TemporarilyUnavailable
+                if self.operation.is_none()
+                    && self.next_action.is_none()
+                    && self.claim_authorization_draft.is_none()
+                    && self.materialization_draft.is_none() =>
             {
                 Ok(())
             }
             _ => Err(Error::Protocol(
-                "non-authoring resolver outcome carries authoring fields".into(),
+                "direct conversation resolver outcome shape is invalid".into(),
             )),
         }
     }

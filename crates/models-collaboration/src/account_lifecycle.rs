@@ -25,6 +25,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::event_sync::{
+    ControlGovernanceHealthStatus, RealmActorFrontierView, RealmSealFrontierView,
+};
 use crate::governance::handle_claim::HandleClaim;
 use crate::objects::account_status::AccountStatus;
 
@@ -232,6 +235,71 @@ impl AccountStatusAuthorityEvidence {
         {
             return Err(arkret_wire::Error::Protocol(
                 "account status authority evidence proof controller mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AccountStatusAuthoringEventKind {
+    #[serde(rename = "ak.account.status")]
+    AccountStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AccountStatusAuthoringBasisRequestBody {
+    pub authority_evidence: AccountStatusAuthorityEvidence,
+    pub event_kind: AccountStatusAuthoringEventKind,
+}
+
+impl AccountStatusAuthoringBasisRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        self.authority_evidence.validate_shape()
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AccountStatusAuthoringBasisOutcome {
+    pub account_id: NonEmptyString,
+    pub principal_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub issuer_service_id: Did,
+    pub actor_frontier: RealmActorFrontierView,
+    pub seal_frontier: RealmSealFrontierView,
+}
+
+impl AccountStatusAuthoringBasisOutcome {
+    /// Validate the response against the signed authority evidence before the
+    /// returned frontiers are used to author an account-status Event.
+    pub fn validate_for_request(
+        &self,
+        request: &AccountStatusAuthoringBasisRequestBody,
+    ) -> Result<()> {
+        request.validate()?;
+        let evidence = &request.authority_evidence;
+        if self.account_id != evidence.account_id
+            || self.principal_id != evidence.principal_id
+            || self.principal_control_realm_id != evidence.principal_control_realm_id
+            || self.issuer_service_id != evidence.issuer_service_id
+            || self.actor_frontier.realm_id != evidence.principal_control_realm_id
+            || self.actor_frontier.actor_id != evidence.issuer_service_id
+            || self.seal_frontier.realm_id != evidence.principal_control_realm_id
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "account-status authoring basis does not match authority evidence".to_owned(),
+            ));
+        }
+        self.actor_frontier.validate()?;
+        self.seal_frontier.validate_protocol_bounds()?;
+        if self.seal_frontier.governance_health.status != ControlGovernanceHealthStatus::Healthy {
+            return Err(arkret_wire::Error::Protocol(
+                "account-status authoring basis requires a healthy Seal frontier".to_owned(),
             ));
         }
         Ok(())

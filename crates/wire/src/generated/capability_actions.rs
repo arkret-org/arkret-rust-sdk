@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-02.8;
-//! sha256=21671e2184d070ba64befbb50bf8f00b0cc1d85817713276a704c12f0250cbbd Entries: registered=165
+//! Input: registry/capability-action-registry.json; version=2026-08-03.3;
+//! sha256=9a96674b0e0ea3eaba98f318f9dad997bb74126c99ea242c218913d63797e9b3 Entries: registered=169
 
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +45,7 @@ pub enum CapabilityActionId {
     CircleMemberAdd,
     CircleMemberAddOthers,
     CircleMemberManage,
+    ContactScopeUpdate,
     ContainerMoveItem,
     ContainerRebalance,
     EventRead,
@@ -55,6 +56,8 @@ pub enum CapabilityActionId {
     InviteRevoke,
     InviteThirdParty,
     KeysBackupSeriesErase,
+    MemberCompensateLeave,
+    MemberCompensateRemove,
     MemberLeaveOwn,
     MessageCreate,
     MessageMentionBroadcast,
@@ -150,6 +153,7 @@ pub enum CapabilityActionId {
     SelfEventsQueryScan,
     SelfEventsStreamSubscribe,
     SelfSnapshotQueryManifestHead,
+    SidecarAccessReplace,
     SpaceArchive,
     SpaceCreate,
     SpaceParent,
@@ -214,6 +218,7 @@ impl CapabilityActionId {
         Self::CircleMemberAdd,
         Self::CircleMemberAddOthers,
         Self::CircleMemberManage,
+        Self::ContactScopeUpdate,
         Self::ContainerMoveItem,
         Self::ContainerRebalance,
         Self::EventRead,
@@ -224,6 +229,8 @@ impl CapabilityActionId {
         Self::InviteRevoke,
         Self::InviteThirdParty,
         Self::KeysBackupSeriesErase,
+        Self::MemberCompensateLeave,
+        Self::MemberCompensateRemove,
         Self::MemberLeaveOwn,
         Self::MessageCreate,
         Self::MessageMentionBroadcast,
@@ -319,6 +326,7 @@ impl CapabilityActionId {
         Self::SelfEventsQueryScan,
         Self::SelfEventsStreamSubscribe,
         Self::SelfSnapshotQueryManifestHead,
+        Self::SidecarAccessReplace,
         Self::SpaceArchive,
         Self::SpaceCreate,
         Self::SpaceParent,
@@ -381,6 +389,7 @@ impl CapabilityActionId {
     pub const CIRCLE_MEMBER_ADD: &'static str = "ak.circle.member.add";
     pub const CIRCLE_MEMBER_ADD_OTHERS: &'static str = "ak.circle.member.add.others";
     pub const CIRCLE_MEMBER_MANAGE: &'static str = "ak.circle.member.manage";
+    pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
     pub const CONTAINER_MOVE_ITEM: &'static str = "ak.container.move_item";
     pub const CONTAINER_REBALANCE: &'static str = "ak.container.rebalance";
     pub const EVENT_READ: &'static str = "ak.event.read";
@@ -391,6 +400,8 @@ impl CapabilityActionId {
     pub const INVITE_REVOKE: &'static str = "ak.invite.revoke";
     pub const INVITE_THIRD_PARTY: &'static str = "ak.invite.third_party";
     pub const KEYS_BACKUP_SERIES_ERASE: &'static str = "ak.keys.backup_series.erase";
+    pub const MEMBER_COMPENSATE_LEAVE: &'static str = "ak.member.compensate.leave";
+    pub const MEMBER_COMPENSATE_REMOVE: &'static str = "ak.member.compensate.remove";
     pub const MEMBER_LEAVE_OWN: &'static str = "ak.member.leave.own";
     pub const MESSAGE_CREATE: &'static str = "ak.message.create";
     pub const MESSAGE_MENTION_BROADCAST: &'static str = "ak.message.mention.broadcast";
@@ -492,6 +503,7 @@ impl CapabilityActionId {
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
     pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
         "ak.self.snapshot.query.manifest_head";
+    pub const SIDECAR_ACCESS_REPLACE: &'static str = "ak.sidecar.access.replace";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
     pub const SPACE_CREATE: &'static str = "ak.space.create";
     pub const SPACE_PARENT: &'static str = "ak.space.parent";
@@ -555,6 +567,7 @@ impl CapabilityActionId {
             Self::CircleMemberAdd => Self::CIRCLE_MEMBER_ADD,
             Self::CircleMemberAddOthers => Self::CIRCLE_MEMBER_ADD_OTHERS,
             Self::CircleMemberManage => Self::CIRCLE_MEMBER_MANAGE,
+            Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
             Self::ContainerMoveItem => Self::CONTAINER_MOVE_ITEM,
             Self::ContainerRebalance => Self::CONTAINER_REBALANCE,
             Self::EventRead => Self::EVENT_READ,
@@ -565,6 +578,8 @@ impl CapabilityActionId {
             Self::InviteRevoke => Self::INVITE_REVOKE,
             Self::InviteThirdParty => Self::INVITE_THIRD_PARTY,
             Self::KeysBackupSeriesErase => Self::KEYS_BACKUP_SERIES_ERASE,
+            Self::MemberCompensateLeave => Self::MEMBER_COMPENSATE_LEAVE,
+            Self::MemberCompensateRemove => Self::MEMBER_COMPENSATE_REMOVE,
             Self::MemberLeaveOwn => Self::MEMBER_LEAVE_OWN,
             Self::MessageCreate => Self::MESSAGE_CREATE,
             Self::MessageMentionBroadcast => Self::MESSAGE_MENTION_BROADCAST,
@@ -662,6 +677,7 @@ impl CapabilityActionId {
             Self::SelfEventsQueryScan => Self::SELF_EVENTS_QUERY_SCAN,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
             Self::SelfSnapshotQueryManifestHead => Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD,
+            Self::SidecarAccessReplace => Self::SIDECAR_ACCESS_REPLACE,
             Self::SpaceArchive => Self::SPACE_ARCHIVE,
             Self::SpaceCreate => Self::SPACE_CREATE,
             Self::SpaceParent => Self::SPACE_PARENT,
@@ -727,6 +743,7 @@ impl CapabilityActionId {
             Self::CIRCLE_MEMBER_ADD => Some(Self::CircleMemberAdd),
             Self::CIRCLE_MEMBER_ADD_OTHERS => Some(Self::CircleMemberAddOthers),
             Self::CIRCLE_MEMBER_MANAGE => Some(Self::CircleMemberManage),
+            Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),
             Self::CONTAINER_MOVE_ITEM => Some(Self::ContainerMoveItem),
             Self::CONTAINER_REBALANCE => Some(Self::ContainerRebalance),
             Self::EVENT_READ => Some(Self::EventRead),
@@ -737,6 +754,8 @@ impl CapabilityActionId {
             Self::INVITE_REVOKE => Some(Self::InviteRevoke),
             Self::INVITE_THIRD_PARTY => Some(Self::InviteThirdParty),
             Self::KEYS_BACKUP_SERIES_ERASE => Some(Self::KeysBackupSeriesErase),
+            Self::MEMBER_COMPENSATE_LEAVE => Some(Self::MemberCompensateLeave),
+            Self::MEMBER_COMPENSATE_REMOVE => Some(Self::MemberCompensateRemove),
             Self::MEMBER_LEAVE_OWN => Some(Self::MemberLeaveOwn),
             Self::MESSAGE_CREATE => Some(Self::MessageCreate),
             Self::MESSAGE_MENTION_BROADCAST => Some(Self::MessageMentionBroadcast),
@@ -834,6 +853,7 @@ impl CapabilityActionId {
             Self::SELF_EVENTS_QUERY_SCAN => Some(Self::SelfEventsQueryScan),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
             Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::SelfSnapshotQueryManifestHead),
+            Self::SIDECAR_ACCESS_REPLACE => Some(Self::SidecarAccessReplace),
             Self::SPACE_ARCHIVE => Some(Self::SpaceArchive),
             Self::SPACE_CREATE => Some(Self::SpaceCreate),
             Self::SPACE_PARENT => Some(Self::SpaceParent),

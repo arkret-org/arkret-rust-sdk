@@ -158,6 +158,7 @@ pub use arkret_models_collaboration::governance::resource_selector::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::governance_payloads::*;
 pub use arkret_models_collaboration::http_bodies::*;
+pub use arkret_models_collaboration::mls_group_state_material::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
 pub use arkret_models_collaboration::object_patch::*;
 pub use arkret_models_collaboration::objects::account_status::{
@@ -184,6 +185,9 @@ pub use arkret_models_collaboration::objects::relation::*;
 pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
+/// Closed journey contracts are namespaced to avoid collisions with legacy
+/// projection vocabulary such as `HistoryVisibility`.
+pub use arkret_models_collaboration::protocol_journey;
 pub use arkret_models_collaboration::runtime_identity::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;

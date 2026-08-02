@@ -198,6 +198,7 @@ impl Client {
                 authorization_lease: Some(lease),
                 cba_proof_bundles: Vec::new(),
                 control_proposal_receipt,
+                membership_compensation_evidence: None,
             };
             submission.validate_structural_in_context(submit_context)?;
             submissions.push(submission);
@@ -252,6 +253,7 @@ impl Client {
                 authorization_lease: Some(lease),
                 cba_proof_bundles: Vec::new(),
                 control_proposal_receipt: None,
+                membership_compensation_evidence: None,
             };
             if !anchor_unit && event.seal_basis.is_some() {
                 let request = ProposalReceiptIssueRequest {
@@ -956,9 +958,7 @@ mod tests {
     #[test]
     fn initial_submission_rejects_basis_free_message_before_network() {
         let error = initial_submission_context(&[basis_free_message_event()]).unwrap_err();
-        assert!(
-            matches!(error, Error::Protocol(message) if message.contains("basis-free publication unit"))
-        );
+        assert!(error.to_string().contains("basis-free publication unit"));
     }
 
     #[cfg(not(target_arch = "wasm32"))]

@@ -10,8 +10,10 @@ use arkret_models_collaboration::http_bodies::{
     ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
     ContactTombstoneRequestBody, DevicePairingBootstrap, DevicePairingResolveRequestBody,
     DevicePairingStageOutcome, DevicePairingStageRequestBody, DevicePairingStatusOutcome,
-    DevicePairingStatusRequestBody, DirectConversationResolveOutcome,
-    DirectConversationResolveRequestBody,
+    DevicePairingStatusRequestBody,
+};
+use arkret_models_collaboration::protocol_journey::{
+    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,

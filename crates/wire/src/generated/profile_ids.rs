@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-02.5;
-//! sha256=b36e588aec52e70db4b8b39731b8a54ca35f3cf105507fdce03dacf7e0f0d8ee Entries: profile_ids=98
+//! Input: profiles/conformance-profiles.json; version=2026-08-03.3;
+//! sha256=07c04a350a5cc6edd64017b1900fddb9679b5f158e53d469a0b155ca24bd61d2 Entries: profile_ids=101
 
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +39,9 @@ pub enum ProfileId {
     CoreEventStoreV1,
     CrdtTextV1,
     CrossSigningResetV1,
+    DirectConversationOperationControlV1,
     DirectConversationRealmV1,
+    DirectConversationRepairV1,
     DirectoryServiceV1,
     DisappearingV1,
     DisclosedAuditE2eeV1,
@@ -69,6 +71,7 @@ pub enum ProfileId {
     MediaServiceBindingArkretNativeV1,
     MediaServiceBindingLivekitV1,
     MediaServiceBindingV1,
+    MembershipJoinCompensationV1,
     MimiInteropV1,
     MinimalClientV1,
     MlsMinimalMetadataRealmV1,
@@ -141,7 +144,9 @@ impl ProfileId {
         Self::CoreEventStoreV1,
         Self::CrdtTextV1,
         Self::CrossSigningResetV1,
+        Self::DirectConversationOperationControlV1,
         Self::DirectConversationRealmV1,
+        Self::DirectConversationRepairV1,
         Self::DirectoryServiceV1,
         Self::DisappearingV1,
         Self::DisclosedAuditE2eeV1,
@@ -171,6 +176,7 @@ impl ProfileId {
         Self::MediaServiceBindingArkretNativeV1,
         Self::MediaServiceBindingLivekitV1,
         Self::MediaServiceBindingV1,
+        Self::MembershipJoinCompensationV1,
         Self::MimiInteropV1,
         Self::MinimalClientV1,
         Self::MlsMinimalMetadataRealmV1,
@@ -248,8 +254,12 @@ impl ProfileId {
     pub const CORE_EVENT_STORE_V1: &'static str = "ak.profile.core_event_store.v1";
     pub const CRDT_TEXT_V1: &'static str = "ak.profile.crdt.text.v1";
     pub const CROSS_SIGNING_RESET_V1: &'static str = "ak.profile.cross_signing.reset.v1";
+    pub const DIRECT_CONVERSATION_OPERATION_CONTROL_V1: &'static str =
+        "ak.profile.direct_conversation_operation_control.v1";
     pub const DIRECT_CONVERSATION_REALM_V1: &'static str =
         "ak.profile.direct_conversation_realm.v1";
+    pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
+        "ak.profile.direct_conversation_repair.v1";
     pub const DIRECTORY_SERVICE_V1: &'static str = "ak.profile.directory_service.v1";
     pub const DISAPPEARING_V1: &'static str = "ak.profile.disappearing.v1";
     pub const DISCLOSED_AUDIT_E2EE_V1: &'static str = "ak.profile.disclosed_audit.e2ee.v1";
@@ -285,6 +295,8 @@ impl ProfileId {
     pub const MEDIA_SERVICE_BINDING_LIVEKIT_V1: &'static str =
         "ak.profile.media_service_binding.livekit.v1";
     pub const MEDIA_SERVICE_BINDING_V1: &'static str = "ak.profile.media_service_binding.v1";
+    pub const MEMBERSHIP_JOIN_COMPENSATION_V1: &'static str =
+        "ak.profile.membership_join_compensation.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.profile.mimi_interop.v1";
     pub const MINIMAL_CLIENT_V1: &'static str = "ak.profile.minimal_client.v1";
     pub const MLS_MINIMAL_METADATA_REALM_V1: &'static str =
@@ -367,7 +379,11 @@ impl ProfileId {
             Self::CoreEventStoreV1 => Self::CORE_EVENT_STORE_V1,
             Self::CrdtTextV1 => Self::CRDT_TEXT_V1,
             Self::CrossSigningResetV1 => Self::CROSS_SIGNING_RESET_V1,
+            Self::DirectConversationOperationControlV1 => {
+                Self::DIRECT_CONVERSATION_OPERATION_CONTROL_V1
+            }
             Self::DirectConversationRealmV1 => Self::DIRECT_CONVERSATION_REALM_V1,
+            Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::DirectoryServiceV1 => Self::DIRECTORY_SERVICE_V1,
             Self::DisappearingV1 => Self::DISAPPEARING_V1,
             Self::DisclosedAuditE2eeV1 => Self::DISCLOSED_AUDIT_E2EE_V1,
@@ -397,6 +413,7 @@ impl ProfileId {
             Self::MediaServiceBindingArkretNativeV1 => Self::MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1,
             Self::MediaServiceBindingLivekitV1 => Self::MEDIA_SERVICE_BINDING_LIVEKIT_V1,
             Self::MediaServiceBindingV1 => Self::MEDIA_SERVICE_BINDING_V1,
+            Self::MembershipJoinCompensationV1 => Self::MEMBERSHIP_JOIN_COMPENSATION_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MinimalClientV1 => Self::MINIMAL_CLIENT_V1,
             Self::MlsMinimalMetadataRealmV1 => Self::MLS_MINIMAL_METADATA_REALM_V1,
@@ -474,7 +491,11 @@ impl ProfileId {
             Self::CORE_EVENT_STORE_V1 => Some(Self::CoreEventStoreV1),
             Self::CRDT_TEXT_V1 => Some(Self::CrdtTextV1),
             Self::CROSS_SIGNING_RESET_V1 => Some(Self::CrossSigningResetV1),
+            Self::DIRECT_CONVERSATION_OPERATION_CONTROL_V1 => {
+                Some(Self::DirectConversationOperationControlV1)
+            }
             Self::DIRECT_CONVERSATION_REALM_V1 => Some(Self::DirectConversationRealmV1),
+            Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::DIRECTORY_SERVICE_V1 => Some(Self::DirectoryServiceV1),
             Self::DISAPPEARING_V1 => Some(Self::DisappearingV1),
             Self::DISCLOSED_AUDIT_E2EE_V1 => Some(Self::DisclosedAuditE2eeV1),
@@ -506,6 +527,7 @@ impl ProfileId {
             }
             Self::MEDIA_SERVICE_BINDING_LIVEKIT_V1 => Some(Self::MediaServiceBindingLivekitV1),
             Self::MEDIA_SERVICE_BINDING_V1 => Some(Self::MediaServiceBindingV1),
+            Self::MEMBERSHIP_JOIN_COMPENSATION_V1 => Some(Self::MembershipJoinCompensationV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MINIMAL_CLIENT_V1 => Some(Self::MinimalClientV1),
             Self::MLS_MINIMAL_METADATA_REALM_V1 => Some(Self::MlsMinimalMetadataRealmV1),

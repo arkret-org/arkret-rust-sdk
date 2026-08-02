@@ -319,6 +319,7 @@ validated_wire_string!(
 fn is_authorization_ref(value: &str) -> bool {
     value == crate::REALM_AUTHORITY_ROOT_CELL
         || value == "ak.authority.direct_conversation_participant.v1"
+        || crate::MembershipCompensationDelegationRef::new(value).is_ok()
         || GrantId::new(value).is_ok()
         || EventId::new(value).is_ok()
         || DidUrl::new(value).is_ok()
@@ -328,7 +329,8 @@ validated_wire_string!(
     /// Closed Event Envelope authorization source reference.
     ///
     /// The schema admits a grant, an accepted authorization Event, a DID
-    /// delegation URL, or one of two exact authority-source constants.
+    /// delegation URL, membership-compensation delegation, or a registered
+    /// authority-source constant.
     AuthorizationRef,
     is_authorization_ref,
     "authorization reference must be a grant, event, DID delegation URL, or registered authority constant"

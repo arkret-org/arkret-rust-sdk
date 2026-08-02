@@ -116,9 +116,10 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::SelfAgentPause
         | EventKind::SelfAgentResume
         | EventKind::AgentSelectorClaim => EventProductClass::Agent,
-        EventKind::SidecarCreate | EventKind::AgentSidecarExchangeControl => {
-            EventProductClass::Sidecar
-        }
+        EventKind::SidecarCreate
+        | EventKind::SidecarAccessReplace
+        | EventKind::SidecarContextAttach
+        | EventKind::AgentSidecarExchangeControl => EventProductClass::Sidecar,
         EventKind::AppletBridgeError
         | EventKind::AppletDiscovery
         | EventKind::AppletRegistration => EventProductClass::Applet,
@@ -154,6 +155,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::ContactRequested
         | EventKind::ContactAccepted
         | EventKind::ContactRejected
+        | EventKind::ContactScopeUpdate
         | EventKind::ContactTombstoned
         | EventKind::DirectConversationBound => EventProductClass::Contact,
         EventKind::DeviceAuthorize

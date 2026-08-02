@@ -323,6 +323,27 @@ impl ArkretMlsGroup {
         Ok(encode(&bytes))
     }
 
+    /// Exact RFC 9420 MLSMessage(GroupInfo) and external ratchet-tree bytes
+    /// for a content-addressed `ak.mls.genesis` publication.
+    pub fn public_group_state_bytes(&self) -> Result<(Vec<u8>, Vec<u8>)> {
+        let group_info = self
+            .group
+            .export_group_info(
+                self.identity.provider.crypto(),
+                &self.identity.signer,
+                false,
+            )
+            .map_err(mls_error)?
+            .tls_serialize_detached()
+            .map_err(mls_error)?;
+        let ratchet_tree = self
+            .group
+            .export_ratchet_tree()
+            .tls_serialize_detached()
+            .map_err(mls_error)?;
+        Ok((group_info, ratchet_tree))
+    }
+
     pub fn governance_binding_extension(&self) -> Option<MlsGovernanceBindingExtension> {
         self.group
             .extensions()

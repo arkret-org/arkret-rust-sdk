@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-02.2;
-//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: error_codes=268
+//! Input: registry/error-code-registry.json; version=2026-08-03.2;
+//! sha256=2581369970dda0321f81cbb97dc0fb06d5ce2d06ab7f5fd7933b98e73b7e74d7 Entries: error_codes=274
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,7 @@ pub enum ErrorCode {
     BlobExpired,
     BlobPresignInvalid,
     BlobQuotaExceeded,
+    BootstrapIdempotencyConflict,
     BotActorRevoked,
     CallAlreadyAnswered,
     CallExpired,
@@ -84,8 +85,10 @@ pub enum ErrorCode {
     ClaimRequired,
     Conflict,
     ConsentRequired,
+    ContactLineageConflict,
     ContactRequestExpired,
     ContactRequestNotPending,
+    ContactScopeStale,
     ControllerSignedEventRequired,
     CredentialExpired,
     CredentialNotFound,
@@ -165,6 +168,7 @@ pub enum ErrorCode {
     LimitExceeded,
     MediaNegotiationFailed,
     MediaPermissionDenied,
+    MembershipCompensationConflict,
     MethodNotAllowed,
     MimiE2eeBoundaryUnmarked,
     MimiPayloadDigestMismatch,
@@ -181,6 +185,7 @@ pub enum ErrorCode {
     NotMember,
     NotaryRecoveryMissing,
     OneTimeKeysExhausted,
+    OperationControlQuorumUnavailable,
     OrganizationRegistrationChallengeInvalid,
     OrganizationRegistrationControlProofInvalid,
     OrganizationRegistrationQuorumNotMet,
@@ -188,6 +193,7 @@ pub enum ErrorCode {
     OrganizationRegistrationScopeUnsupported,
     OrganizationRegistrationStale,
     OverbroadRequest,
+    ParticipationEvidenceConflict,
     PayloadDigestMismatch,
     PayloadTooLarge,
     PolicyCombinationInvalid,
@@ -354,6 +360,7 @@ impl ErrorCode {
         Self::BlobExpired,
         Self::BlobPresignInvalid,
         Self::BlobQuotaExceeded,
+        Self::BootstrapIdempotencyConflict,
         Self::BotActorRevoked,
         Self::CallAlreadyAnswered,
         Self::CallExpired,
@@ -366,8 +373,10 @@ impl ErrorCode {
         Self::ClaimRequired,
         Self::Conflict,
         Self::ConsentRequired,
+        Self::ContactLineageConflict,
         Self::ContactRequestExpired,
         Self::ContactRequestNotPending,
+        Self::ContactScopeStale,
         Self::ControllerSignedEventRequired,
         Self::CredentialExpired,
         Self::CredentialNotFound,
@@ -447,6 +456,7 @@ impl ErrorCode {
         Self::LimitExceeded,
         Self::MediaNegotiationFailed,
         Self::MediaPermissionDenied,
+        Self::MembershipCompensationConflict,
         Self::MethodNotAllowed,
         Self::MimiE2eeBoundaryUnmarked,
         Self::MimiPayloadDigestMismatch,
@@ -463,6 +473,7 @@ impl ErrorCode {
         Self::NotMember,
         Self::NotaryRecoveryMissing,
         Self::OneTimeKeysExhausted,
+        Self::OperationControlQuorumUnavailable,
         Self::OrganizationRegistrationChallengeInvalid,
         Self::OrganizationRegistrationControlProofInvalid,
         Self::OrganizationRegistrationQuorumNotMet,
@@ -470,6 +481,7 @@ impl ErrorCode {
         Self::OrganizationRegistrationScopeUnsupported,
         Self::OrganizationRegistrationStale,
         Self::OverbroadRequest,
+        Self::ParticipationEvidenceConflict,
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
         Self::PolicyCombinationInvalid,
@@ -629,6 +641,7 @@ impl ErrorCode {
     pub const BLOB_EXPIRED: &'static str = "blob_expired";
     pub const BLOB_PRESIGN_INVALID: &'static str = "blob_presign_invalid";
     pub const BLOB_QUOTA_EXCEEDED: &'static str = "blob_quota_exceeded";
+    pub const BOOTSTRAP_IDEMPOTENCY_CONFLICT: &'static str = "bootstrap_idempotency_conflict";
     pub const BOT_ACTOR_REVOKED: &'static str = "bot_actor_revoked";
     pub const CALL_ALREADY_ANSWERED: &'static str = "call_already_answered";
     pub const CALL_EXPIRED: &'static str = "call_expired";
@@ -641,8 +654,10 @@ impl ErrorCode {
     pub const CLAIM_REQUIRED: &'static str = "claim_required";
     pub const CONFLICT: &'static str = "conflict";
     pub const CONSENT_REQUIRED: &'static str = "consent_required";
+    pub const CONTACT_LINEAGE_CONFLICT: &'static str = "contact_lineage_conflict";
     pub const CONTACT_REQUEST_EXPIRED: &'static str = "contact_request_expired";
     pub const CONTACT_REQUEST_NOT_PENDING: &'static str = "contact_request_not_pending";
+    pub const CONTACT_SCOPE_STALE: &'static str = "contact_scope_stale";
     pub const CONTROLLER_SIGNED_EVENT_REQUIRED: &'static str = "controller_signed_event_required";
     pub const CREDENTIAL_EXPIRED: &'static str = "credential_expired";
     pub const CREDENTIAL_NOT_FOUND: &'static str = "credential_not_found";
@@ -727,6 +742,7 @@ impl ErrorCode {
     pub const LIMIT_EXCEEDED: &'static str = "limit_exceeded";
     pub const MEDIA_NEGOTIATION_FAILED: &'static str = "media_negotiation_failed";
     pub const MEDIA_PERMISSION_DENIED: &'static str = "media_permission_denied";
+    pub const MEMBERSHIP_COMPENSATION_CONFLICT: &'static str = "membership_compensation_conflict";
     pub const METHOD_NOT_ALLOWED: &'static str = "method_not_allowed";
     pub const MIMI_E2EE_BOUNDARY_UNMARKED: &'static str = "mimi_e2ee_boundary_unmarked";
     pub const MIMI_PAYLOAD_DIGEST_MISMATCH: &'static str = "mimi_payload_digest_mismatch";
@@ -745,6 +761,8 @@ impl ErrorCode {
     pub const NOT_MEMBER: &'static str = "not_member";
     pub const NOTARY_RECOVERY_MISSING: &'static str = "notary_recovery_missing";
     pub const ONE_TIME_KEYS_EXHAUSTED: &'static str = "one_time_keys_exhausted";
+    pub const OPERATION_CONTROL_QUORUM_UNAVAILABLE: &'static str =
+        "operation_control_quorum_unavailable";
     pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str =
         "organization_registration_challenge_invalid";
     pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_INVALID: &'static str =
@@ -756,6 +774,7 @@ impl ErrorCode {
         "organization_registration_scope_unsupported";
     pub const ORGANIZATION_REGISTRATION_STALE: &'static str = "organization_registration_stale";
     pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
+    pub const PARTICIPATION_EVIDENCE_CONFLICT: &'static str = "participation_evidence_conflict";
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
     pub const POLICY_COMBINATION_INVALID: &'static str = "policy_combination_invalid";
@@ -929,6 +948,7 @@ impl ErrorCode {
             Self::BlobExpired => "blob_expired",
             Self::BlobPresignInvalid => "blob_presign_invalid",
             Self::BlobQuotaExceeded => "blob_quota_exceeded",
+            Self::BootstrapIdempotencyConflict => "bootstrap_idempotency_conflict",
             Self::BotActorRevoked => "bot_actor_revoked",
             Self::CallAlreadyAnswered => "call_already_answered",
             Self::CallExpired => "call_expired",
@@ -941,8 +961,10 @@ impl ErrorCode {
             Self::ClaimRequired => "claim_required",
             Self::Conflict => "conflict",
             Self::ConsentRequired => "consent_required",
+            Self::ContactLineageConflict => "contact_lineage_conflict",
             Self::ContactRequestExpired => "contact_request_expired",
             Self::ContactRequestNotPending => "contact_request_not_pending",
+            Self::ContactScopeStale => "contact_scope_stale",
             Self::ControllerSignedEventRequired => "controller_signed_event_required",
             Self::CredentialExpired => "credential_expired",
             Self::CredentialNotFound => "credential_not_found",
@@ -1024,6 +1046,7 @@ impl ErrorCode {
             Self::LimitExceeded => "limit_exceeded",
             Self::MediaNegotiationFailed => "media_negotiation_failed",
             Self::MediaPermissionDenied => "media_permission_denied",
+            Self::MembershipCompensationConflict => "membership_compensation_conflict",
             Self::MethodNotAllowed => "method_not_allowed",
             Self::MimiE2eeBoundaryUnmarked => "mimi_e2ee_boundary_unmarked",
             Self::MimiPayloadDigestMismatch => "mimi_payload_digest_mismatch",
@@ -1040,6 +1063,7 @@ impl ErrorCode {
             Self::NotMember => "not_member",
             Self::NotaryRecoveryMissing => "notary_recovery_missing",
             Self::OneTimeKeysExhausted => "one_time_keys_exhausted",
+            Self::OperationControlQuorumUnavailable => "operation_control_quorum_unavailable",
             Self::OrganizationRegistrationChallengeInvalid => {
                 "organization_registration_challenge_invalid"
             }
@@ -1055,6 +1079,7 @@ impl ErrorCode {
             }
             Self::OrganizationRegistrationStale => "organization_registration_stale",
             Self::OverbroadRequest => "overbroad_request",
+            Self::ParticipationEvidenceConflict => "participation_evidence_conflict",
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
             Self::PolicyCombinationInvalid => "policy_combination_invalid",
@@ -1220,6 +1245,7 @@ impl ErrorCode {
             "blob_expired" => Some(Self::BlobExpired),
             "blob_presign_invalid" => Some(Self::BlobPresignInvalid),
             "blob_quota_exceeded" => Some(Self::BlobQuotaExceeded),
+            "bootstrap_idempotency_conflict" => Some(Self::BootstrapIdempotencyConflict),
             "bot_actor_revoked" => Some(Self::BotActorRevoked),
             "call_already_answered" => Some(Self::CallAlreadyAnswered),
             "call_expired" => Some(Self::CallExpired),
@@ -1232,8 +1258,10 @@ impl ErrorCode {
             "claim_required" => Some(Self::ClaimRequired),
             "conflict" => Some(Self::Conflict),
             "consent_required" => Some(Self::ConsentRequired),
+            "contact_lineage_conflict" => Some(Self::ContactLineageConflict),
             "contact_request_expired" => Some(Self::ContactRequestExpired),
             "contact_request_not_pending" => Some(Self::ContactRequestNotPending),
+            "contact_scope_stale" => Some(Self::ContactScopeStale),
             "controller_signed_event_required" => Some(Self::ControllerSignedEventRequired),
             "credential_expired" => Some(Self::CredentialExpired),
             "credential_not_found" => Some(Self::CredentialNotFound),
@@ -1321,6 +1349,7 @@ impl ErrorCode {
             "limit_exceeded" => Some(Self::LimitExceeded),
             "media_negotiation_failed" => Some(Self::MediaNegotiationFailed),
             "media_permission_denied" => Some(Self::MediaPermissionDenied),
+            "membership_compensation_conflict" => Some(Self::MembershipCompensationConflict),
             "method_not_allowed" => Some(Self::MethodNotAllowed),
             "mimi_e2ee_boundary_unmarked" => Some(Self::MimiE2eeBoundaryUnmarked),
             "mimi_payload_digest_mismatch" => Some(Self::MimiPayloadDigestMismatch),
@@ -1337,6 +1366,7 @@ impl ErrorCode {
             "not_member" => Some(Self::NotMember),
             "notary_recovery_missing" => Some(Self::NotaryRecoveryMissing),
             "one_time_keys_exhausted" => Some(Self::OneTimeKeysExhausted),
+            "operation_control_quorum_unavailable" => Some(Self::OperationControlQuorumUnavailable),
             "organization_registration_challenge_invalid" => {
                 Some(Self::OrganizationRegistrationChallengeInvalid)
             }
@@ -1352,6 +1382,7 @@ impl ErrorCode {
             }
             "organization_registration_stale" => Some(Self::OrganizationRegistrationStale),
             "overbroad_request" => Some(Self::OverbroadRequest),
+            "participation_evidence_conflict" => Some(Self::ParticipationEvidenceConflict),
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
             "policy_combination_invalid" => Some(Self::PolicyCombinationInvalid),
@@ -1829,6 +1860,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The blob operation exceeds actor, Realm, organization, or deployment storage/bandwidth quota.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::BootstrapIdempotencyConflict,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A device bootstrap enroll, cancel or recovery request reused the durable transaction/idempotency identity with different closed request bytes or a different canonical bootstrap request digest. The first outcome remains authoritative and no Event or credential is replaced.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::BotActorRevoked,
         http_status: 403,
         http_status_by_context: &[],
@@ -1925,12 +1964,20 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The holder requires explicit user consent before disclosing the requested presentation.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::ContactLineageConflict,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A Contact fact forks an issuer-local version, skips a version, references a non-current predecessor, reuses a consumed request ref, or attempts to revive a tombstoned generation. The conflicting fact is quarantined.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::ContactRequestExpired,
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond targets a contact request older than contact_request_pending_ttl. The request projection is expired and requester-side contact-managed consent must be revoked.",
+        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond or ak.self.contact.command.reject targets a contact request older than contact_request_pending_ttl. The request projection is expired and no terminal response may be authored from it.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContactRequestNotPending,
@@ -1938,7 +1985,15 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond attempts to accept or reject a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
+        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond or ak.self.contact.command.reject targets a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::ContactScopeStale,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "An existing Contact binding is discoverable but the source-signed issuer head checkpoint/current lease is stale, unknown or incomplete. Contact-based create/send fails closed while coordinates remain visible to authorized participants.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ControllerSignedEventRequired,
@@ -2573,6 +2628,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Caller lacks permission to create, join, answer, or modify the media session.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::MembershipCompensationConflict,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A compensation delegation/action/executor/admission/incarnation binding is wrong, already consumed or conflicts with the current membership provenance. Newer incarnations are never removed; absent or superseded destinations return their registered signed no-write outcomes.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::MethodNotAllowed,
         http_status: 405,
         http_status_by_context: &[],
@@ -2701,6 +2764,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "No suitable one-time key or KeyPackage remains available for the requested device, principal, cipher suite, or profile.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::OperationControlQuorumUnavailable,
+        http_status: 503,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "No fresh q=2f+1 certificate proves the current operation-control head or required journal availability. The operation remains pending/fail closed and no external effect, cancel, transfer or attempt advance is inferred from a local replica head.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationChallengeInvalid,
         http_status: 400,
         http_status_by_context: &[],
@@ -2755,6 +2826,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "A presentation request asks for unrelated handles, credential identifiers, or global identifiers beyond its declared purpose.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::ParticipationEvidenceConflict,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A participation challenge or accepted target receipt was reused outside its exact agent/scope/commitment/target/verifier/audience binding, expired, or paired with different signed batch bytes. The target Realm authority performs no write.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PayloadDigestMismatch,

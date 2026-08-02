@@ -38,7 +38,7 @@ info:
 
     component schemas are named `EventsSubmitBatchRequestBody`,
 
-    `EventsSubmitFederationRequestBody`, `EventsSubmitOutcome`, `EventView`,
+    `EventFederationSubmission`, `EventsSubmitFederationRequestBody`, `EventsSubmitOutcome`, `EventView`,
 
     `EventsResolveRequestBody` / `EventsResolveOutcome`, `EventsQueryOutcome`,
 
@@ -296,6 +296,10 @@ components:
       $ref: ../schemas/account-operations.schema.json#/$defs/account_register_outcome
     AccountRegisterRequestBody:
       $ref: ../schemas/account-operations.schema.json#/$defs/account_register_request_body
+    AccountStatusAuthoringBasisOutcome:
+      $ref: ../schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_outcome
+    AccountStatusAuthoringBasisRequestBody:
+      $ref: ../schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_request_body
     AccountStatusPublicationOutcome:
       $ref: ../schemas/account-operations.schema.json#/$defs/account_status_publication_outcome
     AccountStatusPublicationRequestBody:
@@ -340,8 +344,16 @@ components:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_pairing_resolve_request_body
     AgentParticipationOutcome:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_participation_outcome
+    AgentParticipationReplaceReceipt:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_receipt
+    AgentParticipationReplaceRelayRequestBody:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_relay_request
     AgentParticipationReplaceRequestBody:
-      $ref: ../schemas/agent-operations.schema.json#/$defs/agent_participation_replace_request_body
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/participation_replacement_batch
+    AgentParticipationScopeEvidenceChallenge:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_challenge
+    AgentParticipationScopeEvidencePrepareRequestBody:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_prepare_request
     AgentPauseRequestBody:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_pause_request_body
     AgentProvisionOutcome:
@@ -363,9 +375,9 @@ components:
     AgentRuntimeApprovalStatusRequestBody:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body
     AgentSidecarEnsureOutcome:
-      $ref: ../schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_outcome
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/sidecar_ensure_outcome
     AgentSidecarEnsureRequestBody:
-      $ref: ../schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_request_body
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/sidecar_ensure_request
     AgentSidecarList:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_sidecar_list
     AgentSidecarView:
@@ -874,21 +886,33 @@ components:
       $ref: ../schemas/consent-operations.schema.json#/$defs/consent_update_request_body
     ContactList:
       $ref: ../schemas/contact-operations.schema.json#/$defs/contact_list
+    ContactRejectOutcome:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome
+    ContactRejectRequestBody:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_reject_request
     ContactRequestOutcome:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_request_outcome
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome
     ContactRequestRequestBody:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_request_request_body
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_request
     ContactRespondOutcome:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_respond_outcome
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome
     ContactRespondRequestBody:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_respond_request_body
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_respond_request
+    ContactScopeUpdateOutcome:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome
+    ContactScopeUpdateRequestBody:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_scope_update_request
     ContactTombstone:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_tombstone
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome
     ContactTombstoneRequestBody:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_tombstone_request_body
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/contact_tombstone_request
     Cursor:
       type: string
       pattern: ^ak:cursor:[A-Za-z0-9_-]+$
+    DeviceBootstrapCancelOutcome:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/cancel_device_bootstrap_outcome
+    DeviceBootstrapCancelRequestBody:
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/cancel_device_bootstrap_request
     DeviceId:
       type: string
       pattern: ^ak:device:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
@@ -936,9 +960,9 @@ components:
     DidOperationSubmitRequestBody:
       $ref: ../schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody
     DirectConversationResolveOutcome:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_outcome
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_resolve_outcome
     DirectConversationResolveRequestBody:
-      $ref: ../schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_request_body
+      $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_resolve_request
     DirectoryActorSearchOutcome:
       $ref: ../schemas/directory-operations.schema.json#/$defs/directory_actor_search_outcome
     DirectoryAgentSelectorResolutionOutcome:
@@ -1300,6 +1324,12 @@ components:
               - mls_keypackage_claim_request_expired
               - snapshot_chunk_digest_mismatch
               - unsupported_content_encoding
+              - bootstrap_idempotency_conflict
+              - contact_scope_stale
+              - contact_lineage_conflict
+              - participation_evidence_conflict
+              - operation_control_quorum_unavailable
+              - membership_compensation_conflict
             message:
               type: string
             retry_after_ms:
@@ -1310,6 +1340,8 @@ components:
               type: object
         request_id:
           type: string
+    EventFederationSubmission:
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EventFederationSubmission
     EventId:
       type: string
       pattern: ^ak:event:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
@@ -1676,6 +1708,10 @@ components:
       $ref: ../schemas/mls-governance-proof-bundle.schema.json
     MlsGovernanceProofRequestBodyBody:
       $ref: ../schemas/mls-governance-proof-bundle.schema.json#/$defs/proof_request
+    MlsGroupStateMaterialOutcome:
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialOutcome
+    MlsGroupStateMaterialRequestBody:
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialRequestBody
     ModerationQueueView:
       type: object
       required:
@@ -4228,6 +4264,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /_arkret/peer/account-status/authoring-basis:
+    post:
+      operationId: ak.peer.account_status.query.authoring_basis
+      security:
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+        sourceTrustDomain: []
+        destinationTrustDomain: []
+        contentDigest: []
+      summary: Obtain PCR-bound authoring frontiers for an account-status Event.
+      description: |
+        Read-only Account Authority query made before signing one
+        `ak.account.status` Event. The receiver verifies the signed authority
+        evidence and current delegation before returning both the exact issuer
+        actor-chain frontier and the exact Principal Control Realm Seal head.
+        Source-Service-ID must equal `issuer_service_id`; both frontier scopes
+        must match the evidence. The operation accepts no Event, advances no
+        frontier, grants no authority, and never synthesizes an empty PCR.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountStatusAuthoringBasisRequestBody'
+      responses:
+        '200':
+          description: Exact actor-chain and Realm Seal authoring frontiers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountStatusAuthoringBasisOutcome'
+        '409':
+          description: The PCR has no current fully verifiable accepted authoring frontier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /_arkret/peer/account-status:
     post:
       operationId: ak.peer.account_status.command.submit
@@ -4284,6 +4358,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /_arkret/peer/mls/group-state-material:
+    post:
+      operationId: ak.peer.mls.query.group_state_material
+      security:
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+        sourceTrustDomain: []
+        destinationTrustDomain: []
+        contentDigest: []
+      summary: Resolve verified MLS epoch-0 public group-state bytes.
+      description: |
+        Resolves one accepted `ak.mls.genesis` Event and returns its exact RFC
+        9420 GroupInfo and ratchet_tree extension bytes. Before disclosure the
+        provider verifies every request selector against the Event, recomputes
+        SHA-256 over both raw byte strings, compares explicit digests and the
+        hashes embedded in the content-addressed refs, and validates
+        GroupInfo/tree consistency. The response is all-or-nothing and never
+        contains private tree material, MLS secrets or inferred leaf DTOs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MlsGroupStateMaterialRequestBody'
+      responses:
+        '200':
+          description: Digest-verified public MLS GroupInfo and ratchet tree bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlsGroupStateMaterialOutcome'
+        '409':
+          description: Event/object material is unavailable, inconsistent, or not accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: The complete response exceeds the caller or protocol byte bound.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /_arkret/peer/events/describe:
     get:
       operationId: ak.peer.events.query.describe
@@ -4309,7 +4427,11 @@ paths:
       description: |
         Accepts a service-to-service federation event batch. This is the only
         canonical HTTP binding for federation event push; client/self event
-        submission remains under `/_arkret/self/events`.
+        submission remains under `/_arkret/self/events`. A federated
+        `ak.member.state` compensation submission carries the unchanged
+        transport-only `membership_compensation_evidence`; the receiver applies
+        the same exact admission, incarnation, action, executor and single-use
+        checks as initial submission.
       parameters:
       - in: header
         name: Idempotency-Key
@@ -4555,16 +4677,15 @@ paths:
         sourceTrustDomain: []
         destinationTrustDomain: []
         contentDigest: []
-      summary: Private Principal Server contact and Direct Conversation binding fact delivery.
+      summary: Private Principal Server Contact fact delivery.
       description: |
-        Delivers a signed ak.contact.* fact or ak.direct_conversation.bound fact
-        from the issuer-side Principal Server to the target holder's Principal
-        Server. The recipient validates the signed fact event, the
+        Delivers a signed ak.contact.* fact from the issuer-side Principal
+        Server to the target holder's Principal Server. Direct Conversation
+        bindings and Realm Events are forbidden. The recipient validates the signed fact event, the
         explicit contact_address, the destination service DID, and the holder's
         receive policy, then projects the original signed envelope into the
-        target holder's contact or Direct Conversation binding projection
-        without re-signing it. This is the federation delivery path for the
-        principal-scoped contact/binding fact log
+        target holder's Contact projection without re-signing it. This is the
+        federation delivery path for the principal-scoped Contact fact log
         (contact-and-direct-conversation.md §2), distinct from the Realm invite
         delivery on /_arkret/peer/invites.
       requestBody:
@@ -4572,14 +4693,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ../schemas/peer-contact-delivery-request.schema.json
+              $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/peer_contact_submit_request
       responses:
         '200':
           description: Generic contact fact delivery receive outcome.
           content:
             application/json:
               schema:
-                $ref: ../schemas/peer-contact-delivery-request.schema.json#/$defs/peer_contact_delivery_outcome
+                $ref: ../schemas/protocol-journey-wire.schema.json#/$defs/peer_contact_submit_outcome
   /_arkret/peer/keys/keypackages/claim:
     post:
       operationId: ak.peer.keys.keypackages.command.claim
@@ -4977,11 +5098,11 @@ paths:
       operationId: ak.self.contact.command.request
       security:
       - bearerAuth: []
+        dpopProof: []
       summary: Submit a contact request to another principal.
       description: |
-        Writes requester-side contact request fact and requester-side consent
-        grants for requested scopes. The requester MUST NOT write target consent
-        or target accepted state.
+        Runs the holder-local prepare/commit chain for one holder-signed Contact
+        request Event. The operation publishes no Private Consent authority.
       requestBody:
         required: true
         content:
@@ -5000,10 +5121,13 @@ paths:
       operationId: ak.self.contact.command.respond
       security:
       - bearerAuth: []
-      summary: Accept or reject an incoming contact request.
+        dpopProof: []
+      summary: Accept an incoming contact request.
       description: |
-        Only the request target may respond. Accept writes target-controlled
-        consent grants; reject writes no consent.
+        Only the request target may normally accept. The operation uses a
+        source-signed normal-response acceptance receipt; rejection uses the
+        separate /_arkret/self/contacts/reject operation. Glare is mechanically
+        derived and does not accept a synthetic response Event.
       requestBody:
         required: true
         content:
@@ -5017,11 +5141,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContactRespondOutcome'
+  /_arkret/self/contacts/reject:
+    post:
+      operationId: ak.self.contact.command.reject
+      security:
+      - bearerAuth: []
+        dpopProof: []
+      summary: Reject an incoming contact request.
+      description: |
+        Only the request target may submit the proposal-terminal rejection.
+        The exact reserved holder-signed Event and rejection acceptance receipt
+        are durably replayed; glare forbids this operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRejectRequestBody'
+      responses:
+        '200':
+          description: Contact rejection fact accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactRejectOutcome'
   /_arkret/self/contacts:
     get:
       operationId: ak.self.contact.query.list
       security:
       - bearerAuth: []
+        dpopProof: []
       summary: List the holder's contact projection.
       parameters:
       - name: state
@@ -5060,10 +5209,11 @@ paths:
       operationId: ak.self.contact.command.tombstone
       security:
       - bearerAuth: []
+        dpopProof: []
       summary: Tombstone the holder's side of a contact relation.
       description: |
-        Writes holder-side tombstone fact. Default revocation is limited to
-        contact-managed active consent dots.
+        Writes the holder-signed terminal successor for one issuer-local
+        Contact lineage. It does not update or revoke Private Consent cells.
       requestBody:
         required: true
         content:
@@ -5077,6 +5227,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContactTombstone'
+  /_arkret/self/contacts/scope-update:
+    post:
+      operationId: ak.self.contact.command.scope_update
+      security:
+      - bearerAuth: []
+        dpopProof: []
+      summary: Replace the holder-granted directional Contact scope.
+      description: |
+        Two-phase prepare/commit operation for the unique ak.contact.scope.update
+        Event. The payload is a full-set replacement on one issuer-local lineage;
+        version and predecessor are mandatory successors and no Private Consent
+        cell is an authority source.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactScopeUpdateRequestBody'
+      responses:
+        '200':
+          description: Scope replacement prepared, accepted, or deterministically rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactScopeUpdateOutcome'
   /_arkret/self/circles:
     get:
       operationId: ak.self.circle.query.list
@@ -5416,6 +5591,7 @@ paths:
       operationId: ak.self.direct_conversation.command.resolve
       security:
       - bearerAuth: []
+        dpopProof: []
       summary: Resolve or create the pair's single stable 1:1 DM entry.
       description: |
         Existing bindings return the same Realm and main Strand as found or
@@ -5423,7 +5599,10 @@ paths:
         one deterministic coordinator and one durable reserved/materializing/found
         operation. Cross-service creation exposes typed remote KeyPackage claim
         and materialization actions; all retries after external effect retain the
-        same operation, Realm and main Strand identifiers.
+        same operation, Realm and main Strand identifiers. A permanently
+        cancelled pair slot returns the tombstoned terminal outcome with frozen
+        operation, attempt and coordinates; later resolve calls exact-replay it
+        and cannot create a new attempt or binding for that pair.
       requestBody:
         required: true
         content:
@@ -8827,6 +9006,7 @@ paths:
       operationId: ak.gate.account.command.pair_device
       security:
       - bearerAuth: []
+        dpopProof: []
       responses:
         '200':
           description: Device pairing accepted
@@ -8850,6 +9030,7 @@ paths:
       operationId: ak.gate.account.command.enroll_device
       security:
       - bearerAuth: []
+        dpopProof: []
       responses:
         '200':
           description: Service-attested device enrollment minted
@@ -8863,6 +9044,37 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AccountDeviceEnrollRequestBody'
+  /_arkret/gate/account/device-bootstrap/cancel:
+    servers:
+    - url: https://{host}
+      variables:
+        host:
+          default: localhost
+    post:
+      operationId: ak.gate.account.command.cancel_device_bootstrap
+      security:
+      - bearerAuth: []
+        dpopProof: []
+      summary: Cancel one founding or sibling-pairing bootstrap transaction.
+      description: |
+        The bootstrap credential and DPoP proof must bind the same transaction,
+        holder and canonical bootstrap request. The durable idempotency key is
+        (transaction_id,idempotency_key); only an explicitly accepted cancel is
+        cancelled, deadline expiry is expired, and all other failures remain
+        pending/retryable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceBootstrapCancelRequestBody'
+      responses:
+        '200':
+          description: Closed bootstrap cancel outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceBootstrapCancelOutcome'
   /_arkret/gate/account/recovery-device-authorizations:
     servers:
     - url: https://{host}
@@ -8942,6 +9154,7 @@ paths:
       description: Two-phase native personal Agent provisioning. phase=prepare validates prerequisites and returns an Agent DID/PCR allocation, controller PCR, delegation ref, and requested_scope_digest without publishing durable Agent state. The controller verifies the digest and uses the Arkret SDK canonical authoring API to create one controller-signed ak.agent.provision Event with no nested proof. phase=commit carries the same allocation, private requested_scope, and that Event; ordinary admission atomically projects provision, accountability and selector cells before publishing the Agent DID binding and pairing handle. requested_scope is the immutable global Agent ceiling, not a grant. Provisioning creates no Agent profile, key authorization, Realm capability grant, or Agent PCR MLS private state; after status=complete, the controller E2EE client locally bootstraps and backs up the Agent PCR before pairing can commit.
       security:
       - bearerAuth: []
+        dpopProof: []
       responses:
         '200':
           description: Prepare returns status=awaiting_controller_event and an allocation; commit returns status=complete with pending PCR recovery and the runtime pairing handle.
@@ -8977,7 +9190,7 @@ paths:
   /_arkret/self/agents/{agent_id}/renew-pairing:
     post:
       operationId: ak.self.agent.command.renew_pairing
-      description: Re-open pairing on any non-terminal agent with a fresh single-use pairing handle, the unchanged requested_scope_digest DID commitment, and the current managed-PCR recovery projection. All previously issued handles stay permanently unresolvable. runtime_state pending_runtime_key/pairing_expired re-opens bootstrap pairing; any agent holding an active authorized key (lifecycle active or paused) performs runtime replacement re-pairing while the lifecycle intent, existing keys and grants stay untouched until the controller-signed authorization with an exact supersedes set is accepted atomically; completion preserves the lifecycle intent (an active agent needs no resume). Neither branch creates, revokes, or re-issues Realm grants. Pair commit requires pcr_recovery.status=ready; deactivated rejects.
+      description: Re-open pairing on any non-terminal agent with a fresh single-use pairing handle, the unchanged requested_scope_digest DID commitment, and the current managed-PCR recovery projection. All previously issued handles stay permanently unresolvable. An Agent without an active accepted runtime-key authorization uses bootstrap; an Agent holding an active authorized key (lifecycle active or paused) uses replacement while lifecycle intent, existing keys and grants stay untouched until one controller-signed authorization atomically supersedes the prior keys. Generic views express the open branch through pairing_mode/handle fields and readiness blockers and never expose runtime_state; that diagnostic is pairing-poll-local. Neither branch creates, revokes, or re-issues Realm grants. Pair commit requires pcr_recovery.status=ready; deactivated rejects.
       security:
       - bearerAuth: []
       parameters:
@@ -9052,7 +9265,7 @@ paths:
   /_arkret/self/agents/{agent_id}/deactivate:
     post:
       operationId: ak.self.agent.command.deactivate
-      description: Terminally deactivate a native personal agent. fan-out ak.agent.key.revoke / ak.capability.revoke / runtime endpoint revocation.
+      description: Terminally deactivate a native personal agent with one controller-authorized lifecycle Event. Once accepted, the parent lifecycle AND gate makes every subordinate key, session, pairing handle, capability grant, KeyPackage, presence and future submission ineffective; client-authored revoke bundles are forbidden and asynchronous cleanup is not a success prerequisite.
       security:
       - bearerAuth: []
       parameters:
@@ -9077,7 +9290,7 @@ paths:
   /_arkret/self/agents/{agent_id}/grants:
     post:
       operationId: ak.self.agent.grant.command.attach
-      description: Attach a complete signed Realm-scoped capability grant to a native personal agent together with a controller-signed, verifier-bound private requested_scope disclosure. The verifier recomputes the accepted-at public DID commitment; grant actions and resources must be covered by the disclosed immutable ceiling, all provision constraints remain mandatory, no defaults are added, and the disclosure is never copied into Realm history.
+      description: Attach a complete controller-authored ak.capability.grant EventInitialSubmission to a native personal agent together with a controller-signed, verifier-bound private requested_scope disclosure. The closed CapabilityGrantBody has no inner proof; the Event envelope proof is the sole durable issuer signature, and the service submits the exact Event bytes through ordinary admission without signing or synthesis fallback. The verifier recomputes the accepted-at public DID commitment; grant actions and resources must be covered by the disclosed immutable ceiling, all provision constraints remain mandatory, no defaults are added, and the disclosure is never copied into Realm history.
       security:
       - bearerAuth: []
       parameters:
@@ -9127,15 +9340,17 @@ paths:
     post:
       operationId: ak.self.agent.sidecar.command.ensure
       description: |
-        Idempotently ensure the controller-owned Agent Sidecar object, one context-private Strand, and its private relation.
-        The wire-level idempotency keys are server-derived: Sidecar identity is keyed by
-        `(realm_id, controller_id)` and private Strand reuse by `(sidecar_id, normalized_context_ref)`.
-        `agent_id` is not part of either key; addressed_agent_ids affects only the current exchange.
-        The reducer atomically creates and binds the system-managed backing Circle/MLS scope, which is not returned
-        as a normal Circle resource. Clients MUST NOT supply Circle metadata, membership, IDs, or an Idempotency-Key
-        to force a second object. Existence-privacy failures use the generic `sidecar_create_denied` precondition.
+        Prepare persists only a private reservation. First commit atomically accepts
+        exactly the controller-signed ak.sidecar.create and
+        ak.sidecar.context.attach Events: create projects the Sidecar, backing Circle
+        and controller membership; attach projects the private Strand and Relation.
+        An existing Sidecar uses the attach branch only. The closed prepared/accepted
+        outcome maps all three request phases without inventing another state.
+        Context is never part of the
+        MLS control frontier or security-frontier digest.
       security:
       - bearerAuth: []
+        dpopProof: []
       responses:
         '200':
           description: Agent Sidecar and context Strand ensured
@@ -9200,6 +9415,7 @@ paths:
       description: Set an agent's participation selection for a scope (controller-self only). The selection is bounded by both the immutable provision-derived ceiling and the deployment/Realm/Circle/Strand governance ceiling; policy cannot restore a bit omitted at provision time.
       security:
       - bearerAuth: []
+        dpopProof: []
       parameters:
       - in: path
         name: agent_id
@@ -9212,7 +9428,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AgentParticipationOutcome'
+                $ref: '#/components/schemas/AgentParticipationReplaceReceipt'
       requestBody:
         required: true
         content:
@@ -9224,6 +9440,7 @@ paths:
       description: Get an agent's resolved participation policy (controller-self only).
       security:
       - bearerAuth: []
+        dpopProof: []
       parameters:
       - in: path
         name: agent_id
@@ -9237,6 +9454,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AgentParticipationOutcome'
+  /_arkret/self/agents/{agent_id}/participation/scope-evidence:prepare:
+    post:
+      operationId: ak.self.agent.participation.query.prepare_scope_evidence
+      security:
+      - bearerAuth: []
+        dpopProof: []
+      summary: Reserve verifier-bound private participation scope evidence.
+      parameters:
+      - in: path
+        name: agent_id
+        required: true
+        schema:
+          type: string
+          pattern: ^did:[a-z0-9]+:[^\s#?]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentParticipationScopeEvidencePrepareRequestBody'
+      responses:
+        '200':
+          description: Target-signed single-use challenge.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentParticipationScopeEvidenceChallenge'
+  /_arkret/peer/agents/participation/scope-evidence:prepare:
+    post:
+      operationId: ak.peer.agent.participation.query.prepare_scope_evidence
+      security:
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+        sourceTrustDomain: []
+        destinationTrustDomain: []
+        contentDigest: []
+      summary: Relay a scope-evidence reservation to the target Realm service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentParticipationScopeEvidencePrepareRequestBody'
+      responses:
+        '200':
+          description: Destination-signed challenge returned unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentParticipationScopeEvidenceChallenge'
+  /_arkret/peer/agents/participation:replace:
+    post:
+      operationId: ak.peer.agent.participation.command.replace
+      security:
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+        sourceTrustDomain: []
+        destinationTrustDomain: []
+        contentDigest: []
+      summary: Relay exact controller-signed participation replacement bytes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentParticipationReplaceRelayRequestBody'
+      responses:
+        '200':
+          description: Destination-signed accepted receipt returned unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentParticipationReplaceReceipt'
   /_arkret/gate/account/oidc/callback:
     servers:
     - url: https://{host}

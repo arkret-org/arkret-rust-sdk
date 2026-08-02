@@ -1825,6 +1825,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
             authorization_lease: Some(value.authorization_lease),
             cba_proof_bundles: value.cba_proof_bundles,
             control_proposal_receipt: value.control_proposal_receipt,
+            membership_compensation_evidence: None,
         }
     }
 }

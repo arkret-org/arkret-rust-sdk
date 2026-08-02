@@ -1751,6 +1751,7 @@ mod tests {
                 }),
                 cba_proof_bundles: Vec::new(),
                 control_proposal_receipt: None,
+                membership_compensation_evidence: None,
             }],
         };
         PreparedEventUnit::new(coordinator.clone(), serde_json::to_value(request).unwrap()).unwrap()

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-02.8;
-//! sha256=d05949b774f6b047fed77a3bd4855a114ffd7503bfc49726c65ad0192fce2998 Input: registry/
-//! operations-error-mapping.json; version=2026-08-02.3;
-//! sha256=b5e4e95836111a3050eb9fea4b889c736e3d1fb201fc9de136e67fbc793c371c Input: registry/
-//! error-code-registry.json; version=2026-08-02.2;
-//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: operations=219
+//! Input: registry/operation-registry.json; version=2026-08-03.3;
+//! sha256=8a13a6d4766fd6ecca6bc4410d97b62a40a1402beff2b3602f79b2ca13cd328f Input: registry/
+//! operations-error-mapping.json; version=2026-08-03.2;
+//! sha256=bc76cc8d5bf645c10c856e0dc7f30e506ed78b3c89d30ae76f6bbbb4c2893862 Input: registry/
+//! error-code-registry.json; version=2026-08-03.2;
+//! sha256=2581369970dda0321f81cbb97dc0fb06d5ce2d06ab7f5fd7933b98e73b7e74d7 Entries: operations=227
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -202,6 +202,12 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountCommandCancelDeviceBootstrap,
+        operation_specific: &[OperationSpecificError::ErrorCode(
+            ErrorCode::BootstrapIdempotencyConflict,
+        )],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandEnrollDevice,
         operation_specific: &[
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
@@ -395,6 +401,28 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerAccountStatusQueryAuthoringBasis,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerAgentParticipationCommandReplace,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::ParticipationEvidenceConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationExceedsCeiling),
+            OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationCeilingUnresolved),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerAgentParticipationQueryPrepareScopeEvidence,
+        operation_specific: &[OperationSpecificError::ErrorCode(
+            ErrorCode::ParticipationEvidenceConflict,
+        )],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerContactsCommandSubmit,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
@@ -455,6 +483,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactScopeStale),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -470,6 +500,16 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::ClaimFailed),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerMlsQueryGroupStateMaterial,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
+            OperationSpecificError::ErrorCode(ErrorCode::DigestMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -663,7 +703,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::AgentDeactivated),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::ControllerSignedEventRequired),
-            OperationSpecificError::ReasonCode(ReasonCode::AgentDeactivationRevocationsIncomplete),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -720,6 +759,12 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfAgentParticipationQueryPrepareScopeEvidence,
+        operation_specific: &[OperationSpecificError::ErrorCode(
+            ErrorCode::ParticipationEvidenceConflict,
+        )],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAgentParticipationResourceGet,
         operation_specific: &[],
     },
@@ -729,6 +774,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationExceedsCeiling),
             OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationCeilingUnresolved),
             OperationSpecificError::ReasonCode(ReasonCode::AgentRequestedScopeCommitmentInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::ParticipationEvidenceConflict),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -930,11 +976,21 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfContactCommandReject,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
+        ],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfContactCommandRequest,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -943,6 +999,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::NotFound),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfContactCommandScopeUpdate,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactScopeStale),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -950,6 +1014,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
         ],
     },
     OperationErrorMappingDescriptor {

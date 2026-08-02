@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-02.8;
-//! sha256=d05949b774f6b047fed77a3bd4855a114ffd7503bfc49726c65ad0192fce2998 Entries: registered=219
+//! Input: registry/operation-registry.json; version=2026-08-03.3;
+//! sha256=8a13a6d4766fd6ecca6bc4410d97b62a40a1402beff2b3602f79b2ca13cd328f Entries: registered=227
 
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +36,7 @@ pub enum ServiceOperationId {
     FindDirectoryQuerySearchRealms,
     FindDirectoryQuerySearchUsers,
     GateAccountCommandAuthorizeRecoveryDevice,
+    GateAccountCommandCancelDeviceBootstrap,
     GateAccountCommandEnrollDevice,
     GateAccountCommandIntrospectSessionGrant,
     GateAccountCommandIssueIdentityBindingChallenge,
@@ -69,6 +70,9 @@ pub enum ServiceOperationId {
     OpenMimiQueryIdentifiers,
     OpenMimiQueryProviderDirectory,
     PeerAccountStatusCommandSubmit,
+    PeerAccountStatusQueryAuthoringBasis,
+    PeerAgentParticipationCommandReplace,
+    PeerAgentParticipationQueryPrepareScopeEvidence,
     PeerContactsCommandSubmit,
     PeerEventsCommandSubmit,
     PeerEventsQueryDescribe,
@@ -79,6 +83,7 @@ pub enum ServiceOperationId {
     PeerInvitesCommandSubmit,
     PeerKeysKeypackagesCommandClaim,
     PeerKeysKeypackagesQueryClaim,
+    PeerMlsQueryGroupStateMaterial,
     PeerSignalCommandRelay,
     PeerSnapshotQueryManifestHead,
     RootIdentityCommandSubmitDidOperation,
@@ -115,6 +120,7 @@ pub enum ServiceOperationId {
     SelfAgentCommandResume,
     SelfAgentGrantCommandAttach,
     SelfAgentGrantResourceDelete,
+    SelfAgentParticipationQueryPrepareScopeEvidence,
     SelfAgentParticipationResourceGet,
     SelfAgentParticipationResourceReplace,
     SelfAgentQueryList,
@@ -150,8 +156,10 @@ pub enum ServiceOperationId {
     SelfConsentCommandRevoke,
     SelfConsentQueryList,
     SelfConsentResourceGet,
+    SelfContactCommandReject,
     SelfContactCommandRequest,
     SelfContactCommandRespond,
+    SelfContactCommandScopeUpdate,
     SelfContactCommandTombstone,
     SelfContactQueryList,
     SelfControlProposalReceiptsCommandIssue,
@@ -258,6 +266,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS,
     ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE,
@@ -291,6 +300,9 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS,
     ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS,
+    ServiceOperationId::PEER_AGENT_PARTICIPATION_COMMAND_REPLACE,
+    ServiceOperationId::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE,
@@ -301,6 +313,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
+    ServiceOperationId::PEER_MLS_QUERY_GROUP_STATE_MATERIAL,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY,
     ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION,
@@ -337,6 +350,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
     ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
     ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
+    ServiceOperationId::SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_GET,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE,
     ServiceOperationId::SELF_AGENT_QUERY_LIST,
@@ -372,8 +386,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONSENT_COMMAND_REVOKE,
     ServiceOperationId::SELF_CONSENT_QUERY_LIST,
     ServiceOperationId::SELF_CONSENT_RESOURCE_GET,
+    ServiceOperationId::SELF_CONTACT_COMMAND_REJECT,
     ServiceOperationId::SELF_CONTACT_COMMAND_REQUEST,
     ServiceOperationId::SELF_CONTACT_COMMAND_RESPOND,
+    ServiceOperationId::SELF_CONTACT_COMMAND_SCOPE_UPDATE,
     ServiceOperationId::SELF_CONTACT_COMMAND_TOMBSTONE,
     ServiceOperationId::SELF_CONTACT_QUERY_LIST,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE,
@@ -520,6 +536,7 @@ impl ServiceOperationId {
         Self::FindDirectoryQuerySearchRealms,
         Self::FindDirectoryQuerySearchUsers,
         Self::GateAccountCommandAuthorizeRecoveryDevice,
+        Self::GateAccountCommandCancelDeviceBootstrap,
         Self::GateAccountCommandEnrollDevice,
         Self::GateAccountCommandIntrospectSessionGrant,
         Self::GateAccountCommandIssueIdentityBindingChallenge,
@@ -553,6 +570,9 @@ impl ServiceOperationId {
         Self::OpenMimiQueryIdentifiers,
         Self::OpenMimiQueryProviderDirectory,
         Self::PeerAccountStatusCommandSubmit,
+        Self::PeerAccountStatusQueryAuthoringBasis,
+        Self::PeerAgentParticipationCommandReplace,
+        Self::PeerAgentParticipationQueryPrepareScopeEvidence,
         Self::PeerContactsCommandSubmit,
         Self::PeerEventsCommandSubmit,
         Self::PeerEventsQueryDescribe,
@@ -563,6 +583,7 @@ impl ServiceOperationId {
         Self::PeerInvitesCommandSubmit,
         Self::PeerKeysKeypackagesCommandClaim,
         Self::PeerKeysKeypackagesQueryClaim,
+        Self::PeerMlsQueryGroupStateMaterial,
         Self::PeerSignalCommandRelay,
         Self::PeerSnapshotQueryManifestHead,
         Self::RootIdentityCommandSubmitDidOperation,
@@ -599,6 +620,7 @@ impl ServiceOperationId {
         Self::SelfAgentCommandResume,
         Self::SelfAgentGrantCommandAttach,
         Self::SelfAgentGrantResourceDelete,
+        Self::SelfAgentParticipationQueryPrepareScopeEvidence,
         Self::SelfAgentParticipationResourceGet,
         Self::SelfAgentParticipationResourceReplace,
         Self::SelfAgentQueryList,
@@ -634,8 +656,10 @@ impl ServiceOperationId {
         Self::SelfConsentCommandRevoke,
         Self::SelfConsentQueryList,
         Self::SelfConsentResourceGet,
+        Self::SelfContactCommandReject,
         Self::SelfContactCommandRequest,
         Self::SelfContactCommandRespond,
+        Self::SelfContactCommandScopeUpdate,
         Self::SelfContactCommandTombstone,
         Self::SelfContactQueryList,
         Self::SelfControlProposalReceiptsCommandIssue,
@@ -760,6 +784,8 @@ impl ServiceOperationId {
         "ak.find.directory.query.search_users";
     pub const GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE: &'static str =
         "ak.gate.account.command.authorize_recovery_device";
+    pub const GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP: &'static str =
+        "ak.gate.account.command.cancel_device_bootstrap";
     pub const GATE_ACCOUNT_COMMAND_ENROLL_DEVICE: &'static str =
         "ak.gate.account.command.enroll_device";
     pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT: &'static str =
@@ -819,6 +845,12 @@ impl ServiceOperationId {
         "ak.open.mimi.query.provider_directory";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT: &'static str =
         "ak.peer.account_status.command.submit";
+    pub const PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS: &'static str =
+        "ak.peer.account_status.query.authoring_basis";
+    pub const PEER_AGENT_PARTICIPATION_COMMAND_REPLACE: &'static str =
+        "ak.peer.agent.participation.command.replace";
+    pub const PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE: &'static str =
+        "ak.peer.agent.participation.query.prepare_scope_evidence";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
     pub const PEER_EVENTS_QUERY_DESCRIBE: &'static str = "ak.peer.events.query.describe";
@@ -831,6 +863,8 @@ impl ServiceOperationId {
         "ak.peer.keys.keypackages.command.claim";
     pub const PEER_KEYS_KEYPACKAGES_QUERY_CLAIM: &'static str =
         "ak.peer.keys.keypackages.query.claim";
+    pub const PEER_MLS_QUERY_GROUP_STATE_MATERIAL: &'static str =
+        "ak.peer.mls.query.group_state_material";
     pub const PEER_SIGNAL_COMMAND_RELAY: &'static str = "ak.peer.signal.command.relay";
     pub const PEER_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
         "ak.peer.snapshot.query.manifest_head";
@@ -890,6 +924,8 @@ impl ServiceOperationId {
     pub const SELF_AGENT_GRANT_COMMAND_ATTACH: &'static str = "ak.self.agent.grant.command.attach";
     pub const SELF_AGENT_GRANT_RESOURCE_DELETE: &'static str =
         "ak.self.agent.grant.resource.delete";
+    pub const SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE: &'static str =
+        "ak.self.agent.participation.query.prepare_scope_evidence";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_GET: &'static str =
         "ak.self.agent.participation.resource.get";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str =
@@ -936,8 +972,11 @@ impl ServiceOperationId {
     pub const SELF_CONSENT_COMMAND_REVOKE: &'static str = "ak.self.consent.command.revoke";
     pub const SELF_CONSENT_QUERY_LIST: &'static str = "ak.self.consent.query.list";
     pub const SELF_CONSENT_RESOURCE_GET: &'static str = "ak.self.consent.resource.get";
+    pub const SELF_CONTACT_COMMAND_REJECT: &'static str = "ak.self.contact.command.reject";
     pub const SELF_CONTACT_COMMAND_REQUEST: &'static str = "ak.self.contact.command.request";
     pub const SELF_CONTACT_COMMAND_RESPOND: &'static str = "ak.self.contact.command.respond";
+    pub const SELF_CONTACT_COMMAND_SCOPE_UPDATE: &'static str =
+        "ak.self.contact.command.scope_update";
     pub const SELF_CONTACT_COMMAND_TOMBSTONE: &'static str = "ak.self.contact.command.tombstone";
     pub const SELF_CONTACT_QUERY_LIST: &'static str = "ak.self.contact.query.list";
     pub const SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE: &'static str =
@@ -1101,6 +1140,9 @@ impl ServiceOperationId {
             Self::GateAccountCommandAuthorizeRecoveryDevice => {
                 Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE
             }
+            Self::GateAccountCommandCancelDeviceBootstrap => {
+                Self::GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP
+            }
             Self::GateAccountCommandEnrollDevice => Self::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE,
             Self::GateAccountCommandIntrospectSessionGrant => {
                 Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT
@@ -1152,6 +1194,15 @@ impl ServiceOperationId {
             Self::OpenMimiQueryIdentifiers => Self::OPEN_MIMI_QUERY_IDENTIFIERS,
             Self::OpenMimiQueryProviderDirectory => Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
             Self::PeerAccountStatusCommandSubmit => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
+            Self::PeerAccountStatusQueryAuthoringBasis => {
+                Self::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS
+            }
+            Self::PeerAgentParticipationCommandReplace => {
+                Self::PEER_AGENT_PARTICIPATION_COMMAND_REPLACE
+            }
+            Self::PeerAgentParticipationQueryPrepareScopeEvidence => {
+                Self::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE
+            }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
             Self::PeerEventsQueryDescribe => Self::PEER_EVENTS_QUERY_DESCRIBE,
@@ -1162,6 +1213,7 @@ impl ServiceOperationId {
             Self::PeerInvitesCommandSubmit => Self::PEER_INVITES_COMMAND_SUBMIT,
             Self::PeerKeysKeypackagesCommandClaim => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
             Self::PeerKeysKeypackagesQueryClaim => Self::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
+            Self::PeerMlsQueryGroupStateMaterial => Self::PEER_MLS_QUERY_GROUP_STATE_MATERIAL,
             Self::PeerSignalCommandRelay => Self::PEER_SIGNAL_COMMAND_RELAY,
             Self::PeerSnapshotQueryManifestHead => Self::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD,
             Self::RootIdentityCommandSubmitDidOperation => {
@@ -1224,6 +1276,9 @@ impl ServiceOperationId {
             Self::SelfAgentCommandResume => Self::SELF_AGENT_COMMAND_RESUME,
             Self::SelfAgentGrantCommandAttach => Self::SELF_AGENT_GRANT_COMMAND_ATTACH,
             Self::SelfAgentGrantResourceDelete => Self::SELF_AGENT_GRANT_RESOURCE_DELETE,
+            Self::SelfAgentParticipationQueryPrepareScopeEvidence => {
+                Self::SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE
+            }
             Self::SelfAgentParticipationResourceGet => Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET,
             Self::SelfAgentParticipationResourceReplace => {
                 Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE
@@ -1265,8 +1320,10 @@ impl ServiceOperationId {
             Self::SelfConsentCommandRevoke => Self::SELF_CONSENT_COMMAND_REVOKE,
             Self::SelfConsentQueryList => Self::SELF_CONSENT_QUERY_LIST,
             Self::SelfConsentResourceGet => Self::SELF_CONSENT_RESOURCE_GET,
+            Self::SelfContactCommandReject => Self::SELF_CONTACT_COMMAND_REJECT,
             Self::SelfContactCommandRequest => Self::SELF_CONTACT_COMMAND_REQUEST,
             Self::SelfContactCommandRespond => Self::SELF_CONTACT_COMMAND_RESPOND,
+            Self::SelfContactCommandScopeUpdate => Self::SELF_CONTACT_COMMAND_SCOPE_UPDATE,
             Self::SelfContactCommandTombstone => Self::SELF_CONTACT_COMMAND_TOMBSTONE,
             Self::SelfContactQueryList => Self::SELF_CONTACT_QUERY_LIST,
             Self::SelfControlProposalReceiptsCommandIssue => {
@@ -1441,6 +1498,9 @@ impl ServiceOperationId {
             Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE => {
                 Some(Self::GateAccountCommandAuthorizeRecoveryDevice)
             }
+            Self::GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP => {
+                Some(Self::GateAccountCommandCancelDeviceBootstrap)
+            }
             Self::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE => Some(Self::GateAccountCommandEnrollDevice),
             Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT => {
                 Some(Self::GateAccountCommandIntrospectSessionGrant)
@@ -1498,6 +1558,15 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_QUERY_IDENTIFIERS => Some(Self::OpenMimiQueryIdentifiers),
             Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY => Some(Self::OpenMimiQueryProviderDirectory),
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT => Some(Self::PeerAccountStatusCommandSubmit),
+            Self::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS => {
+                Some(Self::PeerAccountStatusQueryAuthoringBasis)
+            }
+            Self::PEER_AGENT_PARTICIPATION_COMMAND_REPLACE => {
+                Some(Self::PeerAgentParticipationCommandReplace)
+            }
+            Self::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE => {
+                Some(Self::PeerAgentParticipationQueryPrepareScopeEvidence)
+            }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
             Self::PEER_EVENTS_QUERY_DESCRIBE => Some(Self::PeerEventsQueryDescribe),
@@ -1510,6 +1579,7 @@ impl ServiceOperationId {
                 Some(Self::PeerKeysKeypackagesCommandClaim)
             }
             Self::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM => Some(Self::PeerKeysKeypackagesQueryClaim),
+            Self::PEER_MLS_QUERY_GROUP_STATE_MATERIAL => Some(Self::PeerMlsQueryGroupStateMaterial),
             Self::PEER_SIGNAL_COMMAND_RELAY => Some(Self::PeerSignalCommandRelay),
             Self::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::PeerSnapshotQueryManifestHead),
             Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION => {
@@ -1578,6 +1648,9 @@ impl ServiceOperationId {
             Self::SELF_AGENT_COMMAND_RESUME => Some(Self::SelfAgentCommandResume),
             Self::SELF_AGENT_GRANT_COMMAND_ATTACH => Some(Self::SelfAgentGrantCommandAttach),
             Self::SELF_AGENT_GRANT_RESOURCE_DELETE => Some(Self::SelfAgentGrantResourceDelete),
+            Self::SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE => {
+                Some(Self::SelfAgentParticipationQueryPrepareScopeEvidence)
+            }
             Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET => {
                 Some(Self::SelfAgentParticipationResourceGet)
             }
@@ -1627,8 +1700,10 @@ impl ServiceOperationId {
             Self::SELF_CONSENT_COMMAND_REVOKE => Some(Self::SelfConsentCommandRevoke),
             Self::SELF_CONSENT_QUERY_LIST => Some(Self::SelfConsentQueryList),
             Self::SELF_CONSENT_RESOURCE_GET => Some(Self::SelfConsentResourceGet),
+            Self::SELF_CONTACT_COMMAND_REJECT => Some(Self::SelfContactCommandReject),
             Self::SELF_CONTACT_COMMAND_REQUEST => Some(Self::SelfContactCommandRequest),
             Self::SELF_CONTACT_COMMAND_RESPOND => Some(Self::SelfContactCommandRespond),
+            Self::SELF_CONTACT_COMMAND_SCOPE_UPDATE => Some(Self::SelfContactCommandScopeUpdate),
             Self::SELF_CONTACT_COMMAND_TOMBSTONE => Some(Self::SelfContactCommandTombstone),
             Self::SELF_CONTACT_QUERY_LIST => Some(Self::SelfContactQueryList),
             Self::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE => {
@@ -2362,6 +2437,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("returns_signed_event_material_without_committing_it"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandCancelDeviceBootstrap,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/device-bootstrap/cancel",
+        grpc: Some("GateAccount/CancelDeviceBootstrap"),
+        mq: Some("gate.account.command.cancel_device_bootstrap"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/cancel_device_bootstrap_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/cancel_device_bootstrap_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_bootstrap_transaction_terminal_or_replay_only"),
         }),
     },
     ServiceOperationDescriptor {
@@ -3143,6 +3242,74 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerAccountStatusQueryAuthoringBasis,
+        http_method: "POST",
+        http_path: "/_arkret/peer/account-status/authoring-basis",
+        grpc: Some("PeerAccountStatus/AuthoringBasis"),
+        mq: Some("peer.account_status.query.authoring_basis"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerAgentParticipationCommandReplace,
+        http_method: "POST",
+        http_path: "/_arkret/peer/agents/participation:replace",
+        grpc: Some("PeerAgent/ParticipationReplace"),
+        mq: Some("peer.agent.participation.command.replace"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_relay_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_receipt",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("transparent_signed_batch_relay"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerAgentParticipationQueryPrepareScopeEvidence,
+        http_method: "POST",
+        http_path: "/_arkret/peer/agents/participation/scope-evidence:prepare",
+        grpc: Some("PeerAgent/ParticipationScopeEvidencePrepare"),
+        mq: Some("peer.agent.participation.query.prepare_scope_evidence"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_prepare_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_challenge",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("transparent_private_challenge_relay"),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerContactsCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/peer/contacts",
@@ -3153,9 +3320,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some("schemas/peer-contact-delivery-request.schema.json"),
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/peer_contact_submit_request",
+        ),
         response_schema_ref: Some(
-            "schemas/peer-contact-delivery-request.schema.json#/$defs/peer_contact_delivery_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/peer_contact_submit_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3344,6 +3513,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerMlsQueryGroupStateMaterial,
+        http_method: "POST",
+        http_path: "/_arkret/peer/mls/group-state-material",
+        grpc: Some("PeerMls/GroupStateMaterial"),
+        mq: Some("peer.mls.query.group_state_material"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialOutcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4125,6 +4314,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAgentParticipationQueryPrepareScopeEvidence,
+        http_method: "POST",
+        http_path: "/_arkret/self/agents/{agent_id}/participation/scope-evidence:prepare",
+        grpc: Some("SelfAgent/ParticipationScopeEvidencePrepare"),
+        mq: Some("self.agent.participation.query.prepare_scope_evidence"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_prepare_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_challenge",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("private_target_challenge_reservation_only"),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentParticipationResourceGet,
         http_method: "GET",
         http_path: "/_arkret/self/agents/{agent_id}/participation",
@@ -4154,10 +4367,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_participation_replace_request_body",
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replacement_batch",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_receipt",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4213,20 +4426,17 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_request_body",
+            "schemas/protocol-journey-wire.schema.json#/$defs/sidecar_ensure_request",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/sidecar_ensure_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&[
                 "ak.sidecar.create",
-                "ak.circle.create",
-                "ak.circle.member.state",
-                "ak.strand.create",
-                "ak.relation.create",
+                "ak.sidecar.context.attach",
             ])),
             rationale: None,
         }),
@@ -4885,6 +5095,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfContactCommandReject,
+        http_method: "POST",
+        http_path: "/_arkret/self/contacts/reject",
+        grpc: Some("SelfContact/Reject"),
+        mq: Some("self.contact.command.reject"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_reject_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.contact.rejected"])),
+            rationale: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandRequest,
         http_method: "POST",
         http_path: "/_arkret/self/contacts/request",
@@ -4893,23 +5127,18 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_request_request_body",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_request",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_request_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&[
-                "ak.contact.requested",
-                "ak.consent.grant",
-            ])),
+            target: Some(DurableEventTarget::Static(&["ak.contact.requested"])),
             rationale: None,
         }),
     },
@@ -4923,23 +5152,41 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
+        retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_respond_request_body",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_respond_request",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_respond_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&[
-                "ak.contact.accepted",
-                "ak.contact.rejected",
-                "ak.consent.grant",
-            ])),
+            target: Some(DurableEventTarget::Static(&["ak.contact.accepted"])),
+            rationale: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfContactCommandScopeUpdate,
+        http_method: "POST",
+        http_path: "/_arkret/self/contacts/scope-update",
+        grpc: Some("SelfContact/ScopeUpdate"),
+        mq: Some("self.contact.command.scope_update"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_scope_update_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.contact.scope.update"])),
             rationale: None,
         }),
     },
@@ -4953,22 +5200,17 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
+        retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_request_body",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_tombstone_request",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_tombstone",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&[
-                "ak.contact.tombstoned",
-                "ak.consent.revoke",
-            ])),
+            target: Some(DurableEventTarget::Static(&["ak.contact.tombstoned"])),
             rationale: None,
         }),
     },
@@ -5090,10 +5332,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_request_body",
+            "schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_resolve_request",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_resolve_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {

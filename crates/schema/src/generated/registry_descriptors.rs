@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-02.8;
-//! sha256=652140726a7113682ae6ec817215247973f4aa779c858b09aff079f206c431b4 Input: registry/
-//! capability-action-registry.json; version=2026-08-02.8;
-//! sha256=21671e2184d070ba64befbb50bf8f00b0cc1d85817713276a704c12f0250cbbd Input: registry/
-//! schema-registry.json; version=2026-08-02.8;
-//! sha256=6f974fa3a775588d3be23e753d9f430c07c2a77b884a43c057508b5ee1c0a992 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-03.3;
+//! sha256=808ea2383d66ab211394de4c40040117f59b4fe43db7381398be9ca1a34546f0 Input: registry/
+//! capability-action-registry.json; version=2026-08-03.3;
+//! sha256=9a96674b0e0ea3eaba98f318f9dad997bb74126c99ea242c218913d63797e9b3 Input: registry/
+//! schema-registry.json; version=2026-08-03.3;
+//! sha256=b85323eaa9114c639cc7a30c7ce33eec985e6a6dc669e035d2a77f7747ae901b Input: registry/
 //! account-data-key-registry.json; version=2026-07-30;
-//! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=53,
-//! special_forms=9, actions=165, schemas=176, account_data_patterns=24
+//! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=54,
+//! special_forms=10, actions=169, schemas=178, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -253,6 +253,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:notification:<uuid>",
     },
     IdKindDescriptor {
+        kind: "operation",
+        category: "security",
+        wire_form: "ak:operation:<opaque>",
+    },
+    IdKindDescriptor {
         kind: "policy",
         category: "policy",
         wire_form: "ak:policy:<uuid>",
@@ -356,6 +361,10 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
     SpecialFormIdKindDescriptor {
         kind: "cursor",
         wire_form: "ak:cursor:<base64url>",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "membership_compensation_delegation",
+        wire_form: "ak:membership-compensation-delegation:sha256:<lowercase_hex>",
     },
     SpecialFormIdKindDescriptor {
         kind: "mls",
@@ -871,6 +880,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::ContactScopeUpdate,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        target_event_kinds: &[EventKind::CONTACT_SCOPE_UPDATE],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.direct_conversation_realm.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::ContainerMoveItem,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
@@ -999,6 +1021,32 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "non_event_surface",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MemberCompensateLeave,
+        category: "membership",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &[EventKind::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.membership_join_compensation.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "scope_suffix_variant",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MemberCompensateRemove,
+        category: "membership",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &[EventKind::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.membership_join_compensation.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberLeaveOwn,
@@ -2416,13 +2464,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
-        target_event_kinds: &[
-            EventKind::SIDECAR_CREATE,
-            EventKind::CIRCLE_CREATE,
-            EventKind::CIRCLE_MEMBER_STATE,
-            EventKind::STRAND_CREATE,
-            EventKind::RELATION_CREATE,
-        ],
+        target_event_kinds: &[EventKind::SIDECAR_CREATE, EventKind::SIDECAR_CONTEXT_ATTACH],
         grant_authority_actions: &[],
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
@@ -2520,6 +2562,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "non_event_surface",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::SidecarAccessReplace,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &[EventKind::SIDECAR_ACCESS_REPLACE],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.agent_sidecar.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceArchive,
@@ -3016,6 +3071,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/contact-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::CONTACT_SCOPE_UPDATE_V1,
+        file: "schemas/protocol-journey-wire.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
         file: "schemas/content-block-poll.schema.json",
     },
@@ -3264,10 +3323,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/patch.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::PEER_CONTACT_DELIVERY_REQUEST_V1,
-        file: "schemas/peer-contact-delivery-request.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::PERSONAL_PRODUCTIVITY_V1,
         file: "schemas/personal-productivity.schema.json",
     },
@@ -3282,6 +3337,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::PRINCIPAL_LOCATOR_V1,
         file: "schemas/principal-locator.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PROTOCOL_JOURNEY_TRACEABILITY_V1,
+        file: "schemas/protocol-journey-traceability.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PROTOCOL_JOURNEY_WIRE_V1,
+        file: "schemas/protocol-journey-wire.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PUBLIC_KEY_V1,

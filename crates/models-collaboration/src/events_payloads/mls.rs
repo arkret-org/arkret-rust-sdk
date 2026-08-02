@@ -36,6 +36,7 @@ pub enum MlsProposalType {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MlsGenesisEpoch;
 
 impl Serialize for MlsGenesisEpoch {
@@ -182,8 +183,7 @@ pub struct MlsEpochRange {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_genesis_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct MlsGenesisPayload {
     pub mls_group_id: MlsGroupId,
     pub effective_scope: ScopeRef,
@@ -191,22 +191,16 @@ pub struct MlsGenesisPayload {
     pub creator_principal_id: Did,
     pub creator_device_id: DeviceId,
     pub cipher_suite: NonEmptyString,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group_info_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group_info_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ratchet_tree_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ratchet_tree_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_info_ref: BlobRef,
+    pub group_info_digest: Hash,
+    pub ratchet_tree_ref: BlobRef,
+    pub ratchet_tree_digest: Hash,
     pub initial_keypackage_refs: Option<Vec<ObjectRef>>,
     pub governance_binding: MlsGovernanceBindingPayload,
-    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MlsGenesisPayloadWire {
     mls_group_id: MlsGroupId,
@@ -215,19 +209,70 @@ struct MlsGenesisPayloadWire {
     creator_principal_id: Did,
     creator_device_id: DeviceId,
     cipher_suite: NonEmptyString,
-    #[serde(default)]
-    group_info_ref: Option<ObjectRef>,
-    #[serde(default)]
-    group_info_digest: Option<Hash>,
-    #[serde(default)]
-    ratchet_tree_ref: Option<ObjectRef>,
-    #[serde(default)]
-    ratchet_tree_digest: Option<Hash>,
-    #[serde(default)]
+    group_info_ref: BlobRef,
+    group_info_digest: Hash,
+    ratchet_tree_ref: BlobRef,
+    ratchet_tree_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_keypackage_refs: Option<Vec<ObjectRef>>,
     governance_binding: MlsGovernanceBindingPayload,
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     created_at: DateTime<Utc>,
+}
+
+impl MlsGenesisPayload {
+    pub fn validate(&self) -> Result<()> {
+        crate::mls_group_state_material::validate_content_address(
+            &self.group_info_ref,
+            &self.group_info_digest,
+        )?;
+        crate::mls_group_state_material::validate_content_address(
+            &self.ratchet_tree_ref,
+            &self.ratchet_tree_digest,
+        )?;
+        if self.governance_binding.mls_group_id() != self.mls_group_id.as_str()
+            || self.governance_binding.effective_scope() != &self.effective_scope
+        {
+            return Err(Error::Protocol(
+                "mls_genesis_payload governance binding does not match the group and scope"
+                    .to_owned(),
+            ));
+        }
+        if let Some(refs) = &self.initial_keypackage_refs {
+            let unique = refs.iter().collect::<std::collections::BTreeSet<_>>();
+            if unique.len() != refs.len() {
+                return Err(Error::Protocol(
+                    "mls_genesis_payload initial_keypackage_refs must be unique".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for MlsGenesisPayload {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        MlsGenesisPayloadWire {
+            mls_group_id: self.mls_group_id.clone(),
+            effective_scope: self.effective_scope.clone(),
+            epoch: self.epoch,
+            creator_principal_id: self.creator_principal_id.clone(),
+            creator_device_id: self.creator_device_id.clone(),
+            cipher_suite: self.cipher_suite.clone(),
+            group_info_ref: self.group_info_ref.clone(),
+            group_info_digest: self.group_info_digest.clone(),
+            ratchet_tree_ref: self.ratchet_tree_ref.clone(),
+            ratchet_tree_digest: self.ratchet_tree_digest.clone(),
+            initial_keypackage_refs: self.initial_keypackage_refs.clone(),
+            governance_binding: self.governance_binding.clone(),
+            created_at: self.created_at,
+        }
+        .serialize(serializer)
+    }
 }
 
 impl<'de> Deserialize<'de> for MlsGenesisPayload {
@@ -236,32 +281,7 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
         D: serde::Deserializer<'de>,
     {
         let wire = MlsGenesisPayloadWire::deserialize(deserializer)?;
-        if wire.group_info_ref.is_none() && wire.group_info_digest.is_none() {
-            return Err(serde::de::Error::custom(
-                "mls_genesis_payload requires group_info_ref or group_info_digest",
-            ));
-        }
-        if wire.ratchet_tree_ref.is_none() && wire.ratchet_tree_digest.is_none() {
-            return Err(serde::de::Error::custom(
-                "mls_genesis_payload requires ratchet_tree_ref or ratchet_tree_digest",
-            ));
-        }
-        if wire.governance_binding.mls_group_id() != wire.mls_group_id.as_str()
-            || wire.governance_binding.effective_scope() != &wire.effective_scope
-        {
-            return Err(serde::de::Error::custom(
-                "mls_genesis_payload governance binding does not match the group and scope",
-            ));
-        }
-        if let Some(refs) = &wire.initial_keypackage_refs {
-            let unique = refs.iter().collect::<std::collections::BTreeSet<_>>();
-            if unique.len() != refs.len() {
-                return Err(serde::de::Error::custom(
-                    "mls_genesis_payload initial_keypackage_refs must be unique",
-                ));
-            }
-        }
-        Ok(Self {
+        let payload = Self {
             mls_group_id: wire.mls_group_id,
             effective_scope: wire.effective_scope,
             epoch: wire.epoch,
@@ -275,7 +295,9 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
             initial_keypackage_refs: wire.initial_keypackage_refs,
             governance_binding: wire.governance_binding,
             created_at: wire.created_at,
-        })
+        };
+        payload.validate().map_err(serde::de::Error::custom)?;
+        Ok(payload)
     }
 }
 

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-02.8;
-//! sha256=6f974fa3a775588d3be23e753d9f430c07c2a77b884a43c057508b5ee1c0a992 Entries: schema_ids=177,
-//! active=176
+//! Input: registry/schema-registry.json; version=2026-08-03.3;
+//! sha256=b85323eaa9114c639cc7a30c7ce33eec985e6a6dc669e035d2a77f7747ae901b Entries: schema_ids=180,
+//! active=178
 
 use serde::{Deserialize, Serialize};
 
@@ -60,6 +60,7 @@ pub enum SchemaId {
     CommonIdsV1,
     ConsentOperationsV1,
     ContactOperationsV1,
+    ContactScopeUpdateV1,
     ContentBlockPollV1,
     CrossSigningPublishV1,
     CrossSigningResetV1,
@@ -128,6 +129,8 @@ pub enum SchemaId {
     PinV1,
     PolicyV1,
     PrincipalLocatorV1,
+    ProtocolJourneyTraceabilityV1,
+    ProtocolJourneyWireV1,
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
@@ -241,6 +244,7 @@ impl SchemaId {
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
+        Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::CrossSigningPublishV1,
         Self::CrossSigningResetV1,
@@ -309,6 +313,8 @@ impl SchemaId {
         Self::PinV1,
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
+        Self::ProtocolJourneyTraceabilityV1,
+        Self::ProtocolJourneyWireV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -422,6 +428,7 @@ impl SchemaId {
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
+        Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::CrossSigningPublishV1,
         Self::CrossSigningResetV1,
@@ -484,11 +491,12 @@ impl SchemaId {
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
         Self::PatchV1,
-        Self::PeerContactDeliveryRequestV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
+        Self::ProtocolJourneyTraceabilityV1,
+        Self::ProtocolJourneyWireV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -695,6 +703,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for contact lifecycle operations and direct conversation
     /// resolver.
     pub const CONTACT_OPERATIONS_V1: &'static str = "ak.schema.contact_operations.v1";
+    /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
+    /// basis, version, predecessor and full granted-scope set.
+    pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
     /// Wire payload schema for ak.cross_signing.publish — establishes the PSK→{SSK, USK} binding on
@@ -850,8 +861,9 @@ impl SchemaId {
     pub const OFFLINE_PUBLICATION_V1: &'static str = "ak.schema.offline_publication.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
-    /// Private service-to-service contact fact delivery request carrying a signed ak.contact.*
-    /// envelope and contact_address for cross-Principal-Server projection.
+    /// Deprecated legacy service-to-service Contact carrier retained only for historical
+    /// resolution. New writes use the closed ak.peer.contacts.command.submit request in
+    /// protocol-journey-wire.schema.json.
     pub const PEER_CONTACT_DELIVERY_REQUEST_V1: &'static str =
         "ak.schema.peer_contact_delivery_request.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
@@ -862,6 +874,14 @@ impl SchemaId {
     /// Signed online invite locator asserting subject_id and recipient_service_id for private
     /// invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
+    /// Closed schema for the single static A-J/CJ/PJ traceability registry. Runtime revisions,
+    /// execution evidence, release results and self references are not fields of this schema.
+    pub const PROTOCOL_JOURNEY_TRACEABILITY_V1: &'static str =
+        "ak.schema.protocol_journey_traceability.v1";
+    /// Closed shared wire carriers for bootstrap, Contact, participation, stable Direct
+    /// Conversation operation control, membership compensation, history ingress, KeyPackage
+    /// terminal handling, Sidecar and external execution attestation.
+    pub const PROTOCOL_JOURNEY_WIRE_V1: &'static str = "ak.schema.protocol_journey_wire.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/alg/key, optional key_digest). Owned by its own
     /// document so device, agent, account and to-device surfaces reference one shared definition
     /// instead of reverse-referencing each other's bundles. The {kid, alg, public_key} spelling is
@@ -1078,6 +1098,7 @@ impl SchemaId {
             Self::CommonIdsV1 => Self::COMMON_IDS_V1,
             Self::ConsentOperationsV1 => Self::CONSENT_OPERATIONS_V1,
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
+            Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
             Self::CrossSigningPublishV1 => Self::CROSS_SIGNING_PUBLISH_V1,
             Self::CrossSigningResetV1 => Self::CROSS_SIGNING_RESET_V1,
@@ -1148,6 +1169,8 @@ impl SchemaId {
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
+            Self::ProtocolJourneyTraceabilityV1 => Self::PROTOCOL_JOURNEY_TRACEABILITY_V1,
+            Self::ProtocolJourneyWireV1 => Self::PROTOCOL_JOURNEY_WIRE_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
@@ -1280,6 +1303,7 @@ impl SchemaId {
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
+            Self::ContactScopeUpdateV1 => "schemas/protocol-journey-wire.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::CrossSigningPublishV1 => "schemas/cross-signing-publish.schema.json",
             Self::CrossSigningResetV1 => "schemas/cross-signing-reset.schema.json",
@@ -1356,6 +1380,10 @@ impl SchemaId {
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
+            Self::ProtocolJourneyTraceabilityV1 => {
+                "schemas/protocol-journey-traceability.schema.json"
+            }
+            Self::ProtocolJourneyWireV1 => "schemas/protocol-journey-wire.schema.json",
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
@@ -1490,6 +1518,7 @@ impl SchemaId {
             Self::COMMON_IDS_V1 => Some(Self::CommonIdsV1),
             Self::CONSENT_OPERATIONS_V1 => Some(Self::ConsentOperationsV1),
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
+            Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
             Self::CROSS_SIGNING_PUBLISH_V1 => Some(Self::CrossSigningPublishV1),
             Self::CROSS_SIGNING_RESET_V1 => Some(Self::CrossSigningResetV1),
@@ -1564,6 +1593,8 @@ impl SchemaId {
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
+            Self::PROTOCOL_JOURNEY_TRACEABILITY_V1 => Some(Self::ProtocolJourneyTraceabilityV1),
+            Self::PROTOCOL_JOURNEY_WIRE_V1 => Some(Self::ProtocolJourneyWireV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),

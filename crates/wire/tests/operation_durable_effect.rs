@@ -9,7 +9,7 @@ fn every_write_operation_has_a_closed_durable_effect_descriptor() {
         .iter()
         .filter(|row| row.idempotency_mechanism.is_some() || row.retry_safe.is_some())
         .collect::<Vec<_>>();
-    assert_eq!(writes.len(), 122);
+    assert_eq!(writes.len(), 126);
 
     for operation in writes {
         let effect = operation
