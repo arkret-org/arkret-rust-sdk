@@ -18,6 +18,8 @@ use arkret_models_crypto::mls_payloads::MlsGovernanceBindingPayload;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, ScopeRef};
 use arkret_wire::{CellRef, Error, Hash, NotarySig, Result, Seal, SealId, canonical};
+use serde::Serialize;
+use serde_json::{Map, Value, json};
 
 use crate::{CellState, compute_state_root, control_event_set_root};
 
@@ -25,6 +27,340 @@ use crate::{CellState, compute_state_root, control_event_set_root};
 pub struct VerifiedMlsGovernanceProof {
     pub accepted_seal_id: SealId,
     pub security_frontier_digest: Hash,
+}
+
+#[derive(Serialize)]
+struct SecurityFrontierCellEntry {
+    cell_family: String,
+    cell_subject: Value,
+    projected_value_digest: Hash,
+}
+
+#[derive(Serialize)]
+struct SecurityFrontierDigestInput<'a> {
+    profile_id: &'static str,
+    effective_scope: &'a ScopeRef,
+    cell_entries: &'a [SecurityFrontierCellEntry],
+    mls_leaf_set_digest: &'a Hash,
+}
+
+/// Rebuild the single MLS key-access frontier from accepted control state and
+/// the verifier-owned current/pending leaf set.
+pub fn derive_mls_security_frontier(
+    control_state: &BTreeMap<CellRef, CellState>,
+    effective_scope: &ScopeRef,
+    leaves: &[MlsSecurityFrontierLeaf],
+) -> Result<Hash> {
+    validate_effective_scope(effective_scope)?;
+    let (canonical_leaves, leaf_principals, leaf_credentials) = canonical_leaf_set(leaves)?;
+    let mls_leaf_set_digest = canonical_hash(&canonical_leaves)?;
+    let mut cell_entries = Vec::new();
+    for (cell, state) in control_state {
+        let CellState::Value(value) = state else {
+            return stale("security frontier control state contains Bottom");
+        };
+        let cell_id = CellId::from_ref(cell)?;
+        let family = cell_id.component();
+        let registered =
+            crate::generated::mls_security_frontier::MLS_SECURITY_FRONTIER_CELL_FAMILIES
+                .binary_search_by(|candidate| candidate.as_bytes().cmp(family.as_bytes()))
+                .is_ok();
+        if !registered {
+            continue;
+        }
+        let projected = project_frontier_value(
+            family,
+            value,
+            effective_scope,
+            &leaf_principals,
+            &leaf_credentials,
+            &cell_id,
+        )?;
+        let Some(projected) = projected else {
+            continue;
+        };
+        cell_entries.push(SecurityFrontierCellEntry {
+            cell_family: family.to_owned(),
+            cell_subject: decoded_cell_subject(&cell_id)?,
+            projected_value_digest: canonical_hash(&projected)?,
+        });
+    }
+    cell_entries.sort_by(|left, right| {
+        left.cell_family
+            .as_bytes()
+            .cmp(right.cell_family.as_bytes())
+            .then_with(|| {
+                canonical::canonical_json_bytes(&left.cell_subject)
+                    .expect("serializing a JSON value cannot fail")
+                    .cmp(
+                        &canonical::canonical_json_bytes(&right.cell_subject)
+                            .expect("serializing a JSON value cannot fail"),
+                    )
+            })
+            .then_with(|| {
+                left.projected_value_digest
+                    .as_str()
+                    .cmp(right.projected_value_digest.as_str())
+            })
+    });
+    if cell_entries.windows(2).any(|pair| {
+        pair[0].cell_family == pair[1].cell_family
+            && pair[0].cell_subject == pair[1].cell_subject
+            && pair[0].projected_value_digest == pair[1].projected_value_digest
+    }) {
+        return schema("security frontier contains duplicate projected cell entries");
+    }
+    canonical_hash(&SecurityFrontierDigestInput {
+        profile_id: crate::generated::mls_security_frontier::MLS_SECURITY_FRONTIER_PROFILE_ID,
+        effective_scope,
+        cell_entries: &cell_entries,
+        mls_leaf_set_digest: &mls_leaf_set_digest,
+    })
+}
+
+fn canonical_leaf_set(
+    leaves: &[MlsSecurityFrontierLeaf],
+) -> Result<(Vec<Value>, BTreeSet<String>, BTreeSet<String>)> {
+    let mut encoded = leaves
+        .iter()
+        .map(|leaf| {
+            let value = serde_json::to_value(leaf).map_err(|error| {
+                Error::Protocol(format!("serialize MLS security frontier leaf: {error}"))
+            })?;
+            let bytes = canonical::canonical_json_bytes(&value)?;
+            Ok((
+                bytes,
+                value,
+                leaf.principal_id.to_string(),
+                leaf.credential_ref.to_string(),
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    encoded.sort_by(|left, right| left.0.cmp(&right.0));
+    if encoded.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+        return schema("MLS security frontier leaf set contains duplicates");
+    }
+    let mut indexes = BTreeSet::new();
+    let mut principals = BTreeSet::new();
+    let mut credentials = BTreeSet::new();
+    for leaf in leaves {
+        if !indexes.insert(leaf.leaf_index) {
+            return schema("MLS security frontier leaf_index values must be unique");
+        }
+        principals.insert(leaf.principal_id.to_string());
+        if !credentials.insert(leaf.credential_ref.to_string()) {
+            return schema("MLS security frontier credential_ref values must be unique");
+        }
+    }
+    Ok((
+        encoded.into_iter().map(|(_, value, ..)| value).collect(),
+        principals,
+        credentials,
+    ))
+}
+
+fn project_frontier_value(
+    family: &str,
+    value: &Value,
+    scope: &ScopeRef,
+    leaf_principals: &BTreeSet<String>,
+    leaf_credentials: &BTreeSet<String>,
+    cell_id: &CellId,
+) -> Result<Option<Value>> {
+    let subject = decoded_cell_subject(cell_id)?;
+    match family {
+        "ak.component.member.state.v1" => {
+            if !matches!(scope, ScopeRef::Realm { .. }) {
+                return Ok(None);
+            }
+            Ok(project_membership(value))
+        }
+        "ak.component.circle.member.v1" => {
+            if !matches!(scope, ScopeRef::Circle { .. }) {
+                return Ok(None);
+            }
+            Ok(project_membership(value))
+        }
+        "ak.component.account.status.v1" => {
+            let principal = subject_single_string(&subject)?;
+            if !leaf_principals.contains(principal) {
+                return Ok(None);
+            }
+            let status = scalar_or_field(value, &["status", "state"])?;
+            Ok(Some(json!({"principal_id": principal, "status": status})))
+        }
+        "ak.component.agent.status.v1" => {
+            let principal = subject_single_string(&subject)?;
+            if !leaf_principals.contains(principal) {
+                return Ok(None);
+            }
+            let status = scalar_or_field(value, &["status", "state"])?;
+            Ok(Some(json!({"agent_id": principal, "status": status})))
+        }
+        "ak.component.device.authorization.v1" | "ak.component.agent.key.v1" => {
+            if leaf_credentials
+                .iter()
+                .any(|credential| value_contains_string(value, credential))
+                || leaf_credentials
+                    .iter()
+                    .any(|credential| subject_contains_string(&subject, credential))
+            {
+                Ok(Some(value.clone()))
+            } else {
+                Ok(None)
+            }
+        }
+        "ak.component.device.reanchor.v1" => {
+            if leaf_principals
+                .iter()
+                .any(|principal| value_contains_string(value, principal))
+                || leaf_principals
+                    .iter()
+                    .any(|principal| subject_contains_string(&subject, principal))
+            {
+                Ok(Some(value.clone()))
+            } else {
+                Ok(None)
+            }
+        }
+        "ak.component.realm.policy_bundle.v1" => Ok(Some(project_fields(
+            value,
+            &[
+                "content_scheme",
+                "content_encryption_floor",
+                "metadata_encryption_floor",
+                "media_service_decrypts",
+            ],
+        )?)),
+        "ak.component.realm.history_visibility.v1"
+        | "ak.component.realm.history_sharing_policy.v1" => Ok(Some(value.clone())),
+        "ak.component.realm.plaintext_visible_services.v1" => {
+            Ok(Some(project_plaintext_visible_services(value)?))
+        }
+        "ak.component.circle.create.v1" => {
+            if !matches!(scope, ScopeRef::Circle { .. }) {
+                return Ok(None);
+            }
+            Ok(Some(project_fields(
+                value,
+                &["encryption_profile", "history_visibility"],
+            )?))
+        }
+        "ak.component.circle.metadata.v1" => {
+            if !matches!(scope, ScopeRef::Circle { .. }) {
+                return Ok(None);
+            }
+            Ok(Some(project_fields(value, &["history_visibility"])?))
+        }
+        _ => Err(Error::Protocol(format!(
+            "registered MLS security frontier family has no SDK projector: {family} (profile_unsupported)"
+        ))),
+    }
+}
+
+fn validate_effective_scope(scope: &ScopeRef) -> Result<()> {
+    match scope {
+        ScopeRef::Realm { .. } | ScopeRef::Circle { .. } => Ok(()),
+        _ => schema("MLS security frontier effective scope is unsupported"),
+    }
+}
+
+fn project_membership(value: &Value) -> Option<Value> {
+    let membership = value
+        .as_str()
+        .or_else(|| value.get("membership").and_then(Value::as_str))
+        .or_else(|| value.get("state").and_then(Value::as_str))?;
+    matches!(membership, "join" | "leave" | "ban").then(|| Value::String(membership.to_owned()))
+}
+
+fn scalar_or_field(value: &Value, fields: &[&str]) -> Result<Value> {
+    if value.is_string() || value.is_boolean() || value.is_number() || value.is_null() {
+        return Ok(value.clone());
+    }
+    fields
+        .iter()
+        .find_map(|field| value.get(*field).cloned())
+        .ok_or_else(|| {
+            Error::Protocol(
+                "security frontier state omits its projected status field (schema_violation)"
+                    .to_owned(),
+            )
+        })
+}
+
+fn project_fields(value: &Value, fields: &[&str]) -> Result<Value> {
+    let object = value.as_object().ok_or_else(|| {
+        Error::Protocol(
+            "security frontier projected state must be an object (schema_violation)".to_owned(),
+        )
+    })?;
+    let mut projected = Map::new();
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            projected.insert((*field).to_owned(), value.clone());
+        }
+    }
+    Ok(Value::Object(projected))
+}
+
+fn project_plaintext_visible_services(value: &Value) -> Result<Value> {
+    let services = value
+        .as_array()
+        .or_else(|| value.get("services").and_then(Value::as_array))
+        .ok_or_else(|| {
+            Error::Protocol(
+                "plaintext-visible services state must be an array (schema_violation)".to_owned(),
+            )
+        })?;
+    services
+        .iter()
+        .map(|service| project_fields(service, &["service_id", "principal_id", "data_classes"]))
+        .collect::<Result<Vec<_>>>()
+        .map(Value::Array)
+}
+
+fn decoded_cell_subject(cell_id: &CellId) -> Result<Value> {
+    let parts = arkret_canonical::canonical::decode_state_subject_parts(cell_id.subject())?;
+    if parts.len() == 1 {
+        Ok(Value::String(parts[0].clone()))
+    } else {
+        Ok(Value::Array(parts.into_iter().map(Value::String).collect()))
+    }
+}
+
+fn subject_single_string(subject: &Value) -> Result<&str> {
+    subject.as_str().ok_or_else(|| {
+        Error::Protocol(
+            "security frontier cell subject must contain one principal id (schema_violation)"
+                .to_owned(),
+        )
+    })
+}
+
+fn subject_contains_string(subject: &Value, expected: &str) -> bool {
+    subject.as_str() == Some(expected)
+        || subject
+            .as_array()
+            .is_some_and(|parts| parts.iter().any(|part| part.as_str() == Some(expected)))
+}
+
+fn value_contains_string(value: &Value, expected: &str) -> bool {
+    match value {
+        Value::String(value) => value == expected,
+        Value::Array(values) => values
+            .iter()
+            .any(|value| value_contains_string(value, expected)),
+        Value::Object(values) => values
+            .values()
+            .any(|value| value_contains_string(value, expected)),
+        _ => false,
+    }
+}
+
+fn canonical_hash<T: Serialize>(value: &T) -> Result<Hash> {
+    Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+        value,
+    )?)?)
 }
 
 /// Verify a complete-materialization proof bundle.
@@ -38,53 +374,87 @@ pub struct VerifiedMlsGovernanceProof {
 /// both callbacks return `Result<(), E>` and the function returns
 /// `Result<_, E>`. `E: From<WireError>` lets the internal fail-closed checks
 /// raise `WireError` and surface it as the caller's `E`.
-pub fn verify_mls_governance_proof_bundle<
-    E,
-    VerifySeal,
-    VerifyEvent,
-    ProjectCells,
-    DeriveSecurityFrontier,
->(
+pub fn verify_mls_governance_proof_bundle<E, VerifySeal, VerifyEvent, ProjectCells>(
     bundle: &MaterializedMlsGovernanceProofBundle,
     expected_binding: &MlsGovernanceBindingPayload,
     trusted_anchor: &SealId,
     verify_seal_signature: VerifySeal,
     verify_event_signature: VerifyEvent,
     project_cells: ProjectCells,
-    derive_security_frontier: DeriveSecurityFrontier,
+    leaves: &[MlsSecurityFrontierLeaf],
 ) -> std::result::Result<VerifiedMlsGovernanceProof, E>
 where
     E: From<Error>,
     VerifySeal: Fn(&Seal) -> std::result::Result<(), E>,
     VerifyEvent: Fn(&Event) -> std::result::Result<(), E>,
     ProjectCells: Fn(&Event) -> std::result::Result<Vec<CellRef>, E>,
-    DeriveSecurityFrontier:
-        Fn(&BTreeMap<CellRef, CellState>, &[Event], &ScopeRef) -> std::result::Result<Hash, E>,
 {
-    verify_bundle_header(bundle, expected_binding, trusted_anchor)?;
+    let request = MlsGovernanceProofRequestBodyBody {
+        realm_id: expected_binding.realm_id().clone(),
+        effective_scope: expected_binding.effective_scope().clone(),
+        mls_group_id: expected_binding.mls_group_id().to_owned(),
+        previous_epoch: expected_binding.previous_epoch(),
+        next_epoch: expected_binding.next_epoch(),
+        binding_profile: expected_binding.binding_profile().to_owned(),
+        reducer_profile: expected_binding.reducer_profile().to_owned(),
+        trusted_anchor_seal_id: trusted_anchor.clone(),
+        chunk_index: 0,
+        expected_bundle_digest: None,
+    };
+    let verified = verify_mls_governance_proof_materialization(
+        bundle,
+        &request,
+        trusted_anchor,
+        verify_seal_signature,
+        verify_event_signature,
+        project_cells,
+        leaves,
+    )?;
+    if &verified.security_frontier_digest != expected_binding.security_frontier_digest() {
+        return stale("security_frontier_digest does not match the accepted key-access state");
+    }
+    Ok(verified)
+}
+
+/// Verify one complete proof materialization and derive its unique security
+/// frontier without accepting a producer-supplied binding copy.
+///
+/// Commit producers use this before constructing the transcript binding;
+/// receivers additionally compare the returned digest through
+/// [`verify_mls_governance_proof_bundle`].
+pub fn verify_mls_governance_proof_materialization<E, VerifySeal, VerifyEvent, ProjectCells>(
+    bundle: &MaterializedMlsGovernanceProofBundle,
+    request: &MlsGovernanceProofRequestBodyBody,
+    trusted_anchor: &SealId,
+    verify_seal_signature: VerifySeal,
+    verify_event_signature: VerifyEvent,
+    project_cells: ProjectCells,
+    leaves: &[MlsSecurityFrontierLeaf],
+) -> std::result::Result<VerifiedMlsGovernanceProof, E>
+where
+    E: From<Error>,
+    VerifySeal: Fn(&Seal) -> std::result::Result<(), E>,
+    VerifyEvent: Fn(&Event) -> std::result::Result<(), E>,
+    ProjectCells: Fn(&Event) -> std::result::Result<Vec<CellRef>, E>,
+{
+    verify_bundle_header_for_request(bundle, request, trusted_anchor)?;
     let accepted_seal = verify_seal_path(bundle, verify_seal_signature)?;
     let covered = verify_covered_event_materialization(bundle, accepted_seal)?;
     let control_state = verify_control_state_materialization(bundle, accepted_seal)?;
     verify_frontier_events(bundle, &covered, verify_event_signature, project_cells)?;
 
-    let security_frontier_digest = derive_security_frontier(
-        &control_state,
-        &bundle.frontier_events,
-        &bundle.effective_scope,
-    )?;
-    if &security_frontier_digest != expected_binding.security_frontier_digest() {
-        return stale("security_frontier_digest does not match the accepted key-access state");
-    }
-
+    let security_frontier_digest =
+        derive_mls_security_frontier(&control_state, &bundle.effective_scope, leaves)
+            .map_err(E::from)?;
     Ok(VerifiedMlsGovernanceProof {
         accepted_seal_id: bundle.accepted_seal_id.clone(),
         security_frontier_digest,
     })
 }
 
-fn verify_bundle_header(
+fn verify_bundle_header_for_request(
     bundle: &MaterializedMlsGovernanceProofBundle,
-    expected: &MlsGovernanceBindingPayload,
+    request: &MlsGovernanceProofRequestBodyBody,
     trusted_anchor: &SealId,
 ) -> Result<()> {
     if bundle.bundle_version != MLS_GOVERNANCE_PROOF_BUNDLE_VERSION {
@@ -96,27 +466,19 @@ fn verify_bundle_header(
     if &bundle.trusted_anchor_seal_id != trusted_anchor {
         return state_mismatch("bundle trust anchor does not match the locally trusted anchor");
     }
-    let expected_request_digest = MlsGovernanceProofRequestBodyBody {
-        realm_id: expected.realm_id().clone(),
-        effective_scope: expected.effective_scope().clone(),
-        mls_group_id: expected.mls_group_id().to_owned(),
-        previous_epoch: expected.previous_epoch(),
-        next_epoch: expected.next_epoch(),
-        binding_profile: expected.binding_profile().to_owned(),
-        reducer_profile: expected.reducer_profile().to_owned(),
-        trusted_anchor_seal_id: trusted_anchor.clone(),
-        chunk_index: 0,
-        expected_bundle_digest: None,
+    request.validate()?;
+    if &request.trusted_anchor_seal_id != trusted_anchor {
+        return state_mismatch("proof request trust anchor differs from the local anchor");
     }
-    .proof_request_digest()?;
+    let expected_request_digest = request.proof_request_digest()?;
     if bundle.proof_request_digest != expected_request_digest {
         return state_mismatch(
             "bundle proof_request_digest does not match the MLS transcript binding identity",
         );
     }
-    if &bundle.realm_id != expected.realm_id()
-        || &bundle.effective_scope != expected.effective_scope()
-        || bundle.reducer_profile != expected.reducer_profile()
+    if bundle.realm_id != request.realm_id
+        || bundle.effective_scope != request.effective_scope
+        || bundle.reducer_profile != request.reducer_profile
     {
         return state_mismatch("bundle Realm, scope, or reducer profile mismatch");
     }
@@ -438,8 +800,9 @@ mod tests {
     use arkret_wire::error_codes::{ErrorCode, ReasonCode};
     use arkret_wire::event_envelope::{Event, ScopeRef};
     use arkret_wire::{
-        CellRef, Did, DidUrl, Error, EventId, EventRequirements, Hash, Hlc, NotarySig,
-        PayloadSignature, ProfileId, Proof, RealmId, Seal, SealBasis, SealId, SealKind, canonical,
+        CellRef, Did, DidUrl, Error, EventId, EventRequirements, Hash, Hlc, NonEmptyString,
+        NotarySig, PayloadSignature, ProfileId, Proof, RealmId, Seal, SealBasis, SealId, SealKind,
+        canonical,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
@@ -451,6 +814,7 @@ mod tests {
         bundle: MaterializedMlsGovernanceProofBundle,
         binding: MlsGovernanceBindingPayload,
         security_frontier_digest: Hash,
+        leaves: Vec<MlsSecurityFrontierLeaf>,
     }
 
     fn realm() -> RealmId {
@@ -472,9 +836,12 @@ mod tests {
     fn control_state() -> Vec<MlsGovernanceControlStateLeaf> {
         let mut leaves = vec![
             MlsGovernanceControlStateLeaf {
-                cell: cell("ak.component.member.state.v1", "did.web.alice.example"),
+                cell: cell(
+                    "ak.component.member.state.v1",
+                    "did:webvh:z6mkfixture:alice.example",
+                ),
                 state: MlsGovernanceControlStateValue {
-                    value: json!({"state": "joined"}),
+                    value: json!("join"),
                 },
             },
             MlsGovernanceControlStateLeaf {
@@ -631,7 +998,14 @@ mod tests {
         let covered = BTreeSet::from([frontier_digest]);
         let control_state = control_state();
         let states = state_map(&control_state);
-        let security_frontier_digest = hash(0xaf);
+        let leaves = vec![MlsSecurityFrontierLeaf {
+            leaf_index: 0,
+            principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            credential_ref: NonEmptyString::new("did:webvh:z6mkfixture:alice.example#device-key")
+                .unwrap(),
+        }];
+        let security_frontier_digest =
+            derive_mls_security_frontier(&states, &effective_scope, &leaves).unwrap();
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
             "YXJrcmV0LW1scy1maXh0dXJl",
@@ -683,6 +1057,7 @@ mod tests {
             },
             binding,
             security_frontier_digest,
+            leaves,
         }
     }
 
@@ -704,7 +1079,7 @@ mod tests {
             |_| Ok(()),
             |_| Ok(()),
             project_member_cell,
-            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
+            &fixture.leaves,
         )
     }
 
@@ -743,14 +1118,14 @@ mod tests {
         let assembled = assemble_mls_governance_proof_chunks(&request, &chunks).unwrap();
         assert_eq!(assembled.seal_path, fixture.bundle.seal_path);
         assert_eq!(assembled.control_state, fixture.bundle.control_state);
-        verify_mls_governance_proof_bundle::<Error, _, _, _, _>(
+        verify_mls_governance_proof_bundle::<Error, _, _, _>(
             &assembled,
             &fixture.binding,
             &request.trusted_anchor_seal_id,
             |_| Ok(()),
             |_| Ok(()),
             project_member_cell,
-            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
+            &fixture.leaves,
         )
         .unwrap();
     }
@@ -842,7 +1217,7 @@ mod tests {
             },
             |_| Ok(()),
             project_member_cell,
-            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
+            &fixture.leaves,
         )
         .unwrap_err();
         assert!(
@@ -866,7 +1241,7 @@ mod tests {
                 ))
             },
             project_member_cell,
-            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
+            &fixture.leaves,
         )
         .unwrap_err();
         assert!(
@@ -1037,14 +1412,14 @@ mod tests {
         // The Event carries no cell list, so "does this Move affect membership"
         // is decided purely by the injected projector's answer.
         let fixture = fixture();
-        let error = verify_mls_governance_proof_bundle::<Error, _, _, _, _>(
+        let error = verify_mls_governance_proof_bundle::<Error, _, _, _>(
             &fixture.bundle,
             &fixture.binding,
             &fixture.bundle.trusted_anchor_seal_id,
             |_| Ok(()),
             |_| Ok(()),
             |_| Ok(vec![cell("ak.component.realm.title.v1", realm().as_str())]),
-            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
+            &fixture.leaves,
         )
         .unwrap_err();
         assert!(error.to_string().contains(ErrorCode::SCHEMA_VIOLATION));

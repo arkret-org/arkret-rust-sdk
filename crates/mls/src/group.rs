@@ -30,7 +30,7 @@ use zeroize::Zeroizing;
 
 use crate::identity::{
     ARKRET_MLS_CIPHERSUITE, ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity,
-    decode_key_package,
+    decode_key_package, decode_leaf_credential, leaf_credential_bytes,
 };
 use crate::{MlsError as Error, Result};
 
@@ -670,10 +670,7 @@ impl ArkretMlsGroup {
     pub fn member_principal_ids(&self) -> Vec<Did> {
         let mut seen = std::collections::BTreeSet::new();
         for member in self.group.members() {
-            let bytes = member.credential.serialized_content();
-            if let Ok(s) = std::str::from_utf8(bytes)
-                && let Ok(did) = Did::new(s.to_owned())
-            {
+            if let Ok((did, _)) = decode_leaf_credential(member.credential.serialized_content()) {
                 seen.insert(did);
             }
         }
@@ -692,8 +689,13 @@ impl ArkretMlsGroup {
                 let credential = if member.credential.credential_type()
                     == openmls::prelude::CredentialType::Basic
                 {
-                    crate::AuthorLeafCredential::Basic {
-                        identity: member.credential.serialized_content().to_vec(),
+                    match decode_leaf_credential(member.credential.serialized_content()) {
+                        Ok((principal_id, _)) => crate::AuthorLeafCredential::Basic {
+                            identity: principal_id.as_str().as_bytes().to_vec(),
+                        },
+                        Err(_) => crate::AuthorLeafCredential::Other {
+                            credential_type: "invalid_arkret_basic_credential".to_owned(),
+                        },
                     }
                 } else {
                     crate::AuthorLeafCredential::Other {
@@ -707,6 +709,27 @@ impl ArkretMlsGroup {
                 }
             })
             .collect()
+    }
+
+    /// Canonical current leaf set for MLS security-frontier projection.
+    pub fn security_frontier_leaves(
+        &self,
+    ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
+        let mut leaves = self
+            .group
+            .members()
+            .map(|member| {
+                let (principal_id, credential_ref) =
+                    decode_leaf_credential(member.credential.serialized_content())?;
+                Ok(arkret_models_crypto::MlsSecurityFrontierLeaf {
+                    leaf_index: member.index.u32(),
+                    principal_id,
+                    credential_ref,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        leaves.sort_by_key(|leaf| leaf.leaf_index);
+        Ok(leaves)
     }
 
     /// Build the [`crate::AuthorGroupStateView`] for this group's current
@@ -782,8 +805,11 @@ impl ArkretMlsGroup {
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
         let credential = CredentialWithKey {
-            credential: BasicCredential::new(record.principal_id.as_str().as_bytes().to_vec())
-                .into(),
+            credential: BasicCredential::new(leaf_credential_bytes(
+                &record.principal_id,
+                &record.device_id,
+            ))
+            .into(),
             signature_key: signer.public().into(),
         };
         let group_id = GroupId::from_slice(&decode(&record.group_id)?);

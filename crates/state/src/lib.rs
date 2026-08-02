@@ -28,6 +28,7 @@ mod base64url {
 mod canonical {
     pub use arkret_canonical::canonical::*;
 }
+mod generated;
 mod error {
     pub use arkret_wire::error_codes::*;
 }

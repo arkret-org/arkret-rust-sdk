@@ -24,6 +24,17 @@
       ]
     },
     {
+      "generator": "mls-security-frontier",
+      "outputs": [
+        "crates/state/src/generated/mls_security_frontier.rs"
+      ],
+      "owner": "arkret-state",
+      "mode": "registered+projection",
+      "artifacts": [
+        "registry/mls-security-frontier-registry.json"
+      ]
+    },
+    {
       "generator": "registry-types",
       "outputs": [
         "crates/wire/src/error_codes/error_code.rs",

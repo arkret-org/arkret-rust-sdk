@@ -43,11 +43,13 @@ try {
     $profileOutput = Join-Path $targetRoot 'crates/policy/src/generated/profiles.rs'
     $requirementsOutput = Join-Path $targetRoot 'crates/schema/src/generated/profile_requirements.rs'
     $latticeBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/lattice_bindings.rs'
+    $mlsSecurityFrontierOutput = Join-Path $targetRoot 'crates/state/src/generated/mls_security_frontier.rs'
     @(
         $eventOutput,
         $profileOutput,
         $requirementsOutput,
         $latticeBindingsOutput
+        $mlsSecurityFrontierOutput
     ) | ForEach-Object {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $_) | Out-Null
     }
@@ -58,6 +60,11 @@ try {
     & python (Join-Path $PSScriptRoot 'generate-sdk-lattice-bindings.py') --artifacts-dir $artifacts --output $latticeBindingsOutput
     if ($LASTEXITCODE -ne 0) {
         throw 'lattice binding generation failed'
+    }
+
+    & python (Join-Path $PSScriptRoot 'generate-mls-security-frontier.py') --artifacts-dir $artifacts --output $mlsSecurityFrontierOutput
+    if ($LASTEXITCODE -ne 0) {
+        throw 'MLS security-frontier generation failed'
     }
 
     & python (Join-Path $PSScriptRoot 'generate-registry-types.py') --artifacts-dir $artifacts --output-root $targetRoot
@@ -98,6 +105,7 @@ try {
         'crates/policy/src/generated',
         'crates/schema/src/generated',
         'crates/lattice-registry/src/generated'
+        'crates/state/src/generated'
     )
     # Directories a generator actually writes into are derived from the manifest
     # rather than only listed here, so retiring or relocating an output cannot

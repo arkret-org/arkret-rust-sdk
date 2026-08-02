@@ -13,7 +13,8 @@ use arkret_wire::base64url::base64url_decode;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, ScopeRef};
 use arkret_wire::{
-    CellRef, Did, Error, Hash, ProfileId, RealmId, Result, SchemaId, Seal, SealId, canonical,
+    CellRef, Did, Error, Hash, NonEmptyString, ProfileId, RealmId, Result, SchemaId, Seal, SealId,
+    canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -37,6 +38,20 @@ pub const MLS_GOVERNANCE_SEALS_PER_CHUNK: usize = 128;
 pub const MLS_GOVERNANCE_DIGESTS_PER_CHUNK: usize = 8192;
 pub const MLS_GOVERNANCE_CONTROL_STATE_PER_CHUNK: usize = 1024;
 pub const MLS_GOVERNANCE_FRONTIER_EVENTS_PER_CHUNK: usize = 32;
+
+/// One current or pending RFC 9420 leaf as seen by the verifier.
+///
+/// This is deliberately not carried by the proof bundle. The verifier obtains
+/// it from its local MLS group state so the proof service cannot choose the
+/// key-holder set used to validate a governance binding.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsSecurityFrontierLeaf {
+    pub leaf_index: u32,
+    pub principal_id: Did,
+    pub credential_ref: NonEmptyString,
+}
 
 const MLS_GOVERNANCE_REQUEST_DOMAIN: &[u8] = b"arkret-mls-governance-proof-request-v1\n";
 const MLS_GOVERNANCE_BUNDLE_DOMAIN: &[u8] = b"arkret-mls-governance-proof-bundle-v1\n";

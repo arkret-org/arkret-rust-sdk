@@ -9,7 +9,7 @@ use arkret_models_crypto::{
     keypackages_consume_signing_input, keypackages_revoke_signing_input,
     keypackages_upload_signing_input, mls_key_package_record_upload_entry,
 };
-use arkret_wire::{DeviceId, Did, Hash, canonical};
+use arkret_wire::{DeviceId, Did, Hash, NonEmptyString, canonical};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -46,6 +46,25 @@ pub const ARKRET_MLS_CIPHERSUITE_CANONICAL_ID: &str =
 pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ak.content.v1"];
 
 const ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "arkret-openmls-identity-state-v1";
+
+pub(super) fn leaf_credential_bytes(principal_id: &Did, device_id: &DeviceId) -> Vec<u8> {
+    format!("{}#{}", principal_id.as_str(), device_id.as_str()).into_bytes()
+}
+
+pub(super) fn decode_leaf_credential(bytes: &[u8]) -> Result<(Did, NonEmptyString)> {
+    let encoded = std::str::from_utf8(bytes)
+        .map_err(|_| Error::Protocol("MLS BasicCredential is not UTF-8".to_owned()))?;
+    let (principal, device) = encoded.rsplit_once('#').ok_or_else(|| {
+        Error::Protocol("MLS BasicCredential must bind a principal DID and device id".to_owned())
+    })?;
+    let principal_id = Did::new(principal.to_owned())?;
+    DeviceId::new(device.to_owned()).map_err(|error| {
+        Error::Protocol(format!("MLS BasicCredential device id is invalid: {error}"))
+    })?;
+    let credential_ref = NonEmptyString::new(encoded.to_owned())
+        .map_err(|error| Error::Protocol(format!("MLS credential ref is invalid: {error}")))?;
+    Ok((principal_id, credential_ref))
+}
 
 pub struct ArkretMlsIdentity {
     pub principal_id: Did,
@@ -99,7 +118,8 @@ impl ArkretMlsIdentity {
         let provider = OpenMlsRustCrypto::default();
         signer.store(provider.storage()).map_err(mls_error)?;
         let credential = CredentialWithKey {
-            credential: BasicCredential::new(principal_id.as_str().as_bytes().to_vec()).into(),
+            credential: BasicCredential::new(leaf_credential_bytes(&principal_id, &device_id))
+                .into(),
             signature_key: signer.public().into(),
         };
 
@@ -314,7 +334,8 @@ impl ArkretMlsIdentity {
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
         let credential = CredentialWithKey {
-            credential: BasicCredential::new(principal_id.as_str().as_bytes().to_vec()).into(),
+            credential: BasicCredential::new(leaf_credential_bytes(&principal_id, &device_id))
+                .into(),
             signature_key: signer.public().into(),
         };
 
