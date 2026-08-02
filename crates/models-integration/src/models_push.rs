@@ -5,7 +5,7 @@ use arkret_wire::{
     StrandId,
 };
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 fn is_false(value: &bool) -> bool {
@@ -96,7 +96,7 @@ pub enum PushCountIndicator {
 impl<'de> Deserialize<'de> for PushCountIndicator {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let value = Value::deserialize(deserializer)?;
         match value {
@@ -359,6 +359,90 @@ pub struct PushAuditEnvelopeMetadata {
     pub late_recovery_original_event_id: Option<EventId>,
 }
 
+/// Open, validated `reason_code` for a push-notify request.
+///
+/// The request-side vocabulary is deliberately not an enum: the push wire
+/// contract accepts every value matching `^[a-z][a-z0-9_]{0,63}$`, including
+/// values introduced by newer specifications such as `historical_only`.
+/// Gateway outcome reason codes remain a separate closed enum because their
+/// schema is closed.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PushNotifyRequestReasonCode(String);
+
+impl PushNotifyRequestReasonCode {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if !ReasonCode::is_valid_wire(&value) {
+            return Err("push notify request reason_code must match ^[a-z][a-z0-9_]{0,63}$");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for PushNotifyRequestReasonCode {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl TryFrom<String> for PushNotifyRequestReasonCode {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<PushNotifyRequestReasonCode> for String {
+    fn from(value: PushNotifyRequestReasonCode) -> Self {
+        value.into_string()
+    }
+}
+
+impl Serialize for PushNotifyRequestReasonCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for PushNotifyRequestReasonCode {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for PushNotifyRequestReasonCode {
+    fn to_schema(
+        _components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::schema::Object::new()
+            .schema_type(salvo_oapi::schema::BasicType::String)
+            .pattern("^[a-z][a-z0-9_]{0,63}$")
+            .max_length(64)
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for PushNotifyRequestReasonCode {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        let _ = generics;
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -367,7 +451,7 @@ pub struct PushNotifyRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<ReasonCode>,
+    pub reason_code: Option<PushNotifyRequestReasonCode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_envelope: Option<PushAuditEnvelopeMetadata>,
 }
@@ -791,6 +875,33 @@ mod tests {
             reason_code: None,
             audit_envelope: None,
         }
+    }
+
+    #[test]
+    fn push_notify_request_reason_code_is_open_and_wire_validated() {
+        for code in ["historical_only", "future_reason_42"] {
+            let parsed: PushNotifyRequestReasonCode =
+                serde_json::from_value(json!(code)).expect("valid open request reason code");
+            assert_eq!(parsed.as_str(), code);
+            assert_eq!(serde_json::to_value(parsed).unwrap(), json!(code));
+        }
+
+        let max_length = format!("a{}", "_".repeat(63));
+        assert!(PushNotifyRequestReasonCode::new(max_length).is_ok());
+
+        for invalid in ["", "HistoricalOnly", "historical-only", "1historical_only"] {
+            assert!(
+                serde_json::from_value::<PushNotifyRequestReasonCode>(json!(invalid)).is_err(),
+                "{invalid:?} must not be a legal reason_code"
+            );
+        }
+
+        let mut request = valid_request();
+        request.reason_code = Some(PushNotifyRequestReasonCode::new("historical_only").unwrap());
+        assert_eq!(
+            serde_json::to_value(request).unwrap()["reason_code"],
+            "historical_only"
+        );
     }
 
     #[test]
