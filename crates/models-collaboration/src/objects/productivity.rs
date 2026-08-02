@@ -1576,9 +1576,12 @@ pub fn parse_contact_remark_account_data_key(key: &str) -> Result<Did> {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountBlocklistPayload {
-    pub version: u32,
-    #[serde(default)]
+    pub owner: Did,
+    pub version: u64,
     pub entries: Vec<AccountBlocklistPayloadEntry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1587,9 +1590,8 @@ pub struct AccountBlocklistPayloadEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entry_id: Option<arkret_wire::NonEmptyString>,
     pub target: AccountBlocklistTarget,
-    pub mode: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub applies_to: Vec<String>,
+    pub mode: AccountBlocklistMode,
+    pub applies_to: Vec<AccountBlocklistSurface>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<arkret_wire::NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1599,27 +1601,132 @@ pub struct AccountBlocklistPayloadEntry {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountBlocklistMode {
+    Block,
+    Mute,
+    Hide,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountBlocklistSurface {
+    Messages,
+    Mentions,
+    Dm,
+    Calls,
+    Contacts,
+    Applets,
+    Presence,
+    Notifications,
+    Directory,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountBlocklistDidTargetKind {
+    Actor,
+    Service,
+    Organization,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountBlocklistValueTargetKind {
+    Handle,
+    Domain,
+    Keyword,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountBlocklistDeviceTargetKind {
+    Device,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountBlocklistAppletTargetKind {
+    Applet,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountBlocklistTarget {
-    pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub did: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub object_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<arkret_wire::NonEmptyString>,
+pub struct AccountBlocklistDidTarget {
+    pub kind: AccountBlocklistDidTargetKind,
+    pub did: Did,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistDeviceIdTarget {
+    pub kind: AccountBlocklistDeviceTargetKind,
+    pub object_ref: DeviceId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistDeviceVerificationMethodTarget {
+    pub kind: AccountBlocklistDeviceTargetKind,
+    pub value: arkret_wire::DidUrl,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistAppletTarget {
+    pub kind: AccountBlocklistAppletTargetKind,
+    pub object_ref: arkret_wire::AppletId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistValueTarget {
+    pub kind: AccountBlocklistValueTargetKind,
+    pub value: arkret_wire::NonEmptyString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccountBlocklistTarget {
+    Did(AccountBlocklistDidTarget),
+    DeviceId(AccountBlocklistDeviceIdTarget),
+    DeviceVerificationMethod(AccountBlocklistDeviceVerificationMethodTarget),
+    Applet(AccountBlocklistAppletTarget),
+    Value(AccountBlocklistValueTarget),
 }
 
 impl AccountBlocklistPayload {
     pub fn validate(&self) -> Result<()> {
-        if self.version != 1 {
+        if self.version == 0 {
             return Err(Error::Protocol(
-                "account blocklist version must be 1".to_owned(),
+                "account blocklist version must be at least 1".to_owned(),
             ));
         }
+        if self.entries.len() > 4096 {
+            return Err(Error::Protocol(
+                "account blocklist entries exceed 4096".to_owned(),
+            ));
+        }
+        let mut entry_ids = BTreeSet::new();
+        let mut target_surfaces = BTreeSet::new();
         for entry in &self.entries {
             entry.validate()?;
+            if let Some(entry_id) = &entry.entry_id
+                && !entry_ids.insert(entry_id.as_str())
+            {
+                return Err(Error::Protocol(
+                    "account blocklist entry_id values must be unique".to_owned(),
+                ));
+            }
+            let target = canonical::canonical_json_bytes(&entry.target)?;
+            for surface in &entry.applies_to {
+                if !target_surfaces.insert((target.clone(), *surface)) {
+                    return Err(Error::Protocol(
+                        "account blocklist target surfaces must not overlap".to_owned(),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -1627,32 +1734,22 @@ impl AccountBlocklistPayload {
 
 impl AccountBlocklistPayloadEntry {
     pub fn validate(&self) -> Result<()> {
-        if !matches!(self.mode.as_str(), "block" | "mute" | "hide") {
+        if self.applies_to.is_empty() {
             return Err(Error::Protocol(
-                "account blocklist mode must be block, mute, or hide".to_owned(),
+                "account blocklist applies_to must not be empty".to_owned(),
             ));
         }
-        let target_count = usize::from(self.target.did.is_some())
-            + usize::from(self.target.object_ref.is_some())
-            + usize::from(self.target.value.is_some());
-        if target_count != 1 {
+        let unique_surfaces = self.applies_to.iter().copied().collect::<BTreeSet<_>>();
+        if unique_surfaces.len() != self.applies_to.len() {
             return Err(Error::Protocol(
-                "account blocklist target must contain exactly one identifier".to_owned(),
+                "account blocklist applies_to must contain unique surfaces".to_owned(),
             ));
         }
-        if !matches!(
-            self.target.kind.as_str(),
-            "actor"
-                | "device"
-                | "service"
-                | "handle"
-                | "domain"
-                | "organization"
-                | "applet"
-                | "keyword"
-        ) {
+        if let AccountBlocklistTarget::Value(target) = &self.target
+            && target.value.as_str().chars().count() > 512
+        {
             return Err(Error::Protocol(
-                "account blocklist target.kind is not recognized".to_owned(),
+                "account blocklist target value exceeds 512 characters".to_owned(),
             ));
         }
         Ok(())
@@ -2528,6 +2625,90 @@ mod tests {
         DateTime::parse_from_rfc3339(&format!("2026-06-06T10:00:{second:02}Z"))
             .unwrap()
             .with_timezone(&Utc)
+    }
+
+    #[test]
+    fn account_blocklist_uses_closed_typed_targets_and_revision_semantics() {
+        let payload: AccountBlocklistPayload = serde_json::from_value(json!({
+            "owner": "did:webvh:z6mkfixture:holder.example",
+            "version": 2,
+            "entries": [
+                {
+                    "target": {
+                        "kind": "device",
+                        "object_ref": "ak:device:01904100-0000-7000-8000-000000000901"
+                    },
+                    "mode": "block",
+                    "applies_to": ["messages", "calls"],
+                    "created_at": "2026-06-06T10:00:00.000Z"
+                },
+                {
+                    "target": {
+                        "kind": "applet",
+                        "object_ref": "ak:applet:01904100-0000-7000-8000-000000000902"
+                    },
+                    "mode": "hide",
+                    "applies_to": ["applets"],
+                    "created_at": "2026-06-06T10:00:01.000Z"
+                }
+            ]
+        }))
+        .unwrap();
+        payload.validate().unwrap();
+        assert_eq!(payload.version, 2);
+
+        let cleared: AccountBlocklistPayload = serde_json::from_value(json!({
+            "owner": "did:webvh:z6mkfixture:holder.example",
+            "version": 3,
+            "entries": []
+        }))
+        .unwrap();
+        cleared.validate().unwrap();
+    }
+
+    #[test]
+    fn account_blocklist_rejects_wrong_typed_ref_and_overlapping_surface() {
+        let wrong_ref = serde_json::from_value::<AccountBlocklistPayload>(json!({
+            "owner": "did:webvh:z6mkfixture:holder.example",
+            "version": 1,
+            "entries": [{
+                "target": {
+                    "kind": "device",
+                    "object_ref": "ak:applet:01904100-0000-7000-8000-000000000902"
+                },
+                "mode": "block",
+                "applies_to": ["messages"],
+                "created_at": "2026-06-06T10:00:00.000Z"
+            }]
+        }));
+        assert!(wrong_ref.is_err());
+
+        let overlap: AccountBlocklistPayload = serde_json::from_value(json!({
+            "owner": "did:webvh:z6mkfixture:holder.example",
+            "version": 1,
+            "entries": [
+                {
+                    "target": {
+                        "kind": "actor",
+                        "did": "did:webvh:z6mkfixture:blocked.example"
+                    },
+                    "mode": "block",
+                    "applies_to": ["messages"],
+                    "created_at": "2026-06-06T10:00:00.000Z"
+                },
+                {
+                    "target": {
+                        "kind": "actor",
+                        "did": "did:webvh:z6mkfixture:blocked.example"
+                    },
+                    "mode": "hide",
+                    "applies_to": ["messages"],
+                    "created_at": "2026-06-06T10:00:01.000Z"
+                }
+            ]
+        }))
+        .unwrap();
+        assert!(overlap.validate().is_err());
     }
 
     #[test]

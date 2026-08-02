@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-02.6;
-//! sha256=30168e027112bcc02c2d7d79500f91805af557f1fe75e86eb14552977902ee45 Input: registry/
-//! operations-error-mapping.json; version=2026-08-02.2;
-//! sha256=154bead3737cdeef07616f2dd1d64fc2f21b52449ea29f5aebbc5d7dc3a9d9be Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-02.7;
+//! sha256=64d4ed20ad56ce111c61491c4cf28b1bd9ba376578a99365d8ef5b51e9412c7f Input: registry/
+//! operations-error-mapping.json; version=2026-08-02.3;
+//! sha256=b5e4e95836111a3050eb9fea4b889c736e3d1fb201fc9de136e67fbc793c371c Input: registry/
 //! error-code-registry.json; version=2026-08-02.2;
-//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: operations=218
+//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: operations=219
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -383,6 +383,16 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::OpenMimiQueryProviderDirectory,
         operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerAccountStatusCommandSubmit,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ReasonCode(ReasonCode::AccountStatusTransitionInvalid),
+            OperationSpecificError::ReasonCode(ReasonCode::ErasurePendingIsTerminal),
+            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerContactsCommandSubmit,

@@ -168,7 +168,10 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "witnessed_min_attestations": 1,
                 "witness_independence": "distinct_did"
             },
-            "preauth": { "require_consent": true }
+            "preauth": { "require_consent": true },
+            "allowed_third_party_invite_verification_service_ids": [
+                "did:web:verification.example"
+            ]
         }))
         .expect("every schema-declared component is accepted by the typed bundle payload");
 
