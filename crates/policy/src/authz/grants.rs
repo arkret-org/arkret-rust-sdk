@@ -13,7 +13,7 @@
 //! [`ResourceSelector`] / [`ConstraintEntry`]). Projection failure carries
 //! `schema_violation` semantics: the grant MUST be rejected, never
 //! best-effort evaluated. The early-draft top-level `delegable` boolean is
-//! removed per spec; delegation control is expressed exclusively via a
+//! removed per spec; re-grant control is expressed exclusively via an
 //! `constraint_kind = "authority_control"` constraint with
 //! `max_authority_depth` (no constraint ⇒ not delegable).
 
@@ -41,6 +41,7 @@ pub(crate) struct GrantProjection {
     pub(crate) resources: Vec<ResourceSelector>,
     pub(crate) constraints: Vec<ConstraintEntry>,
     pub(crate) issuer_authority_grant_refs: Vec<String>,
+    pub(crate) has_realm_root_authority_ref: bool,
     pub(crate) not_before: Option<DateTime<Utc>>,
     pub(crate) expires_at: Option<DateTime<Utc>>,
     pub(crate) revoked_by: Option<Did>,
@@ -72,6 +73,11 @@ impl GrantProjection {
         if grant.resources.is_empty() {
             return Err(Error::Protocol(
                 "schema_violation: capability grant requires resources".to_owned(),
+            ));
+        }
+        if grant.issuer_authority_refs.is_empty() {
+            return Err(Error::Protocol(
+                "schema_violation: capability grant requires issuer_authority_refs".to_owned(),
             ));
         }
         if grant.issuer_authority_refs.is_empty() {
@@ -117,6 +123,12 @@ impl GrantProjection {
                     arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::RealmRoot { .. } => None,
                 })
                 .collect(),
+            has_realm_root_authority_ref: grant.issuer_authority_refs.iter().any(|r| {
+                matches!(
+                    r,
+                    arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::RealmRoot { .. }
+                )
+            }),
             not_before: grant.not_before,
             expires_at: grant.expires_at,
             revoked_by: grant.revoked_by.clone(),
@@ -133,12 +145,15 @@ impl GrantProjection {
         }
     }
 
-    /// Effective re-grant budget per capabilities.md §10: the strictest
-    /// `authority_control` constraint wins; `authority_regrant_allowed=false`
-    /// or a missing `max_authority_depth` collapse to 0; no `authority_control`
-    /// constraint at all means the grant cannot be re-granted (depth 0).
-    pub(crate) fn max_authority_depth(&self) -> u32 {
+    /// Effective grant-local authority-control policy. `None` means the grant
+    /// carries no authority control and therefore cannot anchor a child grant.
+    /// A missing depth inside a present control is unbounded (subject to the
+    /// canonical DFS ceiling); `authority_regrant_allowed=false` seals the
+    /// immediate child at depth zero rather than invalidating that child.
+    pub(crate) fn authority_control_policy(&self) -> Option<(Option<u32>, bool)> {
         let mut depth: Option<u32> = None;
+        let mut saw_control = false;
+        let mut regrant_allowed = true;
         for entry in &self.constraints {
             if let Constraint::AuthorityControl {
                 max_authority_depth,
@@ -146,15 +161,14 @@ impl GrantProjection {
                 ..
             } = &entry.constraint
             {
-                let this = if *authority_regrant_allowed {
-                    max_authority_depth.unwrap_or(0)
-                } else {
-                    0
-                };
-                depth = Some(depth.map_or(this, |current| current.min(this)));
+                saw_control = true;
+                regrant_allowed &= *authority_regrant_allowed;
+                if let Some(this) = max_authority_depth {
+                    depth = Some(depth.map_or(*this, |current| current.min(*this)));
+                }
             }
         }
-        depth.unwrap_or(0)
+        saw_control.then_some((depth, regrant_allowed))
     }
 }
 
@@ -311,8 +325,10 @@ pub fn validate_capability_frontier(
     }
 
     let mut max_depth = 0;
+    let mut memo = HashMap::new();
+    let mut visiting = HashSet::new();
     for projection in &projections {
-        let depth = validate_delegation_chain(projection, &by_id)?;
+        let depth = validate_authority_chain(projection, &by_id, &mut memo, &mut visiting)?;
         max_depth = max_depth.max(depth);
     }
 
@@ -365,99 +381,169 @@ pub fn reject_unknown_critical_constraints(value: &Value, supported: &[&str]) ->
     Ok(())
 }
 
-fn validate_delegation_chain(
+fn validate_authority_chain(
     grant: &GrantProjection,
     by_id: &HashMap<String, &GrantProjection>,
+    memo: &mut HashMap<String, u32>,
+    visiting: &mut HashSet<String>,
 ) -> Result<u32> {
-    let mut depth: u32 = 0;
-    let mut seen = HashSet::new();
-    let mut child = grant;
-    // A grant may name several authorities. The chain bound is the strictest
-    // one, so walking any single edge is not enough — but the depth a child may
-    // claim is bounded by the tightest ref, which is what this walk reports.
-    while let Some(parent_id) = child.issuer_authority_grant_refs.first() {
-        if !seen.insert(child.id.clone()) {
-            return Err(Error::Protocol(
-                "capability authority cycle detected".to_owned(),
-            ));
-        }
-        let parent = by_id.get(parent_id).ok_or_else(|| {
-            Error::Protocol(format!(
-                "capability grant '{}' references missing issuer authority '{}'",
-                child.id, parent_id
-            ))
-        })?;
-        depth += 1;
-        // Delegation budget per capabilities.md §10: the ancestor at distance
-        // `depth` below the starting grant must allow at least `depth` levels
-        // of re-delegation. No authority_control constraint ⇒ depth 0 ⇒
-        // not delegable.
-        let parent_budget = parent.max_authority_depth();
-        if parent_budget == 0 {
-            return Err(Error::Protocol(format!(
-                "capability parent '{}' is not delegable",
-                parent.id
-            )));
-        }
-        if parent_budget < depth {
-            return Err(Error::Protocol(format!(
-                "capability delegation depth {} exceeds parent '{}' max_authority_depth {}",
-                depth, parent.id, parent_budget
-            )));
-        }
-        let parent_subject = parent.subject_did().ok_or_else(|| {
-            Error::Protocol(format!(
-                "capability parent '{}' has a condition subject and cannot anchor a delegation chain",
-                parent.id
-            ))
-        })?;
-        if &child.issuer != parent_subject {
-            return Err(Error::Protocol(format!(
-                "capability grant '{}' issuer does not match parent subject",
-                child.id
-            )));
-        }
-        if let (Some(child_basis), Some(parent_basis)) = (
-            child.capability_action_registry_digest.as_ref(),
-            parent.capability_action_registry_digest.as_ref(),
-        ) && child_basis != parent_basis
-        {
-            return Err(Error::Protocol(format!(
-                "capability grant '{}' uses a different registry basis than parent '{}'",
-                child.id, parent.id
-            )));
-        }
-        if !actions_are_narrowed(&child.actions, &parent.actions) {
-            return Err(Error::Protocol(format!(
-                "capability grant '{}' widens delegated actions",
-                child.id
-            )));
-        }
-        if !resources_are_narrowed(&child.resources, &parent.resources) {
-            return Err(Error::Protocol(format!(
-                "capability grant '{}' widens delegated resources",
-                child.id
-            )));
-        }
-        if let (Some(child_from), Some(parent_from)) = (child.not_before, parent.not_before)
-            && child_from < parent_from
-        {
-            return Err(Error::Protocol(format!(
-                "capability grant '{}' starts before parent",
-                child.id
-            )));
-        }
-        if let (Some(child_until), Some(parent_until)) = (child.expires_at, parent.expires_at)
-            && child_until > parent_until
-        {
-            return Err(Error::Protocol(format!(
-                "capability grant '{}' expires after parent",
-                child.id
-            )));
-        }
-        child = parent;
+    if let Some(depth) = memo.get(&grant.id) {
+        return Ok(*depth);
     }
-    Ok(depth)
+    if !visiting.insert(grant.id.clone()) {
+        return Err(Error::Protocol(
+            "capability authority cycle detected".to_owned(),
+        ));
+    }
+
+    let result = (|| {
+        if grant.issuer_authority_grant_refs.is_empty() {
+            if !grant.has_realm_root_authority_ref {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' has no authority root",
+                    grant.id
+                )));
+            }
+            return Ok(0);
+        }
+
+        let mut parents = Vec::with_capacity(grant.issuer_authority_grant_refs.len());
+        let mut max_parent_depth = 0;
+        for parent_id in &grant.issuer_authority_grant_refs {
+            let parent = by_id.get(parent_id).ok_or_else(|| {
+                Error::Protocol(format!(
+                    "capability grant '{}' references missing issuer authority '{}'",
+                    grant.id, parent_id
+                ))
+            })?;
+            let parent_depth = validate_authority_chain(parent, by_id, memo, visiting)?;
+            max_parent_depth = max_parent_depth.max(parent_depth);
+
+            let parent_subject = parent.subject_did().ok_or_else(|| {
+            Error::Protocol(format!(
+                "capability parent '{}' has a condition subject and cannot anchor an authority chain",
+                parent.id
+            ))
+        })?;
+            if &grant.issuer != parent_subject {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' issuer does not match parent subject",
+                    grant.id
+                )));
+            }
+            if let (Some(child_basis), Some(parent_basis)) = (
+                grant.capability_action_registry_digest.as_ref(),
+                parent.capability_action_registry_digest.as_ref(),
+            ) && child_basis != parent_basis
+            {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' uses a different registry basis than parent '{}'",
+                    grant.id, parent.id
+                )));
+            }
+
+            let Some((parent_max_depth, parent_allows_further)) = parent.authority_control_policy()
+            else {
+                return Err(Error::Protocol(format!(
+                    "capability parent '{}' is not delegable",
+                    parent.id
+                )));
+            };
+            let child_max_depth = grant.authority_control_policy().and_then(|policy| policy.0);
+            let child_depth_for_parent = if parent_allows_further {
+                child_max_depth
+            } else {
+                Some(child_max_depth.unwrap_or(0))
+            };
+            if let Some(parent_max_depth) = parent_max_depth
+                && (parent_max_depth == 0
+                    || child_depth_for_parent
+                        .is_none_or(|depth| depth > parent_max_depth.saturating_sub(1)))
+            {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' exceeds parent '{}' max_authority_depth",
+                    grant.id, parent.id
+                )));
+            }
+            if !parent_allows_further && child_max_depth.unwrap_or(0) != 0 {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' violates parent '{}' authority_regrant_allowed=false seal",
+                    grant.id, parent.id
+                )));
+            }
+            parents.push(*parent);
+        }
+
+        if !grant.has_realm_root_authority_ref {
+            if !grant.actions.iter().all(|action| {
+                parents.iter().any(|parent| {
+                    actions_are_narrowed(std::slice::from_ref(action), &parent.actions)
+                })
+            }) {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' widens authority-union actions",
+                    grant.id
+                )));
+            }
+            if !grant.resources.iter().all(|resource| {
+                parents.iter().any(|parent| {
+                    resources_are_narrowed(std::slice::from_ref(resource), &parent.resources)
+                })
+            }) {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' widens authority-union resources",
+                    grant.id
+                )));
+            }
+        }
+
+        if !grant.has_realm_root_authority_ref {
+            for action in &grant.actions {
+                let covering: Vec<_> = parents
+                    .iter()
+                    .copied()
+                    .filter(|parent| {
+                        actions_are_narrowed(std::slice::from_ref(action), &parent.actions)
+                    })
+                    .collect();
+                if covering.is_empty() {
+                    continue;
+                }
+                let earliest_not_before = covering.iter().filter_map(|p| p.not_before).min();
+                if let (Some(child_from), Some(parent_from)) =
+                    (grant.not_before, earliest_not_before)
+                    && child_from < parent_from
+                {
+                    return Err(Error::Protocol(format!(
+                        "capability grant '{}' starts before its covering authorities",
+                        grant.id
+                    )));
+                }
+                let covering_has_unbounded_expiry = covering.iter().any(|p| p.expires_at.is_none());
+                let latest_expiry = covering.iter().filter_map(|p| p.expires_at).max();
+                if !covering_has_unbounded_expiry
+                    && let (Some(child_until), Some(parent_until)) =
+                        (grant.expires_at, latest_expiry)
+                    && child_until > parent_until
+                {
+                    return Err(Error::Protocol(format!(
+                        "capability grant '{}' expires after its covering authorities",
+                        grant.id
+                    )));
+                }
+            }
+        }
+
+        let depth = max_parent_depth.saturating_add(1);
+        arkret_wire::validate_authority_chain_depth(depth as usize)?;
+        Ok(depth)
+    })();
+
+    visiting.remove(&grant.id);
+    if let Ok(depth) = &result {
+        memo.insert(grant.id.clone(), *depth);
+    }
+    result
 }
 
 fn actions_are_narrowed(child: &[String], parent: &[String]) -> bool {
@@ -615,7 +701,7 @@ fn option_narrowed(child: Option<&String>, parent: Option<&String>) -> bool {
     }
 }
 
-/// Extract active grant/delegate capability events from a resolved Realm state.
+/// Extract active capability-grant events from a resolved Realm state.
 ///
 /// Event content MUST be the spec grant artifact (`ak.schema.capability.v1`).
 /// Content carrying the removed top-level `delegable` boolean, or failing to
@@ -652,7 +738,7 @@ pub fn capability_grant_from_resolved_event(
     if artifact.get("delegable").is_some() {
         return Err(Error::Protocol(
             "schema_violation: top-level 'delegable' is removed; \
-             express delegation via a authority_control constraint"
+             express re-granting via an authority_control constraint"
                 .to_owned(),
         ));
     }
@@ -1387,7 +1473,7 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
 /// the Envelope that goes onto the wire. The content is the canonical
 /// `capability_grant_payload` wrapper (`{grant_id, grant}`) embedding the
 /// core authority artifact — `schema` / `issued_at` / `proofs` are present
-/// and the removed top-level `delegable` cannot occur; delegation is
+/// and the removed top-level `delegable` cannot occur; re-granting is
 /// expressed via [`CapabilityGrantBuilder::with_authority_control`].
 #[derive(Clone, Debug)]
 pub struct CapabilityGrantBuilder {
@@ -1414,7 +1500,7 @@ impl CapabilityGrantBuilder {
         }
     }
 
-    /// Override the grant subject (delegee).
+    /// Override the grant subject.
     pub fn with_subject(mut self, subject: Did) -> Self {
         self.grant.subject = CapabilitySubject::Did(subject);
         self
@@ -1446,12 +1532,11 @@ impl CapabilityGrantBuilder {
         self
     }
 
-    /// Declare the delegation budget for this grant via the canonical
+    /// Declare the authority re-grant budget via the canonical
     /// `authority_control` constraint (capabilities.md §10). Replaces the
     /// ordinary depth-control entry while preserving registered subkinds such
     /// as `applet_authority`. The removed
-    /// top-level `delegable` boolean is intentionally not expressible:
-    /// `max_authority_depth >= 1` ⇔ delegable, `0` ⇔ not delegable.
+    /// removed top-level boolean is intentionally not expressible.
     pub fn with_authority_control(
         mut self,
         max_authority_depth: u32,
@@ -1471,7 +1556,7 @@ impl CapabilityGrantBuilder {
         self
     }
 
-    /// Bind this grant to a parent grant id (chains the delegation).
+    /// Bind this grant to an issuer-authority grant id.
     pub fn with_issuer_authority_grant(mut self, grant_id: GrantId) -> Self {
         self.grant.issuer_authority_refs.push(
             arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
@@ -1535,6 +1620,26 @@ impl CapabilityGrantBuilder {
             content,
         )
     }
+}
+
+/// Build an unsigned subject-only `ak.capability.relinquish` Event. This path
+/// intentionally carries no `authorization_ref`: the reducer authorizes it by
+/// matching the Event signer to the target grant subject.
+pub fn build_capability_relinquish_event(
+    scope_ref: arkret_wire::ScopeRef,
+    subject: Did,
+    actor_seq: u64,
+    hlc: crate::Hlc,
+    payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
+) -> Result<crate::Event> {
+    crate::Event::new(
+        arkret_wire::EventKind::CAPABILITY_RELINQUISH,
+        scope_ref,
+        subject,
+        actor_seq,
+        hlc,
+        serde_json::to_value(payload)?,
+    )
 }
 
 #[cfg(test)]
@@ -1732,7 +1837,7 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
-    fn capability_grant_builder_encodes_delegation_control_constraint() {
+    fn capability_grant_builder_encodes_authority_control_constraint() {
         let event = CapabilityGrantBuilder::new(scope(), alice(), base_grant())
             .with_authority_control(2, true)
             .build(1, hlc())
@@ -1744,7 +1849,7 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
-    fn delegation_depth_builder_preserves_applet_delegation_subkind() {
+    fn authority_depth_builder_preserves_applet_authority_subkind() {
         let mut grant = base_grant();
         grant.constraints.push(
             arkret_models_collaboration::governance::grant_constraint::GrantConstraint::applet_authority(
@@ -1807,7 +1912,7 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
-    fn capability_chain_verifier_rejects_parent_without_delegation_control() {
+    fn capability_chain_verifier_rejects_parent_without_authority_control() {
         let parent = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
@@ -1828,6 +1933,48 @@ mod capability_grant_builder_tests {
         };
         let err = validate_capability_frontier(&[parent, child]).unwrap_err();
         assert!(format!("{err}").contains("not delegable"));
+    }
+
+    #[test]
+    fn capability_chain_verifier_accepts_multi_parent_union_and_derives_depth() {
+        let parent_create = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000011").unwrap(),
+            actions: vec!["ak.message.create".to_owned()],
+            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
+            ..base_grant()
+        };
+        let parent_update = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000012").unwrap(),
+            actions: vec!["ak.message.revise".to_owned()],
+            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
+            ..base_grant()
+        };
+        let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000013").unwrap(),
+            issuer_authority_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
+                    grant_id: parent_create.id.clone(),
+                },
+                arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
+                    grant_id: parent_update.id.clone(),
+                },
+            ],
+            issuer: bob(),
+            subject: CapabilitySubject::Did(
+                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+            ),
+            actions: vec!["ak.message.create".to_owned(), "ak.message.revise".to_owned()],
+            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(0, false)],
+            ..base_grant()
+        };
+
+        let validation = validate_capability_frontier(&[
+            parent_create.clone(),
+            parent_update.clone(),
+            child.clone(),
+        ])
+        .unwrap();
+        assert_eq!(validation.max_authority_depth, 1);
     }
 
     #[test]
@@ -1992,7 +2139,7 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
-    fn applet_delegation_projects_from_the_registered_spec_shape() {
+    fn applet_authority_projects_from_the_registered_spec_shape() {
         let epoch = format!("sha256:{}", "a".repeat(64));
         let entries = constraint_entries_from_spec(&json!({
             "constraint_kind": "authority_control",
@@ -2062,5 +2209,20 @@ mod capability_grant_builder_tests {
             entries[0].evaluation_class(),
             crate::EvaluationClass::External
         );
+    }
+
+    #[test]
+    fn relinquish_builder_is_subject_only_and_carries_no_authorization_ref() {
+        let payload = arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload {
+            grant_id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            reason: Some("no longer needed".to_owned()),
+        };
+        let event = build_capability_relinquish_event(scope(), bob(), 7, hlc(), payload).unwrap();
+        assert_eq!(
+            event.kind.as_str(),
+            arkret_wire::EventKind::CAPABILITY_RELINQUISH
+        );
+        assert!(event.authorization_ref.is_none());
+        assert_eq!(event.actor_id, bob());
     }
 }

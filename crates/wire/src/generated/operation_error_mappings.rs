@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-02.3;
-//! sha256=9b2936a706af863a7683b2e929d69692a4661b36fcf8d9606848951c67578337 Input: registry/
-//! operations-error-mapping.json; version=2026-08-02.1;
-//! sha256=c00e2f61990a581ef6c995e21a46823531d033421a1177a7c92c8c920524115d Input: registry/
-//! error-code-registry.json; version=2026-08-02.1;
-//! sha256=721de3aa00244fd62eb8365ec1a617b1a28e2c91cd5ded595f8232d37fd69268 Entries: operations=219
+//! Input: registry/operation-registry.json; version=2026-08-02.6;
+//! sha256=30168e027112bcc02c2d7d79500f91805af557f1fe75e86eb14552977902ee45 Input: registry/
+//! operations-error-mapping.json; version=2026-08-02.2;
+//! sha256=154bead3737cdeef07616f2dd1d64fc2f21b52449ea29f5aebbc5d7dc3a9d9be Input: registry/
+//! error-code-registry.json; version=2026-08-02.2;
+//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: operations=218
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -976,22 +976,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfDirectConversationCommandResolve,
         operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::KeypackageUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),
-            OperationSpecificError::ReasonCode(ReasonCode::DirectConversationLineageConflict),
-            OperationSpecificError::ReasonCode(ReasonCode::DirectConversationPredecessorRequired),
-            OperationSpecificError::ReasonCode(
-                ReasonCode::DirectConversationRetirementEvidenceRequired,
-            ),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfDirectConversationSegmentQueryList,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
-            OperationSpecificError::ReasonCode(ReasonCode::DirectConversationLineageConflict),
         ],
     },
     OperationErrorMappingDescriptor {

@@ -14,7 +14,8 @@ use arkret_models_collaboration::events_payloads::{
     RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmOwnerTransferPayload,
 };
 use arkret_wire::{
-    Did, Error, Event, EventId, EventKind, Hash, Hlc, REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef,
+    AuthorizationRef, Did, Error, Event, EventId, EventKind, Hash, Hlc, REALM_AUTHORITY_ROOT_CELL,
+    Result, ScopeRef,
 };
 use serde::{Deserialize, Serialize};
 
@@ -88,7 +89,10 @@ fn build_realm_authority_event<T: Serialize>(
         hlc,
         serde_json::to_value(payload)?,
     )?;
-    event.authorization_ref = Some(REALM_AUTHORITY_ROOT_CELL.to_owned());
+    event.authorization_ref = Some(
+        AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
+            .expect("realm authority-root constant must be a valid authorization reference"),
+    );
     Ok(event)
 }
 

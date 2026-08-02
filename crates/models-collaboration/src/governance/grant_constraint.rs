@@ -395,8 +395,6 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_expansion_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub parent_reference_required: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
@@ -540,7 +538,6 @@ impl GrantConstraint {
             authority_regrant_allowed: None,
             authority_scope: None,
             scope_expansion_allowed: None,
-            parent_reference_required: None,
             applet_id: None,
             executed_by: None,
             registration_epoch: None,
@@ -706,6 +703,18 @@ pub enum IssuerAuthorityRef {
     },
 }
 
+/// Reducer-derived identity of one authority root reached by a grant.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AuthorityRootRef {
+    RealmRoot {
+        realm_id: RealmId,
+        cell_ref: String,
+        authority_generation: u64,
+    },
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityGrant {
@@ -792,7 +801,25 @@ mod tests {
     }
 
     #[test]
-    fn applet_delegation_uses_registered_delegation_control_shape() {
+    fn capability_grant_rejects_missing_issuer_authority_refs() {
+        let error = serde_json::from_value::<CapabilityGrant>(json!({
+            "id": "ak:grant:01904100-0000-7000-8000-000000000001",
+            "schema": "ak.schema.capability.v1",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "issuer": "did:web:issuer.example",
+            "subject": "did:web:subject.example",
+            "actions": ["ak.event.read"],
+            "resources": [{"kind": "realm"}],
+            "issued_at": "2026-07-14T12:34:56.789Z",
+            "proofs": []
+        }))
+        .expect_err("issuer_authority_refs is required by capability-grant.schema.json");
+
+        assert!(error.to_string().contains("issuer_authority_refs"));
+    }
+
+    #[test]
+    fn applet_authority_uses_registered_authority_control_shape() {
         let constraint = GrantConstraint::applet_authority(
             AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             Did::new("did:web:calendar.example").unwrap(),
@@ -822,7 +849,12 @@ mod tests {
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            issuer_authority_refs: Vec::new(),
+            issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
+                controller_epoch_at_issuance: 0,
+                authority_generation: 0,
+            }],
             issued_at: fractional,
             not_before: Some(fractional),
             expires_at: Some(fractional),
