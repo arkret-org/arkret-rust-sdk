@@ -59,8 +59,9 @@ const MLS_GOVERNANCE_CHUNK_DOMAIN: &[u8] = b"arkret-mls-governance-proof-chunk-v
 // Leaves enough headroom for the repeated response header and JSON delimiters.
 const MLS_GOVERNANCE_MAX_CHUNK_ITEM_BYTES: usize = 3_500_000;
 
-const POLICY_BUNDLE_CELL: &str = "ak.component.realm.policy_bundle.v1";
-const PLAINTEXT_VISIBLE_SERVICES_CELL: &str = "ak.component.realm.plaintext_visible_services.v1";
+const POLICY_BUNDLE_CELL: &str = arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1;
+const PLAINTEXT_VISIBLE_SERVICES_CELL: &str =
+    arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -724,14 +725,14 @@ pub fn assemble_mls_governance_proof_chunks(
 pub fn is_mls_membership_frontier_component(component: &str) -> bool {
     matches!(
         component,
-        "ak.component.member.state.v1"
-            | "ak.component.realm.create.v1"
-            | "ak.component.circle.member.v1"
-            | "ak.component.account.status.v1"
-            | "ak.component.device.authorization.v1"
-            | "ak.component.device.list_update.v1"
-            | "ak.component.realm.tombstone.v1"
-            | "ak.component.realm.destroy.v1"
+        arkret_wire::CellFamilyId::MEMBER_STATE_V1
+            | arkret_wire::CellFamilyId::REALM_CREATE_V1
+            | arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1
+            | arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1
+            | arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1
+            | arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1
+            | arkret_wire::CellFamilyId::REALM_TOMBSTONE_V1
+            | arkret_wire::CellFamilyId::REALM_DESTROY_V1
     )
 }
 

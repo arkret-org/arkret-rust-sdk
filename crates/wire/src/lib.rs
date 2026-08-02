@@ -110,7 +110,7 @@ pub use extension_manifest::{
 pub use extension_map::XExtensionMap;
 pub use generated::{
     AccountDataKey, AlgorithmSuiteDescriptor, AuthoritySetPolicyKind, AuthoritySetSourceKind,
-    BindingKind, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileDescriptor,
+    BindingKind, CapabilityActionId, CellFamilyId, DIGEST_SUITES, DidFreshnessProfileDescriptor,
     DidFreshnessProfileId, DidFreshnessRiskTier, EVENT_KIND_COUNT, EXPORTER_LABELS, EventKind,
     ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS,
     MlsExtensionDescriptor, OPERATION_ERROR_MAPPINGS, OperationErrorMappingDescriptor,

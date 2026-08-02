@@ -10,6 +10,10 @@
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/event-kind-registry.json"
+      ],
+      "provides": [
+        "EventKind",
+        "CellFamilyId"
       ]
     },
     {

@@ -33,7 +33,7 @@ pub const SECRET_REQUEST_KIND: &str = "ak.secret.request";
 /// Wire `kind` of a sealed device-to-device secret response.
 pub const SECRET_SEND_KIND: &str = "ak.secret.send";
 /// Cell family carrying the per-Realm media-service binding.
-pub const REALM_MEDIA_SERVICE_CELL_FAMILY: &str = "ak.component.realm.media_service.v1";
+pub const REALM_MEDIA_SERVICE_CELL_FAMILY: &str = crate::CellFamilyId::REALM_MEDIA_SERVICE_V1;
 /// `signature.type` of a signed identity recovery policy.
 pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str = "ak.identity.recovery_policy.signature.v1";
 

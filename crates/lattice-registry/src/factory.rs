@@ -22,7 +22,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(DeviceAuthorized);
     registry.register(DeviceListUpdate);
     registry.register(AgentKey);
-    registry.register(CoveredSeals);
     registry.register(KeyBackupActiveSeries);
     registry.register(CallModeration);
     registry.register(CallRoster);

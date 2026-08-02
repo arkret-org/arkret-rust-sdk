@@ -246,7 +246,7 @@ mod tests {
     fn parse_simple_cell_id() {
         let id =
             CellId::parse("ak:cell:ak.component.member.state.v1:did.web.alice.example").unwrap();
-        assert_eq!(id.component(), "ak.component.member.state.v1");
+        assert_eq!(id.component(), crate::CellFamilyId::MEMBER_STATE_V1);
         assert_eq!(id.subject(), "did.web.alice.example");
     }
 
@@ -256,17 +256,19 @@ mod tests {
             "ak:cell:ak.component.capability.grant.v1:ak.grant.01js0gr0000000000000000000",
         )
         .unwrap();
-        assert_eq!(id.component(), "ak.component.capability.grant.v1");
+        assert_eq!(id.component(), crate::CellFamilyId::CAPABILITY_GRANT_V1);
         assert_eq!(id.subject(), "ak.grant.01js0gr0000000000000000000");
     }
 
     #[test]
     fn parse_subject_with_inner_colons_keeps_them_in_subject() {
         // Subject can include further colons (e.g. typed ids inside).
-        let id =
-            CellId::parse("ak:cell:ak.component.consent.v1:ak:consent:01js0c00000000000000000000")
-                .unwrap();
-        assert_eq!(id.component(), "ak.component.consent.v1");
+        let id = CellId::parse(&format!(
+            "ak:cell:{}:ak:consent:01js0c00000000000000000000",
+            crate::CellFamilyId::CONSENT_GRANT_V1
+        ))
+        .unwrap();
+        assert_eq!(id.component(), crate::CellFamilyId::CONSENT_GRANT_V1);
         assert_eq!(id.subject(), "ak:consent:01js0c00000000000000000000");
     }
 
@@ -408,17 +410,19 @@ mod tests {
 
     #[test]
     fn from_ref_uses_typed_cell_ref() {
-        let cref =
-            CellRef::new("ak:cell:ak.component.consent.v1:ak.consent.01js0cc0000000000000000000")
-                .unwrap();
+        let cref = CellRef::new(format!(
+            "ak:cell:{}:ak.consent.01js0cc0000000000000000000",
+            crate::CellFamilyId::CONSENT_GRANT_V1
+        ))
+        .unwrap();
         let id = CellId::from_ref(&cref).unwrap();
-        assert_eq!(id.component(), "ak.component.consent.v1");
+        assert_eq!(id.component(), crate::CellFamilyId::CONSENT_GRANT_V1);
     }
 
     #[test]
     fn to_cell_ref_round_trips_through_ref_validator() {
         let id = CellId {
-            component: "ak.component.member.state.v1".to_owned(),
+            component: crate::CellFamilyId::MEMBER_STATE_V1.to_owned(),
             subject: "did.web.alice.example".to_owned(),
         };
         let cref = id.to_cell_ref().unwrap();
@@ -436,9 +440,9 @@ mod null_subject_tests {
     #[test]
     fn canonical_null_subject_cells_match_the_builder() {
         for (constant, family) in [
-            (REALM_CREATE_CELL, "ak.component.realm.create.v1"),
-            (REALM_METADATA_CELL, "ak.component.realm.metadata.v1"),
-            (REALM_NOTARY_CELL, "ak.component.notary.v1"),
+            (REALM_CREATE_CELL, crate::CellFamilyId::REALM_CREATE_V1),
+            (REALM_METADATA_CELL, crate::CellFamilyId::REALM_METADATA_V1),
+            (REALM_NOTARY_CELL, crate::CellFamilyId::NOTARY_V1),
         ] {
             assert_eq!(constant, null_subject_cell(family));
             let parsed = CellId::parse(constant).expect("canonical null-subject cell parses");

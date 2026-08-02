@@ -510,7 +510,7 @@ fn dotted_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
         .try_fold(value, |current, segment| current.get(segment))
 }
 
-const CAPABILITY_GRANT_CELL_FAMILY: &str = "ak.component.capability.grant.v1";
+const CAPABILITY_GRANT_CELL_FAMILY: &str = arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1;
 
 #[derive(Debug, Deserialize)]
 struct CapabilityGrantCellValue {
@@ -1142,7 +1142,7 @@ mod tests {
         let event = control_move(vec![pre], vec![]);
         let mut registry = MemoryCellRegistry::new();
         registry.register_fsm(
-            "ak.component.member.state.v1",
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
             Some(json!("invited")),
             vec![(json!("invited"), json!("join"))],
             BottomMode::Inert,

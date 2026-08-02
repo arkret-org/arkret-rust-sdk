@@ -133,8 +133,11 @@ $cellFamilyNames = @($cellFamilyPlaneByFamily.Keys | ForEach-Object { [string]$_
 [System.Array]::Sort($cellFamilyNames, [System.StringComparer]::Ordinal)
 $cellFamilyPlanes = @($cellFamilyNames | ForEach-Object {
     $plane = [string]$cellFamilyPlaneByFamily[$_]
+    $body = $_ -replace '^ak\.component\.', ''
     [PSCustomObject]@{
         Family = $_
+        Variant = ConvertTo-SimpleVariant -Value $body
+        AssociatedName = ($body -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
         Plane = $plane
         PlaneVariant = ConvertTo-SimpleVariant -Value $plane
     }
@@ -191,6 +194,66 @@ foreach ($category in $categories) {
 & $add '            Self::Data => "data",'
 & $add '            Self::Control => "control",'
 & $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "/// Registered Arkret cell-family identifiers. Every registered"
+& $add "/// ``ak.component.*`` literal the SDK ships is spelled exactly once here."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]"
+& $add "#[repr(usize)]"
+& $add "pub enum CellFamilyId {"
+foreach ($entry in $cellFamilyPlanes) {
+    & $add "    $($entry.Variant),"
+}
+& $add "}"
+& $add ""
+& $add "impl CellFamilyId {"
+& $add "    pub const ALL: &'static [Self] = &["
+foreach ($entry in $cellFamilyPlanes) {
+    & $add "        Self::$($entry.Variant),"
+}
+& $add "    ];"
+& $add ""
+foreach ($entry in $cellFamilyPlanes) {
+    & $add "    pub const $($entry.AssociatedName): &'static str = `"$($entry.Family)`";"
+}
+& $add ""
+& $add "    pub const fn as_str(self) -> &'static str {"
+& $add "        match self {"
+foreach ($entry in $cellFamilyPlanes) {
+    & $add "            Self::$($entry.Variant) => Self::$($entry.AssociatedName),"
+}
+& $add "        }"
+& $add "    }"
+& $add ""
+& $add "    pub fn from_wire(value: &str) -> Option<Self> {"
+& $add "        match value {"
+foreach ($entry in $cellFamilyPlanes) {
+    & $add "            Self::$($entry.AssociatedName) => Some(Self::$($entry.Variant)),"
+}
+& $add "            _ => None,"
+& $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "impl std::fmt::Display for CellFamilyId {"
+& $add "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {"
+& $add "        f.write_str(self.as_str())"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "impl Serialize for CellFamilyId {"
+& $add "    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {"
+& $add "        serializer.serialize_str(self.as_str())"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "impl<'de> Deserialize<'de> for CellFamilyId {"
+& $add "    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {"
+& $add "        let raw = String::deserialize(deserializer)?;"
+& $add "        Self::from_wire(&raw).ok_or_else(|| {"
+& $add '            serde::de::Error::custom(format!("unknown cell family: {raw}"))'
+& $add "        })"
 & $add "    }"
 & $add "}"
 & $add ""
@@ -424,7 +487,7 @@ foreach ($e in $entries) {
 & $add "pub const CELL_FAMILY_PLANE_DESCRIPTORS: &[CellFamilyPlaneDescriptor] = &["
 foreach ($entry in $cellFamilyPlanes) {
     & $add "    CellFamilyPlaneDescriptor {"
-    & $add "        cell_family: `"$($entry.Family)`","
+    & $add "        cell_family: CellFamilyId::$($entry.AssociatedName),"
     & $add "        plane: CbaEffectPlane::$($entry.PlaneVariant),"
     & $add "    },"
 }
@@ -437,7 +500,13 @@ foreach ($e in $entries) {
     $admission = if ($null -eq $e.Admission) { "None" } else { "Some(`"$($e.Admission)`")" }
     $payloadSchema = if ($null -eq $e.PayloadSchema) { "None" } else { "Some(`"$($e.PayloadSchema)`")" }
     $payloadSchemaRef = if ($null -eq $e.PayloadSchemaRef) { "None" } else { "Some(`"$($e.PayloadSchemaRef)`")" }
-    $cellFamily = if ($null -eq $e.CellFamily) { "None" } else { "Some(`"$($e.CellFamily)`")" }
+    $cellFamily = if ($null -eq $e.CellFamily) {
+        "None"
+    } else {
+        $cellFamilyBody = $e.CellFamily -replace '^ak\.component\.', ''
+        $cellFamilyAssociatedName = ($cellFamilyBody -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
+        "Some(CellFamilyId::$cellFamilyAssociatedName)"
+    }
     $cellSubjectRule = if ($null -eq $e.CellSubjectRule) { "None" } else { "Some(r#`"$($e.CellSubjectRule)`"#)" }
     $valueProjectionRule = if ($null -eq $e.ValueProjectionRule) { "None" } else { "Some(r#`"$($e.ValueProjectionRule)`"#)" }
     $lattice = if ($null -eq $e.Lattice) { "None" } else { "Some(`"$($e.Lattice)`")" }
@@ -478,6 +547,13 @@ foreach ($e in $entries) {
 & $add "                descriptor.plane,"
 & $add '                "cell family {cell_family} drifted from its event descriptor",'
 & $add "            );"
+& $add "        }"
+& $add "    }"
+& $add ""
+& $add "    #[test]"
+& $add "    fn every_cell_family_round_trips_through_its_generated_id() {"
+& $add "        for id in CellFamilyId::ALL {"
+& $add "            assert_eq!(CellFamilyId::from_wire(id.as_str()), Some(*id));"
 & $add "        }"
 & $add "    }"
 & $add "}"

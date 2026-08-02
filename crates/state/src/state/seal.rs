@@ -475,7 +475,7 @@ fn recovery_witness_freshness_window_ms(pre_state: &BTreeMap<CellRef, CellState>
         .iter()
         .find_map(|(cell, state)| {
             let cell_id = crate::CellId::parse(cell.as_str()).ok()?;
-            if cell_id.component() != "ak.component.realm.metadata.v1" {
+            if cell_id.component() != arkret_wire::CellFamilyId::REALM_METADATA_V1 {
                 return None;
             }
             let CellState::Value(value) = state else {
@@ -1549,7 +1549,7 @@ mod tests {
         let cells = MemoryCellStore::default();
         let mut registry = MemoryCellRegistry::new();
         registry.register_fsm(
-            "ak.component.member.state.v1",
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
             Some(json!("leave")),
             vec![
                 (json!("leave"), json!("join")),

@@ -27,6 +27,8 @@ jobs:
         run: python tools/check-layering.py
       - name: Guard protocol time representations
         run: python tools/lint-time-representations.py
+      - name: Guard registered cell-family constants
+        run: python tools/lint-cell-family-literals.py
       - name: Guard weak wire types and closed-schema boundaries
         run: |
           python tools/wire_value_audit.py --check

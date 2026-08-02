@@ -14,7 +14,7 @@ use serde_json::Value;
 
 pub const AGENT_SIGNING_KEY_BINDING_CONTEXT: &str = "ak.agent-signing-key-binding-v1\n";
 pub const AGENT_EVIDENCE_FRESHNESS_CONTEXT: &str = "ak.agent-evidence-freshness-v1\n";
-pub const AGENT_KEY_COMPONENT: &str = "ak.component.agent.key.v1";
+pub const AGENT_KEY_COMPONENT: &str = arkret_wire::CellFamilyId::AGENT_KEY_V1;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

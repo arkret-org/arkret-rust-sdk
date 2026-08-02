@@ -832,7 +832,7 @@ impl Default for MemoryCellRegistry {
 
         // Membership FSM (per spec event-auth-state-resolution.md §5).
         bindings.insert(
-            "ak.component.member.state.v1".to_owned(),
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::Fsm,
                 bottom_mode: BottomMode::Reject,
@@ -849,7 +849,7 @@ impl Default for MemoryCellRegistry {
 
         // Capability grant or-set.
         bindings.insert(
-            "ak.component.capability.grant.v1".to_owned(),
+            arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Reject,
@@ -860,7 +860,7 @@ impl Default for MemoryCellRegistry {
 
         // Consent or-set (ak.component.consent.grant.v1) — spec consent-model §3.1.
         bindings.insert(
-            "ak.component.consent.grant.v1".to_owned(),
+            arkret_wire::CellFamilyId::CONSENT_GRANT_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Reject,
@@ -871,7 +871,7 @@ impl Default for MemoryCellRegistry {
 
         // Notary cell — cas-register, bottom=reject.
         bindings.insert(
-            "ak.component.notary.v1".to_owned(),
+            arkret_wire::CellFamilyId::NOTARY_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -882,7 +882,7 @@ impl Default for MemoryCellRegistry {
 
         // Generic Realm policy — cas-register, bottom=reject (spec §5 example).
         bindings.insert(
-            "ak.component.realm.policy.v1".to_owned(),
+            arkret_wire::CellFamilyId::REALM_POLICY_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -927,7 +927,7 @@ impl Default for MemoryCellRegistry {
         // MLS commit Move target cells (spec §10).
         // mls_epoch: cas-register, bottom=reject (racing commits fail closed).
         bindings.insert(
-            "ak.component.mls.epoch.v1".to_owned(),
+            arkret_wire::CellFamilyId::MLS_EPOCH_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -937,7 +937,7 @@ impl Default for MemoryCellRegistry {
         );
         // key_schedule: cas-register, bottom=reject (one schedule per epoch).
         bindings.insert(
-            "ak.component.mls.key_schedule.v1".to_owned(),
+            arkret_wire::CellFamilyId::MLS_KEY_SCHEDULE_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -945,19 +945,6 @@ impl Default for MemoryCellRegistry {
                 fsm_transitions: vec![],
             },
         );
-        // covered_seals: or-set, bottom=expose (governance seal heads
-        // accumulate; lag exposes multi-head to projection but doesn't
-        // block governance Moves).
-        bindings.insert(
-            "ak.component.covered_seals.v1".to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::OrSet,
-                bottom_mode: BottomMode::Expose,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
         Self { bindings }
     }
 }

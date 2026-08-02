@@ -169,19 +169,19 @@ fn project_frontier_value(
 ) -> Result<Option<Value>> {
     let subject = decoded_cell_subject(cell_id)?;
     match family {
-        "ak.component.member.state.v1" => {
+        arkret_wire::CellFamilyId::MEMBER_STATE_V1 => {
             if !matches!(scope, ScopeRef::Realm { .. }) {
                 return Ok(None);
             }
             Ok(project_membership(value))
         }
-        "ak.component.circle.member.v1" => {
+        arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1 => {
             if !matches!(scope, ScopeRef::Circle { .. }) {
                 return Ok(None);
             }
             Ok(project_membership(value))
         }
-        "ak.component.account.status.v1" => {
+        arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1 => {
             let principal = subject_single_string(&subject)?;
             if !leaf_principals.contains(principal) {
                 return Ok(None);
@@ -189,7 +189,7 @@ fn project_frontier_value(
             let status = scalar_or_field(value, &["status", "state"])?;
             Ok(Some(json!({"principal_id": principal, "status": status})))
         }
-        "ak.component.agent.status.v1" => {
+        arkret_wire::CellFamilyId::AGENT_STATUS_V1 => {
             let principal = subject_single_string(&subject)?;
             if !leaf_principals.contains(principal) {
                 return Ok(None);
@@ -197,7 +197,8 @@ fn project_frontier_value(
             let status = scalar_or_field(value, &["status", "state"])?;
             Ok(Some(json!({"agent_id": principal, "status": status})))
         }
-        "ak.component.device.authorization.v1" | "ak.component.agent.key.v1" => {
+        arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1
+        | arkret_wire::CellFamilyId::AGENT_KEY_V1 => {
             if leaf_credentials
                 .iter()
                 .any(|credential| value_contains_string(value, credential))
@@ -210,7 +211,7 @@ fn project_frontier_value(
                 Ok(None)
             }
         }
-        "ak.component.device.reanchor.v1" => {
+        arkret_wire::CellFamilyId::DEVICE_REANCHOR_V1 => {
             if leaf_principals
                 .iter()
                 .any(|principal| value_contains_string(value, principal))
@@ -223,7 +224,7 @@ fn project_frontier_value(
                 Ok(None)
             }
         }
-        "ak.component.realm.policy_bundle.v1" => Ok(Some(project_fields(
+        arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1 => Ok(Some(project_fields(
             value,
             &[
                 "content_scheme",
@@ -232,12 +233,12 @@ fn project_frontier_value(
                 "media_service_decrypts",
             ],
         )?)),
-        "ak.component.realm.history_visibility.v1"
-        | "ak.component.realm.history_sharing_policy.v1" => Ok(Some(value.clone())),
-        "ak.component.realm.plaintext_visible_services.v1" => {
+        arkret_wire::CellFamilyId::REALM_HISTORY_VISIBILITY_V1
+        | arkret_wire::CellFamilyId::REALM_HISTORY_SHARING_POLICY_V1 => Ok(Some(value.clone())),
+        arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1 => {
             Ok(Some(project_plaintext_visible_services(value)?))
         }
-        "ak.component.circle.create.v1" => {
+        arkret_wire::CellFamilyId::CIRCLE_CREATE_V1 => {
             if !matches!(scope, ScopeRef::Circle { .. }) {
                 return Ok(None);
             }
@@ -246,7 +247,7 @@ fn project_frontier_value(
                 &["encryption_profile", "history_visibility"],
             )?))
         }
-        "ak.component.circle.metadata.v1" => {
+        arkret_wire::CellFamilyId::CIRCLE_METADATA_V1 => {
             if !matches!(scope, ScopeRef::Circle { .. }) {
                 return Ok(None);
             }
@@ -712,11 +713,11 @@ pub fn is_mls_policy_root_component(component: &str) -> bool {
         && (component.contains("policy")
             || matches!(
                 component,
-                "ak.component.realm.join_rule.v1"
-                    | "ak.component.realm.history_visibility.v1"
-                    | "ak.component.realm.media_service.v1"
-                    | "ak.component.realm.policy_bundle.v1"
-                    | "ak.component.realm.plaintext_visible_services.v1"
+                arkret_wire::CellFamilyId::REALM_JOIN_RULE_V1
+                    | arkret_wire::CellFamilyId::REALM_HISTORY_VISIBILITY_V1
+                    | arkret_wire::CellFamilyId::REALM_MEDIA_SERVICE_V1
+                    | arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1
+                    | arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1
             )))
         || (component.starts_with("ak.component.circle.")
             && ["policy", "history", "encryption", "lifecycle"]
@@ -837,7 +838,7 @@ mod tests {
         let mut leaves = vec![
             MlsGovernanceControlStateLeaf {
                 cell: cell(
-                    "ak.component.member.state.v1",
+                    arkret_wire::CellFamilyId::MEMBER_STATE_V1,
                     "did:webvh:z6mkfixture:alice.example",
                 ),
                 state: MlsGovernanceControlStateValue {
@@ -845,14 +846,17 @@ mod tests {
                 },
             },
             MlsGovernanceControlStateLeaf {
-                cell: cell("ak.component.realm.policy_bundle.v1", realm().as_str()),
+                cell: cell(
+                    arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1,
+                    realm().as_str(),
+                ),
                 state: MlsGovernanceControlStateValue {
                     value: json!({"media_service_decrypts": true}),
                 },
             },
             MlsGovernanceControlStateLeaf {
                 cell: cell(
-                    "ak.component.realm.plaintext_visible_services.v1",
+                    arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1,
                     realm().as_str(),
                 ),
                 state: MlsGovernanceControlStateValue {
@@ -867,7 +871,10 @@ mod tests {
                 },
             },
             MlsGovernanceControlStateLeaf {
-                cell: cell("ak.component.capability.grant.v1", "ak.grant.fixture"),
+                cell: cell(
+                    arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1,
+                    "ak.grant.fixture",
+                ),
                 state: MlsGovernanceControlStateValue {
                     value: json!({"active": true}),
                 },
@@ -1066,7 +1073,7 @@ mod tests {
     /// the caller's projector returns.
     fn project_member_cell(_: &Event) -> Result<Vec<CellRef>> {
         Ok(vec![cell(
-            "ak.component.member.state.v1",
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
             "did.web.alice.example",
         )])
     }

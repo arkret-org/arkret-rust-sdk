@@ -121,19 +121,19 @@ mod tests {
             .iter()
             .map(|contract| (contract.cell_family.as_str(), contract))
             .collect();
-        let realm_member = by_family["ak.component.member.state.v1"];
+        let realm_member = by_family[arkret_wire::CellFamilyId::MEMBER_STATE_V1];
         assert!(
             realm_member
                 .allowed_transitions
                 .contains(&("join".to_owned(), "join".to_owned()))
         );
-        let circle_member = by_family["ak.component.circle.member.v1"];
+        let circle_member = by_family[arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1];
         assert!(
             !circle_member
                 .allowed_transitions
                 .contains(&("join".to_owned(), "join".to_owned()))
         );
-        let keypackage = by_family["ak.component.mls.keypackage.v1"];
+        let keypackage = by_family[arkret_wire::CellFamilyId::MLS_KEYPACKAGE_V1];
         assert!(keypackage.states.contains(&"retired".to_owned()));
         assert!(!keypackage.states.contains(&"expired".to_owned()));
         assert!(
@@ -304,7 +304,7 @@ mod tests {
     fn applet_registration_uses_spec_cas_register_binding() {
         let registry = default_lattice_registry();
         let kind = registry
-            .lookup("ak.component.applet.registration.v1")
+            .lookup(arkret_wire::CellFamilyId::APPLET_REGISTRATION_V1)
             .expect("Applet registration family must be registered");
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
@@ -320,7 +320,9 @@ mod tests {
     #[test]
     fn consent_grant_has_or_set_lattice_and_consent_id_subject() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.consent.grant.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::CONSENT_GRANT_V1)
+            .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
         let payload = json!({"consent_id": "cnt:01HXYZ"});
@@ -332,7 +334,7 @@ mod tests {
     fn moderation_state_has_or_set_lattice_and_target_ref_subject() {
         let registry = default_lattice_registry();
         let kind = registry
-            .lookup("ak.component.moderation_state.v1")
+            .lookup(arkret_wire::CellFamilyId::MODERATION_STATE_V1)
             .expect("moderation state must be registered");
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Expose);
@@ -350,8 +352,14 @@ mod tests {
 
     #[test]
     fn member_state_uses_fsm_lattice_with_actor_subject() {
+        assert_eq!(
+            MemberState::CELL_FAMILY,
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1
+        );
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.member.state.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::MEMBER_STATE_V1)
+            .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
         let payload = json!({"actor_id": "did:example:alice"});
         let subject = kind.subject_for_effect(&payload).unwrap();
@@ -359,10 +367,18 @@ mod tests {
     }
 
     #[test]
+    fn strand_metadata_exposes_its_registered_cell_family() {
+        assert_eq!(
+            StrandMetadata::CELL_FAMILY,
+            arkret_wire::CellFamilyId::STRAND_METADATA_V1
+        );
+    }
+
+    #[test]
     fn realm_link_uses_tuple_subject_fsm_and_rejects_bottom() {
         let registry = default_lattice_registry();
         let kind = registry
-            .lookup("ak.component.realm.link.v1")
+            .lookup(arkret_wire::CellFamilyId::REALM_LINK_V1)
             .expect("Realm Link cell must be registered");
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
@@ -423,7 +439,7 @@ mod tests {
     fn invite_lifecycle_fsm_uses_null_to_pending_then_accepted() {
         let registry = default_lattice_registry();
         let kind = registry
-            .lookup("ak.component.invite.lifecycle.v1")
+            .lookup(arkret_wire::CellFamilyId::INVITE_LIFECYCLE_V1)
             .expect("invite lifecycle must be registered");
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(
@@ -479,9 +495,9 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
         for (family, initial) in [
-            ("ak.component.audit.binding.v1", "active"),
-            ("ak.component.audit.session.v1", "request"),
-            ("ak.component.realm.link.v1", "active"),
+            (arkret_wire::CellFamilyId::AUDIT_BINDING_V1, "active"),
+            (arkret_wire::CellFamilyId::AUDIT_SESSION_V1, "request"),
+            (arkret_wire::CellFamilyId::REALM_LINK_V1, "active"),
         ] {
             let cell = CellRef::new(format!("ak:cell:{family}:initial")).unwrap();
             let binding = registry.resolve(&realm_id, &cell).unwrap();
@@ -570,13 +586,13 @@ mod tests {
     fn agent_provision_control_families_are_registered() {
         let registry = default_lattice_registry();
         let accountability = registry
-            .lookup("ak.component.identity.accountability.v1")
+            .lookup(arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1)
             .expect("identity accountability must be registered");
         assert_eq!(accountability.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(accountability.bottom_policy(), BottomPolicy::Reject);
 
         let selector = registry
-            .lookup("ak.component.agent.selector_claim.v1")
+            .lookup(arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1)
             .expect("agent selector claim must be registered");
         assert_eq!(selector.lattice(), SdkLatticeKind::MvRegister);
         assert_eq!(selector.bottom_policy(), BottomPolicy::Expose);
@@ -595,8 +611,8 @@ mod tests {
         let sdk_registry = build_sdk_cell_registry();
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
         for family in [
-            "ak.component.identity.accountability.v1",
-            "ak.component.agent.selector_claim.v1",
+            arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1,
+            arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1,
         ] {
             let cell = CellRef::new(format!("ak:cell:{family}:fixture")).unwrap();
             sdk_registry
@@ -608,7 +624,9 @@ mod tests {
     #[test]
     fn call_state_and_summary_use_call_id_subjects() {
         let registry = default_lattice_registry();
-        let state = registry.lookup("ak.component.call.state.v1").unwrap();
+        let state = registry
+            .lookup(arkret_wire::CellFamilyId::CALL_STATE_V1)
+            .unwrap();
         assert_eq!(state.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(
             state
@@ -617,7 +635,9 @@ mod tests {
                 .as_deref(),
             Some("ak:call:01")
         );
-        let summary = registry.lookup("ak.component.call.summary.v1").unwrap();
+        let summary = registry
+            .lookup(arkret_wire::CellFamilyId::CALL_SUMMARY_V1)
+            .unwrap();
         assert_eq!(summary.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(
             summary
@@ -636,9 +656,9 @@ mod tests {
         let expected_capture_subject = composite_subject(&[call_id, recording_id]).unwrap();
 
         for family in [
-            "ak.component.call.focus.v1",
-            "ak.component.call.moderation.v1",
-            "ak.component.call.roster.v1",
+            arkret_wire::CellFamilyId::CALL_FOCUS_V1,
+            arkret_wire::CellFamilyId::CALL_MODERATION_V1,
+            arkret_wire::CellFamilyId::CALL_ROSTER_V1,
         ] {
             let kind = registry.lookup(family).unwrap();
             assert_eq!(
@@ -650,21 +670,23 @@ mod tests {
         }
         assert_eq!(
             registry
-                .lookup("ak.component.call.focus.v1")
+                .lookup(arkret_wire::CellFamilyId::CALL_FOCUS_V1)
                 .unwrap()
                 .lattice(),
             SdkLatticeKind::CasRegister
         );
         for family in [
-            "ak.component.call.moderation.v1",
-            "ak.component.call.roster.v1",
+            arkret_wire::CellFamilyId::CALL_MODERATION_V1,
+            arkret_wire::CellFamilyId::CALL_ROSTER_V1,
         ] {
             let kind = registry.lookup(family).unwrap();
             assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
             assert_eq!(kind.bottom_policy(), BottomPolicy::Inert);
         }
 
-        let recording = registry.lookup("ak.component.call.recording.v1").unwrap();
+        let recording = registry
+            .lookup(arkret_wire::CellFamilyId::CALL_RECORDING_V1)
+            .unwrap();
         assert_eq!(recording.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(
             recording
@@ -687,7 +709,9 @@ mod tests {
             Some(expected_capture_subject.as_str())
         );
 
-        let transcript = registry.lookup("ak.component.call.transcript.v1").unwrap();
+        let transcript = registry
+            .lookup(arkret_wire::CellFamilyId::CALL_TRANSCRIPT_V1)
+            .unwrap();
         assert_eq!(transcript.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(
             transcript
@@ -701,8 +725,8 @@ mod tests {
         );
 
         for family in [
-            "ak.component.call.recording_result.v1",
-            "ak.component.call.transcript_result.v1",
+            arkret_wire::CellFamilyId::CALL_RECORDING_RESULT_V1,
+            arkret_wire::CellFamilyId::CALL_TRANSCRIPT_RESULT_V1,
         ] {
             assert_eq!(
                 registry.lookup(family).unwrap().lattice(),
@@ -710,7 +734,7 @@ mod tests {
             );
         }
         let mute = registry
-            .lookup("ak.component.call.mute_override.v1")
+            .lookup(arkret_wire::CellFamilyId::CALL_MUTE_OVERRIDE_V1)
             .unwrap();
         assert_eq!(mute.lattice(), SdkLatticeKind::CasRegister);
         let expected_mute_subject = composite_subject(&[
@@ -735,8 +759,8 @@ mod tests {
         let sdk_registry = build_sdk_cell_registry();
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000033").unwrap();
         for family in [
-            "ak.component.call.moderation.v1",
-            "ak.component.call.roster.v1",
+            arkret_wire::CellFamilyId::CALL_MODERATION_V1,
+            arkret_wire::CellFamilyId::CALL_ROSTER_V1,
         ] {
             let cell = CellRef::new(format!("ak:cell:{family}:{call_id}")).unwrap();
             assert_eq!(
@@ -750,9 +774,9 @@ mod tests {
     fn inert_ordered_create_cells_are_registered_as_inert() {
         let registry = default_lattice_registry();
         for family in [
-            "ak.component.circle.create.v1",
-            "ak.component.sidecar.create.v1",
-            "ak.component.realm.create.v1",
+            arkret_wire::CellFamilyId::CIRCLE_CREATE_V1,
+            arkret_wire::CellFamilyId::SIDECAR_CREATE_V1,
+            arkret_wire::CellFamilyId::REALM_CREATE_V1,
         ] {
             let kind = registry.lookup(family).unwrap();
             assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
@@ -763,7 +787,9 @@ mod tests {
     #[test]
     fn realm_policy_is_singleton_cas_register() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.realm.policy.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::REALM_POLICY_V1)
+            .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         let subject = kind.subject_for_effect(&json!({})).unwrap();
         assert!(subject.is_none());
@@ -773,7 +799,7 @@ mod tests {
     fn policy_definition_is_per_policy_cas_register() {
         let registry = default_lattice_registry();
         let kind = registry
-            .lookup("ak.component.policy.definition.v1")
+            .lookup(arkret_wire::CellFamilyId::POLICY_DEFINITION_V1)
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
@@ -791,32 +817,25 @@ mod tests {
     #[test]
     fn notary_cell_is_singleton_cas_register_and_required() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.notary.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::NOTARY_V1)
+            .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
         let comp = kind.component();
         assert_eq!(comp.criticality, Criticality::Required);
-        assert_eq!(comp.component_type, "ak.component.notary.v1");
-    }
-
-    #[test]
-    fn covered_seals_is_singleton_or_set() {
-        let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.covered_seals.v1").unwrap();
-        assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
-        let subject = kind.subject_for_effect(&json!({})).unwrap();
-        assert!(subject.is_none());
+        assert_eq!(comp.component_type, arkret_wire::CellFamilyId::NOTARY_V1);
     }
 
     #[test]
     fn mv_register_families_have_expose_bottom() {
         let registry = default_lattice_registry();
         for family in [
-            "ak.component.profile.create.v1",
-            "ak.component.view.create.v1",
-            "ak.component.view.update.v1",
-            "ak.component.view.reconcile.v1",
-            "ak.component.mimi.room_binding.v1",
+            arkret_wire::CellFamilyId::PROFILE_CREATE_V1,
+            arkret_wire::CellFamilyId::VIEW_CREATE_V1,
+            arkret_wire::CellFamilyId::VIEW_UPDATE_V1,
+            arkret_wire::CellFamilyId::VIEW_RECONCILE_V1,
+            arkret_wire::CellFamilyId::MIMI_ROOM_BINDING_V1,
         ] {
             let kind = registry
                 .lookup(family)
@@ -833,9 +852,13 @@ mod tests {
     #[test]
     fn ordered_log_families_have_per_issuer_subject_or_singleton() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.realm.create.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::REALM_CREATE_V1)
+            .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
-        let kind = registry.lookup("ak.component.account.status.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1)
+            .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
         let payload = json!({"account_id": "act:01HXYZ"});
         let subject = kind.subject_for_effect(&payload).unwrap();
@@ -845,13 +868,15 @@ mod tests {
     #[test]
     fn missing_subject_field_surfaces_typed_error() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.strand.position.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::STRAND_POSITION_V1)
+            .unwrap();
         let err = kind
             .subject_for_effect(&json!({"unrelated": "x"}))
             .unwrap_err();
         match err {
             LatticeKindError::MissingSubjectField { cell_family, field } => {
-                assert_eq!(cell_family, "ak.component.strand.position.v1");
+                assert_eq!(cell_family, arkret_wire::CellFamilyId::STRAND_POSITION_V1);
                 assert_eq!(field, "strand_id");
             }
             other => panic!("unexpected error: {other:?}"),
@@ -861,7 +886,9 @@ mod tests {
     #[test]
     fn agent_key_subject_uses_canonical_composite_encoding() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ak.component.agent.key.v1").unwrap();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::AGENT_KEY_V1)
+            .unwrap();
         let agent_id = "did:webvh:z6mkfixture:agent.example";
         let key_id = "did:webvh:z6mkfixture:agent.example#runtime-1";
         let expected = composite_subject(&[agent_id, key_id]).unwrap();
@@ -882,21 +909,27 @@ mod tests {
         let grant = registry
             .lookup_for_event_kind("ak.consent.grant")
             .expect("ak.consent.grant should map to consent.grant.v1 cell");
-        assert_eq!(grant.cell_family(), "ak.component.consent.grant.v1");
+        assert_eq!(
+            grant.cell_family(),
+            arkret_wire::CellFamilyId::CONSENT_GRANT_V1
+        );
         let revoke = registry
             .lookup_for_event_kind("ak.consent.revoke")
             .expect("ak.consent.revoke shares the consent.grant.v1 cell (or-set rm)");
-        assert_eq!(revoke.cell_family(), "ak.component.consent.grant.v1");
+        assert_eq!(
+            revoke.cell_family(),
+            arkret_wire::CellFamilyId::CONSENT_GRANT_V1
+        );
     }
 
     #[test]
     fn lattice_kind_error_display_is_stable() {
         let err = LatticeKindError::MissingSubjectField {
-            cell_family: "ak.component.strand.position.v1",
+            cell_family: arkret_wire::CellFamilyId::STRAND_POSITION_V1,
             field: "strand_id",
         };
         let msg = format!("{err}");
-        assert!(msg.contains("ak.component.strand.position.v1"));
+        assert!(msg.contains(arkret_wire::CellFamilyId::STRAND_POSITION_V1));
         assert!(msg.contains("strand_id"));
     }
 }

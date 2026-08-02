@@ -36,14 +36,9 @@ pub struct SpaceObjectTombstonePayload {
     pub effective_at: Option<DateTime<Utc>>,
 }
 
-/// Cell family for `ak.strand.update` / `ak.strand.tracks.update`
-/// CAS-register cells. `bottom=reject` semantics — concurrent writes
-/// to the same cell are not joinable (CAS contention).
-pub const STRAND_FIELDS_CELL_FAMILY: &str = "ak.component.strand.metadata.v1";
-
 /// Round 4 — build the cell_subject for `ak.strand.update`.
-/// `(family=STRAND_FIELDS_CELL_FAMILY, subject=strand_id)`, CAS-register
-/// semantics, bottom=reject.
+/// `(family=CellFamilyId::STRAND_METADATA_V1, subject=strand_id)`,
+/// CAS-register semantics, bottom=reject.
 pub fn strand_update_cell_subject(strand_id: &StrandId) -> String {
     strand_id.as_str().to_owned()
 }

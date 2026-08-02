@@ -1582,8 +1582,8 @@ mod tests {
         // The target is not statically addressable: it comes from the payload,
         // so the same kind recovers cells of different families.
         for family in [
-            "ak.component.realm.policy.v1",
-            "ak.component.member.state.v1",
+            arkret_wire::CellFamilyId::REALM_POLICY_V1,
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
         ] {
             let cell = format!("ak:cell:{family}:null");
             let event = conflict_recovery_event(&cell, json!({"policy_revision": 8}));

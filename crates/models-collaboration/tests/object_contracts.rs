@@ -167,8 +167,8 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         })
         .with_revocation_freshness_window(60_000)
         .with_cell_lattice(
-            "ak.component.strand.track.v1",
-            "or_set",
+            arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
+            "cas_register",
             Some("reject".to_owned()),
         );
     realm.preview_policy_id =
@@ -205,9 +205,9 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(realm.cell_lattices.len(), 1);
     assert_eq!(
         realm.cell_lattices[0].cell_family,
-        "ak.component.strand.track.v1"
+        arkret_wire::CellFamilyId::STRAND_TRACKS_V1
     );
-    assert_eq!(realm.cell_lattices[0].lattice, "or_set");
+    assert_eq!(realm.cell_lattices[0].lattice, "cas_register");
     assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
 
     // Round-trip through serde to confirm wire shape.
@@ -228,7 +228,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(json["updated_by"], "did:webvh:z6mkfixture:bob.example");
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
-        "ak.component.strand.track.v1"
+        arkret_wire::CellFamilyId::STRAND_TRACKS_V1
     );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
@@ -513,8 +513,8 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
     realm.cell_lattices.push(CellLatticeDeclaration {
-        cell_family: "ak.component.strand.track.v1".to_owned(),
-        lattice: "or_set".to_owned(),
+        cell_family: arkret_wire::CellFamilyId::STRAND_TRACKS_V1.to_owned(),
+        lattice: "cas_register".to_owned(),
         bottom: Some("reject".to_owned()),
     });
     realm.updated_by = Some(updated_by);

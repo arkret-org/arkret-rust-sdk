@@ -26,9 +26,12 @@ macro_rules! singleton_lattice {
         $event_kinds:expr
     ) => {
         pub struct $struct_name;
+        impl $struct_name {
+            pub const CELL_FAMILY: &'static str = $cell_family;
+        }
         impl LatticeKind for $struct_name {
             fn cell_family(&self) -> &'static str {
-                $cell_family
+                Self::CELL_FAMILY
             }
             fn lattice(&self) -> SdkLatticeKind {
                 $lattice
@@ -38,7 +41,7 @@ macro_rules! singleton_lattice {
             }
             fn component(&self) -> ComponentDescriptor {
                 ComponentDescriptor {
-                    component_type: $cell_family,
+                    component_type: Self::CELL_FAMILY,
                     component_version: 1,
                     criticality: $criticality,
                 }
@@ -85,9 +88,12 @@ macro_rules! per_subject_lattice {
         $event_kinds:expr
     ) => {
         pub struct $struct_name;
+        impl $struct_name {
+            pub const CELL_FAMILY: &'static str = $cell_family;
+        }
         impl LatticeKind for $struct_name {
             fn cell_family(&self) -> &'static str {
-                $cell_family
+                Self::CELL_FAMILY
             }
             fn lattice(&self) -> SdkLatticeKind {
                 $lattice
@@ -97,7 +103,7 @@ macro_rules! per_subject_lattice {
             }
             fn component(&self) -> ComponentDescriptor {
                 ComponentDescriptor {
-                    component_type: $cell_family,
+                    component_type: Self::CELL_FAMILY,
                     component_version: 1,
                     criticality: $criticality,
                 }
@@ -111,7 +117,7 @@ macro_rules! per_subject_lattice {
                     .and_then(Value::as_str)
                     .map(|s| Some(s.to_owned()))
                     .ok_or(LatticeKindError::MissingSubjectField {
-                        cell_family: $cell_family,
+                        cell_family: Self::CELL_FAMILY,
                         field: $subject_field,
                     })
             }
@@ -126,7 +132,7 @@ macro_rules! per_subject_lattice {
 
 per_subject_lattice!(
     ConsentGrant,
-    "ak.component.consent.grant.v1",
+    arkret_wire::CellFamilyId::CONSENT_GRANT_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -136,7 +142,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     ModerationState,
-    "ak.component.moderation_state.v1",
+    arkret_wire::CellFamilyId::MODERATION_STATE_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -146,7 +152,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     CapabilityGrant,
-    "ak.component.capability.grant.v1",
+    arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -156,7 +162,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     CapabilityDerived,
-    "ak.component.capability.derived.v1",
+    arkret_wire::CellFamilyId::CAPABILITY_DERIVED_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -166,7 +172,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     SessionGrant,
-    "ak.component.session.grant.v1",
+    arkret_wire::CellFamilyId::SESSION_GRANT_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -176,7 +182,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     DeviceAuthorized,
-    "ak.component.device.authorization.v1",
+    arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -186,7 +192,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     DeviceListUpdate,
-    "ak.component.device.list_update.v1",
+    arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -197,7 +203,7 @@ per_subject_lattice!(
 pub struct AgentKey;
 impl LatticeKind for AgentKey {
     fn cell_family(&self) -> &'static str {
-        "ak.component.agent.key.v1"
+        arkret_wire::CellFamilyId::AGENT_KEY_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::OrSet
@@ -207,7 +213,7 @@ impl LatticeKind for AgentKey {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.agent.key.v1",
+            component_type: arkret_wire::CellFamilyId::AGENT_KEY_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -220,19 +226,19 @@ impl LatticeKind for AgentKey {
             .get("agent_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.agent.key.v1",
+                cell_family: arkret_wire::CellFamilyId::AGENT_KEY_V1,
                 field: "agent_id",
             })?;
         let key_id = effect_payload.get("key_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.agent.key.v1",
+                cell_family: arkret_wire::CellFamilyId::AGENT_KEY_V1,
                 field: "key_id",
             },
         )?;
         arkret_wire::composite_subject(&[agent_id, key_id])
             .map(Some)
             .map_err(|error| LatticeKindError::InvalidCompositeSubject {
-                cell_family: "ak.component.agent.key.v1",
+                cell_family: arkret_wire::CellFamilyId::AGENT_KEY_V1,
                 reason: error.to_string(),
             })
     }
@@ -249,7 +255,7 @@ impl KeyBackupActiveSeries {
 
 impl LatticeKind for KeyBackupActiveSeries {
     fn cell_family(&self) -> &'static str {
-        "ak.component.key_backup.active_series.v1"
+        arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -259,7 +265,7 @@ impl LatticeKind for KeyBackupActiveSeries {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.key_backup.active_series.v1",
+            component_type: arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -272,14 +278,14 @@ impl LatticeKind for KeyBackupActiveSeries {
             .get("actor_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.key_backup.active_series.v1",
+                cell_family: arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
                 field: "actor_id",
             })?;
         let backup_kind = effect_payload
             .get("backup_kind")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.key_backup.active_series.v1",
+                cell_family: arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
                 field: "backup_kind",
             })?;
         Ok(Some(format!("{actor_id}::{backup_kind}")))
@@ -289,19 +295,11 @@ impl LatticeKind for KeyBackupActiveSeries {
     }
 }
 
-singleton_lattice!(
-    CoveredSeals,
-    "ak.component.covered_seals.v1",
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
-    Criticality::Required
-);
-
 // ────────────────────────── CasRegister families ──────────────────────────
 
 per_subject_lattice!(
     AppletRegistration,
-    "ak.component.applet.registration.v1",
+    arkret_wire::CellFamilyId::APPLET_REGISTRATION_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -311,7 +309,7 @@ per_subject_lattice!(
 
 singleton_lattice!(
     CircleTombstone,
-    "ak.component.circle.tombstone.v1",
+    arkret_wire::CellFamilyId::CIRCLE_TOMBSTONE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -320,7 +318,7 @@ singleton_lattice!(
 
 per_subject_lattice!(
     StrandPosition,
-    "ak.component.strand.position.v1",
+    arkret_wire::CellFamilyId::STRAND_POSITION_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -330,7 +328,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     StrandStage,
-    "ak.component.strand.stage.v1",
+    arkret_wire::CellFamilyId::STRAND_STAGE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -340,7 +338,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     MorphStage,
-    "ak.component.morph.stage.v1",
+    arkret_wire::CellFamilyId::MORPH_STAGE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -357,7 +355,7 @@ per_subject_lattice!(
 pub struct StrandWatch;
 impl LatticeKind for StrandWatch {
     fn cell_family(&self) -> &'static str {
-        "ak.component.strand.watch.v1"
+        arkret_wire::CellFamilyId::STRAND_WATCH_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -367,7 +365,7 @@ impl LatticeKind for StrandWatch {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.strand.watch.v1",
+            component_type: arkret_wire::CellFamilyId::STRAND_WATCH_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -380,14 +378,14 @@ impl LatticeKind for StrandWatch {
             .get("strand_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.strand.watch.v1",
+                cell_family: arkret_wire::CellFamilyId::STRAND_WATCH_V1,
                 field: "strand_id",
             })?;
         let watcher_actor_id = effect_payload
             .get("watcher_actor_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.strand.watch.v1",
+                cell_family: arkret_wire::CellFamilyId::STRAND_WATCH_V1,
                 field: "watcher_actor_id",
             })?;
         Ok(Some(format!("{strand_id}::{watcher_actor_id}")))
@@ -399,7 +397,7 @@ impl LatticeKind for StrandWatch {
 
 per_subject_lattice!(
     CrossSigningPublish,
-    "ak.component.cross_signing.publish.v1",
+    arkret_wire::CellFamilyId::CROSS_SIGNING_PUBLISH_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -409,7 +407,7 @@ per_subject_lattice!(
 
 singleton_lattice!(
     NotaryCell,
-    "ak.component.notary.v1",
+    arkret_wire::CellFamilyId::NOTARY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required
@@ -418,7 +416,7 @@ singleton_lattice!(
 pub struct IdentityAccountability;
 impl LatticeKind for IdentityAccountability {
     fn cell_family(&self) -> &'static str {
-        "ak.component.identity.accountability.v1"
+        arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -431,7 +429,7 @@ impl LatticeKind for IdentityAccountability {
 
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.identity.accountability.v1",
+            component_type: arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -463,7 +461,7 @@ impl LatticeKind for IdentityAccountability {
 
 singleton_lattice!(
     MlsEpoch,
-    "ak.component.mls.epoch.v1",
+    arkret_wire::CellFamilyId::MLS_EPOCH_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required
@@ -471,7 +469,7 @@ singleton_lattice!(
 
 per_subject_lattice!(
     CallSummary,
-    "ak.component.call.summary.v1",
+    arkret_wire::CellFamilyId::CALL_SUMMARY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -481,7 +479,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     CallFocus,
-    "ak.component.call.focus.v1",
+    arkret_wire::CellFamilyId::CALL_FOCUS_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -491,7 +489,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     CallModeration,
-    "ak.component.call.moderation.v1",
+    arkret_wire::CellFamilyId::CALL_MODERATION_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Inert,
     Criticality::Required,
@@ -501,7 +499,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     CallRoster,
-    "ak.component.call.roster.v1",
+    arkret_wire::CellFamilyId::CALL_ROSTER_V1,
     SdkLatticeKind::OrSet,
     BottomPolicy::Inert,
     Criticality::Required,
@@ -545,7 +543,7 @@ pub struct CallRecording;
 
 impl LatticeKind for CallRecording {
     fn cell_family(&self) -> &'static str {
-        "ak.component.call.recording.v1"
+        arkret_wire::CellFamilyId::CALL_RECORDING_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -580,7 +578,7 @@ pub struct CallTranscript;
 
 impl LatticeKind for CallTranscript {
     fn cell_family(&self) -> &'static str {
-        "ak.component.call.transcript.v1"
+        arkret_wire::CellFamilyId::CALL_TRANSCRIPT_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -615,7 +613,7 @@ pub struct CallRecordingResult;
 
 impl LatticeKind for CallRecordingResult {
     fn cell_family(&self) -> &'static str {
-        "ak.component.call.recording_result.v1"
+        arkret_wire::CellFamilyId::CALL_RECORDING_RESULT_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -650,7 +648,7 @@ pub struct CallTranscriptResult;
 
 impl LatticeKind for CallTranscriptResult {
     fn cell_family(&self) -> &'static str {
-        "ak.component.call.transcript_result.v1"
+        arkret_wire::CellFamilyId::CALL_TRANSCRIPT_RESULT_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -685,7 +683,7 @@ pub struct CallMuteOverride;
 
 impl LatticeKind for CallMuteOverride {
     fn cell_family(&self) -> &'static str {
-        "ak.component.call.mute_override.v1"
+        arkret_wire::CellFamilyId::CALL_MUTE_OVERRIDE_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -751,7 +749,7 @@ impl LatticeKind for CallMuteOverride {
 
 per_subject_lattice!(
     MemberState,
-    "ak.component.member.state.v1",
+    arkret_wire::CellFamilyId::MEMBER_STATE_V1,
     SdkLatticeKind::Fsm,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -762,7 +760,7 @@ per_subject_lattice!(
 pub struct InviteLifecycle;
 impl LatticeKind for InviteLifecycle {
     fn cell_family(&self) -> &'static str {
-        "ak.component.invite.lifecycle.v1"
+        arkret_wire::CellFamilyId::INVITE_LIFECYCLE_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -775,7 +773,7 @@ impl LatticeKind for InviteLifecycle {
 
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.invite.lifecycle.v1",
+            component_type: arkret_wire::CellFamilyId::INVITE_LIFECYCLE_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -796,7 +794,7 @@ impl LatticeKind for InviteLifecycle {
             })
             .map(|subject| Some(subject.to_owned()))
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.invite.lifecycle.v1",
+                cell_family: arkret_wire::CellFamilyId::INVITE_LIFECYCLE_V1,
                 field: "invite_id or invite.id",
             })
     }
@@ -815,7 +813,7 @@ impl LatticeKind for InviteLifecycle {
 
 per_subject_lattice!(
     AgentStatus,
-    "ak.component.agent.status.v1",
+    arkret_wire::CellFamilyId::AGENT_STATUS_V1,
     SdkLatticeKind::Fsm,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -829,7 +827,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     AuditBinding,
-    "ak.component.audit.binding.v1",
+    arkret_wire::CellFamilyId::AUDIT_BINDING_V1,
     SdkLatticeKind::Fsm,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -839,7 +837,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     AuditSession,
-    "ak.component.audit.session.v1",
+    arkret_wire::CellFamilyId::AUDIT_SESSION_V1,
     SdkLatticeKind::Fsm,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -854,7 +852,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     CallState,
-    "ak.component.call.state.v1",
+    arkret_wire::CellFamilyId::CALL_STATE_V1,
     SdkLatticeKind::Fsm,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -865,7 +863,7 @@ per_subject_lattice!(
 pub struct RealmLink;
 impl LatticeKind for RealmLink {
     fn cell_family(&self) -> &'static str {
-        "ak.component.realm.link.v1"
+        arkret_wire::CellFamilyId::REALM_LINK_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -878,7 +876,7 @@ impl LatticeKind for RealmLink {
 
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.realm.link.v1",
+            component_type: arkret_wire::CellFamilyId::REALM_LINK_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -892,20 +890,20 @@ impl LatticeKind for RealmLink {
             .get("target_realm_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.realm.link.v1",
+                cell_family: arkret_wire::CellFamilyId::REALM_LINK_V1,
                 field: "target_realm_id",
             })?;
         let link_kind = effect_payload
             .get("link_kind")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.realm.link.v1",
+                cell_family: arkret_wire::CellFamilyId::REALM_LINK_V1,
                 field: "link_kind",
             })?;
         arkret_wire::composite_subject(&[target_realm_id, link_kind])
             .map(Some)
             .map_err(|error| LatticeKindError::InvalidCompositeSubject {
-                cell_family: "ak.component.realm.link.v1",
+                cell_family: arkret_wire::CellFamilyId::REALM_LINK_V1,
                 reason: error.to_string(),
             })
     }
@@ -918,7 +916,7 @@ impl LatticeKind for RealmLink {
 pub struct CircleMember;
 impl LatticeKind for CircleMember {
     fn cell_family(&self) -> &'static str {
-        "ak.component.circle.member.v1"
+        arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -928,7 +926,7 @@ impl LatticeKind for CircleMember {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.circle.member.v1",
+            component_type: arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -941,14 +939,14 @@ impl LatticeKind for CircleMember {
             .get("circle_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.circle.member.v1",
+                cell_family: arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
                 field: "circle_id",
             })?;
         let actor_id = effect_payload
             .get("actor_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.circle.member.v1",
+                cell_family: arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
                 field: "actor_id",
             })?;
         Ok(Some(format!("{circle_id}::{actor_id}")))
@@ -962,7 +960,7 @@ impl LatticeKind for CircleMember {
 
 per_subject_lattice!(
     AuditRelease,
-    "ak.component.audit.release.v1",
+    arkret_wire::CellFamilyId::AUDIT_RELEASE_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -972,7 +970,7 @@ per_subject_lattice!(
 
 singleton_lattice!(
     CircleCreate,
-    "ak.component.circle.create.v1",
+    arkret_wire::CellFamilyId::CIRCLE_CREATE_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Inert,
     Criticality::Required,
@@ -981,7 +979,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     SidecarCreate,
-    "ak.component.sidecar.create.v1",
+    arkret_wire::CellFamilyId::SIDECAR_CREATE_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Inert,
     Criticality::Required,
@@ -991,7 +989,7 @@ singleton_lattice!(
 // `ak.space.parent` is a CAS register keyed by the child Space ID.
 per_subject_lattice!(
     SpaceParent,
-    "ak.component.space.parent.v1",
+    arkret_wire::CellFamilyId::SPACE_PARENT_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1001,7 +999,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     AccountStatus,
-    "ak.component.account.status.v1",
+    arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1011,7 +1009,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     PolicyRule,
-    "ak.component.policy.rule.v1",
+    arkret_wire::CellFamilyId::POLICY_RULE_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1021,7 +1019,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     CrossSigningReset,
-    "ak.component.cross_signing.reset.v1",
+    arkret_wire::CellFamilyId::CROSS_SIGNING_RESET_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1035,7 +1033,7 @@ per_subject_lattice!(
 pub struct MemberIdentityLattice;
 impl LatticeKind for MemberIdentityLattice {
     fn cell_family(&self) -> &'static str {
-        "ak.component.member.identity.v1"
+        arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::OrderedLog
@@ -1045,7 +1043,7 @@ impl LatticeKind for MemberIdentityLattice {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.member.identity.v1",
+            component_type: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1058,21 +1056,21 @@ impl LatticeKind for MemberIdentityLattice {
             .get("realm_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.member.identity.v1",
+                cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
                 field: "realm_id",
             })?;
         let actor_id = effect_payload
             .get("actor_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.member.identity.v1",
+                cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
                 field: "actor_id",
             })?;
         let segment = effect_payload
             .get("segment")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.member.identity.v1",
+                cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
                 field: "segment",
             })?;
         Ok(Some(format!("{realm_id}::{actor_id}::{segment}")))
@@ -1085,7 +1083,7 @@ impl LatticeKind for MemberIdentityLattice {
 pub struct ContactFactLog;
 impl LatticeKind for ContactFactLog {
     fn cell_family(&self) -> &'static str {
-        "ak.component.contact.fact_log.v1"
+        arkret_wire::CellFamilyId::CONTACT_FACT_LOG_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::OrderedLog
@@ -1095,7 +1093,7 @@ impl LatticeKind for ContactFactLog {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.contact.fact_log.v1",
+            component_type: arkret_wire::CellFamilyId::CONTACT_FACT_LOG_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1111,7 +1109,7 @@ impl LatticeKind for ContactFactLog {
             .and_then(Value::as_str)
             .map(|s| Some(s.to_owned()))
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.contact.fact_log.v1",
+                cell_family: arkret_wire::CellFamilyId::CONTACT_FACT_LOG_V1,
                 field: "target/requester/peer",
             })
     }
@@ -1127,7 +1125,7 @@ impl LatticeKind for ContactFactLog {
 
 per_subject_lattice!(
     DirectConversationBinding,
-    "ak.component.direct_conversation.binding.v1",
+    arkret_wire::CellFamilyId::DIRECT_CONVERSATION_BINDING_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1139,7 +1137,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     ProfileCreate,
-    "ak.component.profile.create.v1",
+    arkret_wire::CellFamilyId::PROFILE_CREATE_V1,
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1155,7 +1153,7 @@ impl AgentSelectorClaim {
 
 impl LatticeKind for AgentSelectorClaim {
     fn cell_family(&self) -> &'static str {
-        "ak.component.agent.selector_claim.v1"
+        arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1
     }
 
     fn lattice(&self) -> SdkLatticeKind {
@@ -1168,7 +1166,7 @@ impl LatticeKind for AgentSelectorClaim {
 
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.agent.selector_claim.v1",
+            component_type: arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1207,7 +1205,7 @@ impl LatticeKind for AgentSelectorClaim {
 
 per_subject_lattice!(
     ViewCreate,
-    "ak.component.view.create.v1",
+    arkret_wire::CellFamilyId::VIEW_CREATE_V1,
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1217,7 +1215,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     ViewUpdate,
-    "ak.component.view.update.v1",
+    arkret_wire::CellFamilyId::VIEW_UPDATE_V1,
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1227,7 +1225,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     ViewReconcile,
-    "ak.component.view.reconcile.v1",
+    arkret_wire::CellFamilyId::VIEW_RECONCILE_V1,
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1237,7 +1235,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     MimiRoomBinding,
-    "ak.component.mimi.room_binding.v1",
+    arkret_wire::CellFamilyId::MIMI_ROOM_BINDING_V1,
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1251,7 +1249,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     PolicyDefinition,
-    "ak.component.policy.definition.v1",
+    arkret_wire::CellFamilyId::POLICY_DEFINITION_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1261,7 +1259,7 @@ per_subject_lattice!(
 
 singleton_lattice!(
     RealmPolicy,
-    "ak.component.realm.policy.v1",
+    arkret_wire::CellFamilyId::REALM_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1274,7 +1272,7 @@ singleton_lattice!(
 // authz/event-auth-state-resolution.md section 6.2.1).
 singleton_lattice!(
     RealmMetadata,
-    "ak.component.realm.metadata.v1",
+    arkret_wire::CellFamilyId::REALM_METADATA_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1283,7 +1281,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmReadReceiptPolicy,
-    "ak.component.realm.read_receipt_policy.v1",
+    arkret_wire::CellFamilyId::REALM_READ_RECEIPT_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1292,7 +1290,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmHistoryVisibility,
-    "ak.component.realm.history_visibility.v1",
+    arkret_wire::CellFamilyId::REALM_HISTORY_VISIBILITY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1301,7 +1299,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmJoinRule,
-    "ak.component.realm.join_rule.v1",
+    arkret_wire::CellFamilyId::REALM_JOIN_RULE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1310,7 +1308,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmDiscovery,
-    "ak.component.realm.discovery.v1",
+    arkret_wire::CellFamilyId::REALM_DISCOVERY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1324,7 +1322,7 @@ singleton_lattice!(
 pub struct RealmOrganization;
 impl LatticeKind for RealmOrganization {
     fn cell_family(&self) -> &'static str {
-        "ak.component.realm.organization.v1"
+        arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -1334,7 +1332,7 @@ impl LatticeKind for RealmOrganization {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.realm.organization.v1",
+            component_type: arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1347,14 +1345,14 @@ impl LatticeKind for RealmOrganization {
             .get("organization_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.realm.organization.v1",
+                cell_family: arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1,
                 field: "organization_id",
             })?;
         let relationship = effect_payload
             .get("relationship")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.realm.organization.v1",
+                cell_family: arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1,
                 field: "relationship",
             })?;
         Ok(Some(format!("{organization_id}::{relationship}")))
@@ -1366,7 +1364,7 @@ impl LatticeKind for RealmOrganization {
 
 singleton_lattice!(
     RealmArchive,
-    "ak.component.realm.archive.v1",
+    arkret_wire::CellFamilyId::REALM_ARCHIVE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1375,7 +1373,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmFreeze,
-    "ak.component.realm.freeze.v1",
+    arkret_wire::CellFamilyId::REALM_FREEZE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1384,7 +1382,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmTombstone,
-    "ak.component.realm.tombstone.v1",
+    arkret_wire::CellFamilyId::REALM_TOMBSTONE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1393,7 +1391,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmDestroy,
-    "ak.component.realm.destroy.v1",
+    arkret_wire::CellFamilyId::REALM_DESTROY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1402,7 +1400,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmModerationPolicy,
-    "ak.component.realm.moderation_policy.v1",
+    arkret_wire::CellFamilyId::REALM_MODERATION_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1411,7 +1409,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmHistorySharingPolicy,
-    "ak.component.realm.history_sharing_policy.v1",
+    arkret_wire::CellFamilyId::REALM_HISTORY_SHARING_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1420,7 +1418,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmPreviewPolicy,
-    "ak.component.realm.preview_policy.v1",
+    arkret_wire::CellFamilyId::REALM_PREVIEW_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1429,7 +1427,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmAssetPrivacyPolicy,
-    "ak.component.realm.asset_privacy_policy.v1",
+    arkret_wire::CellFamilyId::REALM_ASSET_PRIVACY_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1438,7 +1436,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmPolicyBundle,
-    "ak.component.realm.policy_bundle.v1",
+    arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1447,7 +1445,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmPolicyServer,
-    "ak.component.realm.policy_server.v1",
+    arkret_wire::CellFamilyId::REALM_POLICY_SERVER_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1456,7 +1454,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmAlias,
-    "ak.component.realm.alias.v1",
+    arkret_wire::CellFamilyId::REALM_ALIAS_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1465,7 +1463,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmPlaintextVisibleServices,
-    "ak.component.realm.plaintext_visible_services.v1",
+    arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1474,7 +1472,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmMediaService,
-    "ak.component.realm.media_service.v1",
+    arkret_wire::CellFamilyId::REALM_MEDIA_SERVICE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1483,7 +1481,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmSchema,
-    "ak.component.realm.schema.v1",
+    arkret_wire::CellFamilyId::REALM_SCHEMA_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1492,7 +1490,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmDeliveryBindingPolicy,
-    "ak.component.realm.delivery_binding_policy.v1",
+    arkret_wire::CellFamilyId::REALM_DELIVERY_BINDING_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1501,7 +1499,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmDisappearingPolicy,
-    "ak.component.realm.disappearing_policy.v1",
+    arkret_wire::CellFamilyId::REALM_DISAPPEARING_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1510,7 +1508,7 @@ singleton_lattice!(
 
 singleton_lattice!(
     RealmSearchPolicy,
-    "ak.component.realm.search_policy.v1",
+    arkret_wire::CellFamilyId::REALM_SEARCH_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1521,7 +1519,7 @@ singleton_lattice!(
 
 per_subject_lattice!(
     RealmInheritancePolicy,
-    "ak.component.realm.inheritance_policy.v1",
+    arkret_wire::CellFamilyId::REALM_INHERITANCE_POLICY_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1531,7 +1529,7 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     RealmUpgrade,
-    "ak.component.realm.upgrade.v1",
+    arkret_wire::CellFamilyId::REALM_UPGRADE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
@@ -1543,7 +1541,7 @@ per_subject_lattice!(
 
 singleton_lattice!(
     RealmCreate,
-    "ak.component.realm.create.v1",
+    arkret_wire::CellFamilyId::REALM_CREATE_V1,
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Inert,
     Criticality::Required,
@@ -1557,7 +1555,7 @@ singleton_lattice!(
 // materialization) fails with `no lattice registered for governance cell`.
 singleton_lattice!(
     StrandObject,
-    "ak.component.strand.object.v1",
+    arkret_wire::CellFamilyId::STRAND_OBJECT_V1,
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
@@ -1567,9 +1565,12 @@ singleton_lattice!(
 // ── New Strand facet families (per-subject by Strand id) ──
 
 pub struct StrandMetadata;
+impl StrandMetadata {
+    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::STRAND_METADATA_V1;
+}
 impl LatticeKind for StrandMetadata {
     fn cell_family(&self) -> &'static str {
-        "ak.component.strand.metadata.v1"
+        Self::CELL_FAMILY
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -1579,7 +1580,7 @@ impl LatticeKind for StrandMetadata {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ak.component.strand.metadata.v1",
+            component_type: Self::CELL_FAMILY,
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1594,7 +1595,7 @@ impl LatticeKind for StrandMetadata {
             .and_then(Value::as_str)
             .map(|s| Some(s.to_owned()))
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.strand.metadata.v1",
+                cell_family: Self::CELL_FAMILY,
                 field: "target_ref",
             })
     }
@@ -1605,7 +1606,7 @@ impl LatticeKind for StrandMetadata {
 
 per_subject_lattice!(
     StrandTracks,
-    "ak.component.strand.tracks.v1",
+    arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,

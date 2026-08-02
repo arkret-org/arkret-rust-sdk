@@ -1,27 +1,23 @@
-//! MLS control-cell subject derivations + the `covered_seals` read.
+//! MLS control-cell subject derivations and governance-Seal dependency discovery.
 //!
 //! Per spec [`event-auth-state-resolution.md`](https://arkret.org/spec/v1/zh/authz/event-auth-state-resolution.md)
 //! §10, an MLS commit is a **Control Move** — an Event, not a Seal. Its
-//! registered contract writes three cells:
+//! registered contract writes two cells:
 //!
 //! | cell family | lattice | role |
 //! | --- | --- | --- |
 //! | `ak.component.mls.epoch.v1` | cas-register | current epoch counter for the MLS group |
 //! | `ak.component.mls.key_schedule.v1` | cas-register | latest key schedule pointer |
-//! | `ak.component.covered_seals.v1` | or-set | governance Seal frontier this MLS group has bound |
 //!
 //! The operations themselves are receiver-derived from `kind + payload`, so
 //! nothing here builds them: v1 has no producer-authored effect channel and
-//! the or-set element tags are batch tags the producer cannot name. What
-//! remains is the cell-subject derivation and the receiver-side read of the
-//! joined `covered_seals` value.
+//! the cell-subject derivations remain centralized here.
 
 use std::collections::BTreeSet;
 
 use arkret_identifiers::{CellRef, RealmId, SealId};
 use arkret_wire::WireError;
 use arkret_wire::cell::CellId;
-use serde_json::Value;
 
 use crate::lattice::CellState;
 use crate::lattice::ordered_log::IssuedOp;
@@ -32,9 +28,8 @@ use crate::state::{
 };
 
 /// Cell families the MLS commit contract targets.
-pub const MLS_EPOCH_CELL_FAMILY: &str = "ak.component.mls.epoch.v1";
-pub const KEY_SCHEDULE_CELL_FAMILY: &str = "ak.component.mls.key_schedule.v1";
-pub const COVERED_SEALS_CELL_FAMILY: &str = "ak.component.covered_seals.v1";
+pub const MLS_EPOCH_CELL_FAMILY: &str = arkret_wire::CellFamilyId::MLS_EPOCH_V1;
+pub const KEY_SCHEDULE_CELL_FAMILY: &str = arkret_wire::CellFamilyId::MLS_KEY_SCHEDULE_V1;
 
 /// `ak:cell:ak.component.mls.epoch.v1:<group_id>` — cas-register on the
 /// MLS group's current epoch counter.
@@ -60,36 +55,6 @@ pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, WireError> {
         .map_err(|e| WireError::Protocol(format!("invalid key_schedule cell id: {e}")))
 }
 
-/// `ak:cell:ak.component.covered_seals.v1:<group_id>` — or-set listing
-/// the governance Seal frontiers this MLS group is currently bound to.
-///
-/// The subject is the MLS group, not the Realm: a Realm holds one MLS group per
-/// Circle, so keying on `realm_id` would merge distinct groups' frontiers into a
-/// single cell.
-pub fn covered_seals_cell_id(group_id: &str) -> Result<CellRef, WireError> {
-    if group_id.is_empty() {
-        return Err(WireError::Protocol(
-            "MLS group_id must not be empty".to_owned(),
-        ));
-    }
-    CellRef::new(format!("ak:cell:{COVERED_SEALS_CELL_FAMILY}:{group_id}"))
-        .map_err(|e| WireError::Protocol(format!("invalid covered_seals cell id: {e}")))
-}
-
-/// Walk a joined `covered_seals` cell value (or-set output as a JSON array)
-/// and return whether it covers the given governance Seal.
-///
-/// The match is on the element **value**: the registered `or_set_batch_add`
-/// projection stores the Seal ref there and derives the tag as a batch digest,
-/// so the tag is not the Seal id and MUST NOT be compared against one.
-pub fn covered_seals_contains(cell_value: &Value, seal: &SealId) -> bool {
-    let Some(arr) = cell_value.as_array() else {
-        return false;
-    };
-    arr.iter()
-        .any(|item| item.get("value").and_then(Value::as_str) == Some(seal.as_str()))
-}
-
 /// Whether a cell family is one of the three governance inputs
 /// `encryption-and-audit.md` §2.5.2 enumerates when rebuilding `M`:
 /// (a) membership / device / lifecycle, (b) `policy_root` leaves,
@@ -113,14 +78,10 @@ pub fn is_governance_coverage_component(component: &str) -> bool {
 /// head" requires. A `⊥` cell contributes every one of its covered batches —
 /// coverage cannot be argued away by a conflict.
 ///
-/// `M` deliberately does **not** contain the resolution Seal itself. A Control
-/// Move can only attest Seals that already existed when it was authored, so the
-/// Seal that admits it is always strictly newer than everything it attests;
-/// `max(covered_seals_cell@J(S)) < S` therefore holds for every `S`, and
-/// including `S` would make coverage false for every possible message. When `S`
-/// really does carry a governance change, that change's own last-changing Move
-/// is admitted by `S`, so `S` enters `M` through the enumeration below — which
-/// is exactly how a ban or revoke pauses sending.
+/// `M` deliberately does **not** contain the resolution Seal merely because it
+/// is the resolution point. When `S` carries a governance change, that change's
+/// own last-changing Move is admitted by `S`, so `S` still enters `M` through
+/// the enumeration below — exactly how a ban or revoke pauses sending.
 pub fn required_governance_seals_at(
     leaves: &[SealId],
     realm_id: &RealmId,
@@ -183,7 +144,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::lattice::{CellState, Lattice, OrSet, SealedOp};
+    use crate::lattice::SealedOp;
 
     fn seal(byte: u8) -> SealId {
         SealId::new(format!(
@@ -197,20 +158,6 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
-    /// The or-set `add` an `or_set_batch_add` projection produces: an opaque
-    /// batch tag plus the covered Seal ref as the element value.
-    fn covered_seal_add(batch_tag: &str, seal: &SealId) -> LatticeOp {
-        LatticeOp {
-            op_type: LatticeOpType::Add,
-            tag: Some(batch_tag.to_owned()),
-            value: Some(Value::String(seal.as_str().to_owned())),
-            from: None,
-            to: None,
-            reason: None,
-            issuer_seq: None,
-        }
-    }
-
     #[test]
     fn cell_ids_use_canonical_prefixes() {
         let group = "group.01js0mls0000000000000000";
@@ -222,17 +169,12 @@ mod tests {
             key_schedule_cell_id(group).unwrap().as_str(),
             format!("ak:cell:ak.component.mls.key_schedule.v1:{group}")
         );
-        assert_eq!(
-            covered_seals_cell_id(group).unwrap().as_str(),
-            format!("ak:cell:ak.component.covered_seals.v1:{group}")
-        );
     }
 
     #[test]
     fn cell_id_helpers_reject_empty_group_id() {
         mls_epoch_cell_id("").unwrap_err();
         key_schedule_cell_id("").unwrap_err();
-        covered_seals_cell_id("").unwrap_err();
     }
 
     #[test]
@@ -240,59 +182,6 @@ mod tests {
         let a = mls_epoch_cell_id("group-A").unwrap();
         let b = mls_epoch_cell_id("group-B").unwrap();
         assert_ne!(a, b);
-    }
-
-    #[test]
-    fn covered_seals_contains_resolves_or_set_join() {
-        let frontier_cell = covered_seals_cell_id("group.01js0mls0000000000000000").unwrap();
-        let aop = SealedOp::new(
-            event_digest(0x11),
-            covered_seal_add("batch-tag-0", &seal(0xaa)),
-        );
-        let CellState::Value(value) = OrSet.join(&frontier_cell, &[aop]) else {
-            panic!("expected value")
-        };
-        assert!(covered_seals_contains(&value, &seal(0xaa)));
-        assert!(!covered_seals_contains(&value, &seal(0xbb)));
-    }
-
-    #[test]
-    fn covered_seals_contains_ignores_the_batch_tag() {
-        // The tag is a `sha256(tag_context || dot || value)` digest, never the
-        // Seal id; reading it as one would accept an unrelated element.
-        let value = json!([{ "tag": seal(0xaa).as_str(), "value": "not-a-seal" }]);
-        assert!(!covered_seals_contains(&value, &seal(0xaa)));
-    }
-
-    #[test]
-    fn covered_seals_contains_rejects_non_array() {
-        assert!(!covered_seals_contains(&Value::Null, &seal(0xaa)));
-        assert!(!covered_seals_contains(
-            &Value::String("x".into()),
-            &seal(0xaa)
-        ));
-    }
-
-    #[test]
-    fn second_commit_extends_covered_seals() {
-        // Two commits binding two different governance Seals must coexist in
-        // the or-set; `covered_seals_contains` MUST find both.
-        let cell = covered_seals_cell_id("group.01js0mls0000000000000000").unwrap();
-        let aops = vec![
-            SealedOp::new(
-                event_digest(0x11),
-                covered_seal_add("batch-tag-0", &seal(0xaa)),
-            ),
-            SealedOp::new(
-                event_digest(0x22),
-                covered_seal_add("batch-tag-1", &seal(0xbb)),
-            ),
-        ];
-        let CellState::Value(value) = OrSet.join(&cell, &aops) else {
-            panic!("expected value")
-        };
-        assert!(covered_seals_contains(&value, &seal(0xaa)));
-        assert!(covered_seals_contains(&value, &seal(0xbb)));
     }
 
     mod required_governance_seals {
@@ -449,20 +338,6 @@ mod tests {
                     )],
                 )
                 .unwrap();
-            cells
-                .append_sealed_effects(
-                    &realm,
-                    &commit_seal.id,
-                    &[(
-                        covered_seals_cell_id("group.01js0mls0000000000000000").unwrap(),
-                        issued(SealedOp::new(
-                            commit_move,
-                            covered_seal_add("batch-tag-0", &governance_seal.id),
-                        )),
-                    )],
-                )
-                .unwrap();
-
             let required = required_governance_seals_at(
                 std::slice::from_ref(&commit_seal.id),
                 &realm,
@@ -475,28 +350,6 @@ mod tests {
             assert!(
                 !required.contains(&commit_seal.id),
                 "the resolution Seal must never require covering itself"
-            );
-
-            // And the coverage the commit actually wrote satisfies it, which is
-            // the whole point: this is a sendable state.
-            let state = crate::state::effective_state_at(
-                &[commit_seal.id],
-                &realm,
-                &seals,
-                &cells,
-                &registry,
-            )
-            .unwrap();
-            let CellState::Value(covered) = state
-                .get(&covered_seals_cell_id("group.01js0mls0000000000000000").unwrap())
-                .unwrap()
-            else {
-                panic!("covered_seals cell resolves to a value")
-            };
-            assert!(
-                required
-                    .iter()
-                    .all(|seal| covered_seals_contains(covered, seal))
             );
         }
 

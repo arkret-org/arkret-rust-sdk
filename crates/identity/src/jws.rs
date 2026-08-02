@@ -615,7 +615,7 @@ mod tests {
     fn effective_window_uses_notary_override_when_notary_cell_touched() {
         let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
         let mut overrides = BTreeMap::new();
-        overrides.insert("ak.component.notary.v1", 60u64);
+        overrides.insert(arkret_wire::CellFamilyId::NOTARY_V1, 60u64);
         // Default 300, notary override 60 -> effective 60.
         assert_eq!(effective_window_for_projection(&w, 300, &overrides), 60);
     }
@@ -624,7 +624,7 @@ mod tests {
     fn effective_window_takes_minimum_when_default_tighter_than_override() {
         let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
         let mut overrides = BTreeMap::new();
-        overrides.insert("ak.component.notary.v1", 600u64); // looser than default
+        overrides.insert(arkret_wire::CellFamilyId::NOTARY_V1, 600u64); // looser than default
         // Default 300, notary override 600 -> min = 300 (default wins because tighter).
         assert_eq!(effective_window_for_projection(&w, 300, &overrides), 300);
     }
@@ -635,7 +635,7 @@ mod tests {
         // be window-checked. The override "wins" in this case.
         let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
         let mut overrides = BTreeMap::new();
-        overrides.insert("ak.component.notary.v1", 60u64);
+        overrides.insert(arkret_wire::CellFamilyId::NOTARY_V1, 60u64);
         assert_eq!(effective_window_for_projection(&w, 0, &overrides), 60);
     }
 
@@ -646,7 +646,7 @@ mod tests {
         let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
         let hlc = hlc_at(two_min_ago_ms);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ak.component.notary.v1", 60u64);
+        overrides.insert(arkret_wire::CellFamilyId::NOTARY_V1, 60u64);
         let err =
             verify_replay_window_for_projection_at(&hlc, &w, 300, &overrides, now).unwrap_err();
         assert!(
@@ -663,7 +663,7 @@ mod tests {
         let hlc = hlc_at(two_min_ago_ms);
         // Default 300s, no override for message family -> 2min = 120s < 300s -> accept.
         let mut overrides = BTreeMap::new();
-        overrides.insert("ak.component.notary.v1", 60u64);
+        overrides.insert(arkret_wire::CellFamilyId::NOTARY_V1, 60u64);
         verify_replay_window_for_projection_at(&hlc, &w, 300, &overrides, now).unwrap();
     }
 

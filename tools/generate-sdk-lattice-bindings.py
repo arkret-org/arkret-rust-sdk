@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 
@@ -23,6 +24,11 @@ BOTTOM_VARIANTS = {
     "expose": "Expose",
     "inert": "Inert",
 }
+
+
+def cell_family_constant(family: str) -> str:
+    body = family.removeprefix("ak.component.")
+    return re.sub(r"[^A-Za-z0-9]+", "_", body).upper()
 
 
 def collect_bindings(registry: dict) -> dict[str, tuple[str, str]]:
@@ -86,7 +92,9 @@ def render(source_path: Path, registry: dict) -> str:
         except KeyError as error:
             raise ValueError(f"unsupported registry value: {error.args[0]}") from error
         rows.append(
-            f'    ("{family}", LatticeKind::{lattice_variant}, BottomMode::{bottom_variant}),'
+            "    ("
+            f"CellFamilyId::{cell_family_constant(family)}, "
+            f"LatticeKind::{lattice_variant}, BottomMode::{bottom_variant}),"
         )
     return "\n".join(
         [
@@ -95,6 +103,7 @@ def render(source_path: Path, registry: dict) -> str:
             "",
             "use arkret_state::lattice::LatticeKind;",
             "use arkret_state::state::BottomMode;",
+            "use arkret_wire::CellFamilyId;",
             "",
             "pub(crate) const SPEC_LATTICE_BINDINGS: &[(&str, LatticeKind, BottomMode)] = &[",
             *rows,
