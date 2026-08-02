@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-01.3;
-//! sha256=66c4110f782d010bff09ce75ecfd7db57f83ad7db40563685c2578e72dbbe564 Input: registry/
-//! capability-action-registry.json; version=2026-08-01.3;
-//! sha256=ecf69d4546adefea53d53a31b11683461003fd002696d5b54b95e7f6967b923e Input: registry/
-//! schema-registry.json; version=2026-08-01.3;
-//! sha256=04d480b871109dd3b85b82db5a76439224be98ec6aec7cf3c76574808fce40c1 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-02.3;
+//! sha256=8de5f2ac9c811655eaeb5dd2a98cd6c53030f23a64b29c83d25c8fdd96adab7f Input: registry/
+//! capability-action-registry.json; version=2026-08-02.3;
+//! sha256=de230aedb7e1979261ee4aa48536625124a99468decaa524ed7740c622bf2a4d Input: registry/
+//! schema-registry.json; version=2026-08-02.3;
+//! sha256=98a041af2093ae380e749965b44cf41f1c8c9ab90e4dc10bf09df2a9750f1481 Input: registry/
 //! account-data-key-registry.json; version=2026-07-30;
 //! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=53,
-//! special_forms=9, actions=163, schemas=175, account_data_patterns=24
+//! special_forms=9, actions=165, schemas=175, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -1001,6 +1001,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::MemberLeaveOwn,
+        category: "membership",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        target_event_kinds: &[EventKind::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.direct_conversation_realm.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "scope_suffix_variant",
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::MessageCreate,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Medium,
@@ -1155,6 +1168,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MlsWelcomeOwnDevice,
+        category: "service",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &[EventKind::MLS_WELCOME],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.direct_conversation_realm.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ModerationAppealReview,

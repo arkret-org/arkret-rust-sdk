@@ -13,13 +13,13 @@ const EMBEDDED_ARTIFACTS_SENTINEL: &str = "<embedded-spec-artifacts>";
 /// The registry `status` that marks an entry part of the v1 surface the SDK
 /// must cover. Registries that omit the field are read as active.
 const ACTIVE_STATUS: &str = "active";
-#[cfg(feature = "embedded-artifacts")]
+#[cfg(any(feature = "embedded-artifacts", test))]
 const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = include_str!("embedded_artifacts.json");
-#[cfg(not(feature = "embedded-artifacts"))]
+#[cfg(not(any(feature = "embedded-artifacts", test)))]
 const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = "{}";
-#[cfg(feature = "embedded-artifacts")]
+#[cfg(any(feature = "embedded-artifacts", test))]
 const EMBEDDED_OPENAPI_YAML: &str = include_str!("embedded_openapi.yaml");
-#[cfg(not(feature = "embedded-artifacts"))]
+#[cfg(not(any(feature = "embedded-artifacts", test)))]
 const EMBEDDED_OPENAPI_YAML: &str = "";
 
 static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
@@ -1380,7 +1380,9 @@ pub(super) fn registry_entry<'a>(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
+    #[cfg(feature = "embedded-artifacts")]
+    use arkret_wire::ErrorStatusContext;
+    use arkret_wire::{ErrorCode, REASON_CODE_DESCRIPTORS};
 
     use super::*;
 

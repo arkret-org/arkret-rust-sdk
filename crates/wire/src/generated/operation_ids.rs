@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-01.3;
-//! sha256=9932fd84cab150a24a0a5e7c0a01c6bc68796ed2672bd020e6a7e87b431ad517 Entries: registered=218
+//! Input: registry/operation-registry.json; version=2026-08-02.3;
+//! sha256=9b2936a706af863a7683b2e929d69692a4661b36fcf8d9606848951c67578337 Entries: registered=219
 
 use serde::{Deserialize, Serialize};
 
@@ -158,6 +158,7 @@ pub enum ServiceOperationId {
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesQueryList,
     SelfDirectConversationCommandResolve,
+    SelfDirectConversationSegmentQueryList,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
     SelfEventsQueryDescribe,
@@ -379,6 +380,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
     ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST,
     ServiceOperationId::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE,
+    ServiceOperationId::SELF_DIRECT_CONVERSATION_SEGMENT_QUERY_LIST,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
     ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE,
@@ -638,6 +640,7 @@ impl ServiceOperationId {
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesQueryList,
         Self::SelfDirectConversationCommandResolve,
+        Self::SelfDirectConversationSegmentQueryList,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
         Self::SelfEventsQueryDescribe,
@@ -942,6 +945,8 @@ impl ServiceOperationId {
     pub const SELF_DEVICE_MESSAGES_QUERY_LIST: &'static str = "ak.self.device_messages.query.list";
     pub const SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE: &'static str =
         "ak.self.direct_conversation.command.resolve";
+    pub const SELF_DIRECT_CONVERSATION_SEGMENT_QUERY_LIST: &'static str =
+        "ak.self.direct_conversation_segment.query.list";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_QUERY_DESCRIBE: &'static str = "ak.self.events.query.describe";
@@ -1269,6 +1274,9 @@ impl ServiceOperationId {
             Self::SelfDeviceMessagesQueryList => Self::SELF_DEVICE_MESSAGES_QUERY_LIST,
             Self::SelfDirectConversationCommandResolve => {
                 Self::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE
+            }
+            Self::SelfDirectConversationSegmentQueryList => {
+                Self::SELF_DIRECT_CONVERSATION_SEGMENT_QUERY_LIST
             }
             Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
             Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
@@ -1630,6 +1638,9 @@ impl ServiceOperationId {
             Self::SELF_DEVICE_MESSAGES_QUERY_LIST => Some(Self::SelfDeviceMessagesQueryList),
             Self::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE => {
                 Some(Self::SelfDirectConversationCommandResolve)
+            }
+            Self::SELF_DIRECT_CONVERSATION_SEGMENT_QUERY_LIST => {
+                Some(Self::SelfDirectConversationSegmentQueryList)
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT => Some(Self::SelfEventsCommandSubmit),
             Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL => Some(Self::SelfEventsCommandSubmitSeal),
@@ -4773,6 +4784,24 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "returns_client_authoring_material_or_an_existing_projection_and_never_commits_the_draft_events",
             ),
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfDirectConversationSegmentQueryList,
+        http_method: "POST",
+        http_path: "/_arkret/self/direct-conversations/segments/query",
+        grpc: Some("SelfDirectConversationSegment/List"),
+        mq: Some("self.direct_conversation_segment.query.list"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/contact-operations.schema.json#/$defs/direct_conversation_segment_list_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/contact-operations.schema.json#/$defs/direct_conversation_segment_list",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsCommandSubmit,

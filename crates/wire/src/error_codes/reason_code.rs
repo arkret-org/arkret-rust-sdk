@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-01.3;
-//! sha256=9b04e988ea9e137d3f8a28097a5748e8d5ceac615722063c8d84ca2dc28211d9
-//! Entries: reason_codes=454
+//! Input: registry/error-code-registry.json; version=2026-08-02.1;
+//! sha256=721de3aa00244fd62eb8365ec1a617b1a28e2c91cd5ded595f8232d37fd69268
+//! Entries: reason_codes=459
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -151,7 +151,12 @@ pub enum ReasonCode {
     DidProofReplayWindowExceeded,
     DirectConversationBindingInvalid,
     DirectConversationInviteForbidden,
+    DirectConversationLineageConflict,
     DirectConversationMemberCountInvalid,
+    DirectConversationParticipantAuthorityDenied,
+    DirectConversationPredecessorRequired,
+    DirectConversationRetirementEvidenceRequired,
+    DirectConversationRootMaskViolation,
     DirectConversationSpaceForbidden,
     DirectConversationThirdPartyMemberForbidden,
     DirectDownloadDisallowedPresignForbidden,
@@ -656,8 +661,18 @@ impl ReasonCode {
         "direct_conversation_binding_invalid";
     pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str =
         "direct_conversation_invite_forbidden";
+    pub const DIRECT_CONVERSATION_LINEAGE_CONFLICT: &'static str =
+        "direct_conversation_lineage_conflict";
     pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str =
         "direct_conversation_member_count_invalid";
+    pub const DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED: &'static str =
+        "direct_conversation_participant_authority_denied";
+    pub const DIRECT_CONVERSATION_PREDECESSOR_REQUIRED: &'static str =
+        "direct_conversation_predecessor_required";
+    pub const DIRECT_CONVERSATION_RETIREMENT_EVIDENCE_REQUIRED: &'static str =
+        "direct_conversation_retirement_evidence_required";
+    pub const DIRECT_CONVERSATION_ROOT_MASK_VIOLATION: &'static str =
+        "direct_conversation_root_mask_violation";
     pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str =
         "direct_conversation_space_forbidden";
     pub const DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN: &'static str =
@@ -1190,9 +1205,20 @@ impl ReasonCode {
             Self::DidProofReplayWindowExceeded => "did_proof_replay_window_exceeded",
             Self::DirectConversationBindingInvalid => "direct_conversation_binding_invalid",
             Self::DirectConversationInviteForbidden => "direct_conversation_invite_forbidden",
+            Self::DirectConversationLineageConflict => "direct_conversation_lineage_conflict",
             Self::DirectConversationMemberCountInvalid => {
                 "direct_conversation_member_count_invalid"
             }
+            Self::DirectConversationParticipantAuthorityDenied => {
+                "direct_conversation_participant_authority_denied"
+            }
+            Self::DirectConversationPredecessorRequired => {
+                "direct_conversation_predecessor_required"
+            }
+            Self::DirectConversationRetirementEvidenceRequired => {
+                "direct_conversation_retirement_evidence_required"
+            }
+            Self::DirectConversationRootMaskViolation => "direct_conversation_root_mask_violation",
             Self::DirectConversationSpaceForbidden => "direct_conversation_space_forbidden",
             Self::DirectConversationThirdPartyMemberForbidden => {
                 "direct_conversation_third_party_member_forbidden"
@@ -1722,9 +1748,20 @@ impl ReasonCode {
             "did_proof_replay_window_exceeded" => Self::DidProofReplayWindowExceeded,
             "direct_conversation_binding_invalid" => Self::DirectConversationBindingInvalid,
             "direct_conversation_invite_forbidden" => Self::DirectConversationInviteForbidden,
+            "direct_conversation_lineage_conflict" => Self::DirectConversationLineageConflict,
             "direct_conversation_member_count_invalid" => {
                 Self::DirectConversationMemberCountInvalid
             }
+            "direct_conversation_participant_authority_denied" => {
+                Self::DirectConversationParticipantAuthorityDenied
+            }
+            "direct_conversation_predecessor_required" => {
+                Self::DirectConversationPredecessorRequired
+            }
+            "direct_conversation_retirement_evidence_required" => {
+                Self::DirectConversationRetirementEvidenceRequired
+            }
+            "direct_conversation_root_mask_violation" => Self::DirectConversationRootMaskViolation,
             "direct_conversation_space_forbidden" => Self::DirectConversationSpaceForbidden,
             "direct_conversation_third_party_member_forbidden" => {
                 Self::DirectConversationThirdPartyMemberForbidden
@@ -2823,9 +2860,34 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An invite operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Direct Conversation membership is established only by the resolver's verified two-participant bootstrap; all invite flows fail closed.",
     },
     ReasonCodeDescriptor {
+        code: "direct_conversation_lineage_conflict",
+        applies_to: &["event_envelope", "state_resolution", "service_call"],
+        description: "The verified Direct Conversation predecessor graph does not yield one canonical retired anchor or one active tail. Projection and participant authority MUST fail closed; timestamps and local receive order MUST NOT repair the conflict.",
+    },
+    ReasonCodeDescriptor {
         code: "direct_conversation_member_count_invalid",
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
         description: "A Direct Conversation binding or membership projection does not resolve to exactly two distinct active principal participants. The Realm cannot be returned as an active canonical DM and policy evaluation fails closed.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_participant_authority_denied",
+        applies_to: &["event_envelope", "auth_decision", "service_call"],
+        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish every profile, canonical binding, exact participant, active membership, Realm/Strand/MLS cross-binding, lifecycle, resource, consent, device or Agent gate required for the requested allowlisted action. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_predecessor_required",
+        applies_to: &["event_envelope", "state_resolution", "service_call"],
+        description: "A non-first active Direct Conversation binding omitted predecessor_binding_ref, referenced a non-canonical/non-retired fact, or did not target the canonical retired binding for the same pair_key and trust_domain. The candidate remains pending or is rejected; created_at is never a predecessor substitute.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_retirement_evidence_required",
+        applies_to: &["event_envelope", "state_resolution", "service_call"],
+        description: "A retired Direct Conversation fact lacks a participant signature, the superseded active binding reference, or an accepted structural terminal cause Event. Contact/consent changes and service-local projection mutations are not valid retirement evidence.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_root_mask_violation",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "The technical authority-root controller attempted an operational, grant, member-governance, policy or terminal action outside the Direct Conversation profile phase mask. Root owner aggregation cannot bypass the participant authority or target the other participant.",
     },
     ReasonCodeDescriptor {
         code: "direct_conversation_space_forbidden",

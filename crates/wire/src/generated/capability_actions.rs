@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-01.3;
-//! sha256=ecf69d4546adefea53d53a31b11683461003fd002696d5b54b95e7f6967b923e Entries: registered=163
+//! Input: registry/capability-action-registry.json; version=2026-08-02.3;
+//! sha256=de230aedb7e1979261ee4aa48536625124a99468decaa524ed7740c622bf2a4d Entries: registered=165
 
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +55,7 @@ pub enum CapabilityActionId {
     InviteRevoke,
     InviteThirdParty,
     KeysBackupSeriesErase,
+    MemberLeaveOwn,
     MessageCreate,
     MessageMentionBroadcast,
     MessageRedact,
@@ -67,6 +68,7 @@ pub enum CapabilityActionId {
     MlsKeypackage,
     MlsProposal,
     MlsWelcome,
+    MlsWelcomeOwnDevice,
     ModerationAppealReview,
     ModerationAppealSubmit,
     ModerationDecision,
@@ -222,6 +224,7 @@ impl CapabilityActionId {
         Self::InviteRevoke,
         Self::InviteThirdParty,
         Self::KeysBackupSeriesErase,
+        Self::MemberLeaveOwn,
         Self::MessageCreate,
         Self::MessageMentionBroadcast,
         Self::MessageRedact,
@@ -234,6 +237,7 @@ impl CapabilityActionId {
         Self::MlsKeypackage,
         Self::MlsProposal,
         Self::MlsWelcome,
+        Self::MlsWelcomeOwnDevice,
         Self::ModerationAppealReview,
         Self::ModerationAppealSubmit,
         Self::ModerationDecision,
@@ -387,6 +391,7 @@ impl CapabilityActionId {
     pub const INVITE_REVOKE: &'static str = "ak.invite.revoke";
     pub const INVITE_THIRD_PARTY: &'static str = "ak.invite.third_party";
     pub const KEYS_BACKUP_SERIES_ERASE: &'static str = "ak.keys.backup_series.erase";
+    pub const MEMBER_LEAVE_OWN: &'static str = "ak.member.leave.own";
     pub const MESSAGE_CREATE: &'static str = "ak.message.create";
     pub const MESSAGE_MENTION_BROADCAST: &'static str = "ak.message.mention.broadcast";
     pub const MESSAGE_REDACT: &'static str = "ak.message.redact";
@@ -399,6 +404,7 @@ impl CapabilityActionId {
     pub const MLS_KEYPACKAGE: &'static str = "ak.mls.keypackage";
     pub const MLS_PROPOSAL: &'static str = "ak.mls.proposal";
     pub const MLS_WELCOME: &'static str = "ak.mls.welcome";
+    pub const MLS_WELCOME_OWN_DEVICE: &'static str = "ak.mls.welcome.own_device";
     pub const MODERATION_APPEAL_REVIEW: &'static str = "ak.moderation.appeal.review";
     pub const MODERATION_APPEAL_SUBMIT: &'static str = "ak.moderation.appeal.submit";
     pub const MODERATION_DECISION: &'static str = "ak.moderation.decision";
@@ -559,6 +565,7 @@ impl CapabilityActionId {
             Self::InviteRevoke => Self::INVITE_REVOKE,
             Self::InviteThirdParty => Self::INVITE_THIRD_PARTY,
             Self::KeysBackupSeriesErase => Self::KEYS_BACKUP_SERIES_ERASE,
+            Self::MemberLeaveOwn => Self::MEMBER_LEAVE_OWN,
             Self::MessageCreate => Self::MESSAGE_CREATE,
             Self::MessageMentionBroadcast => Self::MESSAGE_MENTION_BROADCAST,
             Self::MessageRedact => Self::MESSAGE_REDACT,
@@ -571,6 +578,7 @@ impl CapabilityActionId {
             Self::MlsKeypackage => Self::MLS_KEYPACKAGE,
             Self::MlsProposal => Self::MLS_PROPOSAL,
             Self::MlsWelcome => Self::MLS_WELCOME,
+            Self::MlsWelcomeOwnDevice => Self::MLS_WELCOME_OWN_DEVICE,
             Self::ModerationAppealReview => Self::MODERATION_APPEAL_REVIEW,
             Self::ModerationAppealSubmit => Self::MODERATION_APPEAL_SUBMIT,
             Self::ModerationDecision => Self::MODERATION_DECISION,
@@ -729,6 +737,7 @@ impl CapabilityActionId {
             Self::INVITE_REVOKE => Some(Self::InviteRevoke),
             Self::INVITE_THIRD_PARTY => Some(Self::InviteThirdParty),
             Self::KEYS_BACKUP_SERIES_ERASE => Some(Self::KeysBackupSeriesErase),
+            Self::MEMBER_LEAVE_OWN => Some(Self::MemberLeaveOwn),
             Self::MESSAGE_CREATE => Some(Self::MessageCreate),
             Self::MESSAGE_MENTION_BROADCAST => Some(Self::MessageMentionBroadcast),
             Self::MESSAGE_REDACT => Some(Self::MessageRedact),
@@ -741,6 +750,7 @@ impl CapabilityActionId {
             Self::MLS_KEYPACKAGE => Some(Self::MlsKeypackage),
             Self::MLS_PROPOSAL => Some(Self::MlsProposal),
             Self::MLS_WELCOME => Some(Self::MlsWelcome),
+            Self::MLS_WELCOME_OWN_DEVICE => Some(Self::MlsWelcomeOwnDevice),
             Self::MODERATION_APPEAL_REVIEW => Some(Self::ModerationAppealReview),
             Self::MODERATION_APPEAL_SUBMIT => Some(Self::ModerationAppealSubmit),
             Self::MODERATION_DECISION => Some(Self::ModerationDecision),

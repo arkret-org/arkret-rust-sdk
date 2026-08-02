@@ -65,6 +65,13 @@ fn op_set(value: Value) -> LatticeOp {
     }
 }
 
+fn op_supersede(value: Value, from: Value) -> LatticeOp {
+    LatticeOp {
+        from: Some(from),
+        ..op_set(value)
+    }
+}
+
 fn op_inc(value: u64) -> LatticeOp {
     LatticeOp {
         op_type: LatticeOpType::Inc,
@@ -209,6 +216,53 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 value_of(Counter.join(&cref, &reversed)),
                 "counter join must be arrival-order independent"
             );
+        }
+        ("cas_register", "a single maximal supersession chain resolves to its terminal value") => {
+            let initial = json!({"revision": 1});
+            let second = json!({"revision": 2});
+            let terminal = json!({"revision": 3});
+            let ops = vec![
+                SealedOp::new(move_id("a1"), op_set(initial.clone())),
+                SealedOp::new(move_id("a2"), op_supersede(second.clone(), initial)),
+                SealedOp::new(move_id("a3"), op_supersede(terminal.clone(), second)),
+            ];
+            assert_eq!(value_of(CasRegister.join(&cref, &ops)), terminal);
+        }
+        ("cas_register", "same-from divergent successors resolve to bottom") => {
+            let initial = json!({"revision": 1});
+            let ops = vec![
+                SealedOp::new(move_id("b1"), op_set(initial.clone())),
+                SealedOp::new(
+                    move_id("b2"),
+                    op_supersede(json!({"revision": 2}), initial.clone()),
+                ),
+                SealedOp::new(move_id("b3"), op_supersede(json!({"revision": 3}), initial)),
+            ];
+            assert!(CasRegister.join(&cref, &ops).is_bottom());
+        }
+        ("cas_register", "a dangling non-initial supersession resolves to bottom") => {
+            let ops = vec![
+                SealedOp::new(move_id("c1"), op_set(json!({"revision": 1}))),
+                SealedOp::new(
+                    move_id("c2"),
+                    op_supersede(json!({"revision": 3}), json!({"revision": "never-written"})),
+                ),
+            ];
+            assert!(CasRegister.join(&cref, &ops).is_bottom());
+        }
+        ("cas_register", "duplicate value/from operations are idempotent") => {
+            let initial = json!({"revision": 1});
+            let terminal = json!({"revision": 2});
+            let ops = vec![
+                SealedOp::new(move_id("d1"), op_set(initial.clone())),
+                SealedOp::new(move_id("d2"), op_set(initial.clone())),
+                SealedOp::new(
+                    move_id("d3"),
+                    op_supersede(terminal.clone(), initial.clone()),
+                ),
+                SealedOp::new(move_id("d4"), op_supersede(terminal.clone(), initial)),
+            ];
+            assert_eq!(value_of(CasRegister.join(&cref, &ops)), terminal);
         }
         ("ordered_log", "per_issuer_sequence_order") => {
             let ops = vec![

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-01.3;
-//! sha256=9932fd84cab150a24a0a5e7c0a01c6bc68796ed2672bd020e6a7e87b431ad517 Input: registry/
-//! operations-error-mapping.json; version=2026-07-31;
-//! sha256=9df537af53bbae6ae58dc7b0e5073b149caa6c9b771a17061673c9b0e5ad8bcf Input: registry/
-//! error-code-registry.json; version=2026-08-01.3;
-//! sha256=9b04e988ea9e137d3f8a28097a5748e8d5ceac615722063c8d84ca2dc28211d9 Entries: operations=218
+//! Input: registry/operation-registry.json; version=2026-08-02.3;
+//! sha256=9b2936a706af863a7683b2e929d69692a4661b36fcf8d9606848951c67578337 Input: registry/
+//! operations-error-mapping.json; version=2026-08-02.1;
+//! sha256=c00e2f61990a581ef6c995e21a46823531d033421a1177a7c92c8c920524115d Input: registry/
+//! error-code-registry.json; version=2026-08-02.1;
+//! sha256=721de3aa00244fd62eb8365ec1a617b1a28e2c91cd5ded595f8232d37fd69268 Entries: operations=219
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -980,6 +980,18 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::KeypackageUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),
+            OperationSpecificError::ReasonCode(ReasonCode::DirectConversationLineageConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::DirectConversationPredecessorRequired),
+            OperationSpecificError::ReasonCode(
+                ReasonCode::DirectConversationRetirementEvidenceRequired,
+            ),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfDirectConversationSegmentQueryList,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ReasonCode(ReasonCode::DirectConversationLineageConflict),
         ],
     },
     OperationErrorMappingDescriptor {

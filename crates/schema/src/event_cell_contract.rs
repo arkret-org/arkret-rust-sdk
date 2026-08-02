@@ -392,10 +392,25 @@ pub fn validate_registered_cell_writes_in_context(
     event: &Event,
     context: EventCellContractContext,
 ) -> Result<(), EventCellContractError> {
+    validate_registered_cell_plane_in_context(event, context)?;
+    project_registered_cell_writes(event, arkret_canonical::DigestSuite::Sha256).map(|_| ())
+}
+
+/// Validate only the registry-declared CBA plane for an Event.
+///
+/// Admission lanes that evaluate `pre_state_requirements` from an
+/// authoritative, lock-protected snapshot must perform this shape-independent
+/// check before calling [`project_registered_cell_writes_with_pre_state`].
+/// Keeping the two steps explicit prevents an empty placeholder pre-state
+/// from rejecting a valid Event before the receiver can freeze its state.
+pub fn validate_registered_cell_plane_in_context(
+    event: &Event,
+    context: EventCellContractContext,
+) -> Result<(), EventCellContractError> {
     if let Some(descriptor) = event.kind.descriptor().filter(|row| row.reducer_input) {
         validate_plane(event, descriptor.plane, context)?;
     }
-    project_registered_cell_writes(event, arkret_canonical::DigestSuite::Sha256).map(|_| ())
+    Ok(())
 }
 
 fn require_lattice(

@@ -386,20 +386,28 @@ mod tests {
         )
         .unwrap();
 
-        // The registry declares one `or_set_remove_observed` write and no
-        // companion marker element. The dots it clears are the surviving add
-        // dots of the frozen pre-state the Control Move's `seal_basis` pins, so
-        // the producer neither enumerates them nor names the authorizing Event
-        // id as a tag — a bare `ak:event:<uuid>` is not a dot at all
-        // (`event-and-patch.md` §2.4.2).
+        // The registry atomically removes the authorization dots visible at
+        // the frozen pre-state and adds the durable revocation marker under the
+        // Event's canonical write-index dot.
+        let cell = agent_key_cell(&agent_id, "runtime-key-1");
+        let mut marker = LatticeOp::empty();
+        marker.op_type = LatticeOpType::Add;
+        marker.tag = Some(or_set_dot(event.event_id.as_str(), 1));
+        marker.value = Some(payload_object(&event));
         assert_eq!(
             project(&event),
-            vec![ProjectedCellWrite {
-                cell: agent_key_cell(&agent_id, "runtime-key-1"),
-                op: ProjectedOp::RemoveObserved {
-                    element_match: None
+            vec![
+                ProjectedCellWrite {
+                    cell: cell.clone(),
+                    op: ProjectedOp::RemoveObserved {
+                        element_match: None
+                    },
                 },
-            }]
+                ProjectedCellWrite {
+                    cell,
+                    op: ProjectedOp::Direct(marker),
+                },
+            ]
         );
     }
 

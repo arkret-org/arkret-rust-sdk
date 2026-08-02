@@ -753,6 +753,7 @@ pub struct MlsCommitPayload {
     base_epoch_ref: String,
     proposal_refs: Vec<EventId>,
     next_epoch: u64,
+    commit_bytes_b64: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     commit_message_ref: Option<String>,
     commit_digest: Hash,
@@ -767,6 +768,7 @@ struct MlsCommitPayloadWire {
     base_epoch_ref: String,
     proposal_refs: Vec<EventId>,
     next_epoch: u64,
+    commit_bytes_b64: String,
     #[serde(default)]
     commit_message_ref: Option<String>,
     commit_digest: Hash,
@@ -785,6 +787,7 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
             base_epoch_ref: wire.base_epoch_ref,
             proposal_refs: wire.proposal_refs,
             next_epoch: wire.next_epoch,
+            commit_bytes_b64: wire.commit_bytes_b64,
             commit_message_ref: wire.commit_message_ref,
             commit_digest: wire.commit_digest,
             governance_binding: wire.governance_binding,
@@ -801,6 +804,7 @@ impl MlsCommitPayload {
         base_epoch_ref: impl Into<String>,
         proposal_refs: Vec<EventId>,
         next_epoch: u64,
+        commit_bytes_b64: impl Into<String>,
         commit_digest: Hash,
         governance_binding: MlsGovernanceBindingPayload,
     ) -> Result<Self> {
@@ -814,6 +818,7 @@ impl MlsCommitPayload {
             base_epoch_ref: base_epoch_ref.into(),
             proposal_refs,
             next_epoch,
+            commit_bytes_b64: commit_bytes_b64.into(),
             commit_message_ref: None,
             commit_digest,
             governance_binding,
@@ -835,6 +840,24 @@ impl MlsCommitPayload {
         if self.base_epoch.checked_add(1) != Some(self.next_epoch) {
             return Err(Error::Protocol(
                 "mls_commit_payload.next_epoch must equal base_epoch + 1 (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        if self.commit_bytes_b64.is_empty() {
+            return Err(Error::Protocol(
+                "mls_commit_payload.commit_bytes_b64 must not be empty (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        let commit_bytes = base64url_decode(&self.commit_bytes_b64).map_err(|error| {
+            Error::Protocol(format!(
+                "mls_commit_payload.commit_bytes_b64 is invalid base64url: {error} (schema_violation)"
+            ))
+        })?;
+        let actual_commit_digest = canonical::sha256_digest(&commit_bytes);
+        if self.commit_digest.as_str() != actual_commit_digest {
+            return Err(Error::Protocol(
+                "mls_commit_payload.commit_digest does not match commit_bytes_b64 (schema_violation)"
                     .to_owned(),
             ));
         }
@@ -890,6 +913,10 @@ impl MlsCommitPayload {
 
     pub fn next_epoch(&self) -> u64 {
         self.next_epoch
+    }
+
+    pub fn commit_bytes_b64(&self) -> &str {
+        &self.commit_bytes_b64
     }
 
     pub fn commit_message_ref(&self) -> Option<&str> {

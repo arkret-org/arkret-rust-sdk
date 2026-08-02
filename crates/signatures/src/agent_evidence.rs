@@ -313,7 +313,7 @@ pub fn build_agent_signing_key_binding(
         ))
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
     };
-    let public_key_digest = binding_public_key_digest(&verification_method, &public_key)?;
+    let public_key_digest = agent_signing_public_key_digest(&verification_method, &public_key)?;
     let mut binding = AgentSigningKeyBinding {
         schema: NonEmptyString::new(SchemaId::AGENT_SIGNING_KEY_BINDING_V1.to_owned())
             .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
@@ -378,7 +378,7 @@ pub fn verify_agent_signing_key_binding(
         .try_into()
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let public_key_digest =
-        binding_public_key_digest(&binding.verification_method, &binding.public_key)?;
+        agent_signing_public_key_digest(&binding.verification_method, &binding.public_key)?;
     if public_key_digest != binding.public_key_digest
         || &public_key_digest != expected_public_key_digest
         || agent_signing_key_binding_digest(binding)? != *expected_binding_digest
@@ -709,7 +709,7 @@ fn verify_witness_branch(
         .unwrap_or(false)
 }
 
-fn binding_public_key_digest(
+pub fn agent_signing_public_key_digest(
     verification_method: &DidUrl,
     public_key: &AgentSigningPublicKey,
 ) -> Result<Hash, AgentEvidenceRejectedReason> {
@@ -717,6 +717,22 @@ fn binding_public_key_digest(
         "kty": public_key.kty,
         "kid": verification_method,
         "alg": public_key.alg,
+        "key": public_key.key,
+    }))
+    .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
+}
+
+pub fn agent_signing_public_key_runtime_digest(
+    verification_method: &DidUrl,
+    public_key: &AgentSigningPublicKey,
+) -> Result<Hash, AgentEvidenceRejectedReason> {
+    // The public binding names the concrete primitive (`Ed25519`), while the
+    // runtime pairing JWK uses the JOSE algorithm (`EdDSA`). Normalize only
+    // for comparison with the runtime request's public-key digest.
+    agent_runtime_public_key_digest(&serde_json::json!({
+        "kty": public_key.kty,
+        "kid": verification_method,
+        "alg": "EdDSA",
         "key": public_key.key,
     }))
     .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)

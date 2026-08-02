@@ -91,13 +91,17 @@ fn mls_commit_payload_matches_registered_event_schema() {
         "ak.reducer.v1",
     )
     .unwrap();
+    let commit_bytes = b"fixture RFC 9420 MLS commit";
+    let commit_bytes_b64 = base64url::base64url_encode(commit_bytes);
+    let commit_digest = Hash::new(canonical::sha256_digest(commit_bytes)).unwrap();
     let payload = MlsCommitPayload::new(
         group_id,
         0,
         event(1).to_string(),
         Vec::new(),
         1,
-        hash('7'),
+        commit_bytes_b64.clone(),
+        commit_digest,
         binding,
     )
     .unwrap();
@@ -109,5 +113,5 @@ fn mls_commit_payload_matches_registered_event_schema() {
         .unwrap();
     assert!(value.get("group_id").is_none());
     assert!(value.get("expected_prev_epoch").is_none());
-    assert!(value.get("commit_bytes_b64").is_none());
+    assert_eq!(value["commit_bytes_b64"], commit_bytes_b64);
 }

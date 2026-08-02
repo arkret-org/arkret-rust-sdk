@@ -402,3 +402,50 @@
   `ak.read_cursor.advance` sibling-schema case remains.
 - Prevention dimension: an exception inventory is bidirectional: it must fail when a new gap
   appears and when a formerly justified exception becomes obsolete.
+
+## 2026-08-01 — Agent EdDSA evidence signed a different transcript than verification consumed
+
+- Surface: Agent signer-evidence authoring and verification.
+- Regression: the authoring helper signed a digest-shaped intermediate while verification checked
+  the canonical Agent evidence binding, so SDK-produced Ed25519 evidence could not verify through
+  the SDK's own consumer path.
+- Correction: both paths now use the one canonical evidence transcript and the EdDSA discriminator
+  is validated before signature verification.
+- Prevention dimension: every signed protocol object needs a producer-to-consumer round trip that
+  compares the exact signed bytes, not only independently successful serialization tests.
+
+## 2026-08-01 — schema unit tests silently depended on a disabled production feature
+
+- Surface: default-feature `arkret-schema` unit-test target.
+- Regression: production intentionally defaults `embedded-artifacts` off, but 41 unit tests called
+  the embedded registry unconditionally. A normal workspace test therefore saw an empty catalog
+  and failed every downstream payload/cell assertion with the same missing-artifact cause.
+- Correction: test builds embed the canonical generated artifacts under `cfg(test)` while the
+  production default feature set remains unchanged.
+- Prevention dimension: tests for a feature-backed internal data source must explicitly enable a
+  test-only source; workspace feature unification is not a stable substitute for target-local
+  configuration.
+
+## 2026-08-01 — CAS supersession fixture assertions had no SDK dispatcher
+
+- Surface: the SDK consumer for `cba-lattice-fixture.json`.
+- Regression: the canonical fixture added the CAS supersession vector, but the strict SDK driver
+  rejected all four assertion names as unknown instead of executing the existing CasRegister
+  implementation against them.
+- Correction: the driver now evaluates the terminal chain, divergent sibling, dangling predecessor,
+  and duplicate-operation cases directly through `CasRegister`.
+- Prevention dimension: fixture additions and every registered independent runner must land in the
+  same change; strict unknown-case failure is retained to prevent silent coverage loss.
+
+## 2026-08-02 — generated SDK surfaces lagged the post-rebase spec head
+
+- Surface: embedded artifacts, generated registries, Agent key projection tests, and typed MLS
+  Commit payloads.
+- Regression: the final remote rebase added a second Agent-key revoke cell write and made inline
+  `commit_bytes_b64` mandatory, but the SDK still embedded the previous artifact snapshot. After
+  regeneration, the stale revoke assertion and digest-only MLS constructor failed the full gate.
+- Correction: regenerate all 276 artifacts and closed registries, assert the revoke marker's atomic
+  add after observed removal, and require/decode inline MLS Commit bytes while recomputing their
+  SHA-256 digest during construction and deserialization.
+- Prevention dimension: a final spec rebase must rerun both generated-surface drift checks and the
+  SDK workspace gate before downstream repositories are pushed.
