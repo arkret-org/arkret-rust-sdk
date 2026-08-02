@@ -8,7 +8,7 @@
 //! ```
 //!
 //! - `<component>` is the cell family (e.g. `ak.component.member.state.v1`,
-//!   `ak.component.capability.grant.v1`, `ak.component.consent.v1`).
+//!   `ak.component.capability.grant.v1`, `ak.component.consent.grant.v1`).
 //! - `<subject>` may be a flat identifier (`did.web.alice.example`,
 //!   `ak.grant.01js0gr0000000000000000000`) or a deterministic composite subject when the spec
 //!   event-kind-registry's `cell_subject` declares `composite` form.
@@ -42,9 +42,17 @@ const CELL_PREFIX: &str = "ak:cell:";
 /// divergent spelling forks `state_root` across implementations.
 pub const NULL_SUBJECT: &str = "null";
 
+/// Build a canonical wire cell id from a registered family and its subject.
+///
+/// Callers should normally pass a [`crate::CellFamilyId`] associated constant,
+/// keeping registered family spellings centralized in generated code.
+pub fn subject_cell(component: &str, subject: &str) -> String {
+    format!("{CELL_PREFIX}{component}:{subject}")
+}
+
 /// Build the canonical wire cell id of a `cell_subject: null` family.
 pub fn null_subject_cell(component: &str) -> String {
-    format!("{CELL_PREFIX}{component}:{NULL_SUBJECT}")
+    subject_cell(component, NULL_SUBJECT)
 }
 
 /// Canonical genesis-log cell of every `ak.realm.create` (`ordered_log`).

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -16,15 +17,31 @@ GENERATED_CONSTANT = re.compile(
 )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="reject registered cell-family literals outside generated constants"
+    )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=REPO_ROOT,
+        help="repository root to scan (defaults to the SDK repository)",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = parse_args()
+    scan_root = args.root.resolve()
     generated = GENERATED_IDS.read_text(encoding="utf-8")
     registered = set(GENERATED_CONSTANT.findall(generated))
     if not registered:
         raise RuntimeError(f"no CellFamilyId constants found in {GENERATED_IDS}")
 
     violations: list[str] = []
-    crates = REPO_ROOT / "crates"
-    for path in sorted(crates.rglob("*.rs")):
+    for path in sorted(scan_root.rglob("*.rs")):
+        if any(part in {".git", "target", "node_modules"} for part in path.parts):
+            continue
         if path == GENERATED_IDS:
             continue
         for line_number, line in enumerate(
@@ -32,7 +49,7 @@ def main() -> int:
         ):
             for family in CELL_FAMILY_LITERAL.findall(line):
                 if family in registered:
-                    relative = path.relative_to(REPO_ROOT).as_posix()
+                    relative = path.relative_to(scan_root).as_posix()
                     violations.append(f"{relative}:{line_number}: {family}")
 
     if violations:
