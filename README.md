@@ -113,9 +113,9 @@ Headline additions:
 - **3 new error code constants**: `delivery_binding_stale` /
   `delivery_binding_handed_over` / `historical_only`.
 - **1 new capability action**: `ak.morph.create` (medium risk).
-- **3 new federation header constants**: `Source-Trust-Domain` /
-  `Destination-Trust-Domain` / `Request-Canonical-Digest` (entered into
-  the HTTP-message-signature transcript).
+- **Federation trust-domain header constants**: `Source-Trust-Domain` /
+  `Destination-Trust-Domain` (entered into the HTTP-message-signature
+  transcript); canonical JSON bodies use the single RFC 9530 `Content-Digest`.
 - **CAS upgrade**: `CrossSigningPublishPayload` gains required
   `expected_previous_generation`; `compute_audit_policy_version_digest`
   takes 4 args (`realm_id, trust_domain, audit_disclosure,

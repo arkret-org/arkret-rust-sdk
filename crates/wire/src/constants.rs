@@ -120,11 +120,6 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
 /// Spec commit f9bd7eb (`harden protocol review closures`).
 pub const HEADER_SOURCE_TRUST_DOMAIN: &str = "Source-Trust-Domain";
 pub const HEADER_DESTINATION_TRUST_DOMAIN: &str = "Destination-Trust-Domain";
-/// Round 4 — canonical digest of the request payload as bound into the
-/// signing transcript. Carried alongside the signing headers so receivers
-/// can detect transport-level body tampering after the signature was
-/// computed. Spec commit f9bd7eb.
-pub const HEADER_REQUEST_CANONICAL_DIGEST: &str = "Request-Canonical-Digest";
 
 /// Domain separator for the deterministic backing-Circle short name derived
 /// from a sidecar id.
