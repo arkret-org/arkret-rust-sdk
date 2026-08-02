@@ -980,7 +980,7 @@ mod tests {
 
             EventInitialSubmission {
                 event,
-                authorization_lease,
+                authorization_lease: Some(authorization_lease),
                 // Optional receiver-relative dependency evidence; the fixture
                 // Event cites no seal_ref / seal_basis, so it needs none.
                 cba_proof_bundles: Vec::new(),

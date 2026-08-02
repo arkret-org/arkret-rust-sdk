@@ -401,7 +401,7 @@ mod tests {
             }],
         };
         EventInitialSubmission {
-            authorization_lease: AuthorizationLease {
+            authorization_lease: Some(AuthorizationLease {
                 authorization_lease_id: AuthorizationLeaseId::new(
                     "ak:authorization_lease:01904100-0000-7000-8000-0000000000f1",
                 )
@@ -423,7 +423,7 @@ mod tests {
                 },
                 authority_set_policy: policy,
                 proofs: Vec::new(),
-            },
+            }),
             event,
             cba_proof_bundles: Vec::new(),
             control_proposal_receipt: None,

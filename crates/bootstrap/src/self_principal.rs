@@ -116,9 +116,9 @@ pub fn build_self_principal_pcr_create(
 /// Validate and package the closed two-slot self-principal bootstrap batch.
 /// The receiver still verifies both cryptographic proofs and entry-0 history.
 ///
-/// Each slot travels as an [`EventInitialSubmission`]: the authorization lease
-/// bounds the revocation window and is not part of the signed Event, so it
-/// cannot be derived here and must be supplied by the caller.
+/// Each slot travels as an [`EventInitialSubmission`]. Online bootstrap uses
+/// current-state admission; an explicitly delayed bootstrap may additionally
+/// carry a lease beside the signed Event.
 pub fn self_principal_bootstrap_submit_request(
     create: EventInitialSubmission,
     authorize: EventInitialSubmission,
@@ -126,16 +126,7 @@ pub fn self_principal_bootstrap_submit_request(
 ) -> Result<EventsSubmitRequestBody> {
     validate_self_principal_bootstrap_unit(&create.event, &authorize.event, project)?;
     for submission in [&create, &authorize] {
-        // The full ingress gate (`EventInitialSubmission::validate_structural`)
-        // demands a CBA basis every reducer-input Event carries except the
-        // genesis pair, so only the lease-to-Event bindings are checked here.
-        if submission.authorization_lease.actor_id != submission.event.actor_id
-            || submission.authorization_lease.scope_ref != submission.event.scope_ref
-        {
-            return Err(Error::Protocol(
-                "bootstrap authorization lease does not bind its Event actor and scope".to_owned(),
-            ));
-        }
+        submission.validate_structural_in_context(arkret_wire::EventSubmitContext::AnchorUnit)?;
     }
     Ok(EventsSubmitRequestBody::Batch(
         EventsSubmitBatchRequestBody {

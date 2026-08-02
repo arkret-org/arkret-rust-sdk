@@ -1822,18 +1822,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
     fn from(value: RecoveryPolicyPublishRequest) -> Self {
         Self {
             event: value.event,
-            authorization_lease: value.authorization_lease,
-            cba_proof_bundles: value.cba_proof_bundles,
-            control_proposal_receipt: value.control_proposal_receipt,
-        }
-    }
-}
-
-impl From<EventInitialSubmission> for RecoveryPolicyPublishRequest {
-    fn from(value: EventInitialSubmission) -> Self {
-        Self {
-            event: value.event,
-            authorization_lease: value.authorization_lease,
+            authorization_lease: Some(value.authorization_lease),
             cba_proof_bundles: value.cba_proof_bundles,
             control_proposal_receipt: value.control_proposal_receipt,
         }

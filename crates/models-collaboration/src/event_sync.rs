@@ -769,34 +769,29 @@ impl EventsSubmitFederationRequestBody {
                 "federation events must contain between 1 and 500 items".to_owned(),
             ));
         }
-        let is_anchor_unit = self.events.first().is_some_and(|submission| {
-            submission.event.kind.as_str() == arkret_wire::EventKind::REALM_CREATE
-        }) && self.events.iter().all(|submission| {
-            matches!(
-                &submission.authorization_lease.basis_ref,
-                arkret_wire::LeaseBasisRef::AnchorUnit(_)
-            )
-        });
-        if is_anchor_unit {
-            let events = self
-                .events
-                .iter()
-                .map(|submission| submission.event.clone())
-                .collect::<Vec<_>>();
+        let events = self
+            .events
+            .iter()
+            .map(|submission| submission.event.clone())
+            .collect::<Vec<_>>();
+        let submit_context = arkret_wire::classify_event_submit_context(&events)?;
+        if submit_context == arkret_wire::EventSubmitContext::AnchorUnit {
             let leases = self
                 .events
                 .iter()
-                .map(|submission| submission.authorization_lease.clone())
+                .filter_map(|submission| submission.authorization_lease.clone())
                 .collect::<Vec<_>>();
-            arkret_wire::validate_anchor_unit_lease_bindings(&events, &leases)?;
-            for submission in &self.events {
-                submission
-                    .validate_structural_in_context(arkret_wire::EventSubmitContext::AnchorUnit)?;
+            if !leases.is_empty() {
+                if leases.len() != self.events.len() {
+                    return Err(Error::Protocol(
+                        "an anchor unit cannot mix online and delayed submissions".to_owned(),
+                    ));
+                }
+                arkret_wire::validate_anchor_unit_lease_bindings(&events, &leases)?;
             }
-        } else {
-            for submission in &self.events {
-                submission.validate_structural()?;
-            }
+        }
+        for submission in &self.events {
+            submission.validate_structural_in_context(submit_context)?;
         }
         if self.cba_proof_bundles.len() > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
         {
@@ -1370,7 +1365,7 @@ mod tests {
 
         EventFederationSubmission {
             event,
-            authorization_lease,
+            authorization_lease: Some(authorization_lease),
             ingress_receipts: vec![receipt],
             control_proposal_receipt,
         }
@@ -1422,7 +1417,11 @@ mod tests {
             .with_timezone(&Utc);
         let receipt = proposal_receipt_for(
             &event,
-            &submission.authorization_lease.authority_set_ref,
+            &submission
+                .authorization_lease
+                .as_ref()
+                .expect("fixture uses delayed federation")
+                .authority_set_ref,
             received_at,
         );
         let health = ControlGovernanceHealth {
@@ -1639,8 +1638,11 @@ mod tests {
         assert!(foreign_digest.validate_federation_transport().is_err());
 
         let mut foreign_actor = request;
-        foreign_actor.events[0].authorization_lease.actor_id =
-            Did::new("did:web:mallory.example").unwrap();
+        foreign_actor.events[0]
+            .authorization_lease
+            .as_mut()
+            .expect("fixture uses delayed federation")
+            .actor_id = Did::new("did:web:mallory.example").unwrap();
         assert!(foreign_actor.validate_federation_transport().is_err());
     }
 }

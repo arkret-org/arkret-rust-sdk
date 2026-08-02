@@ -20,6 +20,43 @@ use crate::{RiskTier, ScopeRef};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
+/// Classify a complete ordered submission unit before any network request.
+///
+/// Basis-free Events are admitted only as one closed Realm-bootstrap or
+/// device-reanchor unit. Ordinary Events never become anchors merely because
+/// their authorization fields are missing.
+pub fn classify_event_submit_context(events: &[Event]) -> Result<EventSubmitContext> {
+    let basis_free = |event: &Event| {
+        event.seal_ref.is_none() && event.auth_context.is_none() && event.seal_basis.is_none()
+    };
+    let has_basis_free = events.iter().any(basis_free);
+    let all_basis_free = !events.is_empty() && events.iter().all(basis_free);
+    if has_basis_free && !all_basis_free {
+        return Err(Error::Protocol(
+            "anchor Events must be authorized as one complete ordered unit".to_owned(),
+        ));
+    }
+    let context = if all_basis_free {
+        let first_kind = events
+            .first()
+            .map(|event| event.kind.as_str())
+            .unwrap_or_default();
+        if !matches!(first_kind, "ak.realm.create" | "ak.device.reanchor") {
+            return Err(Error::Protocol(
+                "basis-free publication unit must be a registered Realm bootstrap or device re-anchor unit"
+                    .to_owned(),
+            ));
+        }
+        EventSubmitContext::AnchorUnit
+    } else {
+        EventSubmitContext::Standard
+    };
+    for event in events {
+        event.validate_for_submit_structural_in_context(context)?;
+    }
+    Ok(context)
+}
+
 /// Batch `ak.self.events.command.submit` request used by account clients.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -195,7 +232,8 @@ pub fn validate_anchor_unit_lease_bindings(
 pub struct EventInitialSubmission {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
-    pub authorization_lease: AuthorizationLease,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_lease: Option<AuthorizationLease>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -209,7 +247,8 @@ pub struct EventInitialSubmission {
 pub struct EventFederationSubmission {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
-    pub authorization_lease: AuthorizationLease,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_lease: Option<AuthorizationLease>,
     pub ingress_receipts: Vec<IngressReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_proposal_receipt: Option<ControlProposalReceipt>,
@@ -243,14 +282,17 @@ fn validate_control_proposal_receipt(
     receipt: Option<&ControlProposalReceipt>,
     context: EventSubmitContext,
 ) -> Result<()> {
-    let requires_receipt = context == EventSubmitContext::Standard && event.seal_basis.is_some();
-    if requires_receipt != receipt.is_some() {
+    if context != EventSubmitContext::Standard && receipt.is_some() {
         return Err(Error::Protocol(
-            "non-genesis Control Move requires exactly one proposal receipt; DataEvent and anchor units forbid it"
-                .to_owned(),
+            "anchor units forbid a control proposal receipt".to_owned(),
         ));
     }
     if let Some(receipt) = receipt {
+        if event.seal_basis.is_none() {
+            return Err(Error::Protocol(
+                "DataEvent submissions forbid a control proposal receipt".to_owned(),
+            ));
+        }
         let event_digest = crate::Hash::new(event.event_digest()?)?;
         if receipt.realm_id != event.realm_id || receipt.proposal_digest != event_digest {
             return Err(Error::Protocol(
@@ -262,6 +304,28 @@ fn validate_control_proposal_receipt(
 }
 
 impl EventInitialSubmission {
+    /// Build the default online submission path. Authorization is evaluated
+    /// atomically against current accepted state by the receiver.
+    pub fn online(event: Event) -> Self {
+        Self {
+            event,
+            authorization_lease: None,
+            cba_proof_bundles: Vec::new(),
+            control_proposal_receipt: None,
+        }
+    }
+
+    /// Build an explicitly delayed/offline submission using a pre-issued
+    /// authorization window.
+    pub fn delayed(event: Event, authorization_lease: AuthorizationLease) -> Self {
+        Self {
+            event,
+            authorization_lease: Some(authorization_lease),
+            cba_proof_bundles: Vec::new(),
+            control_proposal_receipt: None,
+        }
+    }
+
     /// Structural gate an ingress runs before it will mint a receipt.
     ///
     /// Key material, accepted CBA basis and Realm issuer policy are checked by
@@ -278,8 +342,10 @@ impl EventInitialSubmission {
     pub fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
         self.event
             .validate_for_submit_structural_in_context(context)?;
-        self.authorization_lease.validate_structural()?;
-        validate_lease_binds_event(&self.event, &self.authorization_lease)?;
+        if let Some(lease) = &self.authorization_lease {
+            lease.validate_structural()?;
+            validate_lease_binds_event(&self.event, lease)?;
+        }
         validate_control_proposal_receipt(
             &self.event,
             self.control_proposal_receipt.as_ref(),
@@ -300,10 +366,11 @@ impl EventInitialSubmission {
 impl EventFederationSubmission {
     /// Structural gate a receiving peer runs before revalidating dependencies.
     ///
-    /// At least one receipt must bind this exact Event digest to this exact
-    /// lease and fall inside the lease window. Whether the receipt issuers,
-    /// threshold and transparency evidence satisfy the *target* Realm policy
-    /// is a separate decision the caller makes.
+    /// Online federation carries neither a lease nor lease-bound receipts.
+    /// Delayed federation carries a lease and at least one receipt that binds
+    /// this exact Event digest inside that lease window. Whether the receipt
+    /// issuers, threshold and transparency evidence satisfy the *target* Realm
+    /// policy is a separate decision the caller makes.
     pub fn validate_structural(&self) -> Result<()> {
         self.validate_structural_in_context(EventSubmitContext::Standard)
     }
@@ -312,24 +379,48 @@ impl EventFederationSubmission {
     pub fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
         self.event
             .validate_for_submit_structural_in_context(context)?;
-        self.authorization_lease.validate_structural()?;
-        validate_lease_binds_event(&self.event, &self.authorization_lease)?;
+        if let Some(lease) = &self.authorization_lease {
+            lease.validate_structural()?;
+            validate_lease_binds_event(&self.event, lease)?;
+        }
         validate_control_proposal_receipt(
             &self.event,
             self.control_proposal_receipt.as_ref(),
             context,
         )?;
-        if self.ingress_receipts.is_empty()
-            || self.ingress_receipts.len() > MAX_FEDERATION_INGRESS_RECEIPTS
-        {
+        if self.ingress_receipts.len() > MAX_FEDERATION_INGRESS_RECEIPTS {
             return Err(Error::Protocol(format!(
-                "federation submission requires 1..={MAX_FEDERATION_INGRESS_RECEIPTS} ingress receipts"
+                "federation submission permits at most {MAX_FEDERATION_INGRESS_RECEIPTS} ingress receipts"
             )));
+        }
+        match (
+            self.authorization_lease.is_some(),
+            self.ingress_receipts.is_empty(),
+        ) {
+            (true, true) => {
+                return Err(Error::Protocol(
+                    "delayed federation requires at least one lease-bound ingress receipt"
+                        .to_owned(),
+                ));
+            }
+            (false, false) => {
+                return Err(Error::Protocol(
+                    "online federation forbids lease-bound ingress receipts".to_owned(),
+                ));
+            }
+            _ => {}
         }
         let event_digest = crate::Hash::new(self.event.event_digest()?)?;
         for receipt in &self.ingress_receipts {
             receipt.validate_structural()?;
-            receipt.validate_against_lease(&self.authorization_lease, &event_digest)?;
+            if receipt.event_digest != event_digest {
+                return Err(Error::Protocol(
+                    "ingress receipt event_digest does not match the submitted Event".to_owned(),
+                ));
+            }
+            if let Some(lease) = &self.authorization_lease {
+                receipt.validate_against_lease(lease, &event_digest)?;
+            }
         }
         Ok(())
     }
@@ -345,8 +436,8 @@ mod tests {
         AuthoritySetPolicy, AuthoritySetPolicySource, AuthoritySetRef,
     };
     use crate::{
-        AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId, DeviceId, Did,
-        DidUrl, Hash, PayloadProof, RealmId, SchemaId, SealId, proof_kind,
+        AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId,
+        DeviceId, Did, DidUrl, Hash, PayloadProof, Proof, RealmId, SchemaId, SealId, proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
@@ -432,6 +523,83 @@ mod tests {
             jws: "a..b".to_owned(),
         }];
         lease
+    }
+
+    fn online_event() -> Event {
+        let mut event = Event::new(
+            "ak.message.create",
+            scope(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            1,
+            crate::Hlc::new("000000000000-0000-00000000").unwrap(),
+            serde_json::json!({}),
+        )
+        .unwrap();
+        event.seal_ref = Some(match intent().basis_ref {
+            LeaseBasisRef::Seal(value) => value,
+            _ => unreachable!(),
+        });
+        event.auth_context = Some(AuthContext {
+            did: event.actor_id.clone(),
+            key_id: "device-1".to_owned(),
+            key_epoch: 1,
+            credential_epoch: None,
+        });
+        let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        event.proofs = vec![Proof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
+                .unwrap(),
+            alg: "EdDSA".to_owned(),
+            event_digest,
+            created_at: event.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        }];
+        event
+    }
+
+    #[test]
+    fn online_submission_validates_and_omits_authorization_lease() {
+        let submission = EventInitialSubmission::online(online_event());
+        submission.validate_structural().unwrap();
+
+        let value = serde_json::to_value(submission).unwrap();
+        assert!(value.get("authorization_lease").is_none());
+    }
+
+    #[test]
+    fn delayed_submission_keeps_the_explicit_lease() {
+        let event = online_event();
+        let submission = EventInitialSubmission::delayed(event, lease_for(&intent()));
+        submission.validate_structural().unwrap();
+
+        let value = serde_json::to_value(submission).unwrap();
+        assert!(value.get("authorization_lease").is_some());
+    }
+
+    #[test]
+    fn online_federation_uses_no_offline_publication_evidence() {
+        let submission = EventFederationSubmission {
+            event: online_event(),
+            authorization_lease: None,
+            ingress_receipts: Vec::new(),
+            control_proposal_receipt: None,
+        };
+        submission.validate_structural().unwrap();
+    }
+
+    #[test]
+    fn delayed_federation_requires_a_lease_bound_receipt() {
+        let submission = EventFederationSubmission {
+            event: online_event(),
+            authorization_lease: Some(lease_for(&intent())),
+            ingress_receipts: Vec::new(),
+            control_proposal_receipt: None,
+        };
+        assert!(submission.validate_structural().is_err());
     }
 
     #[test]

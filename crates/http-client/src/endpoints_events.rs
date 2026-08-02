@@ -147,19 +147,24 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Obtain authority-issued publication evidence for an ordered Event unit.
+    /// Prepare the default online submission path for an ordered Event unit.
     ///
-    /// The signed Events are never rewritten. A complete anchor unit is sent
-    /// in one lease request so the issuer can bind its exact cardinality and
-    /// order. Standard Control Moves additionally obtain the Principal
-    /// Server's canonical proposal member receipt before the wrapper is
-    /// returned.
+    /// No authorization lease is issued or prefetched. The receiving service
+    /// evaluates each complete signed Event atomically against current state.
     pub async fn prepare_initial_submissions(
         &self,
         events: &[Event],
     ) -> Result<Vec<EventInitialSubmission>> {
-        self.prepare_initial_submissions_with_collector(events, None)
-            .await
+        let submit_context = initial_submission_context(events)?;
+        events
+            .iter()
+            .cloned()
+            .map(|event| {
+                let submission = EventInitialSubmission::online(event);
+                submission.validate_structural_in_context(submit_context)?;
+                Ok(submission)
+            })
+            .collect()
     }
 
     pub async fn prepare_initial_submissions_with_local_proposal_authority<F>(
@@ -190,7 +195,7 @@ impl Client {
             };
             let submission = EventInitialSubmission {
                 event: event.clone(),
-                authorization_lease: lease,
+                authorization_lease: Some(lease),
                 cba_proof_bundles: Vec::new(),
                 control_proposal_receipt,
             };
@@ -244,14 +249,17 @@ impl Client {
         for (event, lease) in events.iter().zip(outcome.authorization_leases) {
             let mut submission = EventInitialSubmission {
                 event: event.clone(),
-                authorization_lease: lease,
+                authorization_lease: Some(lease),
                 cba_proof_bundles: Vec::new(),
                 control_proposal_receipt: None,
             };
             if !anchor_unit && event.seal_basis.is_some() {
                 let request = ProposalReceiptIssueRequest {
                     event: event.clone(),
-                    authorization_lease: submission.authorization_lease.clone(),
+                    authorization_lease: submission
+                        .authorization_lease
+                        .clone()
+                        .expect("delayed submission was constructed with a lease"),
                     cba_proof_bundles: Vec::new(),
                 };
                 submission.control_proposal_receipt = Some(
@@ -823,35 +831,7 @@ impl Client {
 /// Event kind; treating every all-empty CBA tuple as an anchor lets malformed
 /// ordinary Events reach the authorization issuer.
 fn initial_submission_context(events: &[Event]) -> Result<EventSubmitContext> {
-    let basis_free = |event: &Event| {
-        event.seal_ref.is_none() && event.auth_context.is_none() && event.seal_basis.is_none()
-    };
-    let has_basis_free = events.iter().any(basis_free);
-    let all_basis_free = !events.is_empty() && events.iter().all(basis_free);
-    if has_basis_free && !all_basis_free {
-        return Err(Error::Protocol(
-            "anchor Events must be authorized as one complete ordered unit".to_owned(),
-        ));
-    }
-    let context = if all_basis_free {
-        let first_kind = events
-            .first()
-            .map(|event| event.kind.as_str())
-            .unwrap_or_default();
-        if !matches!(first_kind, "ak.realm.create" | "ak.device.reanchor") {
-            return Err(Error::Protocol(
-                "basis-free publication unit must be a registered Realm bootstrap or device re-anchor unit"
-                    .to_owned(),
-            ));
-        }
-        EventSubmitContext::AnchorUnit
-    } else {
-        EventSubmitContext::Standard
-    };
-    for event in events {
-        event.validate_for_submit_structural_in_context(context)?;
-    }
-    Ok(context)
+    Ok(arkret_wire::classify_event_submit_context(events)?)
 }
 
 fn merge_range_completeness(
