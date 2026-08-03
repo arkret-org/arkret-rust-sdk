@@ -185,13 +185,13 @@ impl KeyBackupActiveSeries {
     /// The active-series schema excludes only the signature member itself
     /// from this transcript. Keeping that operation on the public model avoids
     /// every producer and verifier growing its own JSON-shape implementation.
-    pub fn signature_payload_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+    pub fn signature_payload_bytes(&self) -> Result<Vec<u8>> {
         let mut unsigned = serde_json::to_value(self)?;
         unsigned
             .get_mut("auth_data")
             .and_then(Value::as_object_mut)
             .ok_or_else(|| {
-                arkret_wire::Error::Protocol(
+                Error::Protocol(
                     "active-series auth_data must serialize as an object".to_owned(),
                 )
             })?
@@ -200,12 +200,11 @@ impl KeyBackupActiveSeries {
     }
 
     /// Canonical CAS cell selected by `(actor_id, backup_kind)`.
-    pub fn cell_ref(&self) -> arkret_wire::Result<CellRef> {
-        let subject =
-            arkret_wire::composite_subject(&[self.actor_id.as_str(), self.backup_kind.as_str()])?;
+    pub fn cell_ref(&self) -> Result<CellRef> {
+        let subject = composite_subject(&[self.actor_id.as_str(), self.backup_kind.as_str()])?;
         Ok(CellRef::new(format!(
             "ak:cell:{}:{subject}",
-            arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
+            CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
         ))?)
     }
 
@@ -214,7 +213,7 @@ impl KeyBackupActiveSeries {
     /// The registered projector copies this `head_eq` value into the next
     /// `cas_register` op's predecessor. Omitting it would author a concurrent
     /// initial head and force the security-barrier cell into Bottom.
-    pub fn replacement_precondition(&self) -> arkret_wire::Result<Precondition> {
+    pub fn replacement_precondition(&self) -> Result<Precondition> {
         Ok(Precondition {
             cell: self.cell_ref()?,
             predicate: Predicate {
@@ -626,14 +625,13 @@ mod key_backup_active_series_tests {
             precondition.predicate.value,
             Some(serde_json::to_value(&first).unwrap())
         );
-        let subject =
-            arkret_wire::composite_subject(&[first.actor_id.as_str(), first.backup_kind.as_str()])
-                .unwrap();
+        let subject = composite_subject(&[first.actor_id.as_str(), first.backup_kind.as_str()])
+            .unwrap();
         assert_eq!(
             precondition.cell.as_str(),
             format!(
                 "ak:cell:{}:{subject}",
-                arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
+                CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
             )
         );
     }
