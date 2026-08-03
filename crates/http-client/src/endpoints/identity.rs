@@ -1,5 +1,6 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
+use arkret_models_crypto::{RecoveryPolicyPublishOutcome, RecoveryPolicyPublishRequest};
 use arkret_models_discovery::{
     DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
     DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
@@ -148,6 +149,30 @@ impl Client {
     ) -> Result<DidOperationSubmitOutcome> {
         self.post("/_arkret/root/identity/submit-did-operation", request)
             .await
+    }
+
+    /// Publish a typed recovery-policy control Event using canonical JSON.
+    pub async fn identity_recovery_policy_publish(
+        &self,
+        request: &RecoveryPolicyPublishRequest,
+    ) -> Result<RecoveryPolicyPublishOutcome> {
+        request.validate_structural()?;
+        let payload = request.policy_payload()?;
+        let outcome: RecoveryPolicyPublishOutcome = self
+            .post("/_arkret/root/identity/recovery-policy", request)
+            .await?;
+        if !outcome.ok
+            || outcome.policy_id != payload.policy_id
+            || outcome.principal_id != payload.value.principal_id
+            || outcome.version != payload.value.version
+            || outcome.acceptance_basis != request.authorization_lease.basis_ref
+        {
+            return Err(Error::Protocol(
+                "recovery-policy publish response changed policy or authorization binding"
+                    .to_owned(),
+            ));
+        }
+        Ok(outcome)
     }
 
     /// Idempotently return or create the service identity bound to the signed
