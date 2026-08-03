@@ -119,7 +119,6 @@ impl From<AgentParticipation> for AgentParticipationCeiling {
     }
 }
 
-
 /// Error surfaced by the reducer-pure participation validators.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum AgentParticipationError {
@@ -228,10 +227,13 @@ pub struct AgentParticipationOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arkret_wire::{RealmId, StrandId};
 
     fn p(reply: bool, mention: bool, aob: bool) -> AgentParticipation {
         AgentParticipation {
-            reply,
+            reply_message: reply,
+            reaction_add: false,
+            reaction_remove: false,
             accept_third_party_mention: mention,
             act_on_behalf: aob,
         }
@@ -267,7 +269,9 @@ mod tests {
     fn ceiling_declaration_inherits_omitted_bits() {
         let parent = p(true, false, true);
         let child = AgentParticipationCeiling {
-            reply: Some(false),
+            reply_message: Some(false),
+            reaction_add: None,
+            reaction_remove: None,
             accept_third_party_mention: None,
             act_on_behalf: None,
         };
@@ -281,7 +285,9 @@ mod tests {
     fn governance_policy_wraps_native_agent_ceiling() {
         let policy = AgentParticipationPolicy {
             native_agent: Some(AgentParticipationCeiling {
-                reply: Some(true),
+                reply_message: Some(true),
+                reaction_add: None,
+                reaction_remove: None,
                 accept_third_party_mention: None,
                 act_on_behalf: Some(false),
             }),
@@ -290,14 +296,14 @@ mod tests {
             serde_json::to_value(policy).unwrap(),
             serde_json::json!({
                 "native_agent": {
-                    "reply": true,
+                    "reply_message": true,
                     "act_on_behalf": false
                 }
             })
         );
         assert!(
             serde_json::from_value::<AgentParticipationPolicy>(serde_json::json!({
-                "reply": true
+                "reply_message": true
             }))
             .is_err()
         );
@@ -307,7 +313,9 @@ mod tests {
     fn ceiling_declaration_rejects_explicit_widening() {
         let parent = p(true, false, false);
         let child = AgentParticipationCeiling {
-            reply: None,
+            reply_message: None,
+            reaction_add: None,
+            reaction_remove: None,
             accept_third_party_mention: Some(true),
             act_on_behalf: None,
         };

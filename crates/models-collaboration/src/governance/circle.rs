@@ -922,7 +922,9 @@ mod tests {
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationPolicy {
             native_agent: Some(AgentParticipationCeiling {
-                reply: Some(true),
+                reply_message: Some(true),
+                reaction_add: None,
+                reaction_remove: None,
                 accept_third_party_mention: None,
                 act_on_behalf: Some(false),
             }),
@@ -933,7 +935,7 @@ mod tests {
             value.get("agent_participation"),
             Some(&serde_json::json!({
                 "native_agent": {
-                    "reply": true,
+                    "reply_message": true,
                     "act_on_behalf": false
                 }
             }))
@@ -981,7 +983,9 @@ mod tests {
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let parent = AgentParticipation {
-            reply: true,
+            reply_message: true,
+            reaction_add: false,
+            reaction_remove: false,
             accept_third_party_mention: false,
             act_on_behalf: true,
         };
@@ -993,7 +997,9 @@ mod tests {
 
         circle.agent_participation = Some(AgentParticipationPolicy {
             native_agent: Some(AgentParticipationCeiling {
-                reply: Some(false),
+                reply_message: Some(false),
+                reaction_add: None,
+                reaction_remove: None,
                 accept_third_party_mention: None,
                 act_on_behalf: None,
             }),
@@ -1001,7 +1007,9 @@ mod tests {
         assert_eq!(
             circle.validate_agent_participation_ceiling(parent).unwrap(),
             AgentParticipation {
-                reply: false,
+                reply_message: false,
+                reaction_add: false,
+                reaction_remove: false,
                 accept_third_party_mention: false,
                 act_on_behalf: true,
             }
@@ -1009,7 +1017,9 @@ mod tests {
 
         circle.agent_participation = Some(AgentParticipationPolicy {
             native_agent: Some(AgentParticipationCeiling {
-                reply: None,
+                reply_message: None,
+                reaction_add: None,
+                reaction_remove: None,
                 accept_third_party_mention: Some(true),
                 act_on_behalf: None,
             }),

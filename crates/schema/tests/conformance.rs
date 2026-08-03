@@ -1,7 +1,10 @@
+#[cfg(feature = "embedded-artifacts")]
 use arkret_canonical::canonical;
 use arkret_schema::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_schema::*;
-use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, Did, DidUrl, Hash, Proof, SchemaId};
+use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, SchemaId};
+#[cfg(feature = "embedded-artifacts")]
+use arkret_wire::{Did, DidUrl, Hash, Proof};
 use serde_json::json;
 
 fn required_profiles() -> [ConformanceProfile; 11] {
@@ -219,16 +222,17 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
     assert!(empty.validate().is_err());
 }
 
+#[cfg(feature = "embedded-artifacts")]
 #[test]
-fn federation_fixture_expected_digest_matches_canonicalizer() {
+fn federation_fixture_resolves_reducer_profile_from_cba() {
     let fixture = embedded_json_artifact("fixtures/federation-fixture.json").unwrap();
     let case = fixture["cases"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|case| case["name"].as_str() == Some("reducer_profile_digest_federation_minimal"))
-        .expect("federation reducer-profile vector missing");
-    let profile_id = case["resolved_digest_input_source"]["profile_id"]
+        .find(|case| case["name"].as_str() == Some("ordinary_event_uses_cba_reducer_profile_cell"))
+        .expect("federation CBA reducer-profile vector missing");
+    let profile_id = case["input"]["settled_reducer_profile"]
         .as_str()
         .expect("federation reducer-profile id missing");
     let registry = embedded_json_artifact("registry/reducer-profile-registry.json").unwrap();
@@ -239,10 +243,13 @@ fn federation_fixture_expected_digest_matches_canonicalizer() {
         .find(|profile| profile["profile_id"].as_str() == Some(profile_id))
         .expect("federation reducer profile missing from registry");
 
+    assert_eq!(profile["status"], "active");
+    assert_eq!(case["input"]["event_declares_reducer_profile"], false);
     assert_eq!(
-        canonical::canonical_sha256(&profile["resolved_digest_input"]).unwrap(),
-        case["expected_digest"].as_str().unwrap()
+        case["input"]["service_binding_declares_reducer_profile"],
+        false
     );
+    assert_eq!(case["expected"], "accepted");
 }
 
 #[cfg(feature = "embedded-artifacts")]

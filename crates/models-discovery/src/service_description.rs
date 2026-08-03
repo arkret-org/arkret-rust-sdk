@@ -221,8 +221,8 @@ pub struct ServiceDescribe {
     /// limits that do not fit the global `rate_limit_policy` shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limits: Option<BTreeMap<String, Value>>,
-    /// Reducer profiles supported (kept for back-compat — populated
-    /// by the producer alongside `supported_profiles`).
+    /// Registered Realm reducer profiles this service can actually execute.
+    /// This is a capability set, not a selected Realm profile.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub supported_reducer_profiles: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -236,9 +236,6 @@ pub struct ServiceDescribe {
     /// (empty means snapshot-assisted resolution is unavailable).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub snapshot_frontier: Vec<EventId>,
-    /// Active reducer profile (e.g. `ak.reducer.v1`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reducer_profile: Option<String>,
     /// Wall-clock time of the most recent successful state
     /// materialization. A stale `last_materialized_at` paired with a
     /// fresh `frontier` indicates the projection layer is degraded.
@@ -303,7 +300,6 @@ impl ServiceDescribe {
             supported_schema_profiles: Vec::new(),
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
-            reducer_profile: None,
             last_materialized_at: None,
             extensions: BTreeMap::new(),
         }
@@ -593,7 +589,6 @@ mod tests {
             supported_schema_profiles: vec![],
             frontier: vec![],
             snapshot_frontier: vec![],
-            reducer_profile: None,
             last_materialized_at: None,
             extensions: BTreeMap::new(),
         }

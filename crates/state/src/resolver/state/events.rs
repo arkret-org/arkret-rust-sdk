@@ -67,10 +67,33 @@ impl RealmState {
 
     /// Reduce realm lifecycle events into resolved state.
     pub(super) fn reduce_realm_lifecycle_event(&mut self, event: &Event) -> Result<()> {
+        let reducer_profile = if event.kind == "ak.realm.create" {
+            let profile = event
+                .payload
+                .get("object")
+                .and_then(Value::as_object)
+                .and_then(|object| object.get("reducer_profile"))
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "ak.realm.create requires payload.object.reducer_profile".to_owned(),
+                    )
+                })?;
+            if !arkret_policy::generated::profiles::is_reducer_profile_id(profile) {
+                return Err(Error::Protocol("profile_unsupported".to_owned()));
+            }
+            Some(profile.to_owned())
+        } else {
+            None
+        };
         if event.kind == "ak.realm.destroy" {
             self.tombstone_event_id = Some(event.event_id.clone());
         }
-        self.reduce_generic_state_event(event)
+        self.reduce_generic_state_event(event)?;
+        if let Some(profile) = reducer_profile {
+            self.reducer_profile = profile;
+        }
+        Ok(())
     }
 
     pub(super) fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
@@ -211,9 +234,21 @@ impl RealmState {
         Ok(())
     }
 
-    /// Reduce a Realm schema/profile upgrade event.
+    /// Apply the registered reducer-profile transition. The source profile
+    /// interprets this Event; only subsequent Events use the target profile.
     pub(super) fn upgrade_realm(&mut self, event: &Event) -> Result<()> {
-        self.reduce_generic_state_event(event)
+        let target = self.extract_field::<String>(&event.payload, "target_reducer_profile")?;
+        if !arkret_policy::generated::profiles::is_reducer_profile_id(&target)
+            || !arkret_policy::generated::profiles::can_upgrade_reducer_profile(
+                &self.reducer_profile,
+                &target,
+            )
+        {
+            return Err(Error::Protocol("profile_unsupported".to_owned()));
+        }
+        self.reduce_generic_state_event(event)?;
+        self.reducer_profile = target;
+        Ok(())
     }
 
     /// Redact an event.

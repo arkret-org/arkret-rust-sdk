@@ -82,7 +82,7 @@ fn mls_commit_payload_matches_registered_event_schema() {
         1,
         hash('2'),
         ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-        "ak.reducer.v1",
+        arkret_wire::CORE_REDUCER_PROFILE,
     )
     .unwrap();
     let commit_bytes = b"canonical-commit";

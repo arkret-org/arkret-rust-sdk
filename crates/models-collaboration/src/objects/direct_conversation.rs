@@ -187,6 +187,7 @@ pub fn direct_conversation_realm_create_payload(
         "Direct conversation",
         creator,
         trust_domain,
+        arkret_wire::CORE_REDUCER_PROFILE,
         notary_profile,
         notary,
         capability_action_registry_digest,

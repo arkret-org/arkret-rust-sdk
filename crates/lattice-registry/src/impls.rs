@@ -1527,13 +1527,12 @@ per_subject_lattice!(
     &["ak.realm.inheritance_policy"]
 );
 
-per_subject_lattice!(
-    RealmUpgrade,
-    arkret_wire::CellFamilyId::REALM_UPGRADE_V1,
+singleton_lattice!(
+    RealmReducerProfile,
+    arkret_wire::CellFamilyId::REALM_REDUCER_PROFILE_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    "target_reducer_profile",
     &["ak.realm.upgrade"]
 );
 

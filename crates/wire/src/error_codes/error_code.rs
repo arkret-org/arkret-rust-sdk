@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-03.4;
-//! sha256=7aab9c928e8600e36ccefb8ec635bdc7de622743ba9b58b9c364a873597b34a2 Entries: error_codes=276
+//! Input: registry/error-code-registry.json; version=2026-08-03.5;
+//! sha256=fed869d1a550d99c0850d45aadef0ba5ab75d55194c56260c9799ba3835b9533 Entries: error_codes=276
 
 use serde::{Deserialize, Serialize};
 
@@ -2950,7 +2950,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Caller requested an operation that relies on a Realm-declared profile or feature this service has not declared in ak.server.query.describe.supported_features / supported_profiles. The server MUST fail-closed and MUST NOT silently downgrade to a permissive interpretation. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The selected operation, portable artifact, Realm genesis, or Realm reducer-profile control state requires a profile or feature the service does not implement. Reducer support is advertised in ServiceDescribe.supported_reducer_profiles; other capabilities use supported_features / supported_profiles. The server MUST fail closed and MUST NOT substitute a local default or permissive interpretation. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ProjectionIncomplete,

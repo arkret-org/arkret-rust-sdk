@@ -210,7 +210,6 @@ impl OperationEnvelope {
         event.refs = conversion.refs;
         event.requirements = EventRequirements {
             schema_profile_refs: conversion.schema_profile_refs,
-            reducer_profile_ref: conversion.reducer_profile_ref,
             required_features: conversion.required_features,
             critical_extensions: conversion.critical_extensions,
         };
@@ -242,8 +241,6 @@ pub struct OperationEventConversion {
     pub refs: Vec<EventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub schema_profile_refs: Vec<ProfileRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reducer_profile_ref: Option<ProfileRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub required_features: Vec<FeatureRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

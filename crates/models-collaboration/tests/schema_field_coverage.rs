@@ -152,7 +152,9 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             },
             "agent_participation": {
                 "native_agent": {
-                    "reply": true,
+                    "reply_message": true,
+                    "reaction_add": false,
+                    "reaction_remove": false,
                     "accept_third_party_mention": false,
                     "act_on_behalf": false
                 }

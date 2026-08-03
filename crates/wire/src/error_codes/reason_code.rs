@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-03.4;
-//! sha256=7aab9c928e8600e36ccefb8ec635bdc7de622743ba9b58b9c364a873597b34a2
-//! Entries: reason_codes=458
+//! Input: registry/error-code-registry.json; version=2026-08-03.5;
+//! sha256=fed869d1a550d99c0850d45aadef0ba5ab75d55194c56260c9799ba3835b9533
+//! Entries: reason_codes=457
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -364,7 +364,6 @@ pub enum ReasonCode {
     RecoveryWitnessMissing,
     RecoveryWitnessPostConflict,
     RecoveryWitnessRevokeLagging,
-    ReducerProfileMismatch,
     ReducerProjectionFailed,
     RefsTooLarge,
     RelationAlreadyTerminal,
@@ -918,7 +917,6 @@ impl ReasonCode {
     pub const RECOVERY_WITNESS_MISSING: &'static str = "recovery_witness_missing";
     pub const RECOVERY_WITNESS_POST_CONFLICT: &'static str = "recovery_witness_post_conflict";
     pub const RECOVERY_WITNESS_REVOKE_LAGGING: &'static str = "recovery_witness_revoke_lagging";
-    pub const REDUCER_PROFILE_MISMATCH: &'static str = "reducer_profile_mismatch";
     pub const REDUCER_PROJECTION_FAILED: &'static str = "reducer_projection_failed";
     pub const REFS_TOO_LARGE: &'static str = "refs_too_large";
     pub const RELATION_ALREADY_TERMINAL: &'static str = "relation_already_terminal";
@@ -1452,7 +1450,6 @@ impl ReasonCode {
             Self::RecoveryWitnessMissing => "recovery_witness_missing",
             Self::RecoveryWitnessPostConflict => "recovery_witness_post_conflict",
             Self::RecoveryWitnessRevokeLagging => "recovery_witness_revoke_lagging",
-            Self::ReducerProfileMismatch => "reducer_profile_mismatch",
             Self::ReducerProjectionFailed => "reducer_projection_failed",
             Self::RefsTooLarge => "refs_too_large",
             Self::RelationAlreadyTerminal => "relation_already_terminal",
@@ -1988,7 +1985,6 @@ impl ReasonCode {
             "recovery_witness_missing" => Self::RecoveryWitnessMissing,
             "recovery_witness_post_conflict" => Self::RecoveryWitnessPostConflict,
             "recovery_witness_revoke_lagging" => Self::RecoveryWitnessRevokeLagging,
-            "reducer_profile_mismatch" => Self::ReducerProfileMismatch,
             "reducer_projection_failed" => Self::ReducerProjectionFailed,
             "refs_too_large" => Self::RefsTooLarge,
             "relation_already_terminal" => Self::RelationAlreadyTerminal,
@@ -3952,11 +3948,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "recovery_witness_revoke_lagging",
         applies_to: &["event_envelope", "state_resolution"],
         description: "Conflict-recovery witness is older than the permitted freshness window, or local frontier has observed a revoke / supersede for the referenced recovery_capability after the witness frontier. Receivers MUST reject stale witness replay. See zh/authz/event-auth-state-resolution.md §9.5.",
-    },
-    ReasonCodeDescriptor {
-        code: "reducer_profile_mismatch",
-        applies_to: &["federation_transaction", "service_call"],
-        description: "Federation push / pull body's service_binding_ref.reducer_profile_digest differs from the receiver's reducer profile for the target Realm. Receiver MUST reject the entire batch (not partial-accept) because the same Event under different reducer profiles would produce divergent cell state, state_root and security_frontier_digest — silently accepting would corrupt audit. Sender SHOULD reconcile reducer profile via Realm policy update or terminate federation for this Realm.",
     },
     ReasonCodeDescriptor {
         code: "reducer_projection_failed",

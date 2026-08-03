@@ -359,11 +359,10 @@ mod tests {
             accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
             takedown_contact: None,
             rate_limits: Some(BTreeMap::new()),
-            supported_reducer_profiles: vec!["ak.reducer.v1".to_owned()],
+            supported_reducer_profiles: vec![arkret_wire::CORE_REDUCER_PROFILE.to_owned()],
             supported_schema_profiles: vec!["ak.schema.core.v1".to_owned()],
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
-            reducer_profile: None,
             last_materialized_at: None,
             extensions: Default::default(),
         };
@@ -371,7 +370,7 @@ mod tests {
         ServiceRequirements::new()
             .service_kind(ServiceKind::DirectoryService)
             .profile(ProfileId::DIRECTORY_SERVICE_V1)
-            .reducer_profile("ak.reducer.v1")
+            .reducer_profile(arkret_wire::CORE_REDUCER_PROFILE)
             .schema_profile("ak.schema.core.v1")
             .operation("ak.find.directory.query.search_realms")
             .verify(&description)
@@ -441,7 +440,6 @@ mod tests {
             supported_schema_profiles: vec![],
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
-            reducer_profile: None,
             last_materialized_at: None,
             extensions: Default::default(),
         };

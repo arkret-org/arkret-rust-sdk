@@ -4,9 +4,10 @@ use std::collections::BTreeMap;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, CORE_SCHEMA_PROFILE, ControlProposalDecisionPolicy, Did, DidUrl, Discoverability,
-    EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule, PolicyId,
-    ProfileId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
+    BlobRef, CORE_REDUCER_PROFILE, CORE_SCHEMA_PROFILE, ControlProposalDecisionPolicy, Did, DidUrl,
+    Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule,
+    PolicyId, ProfileId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId,
+    canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -117,6 +118,10 @@ pub struct Realm {
     pub default_discoverability: Discoverability,
     pub default_join_rule: JoinRule,
     pub history_visibility: HistoryVisibility,
+    /// Materialized value of the Realm reducer-profile singleton cell.
+    /// `ak.realm.create` supplies the genesis value; only
+    /// `ak.realm.upgrade` can change it.
+    pub reducer_profile: String,
     pub encryption_profile: EncryptionProfile,
     /// Content AEAD scheme selector. `Some("mls_exporter_aead_v1")` opts the
     /// Realm into exporter-derived history-shareable content encryption;
@@ -363,6 +368,7 @@ impl Realm {
         title: impl Into<String>,
         created_by: Did,
         trust_domain: TypedTrustDomainId,
+        reducer_profile: impl Into<String>,
         notary_profile: NotaryProfile,
         notary: NotaryValue,
         capability_action_registry_digest: Hash,
@@ -386,6 +392,7 @@ impl Realm {
             default_discoverability: Discoverability::InviteOnly,
             default_join_rule: JoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,
+            reducer_profile: reducer_profile.into(),
             encryption_profile: EncryptionProfile::None,
             content_scheme: None,
             content_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
@@ -492,6 +499,9 @@ impl Realm {
 
     /// Validate spec-level Realm invariants.
     pub fn validate_kind_invariants(&self) -> Result<()> {
+        if self.reducer_profile != CORE_REDUCER_PROFILE {
+            return Err(Error::Protocol("profile_unsupported".to_owned()));
+        }
         if matches!(self.security_class, Some(SecurityClass::HighAssurance))
             && matches!(self.federation_policy, Some(FederationPolicy::Open))
         {
@@ -581,6 +591,7 @@ mod tests {
             "Policy Realm",
             notary.clone(),
             TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
+            CORE_REDUCER_PROFILE,
             NotaryProfile::SingleDid,
             NotaryValue::single_did(notary),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),

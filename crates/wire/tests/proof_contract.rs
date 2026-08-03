@@ -405,7 +405,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
 }
 
 #[test]
-fn event_digest_includes_profile_refs_features_and_critical_extensions() {
+fn event_digest_includes_schema_profiles_features_and_critical_extensions() {
     let mut event = Event::new(
         "ak.message.create",
         arkret_wire::ScopeRef::Realm {
@@ -423,8 +423,6 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
         .requirements
         .schema_profile_refs
         .push(ProfileRef::new("ak.schema.core_event.v1").unwrap());
-    event.requirements.reducer_profile_ref =
-        Some(ProfileRef::new("ak.reducer.core_event.v1").unwrap());
     event
         .requirements
         .required_features
@@ -450,7 +448,7 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
         value["requirements"]["schema"][0],
         "ak.schema.core_event.v1"
     );
-    assert_eq!(value["requirements"]["reducer"], "ak.reducer.core_event.v1");
+    assert!(value["requirements"].get("reducer").is_none());
     assert_eq!(
         value["requirements"]["features"][0],
         "ak.feature.event_extensions.v1"

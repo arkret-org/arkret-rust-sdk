@@ -4,8 +4,8 @@
 //! conformance profile and reducer profile registries; do not edit by hand.
 //! Conformance input version: 2026-08-03.6;
 //! sha256=1062b18b6006067facf6b5544371e54d07310af7ff887fb4b2ce6c4b4051e94d; profiles=101.
-//! Reducer input version: 2026-08-03.8;
-//! sha256=e0549ce8ff723aa842a2e2202d49855566ebf292d0acf347f8e4a35afffae3d6; active_profiles=5.
+//! Reducer input version: 2026-08-03.10;
+//! sha256=96135acbb09cf7e5ef611b0f18488e21c17e8bce2d1fa9f1e06129de6e7e497e; active_profiles=1.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.agent_auth.v1",
@@ -115,40 +115,20 @@ pub fn is_profile_id(value: &str) -> bool {
     PROFILE_IDS.contains(&value)
 }
 
-/// Active reducer profile digests generated from the Spec registry.
-pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
-    (
-        "ak.profile.chat_mvp.v1",
-        "sha256:359d65d0253d8c21992557b916c28e2e229f4957b114292097e6bb8584ff267b",
-    ),
-    (
-        "ak.profile.core_event_store.v1",
-        "sha256:24daf23f574fa07ee9c5a7e55be10a41121e4dc2535e5e6746964ee44984a17d",
-    ),
-    (
-        "ak.profile.federation_minimal.v1",
-        "sha256:45ff08ae8902e13dd6e873a5e468eb5d36abe19073ac052880a1042d856c5b89",
-    ),
-    (
-        "ak.profile.kanban_mvp.v1",
-        "sha256:8a039556c50d778e85e2f3096b9a380000f88abc1815a45cdd90413aea4788b5",
-    ),
-    (
-        "ak.profile.principal_server.v1",
-        "sha256:05e411a98adbaf1a772e952bc35df507bbaf9e023b820c1af68fc84a7cffae45",
-    ),
-];
+/// Active Realm reducer profiles generated from the Spec registry.
+pub const REDUCER_PROFILE_IDS: &[&str] = &["ak.reducer.core.v1"];
 
-/// Spec-generated digest for `ak.profile.federation_minimal.v1`.
-pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:45ff08ae8902e13dd6e873a5e468eb5d36abe19073ac052880a1042d856c5b89";
+/// Directed reducer-profile upgrades registered by the source profile.
+pub const REDUCER_PROFILE_UPGRADE_EDGES: &[(&str, &str)] = &[];
 
-/// Returns the Spec-generated digest for an active reducer profile.
-pub fn reducer_profile_digest(profile_id: &str) -> Option<&'static str> {
-    REDUCER_PROFILE_DIGESTS
-        .binary_search_by(|(id, _)| (*id).cmp(profile_id))
-        .ok()
-        .map(|index| REDUCER_PROFILE_DIGESTS[index].1)
+/// Returns whether the profile is an active Realm reducer profile.
+pub fn is_reducer_profile_id(profile_id: &str) -> bool {
+    REDUCER_PROFILE_IDS.binary_search(&profile_id).is_ok()
+}
+
+/// Returns whether the source profile registers a direct upgrade to target.
+pub fn can_upgrade_reducer_profile(source: &str, target: &str) -> bool {
+    REDUCER_PROFILE_UPGRADE_EDGES.contains(&(source, target))
 }
 
 /// Spec-layer `profile_roles` enum: every declared profile id is partitioned

@@ -1135,7 +1135,7 @@ mod tests {
                 previous_epoch: 0,
                 next_epoch: 0,
                 binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
-                reducer_profile: "ak.reducer.v1".to_owned(),
+                reducer_profile: arkret_wire::CORE_REDUCER_PROFILE.to_owned(),
                 trusted_anchor_seal_id: SealId::new(
                     "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
@@ -1505,7 +1505,8 @@ mod tests {
         #[tokio::test]
         async fn events_resolve_posts_closed_selectors() {
             let event_id = EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap();
-            let canned = r#"{"events":[],"missing":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned =
+                r#"{"events":[],"missing":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
             let request = arkret_models_collaboration::http_bodies::EventsResolveRequestBody {
                 event_ids: vec![event_id.clone()],

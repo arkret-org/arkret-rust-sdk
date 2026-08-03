@@ -962,7 +962,7 @@ mod tests {
             1,
             security_frontier_digest.clone(),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            "ak.reducer.v1",
+            "ak.reducer.core.v1",
         )
         .unwrap();
         let seal = seal(
@@ -993,7 +993,7 @@ mod tests {
                 materialization_profile: MLS_GOVERNANCE_COMPLETE_MATERIALIZATION_PROFILE.to_owned(),
                 realm_id: realm(),
                 effective_scope,
-                reducer_profile: "ak.reducer.v1".to_owned(),
+                reducer_profile: "ak.reducer.core.v1".to_owned(),
                 trusted_anchor_seal_id: seal_id.clone(),
                 accepted_seal_id: seal_id,
                 seal_path: vec![seal],
@@ -1220,7 +1220,7 @@ mod tests {
             previous_epoch: 3,
             next_epoch: 5,
             binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
-            reducer_profile: "ak.reducer.v1".to_owned(),
+            reducer_profile: "ak.reducer.core.v1".to_owned(),
             trusted_anchor_seal_id: SealId::new(format!("ak:seal:{}", hash(0).as_str())).unwrap(),
             chunk_index: 0,
             expected_bundle_digest: None,
@@ -1238,7 +1238,7 @@ mod tests {
             previous_epoch: 0,
             next_epoch: 0,
             binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
-            reducer_profile: "ak.reducer.v1".to_owned(),
+            reducer_profile: "ak.reducer.core.v1".to_owned(),
             trusted_anchor_seal_id: SealId::new(format!("ak:seal:{}", hash(0).as_str())).unwrap(),
             chunk_index: 0,
             expected_bundle_digest: None,
@@ -1256,7 +1256,7 @@ mod tests {
             2,
             fixture.security_frontier_digest.clone(),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            "ak.reducer.v1",
+            "ak.reducer.core.v1",
         )
         .unwrap();
         let error = verify(&fixture).unwrap_err();
@@ -1384,7 +1384,7 @@ mod tests {
             1,
             hash(0xee),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            "ak.reducer.v1",
+            "ak.reducer.core.v1",
         )
         .unwrap();
         fixture.binding = bad_binding;

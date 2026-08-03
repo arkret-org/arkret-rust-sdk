@@ -13,8 +13,9 @@ param(
 #   * `PROFILE_IDS`             — sorted byte-ordered slice of every declared
 #                                 profile id.
 #   * `is_profile_id`           — membership helper.
-#   * `REDUCER_PROFILE_DIGESTS` — sorted active reducer profile bindings.
-#   * `reducer_profile_digest`  — active reducer profile digest lookup.
+#   * `REDUCER_PROFILE_IDS`     — sorted active Realm reducer profiles.
+#   * `REDUCER_PROFILE_UPGRADE_EDGES` — registered directed upgrade edges.
+#   * `is_reducer_profile_id` / `can_upgrade_reducer_profile` — lookups.
 #   * `ProfileRole`             — enum mirroring the spec layer's
 #                                 `profile_roles` value set
 #                                 (`client` / `server` / `gateway` /
@@ -37,34 +38,37 @@ if (!(Test-Path -LiteralPath $reducerProfilesPath)) {
 }
 $reducerArtifact = Get-Content -LiteralPath $reducerProfilesPath -Raw | ConvertFrom-Json
 $reducerDigest = (Get-FileHash -LiteralPath $reducerProfilesPath -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($reducerArtifact.canonicalization -ne 'json_jcs') {
-    throw "unsupported reducer profile canonicalization: $($reducerArtifact.canonicalization)"
-}
-if ($reducerArtifact.digest_suite -ne 'sha256') {
-    throw "unsupported reducer profile digest suite: $($reducerArtifact.digest_suite)"
-}
 $activeReducerProfiles = @($reducerArtifact.profiles | Where-Object { $_.status -eq 'active' })
 foreach ($profile in $activeReducerProfiles) {
     if ([string]::IsNullOrWhiteSpace([string]$profile.profile_id)) {
         throw 'active reducer profile is missing profile_id'
     }
-    if ([string]$profile.profile_id -notmatch '^ak\.profile\.[A-Za-z0-9_.-]+\.v[0-9]+$') {
+    if ([string]$profile.profile_id -notmatch '^ak\.reducer(?:\.[a-z0-9][a-z0-9_.-]*)?\.v[0-9]+$') {
         throw "invalid reducer profile id: $($profile.profile_id)"
-    }
-    if ([string]$profile.reducer_profile_digest -notmatch '^sha256:[0-9a-f]{64}$') {
-        throw "invalid reducer profile digest for $($profile.profile_id): $($profile.reducer_profile_digest)"
     }
 }
 
-$reducerDigestByProfileId = @{}
-foreach ($profile in $activeReducerProfiles) {
-    $profileId = [string]$profile.profile_id
-    if ($reducerDigestByProfileId.ContainsKey($profileId)) {
-        throw "duplicate active reducer profile id: $profileId"
-    }
-    $reducerDigestByProfileId[$profileId] = [string]$profile.reducer_profile_digest
+$activeReducerProfileIds = @($activeReducerProfiles | ForEach-Object { [string]$_.profile_id })
+if (($activeReducerProfileIds | Sort-Object -Unique).Count -ne $activeReducerProfileIds.Count) {
+    throw 'duplicate active reducer profile id'
 }
-$activeReducerProfileIds = Sort-Utf8ByteLexicographic -Values @($reducerDigestByProfileId.Keys)
+$activeReducerProfileIds = Sort-Utf8ByteLexicographic -Values $activeReducerProfileIds
+$activeReducerProfileSet = @{}
+foreach ($profileId in $activeReducerProfileIds) {
+    $activeReducerProfileSet[$profileId] = $true
+}
+$upgradeEdges = New-Object System.Collections.Generic.List[object]
+foreach ($profile in $activeReducerProfiles) {
+    $source = [string]$profile.profile_id
+    foreach ($targetValue in @($profile.upgrade_edges)) {
+        $target = [string]$targetValue
+        if (!$activeReducerProfileSet.ContainsKey($target)) {
+            throw "reducer profile $source has an upgrade edge to unknown or inactive profile $target"
+        }
+        $upgradeEdges.Add([PSCustomObject]@{ Source = $source; Target = $target }) | Out-Null
+    }
+}
+$upgradeEdges = @($upgradeEdges | Sort-Object Source, Target)
 
 # Collect ids from a regex pass first, so we still notice ids that are
 # referenced without a profile_roles entry (e.g. transitional candidates).
@@ -133,26 +137,28 @@ $lines.Add("pub fn is_profile_id(value: &str) -> bool {") | Out-Null
 $lines.Add("    PROFILE_IDS.contains(&value)") | Out-Null
 $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
-$lines.Add("/// Active reducer profile digests generated from the Spec registry.") | Out-Null
-$lines.Add("pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[") | Out-Null
+$lines.Add("/// Active Realm reducer profiles generated from the Spec registry.") | Out-Null
+$lines.Add("pub const REDUCER_PROFILE_IDS: &[&str] = &[") | Out-Null
 foreach ($profileId in $activeReducerProfileIds) {
-    $lines.Add("    (`"$profileId`", `"$($reducerDigestByProfileId[$profileId])`"),") | Out-Null
+    $lines.Add("    `"$profileId`",") | Out-Null
 }
 $lines.Add("];") | Out-Null
 $lines.Add("") | Out-Null
-$federationMinimalDigest = $reducerDigestByProfileId['ak.profile.federation_minimal.v1']
-if ([string]::IsNullOrWhiteSpace($federationMinimalDigest)) {
-    throw 'active federation-minimal reducer profile is missing from the Spec registry'
+$lines.Add("/// Directed reducer-profile upgrades registered by the source profile.") | Out-Null
+$lines.Add("pub const REDUCER_PROFILE_UPGRADE_EDGES: &[(&str, &str)] = &[") | Out-Null
+foreach ($edge in $upgradeEdges) {
+    $lines.Add("    (`"$($edge.Source)`", `"$($edge.Target)`"),") | Out-Null
 }
-$lines.Add('/// Spec-generated digest for `ak.profile.federation_minimal.v1`.') | Out-Null
-$lines.Add("pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str = `"$federationMinimalDigest`";") | Out-Null
+$lines.Add("];") | Out-Null
 $lines.Add("") | Out-Null
-$lines.Add("/// Returns the Spec-generated digest for an active reducer profile.") | Out-Null
-$lines.Add("pub fn reducer_profile_digest(profile_id: &str) -> Option<&'static str> {") | Out-Null
-$lines.Add("    REDUCER_PROFILE_DIGESTS") | Out-Null
-$lines.Add("        .binary_search_by(|(id, _)| (*id).cmp(profile_id))") | Out-Null
-$lines.Add("        .ok()") | Out-Null
-$lines.Add("        .map(|index| REDUCER_PROFILE_DIGESTS[index].1)") | Out-Null
+$lines.Add("/// Returns whether the profile is an active Realm reducer profile.") | Out-Null
+$lines.Add("pub fn is_reducer_profile_id(profile_id: &str) -> bool {") | Out-Null
+$lines.Add("    REDUCER_PROFILE_IDS.binary_search(&profile_id).is_ok()") | Out-Null
+$lines.Add("}") | Out-Null
+$lines.Add("") | Out-Null
+$lines.Add("/// Returns whether the source profile registers a direct upgrade to target.") | Out-Null
+$lines.Add("pub fn can_upgrade_reducer_profile(source: &str, target: &str) -> bool {") | Out-Null
+$lines.Add("    REDUCER_PROFILE_UPGRADE_EDGES.contains(&(source, target))") | Out-Null
 $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
 $lines.Add('/// Spec-layer `profile_roles` enum: every declared profile id is partitioned') | Out-Null

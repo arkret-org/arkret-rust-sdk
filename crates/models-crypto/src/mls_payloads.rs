@@ -245,7 +245,7 @@ impl MlsGovernanceBindingPayload {
         }
         if self.reducer_profile != expected.reducer_profile {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.reducer_profile mismatch: expected {} got {} (reducer_profile_mismatch)",
+                "mls_governance_binding.reducer_profile does not match the CBA-resolved Realm profile: expected {} got {} (profile_unsupported)",
                 expected.reducer_profile, self.reducer_profile
             )));
         }
@@ -1266,7 +1266,7 @@ mod tests {
     }
 
     fn reducer_profile() -> &'static str {
-        "ak.reducer.v1"
+        "ak.reducer.core.v1"
     }
 
     fn full_binding() -> MlsGovernanceBindingPayload {

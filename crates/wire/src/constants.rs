@@ -7,10 +7,8 @@ pub const PROTOCOL_VERSION: &str = "1.0";
 /// Schema profile carried by object `schema_refs` and the schema catalog. Not a
 /// `schema-registry.json` row, so it has no [`crate::SchemaId`] variant.
 pub const CORE_SCHEMA_PROFILE: &str = "ak.schema.core.v1";
-/// Reducer profile marker for snapshots and governance proofs. Not a
-/// `reducer-profile-registry.json` `profile_id`, so it has no
-/// [`crate::ProfileId`] variant.
-pub const CORE_REDUCER_PROFILE: &str = "ak.reducer.v1";
+/// Canonical Realm reducer profile implemented by this SDK.
+pub const CORE_REDUCER_PROFILE: &str = "ak.reducer.core.v1";
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
 
 /// `receipt_kind` const value of `read-receipt.schema.json`.

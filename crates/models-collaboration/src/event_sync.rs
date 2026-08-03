@@ -679,11 +679,10 @@ pub enum EventsFrontierState {
 
 // ── FederationServiceBindingRef ─────────────────────────────────────────
 
-/// Round 4 (commit 7446832) — typed binding reference for federation
-/// transport. All six fields REQUIRED. Carried inside
+/// Typed binding reference for federation transport. Carried inside
 /// `ak.self.events.command.submit` (federation variant) and the
 /// `events/frontier` federation-peer response so a receiver can verify
-/// the request is bound to the sender's current reducer state.
+/// the request is bound to the sender's policy and delivery frontiers.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationServiceBindingRef {
@@ -692,7 +691,6 @@ pub struct FederationServiceBindingRef {
     pub membership_frontier: Vec<EventId>,
     pub delivery_binding_frontier: Vec<EventId>,
     pub destination_service_kind: String,
-    pub reducer_profile_digest: Hash,
 }
 
 // ── EventsSubmit variants ───────────────────────────────────────────────
@@ -707,7 +705,8 @@ pub const MAX_FEDERATED_EVENTS: usize = 500;
 /// Round 4 — federation `/events/submit` request. Used when a remote
 /// service forwards events from another principal server. MUST carry
 /// the full [`FederationServiceBindingRef`] so the receiver can verify
-/// origin reducer state.
+/// origin policy and delivery state. The reducer profile is resolved from
+/// each Event's authenticated CBA and is never declared by the transport.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1259,7 +1258,6 @@ mod tests {
                 membership_frontier: vec![event.event_id.clone()],
                 delivery_binding_frontier: vec![event.event_id.clone()],
                 destination_service_kind: "principal_server".to_owned(),
-                reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             },
             events: vec![federation_submission(event)],
             cba_proof_bundles: Vec::new(),
@@ -1472,7 +1470,6 @@ mod tests {
                 membership_frontier: Vec::new(),
                 delivery_binding_frontier: Vec::new(),
                 destination_service_kind: "principal_server".to_owned(),
-                reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             },
             events: events.into_iter().map(federation_submission).collect(),
             cba_proof_bundles: Vec::new(),

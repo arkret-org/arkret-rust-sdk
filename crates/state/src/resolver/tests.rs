@@ -79,6 +79,34 @@ fn realm_state_creates_empty() {
 }
 
 #[test]
+fn realm_create_sets_the_single_canonical_reducer_profile() {
+    let mut state = RealmState::new(realm_id());
+    state
+        .apply_event(&event(
+            "ak.realm.create",
+            1,
+            json!({"object": {"reducer_profile": arkret_wire::CORE_REDUCER_PROFILE}}),
+        ))
+        .unwrap();
+    assert_eq!(state.reducer_profile, arkret_wire::CORE_REDUCER_PROFILE);
+}
+
+#[test]
+fn realm_upgrade_rejects_an_unregistered_edge_without_mutating_profile() {
+    let mut state = RealmState::new(realm_id());
+    let before = state.reducer_profile.clone();
+    let error = state
+        .apply_event(&event(
+            "ak.realm.upgrade",
+            1,
+            json!({"target_reducer_profile": "ak.reducer.future.v2"}),
+        ))
+        .unwrap_err();
+    assert!(error.to_string().contains("profile_unsupported"));
+    assert_eq!(state.reducer_profile, before);
+}
+
+#[test]
 fn space_events_create_update_parent_and_tombstone() {
     let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad3f";
     let parent_space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad40";

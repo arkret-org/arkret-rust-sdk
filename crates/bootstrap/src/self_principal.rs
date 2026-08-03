@@ -68,6 +68,7 @@ pub fn build_self_principal_pcr_create(
         "Principal Control Realm",
         input.principal_id.clone(),
         input.trust_domain,
+        arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
         NotaryValue::single_did(input.principal_id.clone()),
         input.capability_action_registry_digest.clone(),

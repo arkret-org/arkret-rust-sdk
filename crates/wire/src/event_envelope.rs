@@ -313,8 +313,6 @@ fn default_event_ref_critical() -> bool {
 pub struct EventRequirements {
     #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
     pub schema_profile_refs: Vec<ProfileRef>,
-    #[serde(default, rename = "reducer", skip_serializing_if = "Option::is_none")]
-    pub reducer_profile_ref: Option<ProfileRef>,
     #[serde(default, rename = "features", skip_serializing_if = "Vec::is_empty")]
     pub required_features: Vec<FeatureRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -345,7 +343,6 @@ pub struct AuthContext {
 impl EventRequirements {
     pub fn is_empty(&self) -> bool {
         self.schema_profile_refs.is_empty()
-            && self.reducer_profile_ref.is_none()
             && self.required_features.is_empty()
             && self.critical_extensions.is_empty()
     }

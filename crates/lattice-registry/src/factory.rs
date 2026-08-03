@@ -101,7 +101,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmDisappearingPolicy);
     registry.register(RealmSearchPolicy);
     registry.register(RealmInheritancePolicy);
-    registry.register(RealmUpgrade);
+    registry.register(RealmReducerProfile);
     registry.register(RealmCreate);
     registry.register(StrandObject);
     registry.register(StrandMetadata);
