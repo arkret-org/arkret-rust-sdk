@@ -66,7 +66,7 @@ impl DirectConversationAuthorizationBasis {
         let unique = self.event_refs.iter().collect::<BTreeSet<_>>();
         let expected_len = match self.kind {
             DirectConversationAuthorizationKind::AcceptedContact => 2,
-            DirectConversationAuthorizationKind::ManagedAgentController => 3,
+            DirectConversationAuthorizationKind::ManagedAgentController => 2,
         };
         if self.event_refs.len() != expected_len || unique.len() != self.event_refs.len() {
             return Err(Error::Protocol(format!(
@@ -501,7 +501,6 @@ mod tests {
         assert!(
             DirectConversationAuthorizationBasis::managed_agent_controller(vec![
                 event_id("311"),
-                event_id("312"),
                 event_id("313"),
             ])
             .validate_shape()
@@ -516,6 +515,14 @@ mod tests {
             DirectConversationAuthorizationBasis::managed_agent_controller(vec![
                 event_id("311"),
                 event_id("311"),
+            ])
+            .validate_shape()
+            .is_err()
+        );
+        assert!(
+            DirectConversationAuthorizationBasis::managed_agent_controller(vec![
+                event_id("311"),
+                event_id("312"),
                 event_id("313"),
             ])
             .validate_shape()
