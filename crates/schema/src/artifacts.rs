@@ -66,6 +66,8 @@ pub struct ProfileRequirement {
     pub required_fixtures: Vec<String>,
     #[serde(default)]
     pub required_capability_actions: Vec<String>,
+    /// Sorted union of top-level `required_features` and
+    /// `feature_discovery.required` from the profile artifact.
     #[serde(default)]
     pub required_features: Vec<String>,
     #[serde(default)]
@@ -355,7 +357,7 @@ impl SpecArtifactBundle {
                 "required_capability_actions",
                 profile_id,
             )?,
-            required_features: optional_string_array(entry, "required_features", profile_id)?,
+            required_features: profile_required_features(entry, profile_id)?,
             required_cell_namespaces: optional_string_array(
                 entry,
                 "required_cell_namespaces",
@@ -1158,6 +1160,25 @@ fn profile_required_constraint_kinds(value: &Value, profile_id: &str) -> Result<
     Ok(out)
 }
 
+fn profile_required_features(value: &Value, profile_id: &str) -> Result<Vec<String>> {
+    let mut out = optional_string_array(value, "required_features", profile_id)?;
+    if let Some(feature_discovery) = value.get("feature_discovery") {
+        if !feature_discovery.is_object() {
+            return Err(Error::Protocol(format!(
+                "profile {profile_id} field feature_discovery must be an object"
+            )));
+        }
+        out.extend(optional_string_array(
+            feature_discovery,
+            "required",
+            profile_id,
+        )?);
+    }
+    out.sort();
+    out.dedup();
+    Ok(out)
+}
+
 /// One SDK-declared surface a profile requirement can reference, paired with
 /// the spec registry that surface is generated from.
 ///
@@ -1799,6 +1820,26 @@ mod tests {
         assert_eq!(
             rule.epoch_binding,
             "constraint.registration_epoch_exact_registration"
+        );
+    }
+
+    #[test]
+    fn live_chat_profile_includes_feature_discovery_requirements_when_available() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let bundle = SpecArtifactBundle::load(artifacts_dir).unwrap();
+        let requirement = bundle
+            .profile_requirement("ak.profile.chat_mvp.v1")
+            .unwrap()
+            .expect("chat MVP profile must exist");
+        assert_eq!(
+            requirement.required_features,
+            vec![
+                "discussion_history_visibility",
+                "supported_event_kinds",
+                "supported_sync_profiles",
+            ]
         );
     }
 

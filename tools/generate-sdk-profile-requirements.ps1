@@ -166,6 +166,8 @@ $lines.Add("    pub required_schemas: &'static [&'static str],") | Out-Null
 $lines.Add("    pub rejected_event_kinds: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_fixtures: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_capability_actions: &'static [&'static str],") | Out-Null
+$lines.Add('    /// Sorted union of top-level `required_features` and') | Out-Null
+$lines.Add('    /// `feature_discovery.required` from the profile artifact.') | Out-Null
 $lines.Add("    pub required_features: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_cell_namespaces: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_cells: &'static [&'static str],") | Out-Null
@@ -191,7 +193,10 @@ foreach ($profileId in $profileIds) {
     $rejected_event_kinds = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'rejected_event_kinds')
     $required_fixtures = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_fixtures')
     $required_capability_actions = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_capability_actions')
-    $required_features = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_features')
+    [string[]]$required_features_input = @()
+    $required_features_input += Get-StringArray -Source $entry -Field 'required_features'
+    $required_features_input += Get-StringArray -Source $entry.feature_discovery -Field 'required'
+    $required_features = Sort-Utf8ByteLexicographic -Values $required_features_input
     $required_cell_namespaces = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_cell_namespaces')
     $required_cells = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_cells')
     $constraint_kinds = Get-StringArray -Source $entry -Field 'required_constraint_kinds'

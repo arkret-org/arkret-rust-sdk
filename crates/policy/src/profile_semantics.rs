@@ -377,6 +377,25 @@ mod tests {
     }
 
     #[test]
+    fn chat_mvp_collects_feature_discovery_requirements() {
+        let requirements =
+            collect_profile_semantic_requirements(&["ak.profile.chat_mvp.v1"]).unwrap();
+        for feature in [
+            "discussion_history_visibility",
+            "supported_event_kinds",
+            "supported_sync_profiles",
+        ] {
+            assert!(
+                requirements
+                    .required_features
+                    .iter()
+                    .any(|required| required == feature),
+                "chat MVP requirements dropped feature-discovery token {feature}"
+            );
+        }
+    }
+
+    #[test]
     fn candidate_join_policy_requires_complete_private_carrier_surface() {
         validate_profile_semantic_coverage(
             &["ak.profile.candidate.join_policy.v1"],
