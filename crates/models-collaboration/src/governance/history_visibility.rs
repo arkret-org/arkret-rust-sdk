@@ -3,6 +3,9 @@ use std::fmt;
 use arkret_wire::{HistoryVisibility, ReasonCode};
 use serde::{Deserialize, Serialize};
 
+/// Service-discovery capability required by `ak.profile.chat_mvp.v1`.
+pub const DISCUSSION_HISTORY_VISIBILITY_FEATURE: &str = "discussion_history_visibility";
+
 pub fn content_scheme_is_history_capable(content_scheme: Option<&str>) -> bool {
     matches!(content_scheme.map(str::trim), Some("mls_exporter_aead_v1"))
 }
