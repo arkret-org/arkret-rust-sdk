@@ -72,7 +72,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
     let patch_kinds = [
         (
             "ak.realm.update",
-            "object_patch_payload",
+            "realm_update_payload",
             json!({
                 "target_ref": "ak:realm:0196419b-0000-7000-8000-000000000001",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
