@@ -547,19 +547,6 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentSidecarEnsureRequestBody",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 723,
-      "kind": "struct",
-      "value_kind": "AgentSidecarEnsureRequestBody",
-      "spec_pointer": "agent-operations.schema.json#/$defs/agent_sidecar_ensure_request_body",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/agent_operations.rs::PendingSidecarAccessReconciliationItem",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/agent_operations.rs",
@@ -567,19 +554,6 @@
       "kind": "struct",
       "value_kind": "PendingSidecarAccessReconciliationItem",
       "spec_pointer": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_item",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentSidecarEnsureOutcome",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 810,
-      "kind": "struct",
-      "value_kind": "AgentSidecarEnsureOutcome",
-      "spec_pointer": "agent-operations.schema.json#/$defs/agent_sidecar_ensure_outcome",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,

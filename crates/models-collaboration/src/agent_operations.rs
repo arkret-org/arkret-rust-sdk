@@ -2184,6 +2184,8 @@ pub enum AgentOperations {
     AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
     AgentGrantAttachOutcome(AgentGrantAttachOutcome),
     AgentGrantDetachOutcome(AgentGrantDetachOutcome),
+    AgentSidecarEnsureRequestBody(crate::protocol_journey::SidecarEnsureRequestBody),
+    AgentSidecarEnsureOutcome(crate::protocol_journey::SidecarEnsureOutcome),
     AgentSidecarView(Box<AgentSidecarView>),
     AgentSidecarList(AgentSidecarList),
 }

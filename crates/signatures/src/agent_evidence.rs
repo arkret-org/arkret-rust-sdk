@@ -453,13 +453,20 @@ pub fn validate_current_agent_signer_evidence(
                     != snapshot.core.agent_lifecycle_witness.seal_id
                 || current_observation.controller_gate_attestation_digest != gate_digest
                 || current_observation.evaluated_at > context.common.now
-                || context.common.now >= current_observation.expires_at
             {
                 return rejected(AgentEvidenceRejectedReason::RequestBindingMismatch);
             }
+            if context.common.now >= current_observation.expires_at {
+                return AgentSignerEvidenceVerdict::Unresolved(
+                    AgentEvidenceUnresolvedReason::Stale,
+                );
+            }
             AgentSignerEvidenceVerdict::Verified(verified)
         }
-        Err(reason) => rejected(reason),
+        Err(CommonEvidenceFailure::Unresolved(reason)) => {
+            AgentSignerEvidenceVerdict::Unresolved(reason)
+        }
+        Err(CommonEvidenceFailure::Rejected(reason)) => rejected(reason),
     }
 }
 
@@ -536,7 +543,21 @@ pub fn validate_historical_agent_signer_evidence(
         &context.common,
     ) {
         Ok(verified) => AgentSignerEvidenceVerdict::Verified(verified),
-        Err(reason) => rejected(reason),
+        Err(CommonEvidenceFailure::Unresolved(reason)) => {
+            AgentSignerEvidenceVerdict::Unresolved(reason)
+        }
+        Err(CommonEvidenceFailure::Rejected(reason)) => rejected(reason),
+    }
+}
+
+enum CommonEvidenceFailure {
+    Unresolved(AgentEvidenceUnresolvedReason),
+    Rejected(AgentEvidenceRejectedReason),
+}
+
+impl From<AgentEvidenceRejectedReason> for CommonEvidenceFailure {
+    fn from(reason: AgentEvidenceRejectedReason) -> Self {
+        Self::Rejected(reason)
     }
 }
 
@@ -547,7 +568,7 @@ fn validate_common_evidence(
     has_transparency: bool,
     basis_time: DateTime<Utc>,
     context: &AgentEvidenceCommonContext<'_>,
-) -> Result<VerifiedAgentSigningKey, AgentEvidenceRejectedReason> {
+) -> Result<VerifiedAgentSigningKey, CommonEvidenceFailure> {
     let snapshot = &admission.agent_authority_snapshot;
     let core = &snapshot.core;
     let binding = &core.signing_key_binding;
@@ -578,15 +599,15 @@ fn validate_common_evidence(
         || snapshot.lease.snapshot_digest != snapshot.snapshot_digest
         || did_url_controller(&snapshot.lease.verification_method)
             != snapshot.lease.authority_service_id.as_str()
+        || snapshot.lease.issued_at >= snapshot.lease.expires_at
         || outer.domain.as_str() != OUTER_ATTESTATION_DOMAIN
         || outer.core_digest != expected_outer_core_digest
         || outer.source_service_id != *context.expected_authority_service_id
         || outer.verification_method != *context.expected_authority_verification_method
         || did_url_controller(&outer.verification_method) != outer.source_service_id.as_str()
+        || outer.issued_at >= outer.expires_at
         || context.now < outer.issued_at
-        || context.now >= outer.expires_at
         || basis_time < snapshot.lease.issued_at
-        || basis_time >= snapshot.lease.expires_at
         || verify_domain_proof(
             SNAPSHOT_LEASE_DOMAIN,
             &snapshot.lease,
@@ -602,7 +623,14 @@ fn validate_common_evidence(
         )
         .is_err()
     {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+        return Err(CommonEvidenceFailure::Rejected(
+            AgentEvidenceRejectedReason::SigningKeyMismatch,
+        ));
+    }
+    if context.now >= outer.expires_at || basis_time >= snapshot.lease.expires_at {
+        return Err(CommonEvidenceFailure::Unresolved(
+            AgentEvidenceUnresolvedReason::Stale,
+        ));
     }
     let key = verify_agent_signing_key_binding(
         binding,
@@ -616,7 +644,9 @@ fn validate_common_evidence(
         context.controller_public_key,
     )?;
     if authorization.status == AgentAuthorizationStatus::Conflicted {
-        return Err(AgentEvidenceRejectedReason::AuthorizationConflicted);
+        return Err(CommonEvidenceFailure::Rejected(
+            AgentEvidenceRejectedReason::AuthorizationConflicted,
+        ));
     }
     if authorization.status != AgentAuthorizationStatus::Active
         || authorization.authorized_event_id != *context.agent_key_authorize_event_id
@@ -642,7 +672,9 @@ fn validate_common_evidence(
         || basis_time < gate.issued_at
         || basis_time >= gate.expires_at
     {
-        return Err(AgentEvidenceRejectedReason::AuthorizationInactive);
+        return Err(CommonEvidenceFailure::Rejected(
+            AgentEvidenceRejectedReason::AuthorizationInactive,
+        ));
     }
     let verified_state = context.verified_state;
     if verified_state.admission_evidence_digest != admission.admission_evidence_digest
@@ -660,10 +692,14 @@ fn validate_common_evidence(
         )
         .is_err()
     {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+        return Err(CommonEvidenceFailure::Rejected(
+            AgentEvidenceRejectedReason::SigningKeyMismatch,
+        ));
     }
     if context.require_transparency && (!has_transparency || !context.transparency_verified) {
-        return Err(AgentEvidenceRejectedReason::AuthorizationConflicted);
+        return Err(CommonEvidenceFailure::Rejected(
+            AgentEvidenceRejectedReason::AuthorizationConflicted,
+        ));
     }
     if let Some(transparency) = match evidence {
         AgentSignerEvidence::CurrentAdmission { transparency, .. }
@@ -671,7 +707,9 @@ fn validate_common_evidence(
     } && (transparency.profile.as_str() != ProfileId::KEY_TRANSPARENCY_V1
         || !context.transparency_verified)
     {
-        return Err(AgentEvidenceRejectedReason::AuthorizationConflicted);
+        return Err(CommonEvidenceFailure::Rejected(
+            AgentEvidenceRejectedReason::AuthorizationConflicted,
+        ));
     }
     Ok(VerifiedAgentSigningKey {
         signer: context.signer_id.clone(),
