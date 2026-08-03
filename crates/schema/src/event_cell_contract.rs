@@ -2459,12 +2459,12 @@ mod tests {
                     append_op(json!("ak:realm:019f9000-0000-7000-8000-000000000021"), 0),
                 ),
                 write(
-                    arkret_wire::REALM_REDUCER_PROFILE_CELL,
-                    set_op(json!("ak.reducer.core.v1")),
-                ),
-                write(
                     "ak:cell:ak.component.notary.v1:null",
                     set_op(object["notary"].clone()),
+                ),
+                write(
+                    arkret_wire::REALM_REDUCER_PROFILE_CELL,
+                    set_op(json!("ak.reducer.core.v1")),
                 ),
                 // The authority root is a registry-derived composite: the
                 // controller and registry basis come from the signed payload,
