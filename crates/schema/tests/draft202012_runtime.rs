@@ -19,20 +19,28 @@ fn spec_artifact(relative_path: &str) -> Option<Value> {
 }
 
 #[test]
-fn presence_manifest_has_one_explicit_distinct_sdk_target() {
+fn presence_manifest_summary_matches_targets_and_has_one_explicit_distinct_sdk_target() {
     let manifest = spec_artifact(PROPERTY_PRESENCE_MANIFEST)
         .expect("property-presence manifest must be embedded or available live");
-    assert_eq!(
-        manifest["summary"]["tristate_sdk_dispositions"],
-        json!({
-            "absent_null_equivalent": 149,
-            "condition_guarded": 9,
-            "distinct": 1
-        })
-    );
-    let distinct = manifest["tristate_audit_targets"]
+    let targets = manifest["tristate_audit_targets"]
         .as_array()
-        .unwrap()
+        .expect("tristate_audit_targets must be an array");
+    let summary = manifest["summary"]["tristate_sdk_dispositions"]
+        .as_object()
+        .expect("tristate_sdk_dispositions must be an object");
+    let dispositions = ["absent_null_equivalent", "condition_guarded", "distinct"];
+    assert_eq!(summary.len(), dispositions.len());
+    assert!(targets.iter().all(|target| {
+        dispositions.contains(&target["sdk_disposition"].as_str().unwrap_or_default())
+    }));
+    for disposition in dispositions {
+        let actual = targets
+            .iter()
+            .filter(|target| target["sdk_disposition"] == disposition)
+            .count() as u64;
+        assert_eq!(summary[disposition].as_u64(), Some(actual));
+    }
+    let distinct = targets
         .iter()
         .filter(|target| target["sdk_disposition"] == "distinct")
         .collect::<Vec<_>>();
