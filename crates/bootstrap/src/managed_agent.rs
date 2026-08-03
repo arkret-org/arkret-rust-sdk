@@ -380,9 +380,9 @@ fn apply_managed_agent_batch(
             Error::Protocol(format!("managed Agent PCR cell registry: {error}"))
         })?;
         let state = join_cell_seal_batches(binding.lattice.as_ref(), cell, batches);
-        if matches!(state, CellState::Bottom(_)) {
+        if let CellState::Bottom(bottom) = &state {
             return Err(Error::Protocol(format!(
-                "managed Agent PCR cell {cell} resolved to Bottom"
+                "managed Agent PCR cell {cell} resolved to Bottom: {bottom:?}"
             )));
         }
         joined.insert(cell.clone(), state);
