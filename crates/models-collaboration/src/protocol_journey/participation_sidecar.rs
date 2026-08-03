@@ -290,7 +290,7 @@ pub enum SidecarPreparedOutcome {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum SidecarEnsureOutcome {
@@ -309,6 +309,68 @@ pub enum SidecarEnsureOutcome {
         access_readiness: SidecarAccessReadiness,
         pending_access_reconciliations: Vec<SidecarPendingAccessReconciliation>,
     },
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SidecarAcceptedOutcomePayload {
+    operation_id: ProtocolOperationId,
+    accepted_phase: SidecarAcceptedPhase,
+    ok: SidecarAcceptedOk,
+    sidecar_id: SidecarId,
+    private_strand_id: StrandId,
+    private_relation_id: RelationId,
+    access_readiness: SidecarAccessReadiness,
+    pending_access_reconciliations: Vec<SidecarPendingAccessReconciliation>,
+}
+
+impl<'de> Deserialize<'de> for SidecarEnsureOutcome {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let serde_json::Value::Object(mut object) = value else {
+            return Err(serde::de::Error::custom(
+                "Sidecar ensure outcome must be an object",
+            ));
+        };
+        let status = match object.remove("status") {
+            Some(serde_json::Value::String(status)) => status,
+            Some(_) => {
+                return Err(serde::de::Error::custom(
+                    "Sidecar ensure outcome status must be a string",
+                ));
+            }
+            None => {
+                return Err(serde::de::Error::missing_field("status"));
+            }
+        };
+        let payload = serde_json::Value::Object(object);
+        match status.as_str() {
+            "prepared" => serde_json::from_value(payload)
+                .map(|prepared| Self::Prepared { prepared })
+                .map_err(serde::de::Error::custom),
+            "accepted" => {
+                let accepted: SidecarAcceptedOutcomePayload =
+                    serde_json::from_value(payload).map_err(serde::de::Error::custom)?;
+                Ok(Self::Accepted {
+                    operation_id: accepted.operation_id,
+                    accepted_phase: accepted.accepted_phase,
+                    ok: accepted.ok,
+                    sidecar_id: accepted.sidecar_id,
+                    private_strand_id: accepted.private_strand_id,
+                    private_relation_id: accepted.private_relation_id,
+                    access_readiness: accepted.access_readiness,
+                    pending_access_reconciliations: accepted.pending_access_reconciliations,
+                })
+            }
+            _ => Err(serde::de::Error::unknown_variant(
+                &status,
+                &["prepared", "accepted"],
+            )),
+        }
+    }
 }
 
 impl SidecarEnsureOutcome {
@@ -441,6 +503,40 @@ mod tests {
         serde_json::from_value::<SidecarAcceptedOk>(json!(true)).unwrap();
         assert!(serde_json::from_value::<SidecarAcceptedOk>(json!(false)).is_err());
         assert!(serde_json::from_value::<SidecarAcceptedOk>(json!("true")).is_err());
+    }
+
+    #[test]
+    fn prepared_sidecar_outcome_decodes_flattened_branch_and_stays_closed() {
+        let value = json!({
+            "status": "prepared",
+            "branch": "existing",
+            "operation_id": "ak:operation:sidecar.prepare",
+            "reservation_handle": "reservation-1",
+            "expires_at": "2026-08-03T00:00:00.000Z",
+            "sidecar_id": "ak:sidecar:01999999-0000-7000-8000-000000000001",
+            "backing_circle_id": "ak:circle:01999999-0000-7000-8000-000000000002",
+            "private_strand_id": "ak:strand:01999999-0000-7000-8000-000000000003",
+            "private_relation_id": "ak:relation:01999999-0000-7000-8000-000000000004",
+            "context_attach_event_id": "ak:event:01999999-0000-7000-8000-000000000005",
+            "context_attach_event_draft": {
+                "event_id": "ak:event:01999999-0000-7000-8000-000000000005",
+                "kind": "ak.sidecar.context.attach",
+                "unsigned_event_bytes": "e30",
+                "event_digest": format!("sha256:{}", "00".repeat(32))
+            }
+        });
+
+        let outcome: SidecarEnsureOutcome = serde_json::from_value(value.clone()).unwrap();
+        assert!(matches!(
+            outcome,
+            SidecarEnsureOutcome::Prepared {
+                prepared: SidecarPreparedOutcome::Existing { .. }
+            }
+        ));
+
+        let mut unknown = value;
+        unknown["unexpected"] = json!(true);
+        assert!(serde_json::from_value::<SidecarEnsureOutcome>(unknown).is_err());
     }
 
     #[test]
