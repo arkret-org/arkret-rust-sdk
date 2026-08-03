@@ -579,7 +579,7 @@ def generate_reason_codes(artifacts: Path) -> str:
     for row in rows:
         lines.append(
             f"            Self::{variant(row['code'])} => "
-            f"{rust_string(row['code'])},"
+            f"Self::{row['code'].upper()},"
         )
     lines.extend(
         [
@@ -593,7 +593,7 @@ def generate_reason_codes(artifacts: Path) -> str:
     )
     for row in rows:
         lines.append(
-            f"            {rust_string(row['code'])} => "
+            f"            Self::{row['code'].upper()} => "
             f"Self::{variant(row['code'])},"
         )
     lines.extend(
@@ -670,7 +670,7 @@ def generate_reason_codes(artifacts: Path) -> str:
         lines.extend(
             [
                 "    ReasonCodeDescriptor {",
-                f"        code: {rust_string(row['code'])},",
+                f"        code: ReasonCode::{row['code'].upper()},",
                 f"        applies_to: {rust_slice(row['applies_to'])},",
                 f"        description: {rust_string(row['description'])},",
                 "    },",

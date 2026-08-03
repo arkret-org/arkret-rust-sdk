@@ -74,6 +74,48 @@ class RegistryGeneratorTests(unittest.TestCase):
         self.assertIn("Self::Websocket", generated)
         self.assertIn("Self::RealmAdmission", generated)
 
+    def test_reason_code_as_str_reuses_associated_constants(self) -> None:
+        temporary, artifacts = self.registry_fixture(["error-code-registry.json"])
+        with temporary:
+            generated = GENERATOR.generate_reason_codes(artifacts)
+
+        as_str = generated.split("    pub fn as_str(&self) -> &str {", 1)[1].split(
+            "    pub fn from_wire(value: &str) -> Self {", 1
+        )[0]
+        self.assertIn(
+            "Self::LegalHoldActive => Self::LEGAL_HOLD_ACTIVE,",
+            as_str,
+        )
+        self.assertNotIn(' => "', as_str)
+
+    def test_reason_code_from_wire_reuses_associated_constants(self) -> None:
+        temporary, artifacts = self.registry_fixture(["error-code-registry.json"])
+        with temporary:
+            generated = GENERATOR.generate_reason_codes(artifacts)
+
+        from_wire = generated.split(
+            "    pub fn from_wire(value: &str) -> Self {", 1
+        )[1].split("    pub fn is_valid_wire(value: &str) -> bool {", 1)[0]
+        self.assertIn(
+            "Self::LEGAL_HOLD_ACTIVE => Self::LegalHoldActive,",
+            from_wire,
+        )
+        self.assertNotIn('            "', from_wire)
+
+    def test_reason_code_descriptors_reuse_associated_constants(self) -> None:
+        temporary, artifacts = self.registry_fixture(["error-code-registry.json"])
+        with temporary:
+            generated = GENERATOR.generate_reason_codes(artifacts)
+
+        descriptors = generated.split(
+            "pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[", 1
+        )[1]
+        self.assertIn(
+            "code: ReasonCode::LEGAL_HOLD_ACTIVE,",
+            descriptors,
+        )
+        self.assertNotIn('        code: "', descriptors)
+
 
 if __name__ == "__main__":
     unittest.main()
