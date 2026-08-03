@@ -14,7 +14,8 @@ use arkret_models_collaboration::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_models_collaboration::events_payloads::agent::AgentKeyAuthorizePayloadRuntimeAttestation;
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_wire::{
-    Base64UrlString, Did, DidUrl, Event, EventInitialSubmission, EventKind, Hash, NonEmptyString,
+    Base64UrlString, DeviceId, Did, DidUrl, Event, EventInitialSubmission, EventKind, Hash,
+    NonEmptyString,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
@@ -43,17 +44,12 @@ pub struct RuntimeKeyRequestBuilder<'a> {
 }
 
 impl<'a> RuntimeKeyRequestBuilder<'a> {
-    pub fn new(signing_key: &'a SigningKey, bootstrap: AgentPairingBootstrap) -> Self {
-        let key_digest = arkret_canonical::sha256_digest(signing_key.verifying_key().to_bytes());
-        let key_suffix = key_digest
-            .as_str()
-            .strip_prefix("sha256:")
-            .unwrap_or(key_digest.as_str());
-        let verification_method = format!(
-            "{}#runtime-key-{}",
-            bootstrap.agent_id,
-            &key_suffix[..16.min(key_suffix.len())]
-        );
+    pub fn new(
+        signing_key: &'a SigningKey,
+        bootstrap: AgentPairingBootstrap,
+        endpoint_device_id: DeviceId,
+    ) -> Self {
+        let verification_method = format!("{}#{endpoint_device_id}", bootstrap.agent_id);
         let proof_expires_at = bootstrap.pairing_expires_at;
         Self {
             signing_key,
@@ -63,12 +59,6 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             proof_expires_at,
             runtime_attestation: None,
         }
-    }
-
-    #[must_use]
-    pub fn verification_method(mut self, verification_method: impl Into<String>) -> Self {
-        self.verification_method = verification_method.into();
-        self
     }
 
     #[must_use]
@@ -516,10 +506,14 @@ mod tests {
         let proof_created_at = "2026-07-14T14:40:00.123456Z"
             .parse::<DateTime<Utc>>()
             .unwrap();
-        let request = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap)
-            .proof_created_at(proof_created_at)
-            .build_approval_request()
-            .unwrap();
+        let request = RuntimeKeyRequestBuilder::new(
+            &signing_key,
+            bootstrap,
+            DeviceId::new("ak:device:01970000-0000-7000-8000-000000000022").unwrap(),
+        )
+        .proof_created_at(proof_created_at)
+        .build_approval_request()
+        .unwrap();
         let proof = &request.body.proof_of_possession;
         let transcript = proof.canonical_transcript_bytes("12345678").unwrap();
         let signature = base64url_decode(proof.signature.as_str()).unwrap();
@@ -607,7 +601,10 @@ mod tests {
             pairing_code: "12345678".to_owned(),
             pairing_expires_at: issued_at + chrono::Duration::minutes(5),
         };
-        let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap)
+        let endpoint_device_id =
+            DeviceId::new("ak:device:01970000-0000-7000-8000-000000000023").unwrap();
+        let verification_method = DidUrl::new(format!("{agent_id}#{endpoint_device_id}")).unwrap();
+        let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap, endpoint_device_id)
             .proof_created_at(issued_at)
             .proof_expires_at(issued_at + chrono::Duration::minutes(5));
 
@@ -617,8 +614,8 @@ mod tests {
                 disclosure,
                 super::super::agent_evidence::build_agent_signing_key_binding(
                     agent_id.clone(),
-                    NonEmptyString::new(format!("{agent_id}#runtime-key-1")).unwrap(),
-                    DidUrl::new(format!("{agent_id}#runtime-key-1")).unwrap(),
+                    NonEmptyString::new(verification_method.to_string()).unwrap(),
+                    verification_method.clone(),
                     signing_key.verifying_key().to_bytes(),
                     EventId::new("ak:event:01970000-0000-7000-8000-000000000099").unwrap(),
                     issued_at,
@@ -638,5 +635,7 @@ mod tests {
             serde_json::to_value(pairing.body.public_key).unwrap()
         );
         assert_eq!(pairing.body.agent_id, agent_id);
+        assert_eq!(approval.body.verification_method, verification_method);
+        assert_eq!(pairing.body.verification_method, verification_method);
     }
 }
