@@ -806,10 +806,6 @@ mod tests {
         RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
-    fn hash(byte: u8) -> Hash {
-        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
-    }
-
     fn cell_member() -> CellRef {
         CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()

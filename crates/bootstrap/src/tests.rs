@@ -707,7 +707,11 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
             .collect::<BTreeSet<_>>(),
         BTreeSet::from([
             format!("ak:cell:ak.component.agent.provision.v1:{agent}"),
-            format!("ak:cell:ak.component.identity.accountability.v1:{agent}"),
+            format!(
+                "ak:cell:ak.component.identity.accountability.v1:{}",
+                composite_subject(&[controller.as_str(), agent.as_str(), "agent_operator"])
+                    .unwrap()
+            ),
             format!(
                 "ak:cell:ak.component.agent.selector_claim.v1:{}",
                 composite_subject(&[controller.as_str(), "summary"]).unwrap()
