@@ -22,10 +22,10 @@ use crate::mls_records::MlsKeyPackageRecord;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadRequestBody {
     pub principal_id: Did,
     pub device_id: DeviceId,
-    #[serde(default)]
     pub key_packages: Vec<KeyPackageUploadEntry>,
     pub device_signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -50,7 +50,6 @@ pub struct KeyPackagesUploadRequestBody {
 pub struct KeyPackagesUploadUnsignedRequest {
     pub principal_id: Did,
     pub device_id: DeviceId,
-    #[serde(default)]
     pub key_packages: Vec<KeyPackageUploadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -169,6 +168,7 @@ pub fn keypackage_upload_entry_signing_input(
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadOutcome {
     pub accepted: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -317,8 +317,8 @@ impl KeyPackagesClaimRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimOutcome {
-    #[serde(default)]
     pub claims: Vec<KeyPackageClaimRecord>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
@@ -961,9 +961,10 @@ pub struct KeyPackagesConsumeOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeRequestBody {
-    #[serde(default)]
-    pub key_package_refs: Vec<String>,
+    pub owner_account_id: Did,
+    pub key_package_refs: KeyPackageRefArray,
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -974,8 +975,8 @@ pub struct KeyPackagesRevokeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeUnsignedRequest {
-    #[serde(default)]
-    pub key_package_refs: Vec<String>,
+    pub owner_account_id: Did,
+    pub key_package_refs: KeyPackageRefArray,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<NonEmptyString>,
@@ -985,6 +986,7 @@ impl KeyPackagesRevokeRequestBody {
     #[must_use]
     pub fn unsigned(&self) -> KeyPackagesRevokeUnsignedRequest {
         KeyPackagesRevokeUnsignedRequest {
+            owner_account_id: self.owner_account_id.clone(),
             key_package_refs: self.key_package_refs.clone(),
             device_id: self.device_id.clone(),
             reason: self.reason.clone(),
@@ -996,6 +998,7 @@ impl KeyPackagesRevokeUnsignedRequest {
     #[must_use]
     pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesRevokeRequestBody {
         KeyPackagesRevokeRequestBody {
+            owner_account_id: self.owner_account_id,
             key_package_refs: self.key_package_refs,
             device_id: self.device_id,
             signature,
@@ -1012,8 +1015,8 @@ pub fn keypackages_revoke_signing_input(
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeOutcome {
-    #[serde(default)]
     pub revoked: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
@@ -1163,10 +1166,31 @@ mod tests {
         );
 
         let consume: KeyPackagesConsumeUnsignedRequest = serde_json::from_value(json!({
+            "owner_account_id": "did:webvh:z6mkfixture:owner.example",
             "key_package_refs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
             "consumer_device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
             "claim_ids": ["claim-fixture-001"],
             "welcome_ref": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "recipient_durable_receipt": {
+                "domain": "ak.mls.recipient-durable-receipt.v1",
+                "claim_request_id": "AAAAAAAAAAAAAAAAAAAAAA",
+                "key_package_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                "recipient_principal_id": "did:webvh:z6mkfixture:owner.example",
+                "recipient_device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
+                "recipient_service_id": "did:webvh:z6mkfixture:receiver.example",
+                "realm_id": "ak:realm:01964137-0000-7000-8000-00000000000f",
+                "mls_group_id": "mls-fixture-group",
+                "mls_epoch": 1,
+                "welcome_ref": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                "welcome_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+                "durable_at": "2026-07-22T00:00:00.000Z",
+                "device_verification_method": "did:webvh:z6mkfixture:owner.example#device-key-1",
+                "signature": {
+                    "kid": "did:webvh:z6mkfixture:owner.example#device-key-1",
+                    "alg": "EdDSA",
+                    "sig": "AA"
+                }
+            },
             "realm_id": "ak:realm:01964137-0000-7000-8000-00000000000f",
             "strand_id": "ak:strand:01964137-0000-7000-8000-00000000000e",
             "mls_group_id": "mls-fixture-group",
@@ -1176,10 +1200,18 @@ mod tests {
         let consume_input =
             String::from_utf8(keypackages_consume_signing_input(&consume).unwrap()).unwrap();
         assert!(consume_input.starts_with(KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN));
-        assert!(!consume_input.contains("\"signature\""));
+        let (_, consume_payload) = consume_input.split_once('\n').unwrap();
+        let consume_payload: serde_json::Value = serde_json::from_str(consume_payload).unwrap();
+        assert!(consume_payload.get("signature").is_none());
+        assert!(
+            consume_payload
+                .pointer("/recipient_durable_receipt/signature")
+                .is_some()
+        );
         assert!(!consume_input.contains(":null"));
 
         let revoke: KeyPackagesRevokeUnsignedRequest = serde_json::from_value(json!({
+            "owner_account_id": "did:webvh:z6mkfixture:owner.example",
             "key_package_refs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
             "device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
             "reason": "authorization_superseded"
@@ -1193,6 +1225,7 @@ mod tests {
                 "ak.self.keys.keypackages.command.revoke\n",
                 "{\"device_id\":\"ak:device:01964137-0000-7000-8000-00000000000d\",",
                 "\"key_package_refs\":[\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"],",
+                "\"owner_account_id\":\"did:webvh:z6mkfixture:owner.example\",",
                 "\"reason\":\"authorization_superseded\"}"
             )
         );
