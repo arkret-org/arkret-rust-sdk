@@ -1032,37 +1032,6 @@ impl AgentSidecarContextRef {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarEnsureRequestBody {
-    pub controller_id: Did,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub addressed_agent_ids: Vec<Did>,
-    pub context_ref: AgentSidecarContextRef,
-}
-
-impl AgentSidecarEnsureRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        if self
-            .addressed_agent_ids
-            .iter()
-            .collect::<BTreeSet<_>>()
-            .len()
-            != self.addressed_agent_ids.len()
-            || self
-                .addressed_agent_ids
-                .iter()
-                .any(|agent_id| agent_id == &self.controller_id)
-        {
-            return Err(Error::Protocol(
-                "addressed Sidecar Agents must be unique and exclude the controller".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarAccessReadiness {
@@ -1115,36 +1084,6 @@ impl PendingSidecarAccessReconciliationItem {
                     .to_owned(),
             )),
         }
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarEnsureOutcome {
-    pub ok: bool,
-    pub sidecar_id: SidecarId,
-    pub private_strand_id: StrandId,
-    pub private_relation_id: RelationId,
-    pub access_readiness: AgentSidecarAccessReadiness,
-    pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
-}
-
-impl AgentSidecarEnsureOutcome {
-    pub fn validate(&self) -> Result<()> {
-        if !self.ok {
-            return Err(Error::Protocol(
-                "successful Sidecar ensure outcome requires ok=true".to_owned(),
-            ));
-        }
-        if self.access_readiness == AgentSidecarAccessReadiness::Ready
-            && !self.pending_access_reconciliations.is_empty()
-        {
-            return Err(Error::Protocol(
-                "ready Sidecar ensure outcome cannot have pending reconciliation".to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -2245,8 +2184,6 @@ pub enum AgentOperations {
     AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
     AgentGrantAttachOutcome(AgentGrantAttachOutcome),
     AgentGrantDetachOutcome(AgentGrantDetachOutcome),
-    AgentSidecarEnsureRequestBody(AgentSidecarEnsureRequestBody),
-    AgentSidecarEnsureOutcome(AgentSidecarEnsureOutcome),
     AgentSidecarView(Box<AgentSidecarView>),
     AgentSidecarList(AgentSidecarList),
 }
@@ -2408,46 +2345,6 @@ mod tests {
             .is_err(),
             "unregistered attestation fields must fail closed"
         );
-    }
-
-    #[test]
-    fn sidecar_ensure_request_uses_strand_level_context_ref_shape() {
-        let request = AgentSidecarEnsureRequestBody {
-            controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
-            addressed_agent_ids: vec![Did::new("did:webvh:z6mkfixture:agent.example").unwrap()],
-            context_ref: AgentSidecarContextRef::strand(
-                RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
-                StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
-            ),
-        };
-        let value = serde_json::to_value(request).unwrap();
-        assert!(value.get("realm_id").is_none());
-        assert!(value.get("agent_id").is_none());
-        assert_eq!(
-            value["controller_id"],
-            "did:webvh:z6mkfixture:example.com:users:alice"
-        );
-        assert_eq!(
-            value["addressed_agent_ids"][0],
-            "did:webvh:z6mkfixture:agent.example"
-        );
-        assert_eq!(
-            value["context_ref"]["realm_id"],
-            "ak:realm:01964137-0000-7000-8000-000000000030"
-        );
-        assert_eq!(
-            value["context_ref"]["strand_id"],
-            "ak:strand:01964137-0000-7000-8000-000000000031"
-        );
-
-        for forbidden in ["track_name", "message_id"] {
-            let mut invalid = value.clone();
-            invalid["context_ref"][forbidden] = serde_json::json!("discussion");
-            assert!(
-                serde_json::from_value::<AgentSidecarEnsureRequestBody>(invalid).is_err(),
-                "{forbidden} must not participate in Sidecar context identity"
-            );
-        }
     }
 
     #[test]
