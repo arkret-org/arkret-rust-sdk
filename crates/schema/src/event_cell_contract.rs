@@ -10,6 +10,8 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+#[cfg(test)]
+use arkret_wire::EventCellRule;
 /// Canonical wire subject segment of a cell family declared with
 /// `cell_subject: null` (`conformance/encoding.md` section 4).
 ///
@@ -220,13 +222,10 @@ pub fn project_registered_cell_writes_with_pre_state(
             .get("cell_family")
             .and_then(Value::as_str)
             .ok_or_else(|| effect_set_error(&kind, "cell write omits cell_family"))?;
-        let subject_rule = write.get("cell_subject");
-        let subject_json = subject_rule
-            .filter(|value| !value.is_null())
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|error| effect_set_error(&kind, &error.to_string()))?;
-        let subject = derive_subject(event, subject_json.as_deref())?;
+        let subject = derive_subject_value(
+            event,
+            write.get("cell_subject").filter(|value| !value.is_null()),
+        )?;
         let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
             EventCellContractError::InvalidCell {
                 kind: kind.clone(),
@@ -908,9 +907,7 @@ fn effect_source_value(
                 "projected_value source requires a declared value_projection",
             )
         })?;
-        let rule_json = serde_json::to_string(rule)
-            .map_err(|error| effect_set_error(kind, &error.to_string()))?;
-        return derive_value_projection(event, &rule_json, digest_suite);
+        return derive_value_projection_value(event, rule, digest_suite);
     }
     if let Some(path) = source.get("field").and_then(Value::as_str) {
         // `"payload"` names the complete signed payload object, which is how
@@ -1035,18 +1032,21 @@ fn effect_set_error(kind: &str, message: &str) -> EventCellContractError {
 }
 
 /// Recompute a registry-declared `op.value` projection from the signed payload.
+#[cfg(test)]
 fn derive_value_projection(
     event: &Event,
-    rule_json: &str,
+    rule: EventCellRule,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Value, EventCellContractError> {
+    derive_value_projection_value(event, &rule.to_json_value(), digest_suite)
+}
+
+fn derive_value_projection_value(
+    event: &Event,
+    rule: &Value,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Value, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
-    let rule: Value = serde_json::from_str(rule_json).map_err(|error| {
-        EventCellContractError::SubjectDerivation {
-            kind: kind.clone(),
-            message: error.to_string(),
-        }
-    })?;
     if rule.get("kind").and_then(Value::as_str) != Some("object") {
         return Err(projection_error(
             &kind,
@@ -1196,12 +1196,21 @@ fn validate_plane(
     }
 }
 
+#[cfg(test)]
 fn derive_subject(
     event: &Event,
-    rule_json: Option<&str>,
+    rule: Option<EventCellRule>,
+) -> Result<String, EventCellContractError> {
+    let rule = rule.map(EventCellRule::to_json_value);
+    derive_subject_value(event, rule.as_ref())
+}
+
+fn derive_subject_value(
+    event: &Event,
+    rule: Option<&Value>,
 ) -> Result<String, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
-    let Some(rule_json) = rule_json else {
+    let Some(rule) = rule else {
         // `cell_subject: null` is a per-Realm singleton located by the Event
         // envelope `realm_id`. Its canonical wire subject segment is the literal
         // ASCII string `null` (`conformance/encoding.md` section 4). Encoding the
@@ -1209,12 +1218,6 @@ fn derive_subject(
         // order against any implementation that follows the spec.
         return Ok(NULL_CELL_SUBJECT.to_owned());
     };
-    let rule: Value = serde_json::from_str(rule_json).map_err(|error| {
-        EventCellContractError::SubjectDerivation {
-            kind: kind.clone(),
-            message: error.to_string(),
-        }
-    })?;
     let rule_kind = rule.get("kind").and_then(Value::as_str).unwrap_or_default();
     match rule_kind {
         "composite" => {

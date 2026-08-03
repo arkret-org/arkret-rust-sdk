@@ -583,8 +583,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     source["cell_family"].as_str(),
                     "{vector_id}: source cell family drifted"
                 );
-                let registered_rule: Value =
-                    serde_json::from_str(descriptor.cell_subject_rule.unwrap()).unwrap();
+                let registered_rule = descriptor.cell_subject_rule.unwrap().to_json_value();
                 assert_eq!(
                     registered_rule["components"], source["components"],
                     "{vector_id}: fixture sources drifted from the generated descriptor"
@@ -709,12 +708,10 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     source["cell_family"].as_str(),
                     "{vector_id}: source cell family drifted"
                 );
-                let registered_rule: Value = serde_json::from_str(
-                    descriptor
-                        .cell_subject_rule
-                        .unwrap_or_else(|| panic!("{vector_id}: source subject rule is missing")),
-                )
-                .unwrap();
+                let registered_rule = descriptor
+                    .cell_subject_rule
+                    .unwrap_or_else(|| panic!("{vector_id}: source subject rule is missing"))
+                    .to_json_value();
                 assert_eq!(
                     registered_rule["kind"], "composite",
                     "{vector_id}: registered subject is not composite"

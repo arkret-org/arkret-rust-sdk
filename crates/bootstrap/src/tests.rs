@@ -14,8 +14,8 @@ use arkret_wire::{
     AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
     AuthorizationLease, AuthorizationLeaseId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl,
     Event, EventId, EventInitialSubmission, EventKind, EventRef, Hash, Hlc, LeaseBasisRef,
-    NonEmptyString, NotarySig, PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId,
-    RiskTier, SchemaId, ScopeRef, SealId, SemanticRefProof, SemanticRefProofKind,
+    NonEmptyString, NotarySig, PayloadProof, PayloadSignature, PayloadSigner, ProjectedCellWrite,
+    Proof, RealmId, RiskTier, SchemaId, ScopeRef, SealId, SemanticRefProof, SemanticRefProofKind,
     TypedTrustDomainId, WireError, composite_subject, proof_kind,
 };
 use chrono::Utc;
@@ -26,10 +26,11 @@ use crate::self_principal::validate_self_principal_pcr_create;
 use crate::{
     AgentProvisionEventDraftOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrGenesisAuthority,
     PRINCIPAL_CONTROL_PURPOSE, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL,
-    REALM_NOTARY_CELL, SelfPrincipalPcrCreateInput, build_agent_provision_event_drafts,
-    build_managed_agent_pcr_event_seal, build_self_principal_bootstrap_seal,
-    build_self_principal_pcr_create, materialize_managed_agent_pcr_control,
-    self_principal_bootstrap_submit_request, validate_self_principal_bootstrap_unit,
+    REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
+    build_agent_provision_event_drafts, build_managed_agent_pcr_event_seal,
+    build_self_principal_bootstrap_seal, build_self_principal_pcr_create,
+    materialize_managed_agent_pcr_control, self_principal_bootstrap_submit_request,
+    validate_self_principal_bootstrap_unit,
 };
 
 struct FixtureSigner {
@@ -188,6 +189,7 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
             ),
             REALM_CREATE_CELL.to_owned(),
             REALM_NOTARY_CELL.to_owned(),
+            REALM_REDUCER_PROFILE_CELL.to_owned(),
             REALM_AUTHORITY_ROOT_CELL.to_owned(),
         ]
         .into_iter()
@@ -272,7 +274,7 @@ fn submission(event: Event) -> EventInitialSubmission {
             threshold: 1,
         }],
     };
-    let lease = AuthorizationLease {
+    let mut lease = AuthorizationLease {
         authorization_lease_id: AuthorizationLeaseId::new(
             "ak:authorization_lease:01904100-0000-7000-8000-0000000000f1",
         )
@@ -295,6 +297,18 @@ fn submission(event: Event) -> EventInitialSubmission {
         authority_set_policy,
         proofs: Vec::new(),
     };
+    lease.proofs = vec![PayloadProof {
+        kind: proof_kind::DETACHED_JWS.to_owned(),
+        alg: "EdDSA".to_owned(),
+        verification_method: DidUrl::new(format!("{}#bootstrap-authority", event.actor_id))
+            .unwrap(),
+        payload_digest: lease.lease_digest().unwrap(),
+        created_at: lease.issued_at,
+        domain: None,
+        audience: None,
+        proof_purpose: None,
+        jws: "fixture.detached-signature".to_owned(),
+    }];
     EventInitialSubmission {
         event,
         authorization_lease: Some(lease),
@@ -358,6 +372,7 @@ fn managed_agent_pcr_create() -> Event {
                 "created_by": agent,
                 "fields": {"purpose": "principal_control"},
                 "notary": {"kind": "single_did", "did": agent},
+                "reducer_profile": arkret_wire::CORE_REDUCER_PROFILE,
                 "capability_action_registry_digest": format!("sha256:{}", "9a".repeat(32)),
             }
         }),
@@ -395,6 +410,7 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
             REALM_AUTHORITY_ROOT_CELL,
             REALM_CREATE_CELL,
             REALM_METADATA_CELL,
+            REALM_REDUCER_PROFILE_CELL,
         ]
     );
 

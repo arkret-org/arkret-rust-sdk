@@ -23,7 +23,7 @@ pub use managed_agent::{
     ManagedAgentPcrControlMaterial, ManagedAgentPcrGenesisAuthority,
     build_managed_agent_pcr_event_seal, materialize_managed_agent_pcr_control,
 };
-pub use projection::CellWriteProjector;
+pub use projection::{CellWriteProjector, expected_realm_create_cells};
 pub use self_principal::{
     SelfPrincipalPcrCreateInput, build_self_principal_pcr_create,
     self_principal_bootstrap_submit_request, validate_self_principal_bootstrap_unit,
@@ -49,4 +49,5 @@ pub use arkret_models_collaboration::objects::realm::PRINCIPAL_CONTROL_PURPOSE;
 // genesis singleton into a deployment-wide shared key.
 pub use arkret_wire::{
     REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL,
+    REALM_REDUCER_PROFILE_CELL,
 };

@@ -63,6 +63,8 @@ pub const REALM_METADATA_CELL: &str = "ak:cell:ak.component.realm.metadata.v1:nu
 /// Canonical per-Realm notary control cell; its genesis value is an explicit
 /// `ak.realm.create` effect and later values come from `ak.realm.notary`.
 pub const REALM_NOTARY_CELL: &str = "ak:cell:ak.component.notary.v1:null";
+/// Canonical per-Realm reducer-profile cell, seeded by `ak.realm.create`.
+pub const REALM_REDUCER_PROFILE_CELL: &str = "ak:cell:ak.component.realm.reducer_profile.v1:null";
 /// Canonical per-Realm authority root, written by `ak.realm.create` and the
 /// only cell that carries Realm owner authority
 /// (`models/realm-and-space.md` section 2.5). `(realm_id, this cell)` is the

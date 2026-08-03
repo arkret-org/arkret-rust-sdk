@@ -12,6 +12,9 @@ use crate::events::kinds::{EventProductClass, event_product_class, event_wire_sc
 /// Count of standard `ak.*` event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
 pub const EVENT_KIND_COUNT: usize = 184;
+/// SHA-256 of the exact event-kind registry used to generate this module.
+pub const EVENT_KIND_REGISTRY_SHA256: &str =
+    "d390901ba8ac9ba14299dd92c5ca4bf5fc9ffe2e2241ee442f2a1555ca9531c0";
 
 /// Raw category assigned by event-kind-registry.json.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -855,21 +858,258 @@ impl EventCellBottom {
     }
 }
 
-/// One complete registry-declared cell write for an event kind. Complex
-/// projection and subject rules remain canonical JSON, but their ownership
-/// and presence are represented by this SDK type rather than downstream DTOs.
+/// Closed property names used by registry-declared cell-rule AST nodes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum EventCellRuleKey {
+    Agent,
+    Branches,
+    Circle,
+    Components,
+    Const,
+    Context,
+    Count,
+    Derivation,
+    DigestOf,
+    Dot,
+    Dots,
+    EnvelopeField,
+    ExpectedPrestate,
+    Field,
+    Fields,
+    ForbiddenFields,
+    From,
+    Human,
+    Input,
+    IssuerSeq,
+    Join,
+    Kind,
+    Leave,
+    Literal,
+    MemberDevice,
+    Members,
+    Name,
+    Op,
+    Optional,
+    Patch,
+    ProjectedValue,
+    Realm,
+    RealmRecoveryKey,
+    RemoveParticipant,
+    RestoreParticipant,
+    Role,
+    Select,
+    Selector,
+    Tag,
+    To,
+    Value,
+}
+
+impl EventCellRuleKey {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Agent => "agent",
+            Self::Branches => "branches",
+            Self::Circle => "circle",
+            Self::Components => "components",
+            Self::Const => "const",
+            Self::Context => "context",
+            Self::Count => "count",
+            Self::Derivation => "derivation",
+            Self::DigestOf => "digest_of",
+            Self::Dot => "dot",
+            Self::Dots => "dots",
+            Self::EnvelopeField => "envelope_field",
+            Self::ExpectedPrestate => "expected_prestate",
+            Self::Field => "field",
+            Self::Fields => "fields",
+            Self::ForbiddenFields => "forbidden_fields",
+            Self::From => "from",
+            Self::Human => "human",
+            Self::Input => "input",
+            Self::IssuerSeq => "issuer_seq",
+            Self::Join => "join",
+            Self::Kind => "kind",
+            Self::Leave => "leave",
+            Self::Literal => "literal",
+            Self::MemberDevice => "member_device",
+            Self::Members => "members",
+            Self::Name => "name",
+            Self::Op => "op",
+            Self::Optional => "optional",
+            Self::Patch => "patch",
+            Self::ProjectedValue => "projected_value",
+            Self::Realm => "realm",
+            Self::RealmRecoveryKey => "realm_recovery_key",
+            Self::RemoveParticipant => "remove_participant",
+            Self::RestoreParticipant => "restore_participant",
+            Self::Role => "role",
+            Self::Select => "select",
+            Self::Selector => "selector",
+            Self::Tag => "tag",
+            Self::To => "to",
+            Self::Value => "value",
+        }
+    }
+}
+
+/// Closed operators used by registry-declared cell-rule AST nodes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum EventCellRuleOperator {
+    AnyFieldPresent,
+    Append,
+    ApplyPatch,
+    CellRef,
+    Coalesce,
+    Composite,
+    CriticalRefRoleExactCount,
+    Did,
+    FieldAbsent,
+    FieldEquals,
+    FieldPresent,
+    IdActor,
+    IdActorProfile,
+    IdCircle,
+    IdEvent,
+    IdMessage,
+    IdMorph,
+    IdRealm,
+    IdRelation,
+    IdSidecar,
+    IdSpace,
+    IdStrand,
+    Integer,
+    MimiUri,
+    Object,
+    OrSetAdd,
+    OrSetDelta,
+    OrSetRemoveDots,
+    OrSetRemoveObserved,
+    Reset,
+    Select,
+    Set,
+    String,
+    StringSetDigest,
+    Transition,
+    TransitionTo,
+    Tuple,
+    TypedId,
+}
+
+impl EventCellRuleOperator {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AnyFieldPresent => "any_field_present",
+            Self::Append => "append",
+            Self::ApplyPatch => "apply_patch",
+            Self::CellRef => "cell_ref",
+            Self::Coalesce => "coalesce",
+            Self::Composite => "composite",
+            Self::CriticalRefRoleExactCount => "critical_ref_role_exact_count",
+            Self::Did => "did",
+            Self::FieldAbsent => "field_absent",
+            Self::FieldEquals => "field_equals",
+            Self::FieldPresent => "field_present",
+            Self::IdActor => "id:actor",
+            Self::IdActorProfile => "id:actor_profile",
+            Self::IdCircle => "id:circle",
+            Self::IdEvent => "id:event",
+            Self::IdMessage => "id:message",
+            Self::IdMorph => "id:morph",
+            Self::IdRealm => "id:realm",
+            Self::IdRelation => "id:relation",
+            Self::IdSidecar => "id:sidecar",
+            Self::IdSpace => "id:space",
+            Self::IdStrand => "id:strand",
+            Self::Integer => "integer",
+            Self::MimiUri => "mimi_uri",
+            Self::Object => "object",
+            Self::OrSetAdd => "or_set_add",
+            Self::OrSetDelta => "or_set_delta",
+            Self::OrSetRemoveDots => "or_set_remove_dots",
+            Self::OrSetRemoveObserved => "or_set_remove_observed",
+            Self::Reset => "reset",
+            Self::Select => "select",
+            Self::Set => "set",
+            Self::String => "string",
+            Self::StringSetDigest => "string_set_digest",
+            Self::Transition => "transition",
+            Self::TransitionTo => "transition_to",
+            Self::Tuple => "tuple",
+            Self::TypedId => "typed_id",
+        }
+    }
+}
+
+/// One named field in a closed cell-rule AST object.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EventCellRuleField {
+    pub key: EventCellRuleKey,
+    pub value: EventCellRule,
+}
+
+/// Lossless, parse-free AST for registry-declared cell rules.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventCellRule {
+    Null,
+    Bool(bool),
+    Integer(i64),
+    String(&'static str),
+    Operator(EventCellRuleOperator),
+    Array(&'static [EventCellRule]),
+    Object(&'static [EventCellRuleField]),
+}
+
+impl EventCellRule {
+    pub fn field(self, key: EventCellRuleKey) -> Option<Self> {
+        match self {
+            Self::Object(fields) => fields
+                .iter()
+                .find(|field| field.key == key)
+                .map(|field| field.value),
+            _ => None,
+        }
+    }
+
+    pub fn operator(self) -> Option<EventCellRuleOperator> {
+        match self.field(EventCellRuleKey::Kind) {
+            Some(Self::Operator(operator)) => Some(operator),
+            _ => None,
+        }
+    }
+
+    pub fn to_json_value(self) -> serde_json::Value {
+        match self {
+            Self::Null => serde_json::Value::Null,
+            Self::Bool(value) => serde_json::Value::Bool(value),
+            Self::Integer(value) => serde_json::Value::Number(value.into()),
+            Self::String(value) => serde_json::Value::String(value.to_owned()),
+            Self::Operator(value) => serde_json::Value::String(value.as_str().to_owned()),
+            Self::Array(values) => {
+                serde_json::Value::Array(values.iter().map(|value| value.to_json_value()).collect())
+            }
+            Self::Object(fields) => serde_json::Value::Object(
+                fields
+                    .iter()
+                    .map(|field| (field.key.as_str().to_owned(), field.value.to_json_value()))
+                    .collect(),
+            ),
+        }
+    }
+}
+
+/// One complete registry-declared cell write for an event kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventCellWriteDescriptor {
     pub cell_family: Option<CellFamilyId>,
-    pub cell_ref_rule: Option<&'static str>,
-    pub cell_subject_rule: Option<&'static str>,
+    pub cell_ref_rule: Option<EventCellRule>,
+    pub cell_subject_rule: Option<EventCellRule>,
     pub lattice: Option<EventCellLattice>,
     pub bottom: Option<EventCellBottom>,
-    pub initial_value_rule: Option<&'static str>,
-    pub value_projection_rule: Option<&'static str>,
-    pub effect_projection_rule: Option<&'static str>,
-    pub condition_rule: Option<&'static str>,
-    pub derived_members_rule: Option<&'static str>,
+    pub initial_value_rule: Option<EventCellRule>,
+    pub value_projection_rule: Option<EventCellRule>,
+    pub effect_projection_rule: Option<EventCellRule>,
+    pub condition_rule: Option<EventCellRule>,
+    pub derived_members_rule: Option<EventCellRule>,
 }
 
 /// Registry-owned CBA plane for one cell family.
@@ -891,11 +1131,11 @@ pub struct EventKindDescriptor {
     pub payload_schema_ref: Option<&'static str>,
     pub cell_writes: &'static [EventCellWriteDescriptor],
     pub cell_family: Option<&'static str>,
-    /// JSON cell-subject rule; `None` means the envelope `realm_id`.
-    pub cell_subject_rule: Option<&'static str>,
-    /// JSON `op.value` projection rule for ordered_log appends; `None` means
+    /// Cell-subject rule; `None` means the envelope `realm_id`.
+    pub cell_subject_rule: Option<EventCellRule>,
+    /// `op.value` projection rule for ordered_log appends; `None` means
     /// the kind declares no registry-driven append value.
-    pub value_projection_rule: Option<&'static str>,
+    pub value_projection_rule: Option<EventCellRule>,
     pub lattice: Option<&'static str>,
     pub bottom: Option<&'static str>,
     pub plane: Option<&'static str>,
@@ -3123,14 +3363,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AccountStatusV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.account_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.account_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3170,12 +3436,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ActorDiscoveryV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"did","field":"payload.resource_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.resource_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3267,30 +3554,70 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentKeyV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"components":["payload.agent_id","payload.key_id"],"kind":"composite"}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.agent_id"),
+                            EventCellRule::String("payload.key_id"),
+                        ]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::OrSet),
                 bottom: Some(EventCellBottom::Expose),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"or_set_remove_observed"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetRemoveObserved),
+                }])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentKeyV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"components":["payload.agent_id","payload.key_id"],"kind":"composite"}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.agent_id"),
+                            EventCellRule::String("payload.key_id"),
+                        ]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::OrSet),
                 bottom: Some(EventCellBottom::Expose),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Tag,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Dot,
+                            value: EventCellRule::Bool(true),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -3315,30 +3642,70 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentKeyV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"components":["payload.agent_id","payload.key_id"],"kind":"composite"}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.agent_id"),
+                            EventCellRule::String("payload.key_id"),
+                        ]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::OrSet),
                 bottom: Some(EventCellBottom::Expose),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"or_set_remove_observed"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetRemoveObserved),
+                }])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentKeyV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"components":["payload.agent_id","payload.key_id"],"kind":"composite"}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.agent_id"),
+                            EventCellRule::String("payload.key_id"),
+                        ]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::OrSet),
                 bottom: Some(EventCellBottom::Expose),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Tag,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Dot,
+                            value: EventCellRule::Bool(true),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -3363,40 +3730,106 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentProvisionV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"field":"payload.agent_id","kind":"id:actor"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.agent_id"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::IdActor),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::IdentityAccountabilityV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.controller_id","payload.agent_id","payload.accountability_scope"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.controller_id"),
+                            EventCellRule::String("payload.agent_id"),
+                            EventCellRule::String("payload.accountability_scope"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentSelectorClaimV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"components":["payload.controller_id","payload.agent_slug"],"kind":"composite"}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.controller_id"),
+                            EventCellRule::String("payload.agent_slug"),
+                        ]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::MvRegister),
                 bottom: Some(EventCellBottom::Expose),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -3420,14 +3853,36 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentSelectorClaimV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":["payload.controller_subject","payload.agent_slug"],"kind":"composite"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.controller_subject"),
+                        EventCellRule::String("payload.agent_slug"),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3450,14 +3905,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandDiscussionTimelineV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.strand_id","kind":"id:strand"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.strand_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3480,14 +3961,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AppletBridgeErrorV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.applet_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.applet_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3510,12 +4017,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AppletDiscoveryV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.resource_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.resource_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3538,12 +4066,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AppletRegistrationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.applet_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.applet_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3583,16 +4132,44 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditAccessLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.target_ref","payload.target_cell_id","payload.paired_event_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.target_ref"),
+                        EventCellRule::String("payload.target_cell_id"),
+                        EventCellRule::String("payload.paired_event_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3615,14 +4192,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditBindingV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.binding_id","kind":"typed_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.binding_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.status"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.status"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3662,14 +4258,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditReleaseV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.session_id","kind":"typed_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.session_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3709,14 +4331,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.session_id","kind":"typed_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.session_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.session_state"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.session_state"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3739,14 +4380,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.session_id","kind":"typed_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.session_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.session_state"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.session_state"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3769,14 +4429,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.session_id","kind":"typed_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.session_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.session_state"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.session_state"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3799,14 +4478,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.session_id","kind":"typed_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.session_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.session_state"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.session_state"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -3830,73 +4528,211 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallRecordingV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"const":null},"to":{"const":"recording"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_equals","field":"payload.capture_kind","const":"recording"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::Null,
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("recording"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.capture_kind"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("recording"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallRecordingResultV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.result"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_equals","field":"payload.capture_kind","const":"recording"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.result"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.capture_kind"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("recording"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallTranscriptV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"const":null},"to":{"const":"transcribing"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_equals","field":"payload.capture_kind","const":"transcript"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::Null,
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("transcribing"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.capture_kind"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("transcript"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallTranscriptResultV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.result"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_equals","field":"payload.capture_kind","const":"transcript"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.result"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.capture_kind"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("transcript"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
         ],
@@ -3920,147 +4756,506 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallStateV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.call_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.call_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"field":"payload.state_transition.from"},"to":{"field":"payload.state_transition.to"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_present","field":"payload.state_transition"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.state_transition.from"),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.state_transition.to"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.state_transition"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallFocusV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.call_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.call_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
-                initial_value_rule: Some(r#""__unset__""#),
+                initial_value_rule: Some(EventCellRule::String("__unset__")),
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.focus"}}"#),
-                condition_rule: Some(r#"{"kind":"field_present","field":"payload.focus"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.focus"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.focus"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallRecordingV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.recording_transition.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.recording_transition.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"field":"payload.recording_transition.from"},"to":{"field":"payload.recording_transition.to"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_present","field":"payload.recording_transition"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.recording_transition.from"),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.recording_transition.to"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.recording_transition"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallRecordingResultV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.recording_transition.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.recording_transition.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.recording_transition.result"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_present","field":"payload.recording_transition.result"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.recording_transition.result"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.recording_transition.result"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallTranscriptV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.transcript_transition.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.transcript_transition.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"field":"payload.transcript_transition.from"},"to":{"field":"payload.transcript_transition.to"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_present","field":"payload.transcript_transition"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.transcript_transition.from"),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.transcript_transition.to"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.transcript_transition"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallTranscriptResultV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.transcript_transition.recording_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.transcript_transition.recording_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.transcript_transition.result"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_present","field":"payload.transcript_transition.result"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.transcript_transition.result"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.transcript_transition.result"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallModerationV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.call_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.call_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::OrSet),
                 bottom: Some(EventCellBottom::Inert),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"or_set_delta","selector":"payload.moderation_delta.op","branches":{"remove_participant":{"op":"add","tag":{"dot":true},"value":{"field":"payload.moderation_delta.removal"}},"restore_participant":{"op":"remove","tag":{"field":"payload.moderation_delta.observed_dot"}}}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"field_present","field":"payload.moderation_delta"}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::OrSetDelta),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Selector,
+                        value: EventCellRule::String("payload.moderation_delta.op"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Branches,
+                        value: EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::RemoveParticipant,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Op,
+                                        value: EventCellRule::String("add"),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Tag,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Dot,
+                                            value: EventCellRule::Bool(true),
+                                        }]),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Value,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.moderation_delta.removal",
+                                            ),
+                                        }]),
+                                    },
+                                ]),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::RestoreParticipant,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Op,
+                                        value: EventCellRule::String("remove"),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Tag,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.moderation_delta.observed_dot",
+                                            ),
+                                        }]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.moderation_delta"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallRosterV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.call_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.call_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::OrSet),
                 bottom: Some(EventCellBottom::Inert),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"or_set_delta","selector":"payload.roster_delta.op","branches":{"join":{"op":"add","tag":{"dot":true},"value":{"field":"payload.roster_delta.participant"}},"leave":{"op":"remove","tag":{"field":"payload.roster_delta.observed_dot"}}}}"#,
-                ),
-                condition_rule: Some(r#"{"kind":"field_present","field":"payload.roster_delta"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::OrSetDelta),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Selector,
+                        value: EventCellRule::String("payload.roster_delta.op"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Branches,
+                        value: EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Join,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Op,
+                                        value: EventCellRule::String("add"),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Tag,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Dot,
+                                            value: EventCellRule::Bool(true),
+                                        }]),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Value,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.roster_delta.participant",
+                                            ),
+                                        }]),
+                                    },
+                                ]),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Leave,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Op,
+                                        value: EventCellRule::String("remove"),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Tag,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.roster_delta.observed_dot",
+                                            ),
+                                        }]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.roster_delta"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallMuteOverrideV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.call_id","payload.mute_override.actor_id","payload.mute_override.device_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.call_id"),
+                            EventCellRule::String("payload.mute_override.actor_id"),
+                            EventCellRule::String("payload.mute_override.device_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.mute_override"}}"#,
-                ),
-                condition_rule: Some(r#"{"kind":"field_present","field":"payload.mute_override"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.mute_override"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.mute_override"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
         ],
@@ -4083,12 +5278,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CallSummaryV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.call_id","kind":"typed_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.call_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4111,14 +5327,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityDerivedV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.grant_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.grant_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4141,18 +5383,63 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityGrantV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.grant_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.grant_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
-            derived_members_rule: Some(
-                r#"[{"name":"authority_depth","derivation":"capability_authority_depth"},{"name":"authority_root_refs","derivation":"capability_authority_root_refs"}]"#,
-            ),
+            derived_members_rule: Some(EventCellRule::Array(&[
+                EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Name,
+                        value: EventCellRule::String("authority_depth"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Derivation,
+                        value: EventCellRule::String("capability_authority_depth"),
+                    },
+                ]),
+                EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Name,
+                        value: EventCellRule::String("authority_root_refs"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Derivation,
+                        value: EventCellRule::String("capability_authority_root_refs"),
+                    },
+                ]),
+            ])),
         }],
         cell_family: None,
         cell_subject_rule: None,
@@ -4173,12 +5460,24 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityGrantV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.grant_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.grant_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"or_set_remove_observed"}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::OrSetRemoveObserved),
+            }])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4201,12 +5500,24 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityGrantV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.grant_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.grant_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"or_set_remove_observed"}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::OrSetRemoveObserved),
+            }])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4229,16 +5540,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.circle_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.circle_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"active"},"to":{"const":"archived"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4266,9 +5604,26 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4291,16 +5646,36 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleMemberV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":["payload.circle_id","payload.actor_id"],"kind":"composite"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.circle_id"),
+                        EventCellRule::String("payload.actor_id"),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.membership"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.membership"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4323,16 +5698,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.circle_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.circle_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"archived"},"to":{"const":"active"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4372,14 +5774,36 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleTombstoneV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"fields":["payload.circle_id","payload.target_ref"],"kind":"coalesce"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.circle_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4402,14 +5826,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleMetadataV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:circle","field":"payload.circle_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdCircle),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.circle_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4432,14 +5882,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ConsentGrantV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.consent_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.consent_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4462,14 +5938,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ConsentGrantV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.consent_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.consent_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_remove_dots","dots":{"field":"payload.observed_dots"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetRemoveDots),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Dots,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.observed_dots"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4494,16 +5989,68 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":[{"kind":"select","selector":"payload.peer.kind","branches":{"human":{"field":"payload.peer.principal_id"},"agent":{"field":"payload.peer.agent_id"}}}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[EventCellRule::Object(&[
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Kind,
+                            value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Selector,
+                            value: EventCellRule::String("payload.peer.kind"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Branches,
+                            value: EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Human,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.principal_id"),
+                                    }]),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Agent,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.agent_id"),
+                                    }]),
+                                },
+                            ]),
+                        },
+                    ])]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4528,16 +6075,68 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":[{"kind":"select","selector":"payload.peer.kind","branches":{"human":{"field":"payload.peer.principal_id"},"agent":{"field":"payload.peer.agent_id"}}}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[EventCellRule::Object(&[
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Kind,
+                            value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Selector,
+                            value: EventCellRule::String("payload.peer.kind"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Branches,
+                            value: EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Human,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.principal_id"),
+                                    }]),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Agent,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.agent_id"),
+                                    }]),
+                                },
+                            ]),
+                        },
+                    ])]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4562,16 +6161,68 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":[{"kind":"select","selector":"payload.peer.kind","branches":{"human":{"field":"payload.peer.principal_id"},"agent":{"field":"payload.peer.agent_id"}}}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[EventCellRule::Object(&[
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Kind,
+                            value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Selector,
+                            value: EventCellRule::String("payload.peer.kind"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Branches,
+                            value: EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Human,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.principal_id"),
+                                    }]),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Agent,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.agent_id"),
+                                    }]),
+                                },
+                            ]),
+                        },
+                    ])]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4596,16 +6247,68 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":[{"kind":"select","selector":"payload.peer.kind","branches":{"human":{"field":"payload.peer.principal_id"},"agent":{"field":"payload.peer.agent_id"}}}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[EventCellRule::Object(&[
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Kind,
+                            value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Selector,
+                            value: EventCellRule::String("payload.peer.kind"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Branches,
+                            value: EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Human,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.principal_id"),
+                                    }]),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Agent,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.agent_id"),
+                                    }]),
+                                },
+                            ]),
+                        },
+                    ])]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4630,16 +6333,68 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":[{"kind":"select","selector":"payload.peer.kind","branches":{"human":{"field":"payload.peer.principal_id"},"agent":{"field":"payload.peer.agent_id"}}}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[EventCellRule::Object(&[
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Kind,
+                            value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Selector,
+                            value: EventCellRule::String("payload.peer.kind"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Branches,
+                            value: EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Human,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.principal_id"),
+                                    }]),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Agent,
+                                    value: EventCellRule::Object(&[EventCellRuleField {
+                                        key: EventCellRuleKey::Field,
+                                        value: EventCellRule::String("payload.peer.agent_id"),
+                                    }]),
+                                },
+                            ]),
+                        },
+                    ])]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4662,14 +6417,36 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContainerPositionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.container_ref","payload.item_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.container_ref"),
+                        EventCellRule::String("payload.item_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4692,12 +6469,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContainerOrderV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.container_ref"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.container_ref"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4720,14 +6518,64 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CrossSigningPublishV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"principal_id","field":"payload.principal_id","kind":"did"},{"name":"expected_previous_generation","field":"payload.expected_previous_generation","kind":"integer"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("principal_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.principal_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("expected_previous_generation"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String(
+                                    "payload.expected_previous_generation",
+                                ),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Integer),
+                            },
+                        ]),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4750,14 +6598,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CrossSigningResetV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.principal_id","kind":"did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.principal_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4780,16 +6654,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceAuthorizationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":["payload.principal_id","payload.device_id"],"kind":"composite"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.principal_id"),
+                        EventCellRule::String("payload.device_id"),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4812,14 +6713,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceListUpdateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.principal_id","kind":"did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.principal_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4859,14 +6786,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceReanchorV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.principal_id","kind":"did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.principal_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4889,14 +6842,27 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceAuthorizationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":["payload.principal_id","payload.device_id"],"kind":"composite"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.principal_id"),
+                        EventCellRule::String("payload.device_id"),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"or_set_remove_observed"}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::OrSetRemoveObserved),
+            }])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4919,14 +6885,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityProofLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"did","field":"payload.did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.did"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4949,14 +6941,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DirectConversationBindingV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.pair_key","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.pair_key"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -4979,12 +6997,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::HandleDiscoveryV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.resource_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.resource_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5007,14 +7046,52 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityAccountabilityV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.issuer","payload.subject",{"kind":"string_set_digest","field":"payload.accountability_scope","context":"ak.accountability-scope-set-v1"}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.issuer"),
+                        EventCellRule::String("payload.subject"),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(
+                                    EventCellRuleOperator::StringSetDigest,
+                                ),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.accountability_scope"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Context,
+                                value: EventCellRule::String("ak.accountability-scope-set-v1"),
+                            },
+                        ]),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5037,12 +7114,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityDisclosurePolicyV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.policy_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.policy_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5065,14 +7163,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityDisclosureReceiptV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"did","field":"payload.holder_did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.holder_did"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5095,14 +7219,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityPresentationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.request_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.request_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5125,14 +7275,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityPresentationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.request_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.request_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5156,26 +7332,66 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.invite_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invite_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition_to","to":{"const":"accepted"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("accepted"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MemberStateV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"did","field":"envelope.actor_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("envelope.actor_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"transition_to","to":{"const":"join"}}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("join"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -5200,27 +7416,76 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.invite_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invite_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition_to","to":{"field":"payload.target_state"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.target_state"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MemberStateV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"did","field":"payload.invitee"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invitee"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"transition_to","to":{"const":"leave"}}"#),
-                condition_rule: Some(r#"{"kind":"field_present","field":"payload.invitee"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("leave"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invitee"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
         ],
@@ -5244,30 +7509,83 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.invite_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invite_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"const":"pending"},"to":{"const":"claimed"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("pending"),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("claimed"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteMembershipProposalV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"composite","components":["payload.invite_id","payload.subject_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.invite_id"),
+                            EventCellRule::String("payload.subject_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::OrSet),
                 bottom: Some(EventCellBottom::Inert),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Tag,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Dot,
+                            value: EventCellRule::Bool(true),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -5292,33 +7610,92 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"coalesce","fields":["payload.invite.id","payload.invite_id"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Fields,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.invite.id"),
+                            EventCellRule::String("payload.invite_id"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"const":null},"to":{"const":"pending"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::Null,
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("pending"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MemberStateV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"kind":"coalesce","fields":["payload.invite.invitee","payload.invitee"]}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Fields,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.invite.invitee"),
+                            EventCellRule::String("payload.invitee"),
+                        ]),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"transition_to","to":{"const":"invite"}}"#),
-                condition_rule: Some(
-                    r#"{"kind":"any_field_present","fields":["payload.invite.invitee","payload.invitee"]}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("invite"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::AnyFieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Fields,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::String("payload.invite.invitee"),
+                            EventCellRule::String("payload.invitee"),
+                        ]),
+                    },
+                ])),
                 derived_members_rule: None,
             },
         ],
@@ -5342,27 +7719,76 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.invite_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invite_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition_to","to":{"field":"payload.target_state"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.target_state"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MemberStateV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"did","field":"payload.invitee"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invitee"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"transition_to","to":{"const":"leave"}}"#),
-                condition_rule: Some(r#"{"kind":"field_present","field":"payload.invitee"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("leave"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.invitee"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
         ],
@@ -5385,16 +7811,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::InviteLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.invite.id","payload.invite_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.invite.id"),
+                        EventCellRule::String("payload.invite_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":null},"to":{"const":"pending"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::Null,
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("pending"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5417,14 +7870,62 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::KeyBackupActiveSeriesV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"actor_id","field":"payload.actor_id","kind":"did"},{"name":"backup_kind","field":"payload.backup_kind","kind":"string"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("actor_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.actor_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("backup_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.backup_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::String),
+                            },
+                        ]),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5447,16 +7948,44 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MemberIdentityV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":["payload.realm_id","payload.actor_id","payload.segment"],"kind":"composite"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.realm_id"),
+                        EventCellRule::String("payload.actor_id"),
+                        EventCellRule::String("payload.segment"),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5479,14 +8008,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MemberStateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.actor_id","kind":"did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.actor_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.membership"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.membership"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5509,14 +8057,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandDiscussionTimelineV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.strand_id","kind":"id:strand"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.strand_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5539,16 +8113,45 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ObjectRedactionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.message_id","payload.target_ref","payload.event_id","payload.target_event_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.message_id"),
+                        EventCellRule::String("payload.target_ref"),
+                        EventCellRule::String("payload.event_id"),
+                        EventCellRule::String("payload.target_event_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5571,14 +8174,37 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MessageRevisionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.message_id","payload.target_ref","payload.revision_of"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.message_id"),
+                        EventCellRule::String("payload.target_ref"),
+                        EventCellRule::String("payload.revision_of"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5601,12 +8227,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MimiRoomBindingV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.mimi_room_uri","kind":"mimi_uri"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.mimi_room_uri"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::MimiUri),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5630,28 +8277,66 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MlsEpochV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"string","field":"payload.mls_group_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::String),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.mls_group_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.next_epoch"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.next_epoch"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MlsKeyScheduleV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"string","field":"payload.mls_group_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::String),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.mls_group_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.governance_binding"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.governance_binding"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -5675,14 +8360,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MlsFailureLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.mls_group_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.mls_group_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5706,26 +8417,66 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MlsEpochV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"string","field":"payload.mls_group_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::String),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.mls_group_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
-                initial_value_rule: Some(r#""__unset__""#),
+                initial_value_rule: Some(EventCellRule::String("__unset__")),
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.epoch"}}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.epoch"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MlsKeyScheduleV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"string","field":"payload.mls_group_id"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::String),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.mls_group_id"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
-                initial_value_rule: Some(r#""__unset__""#),
+                initial_value_rule: Some(EventCellRule::String("__unset__")),
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.governance_binding"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.governance_binding"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -5749,16 +8500,37 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MlsKeypackageV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.principal_id","payload.device_id","payload.keypackage_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.principal_id"),
+                        EventCellRule::String("payload.device_id"),
+                        EventCellRule::String("payload.keypackage_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.state"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.state"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5781,14 +8553,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MlsProposalV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.mls_group_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.mls_group_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5811,16 +8609,44 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MlsWelcomeV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.mls_group_id","payload.recipient_principal_id","payload.recipient_device_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.mls_group_id"),
+                        EventCellRule::String("payload.recipient_principal_id"),
+                        EventCellRule::String("payload.recipient_device_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5843,12 +8669,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationAppealV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.appeal_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.appeal_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"transition_to","to":{"const":"closed"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("closed"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5871,14 +8718,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationAppealV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.appeal_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.appeal_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"under_review"},"to":{"const":"decided"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("under_review"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("decided"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5901,14 +8774,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationAppealV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.appeal_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.appeal_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"submitted"},"to":{"const":"under_review"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("submitted"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("under_review"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5931,14 +8830,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationAppealV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.appeal_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.appeal_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":null},"to":{"const":"submitted"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::Null,
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("submitted"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5961,14 +8886,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationStateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.target_ref","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -5991,14 +8942,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationStateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.target_ref","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_remove_dots","dots":{"field":"payload.observed_dots"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetRemoveDots),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Dots,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.observed_dots"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6021,14 +8991,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationFrankingProofV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:event","field":"payload.event_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdEvent),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.event_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6051,16 +9047,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.morph_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.morph_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"active"},"to":{"const":"archived"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6083,12 +9106,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:morph","field":"payload.object.id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdMorph),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.object.id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.object"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6111,16 +9155,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.morph_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.morph_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"archived"},"to":{"const":"active"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6143,12 +9214,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphSchemaV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:morph","field":"payload.morph_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdMorph),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.morph_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6171,12 +9263,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphStageV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.morph_id","kind":"id:morph"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.morph_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdMorph),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.stage"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.stage"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6199,14 +9312,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:morph","field":"payload.target_ref"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdMorph),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6229,16 +9368,53 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::NotaryFaultV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"signer_id","field":"payload.signer_id","kind":"did"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[EventCellRule::Object(&[
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Name,
+                            value: EventCellRule::String("signer_id"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.signer_id"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Kind,
+                            value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                        },
+                    ])]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6261,16 +9437,53 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::NotaryFaultV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"signer_id","field":"payload.signer_id","kind":"did"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[EventCellRule::Object(&[
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Name,
+                            value: EventCellRule::String("signer_id"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.signer_id"),
+                        },
+                        EventCellRuleField {
+                            key: EventCellRuleKey::Kind,
+                            value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                        },
+                    ])]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6293,12 +9506,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::OrganizationDiscoveryV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"did","field":"payload.organization_did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.organization_did"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6321,14 +9555,36 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::OrganizationModerationPolicyV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.organization_did","payload.organization_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.organization_did"),
+                        EventCellRule::String("payload.organization_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6351,14 +9607,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PinV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.pin_scope.id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.pin_scope.id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6381,14 +9663,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PinV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.pin_scope.id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.pin_scope.id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6411,14 +9719,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PinV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.pin_scope.id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.pin_scope.id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6441,16 +9775,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PolicyActionLogV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.policy_id","payload.action_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.policy_id"),
+                        EventCellRule::String("payload.action_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6473,14 +9834,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PolicyRuleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.rule_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.rule_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6503,12 +9890,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PolicyDefinitionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.policy_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.policy_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6531,12 +9939,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ProfileCreateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.object.id","kind":"id:actor_profile"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.object.id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdActorProfile),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.object"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6559,14 +9988,36 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ProfileRealmOverrideV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.target_realm_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.target_realm_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6589,14 +10040,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ProfileCreateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.target_ref","kind":"id:actor_profile"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdActorProfile),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6619,14 +10096,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MessageReactionsV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.target_ref","kind":"id:message"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdMessage),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6649,14 +10152,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MessageReactionsV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.target_ref","kind":"id:message"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdMessage),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6701,7 +10230,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6729,7 +10270,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.archived"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.archived"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6757,7 +10310,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6785,9 +10350,26 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6815,9 +10397,26 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6844,25 +10443,61 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 cell_subject_rule: None,
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
-                initial_value_rule: Some(r#""__unset__""#),
+                initial_value_rule: Some(EventCellRule::String("__unset__")),
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.object"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.object"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MemberStateV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"did","field":"payload.object.created_by"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object.created_by"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"const":"leave"},"to":{"const":"join"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("leave"),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("join"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -6874,9 +10509,26 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 bottom: Some(EventCellBottom::Inert),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"append","value":{"envelope_field":"realm_id"},"issuer_seq":{"const":0}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::EnvelopeField,
+                            value: EventCellRule::String("realm_id"),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::IssuerSeq,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::Integer(0),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -6886,11 +10538,21 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 cell_subject_rule: None,
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
-                initial_value_rule: Some(r#""__unset__""#),
+                initial_value_rule: Some(EventCellRule::String("__unset__")),
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.object.notary"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.object.notary"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -6900,11 +10562,21 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 cell_subject_rule: None,
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
-                initial_value_rule: Some(r#""__unset__""#),
+                initial_value_rule: Some(EventCellRule::String("__unset__")),
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"set","value":{"field":"payload.object.reducer_profile"}}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Field,
+                            value: EventCellRule::String("payload.object.reducer_profile"),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
@@ -6914,28 +10586,131 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 cell_subject_rule: None,
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
-                initial_value_rule: Some(r#""__unset__""#),
-                value_projection_rule: Some(
-                    r#"{"kind":"object","members":[{"name":"controller_id","field":"payload.object.created_by"},{"name":"controller_epoch","literal":0},{"name":"authority_generation","literal":0},{"name":"capability_action_registry_digest","field":"payload.object.capability_action_registry_digest"}]}"#,
-                ),
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"projected_value":true}}"#),
+                initial_value_rule: Some(EventCellRule::String("__unset__")),
+                value_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Object),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Members,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("controller_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String("payload.object.created_by"),
+                                },
+                            ]),
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("controller_epoch"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Literal,
+                                    value: EventCellRule::Integer(0),
+                                },
+                            ]),
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("authority_generation"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Literal,
+                                    value: EventCellRule::Integer(0),
+                                },
+                            ]),
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String(
+                                        "capability_action_registry_digest",
+                                    ),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String(
+                                        "payload.object.capability_action_registry_digest",
+                                    ),
+                                },
+                            ]),
+                        ]),
+                    },
+                ])),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::ProjectedValue,
+                            value: EventCellRule::Bool(true),
+                        }]),
+                    },
+                ])),
                 condition_rule: None,
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentStatusV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(r#"{"kind":"did","field":"payload.object.created_by"}"#),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object.created_by"),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::Fsm),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(
-                    r#"{"kind":"transition","from":{"const":"uninitialized"},"to":{"const":"active"}}"#,
-                ),
-                condition_rule: Some(
-                    r#"{"kind":"critical_ref_role_exact_count","role":"agent_provision","count":1}"#,
-                ),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::From,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("uninitialized"),
+                        }]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::To,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::String("active"),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(
+                            EventCellRuleOperator::CriticalRefRoleExactCount,
+                        ),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Role,
+                        value: EventCellRule::String("agent_provision"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Count,
+                        value: EventCellRule::Integer(1),
+                    },
+                ])),
                 derived_members_rule: None,
             },
         ],
@@ -6965,7 +10740,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -6993,7 +10780,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7021,9 +10820,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"set","value":{"field":"payload.to_digest_algorithm"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.to_digest_algorithm"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7051,7 +10860,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7079,7 +10900,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7107,7 +10940,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.frozen"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.frozen"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7135,7 +10980,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7163,7 +11020,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7186,12 +11055,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmInheritancePolicyV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.source_realm_id","kind":"id:realm"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.source_realm_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdRealm),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7219,7 +11109,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7242,16 +11144,62 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmLinkV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"target_realm_id","field":"payload.target_realm_id","kind":"id:realm"},{"name":"link_kind","field":"payload.link_kind","kind":"string"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("target_realm_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.target_realm_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::IdRealm),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("link_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.link_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::String),
+                            },
+                        ]),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition_to","to":{"field":"payload.status"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.status"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7279,7 +11227,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7307,7 +11267,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7335,7 +11307,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.notary"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.notary"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7358,14 +11342,62 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmOrganizationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"organization_id","field":"payload.organization_id","kind":"did"},{"name":"relationship","field":"payload.relationship","kind":"string"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("organization_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.organization_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("relationship"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.relationship"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::String),
+                            },
+                        ]),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7393,9 +11425,26 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7423,7 +11472,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7451,7 +11512,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7481,7 +11554,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7511,7 +11596,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7539,7 +11636,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7567,7 +11676,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7595,7 +11716,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7623,7 +11756,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7651,7 +11796,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.strand_id"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.strand_id"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7679,7 +11836,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7707,9 +11876,26 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7737,9 +11923,19 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"set","value":{"field":"payload.target_reducer_profile"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.target_reducer_profile"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7762,18 +11958,362 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmKeyDeliveryV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.share_kind","payload.recipient_principal_id",{"kind":"select","selector":"payload.share_kind","branches":{"member_device":{"field":"payload.recipient_device_id","forbidden_fields":["payload.recipient_verification_method","payload.recovery_recipient_id"]},"realm_recovery_key":{"field":"payload.recovery_recipient_id","forbidden_fields":["payload.recipient_device_id"]}}},{"kind":"select","selector":"payload.key_scope.effective_scope.kind","branches":{"realm":{"field":"payload.key_scope.effective_scope.realm_id"},"circle":{"field":"payload.key_scope.effective_scope.circle_id"}}}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.share_kind"),
+                        EventCellRule::String("payload.recipient_principal_id"),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Selector,
+                                value: EventCellRule::String("payload.share_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Branches,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::MemberDevice,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Field,
+                                                value: EventCellRule::String(
+                                                    "payload.recipient_device_id",
+                                                ),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::ForbiddenFields,
+                                                value: EventCellRule::Array(&[
+                                                    EventCellRule::String(
+                                                        "payload.recipient_verification_method",
+                                                    ),
+                                                    EventCellRule::String(
+                                                        "payload.recovery_recipient_id",
+                                                    ),
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::RealmRecoveryKey,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Field,
+                                                value: EventCellRule::String(
+                                                    "payload.recovery_recipient_id",
+                                                ),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::ForbiddenFields,
+                                                value: EventCellRule::Array(&[
+                                                    EventCellRule::String(
+                                                        "payload.recipient_device_id",
+                                                    ),
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Selector,
+                                value: EventCellRule::String(
+                                    "payload.key_scope.effective_scope.kind",
+                                ),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Branches,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Realm,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.key_scope.effective_scope.realm_id",
+                                            ),
+                                        }]),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Circle,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.key_scope.effective_scope.circle_id",
+                                            ),
+                                        }]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
-            value_projection_rule: Some(
-                r#"{"kind":"object","members":[{"name":"delivery_outcome","literal":"shared"},{"name":"share_kind","field":"payload.share_kind"},{"name":"recipient_principal_id","field":"payload.recipient_principal_id"},{"name":"recipient_target_id","select":{"kind":"select","selector":"payload.share_kind","branches":{"member_device":{"field":"payload.recipient_device_id","forbidden_fields":["payload.recipient_verification_method","payload.recovery_recipient_id"]},"realm_recovery_key":{"field":"payload.recovery_recipient_id","forbidden_fields":["payload.recipient_device_id"]}}}},{"name":"effective_scope_id","select":{"kind":"select","selector":"payload.key_scope.effective_scope.kind","branches":{"realm":{"field":"payload.key_scope.effective_scope.realm_id"},"circle":{"field":"payload.key_scope.effective_scope.circle_id"}}}},{"name":"policy_digest","field":"payload.key_scope.policy_digest"},{"name":"from_epoch","field":"payload.key_scope.from_epoch","optional":true},{"name":"to_epoch","field":"payload.key_scope.to_epoch","optional":true},{"name":"sender_device_id","field":"payload.sender_device_id"},{"name":"source_authorization_ref","field":"payload.source_authorization_ref"},{"name":"payload_digest","digest_of":{"input":"event_payload_canonical_bytes"}}]}"#,
-            ),
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"projected_value":true},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            value_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Object),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Members,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("delivery_outcome"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Literal,
+                                value: EventCellRule::String("shared"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("share_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.share_kind"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("recipient_principal_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.recipient_principal_id"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("recipient_target_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Select,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Kind,
+                                        value: EventCellRule::Operator(
+                                            EventCellRuleOperator::Select,
+                                        ),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Selector,
+                                        value: EventCellRule::String("payload.share_kind"),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Branches,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::MemberDevice,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.recipient_device_id",
+                                                        ),
+                                                    },
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::ForbiddenFields,
+                                                        value: EventCellRule::Array(&[
+                                                            EventCellRule::String(
+                                                                "payload.recipient_verification_method",
+                                                            ),
+                                                            EventCellRule::String(
+                                                                "payload.recovery_recipient_id",
+                                                            ),
+                                                        ]),
+                                                    },
+                                                ]),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::RealmRecoveryKey,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.recovery_recipient_id",
+                                                        ),
+                                                    },
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::ForbiddenFields,
+                                                        value: EventCellRule::Array(&[
+                                                            EventCellRule::String(
+                                                                "payload.recipient_device_id",
+                                                            ),
+                                                        ]),
+                                                    },
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("effective_scope_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Select,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Kind,
+                                        value: EventCellRule::Operator(
+                                            EventCellRuleOperator::Select,
+                                        ),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Selector,
+                                        value: EventCellRule::String(
+                                            "payload.key_scope.effective_scope.kind",
+                                        ),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Branches,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Realm,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.key_scope.effective_scope.realm_id",
+                                                        ),
+                                                    },
+                                                ]),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Circle,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.key_scope.effective_scope.circle_id",
+                                                        ),
+                                                    },
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("policy_digest"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.key_scope.policy_digest"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("from_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.key_scope.from_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Optional,
+                                value: EventCellRule::Bool(true),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("to_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.key_scope.to_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Optional,
+                                value: EventCellRule::Bool(true),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("sender_device_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.sender_device_id"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("source_authorization_ref"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.source_authorization_ref"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("payload_digest"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::DigestOf,
+                                value: EventCellRule::Object(&[EventCellRuleField {
+                                    key: EventCellRuleKey::Input,
+                                    value: EventCellRule::String("event_payload_canonical_bytes"),
+                                }]),
+                            },
+                        ]),
+                    ]),
+                },
+            ])),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::ProjectedValue,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7796,14 +12336,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmKeyAuditV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.share_event_ref"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.share_event_ref"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7826,18 +12392,372 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmKeyDeliveryV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.share_kind","payload.recipient_principal_id",{"kind":"select","selector":"payload.share_kind","branches":{"member_device":{"field":"payload.recipient_device_id","forbidden_fields":["payload.recipient_verification_method","payload.recovery_recipient_id"]},"realm_recovery_key":{"field":"payload.recovery_recipient_id","forbidden_fields":["payload.recipient_device_id"]}}},{"kind":"select","selector":"payload.key_scope.effective_scope.kind","branches":{"realm":{"field":"payload.key_scope.effective_scope.realm_id"},"circle":{"field":"payload.key_scope.effective_scope.circle_id"}}}]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.share_kind"),
+                        EventCellRule::String("payload.recipient_principal_id"),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Selector,
+                                value: EventCellRule::String("payload.share_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Branches,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::MemberDevice,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Field,
+                                                value: EventCellRule::String(
+                                                    "payload.recipient_device_id",
+                                                ),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::ForbiddenFields,
+                                                value: EventCellRule::Array(&[
+                                                    EventCellRule::String(
+                                                        "payload.recipient_verification_method",
+                                                    ),
+                                                    EventCellRule::String(
+                                                        "payload.recovery_recipient_id",
+                                                    ),
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::RealmRecoveryKey,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Field,
+                                                value: EventCellRule::String(
+                                                    "payload.recovery_recipient_id",
+                                                ),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::ForbiddenFields,
+                                                value: EventCellRule::Array(&[
+                                                    EventCellRule::String(
+                                                        "payload.recipient_device_id",
+                                                    ),
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::Select),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Selector,
+                                value: EventCellRule::String(
+                                    "payload.key_scope.effective_scope.kind",
+                                ),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Branches,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Realm,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.key_scope.effective_scope.realm_id",
+                                            ),
+                                        }]),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Circle,
+                                        value: EventCellRule::Object(&[EventCellRuleField {
+                                            key: EventCellRuleKey::Field,
+                                            value: EventCellRule::String(
+                                                "payload.key_scope.effective_scope.circle_id",
+                                            ),
+                                        }]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
-            value_projection_rule: Some(
-                r#"{"kind":"object","members":[{"name":"delivery_outcome","literal":"withheld"},{"name":"share_kind","field":"payload.share_kind"},{"name":"recipient_principal_id","field":"payload.recipient_principal_id"},{"name":"recipient_target_id","select":{"kind":"select","selector":"payload.share_kind","branches":{"member_device":{"field":"payload.recipient_device_id","forbidden_fields":["payload.recipient_verification_method","payload.recovery_recipient_id"]},"realm_recovery_key":{"field":"payload.recovery_recipient_id","forbidden_fields":["payload.recipient_device_id"]}}}},{"name":"effective_scope_id","select":{"kind":"select","selector":"payload.key_scope.effective_scope.kind","branches":{"realm":{"field":"payload.key_scope.effective_scope.realm_id"},"circle":{"field":"payload.key_scope.effective_scope.circle_id"}}}},{"name":"policy_digest","field":"payload.key_scope.policy_digest"},{"name":"from_epoch","field":"payload.key_scope.from_epoch","optional":true},{"name":"to_epoch","field":"payload.key_scope.to_epoch","optional":true},{"name":"sender_device_id","field":"payload.sender_device_id"},{"name":"source_authorization_ref","field":"payload.source_authorization_ref"},{"name":"payload_digest","digest_of":{"input":"event_payload_canonical_bytes"}},{"name":"withheld_reason_code","field":"payload.withheld_reason_code"}]}"#,
-            ),
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"projected_value":true},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            value_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Object),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Members,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("delivery_outcome"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Literal,
+                                value: EventCellRule::String("withheld"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("share_kind"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.share_kind"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("recipient_principal_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.recipient_principal_id"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("recipient_target_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Select,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Kind,
+                                        value: EventCellRule::Operator(
+                                            EventCellRuleOperator::Select,
+                                        ),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Selector,
+                                        value: EventCellRule::String("payload.share_kind"),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Branches,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::MemberDevice,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.recipient_device_id",
+                                                        ),
+                                                    },
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::ForbiddenFields,
+                                                        value: EventCellRule::Array(&[
+                                                            EventCellRule::String(
+                                                                "payload.recipient_verification_method",
+                                                            ),
+                                                            EventCellRule::String(
+                                                                "payload.recovery_recipient_id",
+                                                            ),
+                                                        ]),
+                                                    },
+                                                ]),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::RealmRecoveryKey,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.recovery_recipient_id",
+                                                        ),
+                                                    },
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::ForbiddenFields,
+                                                        value: EventCellRule::Array(&[
+                                                            EventCellRule::String(
+                                                                "payload.recipient_device_id",
+                                                            ),
+                                                        ]),
+                                                    },
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("effective_scope_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Select,
+                                value: EventCellRule::Object(&[
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Kind,
+                                        value: EventCellRule::Operator(
+                                            EventCellRuleOperator::Select,
+                                        ),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Selector,
+                                        value: EventCellRule::String(
+                                            "payload.key_scope.effective_scope.kind",
+                                        ),
+                                    },
+                                    EventCellRuleField {
+                                        key: EventCellRuleKey::Branches,
+                                        value: EventCellRule::Object(&[
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Realm,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.key_scope.effective_scope.realm_id",
+                                                        ),
+                                                    },
+                                                ]),
+                                            },
+                                            EventCellRuleField {
+                                                key: EventCellRuleKey::Circle,
+                                                value: EventCellRule::Object(&[
+                                                    EventCellRuleField {
+                                                        key: EventCellRuleKey::Field,
+                                                        value: EventCellRule::String(
+                                                            "payload.key_scope.effective_scope.circle_id",
+                                                        ),
+                                                    },
+                                                ]),
+                                            },
+                                        ]),
+                                    },
+                                ]),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("policy_digest"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.key_scope.policy_digest"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("from_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.key_scope.from_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Optional,
+                                value: EventCellRule::Bool(true),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("to_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.key_scope.to_epoch"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Optional,
+                                value: EventCellRule::Bool(true),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("sender_device_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.sender_device_id"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("source_authorization_ref"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.source_authorization_ref"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("payload_digest"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::DigestOf,
+                                value: EventCellRule::Object(&[EventCellRuleField {
+                                    key: EventCellRuleKey::Input,
+                                    value: EventCellRule::String("event_payload_canonical_bytes"),
+                                }]),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("withheld_reason_code"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.withheld_reason_code"),
+                            },
+                        ]),
+                    ]),
+                },
+            ])),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::ProjectedValue,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7860,16 +12780,44 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ObjectRedactionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.target_ref","payload.event_id","payload.target_event_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.target_ref"),
+                        EventCellRule::String("payload.event_id"),
+                        EventCellRule::String("payload.target_event_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7892,12 +12840,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RelationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"typed_id","field":"payload.relation.id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TypedId),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.relation.id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.relation"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.relation"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7922,12 +12891,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RelationLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:relation","field":"payload.relation_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdRelation),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.relation_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"transition_to","to":{"const":"tombstoned"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("tombstoned"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7950,14 +12940,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RelationV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:relation","field":"payload.target_ref"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdRelation),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -7980,14 +12996,37 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CalendarRsvpV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"composite","components":["payload.event_ref","payload.occurrence","envelope.actor_id"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Composite),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.event_ref"),
+                        EventCellRule::String("payload.occurrence"),
+                        EventCellRule::String("envelope.actor_id"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.entry"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.entry"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8010,12 +13049,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SchemaDefinitionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.schema_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.schema_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
-            initial_value_rule: Some(r#""__unset__""#),
+            initial_value_rule: Some(EventCellRule::String("__unset__")),
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8038,12 +13098,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SchemaDefinitionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.schema_id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.schema_id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
-            initial_value_rule: Some(r#""__unset__""#),
+            initial_value_rule: Some(EventCellRule::String("__unset__")),
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8066,14 +13147,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentStatusV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.agent_id","kind":"did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.agent_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"field":"payload.previous_status"},"to":{"const":"deactivated"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.previous_status"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("deactivated"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8096,14 +13203,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentStatusV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.agent_id","kind":"did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.agent_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"field":"payload.previous_status"},"to":{"const":"paused"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.previous_status"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("paused"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8126,14 +13259,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentStatusV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.agent_id","kind":"did"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.agent_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"field":"payload.previous_status"},"to":{"const":"active"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.previous_status"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8156,14 +13315,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationReportV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.target_ref"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8186,14 +13371,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SessionGrantV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.grant_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.grant_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrSet),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"or_set_add","tag":{"dot":true},"value":{"field":"payload"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::OrSetAdd),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Tag,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Dot,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8218,12 +13429,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SidecarAccessV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.sidecar_id","kind":"id:sidecar"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.sidecar_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdSidecar),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8248,14 +13480,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SidecarContextV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.sidecar_id","kind":"id:sidecar"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.sidecar_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdSidecar),
+                },
+            ])),
             lattice: Some(EventCellLattice::OrderedLog),
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8283,9 +13541,26 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             bottom: Some(EventCellBottom::Inert),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"append","value":{"field":"payload"},"issuer_seq":{"envelope_field":"actor_seq"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Append),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::IssuerSeq,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("actor_seq"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8308,12 +13583,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SovereignDidPolicyV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"string","field":"payload.trust_domain"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.trust_domain"),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8336,16 +13632,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.space_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.space_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"active"},"to":{"const":"archived"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8368,12 +13691,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceMetadataV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:space","field":"payload.object.id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdSpace),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.object.id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.object"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8396,14 +13740,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceParentV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.space_id","kind":"id:space"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.space_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdSpace),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"set","value":{"field":"payload.parent_space_id"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.parent_space_id"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8426,16 +13789,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.space_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.space_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"archived"},"to":{"const":"active"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8458,14 +13848,36 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.space_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.space_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"transition_to","to":{"const":"tombstoned"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::TransitionTo),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("tombstoned"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8488,16 +13900,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceMetadataV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.space_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.space_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8519,15 +13958,34 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: None,
-            cell_ref_rule: Some(r#"{"kind":"cell_ref","field":"payload.target_cell"}"#),
+            cell_ref_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::CellRef),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_cell"),
+                },
+            ])),
             cell_subject_rule: None,
             lattice: None,
             bottom: None,
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"reset","value":{"field":"payload.resolved_value"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Reset),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.resolved_value"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8550,16 +14008,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.strand_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.strand_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"active"},"to":{"const":"archived"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8582,12 +14067,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandObjectV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"kind":"id:strand","field":"payload.object.id"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.object.id"),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.object"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8610,16 +14116,92 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandPositionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"board_space_id","field":"payload.board_space_id","kind":"id:space"},{"name":"strand_id","field":"payload.strand_id","kind":"id:strand"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("board_space_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.board_space_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::IdSpace),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("strand_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.strand_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                            },
+                        ]),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
-            value_projection_rule: Some(
-                r#"{"kind":"object","members":[{"name":"list_space_id","field":"payload.target_space_id"},{"name":"rank","field":"payload.rank"}]}"#,
-            ),
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"projected_value":true}}"#),
+            value_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Object),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Members,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("list_space_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.target_space_id"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("rank"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.rank"),
+                            },
+                        ]),
+                    ]),
+                },
+            ])),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::ProjectedValue,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8642,16 +14224,92 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandPositionV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"components":[{"name":"board_space_id","field":"payload.board_space_id","kind":"id:space"},{"name":"strand_id","field":"payload.strand_id","kind":"id:strand"}],"kind":"tuple"}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Components,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("board_space_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.board_space_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::IdSpace),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("strand_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.strand_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Kind,
+                                value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                            },
+                        ]),
+                    ]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
-            value_projection_rule: Some(
-                r#"{"kind":"object","members":[{"name":"list_space_id","field":"payload.space_id"},{"name":"rank","field":"payload.rank"}]}"#,
-            ),
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"projected_value":true}}"#),
+            value_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Object),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Members,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("list_space_id"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.space_id"),
+                            },
+                        ]),
+                        EventCellRule::Object(&[
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Name,
+                                value: EventCellRule::String("rank"),
+                            },
+                            EventCellRuleField {
+                                key: EventCellRuleKey::Field,
+                                value: EventCellRule::String("payload.rank"),
+                            },
+                        ]),
+                    ]),
+                },
+            ])),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::ProjectedValue,
+                        value: EventCellRule::Bool(true),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8674,16 +14332,43 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandLifecycleV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(
-                r#"{"kind":"coalesce","fields":["payload.strand_id","payload.target_ref"]}"#,
-            ),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Coalesce),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Fields,
+                    value: EventCellRule::Array(&[
+                        EventCellRule::String("payload.strand_id"),
+                        EventCellRule::String("payload.target_ref"),
+                    ]),
+                },
+            ])),
             lattice: Some(EventCellLattice::Fsm),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"transition","from":{"const":"archived"},"to":{"const":"active"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Transition),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::From,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("archived"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::To,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Const,
+                        value: EventCellRule::String("active"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8706,12 +14391,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandStageV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.strand_id","kind":"id:strand"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.strand_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                },
+            ])),
             lattice: Some(EventCellLattice::CasRegister),
             bottom: Some(EventCellBottom::Reject),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.stage"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.stage"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8734,14 +14440,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandTracksV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.target_ref","kind":"id:strand"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8764,14 +14496,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandMetadataV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.target_ref","kind":"id:strand"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.target_ref"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8795,31 +14553,177 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::StrandWatchV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"components":[{"name":"strand_id","field":"payload.strand_id","kind":"id:strand"},{"name":"watcher_actor_id","field":"payload.watcher_actor_id","kind":"did"}],"kind":"tuple"}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("strand_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String("payload.strand_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Kind,
+                                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                                },
+                            ]),
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("watcher_actor_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String("payload.watcher_actor_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Kind,
+                                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                                },
+                            ]),
+                        ]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
-                value_projection_rule: Some(
-                    r#"{"kind":"object","members":[{"name":"level","field":"payload.level"},{"name":"level_public","field":"payload.level_public","optional":true}]}"#,
-                ),
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"projected_value":true}}"#),
-                condition_rule: Some(r#"{"kind":"field_present","field":"payload.level"}"#),
+                value_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Object),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Members,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("level"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String("payload.level"),
+                                },
+                            ]),
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("level_public"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String("payload.level_public"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Optional,
+                                    value: EventCellRule::Bool(true),
+                                },
+                            ]),
+                        ]),
+                    },
+                ])),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::ProjectedValue,
+                            value: EventCellRule::Bool(true),
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldPresent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.level"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::StrandWatchV1),
                 cell_ref_rule: None,
-                cell_subject_rule: Some(
-                    r#"{"components":[{"name":"strand_id","field":"payload.strand_id","kind":"id:strand"},{"name":"watcher_actor_id","field":"payload.watcher_actor_id","kind":"did"}],"kind":"tuple"}"#,
-                ),
+                cell_subject_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Components,
+                        value: EventCellRule::Array(&[
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("strand_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String("payload.strand_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Kind,
+                                    value: EventCellRule::Operator(EventCellRuleOperator::IdStrand),
+                                },
+                            ]),
+                            EventCellRule::Object(&[
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Name,
+                                    value: EventCellRule::String("watcher_actor_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Field,
+                                    value: EventCellRule::String("payload.watcher_actor_id"),
+                                },
+                                EventCellRuleField {
+                                    key: EventCellRuleKey::Kind,
+                                    value: EventCellRule::Operator(EventCellRuleOperator::Did),
+                                },
+                            ]),
+                        ]),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Tuple),
+                    },
+                ])),
                 lattice: Some(EventCellLattice::CasRegister),
                 bottom: Some(EventCellBottom::Reject),
                 initial_value_rule: None,
                 value_projection_rule: None,
-                effect_projection_rule: Some(r#"{"kind":"set","value":{"const":null}}"#),
-                condition_rule: Some(r#"{"kind":"field_absent","field":"payload.level"}"#),
+                effect_projection_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Value,
+                        value: EventCellRule::Object(&[EventCellRuleField {
+                            key: EventCellRuleKey::Const,
+                            value: EventCellRule::Null,
+                        }]),
+                    },
+                ])),
+                condition_rule: Some(EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Kind,
+                        value: EventCellRule::Operator(EventCellRuleOperator::FieldAbsent),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.level"),
+                    },
+                ])),
                 derived_members_rule: None,
             },
         ],
@@ -8842,12 +14746,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ViewCreateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.view_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.view_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(r#"{"kind":"set","value":{"field":"payload.object"}}"#),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8870,14 +14795,33 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ViewReconcileV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.view_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.view_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"set","value":{"field":"payload.definition"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::Set),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Value,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.definition"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],
@@ -8900,14 +14844,40 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ViewUpdateV1),
             cell_ref_rule: None,
-            cell_subject_rule: Some(r#"{"field":"payload.view_id","kind":"string"}"#),
+            cell_subject_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.view_id"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::String),
+                },
+            ])),
             lattice: Some(EventCellLattice::MvRegister),
             bottom: Some(EventCellBottom::Expose),
             initial_value_rule: None,
             value_projection_rule: None,
-            effect_projection_rule: Some(
-                r#"{"kind":"apply_patch","patch":{"field":"payload.patch"},"expected_prestate":{"field":"payload.expected_state_digest"}}"#,
-            ),
+            effect_projection_rule: Some(EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Kind,
+                    value: EventCellRule::Operator(EventCellRuleOperator::ApplyPatch),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Patch,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.patch"),
+                    }]),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::ExpectedPrestate,
+                    value: EventCellRule::Object(&[EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.expected_state_digest"),
+                    }]),
+                },
+            ])),
             condition_rule: None,
             derived_members_rule: None,
         }],

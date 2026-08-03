@@ -80,8 +80,8 @@ pub use cba::{
 pub use cba_proof_bundle::{AvailabilityReceipt, CbaProofBundle};
 pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
-    REALM_METADATA_CELL, REALM_NOTARY_CELL, composite_subject, composite_subject_pipe,
-    null_subject_cell, string_set_digest_component, subject_cell,
+    REALM_METADATA_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, composite_subject,
+    composite_subject_pipe, null_subject_cell, string_set_digest_component, subject_cell,
 };
 pub use consent_scope::*;
 pub use constants::*;
@@ -113,10 +113,12 @@ pub use extension_map::XExtensionMap;
 pub use generated::{
     AccountDataKey, AlgorithmSuiteDescriptor, AuthoritySetPolicyKind, AuthoritySetSourceKind,
     BindingKind, CapabilityActionId, CellFamilyId, DIGEST_SUITES, DidFreshnessProfileDescriptor,
-    DidFreshnessProfileId, DidFreshnessRiskTier, EVENT_KIND_COUNT, EXPORTER_LABELS, EventKind,
-    ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS,
-    MlsExtensionDescriptor, OPERATION_ERROR_MAPPINGS, OperationErrorMappingDescriptor,
-    OperationSpecificError, PROOF_CONTEXTS, ProfileId, ProofContextDescriptor, ProofContextId,
+    DidFreshnessProfileId, DidFreshnessRiskTier, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS,
+    EVENT_KIND_REGISTRY_SHA256, EXPORTER_LABELS, EventCellRule, EventCellRuleField,
+    EventCellRuleKey, EventCellRuleOperator, EventKind, ExporterLabelDescriptor, ExporterLabelId,
+    HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor,
+    OPERATION_ERROR_MAPPINGS, OperationErrorMappingDescriptor, OperationSpecificError,
+    PROOF_CONTEXTS, ProfileId, ProofContextDescriptor, ProofContextId,
     REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
     SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor,
     ServiceOperationDescriptor, ServiceOperationId, TrackName, operation_error_mapping,

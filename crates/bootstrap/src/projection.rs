@@ -9,7 +9,10 @@ use arkret_wire::{
     CellRef, Error, Event, EventKind, Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result,
 };
 
-use crate::{REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL};
+use crate::{
+    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL,
+    REALM_REDUCER_PROFILE_CELL,
+};
 
 /// Registry projection evaluator supplied by the caller, normally
 /// `arkret_schema::project_registered_cell_writes`.
@@ -23,6 +26,39 @@ use crate::{REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, R
 /// question (`models/event-and-patch.md` section 2.4.2).
 pub type CellWriteProjector<'a> =
     &'a dyn Fn(&Event) -> std::result::Result<Vec<ProjectedCellWrite>, String>;
+
+/// Canonical target set an `ak.realm.create` must derive from the registry.
+///
+/// Keeping this set in one SDK helper prevents receivers from retaining a
+/// stale copy when the registered genesis contract gains another cell.
+pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
+    let mut expected = [
+        REALM_METADATA_CELL.to_owned(),
+        format!(
+            "ak:cell:ak.component.member.state.v1:{}",
+            event.actor_id.as_str()
+        ),
+        REALM_CREATE_CELL.to_owned(),
+        REALM_NOTARY_CELL.to_owned(),
+        REALM_REDUCER_PROFILE_CELL.to_owned(),
+        REALM_AUTHORITY_ROOT_CELL.to_owned(),
+    ]
+    .into_iter()
+    .collect::<BTreeSet<_>>();
+    if event
+        .refs
+        .iter()
+        .filter(|event_ref| event_ref.critical && event_ref.role == "agent_provision")
+        .count()
+        == 1
+    {
+        expected.insert(format!(
+            "ak:cell:ak.component.agent.status.v1:{}",
+            event.actor_id.as_str()
+        ));
+    }
+    expected
+}
 
 /// Project `event` and require every derived write to be directly applicable.
 ///
@@ -58,7 +94,7 @@ pub(crate) fn direct_projection(
 /// leaf set.
 ///
 /// Self PCR, managed Agent PCR and ordinary Realm producers all reach the
-/// receiver through the same contract. The five common writes are always
+/// receiver through the same contract. The six common writes are always
 /// present; a managed Agent create with exactly one critical `agent_provision`
 /// ref also initializes its Agent-status cell. Only the targets are asserted:
 /// the lattice ops come from the registered `effect_projection` and restating
@@ -72,33 +108,7 @@ pub(crate) fn validate_realm_create_projection(
             "realm create projection requires ak.realm.create".to_owned(),
         ));
     }
-    let mut expected = [
-        REALM_METADATA_CELL.to_owned(),
-        // Callers pin `payload.object.created_by == actor_id` before reaching
-        // here, so the member cell derived from the payload must be the
-        // actor's; a mismatch means the two checks disagree.
-        format!(
-            "ak:cell:ak.component.member.state.v1:{}",
-            event.actor_id.as_str()
-        ),
-        REALM_CREATE_CELL.to_owned(),
-        REALM_NOTARY_CELL.to_owned(),
-        REALM_AUTHORITY_ROOT_CELL.to_owned(),
-    ]
-    .into_iter()
-    .collect::<BTreeSet<_>>();
-    if event
-        .refs
-        .iter()
-        .filter(|event_ref| event_ref.critical && event_ref.role == "agent_provision")
-        .count()
-        == 1
-    {
-        expected.insert(format!(
-            "ak:cell:ak.component.agent.status.v1:{}",
-            event.actor_id.as_str()
-        ));
-    }
+    let expected = expected_realm_create_cells(event);
     let derived = effects
         .iter()
         .map(|effect| effect.cell.as_str().to_owned())

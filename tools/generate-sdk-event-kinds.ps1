@@ -43,6 +43,67 @@ function ConvertTo-SimpleVariant {
     }) -join '')
 }
 
+function ConvertTo-RuleVariant {
+    param([string]$Value)
+    (($Value -split '[^A-Za-z0-9]+' | ForEach-Object {
+        if ($_.Length -eq 0) { '' } else { $_.Substring(0, 1).ToUpper() + $_.Substring(1) }
+    }) -join '')
+}
+
+function Add-RuleVocabulary {
+    param($Value)
+    if ($null -eq $Value) { return }
+    if ($Value -is [System.Management.Automation.PSCustomObject]) {
+        foreach ($property in $Value.PSObject.Properties) {
+            [void]$script:ruleKeys.Add([string]$property.Name)
+            if ($property.Name -eq 'kind' -and $property.Value -is [string]) {
+                [void]$script:ruleOperators.Add([string]$property.Value)
+            }
+            Add-RuleVocabulary -Value $property.Value
+        }
+        return
+    }
+    if ($Value -is [System.Array]) {
+        foreach ($item in $Value) { Add-RuleVocabulary -Value $item }
+    }
+}
+
+function ConvertTo-RuleExpression {
+    param($Value, [bool]$IsOperator = $false)
+    if ($null -eq $Value) { return 'EventCellRule::Null' }
+    if ($IsOperator) {
+        return "EventCellRule::Operator(EventCellRuleOperator::$(ConvertTo-RuleVariant -Value ([string]$Value)))"
+    }
+    if ($Value -is [System.Management.Automation.PSCustomObject]) {
+        $fields = @($Value.PSObject.Properties | ForEach-Object {
+            $key = ConvertTo-RuleVariant -Value ([string]$_.Name)
+            $expression = ConvertTo-RuleExpression -Value $_.Value -IsOperator ($_.Name -eq 'kind')
+            "EventCellRuleField { key: EventCellRuleKey::$key, value: $expression }"
+        })
+        return "EventCellRule::Object(&[$($fields -join ', ')])"
+    }
+    if ($Value -is [System.Array]) {
+        $items = @($Value | ForEach-Object { ConvertTo-RuleExpression -Value $_ })
+        return "EventCellRule::Array(&[$($items -join ', ')])"
+    }
+    if ($Value -is [bool]) {
+        return "EventCellRule::Bool($($Value.ToString().ToLowerInvariant()))"
+    }
+    if ($Value -is [byte] -or $Value -is [sbyte] -or $Value -is [int16] -or
+        $Value -is [uint16] -or $Value -is [int32] -or $Value -is [uint32] -or
+        $Value -is [int64]) {
+        return "EventCellRule::Integer($Value)"
+    }
+    if ($Value -is [uint64]) {
+        if ($Value -gt [int64]::MaxValue) { throw "cell rule integer exceeds i64: $Value" }
+        return "EventCellRule::Integer($Value)"
+    }
+    if ($Value -is [string]) {
+        return "EventCellRule::String($($Value | ConvertTo-Json -Compress))"
+    }
+    throw "unsupported cell rule value type: $($Value.GetType().FullName)"
+}
+
 function ConvertTo-AssociatedName {
     param([string]$Kind)
     (($Kind -replace '^ak\.', '') -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
@@ -52,6 +113,24 @@ function ConvertTo-AssociatedName {
 # variant list are deterministic across PowerShell cultures and .NET runtimes.
 $kinds = @($artifact.event_kinds | Where-Object { $_.status -eq 'active' } | ForEach-Object { [string]$_.event_kind })
 $arr = Sort-Utf8ByteLexicographic -Values $kinds
+
+$ruleKeys = [System.Collections.Generic.HashSet[string]]::new()
+$ruleOperators = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($row in $artifact.event_kinds) {
+    Add-RuleVocabulary -Value $row.cell_subject
+    Add-RuleVocabulary -Value $row.value_projection
+    foreach ($write in $row.cell_writes) {
+        Add-RuleVocabulary -Value $write.cell_ref
+        Add-RuleVocabulary -Value $write.cell_subject
+        Add-RuleVocabulary -Value $write.initial_value
+        Add-RuleVocabulary -Value $write.value_projection
+        Add-RuleVocabulary -Value $write.effect_projection
+        Add-RuleVocabulary -Value $write.condition
+        Add-RuleVocabulary -Value $write.derived_members
+    }
+}
+$sortedRuleKeys = Sort-Utf8ByteLexicographic -Values @($ruleKeys)
+$sortedRuleOperators = Sort-Utf8ByteLexicographic -Values @($ruleOperators)
 
 $entries = New-Object System.Collections.Generic.List[object]
 $seenVariants = @{}
@@ -83,8 +162,8 @@ foreach ($k in $arr) {
         PayloadSchema = if ($null -eq $row.payload_schema) { $null } else { [string]$row.payload_schema }
         PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
         CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
-        CellSubjectRule = if ($null -eq $row.cell_subject) { $null } else { ($row.cell_subject | ConvertTo-Json -Compress -Depth 20) }
-        ValueProjectionRule = if ($null -eq $row.value_projection) { $null } else { ($row.value_projection | ConvertTo-Json -Compress -Depth 20) }
+        CellSubjectRule = $row.cell_subject
+        ValueProjectionRule = $row.value_projection
         Lattice = if ($null -eq $row.lattice) { $null } else { [string]$row.lattice }
         Bottom = if ($null -eq $row.bottom) { $null } else { [string]$row.bottom }
         Plane = if ($null -eq $row.plane) { $null } else { [string]$row.plane }
@@ -94,15 +173,15 @@ foreach ($k in $arr) {
                 foreach ($write in $row.cell_writes) {
                     [PSCustomObject]@{
                         CellFamily = if ($null -eq $write.cell_family) { $null } else { [string]$write.cell_family }
-                        CellRefRule = if ($null -eq $write.cell_ref) { $null } else { ($write.cell_ref | ConvertTo-Json -Compress -Depth 40) }
-                        CellSubjectRule = if ($null -eq $write.cell_subject) { $null } else { ($write.cell_subject | ConvertTo-Json -Compress -Depth 40) }
+                        CellRefRule = $write.cell_ref
+                        CellSubjectRule = $write.cell_subject
                         Lattice = if ($null -eq $write.lattice) { $null } else { [string]$write.lattice }
                         Bottom = if ($null -eq $write.bottom) { $null } else { [string]$write.bottom }
-                        InitialValueRule = if ($null -eq $write.initial_value) { $null } else { ($write.initial_value | ConvertTo-Json -Compress -Depth 40) }
-                        ValueProjectionRule = if ($null -eq $write.value_projection) { $null } else { ($write.value_projection | ConvertTo-Json -Compress -Depth 40) }
-                        EffectProjectionRule = if ($null -eq $write.effect_projection) { $null } else { ($write.effect_projection | ConvertTo-Json -Compress -Depth 40) }
-                        ConditionRule = if ($null -eq $write.condition) { $null } else { ($write.condition | ConvertTo-Json -Compress -Depth 40) }
-                        DerivedMembersRule = if ($null -eq $write.derived_members) { $null } else { ($write.derived_members | ConvertTo-Json -Compress -Depth 40) }
+                        InitialValueRule = $write.initial_value
+                        ValueProjectionRule = $write.value_projection
+                        EffectProjectionRule = $write.effect_projection
+                        ConditionRule = $write.condition
+                        DerivedMembersRule = $write.derived_members
                     }
                 }
             }
@@ -176,6 +255,8 @@ $add = { param($s) $lines.Add($s) | Out-Null }
 & $add '/// Count of standard `ak.*` event kinds the registry declares active.'
 & $add "/// Excludes the [`EventKind::Unknown`] catch-all."
 & $add "pub const EVENT_KIND_COUNT: usize = $($entries.Count);"
+& $add "/// SHA-256 of the exact event-kind registry used to generate this module."
+& $add "pub const EVENT_KIND_REGISTRY_SHA256: &str = `"$digest`";"
 & $add ""
 & $add "/// Raw category assigned by event-kind-registry.json."
 & $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
@@ -307,21 +388,102 @@ foreach ($bottom in $bottomModes) {
 & $add "    }"
 & $add "}"
 & $add ""
-& $add "/// One complete registry-declared cell write for an event kind. Complex"
-& $add "/// projection and subject rules remain canonical JSON, but their ownership"
-& $add "/// and presence are represented by this SDK type rather than downstream DTOs."
+& $add "/// Closed property names used by registry-declared cell-rule AST nodes."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
+& $add "pub enum EventCellRuleKey {"
+foreach ($key in $sortedRuleKeys) {
+    & $add "    $(ConvertTo-RuleVariant -Value $key),"
+}
+& $add "}"
+& $add ""
+& $add "impl EventCellRuleKey {"
+& $add "    pub const fn as_str(self) -> &'static str {"
+& $add "        match self {"
+foreach ($key in $sortedRuleKeys) {
+    & $add "            Self::$(ConvertTo-RuleVariant -Value $key) => `"$key`","
+}
+& $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "/// Closed operators used by registry-declared cell-rule AST nodes."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
+& $add "pub enum EventCellRuleOperator {"
+foreach ($operator in $sortedRuleOperators) {
+    & $add "    $(ConvertTo-RuleVariant -Value $operator),"
+}
+& $add "}"
+& $add ""
+& $add "impl EventCellRuleOperator {"
+& $add "    pub const fn as_str(self) -> &'static str {"
+& $add "        match self {"
+foreach ($operator in $sortedRuleOperators) {
+    & $add "            Self::$(ConvertTo-RuleVariant -Value $operator) => `"$operator`","
+}
+& $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "/// One named field in a closed cell-rule AST object."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+& $add "pub struct EventCellRuleField {"
+& $add "    pub key: EventCellRuleKey,"
+& $add "    pub value: EventCellRule,"
+& $add "}"
+& $add ""
+& $add "/// Lossless, parse-free AST for registry-declared cell rules."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+& $add "pub enum EventCellRule {"
+& $add "    Null,"
+& $add "    Bool(bool),"
+& $add "    Integer(i64),"
+& $add "    String(&'static str),"
+& $add "    Operator(EventCellRuleOperator),"
+& $add "    Array(&'static [EventCellRule]),"
+& $add "    Object(&'static [EventCellRuleField]),"
+& $add "}"
+& $add ""
+& $add "impl EventCellRule {"
+& $add "    pub fn field(self, key: EventCellRuleKey) -> Option<Self> {"
+& $add "        match self {"
+& $add "            Self::Object(fields) => fields.iter().find(|field| field.key == key).map(|field| field.value),"
+& $add "            _ => None,"
+& $add "        }"
+& $add "    }"
+& $add ""
+& $add "    pub fn operator(self) -> Option<EventCellRuleOperator> {"
+& $add "        match self.field(EventCellRuleKey::Kind) {"
+& $add "            Some(Self::Operator(operator)) => Some(operator),"
+& $add "            _ => None,"
+& $add "        }"
+& $add "    }"
+& $add ""
+& $add "    pub fn to_json_value(self) -> serde_json::Value {"
+& $add "        match self {"
+& $add "            Self::Null => serde_json::Value::Null,"
+& $add "            Self::Bool(value) => serde_json::Value::Bool(value),"
+& $add "            Self::Integer(value) => serde_json::Value::Number(value.into()),"
+& $add "            Self::String(value) => serde_json::Value::String(value.to_owned()),"
+& $add "            Self::Operator(value) => serde_json::Value::String(value.as_str().to_owned()),"
+& $add "            Self::Array(values) => serde_json::Value::Array(values.iter().map(|value| value.to_json_value()).collect()),"
+& $add "            Self::Object(fields) => serde_json::Value::Object(fields.iter().map(|field| (field.key.as_str().to_owned(), field.value.to_json_value())).collect()),"
+& $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "/// One complete registry-declared cell write for an event kind."
 & $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
 & $add "pub struct EventCellWriteDescriptor {"
 & $add "    pub cell_family: Option<CellFamilyId>,"
-& $add "    pub cell_ref_rule: Option<&'static str>,"
-& $add "    pub cell_subject_rule: Option<&'static str>,"
+& $add "    pub cell_ref_rule: Option<EventCellRule>,"
+& $add "    pub cell_subject_rule: Option<EventCellRule>,"
 & $add "    pub lattice: Option<EventCellLattice>,"
 & $add "    pub bottom: Option<EventCellBottom>,"
-& $add "    pub initial_value_rule: Option<&'static str>,"
-& $add "    pub value_projection_rule: Option<&'static str>,"
-& $add "    pub effect_projection_rule: Option<&'static str>,"
-& $add "    pub condition_rule: Option<&'static str>,"
-& $add "    pub derived_members_rule: Option<&'static str>,"
+& $add "    pub initial_value_rule: Option<EventCellRule>,"
+& $add "    pub value_projection_rule: Option<EventCellRule>,"
+& $add "    pub effect_projection_rule: Option<EventCellRule>,"
+& $add "    pub condition_rule: Option<EventCellRule>,"
+& $add "    pub derived_members_rule: Option<EventCellRule>,"
 & $add "}"
 & $add ""
 & $add "/// Registry-owned CBA plane for one cell family."
@@ -343,11 +505,11 @@ foreach ($bottom in $bottomModes) {
 & $add "    pub payload_schema_ref: Option<&'static str>,"
 & $add "    pub cell_writes: &'static [EventCellWriteDescriptor],"
 & $add "    pub cell_family: Option<&'static str>,"
-& $add "    /// JSON cell-subject rule; ``None`` means the envelope ``realm_id``."
-& $add "    pub cell_subject_rule: Option<&'static str>,"
-& $add "    /// JSON ``op.value`` projection rule for ordered_log appends; ``None`` means"
+& $add "    /// Cell-subject rule; ``None`` means the envelope ``realm_id``."
+& $add "    pub cell_subject_rule: Option<EventCellRule>,"
+& $add "    /// ``op.value`` projection rule for ordered_log appends; ``None`` means"
 & $add "    /// the kind declares no registry-driven append value."
-& $add "    pub value_projection_rule: Option<&'static str>,"
+& $add "    pub value_projection_rule: Option<EventCellRule>,"
 & $add "    pub lattice: Option<&'static str>,"
 & $add "    pub bottom: Option<&'static str>,"
 & $add "    pub plane: Option<&'static str>,"
@@ -575,8 +737,8 @@ foreach ($e in $entries) {
         $cellFamilyAssociatedName = ($cellFamilyBody -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
         "Some(CellFamilyId::$cellFamilyAssociatedName)"
     }
-    $cellSubjectRule = if ($null -eq $e.CellSubjectRule) { "None" } else { "Some(r#`"$($e.CellSubjectRule)`"#)" }
-    $valueProjectionRule = if ($null -eq $e.ValueProjectionRule) { "None" } else { "Some(r#`"$($e.ValueProjectionRule)`"#)" }
+    $cellSubjectRule = if ($null -eq $e.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $e.CellSubjectRule))" }
+    $valueProjectionRule = if ($null -eq $e.ValueProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $e.ValueProjectionRule))" }
     $lattice = if ($null -eq $e.Lattice) { "None" } else { "Some(`"$($e.Lattice)`")" }
     $bottom = if ($null -eq $e.Bottom) { "None" } else { "Some(`"$($e.Bottom)`")" }
     $plane = if ($null -eq $e.Plane) { "None" } else { "Some(`"$($e.Plane)`")" }
@@ -603,13 +765,13 @@ foreach ($e in $entries) {
             }
             $cellWriteLattice = if ($null -eq $write.Lattice) { "None" } else { "Some(EventCellLattice::$(ConvertTo-SimpleVariant -Value $write.Lattice))" }
             $cellWriteBottom = if ($null -eq $write.Bottom) { "None" } else { "Some(EventCellBottom::$(ConvertTo-SimpleVariant -Value $write.Bottom))" }
-            $cellRefRule = if ($null -eq $write.CellRefRule) { "None" } else { "Some(r#`"$($write.CellRefRule)`"#)" }
-            $cellSubject = if ($null -eq $write.CellSubjectRule) { "None" } else { "Some(r#`"$($write.CellSubjectRule)`"#)" }
-            $initialValue = if ($null -eq $write.InitialValueRule) { "None" } else { "Some(r#`"$($write.InitialValueRule)`"#)" }
-            $valueProjection = if ($null -eq $write.ValueProjectionRule) { "None" } else { "Some(r#`"$($write.ValueProjectionRule)`"#)" }
-            $effectProjection = if ($null -eq $write.EffectProjectionRule) { "None" } else { "Some(r#`"$($write.EffectProjectionRule)`"#)" }
-            $condition = if ($null -eq $write.ConditionRule) { "None" } else { "Some(r#`"$($write.ConditionRule)`"#)" }
-            $derivedMembers = if ($null -eq $write.DerivedMembersRule) { "None" } else { "Some(r#`"$($write.DerivedMembersRule)`"#)" }
+            $cellRefRule = if ($null -eq $write.CellRefRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellRefRule))" }
+            $cellSubject = if ($null -eq $write.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellSubjectRule))" }
+            $initialValue = if ($null -eq $write.InitialValueRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.InitialValueRule))" }
+            $valueProjection = if ($null -eq $write.ValueProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.ValueProjectionRule))" }
+            $effectProjection = if ($null -eq $write.EffectProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.EffectProjectionRule))" }
+            $condition = if ($null -eq $write.ConditionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.ConditionRule))" }
+            $derivedMembers = if ($null -eq $write.DerivedMembersRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.DerivedMembersRule))" }
             & $add "            EventCellWriteDescriptor {"
             & $add "                cell_family: $cellWriteFamily,"
             & $add "                cell_ref_rule: $cellRefRule,"
