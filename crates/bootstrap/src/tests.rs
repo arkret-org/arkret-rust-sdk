@@ -24,10 +24,11 @@ use serde_json::Value;
 use crate::projection::direct_projection;
 use crate::self_principal::validate_self_principal_pcr_create;
 use crate::{
-    AgentProvisionEventDraftOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrGenesisAuthority,
-    PRINCIPAL_CONTROL_PURPOSE, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL,
-    REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
-    build_agent_provision_event_drafts, build_managed_agent_pcr_event_seal,
+    AgentProvisionEventDraftOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrCreatePayloadInput,
+    ManagedAgentPcrGenesisAuthority, PRINCIPAL_CONTROL_PURPOSE, REALM_AUTHORITY_ROOT_CELL,
+    REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL,
+    SelfPrincipalPcrCreateInput, build_agent_provision_event_drafts,
+    build_managed_agent_pcr_create_payload, build_managed_agent_pcr_event_seal,
     build_self_principal_bootstrap_seal, build_self_principal_pcr_create,
     materialize_managed_agent_pcr_control, self_principal_bootstrap_submit_request,
     validate_self_principal_bootstrap_unit,
@@ -387,6 +388,34 @@ fn managed_agent_pcr_create() -> Event {
         "agent_provision",
     )];
     create
+}
+
+#[test]
+fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
+    let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
+        agent_id: Did::new("did:web:agent.example".to_owned()).unwrap(),
+        controller_id: Did::new("did:web:controller.example".to_owned()).unwrap(),
+        realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap(),
+        trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
+        capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
+            .unwrap(),
+        created_at: Utc::now(),
+    })
+    .unwrap();
+    let value = payload.to_value().unwrap();
+
+    assert_eq!(
+        value
+            .pointer("/object/reducer_profile")
+            .and_then(Value::as_str),
+        Some(arkret_wire::CORE_REDUCER_PROFILE)
+    );
+    assert_eq!(
+        value
+            .pointer("/object/fields/purpose")
+            .and_then(Value::as_str),
+        Some(PRINCIPAL_CONTROL_PURPOSE)
+    );
 }
 
 #[test]

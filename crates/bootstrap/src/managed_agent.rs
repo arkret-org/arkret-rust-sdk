@@ -3,20 +3,81 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_models_collaboration::events_payloads::RealmCreatePayload;
+use arkret_models_collaboration::governance::circle::EncryptionFloor;
+use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
     CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
     join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, Did, Error, Event, EventKind, Hash, Hlc, NotarySig, NotaryValue,
-    PayloadSignature, PayloadSigner, RealmId, Result, Seal, SealId, SealKind,
+    AuthorizationRef, CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventKind,
+    FederationPolicy, Hash, HistoryVisibility, Hlc, JoinRule, NotarySig, NotaryValue,
+    PayloadSignature, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SealId, SealKind,
+    SecurityClass, TypedTrustDomainId,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
 use crate::{PRINCIPAL_CONTROL_PURPOSE, REALM_CREATE_CELL};
+
+/// Public inputs for the profile-closed managed Agent PCR Realm payload.
+#[derive(Clone, Debug)]
+pub struct ManagedAgentPcrCreatePayloadInput {
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub realm_id: RealmId,
+    pub trust_domain: TypedTrustDomainId,
+    pub capability_action_registry_digest: Hash,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Build the canonical `ak.realm.create` payload for a managed Agent PCR.
+pub fn build_managed_agent_pcr_create_payload(
+    input: ManagedAgentPcrCreatePayloadInput,
+) -> Result<RealmCreatePayload> {
+    let notary = NotaryValue::single_did_with_org(
+        input.agent_id.clone(),
+        vec![input.controller_id.clone()],
+        input.controller_id.clone(),
+        vec![input.controller_id.clone()],
+    );
+    let mut realm = Realm::new(
+        input.realm_id,
+        "Managed Agent Principal Control Realm",
+        input.agent_id,
+        input.trust_domain,
+        arkret_wire::CORE_REDUCER_PROFILE,
+        NotaryProfile::SingleDid,
+        notary,
+        input.capability_action_registry_digest,
+    );
+    realm.summary =
+        Some("Controller-managed E2EE continuity for a Native Personal Agent".to_owned());
+    realm.security_class = Some(SecurityClass::HighAssurance);
+    realm.schema_refs = vec![
+        SchemaId::REALM_V1.to_owned(),
+        ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
+    ];
+    realm.fields.insert(
+        "purpose".to_owned(),
+        Value::String(PRINCIPAL_CONTROL_PURPOSE.to_owned()),
+    );
+    realm.default_discoverability = Discoverability::InviteOnly;
+    realm.default_join_rule = JoinRule::Invite;
+    realm.history_visibility = HistoryVisibility::Restricted;
+    realm.encryption_profile = EncryptionProfile::MlsRfc9420;
+    realm.content_encryption_floor = Some(EncryptionFloor::E2eeRequired);
+    realm.metadata_encryption_floor = Some(EncryptionFloor::E2eeRequired);
+    realm.federation_policy = Some(FederationPolicy::Restricted);
+    realm.created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
+
+    let payload = RealmCreatePayload::new(realm);
+    payload.to_value()?;
+    Ok(payload)
+}
 
 /// Complete reducer material needed to construct or validate a
 /// controller-signed managed Agent PCR Event Seal.

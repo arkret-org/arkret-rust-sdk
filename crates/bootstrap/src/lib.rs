@@ -20,7 +20,8 @@ pub use agent_provision::{
     AgentProvisionEventDraftOptions, AgentProvisionEventDrafts, build_agent_provision_event_drafts,
 };
 pub use managed_agent::{
-    ManagedAgentPcrControlMaterial, ManagedAgentPcrGenesisAuthority,
+    ManagedAgentPcrControlMaterial, ManagedAgentPcrCreatePayloadInput,
+    ManagedAgentPcrGenesisAuthority, build_managed_agent_pcr_create_payload,
     build_managed_agent_pcr_event_seal, materialize_managed_agent_pcr_control,
 };
 pub use projection::{CellWriteProjector, expected_realm_create_cells};
