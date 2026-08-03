@@ -857,8 +857,6 @@ mod tests {
             auth_context: None,
             seal_basis: Some(SealBasis {
                 leaves: vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
-                control_event_set_root: hash(0xa2),
-                state_root: hash(0xa3),
             }),
             requirements: EventRequirements::default(),
             redacts: None,

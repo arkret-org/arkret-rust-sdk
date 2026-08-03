@@ -196,8 +196,6 @@ impl Seal {
     pub fn seal_basis(&self) -> crate::SealBasis {
         crate::SealBasis {
             leaves: vec![self.id.clone()],
-            control_event_set_root: self.control_event_set_root.clone(),
-            state_root: self.state_root.clone(),
         }
     }
 

@@ -690,8 +690,6 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
             prev_refs: vec![EventId::new("ak:event:01904100-0000-7000-8000-000000000003").unwrap()],
             seal_basis: Some(SealBasis {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap()],
-                control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-                state_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
             }),
         },
     )

@@ -16,22 +16,60 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{CellRef, Hash, SealId};
+use crate::{CellRef, SealId};
 
 /// Signed governance basis of a Control Move.
 ///
-/// All three members enter the canonical Event bytes and are covered by
-/// `event_digest` / `proofs[]`.
+/// The ordered accepted Seal leaves are the sole producer-authored commitment
+/// in the Event. Receivers resolve them and recompute the effective roots.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealBasis {
     /// Accepted Seal ids in canonical ascending order without duplicates.
     pub leaves: Vec<SealId>,
-    /// Control-plane event set root covered by the `leaves` view.
-    pub control_event_set_root: Hash,
-    /// Governance state root under the `leaves` view.
-    pub state_root: Hash,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SealBasisWire {
+    leaves: Vec<SealId>,
+}
+
+impl<'de> Deserialize<'de> for SealBasis {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = SealBasisWire::deserialize(deserializer)?;
+        let basis = Self {
+            leaves: wire.leaves,
+        };
+        basis
+            .validate_protocol_bounds()
+            .map_err(serde::de::Error::custom)?;
+        Ok(basis)
+    }
+}
+
+impl SealBasis {
+    pub const MAX_LEAVES: usize = 64;
+
+    /// Validate the closed v1 `seal_basis` collection constraints.
+    pub fn validate_protocol_bounds(&self) -> crate::Result<()> {
+        if self.leaves.is_empty() || self.leaves.len() > Self::MAX_LEAVES {
+            return Err(crate::Error::Protocol(format!(
+                "seal_basis.leaves must contain between 1 and {} Seal ids",
+                Self::MAX_LEAVES
+            )));
+        }
+        if self.leaves.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err(crate::Error::Protocol(
+                "seal_basis.leaves must be unique and in canonical ascending order".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Single precondition: a cell + a predicate. Combined with AND across the
@@ -356,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn seal_basis_rejects_unknown_members() {
+    fn seal_basis_rejects_retired_root_copies_and_unknown_members() {
         let wire = json!({
             "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
             "control_event_set_root": format!("sha256:{}", "b".repeat(64)),
@@ -365,5 +403,18 @@ mod tests {
         });
         serde_json::from_value::<SealBasis>(wire)
             .expect_err("seal_basis must not absorb a reducer-instruction member");
+    }
+
+    #[test]
+    fn seal_basis_requires_canonical_non_empty_leaves() {
+        let leaf = SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap();
+        SealBasis { leaves: Vec::new() }
+            .validate_protocol_bounds()
+            .expect_err("empty basis must be rejected");
+        SealBasis {
+            leaves: vec![leaf.clone(), leaf],
+        }
+        .validate_protocol_bounds()
+        .expect_err("duplicate basis leaves must be rejected");
     }
 }

@@ -112,6 +112,8 @@ pub struct ManagedAgentPcrControlMaterial {
 /// likewise contributes exactly what its registered contract projects. Keeping
 /// this materialization in the SDK gives the controller-side Seal builder and
 /// receiver admission one byte-identical state-root implementation.
+/// Successor Events must already have passed Seal-DAG basis verification; this
+/// pure fold groups identical leaf sets but does not resolve Seal objects.
 pub fn materialize_managed_agent_pcr_control(
     events: &[Event],
     project: CellWriteProjector<'_>,
@@ -265,16 +267,6 @@ pub fn materialize_managed_agent_pcr_control(
         let basis = ordered[cursor].0.seal_basis.as_ref().ok_or_else(|| {
             Error::Protocol("managed Agent PCR successor Event omits seal_basis".to_owned())
         })?;
-        let control_root = control_event_set_root(&covered)
-            .map_err(|error| Error::Protocol(format!("managed Agent PCR control root: {error}")))?;
-        let state_root = compute_state_root(&joined)
-            .map_err(|error| Error::Protocol(format!("managed Agent PCR state root: {error}")))?;
-        if basis.control_event_set_root != control_root || basis.state_root != state_root {
-            return Err(Error::Protocol(
-                "managed Agent PCR successor seal_basis does not match reconstructed predecessor"
-                    .to_owned(),
-            ));
-        }
         let mut end = cursor + 1;
         while end < ordered.len() && ordered[end].0.seal_basis.as_ref() == Some(basis) {
             end += 1;

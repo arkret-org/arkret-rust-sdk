@@ -52,17 +52,6 @@ pub enum SealReject {
     )]
     SealBasisOutsideClosure { event_digest: String, leaf: String },
 
-    #[error(
-        "Control Move {event_digest} declared seal_basis.{field} {declared} does not match the \
-         leaves view {recomputed}"
-    )]
-    SealBasisRootMismatch {
-        event_digest: String,
-        field: &'static str,
-        declared: String,
-        recomputed: String,
-    },
-
     #[error("declared control_event_set_root {declared} does not match recomputed {recomputed}")]
     ControlEventSetRootMismatch {
         declared: String,
@@ -491,8 +480,9 @@ fn recovery_witness_freshness_window_ms(pre_state: &BTreeMap<CellRef, CellState>
 }
 
 /// §5.1 steps 2-4: the Control Move's `seal_basis` must name only Seals
-/// inside the receiving Seal's predecessor closure, and its two declared
-/// roots must equal the roots the receiver recomputes over that leaf view.
+/// inside the receiving Seal's predecessor closure. The receiver resolves
+/// those leaves and recomputes the effective roots instead of trusting root
+/// copies in the Event.
 ///
 /// This is split out of `verify_control_move` because it is the only part
 /// of §5.1 that needs the Seal DAG; the rest is a pure function of the Event
@@ -520,23 +510,7 @@ pub fn verify_seal_basis(
             });
         }
     }
-    let view = effective_seal_view(&basis.leaves, realm_id, seals, cells, registry)?;
-    if view.control_event_set_root != basis.control_event_set_root {
-        return Err(SealReject::SealBasisRootMismatch {
-            event_digest: event_digest.as_str().to_owned(),
-            field: "control_event_set_root",
-            declared: basis.control_event_set_root.as_str().to_owned(),
-            recomputed: view.control_event_set_root.as_str().to_owned(),
-        });
-    }
-    if view.state_root != basis.state_root {
-        return Err(SealReject::SealBasisRootMismatch {
-            event_digest: event_digest.as_str().to_owned(),
-            field: "state_root",
-            declared: basis.state_root.as_str().to_owned(),
-            recomputed: view.state_root.as_str().to_owned(),
-        });
-    }
+    effective_seal_view(&basis.leaves, realm_id, seals, cells, registry)?;
     Ok(())
 }
 
@@ -1333,8 +1307,6 @@ mod tests {
         // then asserts against the digests the Events actually hash to.
         let basis = SealBasis {
             leaves: vec![seal_id(0x11)],
-            control_event_set_root: hash(0x22),
-            state_root: hash(0x33),
         };
         let first = control_move(1, basis.clone(), Vec::new(), Vec::new());
         let second = control_move(2, basis.clone(), Vec::new(), Vec::new());
@@ -1369,8 +1341,6 @@ mod tests {
     fn deterministic_order_is_input_permutation_independent() {
         let basis = SealBasis {
             leaves: vec![seal_id(0x11)],
-            control_event_set_root: hash(0x22),
-            state_root: hash(0x33),
         };
         let entries: Vec<(Hash, Event)> = (1..=3)
             .map(|seq| {
@@ -1495,8 +1465,6 @@ mod tests {
         let registry = MemoryCellRegistry::default();
         let placeholder_basis = SealBasis {
             leaves: vec![seal_id(0x01)],
-            control_event_set_root: hash(0x02),
-            state_root: hash(0x03),
         };
         let mut event = control_move(0, placeholder_basis, Vec::new(), Vec::new());
         event.seal_basis = None;
@@ -1559,8 +1527,6 @@ mod tests {
         );
         let placeholder_basis = SealBasis {
             leaves: vec![seal_id(0x01)],
-            control_event_set_root: hash(0x02),
-            state_root: hash(0x03),
         };
         let mut create = control_move(0, placeholder_basis.clone(), Vec::new(), Vec::new());
         create.seal_basis = None;
@@ -1655,8 +1621,6 @@ mod tests {
         );
         let basis = SealBasis {
             leaves: vec![genesis.id.clone()],
-            control_event_set_root: control_root,
-            state_root: empty_state_root,
         };
         (genesis, basis, anchor)
     }
@@ -1779,47 +1743,6 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(error, SealReject::SealBasisOutsideClosure { .. }));
-    }
-
-    #[test]
-    fn seal_basis_state_root_mismatch_rejects() {
-        let seals = MemorySealStore::default();
-        let cells = MemoryCellStore::default();
-        let events = MemoryControlEventStore::default();
-        let registry = MemoryCellRegistry::default();
-        let (genesis, mut basis, anchor) = genesis_and_basis();
-        seals.put(&genesis).unwrap();
-        basis.state_root = hash(0xbe);
-        let event = control_move(1, basis, Vec::new(), Vec::new());
-        let digest = control_event_digest(&event).unwrap();
-        events.put_pending(&event).unwrap();
-
-        let covered = BTreeSet::from([anchor, digest.clone()]);
-        let seal = signed_seal(
-            vec![genesis.id],
-            vec![digest],
-            control_event_set_root(&covered).unwrap(),
-            compute_state_root(&BTreeMap::new()).unwrap(),
-            2,
-        );
-
-        let error = apply_seal(
-            &seal,
-            &events,
-            &seals,
-            &cells,
-            &registry,
-            ok_proofs,
-            join_transition_write,
-        )
-        .unwrap_err();
-        assert!(matches!(
-            error,
-            SealReject::SealBasisRootMismatch {
-                field: "state_root",
-                ..
-            }
-        ));
     }
 
     #[test]
@@ -2074,8 +1997,6 @@ mod tests {
             9,
             SealBasis {
                 leaves: vec![conflict_a.id.clone(), conflict_b.id.clone()],
-                control_event_set_root: hash(0x61),
-                state_root: hash(0x62),
             },
             Vec::new(),
             vec![

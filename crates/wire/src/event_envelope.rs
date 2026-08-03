@@ -557,6 +557,11 @@ impl TryFrom<EventWire> for Event {
         {
             return Err("causal_refs must contain at most 128 unique hashes".to_owned());
         }
+        if let Some(basis) = &event.seal_basis {
+            basis
+                .validate_protocol_bounds()
+                .map_err(|error| error.to_string())?;
+        }
         event.validate_applet_provenance_invariants()?;
         Ok(event)
     }
@@ -814,6 +819,9 @@ impl Event {
             return Err(Error::Protocol(
                 "event critical extensions must declare fail_closed=true".to_owned(),
             ));
+        }
+        if let Some(basis) = &self.seal_basis {
+            basis.validate_protocol_bounds()?;
         }
         if self.kind.is_reducer_input() {
             let is_data_event = self.seal_ref.is_some()
@@ -1124,11 +1132,7 @@ mod event_wire_surface_tests {
         assert!(event.validate_for_authoring_structural().is_err());
 
         event.seal_basis = Some(SealBasis {
-            leaves: vec![
-                SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap(),
-            ],
-            control_event_set_root: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            state_root: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+            leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap()],
         });
         event.validate_for_authoring_structural().unwrap();
 

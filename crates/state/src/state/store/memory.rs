@@ -1110,8 +1110,6 @@ mod tests {
             auth_context: None,
             seal_basis: Some(SealBasis {
                 leaves: vec![seal_id(0xaa)],
-                control_event_set_root: hash(0x22),
-                state_root: hash(0x33),
             }),
             payload: BTreeMap::from([("state".to_owned(), Value::String("join".to_owned()))]),
             redacts: None,

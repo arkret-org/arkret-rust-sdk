@@ -604,8 +604,6 @@ impl RealmSealFrontierView {
     pub fn seal_basis(&self) -> SealBasis {
         SealBasis {
             leaves: vec![self.seal_id.clone()],
-            control_event_set_root: self.control_event_set_root.clone(),
-            state_root: self.state_root.clone(),
         }
     }
 

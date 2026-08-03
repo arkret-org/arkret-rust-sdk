@@ -1607,9 +1607,7 @@ mod tests {
             "hlc": "019f9e500000-0000-aabbccde",
             "prev_refs": [],
             "seal_basis": {
-                "leaves": ["ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
-                "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "state_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                "leaves": ["ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
             },
             "refs": [
                 {"role": "recovery_capability", "critical": true,
@@ -2044,9 +2042,7 @@ mod tests {
             "prev_refs": [],
             "preconditions": [],
             "seal_basis": {
-                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
-                "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "state_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
             },
             "payload": payload,
             "proofs": []
@@ -2317,9 +2313,7 @@ mod tests {
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
             "seal_basis": {
-                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
-                "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "state_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
             },
             "payload": {
                 "consent_id": "ak:consent:019f9000-0000-7000-8000-000000000014",

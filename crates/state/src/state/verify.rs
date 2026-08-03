@@ -850,8 +850,6 @@ mod tests {
             auth_context: None,
             seal_basis: Some(SealBasis {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "aa".repeat(32))).unwrap()],
-                control_event_set_root: hash(0x22),
-                state_root: hash(0x33),
             }),
             payload: BTreeMap::from([("state".to_owned(), json!("join"))]),
             redacts: None,
