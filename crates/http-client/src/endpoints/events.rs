@@ -212,7 +212,7 @@ impl Client {
         let outcome = self.issue_authorization_leases(&request, &options).await?;
         let mut submissions = Vec::with_capacity(events.len());
         for (event, lease) in events.iter().zip(outcome.authorization_leases) {
-            let control_proposal_receipt = if !anchor_unit && event.seal_basis.is_some() {
+            let control_proposal_receipt = if anchor_unit || event.seal_basis.is_some() {
                 Some(issue_receipt(event, &lease)?)
             } else {
                 None
@@ -279,7 +279,7 @@ impl Client {
                 control_proposal_receipt: None,
                 membership_compensation_evidence: None,
             };
-            if !anchor_unit && event.seal_basis.is_some() {
+            if anchor_unit || event.seal_basis.is_some() {
                 let request = ProposalReceiptIssueRequest {
                     event: event.clone(),
                     authorization_lease: submission

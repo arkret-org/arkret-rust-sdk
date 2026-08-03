@@ -433,17 +433,16 @@ pub struct ManagedAgentPcrGenesisAuthority {
 }
 
 impl ManagedAgentPcrGenesisAuthority {
-    /// Derive the authority from the one accepted delegated create Event.
+    /// Derive the founding authority from a fully validated delegated create.
     ///
-    /// The complete genesis leaf set is validated exactly as it is for any
-    /// other managed PCR bootstrap branch, and the authority digest covers the
-    /// whole founding [`NotaryValue`] — recovery members, controller
-    /// organization, and every other field — not just the primary DID.
-    pub fn from_accepted_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
+    /// The create may be the candidate closed anchor currently undergoing
+    /// ingress or the byte-identical accepted genesis loaded for a successor.
+    /// Acceptance is deliberately not inferred by this pure materializer; the
+    /// caller must establish the appropriate protocol context.
+    pub fn from_delegated_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
         if create.kind != EventKind::REALM_CREATE {
             return Err(Error::Protocol(
-                "managed Agent PCR genesis authority requires the accepted ak.realm.create"
-                    .to_owned(),
+                "managed Agent PCR genesis authority requires ak.realm.create".to_owned(),
             ));
         }
         let material =
@@ -457,6 +456,16 @@ impl ManagedAgentPcrGenesisAuthority {
             notary: material.notary,
             authority_set_ref,
         })
+    }
+
+    /// Derive the authority from the one accepted delegated create Event.
+    ///
+    /// The complete genesis leaf set is validated exactly as it is for any
+    /// other managed PCR bootstrap branch, and the authority digest covers the
+    /// whole founding [`NotaryValue`] — recovery members, controller
+    /// organization, and every other field — not just the primary DID.
+    pub fn from_accepted_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
+        Self::from_delegated_create(create, project)
     }
 
     pub fn realm_id(&self) -> &RealmId {

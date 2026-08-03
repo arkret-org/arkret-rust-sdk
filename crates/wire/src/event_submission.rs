@@ -288,13 +288,14 @@ fn validate_control_proposal_receipt(
     receipt: Option<&ControlProposalReceipt>,
     context: EventSubmitContext,
 ) -> Result<()> {
-    if context != EventSubmitContext::Standard && receipt.is_some() {
-        return Err(Error::Protocol(
-            "anchor units forbid a control proposal receipt".to_owned(),
-        ));
-    }
     if let Some(receipt) = receipt {
-        if event.seal_basis.is_none() {
+        // A caller-proven closed anchor unit consists entirely of Control
+        // Moves even though its Events intentionally carry no `seal_basis`.
+        // Those Moves still participate in the bounded proposal protocol and
+        // therefore may (and at durable ingress must) carry their receipts.
+        // Outside that explicit context, absence of `seal_basis` continues to
+        // identify a DataEvent and must fail closed.
+        if context == EventSubmitContext::Standard && event.seal_basis.is_none() {
             return Err(Error::Protocol(
                 "DataEvent submissions forbid a control proposal receipt".to_owned(),
             ));
@@ -612,6 +613,38 @@ mod tests {
 
         let value = serde_json::to_value(submission).unwrap();
         assert!(value.get("authorization_lease").is_none());
+    }
+
+    #[test]
+    fn caller_proven_anchor_allows_its_control_proposal_receipt_without_seal_basis() {
+        let mut event = online_event();
+        event.seal_ref = None;
+        event.seal_basis = None;
+        let proposal_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let now = Utc::now();
+        let receipt = ControlProposalReceipt {
+            kind: crate::ControlProposalReceiptKind::ProposalReceipt,
+            realm_id: event.realm_id.clone(),
+            proposal_digest,
+            received_at: now,
+            decision_due_at: now + chrono::Duration::hours(1),
+            absolute_due_at: now + chrono::Duration::hours(2),
+            defer_count: 0,
+            authority_set_ref: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            member_receipts: Vec::new(),
+        };
+
+        assert!(
+            validate_control_proposal_receipt(
+                &event,
+                Some(&receipt),
+                EventSubmitContext::Standard,
+            )
+            .is_err(),
+            "basis-free standard Events remain DataEvents"
+        );
+        validate_control_proposal_receipt(&event, Some(&receipt), EventSubmitContext::AnchorUnit)
+            .expect("caller-proven closed anchors remain Control Moves");
     }
 
     #[test]
