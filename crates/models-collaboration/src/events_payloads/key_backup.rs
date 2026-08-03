@@ -179,6 +179,54 @@ pub struct KeyBackupActiveSeries {
     pub extra: BTreeMap<String, Value>,
 }
 
+impl KeyBackupActiveSeries {
+    /// Canonical bytes covered by `auth_data.signature`.
+    ///
+    /// The active-series schema excludes only the signature member itself
+    /// from this transcript. Keeping that operation on the public model avoids
+    /// every producer and verifier growing its own JSON-shape implementation.
+    pub fn signature_payload_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        let mut unsigned = serde_json::to_value(self)?;
+        unsigned
+            .get_mut("auth_data")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "active-series auth_data must serialize as an object".to_owned(),
+                )
+            })?
+            .remove("signature");
+        Ok(canonical::canonical_json_bytes(&unsigned)?)
+    }
+
+    /// Canonical CAS cell selected by `(actor_id, backup_kind)`.
+    pub fn cell_ref(&self) -> arkret_wire::Result<CellRef> {
+        let subject =
+            arkret_wire::composite_subject(&[self.actor_id.as_str(), self.backup_kind.as_str()])?;
+        Ok(CellRef::new(format!(
+            "ak:cell:{}:{subject}",
+            arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
+        ))?)
+    }
+
+    /// Whole-value CAS guard required before replacing this accepted record.
+    ///
+    /// The registered projector copies this `head_eq` value into the next
+    /// `cas_register` op's predecessor. Omitting it would author a concurrent
+    /// initial head and force the security-barrier cell into Bottom.
+    pub fn replacement_precondition(&self) -> arkret_wire::Result<Precondition> {
+        Ok(Precondition {
+            cell: self.cell_ref()?,
+            predicate: Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(serde_json::to_value(self)?),
+                values: None,
+                predicate_id: None,
+            },
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyBackupActiveSeriesHead {
     pub actor_id: Did,
@@ -558,6 +606,36 @@ mod key_backup_active_series_tests {
             }
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn public_authoring_helpers_bind_signature_and_cas_predecessor() {
+        let first = record(1);
+        let first_bytes = first.signature_payload_bytes().unwrap();
+        let mut changed_signature = first.clone();
+        changed_signature.auth_data.signature = Base64UrlString::new("ZGlmZmVyZW50").unwrap();
+        assert_eq!(
+            first_bytes,
+            changed_signature.signature_payload_bytes().unwrap(),
+            "the signature member itself is excluded from the transcript"
+        );
+
+        let precondition = first.replacement_precondition().unwrap();
+        assert_eq!(precondition.predicate.op, PredicateOp::HeadEq);
+        assert_eq!(
+            precondition.predicate.value,
+            Some(serde_json::to_value(&first).unwrap())
+        );
+        let subject =
+            arkret_wire::composite_subject(&[first.actor_id.as_str(), first.backup_kind.as_str()])
+                .unwrap();
+        assert_eq!(
+            precondition.cell.as_str(),
+            format!(
+                "ak:cell:{}:{subject}",
+                arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
+            )
+        );
     }
 
     fn cross_signing_publish(generation: u64) -> arkret_models_identity::CrossSigningPublish {
