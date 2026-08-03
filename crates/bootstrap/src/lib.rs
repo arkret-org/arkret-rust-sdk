@@ -16,13 +16,12 @@ mod self_principal_seal;
 #[cfg(test)]
 mod tests;
 
-pub use agent_provision::{
-    AgentProvisionEventDraftOptions, AgentProvisionEventDrafts, build_agent_provision_event_drafts,
-};
+pub use agent_provision::{AgentProvisionEventDraftOptions, build_agent_provision_event_draft};
 pub use managed_agent::{
     ManagedAgentPcrControlMaterial, ManagedAgentPcrCreatePayloadInput,
     ManagedAgentPcrGenesisAuthority, build_managed_agent_pcr_create_payload,
-    build_managed_agent_pcr_event_seal, materialize_managed_agent_pcr_control,
+    build_managed_agent_pcr_event_seal, managed_agent_provision_ref,
+    materialize_managed_agent_pcr_control,
 };
 pub use projection::{CellWriteProjector, expected_realm_create_cells};
 pub use self_principal::{
@@ -35,6 +34,7 @@ pub use self_principal_seal::{
 };
 
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
+pub const AGENT_PROVISION_REF_ROLE: &str = "agent_provision";
 
 // The Realm role markers are owned by the Realm model, next to the sibling
 // Direct Conversation role constants, so the profile id and the `purpose`

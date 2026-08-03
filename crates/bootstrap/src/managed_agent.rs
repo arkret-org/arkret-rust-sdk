@@ -12,16 +12,24 @@ use arkret_state::{
     join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventKind,
-    FederationPolicy, Hash, HistoryVisibility, Hlc, JoinRule, NotarySig, NotaryValue,
-    PayloadSignature, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SealId, SealKind,
-    SecurityClass, TypedTrustDomainId,
+    AuthorizationRef, CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventId,
+    EventKind, EventRef, FederationPolicy, Hash, HistoryVisibility, Hlc, JoinRule, NotarySig,
+    NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal,
+    SealId, SealKind, SecurityClass, TypedTrustDomainId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
-use crate::{PRINCIPAL_CONTROL_PURPOSE, REALM_CREATE_CELL};
+use crate::{
+    AGENT_PROVISION_REF_ROLE, DID_INCEPTION_REF_ROLE, PRINCIPAL_CONTROL_PURPOSE, REALM_CREATE_CELL,
+};
+
+/// Build the required critical semantic reference from a managed Agent PCR
+/// genesis Event to the accepted controller-authored provision Event.
+pub fn managed_agent_provision_ref(provision_event_id: EventId) -> EventRef {
+    EventRef::new(provision_event_id.to_string(), AGENT_PROVISION_REF_ROLE)
+}
 
 /// Public inputs for the profile-closed managed Agent PCR Realm payload.
 #[derive(Clone, Debug)]
@@ -128,6 +136,21 @@ pub fn materialize_managed_agent_pcr_control(
     }
     let (create, create_effects) = &creates[0];
     let create = *create;
+    let provision_refs = create
+        .refs
+        .iter()
+        .filter(|event_ref| event_ref.critical && event_ref.role == AGENT_PROVISION_REF_ROLE)
+        .count();
+    let has_did_inception_ref = create
+        .refs
+        .iter()
+        .any(|event_ref| event_ref.critical && event_ref.role == DID_INCEPTION_REF_ROLE);
+    if provision_refs != 1 || has_did_inception_ref {
+        return Err(Error::Protocol(
+            "managed Agent PCR create requires exactly one critical agent_provision ref and no did_inception ref"
+                .to_owned(),
+        ));
+    }
     let controller_id = create.executed_by.clone().ok_or_else(|| {
         Error::Protocol("managed Agent PCR create Event omits executed_by".to_owned())
     })?;

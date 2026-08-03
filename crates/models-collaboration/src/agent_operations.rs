@@ -445,47 +445,30 @@ pub struct AgentRuntimeApprovalStatusOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "phase", rename_all = "snake_case")]
+#[serde(tag = "phase", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentProvisionRequestBody {
     Prepare {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        display_name: Option<String>,
+        operation_id: ProtocolOperationId,
+        idempotency_key: ProtocolOpaqueId,
         slug: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        avatar_blob_ref: Option<BlobRef>,
         requested_scope: AgentKeyScope,
         #[serde(skip_serializing_if = "Option::is_none")]
         pairing_ttl_ms: Option<u64>,
     },
     Commit {
+        operation_id: ProtocolOperationId,
+        idempotency_key: ProtocolOpaqueId,
         agent_id: Did,
         principal_control_realm_id: RealmId,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        display_name: Option<String>,
+        allocation_handle: ProtocolOpaqueId,
         slug: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        avatar_blob_ref: Option<BlobRef>,
         requested_scope: AgentKeyScope,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-        provision_events: Box<AgentProvisionEvents>,
+        provision_event: Box<EventInitialSubmission>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pairing_ttl_ms: Option<u64>,
     },
-}
-
-/// Closed controller-signed Event pair committed by personal-Agent
-/// provisioning. The server validates semantic cross-bindings and admits both
-/// envelopes through the ordinary Event pipeline; it never authors a proof on
-/// the controller's behalf.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentProvisionEvents {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub accountability_grant: EventInitialSubmission,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub selector_claim: EventInitialSubmission,
 }
 
 // NOTE: `AgentKeyScope` is the spec object `{actions, resources, constraints?}`
@@ -590,10 +573,11 @@ pub enum AgentPairingMode {
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentProvisionOutcome {
-    AwaitingControllerEvents {
+    AwaitingControllerEvent {
         agent_id: Did,
         principal_control_realm_id: RealmId,
         controller_realm_id: RealmId,
+        allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
         requested_scope_digest: Hash,
     },

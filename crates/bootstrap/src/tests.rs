@@ -1,22 +1,23 @@
 use std::collections::BTreeSet;
 
+use arkret_models_collaboration::events_payloads::agent::AgentProvisionPayload;
 use arkret_models_collaboration::events_payloads::device_identity::{
     DeviceAuthorizePayload, DeviceOrPrincipalRef,
 };
-use arkret_models_collaboration::governance::accountability::AccountabilityGrantPayload;
 use arkret_models_collaboration::http_bodies::EventsSubmitRequestBody;
 use arkret_models_identity::artifacts_device_identity::{
     DeviceEnrollmentAuthorityBinding, DeviceEnrollmentAuthorityBindingKind,
 };
 use arkret_models_identity::did_document::principal_control_realm_id;
+use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
     AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy,
     AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
     AuthorizationLease, AuthorizationLeaseId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl,
     Event, EventId, EventInitialSubmission, EventKind, EventRef, Hash, Hlc, LeaseBasisRef,
     NonEmptyString, NotarySig, PayloadProof, PayloadSignature, PayloadSigner, ProjectedCellWrite,
-    Proof, RealmId, RiskTier, SchemaId, ScopeRef, SealId, SemanticRefProof, SemanticRefProofKind,
-    TypedTrustDomainId, WireError, composite_subject, proof_kind,
+    Proof, RealmId, RiskTier, SchemaId, ScopeRef, SealBasis, SealId, SemanticRefProof,
+    SemanticRefProofKind, TypedTrustDomainId, WireError, composite_subject, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -27,7 +28,7 @@ use crate::{
     AgentProvisionEventDraftOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrCreatePayloadInput,
     ManagedAgentPcrGenesisAuthority, PRINCIPAL_CONTROL_PURPOSE, REALM_AUTHORITY_ROOT_CELL,
     REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL,
-    SelfPrincipalPcrCreateInput, build_agent_provision_event_drafts,
+    SelfPrincipalPcrCreateInput, build_agent_provision_event_draft,
     build_managed_agent_pcr_create_payload, build_managed_agent_pcr_event_seal,
     build_self_principal_bootstrap_seal, build_self_principal_pcr_create,
     materialize_managed_agent_pcr_control, self_principal_bootstrap_submit_request,
@@ -639,76 +640,55 @@ fn managed_agent_successor_resolves_registered_patch_from_frozen_predecessor() {
 }
 
 #[test]
-fn managed_agent_provision_events_bind_accountability_and_selector() {
+fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     let controller = Did::new("did:webvh:z6mkfixture:controller.example").unwrap();
     let agent = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
-    let signer = FixtureSigner {
-        did: controller.clone(),
-        verification_method: DidUrl::new(format!("{controller}#device-1")).unwrap(),
-    };
-    let events = build_agent_provision_event_drafts(
+    let event = build_agent_provision_event_draft(
         &controller,
         &RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
         &agent,
+        &RealmId::new("ak:realm:01904100-0000-7000-8000-000000000002").unwrap(),
+        &DidUrl::new(format!("{controller}#managed-agent")).unwrap(),
         "summary",
+        &Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
+        HandleVisibility::Private,
+        None,
         AgentProvisionEventDraftOptions {
             created_at: "2026-07-18T01:02:03Z".parse().unwrap(),
-            accountability_actor_seq: 4,
-            accountability_hlc: Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
-            selector_actor_seq: 5,
-            selector_hlc: Hlc::new("01980a8f3980-0002-a13f9c2e").unwrap(),
+            actor_seq: 4,
+            hlc: Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
+            prev_refs: vec![EventId::new("ak:event:01904100-0000-7000-8000-000000000003").unwrap()],
+            seal_basis: Some(SealBasis {
+                leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap()],
+                control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+                state_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
+            }),
         },
-        &signer,
     )
     .unwrap();
 
-    let payload: AccountabilityGrantPayload =
-        serde_json::from_value(serde_json::to_value(&events.accountability_grant.payload).unwrap())
-            .unwrap();
+    let payload: AgentProvisionPayload =
+        serde_json::from_value(serde_json::to_value(&event.payload).unwrap()).unwrap();
+    payload.validate().unwrap();
+    assert_eq!(payload.agent_id, agent);
+    let effects = direct_projection(&event, &registry_projection).unwrap();
     assert_eq!(
-        payload.proof.payload_digest,
-        payload.payload_digest().unwrap()
-    );
-    assert_eq!(
-        events.selector_claim.payload["source_refs"][0],
-        events.accountability_grant.event_id.as_str()
-    );
-
-    // The drafts used to carry hand-stamped effect arrays. They now carry
-    // nothing, so the check that matters is that each signed payload still
-    // derives the cell its provisioning slot is supposed to write.
-    let grant_effects =
-        direct_projection(&events.accountability_grant, &registry_projection).unwrap();
-    assert_eq!(
-        grant_effects
+        effects
             .iter()
-            .map(|effect| effect.cell.as_str())
-            .collect::<Vec<_>>(),
-        vec![
-            format!(
-                "ak:cell:ak.component.identity.accountability.v1:{}",
-                payload.cell_subject().unwrap()
-            )
-            .as_str()
-        ]
-    );
-    let selector_effects = direct_projection(&events.selector_claim, &registry_projection).unwrap();
-    assert_eq!(
-        selector_effects
-            .iter()
-            .map(|effect| effect.cell.as_str())
-            .collect::<Vec<_>>(),
-        vec![
+            .map(|effect| effect.cell.as_str().to_owned())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from([
+            format!("ak:cell:ak.component.agent.provision.v1:{agent}"),
+            format!("ak:cell:ak.component.identity.accountability.v1:{agent}"),
             format!(
                 "ak:cell:ak.component.agent.selector_claim.v1:{}",
                 composite_subject(&[controller.as_str(), "summary"]).unwrap()
-            )
-            .as_str()
-        ]
+            ),
+        ])
     );
 
     assert_eq!(
-        serde_json::to_value(&events.accountability_grant).unwrap()["created_at"],
+        serde_json::to_value(&event).unwrap()["created_at"],
         "2026-07-18T01:02:03.000Z"
     );
 }

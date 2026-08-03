@@ -1,10 +1,125 @@
 //! Agent-lifecycle and agent-key payloads.
 
+use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::internal_prelude::*;
+
+/// Exact schema discriminator for a controller-authored Agent provision fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentProvisionSchema {
+    #[default]
+    #[serde(rename = "ak.schema.agent_provision.v1")]
+    V1,
+}
+
+/// Closed accountability scope projected atomically by Agent provisioning.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentProvisionAccountabilityScope {
+    #[default]
+    #[serde(rename = "agent_operator")]
+    AgentOperator,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/agent-provision.schema.json`.
+///
+/// The containing Event proof is the only signature. Receivers project the
+/// provision, accountability and selector cells atomically from this payload.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionPayload {
+    pub schema: AgentProvisionSchema,
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: DidUrl,
+    pub agent_slug: String,
+    pub accountability_scope: AgentProvisionAccountabilityScope,
+    pub requested_scope_digest: Hash,
+    pub selector_visibility: HandleVisibility,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selector_audience: Option<String>,
+    #[serde(with = "canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+}
+
+impl AgentProvisionPayload {
+    pub fn validate(&self) -> Result<()> {
+        let prepared = arkret_wire::string_profiles::prepare_agent_slug(&self.agent_slug)?;
+        if prepared != self.agent_slug {
+            return Err(Error::Protocol(
+                "agent_slug must already use the canonical agent-slug profile".to_owned(),
+            ));
+        }
+        match (self.selector_visibility, self.selector_audience.as_deref()) {
+            (HandleVisibility::Restricted, Some(audience))
+                if !audience.is_empty() && audience.chars().count() <= 512 => {}
+            (HandleVisibility::Restricted, _) => {
+                return Err(Error::Protocol(
+                    "restricted selector visibility requires a 1..=512 character audience"
+                        .to_owned(),
+                ));
+            }
+            (_, None) => {}
+            (_, Some(_)) => {
+                return Err(Error::Protocol(
+                    "selector_audience is only valid for restricted visibility".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Why an Event does not carry the registered Agent provision payload.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AgentProvisionPayloadError {
+    UnexpectedKind(String),
+    InvalidPayload(String),
+}
+
+impl core::fmt::Display for AgentProvisionPayloadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::UnexpectedKind(kind) => {
+                write!(f, "event kind must be ak.agent.provision, got {kind}")
+            }
+            Self::InvalidPayload(reason) => {
+                write!(f, "ak.agent.provision payload is invalid: {reason}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for AgentProvisionPayloadError {}
+
+impl TryFrom<&Event> for AgentProvisionPayload {
+    type Error = AgentProvisionPayloadError;
+
+    fn try_from(event: &Event) -> core::result::Result<Self, Self::Error> {
+        if event.kind.as_str() != EventKind::AGENT_PROVISION {
+            return Err(AgentProvisionPayloadError::UnexpectedKind(
+                event.kind.as_str().to_owned(),
+            ));
+        }
+        let value = Value::Object(event.payload.clone().into_iter().collect());
+        let payload: Self = serde_path_to_error::deserialize(value).map_err(|error| {
+            let path = error.path().to_string();
+            let reason = error.into_inner().to_string();
+            AgentProvisionPayloadError::InvalidPayload(if path.is_empty() || path == "." {
+                reason
+            } else {
+                format!("{path}: {reason}")
+            })
+        })?;
+        payload
+            .validate()
+            .map_err(|error| AgentProvisionPayloadError::InvalidPayload(error.to_string()))?;
+        Ok(payload)
+    }
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_action_approve_payload`.
