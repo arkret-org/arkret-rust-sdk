@@ -164,15 +164,22 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Prepare the default online submission path for an ordered Event unit.
+    /// Prepare the default submission path for an ordered Event unit.
     ///
-    /// No authorization lease is issued or prefetched. The receiving service
-    /// evaluates each complete signed Event atomically against current state.
+    /// Ordinary Events use online admission without a prefetched lease. A
+    /// closed anchor unit has no accepted authority yet, so this method obtains
+    /// the complete anchor-unit lease set that lets the admitting Principal
+    /// Server issue the genesis proposal receipts atomically.
     pub async fn prepare_initial_submissions(
         &self,
         events: &[Event],
     ) -> Result<Vec<EventInitialSubmission>> {
         let submit_context = initial_submission_context(events)?;
+        if submit_context == EventSubmitContext::AnchorUnit {
+            return self
+                .prepare_initial_submissions_with_collector(events, None)
+                .await;
+        }
         events
             .iter()
             .cloned()
