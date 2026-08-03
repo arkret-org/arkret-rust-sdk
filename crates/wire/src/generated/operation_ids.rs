@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-03.6;
-//! sha256=e0448d5d543ef3e0e451b0087cf7312e0301adb596402e7265fff957322c9438 Entries: registered=231
+//! Input: registry/operation-registry.json; version=2026-08-03.7;
+//! sha256=27b3edb940c95fa3d37e14a5284845424136c3daf37813974b46f49ef28c4d1a Entries: registered=231
 
 use serde::{Deserialize, Serialize};
 
@@ -2516,21 +2516,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/account_device_enroll_request_body",
         ),
         response_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/account_device_enroll_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
-            rationale: Some("returns_signed_event_material_without_committing_it"),
+            rationale: Some(
+                "persists_byte_stable_signed_enrollment_outcome_without_committing_the_event",
+            ),
         }),
     },
     ServiceOperationDescriptor {

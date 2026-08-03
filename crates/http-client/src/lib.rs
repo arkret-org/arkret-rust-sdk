@@ -1503,6 +1503,31 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn events_resolve_posts_closed_selectors() {
+            let event_id = EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap();
+            let canned = r#"{"events":[],"missing":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+            let request = arkret_models_collaboration::http_bodies::EventsResolveRequestBody {
+                event_ids: vec![event_id.clone()],
+                event_digests: Vec::new(),
+                seal_refs: Vec::new(),
+                include_payload: Some(true),
+            };
+
+            let response = client.events_resolve(&request).await.unwrap();
+            assert_eq!(response.missing, vec![event_id.to_string()]);
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, body) = split_request(&raw);
+            assert!(request_line.starts_with("POST /_arkret/self/events/resolve "));
+            let parsed: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(parsed["event_ids"], serde_json::json!([event_id.as_str()]));
+            assert_eq!(parsed["include_payload"], true);
+            assert!(parsed.get("event_digests").is_none());
+            assert!(parsed.get("seal_refs").is_none());
+        }
+
+        #[tokio::test]
         async fn events_query_outcome_uses_standard_shape_and_completeness_query() {
             let canned = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false,"range_completeness":{"attestation_refs":[]}}"#;
             let (client, capture) = spawn_capture_server(canned).await;

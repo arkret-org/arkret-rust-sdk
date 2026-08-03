@@ -4,8 +4,8 @@
 //! conformance profile and reducer profile registries; do not edit by hand.
 //! Conformance input version: 2026-08-03.6;
 //! sha256=1062b18b6006067facf6b5544371e54d07310af7ff887fb4b2ce6c4b4051e94d; profiles=101.
-//! Reducer input version: 2026-08-03.7;
-//! sha256=470e22c878a2577cecf1d5a1a65e61fcfae64eed7b1978e82b3de04352b4c01b; active_profiles=5.
+//! Reducer input version: 2026-08-03.8;
+//! sha256=e0549ce8ff723aa842a2e2202d49855566ebf292d0acf347f8e4a35afffae3d6; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.agent_auth.v1",
@@ -119,29 +119,29 @@ pub fn is_profile_id(value: &str) -> bool {
 pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     (
         "ak.profile.chat_mvp.v1",
-        "sha256:895b7a22822b65899a62f0f146209a97f84cd2f5d8448332dc9ee167b31349cd",
+        "sha256:359d65d0253d8c21992557b916c28e2e229f4957b114292097e6bb8584ff267b",
     ),
     (
         "ak.profile.core_event_store.v1",
-        "sha256:bd167cbb19febd9be61f5b4bdba0b20451976bc7da1250a46ddfd8fb065d7860",
+        "sha256:24daf23f574fa07ee9c5a7e55be10a41121e4dc2535e5e6746964ee44984a17d",
     ),
     (
         "ak.profile.federation_minimal.v1",
-        "sha256:f31b43b0dd084a889e2ae23c79fbf22a6a037d2849110017f0df77b92ca38645",
+        "sha256:45ff08ae8902e13dd6e873a5e468eb5d36abe19073ac052880a1042d856c5b89",
     ),
     (
         "ak.profile.kanban_mvp.v1",
-        "sha256:e07eba18c2846cdfc27f48b66a7166ca3f4a78c02075457aa63c2fc3f34b4cce",
+        "sha256:8a039556c50d778e85e2f3096b9a380000f88abc1815a45cdd90413aea4788b5",
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:43849806723d8eae98e0c861c7e39b8239a964b6f1c4458c3dc425a130ed5e39",
+        "sha256:05e411a98adbaf1a772e952bc35df507bbaf9e023b820c1af68fc84a7cffae45",
     ),
 ];
 
 /// Spec-generated digest for `ak.profile.federation_minimal.v1`.
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:f31b43b0dd084a889e2ae23c79fbf22a6a037d2849110017f0df77b92ca38645";
+    "sha256:45ff08ae8902e13dd6e873a5e468eb5d36abe19073ac052880a1042d856c5b89";
 
 /// Returns the Spec-generated digest for an active reducer profile.
 pub fn reducer_profile_digest(profile_id: &str) -> Option<&'static str> {

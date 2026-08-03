@@ -38,10 +38,10 @@ pub struct ManagedAgentPcrControlMaterial {
 
 /// Materialize the canonical control state of a managed Agent PCR.
 ///
-/// The delegated create Event derives the same canonical genesis leaf set as
-/// every other Realm bootstrap branch. Every later managed PCR Event likewise
-/// contributes exactly what its registered contract projects. Keeping this
-/// materialization in the SDK gives the controller-side Seal builder and
+/// The delegated create Event derives the five common Realm genesis cells plus
+/// its conditional Agent-status genesis cell. Every later managed PCR Event
+/// likewise contributes exactly what its registered contract projects. Keeping
+/// this materialization in the SDK gives the controller-side Seal builder and
 /// receiver admission one byte-identical state-root implementation.
 pub fn materialize_managed_agent_pcr_control(
     events: &[Event],

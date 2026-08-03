@@ -10,8 +10,8 @@ use arkret_models_collaboration::governance::authorization::{
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::http_bodies::{
     EventSealSubmitOutcome, EventView, EventsQueryOutcome, EventsRangeCompleteness,
-    EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList,
-    ProjectionStrandList,
+    EventsResolveOutcome, EventsResolveRequestBody, EventsSubmitBatchRequestBody,
+    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
 };
 use arkret_models_collaboration::objects::query_projection::{
     CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
@@ -494,6 +494,16 @@ impl Client {
         }
         crate::client_internals::validate_request_builder(&builder)?;
         Ok(builder)
+    }
+
+    /// Resolve the exact canonical Events identified by the closed selector
+    /// set accepted by `ak.self.events.query.resolve`.
+    pub async fn events_resolve(
+        &self,
+        request: &EventsResolveRequestBody,
+    ) -> Result<EventsResolveOutcome> {
+        request.validate()?;
+        self.post("/_arkret/self/events/resolve", request).await
     }
 
     /// Range-read Events via `ak.self.events.query.scan` (`GET /_arkret/self/events`). Pass

@@ -997,6 +997,29 @@ fn condition_matches(
             }
             Ok(fields.iter().filter_map(Value::as_str).any(present))
         }
+        "critical_ref_role_exact_count" => {
+            let role = condition
+                .get("role")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    effect_set_error(kind, "critical_ref_role_exact_count omits role")
+                })?;
+            let expected = condition
+                .get("count")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| {
+                    effect_set_error(
+                        kind,
+                        "critical_ref_role_exact_count omits a non-negative integer count",
+                    )
+                })?;
+            let actual = event
+                .refs
+                .iter()
+                .filter(|event_ref| event_ref.critical && event_ref.role == role)
+                .count() as u64;
+            Ok(actual == expected)
+        }
         other => Err(effect_set_error(
             kind,
             &format!("unknown condition kind {other}"),
@@ -2382,9 +2405,8 @@ mod tests {
         assert_eq!(error.reason_code(), "effects_payload_mismatch");
     }
 
-    #[test]
-    fn realm_create_ordered_log_projection_is_exact() {
-        let event: Event = serde_json::from_value(json!({
+    fn realm_create_event(refs: Value) -> Event {
+        serde_json::from_value(json!({
             "event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
             "kind": EventKind::REALM_CREATE,
             "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000021",
@@ -2394,6 +2416,7 @@ mod tests {
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
+            "refs": refs,
             "payload": {
                 "object": {
                     "id": "ak:realm:019f9000-0000-7000-8000-000000000021",
@@ -2407,7 +2430,12 @@ mod tests {
             },
             "proofs": []
         }))
-        .unwrap();
+        .unwrap()
+    }
+
+    #[test]
+    fn realm_create_ordered_log_projection_is_exact() {
+        let event = realm_create_event(json!([]));
 
         let object = event.payload.get("object").unwrap().clone();
         // The genesis append carries the registry constant `issuer_seq: 0`, not
@@ -2447,6 +2475,41 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn realm_create_agent_status_write_requires_exactly_one_critical_provision_ref() {
+        let provision_ref = json!({
+            "id": "ak:event:019f9000-0000-7000-8000-000000000022",
+            "role": "agent_provision",
+            "critical": true
+        });
+        let event = realm_create_event(json!([provision_ref.clone()]));
+        let writes = project(&event);
+        assert_eq!(writes.len(), 6);
+        assert_eq!(
+            writes.last(),
+            Some(&write(
+                "ak:cell:ak.component.agent.status.v1:did:webvh:z6mkfixture:alice.example",
+                transition_op(json!("uninitialized"), json!("active")),
+            ))
+        );
+
+        for refs in [
+            json!([{
+                "id": "ak:event:019f9000-0000-7000-8000-000000000023",
+                "role": "agent_provision",
+                "critical": false
+            }]),
+            json!([{
+                "id": "ak:event:019f9000-0000-7000-8000-000000000024",
+                "role": "did_inception",
+                "critical": true
+            }]),
+            json!([provision_ref.clone(), provision_ref]),
+        ] {
+            assert_eq!(project(&realm_create_event(refs)).len(), 5);
+        }
     }
 
     fn call_event(kind: &str, payload: Value) -> Event {

@@ -367,6 +367,10 @@ fn managed_agent_pcr_create() -> Event {
     create.authorization_ref =
         Some(AuthorizationRef::new(format!("{agent}#managed-controller")).unwrap());
     create.executed_by = Some(controller);
+    create.refs = vec![EventRef::new(
+        "ak:event:01904100-0000-7000-8000-0000000000a0",
+        "agent_provision",
+    )];
     create
 }
 
@@ -385,6 +389,7 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
             .map(CellRef::as_str)
             .collect::<Vec<_>>(),
         vec![
+            "ak:cell:ak.component.agent.status.v1:did:web:agent.example",
             "ak:cell:ak.component.member.state.v1:did:web:agent.example",
             REALM_NOTARY_CELL,
             REALM_AUTHORITY_ROOT_CELL,

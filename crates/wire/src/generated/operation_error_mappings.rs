@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-03.6;
-//! sha256=e0448d5d543ef3e0e451b0087cf7312e0301adb596402e7265fff957322c9438 Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-03.7;
+//! sha256=27b3edb940c95fa3d37e14a5284845424136c3daf37813974b46f49ef28c4d1a Input: registry/
 //! operations-error-mapping.json; version=2026-08-03.4;
 //! sha256=6e12be7af21d6adbe136d0b6021820ee13aed0c3d32b74995e6b40f06aa881eb Input: registry/
 //! error-code-registry.json; version=2026-08-03.4;

@@ -54,15 +54,15 @@ pub(crate) fn direct_projection(
         .collect()
 }
 
-/// Assert that an `ak.realm.create` projection lands on the canonical genesis
+/// Assert that an `ak.realm.create` projection lands on its canonical genesis
 /// leaf set.
 ///
 /// Self PCR, managed Agent PCR and ordinary Realm producers all reach the
-/// receiver through the same contract, so a branch whose payload drifts far
-/// enough to move a target would notarize a different genesis `state_root`
-/// leaf set for the same Realm. Only the targets are asserted: the lattice ops
-/// come from the registered `effect_projection` and restating them here would
-/// rebuild the producer-side effect table v1 removed.
+/// receiver through the same contract. The five common writes are always
+/// present; a managed Agent create with exactly one critical `agent_provision`
+/// ref also initializes its Agent-status cell. Only the targets are asserted:
+/// the lattice ops come from the registered `effect_projection` and restating
+/// them here would rebuild the producer-side effect table v1 removed.
 pub(crate) fn validate_realm_create_projection(
     event: &Event,
     effects: &[ProjectionEffect],
@@ -72,7 +72,7 @@ pub(crate) fn validate_realm_create_projection(
             "realm create projection requires ak.realm.create".to_owned(),
         ));
     }
-    let expected = [
+    let mut expected = [
         REALM_METADATA_CELL.to_owned(),
         // Callers pin `payload.object.created_by == actor_id` before reaching
         // here, so the member cell derived from the payload must be the
@@ -87,13 +87,25 @@ pub(crate) fn validate_realm_create_projection(
     ]
     .into_iter()
     .collect::<BTreeSet<_>>();
+    if event
+        .refs
+        .iter()
+        .filter(|event_ref| event_ref.critical && event_ref.role == "agent_provision")
+        .count()
+        == 1
+    {
+        expected.insert(format!(
+            "ak:cell:ak.component.agent.status.v1:{}",
+            event.actor_id.as_str()
+        ));
+    }
     let derived = effects
         .iter()
         .map(|effect| effect.cell.as_str().to_owned())
         .collect::<BTreeSet<_>>();
     if effects.len() != expected.len() || derived != expected {
         return Err(Error::Protocol(
-            "Realm create does not derive the canonical five genesis cells".to_owned(),
+            "Realm create does not derive its canonical registered genesis cells".to_owned(),
         ));
     }
     Ok(())
