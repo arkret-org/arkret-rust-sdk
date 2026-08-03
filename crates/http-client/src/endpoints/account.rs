@@ -11,7 +11,7 @@ use arkret_models_collaboration::http_bodies::{
     DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
 use arkret_models_collaboration::protocol_journey::{
-    ContactOperationOutcome, ContactOperationRequestBody, ContactRespondRequestBody,
+    ContactAcceptRequestBody, ContactOperationOutcome, ContactOperationRequestBody,
     ContactTombstoneRequestBody, DirectConversationResolveOutcome,
     DirectConversationResolveRequestBody,
 };
@@ -551,7 +551,7 @@ impl Client {
 
     pub async fn contacts_respond(
         &self,
-        request: &ContactRespondRequestBody,
+        request: &ContactAcceptRequestBody,
     ) -> Result<ContactOperationOutcome> {
         self.post(PATH_SELF_CONTACTS_RESPOND, request).await
     }

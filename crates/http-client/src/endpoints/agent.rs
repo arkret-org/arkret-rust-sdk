@@ -15,11 +15,10 @@ use arkret_models_collaboration::agent_operations::{
 use arkret_models_collaboration::agent_signer_evidence::{
     AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBodyBody,
 };
-use arkret_models_collaboration::governance::agent_participation::{
-    AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
-};
+use arkret_models_collaboration::governance::agent_participation::AgentParticipationOutcome;
 use arkret_models_collaboration::protocol_journey::{
-    SidecarEnsureOutcome, SidecarEnsureRequestBody,
+    ParticipationReplaceReceipt, ParticipationReplacementBatch, SidecarEnsureOutcome,
+    SidecarEnsureRequestBody,
 };
 use arkret_wire::{GrantId, RealmId, SidecarId};
 use reqwest::Method;
@@ -185,9 +184,8 @@ impl Client {
     }
 
     /// `DELETE /_arkret/self/agents/{agent_id}/grants/{grant_id}`
-    /// (`ak.self.agent.grant.resource.delete`). The `_detach` method name is
-    /// retained for API compatibility; the registered operation id is `.delete`.
-    pub async fn agent_grant_detach(
+    /// (`ak.self.agent.grant.resource.delete`).
+    pub async fn agent_grant_delete(
         &self,
         agent_id: &str,
         grant_id: &GrantId,
@@ -220,8 +218,8 @@ impl Client {
     pub async fn agent_participation_replace(
         &self,
         agent_id: &str,
-        request: &AgentParticipationReplaceRequestBody,
-    ) -> Result<AgentParticipationOutcome> {
+        request: &ParticipationReplacementBatch,
+    ) -> Result<ParticipationReplaceReceipt> {
         let path = format!(
             "{}/{}/participation",
             AGENTS_PATH,

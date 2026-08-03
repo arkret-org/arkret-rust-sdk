@@ -27,9 +27,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::governance::agent_participation::{
-    AgentParticipation, AgentParticipationError, AgentParticipationPolicy,
+    AgentParticipationError, AgentParticipationPolicy,
     validate_agent_participation_ceiling_tightens,
 };
+use crate::protocol_journey::ParticipationBits;
 use crate::objects::space::ChildScopePolicy;
 
 /// Top-level Circle directory visibility (spec circle.schema.json
@@ -845,8 +846,8 @@ impl Circle {
     /// its parent Realm ceiling and return the materialized effective ceiling.
     pub fn validate_agent_participation_ceiling(
         &self,
-        parent: AgentParticipation,
-    ) -> Result<AgentParticipation, AgentParticipationError> {
+        parent: ParticipationBits,
+    ) -> Result<ParticipationBits, AgentParticipationError> {
         match self
             .agent_participation
             .and_then(|policy| policy.native_agent)
@@ -884,7 +885,6 @@ impl Circle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::governance::agent_participation::AgentParticipationCeiling;
 
     fn sample_display() -> CircleDisplay {
         CircleDisplay {
@@ -913,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    fn circle_agent_participation_round_trips_partial_ceiling() {
+    fn circle_agent_participation_round_trips_complete_ceiling() {
         let id =
             CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000011".to_owned()).unwrap();
         let realm_id =
@@ -921,10 +921,12 @@ mod tests {
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationPolicy {
-            native_agent: Some(AgentParticipationCeiling {
-                reply: Some(true),
-                accept_third_party_mention: None,
-                act_on_behalf: Some(false),
+            native_agent: Some(ParticipationBits {
+                reply_message: true,
+                reaction_add: true,
+                reaction_remove: true,
+                accept_third_party_mention: false,
+                act_on_behalf: false,
             }),
         });
 
@@ -933,7 +935,10 @@ mod tests {
             value.get("agent_participation"),
             Some(&serde_json::json!({
                 "native_agent": {
-                    "reply": true,
+                    "reply_message": true,
+                    "reaction_add": true,
+                    "reaction_remove": true,
+                    "accept_third_party_mention": false,
                     "act_on_behalf": false
                 }
             }))
@@ -980,8 +985,10 @@ mod tests {
             RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000022".to_owned()).unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
-        let parent = AgentParticipation {
-            reply: true,
+        let parent = ParticipationBits {
+            reply_message: true,
+            reaction_add: true,
+            reaction_remove: true,
             accept_third_party_mention: false,
             act_on_behalf: true,
         };
@@ -992,26 +999,32 @@ mod tests {
         );
 
         circle.agent_participation = Some(AgentParticipationPolicy {
-            native_agent: Some(AgentParticipationCeiling {
-                reply: Some(false),
-                accept_third_party_mention: None,
-                act_on_behalf: None,
+            native_agent: Some(ParticipationBits {
+                reply_message: false,
+                reaction_add: false,
+                reaction_remove: false,
+                accept_third_party_mention: false,
+                act_on_behalf: true,
             }),
         });
         assert_eq!(
             circle.validate_agent_participation_ceiling(parent).unwrap(),
-            AgentParticipation {
-                reply: false,
+            ParticipationBits {
+                reply_message: false,
+                reaction_add: false,
+                reaction_remove: false,
                 accept_third_party_mention: false,
                 act_on_behalf: true,
             }
         );
 
         circle.agent_participation = Some(AgentParticipationPolicy {
-            native_agent: Some(AgentParticipationCeiling {
-                reply: None,
-                accept_third_party_mention: Some(true),
-                act_on_behalf: None,
+            native_agent: Some(ParticipationBits {
+                reply_message: true,
+                reaction_add: true,
+                reaction_remove: true,
+                accept_third_party_mention: true,
+                act_on_behalf: true,
             }),
         });
         assert!(matches!(

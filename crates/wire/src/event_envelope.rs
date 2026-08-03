@@ -640,6 +640,36 @@ impl Event {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 
+    /// Reconstruct the unsigned Event represented by canonical digest-payload
+    /// bytes returned by a protocol prepare operation.
+    ///
+    /// Prepare drafts intentionally omit fields outside the producer-signed
+    /// transcript. This constructor is the only SDK path that restores those
+    /// fields before a caller appends proofs, so downstream clients never need
+    /// to patch JSON objects themselves.
+    pub fn from_digest_payload_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut value: Value = serde_json::from_slice(bytes)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            Error::Protocol("Event digest payload must be a JSON object".to_owned())
+        })?;
+        for forbidden in ["proofs", "unsigned", "actor_kind"] {
+            if object.contains_key(forbidden) {
+                return Err(Error::Protocol(format!(
+                    "Event digest payload must omit {forbidden}"
+                )));
+            }
+        }
+        object.insert("proofs".to_owned(), Value::Array(Vec::new()));
+        let event: Self = serde_json::from_value(value)?;
+        let canonical = arkret_canonical::canonical_json_bytes(&event.digest_payload()?)?;
+        if canonical != bytes {
+            return Err(Error::Protocol(
+                "Event digest payload bytes are not canonical".to_owned(),
+            ));
+        }
+        Ok(event)
+    }
+
     /// Parse the opaque event payload as `T` without checking `kind`.
     pub fn payload_as<T: DeserializeOwned>(&self) -> Result<T> {
         serde_json::from_value(Value::Object(
@@ -739,6 +769,23 @@ impl Event {
         &self,
         context: EventSubmitContext,
     ) -> Result<()> {
+        self.validate_structural_in_context(context, true)
+    }
+
+    /// Validate a producer-authored Event before proofs are appended.
+    ///
+    /// This applies the same CBA and envelope shape rules as submission while
+    /// requiring the draft to remain unsigned. Prepare protocols use it before
+    /// returning canonical digest-payload bytes to a caller.
+    pub fn validate_for_authoring_structural(&self) -> Result<()> {
+        self.validate_structural_in_context(EventSubmitContext::Standard, false)
+    }
+
+    fn validate_structural_in_context(
+        &self,
+        context: EventSubmitContext,
+        require_proofs: bool,
+    ) -> Result<()> {
         if self.scope_ref.realm_id() != &self.realm_id {
             return Err(Error::Protocol(
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
@@ -751,9 +798,14 @@ impl Event {
         }
         self.validate_applet_provenance_invariants()
             .map_err(Error::Protocol)?;
-        if self.proofs.is_empty() {
+        if require_proofs && self.proofs.is_empty() {
             return Err(Error::Protocol(
                 "event proofs must contain at least one proof".to_owned(),
+            ));
+        }
+        if !require_proofs && !self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "Event authoring draft must not carry proofs".to_owned(),
             ));
         }
         if self
@@ -1040,6 +1092,62 @@ mod event_wire_surface_tests {
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn prepared_digest_payload_reconstructs_only_the_unsigned_event() {
+        let event = base_event();
+        let bytes = canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
+        let reconstructed = Event::from_digest_payload_bytes(&bytes).unwrap();
+
+        assert_eq!(reconstructed, event);
+        assert!(reconstructed.proofs.is_empty());
+        assert!(reconstructed.unsigned.is_empty());
+        assert!(reconstructed.actor_kind.is_none());
+    }
+
+    #[test]
+    fn prepared_digest_payload_rejects_out_of_transcript_fields_and_noncanonical_json() {
+        let mut with_proofs = base_event().digest_payload().unwrap();
+        with_proofs["proofs"] = json!([]);
+        let bytes = canonical::canonical_json_bytes(&with_proofs).unwrap();
+        assert!(Event::from_digest_payload_bytes(&bytes).is_err());
+
+        let canonical = canonical::canonical_json_bytes(&base_event().digest_payload().unwrap())
+            .unwrap();
+        let mut spaced = Vec::with_capacity(canonical.len() + 1);
+        spaced.extend_from_slice(b" ");
+        spaced.extend_from_slice(&canonical);
+        assert!(Event::from_digest_payload_bytes(&spaced).is_err());
+    }
+
+    #[test]
+    fn authoring_validation_requires_cba_shape_before_signing() {
+        let mut event = base_event();
+        assert!(event.validate_for_authoring_structural().is_err());
+
+        event.seal_basis = Some(SealBasis {
+            leaves: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap(),
+            ],
+            control_event_set_root: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            state_root: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+        });
+        event.validate_for_authoring_structural().unwrap();
+
+        event.proofs.push(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
+            event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            created_at: event.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        });
+        assert!(event.validate_for_authoring_structural().is_err());
+        event.validate_for_submit_structural().unwrap();
     }
 
     #[test]
