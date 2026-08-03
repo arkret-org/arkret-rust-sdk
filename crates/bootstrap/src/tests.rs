@@ -11,13 +11,14 @@ use arkret_models_identity::artifacts_device_identity::{
 use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy,
-    AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
-    AuthorizationLease, AuthorizationLeaseId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl,
-    Event, EventId, EventInitialSubmission, EventKind, EventRef, Hash, Hlc, LeaseBasisRef,
-    NonEmptyString, NotarySig, PayloadProof, PayloadSignature, PayloadSigner, ProjectedCellWrite,
-    Proof, RealmId, RiskTier, SchemaId, ScopeRef, SealBasis, SealId, SemanticRefProof,
-    SemanticRefProofKind, TypedTrustDomainId, WireError, composite_subject, proof_kind,
+    AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef, AuthoritySetAuthorizationRule,
+    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
+    AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
+    AuthorizationLeaseId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl, Event, EventId,
+    EventInitialSubmission, EventKind, EventRef, Hash, Hlc, LeaseBasisRef, NonEmptyString,
+    NotarySig, PayloadProof, PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId,
+    RiskTier, SchemaId, ScopeRef, SealBasis, SealId, SemanticRefProof, SemanticRefProofKind,
+    TypedTrustDomainId, WireError, composite_subject, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -224,9 +225,10 @@ fn builder_rejects_a_non_self_realm_and_indirect_inception_ref() {
 fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
     let (create, authorize) = bootstrap_unit();
     validate_self_principal_bootstrap_unit(&create, &authorize, &registry_projection).unwrap();
+    let [create_submission, authorize_submission] = submissions(create.clone(), authorize.clone());
     let request = self_principal_bootstrap_submit_request(
-        submission(create.clone()),
-        submission(authorize.clone()),
+        create_submission,
+        authorize_submission,
         &registry_projection,
     )
     .unwrap();
@@ -234,6 +236,16 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
         panic!("the bootstrap unit is always a two-slot batch")
     };
     assert_eq!(batch.events.len(), 2);
+
+    let [mut lease_free_create, leased_authorize] = submissions(create.clone(), authorize.clone());
+    lease_free_create.authorization_lease = None;
+    let error = self_principal_bootstrap_submit_request(
+        lease_free_create,
+        leased_authorize,
+        &registry_projection,
+    )
+    .expect_err("bootstrap must not regress to lease-free online submissions");
+    assert!(error.to_string().contains("complete anchor-unit"));
 
     let mut missing = authorize.clone();
     missing.prev_refs.clear();
@@ -251,9 +263,29 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
     );
 }
 
-/// A lease bound to the Event it travels with. The bootstrap helper only
-/// checks the actor/scope binding, so the remaining members are fixtures.
-fn submission(event: Event) -> EventInitialSubmission {
+/// Complete lease-bound wrappers for the ordered genesis unit.
+fn submissions(create: Event, authorize: Event) -> [EventInitialSubmission; 2] {
+    let event_digests = [&create, &authorize]
+        .into_iter()
+        .map(|event| Hash::new(event.event_digest().unwrap()).unwrap())
+        .collect::<Vec<_>>();
+    let mut anchor_unit = AnchorUnitLeaseBasis {
+        realm_id: create.realm_id.clone(),
+        event_digests,
+        unit_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+    };
+    anchor_unit.unit_digest = anchor_unit.expected_unit_digest().unwrap();
+    [
+        submission(create, anchor_unit.clone(), "0000000000f1"),
+        submission(authorize, anchor_unit, "0000000000f2"),
+    ]
+}
+
+fn submission(
+    event: Event,
+    anchor_unit: AnchorUnitLeaseBasis,
+    lease_suffix: &str,
+) -> EventInitialSubmission {
     let authority_set_policy = AuthoritySetPolicy {
         schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
         authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
@@ -277,13 +309,11 @@ fn submission(event: Event) -> EventInitialSubmission {
         }],
     };
     let mut lease = AuthorizationLease {
-        authorization_lease_id: AuthorizationLeaseId::new(
-            "ak:authorization_lease:01904100-0000-7000-8000-0000000000f1",
-        )
+        authorization_lease_id: AuthorizationLeaseId::new(format!(
+            "ak:authorization_lease:01904100-0000-7000-8000-{lease_suffix}"
+        ))
         .unwrap(),
-        basis_ref: LeaseBasisRef::Seal(
-            SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
-        ),
+        basis_ref: LeaseBasisRef::AnchorUnit(AnchorUnitLeaseBasisRef { anchor_unit }),
         actor_id: event.actor_id.clone(),
         device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
         scope_ref: event.scope_ref.clone(),

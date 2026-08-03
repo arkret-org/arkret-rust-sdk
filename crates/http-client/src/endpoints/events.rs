@@ -176,8 +176,24 @@ impl Client {
     ) -> Result<Vec<EventInitialSubmission>> {
         let submit_context = initial_submission_context(events)?;
         if submit_context == EventSubmitContext::AnchorUnit {
+            // Realm genesis has no accepted authority from which a caller can
+            // pre-collect a proposal receipt. The admitting Principal Server
+            // mints those receipts atomically after it has pre-admitted the
+            // complete lease-bound unit. A device re-anchor, by contrast,
+            // already has an accepted recovery authority and must arrive with
+            // its receipts.
+            let first = events.first();
+            let collect_anchor_receipts = anchor_unit_requires_precollected_receipts(
+                first.map(|event| event.kind.as_str()),
+                first.is_some_and(|event| {
+                    event
+                        .executed_by
+                        .as_ref()
+                        .is_some_and(|executor| executor != &event.actor_id)
+                }),
+            )?;
             return self
-                .prepare_initial_submissions_with_collector(events, None)
+                .prepare_initial_submissions_with_collector(events, None, collect_anchor_receipts)
                 .await;
         }
         events
@@ -250,6 +266,7 @@ impl Client {
         self.prepare_initial_submissions_with_collector(
             events,
             Some((authority_clients, notary, policy)),
+            true,
         )
         .await
     }
@@ -258,6 +275,7 @@ impl Client {
         &self,
         events: &[Event],
         collector: Option<(&[Client], &NotaryValue, ControlProposalDecisionPolicy)>,
+        collect_anchor_receipts: bool,
     ) -> Result<Vec<EventInitialSubmission>> {
         let submit_context = initial_submission_context(events)?;
         let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
@@ -279,7 +297,7 @@ impl Client {
                 control_proposal_receipt: None,
                 membership_compensation_evidence: None,
             };
-            if anchor_unit || event.seal_basis.is_some() {
+            if (anchor_unit && collect_anchor_receipts) || event.seal_basis.is_some() {
                 let request = ProposalReceiptIssueRequest {
                     event: event.clone(),
                     authorization_lease: submission
@@ -868,6 +886,45 @@ impl Client {
 /// ordinary Events reach the authorization issuer.
 fn initial_submission_context(events: &[Event]) -> Result<EventSubmitContext> {
     Ok(arkret_wire::classify_event_submit_context(events)?)
+}
+
+fn anchor_unit_requires_precollected_receipts(
+    first_kind: Option<&str>,
+    delegated_genesis: bool,
+) -> Result<bool> {
+    if first_kind == Some(arkret_wire::EventKind::REALM_CREATE) && delegated_genesis {
+        return Err(Error::Protocol(
+            "delegated Realm genesis requires an explicit local proposal authority".to_owned(),
+        ));
+    }
+    Ok(first_kind.is_some_and(|kind| kind != arkret_wire::EventKind::REALM_CREATE))
+}
+
+#[cfg(test)]
+mod initial_submission_tests {
+    use super::anchor_unit_requires_precollected_receipts;
+
+    #[test]
+    fn realm_genesis_receipts_are_minted_during_atomic_ingress() {
+        assert!(
+            !anchor_unit_requires_precollected_receipts(
+                Some(arkret_wire::EventKind::REALM_CREATE),
+                false,
+            )
+            .unwrap()
+        );
+        assert!(
+            anchor_unit_requires_precollected_receipts(Some("ak.device.reanchor"), false).unwrap()
+        );
+        assert!(
+            anchor_unit_requires_precollected_receipts(
+                Some(arkret_wire::EventKind::REALM_CREATE),
+                true,
+            )
+            .is_err(),
+            "managed genesis must select an explicit controller receipt signer"
+        );
+    }
 }
 
 fn merge_range_completeness(

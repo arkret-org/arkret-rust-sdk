@@ -117,9 +117,10 @@ pub fn build_self_principal_pcr_create(
 /// Validate and package the closed two-slot self-principal bootstrap batch.
 /// The receiver still verifies both cryptographic proofs and entry-0 history.
 ///
-/// Each slot travels as an [`EventInitialSubmission`]. Online bootstrap uses
-/// current-state admission; an explicitly delayed bootstrap may additionally
-/// carry a lease beside the signed Event.
+/// Each slot travels with one authorization lease bound to the complete
+/// ordered anchor unit. The admitting Principal Server uses that pre-admission
+/// evidence to mint the two proposal receipts inside the atomic genesis
+/// transaction, so callers must not attach proposal receipts themselves.
 pub fn self_principal_bootstrap_submit_request(
     create: EventInitialSubmission,
     authorize: EventInitialSubmission,
@@ -128,6 +129,30 @@ pub fn self_principal_bootstrap_submit_request(
     validate_self_principal_bootstrap_unit(&create.event, &authorize.event, project)?;
     for submission in [&create, &authorize] {
         submission.validate_structural_in_context(arkret_wire::EventSubmitContext::AnchorUnit)?;
+    }
+    let leases = [
+        create.authorization_lease.clone().ok_or_else(|| {
+            Error::Protocol(
+                "self principal bootstrap requires a complete anchor-unit authorization lease set"
+                    .to_owned(),
+            )
+        })?,
+        authorize.authorization_lease.clone().ok_or_else(|| {
+            Error::Protocol(
+                "self principal bootstrap requires a complete anchor-unit authorization lease set"
+                    .to_owned(),
+            )
+        })?,
+    ];
+    arkret_wire::validate_anchor_unit_lease_bindings(
+        &[create.event.clone(), authorize.event.clone()],
+        &leases,
+    )?;
+    if create.control_proposal_receipt.is_some() || authorize.control_proposal_receipt.is_some() {
+        return Err(Error::Protocol(
+            "self principal bootstrap proposal receipts are minted by the admitting server"
+                .to_owned(),
+        ));
     }
     Ok(EventsSubmitRequestBody::Batch(
         EventsSubmitBatchRequestBody {
