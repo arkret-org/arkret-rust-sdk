@@ -47,7 +47,7 @@ pub struct AgentProvisionPayload {
 
 impl AgentProvisionPayload {
     pub fn validate(&self) -> Result<()> {
-        let prepared = arkret_wire::string_profiles::prepare_agent_slug(&self.agent_slug)?;
+        let prepared = prepare_agent_slug(&self.agent_slug)?;
         if prepared != self.agent_slug {
             return Err(Error::Protocol(
                 "agent_slug must already use the canonical agent-slug profile".to_owned(),
