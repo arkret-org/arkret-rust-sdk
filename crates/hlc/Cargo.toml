@@ -19,6 +19,7 @@ arkret-canonical = {workspace = true}
 arkret-identifiers = {workspace = true}
 arkret-wire = {workspace = true}
 thiserror = {workspace = true}
+web-time = {workspace = true}
 
 [dev-dependencies]
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}

@@ -267,6 +267,7 @@ dependencies = [
  "arkret-wire",
  "serde_json",
  "thiserror",
+ "web-time",
 ]
 
 [[package]]
@@ -311,6 +312,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "uuid",
+ "web-time",
 ]
 
 [[package]]
@@ -535,6 +537,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tracing",
+ "web-time",
 ]
 
 [[package]]
@@ -623,6 +626,7 @@ dependencies = [
  "unicode-normalization",
  "unicode-security",
  "url",
+ "web-time",
 ]
 
 [[package]]

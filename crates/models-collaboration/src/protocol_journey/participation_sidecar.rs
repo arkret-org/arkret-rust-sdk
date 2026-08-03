@@ -21,6 +21,35 @@ pub struct ParticipationBits {
 }
 
 impl ParticipationBits {
+    pub const NONE: Self = Self {
+        reply_message: false,
+        reaction_add: false,
+        reaction_remove: false,
+        accept_third_party_mention: false,
+        act_on_behalf: false,
+    };
+
+    pub const ALL: Self = Self {
+        reply_message: true,
+        reaction_add: true,
+        reaction_remove: true,
+        accept_third_party_mention: true,
+        act_on_behalf: true,
+    };
+
+    #[must_use]
+    pub fn intersect(self, other: Self) -> Self {
+        Self {
+            reply_message: self.reply_message && other.reply_message,
+            reaction_add: self.reaction_add && other.reaction_add,
+            reaction_remove: self.reaction_remove && other.reaction_remove,
+            accept_third_party_mention: self.accept_third_party_mention
+                && other.accept_third_party_mention,
+            act_on_behalf: self.act_on_behalf && other.act_on_behalf,
+        }
+    }
+
+    #[must_use]
     pub fn is_subset_of(self, ceiling: Self) -> bool {
         (!self.reply_message || ceiling.reply_message)
             && (!self.reaction_add || ceiling.reaction_add)
@@ -55,6 +84,34 @@ impl ParticipationScope {
             | Self::Strand { realm_id, .. } => realm_id,
         }
     }
+
+    /// Stable account-data key used by participation projections.
+    #[must_use]
+    pub fn scope_key(&self) -> String {
+        match self {
+            Self::Realm { realm_id } => format!("realm:{}", uuid_part(realm_id.as_str())),
+            Self::Circle {
+                realm_id,
+                circle_id,
+            } => format!(
+                "circle:{}:{}",
+                uuid_part(realm_id.as_str()),
+                uuid_part(circle_id.as_str())
+            ),
+            Self::Strand {
+                realm_id,
+                strand_id,
+            } => format!(
+                "strand:{}:{}",
+                uuid_part(realm_id.as_str()),
+                uuid_part(strand_id.as_str())
+            ),
+        }
+    }
+}
+
+fn uuid_part(typed_id: &str) -> &str {
+    typed_id.rsplit(':').next().unwrap_or(typed_id)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

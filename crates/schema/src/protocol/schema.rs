@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
-use std::time::Instant;
+use web_time::Instant;
 
 use arkret_wire::{
     SchemaId, validate_canonical_acct_uri, validate_canonical_agent_slug,

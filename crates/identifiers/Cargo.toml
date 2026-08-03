@@ -43,6 +43,7 @@ salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
 thiserror = {workspace = true}
 uuid = {workspace = true}
+web-time = {workspace = true}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = {workspace = true,default-features = true,features = ["wasm_js"]}
 getrandom_02 = {workspace = true,features = ["js"]}

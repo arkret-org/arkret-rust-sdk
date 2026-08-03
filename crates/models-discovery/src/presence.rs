@@ -43,6 +43,53 @@ pub enum PresenceStatus {
     Offline,
 }
 
+/// Sender-side visibility policy stored in the principal-private
+/// `ak.presence.visibility` account-data payload (§3.4).
+///
+/// This is a protocol closed set. Applications must keep this typed until
+/// serialization instead of copying its wire strings into local enums.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PresenceVisibility {
+    #[default]
+    Public,
+    ContactsOnly,
+    Nobody,
+}
+
+impl PresenceVisibility {
+    /// Strict parse of the v1 wire closed set.
+    pub fn parse_wire(value: &str) -> Option<Self> {
+        match value {
+            "public" => Some(Self::Public),
+            "contacts_only" => Some(Self::ContactsOnly),
+            "nobody" => Some(Self::Nobody),
+            _ => None,
+        }
+    }
+
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::ContactsOnly => "contacts_only",
+            Self::Nobody => "nobody",
+        }
+    }
+
+    /// `nobody` suppresses presence fanout at the sending client.
+    pub fn allows_presence_send(self) -> bool {
+        !matches!(self, Self::Nobody)
+    }
+}
+
+/// Canonical `ak.presence.visibility` account-data payload (§3.4).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PresenceVisibilityPreference {
+    pub presence_visibility: PresenceVisibility,
+}
+
 impl PresenceStatus {
     /// Strict closed-set wire parse (§3.2). Unknown values return
     /// `None` — the receiver MUST drop the update / fail closed with
@@ -242,6 +289,12 @@ pub struct PresencePreference {
 }
 
 impl PresencePreference {
+    /// Whether the payload carries no manual state or status message.
+    /// An empty value is represented by deleting the account-data key.
+    pub fn is_empty(&self) -> bool {
+        self.manual_state.is_none() && self.status_message.is_none()
+    }
+
     /// Structural validation (§3.6): `manual_state` must not be
     /// `offline` and any `status_message` must satisfy the shared
     /// wire constraints.
@@ -282,6 +335,11 @@ impl PresencePreference {
             None
         }
     }
+
+    /// The next active expiry, if any. Expired values return `None`.
+    pub fn next_clears_at(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.clears_at.filter(|clears_at| now < *clears_at)
+    }
 }
 
 #[cfg(test)]
@@ -309,6 +367,24 @@ mod tests {
         assert_eq!(PresenceStatus::parse_wire("busy"), None);
         assert_eq!(PresenceStatus::parse_wire("Online"), None);
         assert_eq!(PresenceStatus::parse_wire(""), None);
+    }
+
+    #[test]
+    fn visibility_payload_is_sdk_owned_and_strict() {
+        assert_eq!(
+            PresenceVisibility::parse_wire("contacts_only"),
+            Some(PresenceVisibility::ContactsOnly)
+        );
+        assert_eq!(PresenceVisibility::parse_wire("friends"), None);
+        assert!(!PresenceVisibility::Nobody.allows_presence_send());
+
+        let payload = PresenceVisibilityPreference {
+            presence_visibility: PresenceVisibility::ContactsOnly,
+        };
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({"presence_visibility": "contacts_only"})
+        );
     }
 
     #[test]

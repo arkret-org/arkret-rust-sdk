@@ -1,6 +1,6 @@
 //! AKP-0010 — Agent participation policy.
 //!
-//! Three orthogonal autonomous-behavior bits a native personal agent's
+//! Five orthogonal autonomous-behavior bits a native personal agent's
 //! controller may enable in a scope, each capped by a monotone
 //! `deployment ⊇ Realm ⊇ Circle ⊇ Strand` ceiling. The effective
 //! participation in a scope is `effective_ceiling ∩ controller_selection`,
@@ -13,9 +13,14 @@
 //! gate. This module only supplies the wire vocabulary and the
 //! reducer-pure tighten-only validators that those layers call.
 
-use arkret_wire::{CircleId, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
+
+pub use crate::protocol_journey::{
+    ParticipationBits as AgentParticipation,
+    ParticipationReplacementBatch as AgentParticipationReplaceRequestBody,
+    ParticipationScope as AgentParticipationScope,
+};
 
 /// Stable grant id for the capability materialized from one Agent
 /// participation selection. Keeping this derivation shared lets the controller
@@ -48,66 +53,6 @@ pub fn agent_participation_grant_id(agent_id: &str, scope_key: &str) -> String {
     )
 }
 
-/// The three participation bits. Constructs a partial order under
-/// implication: `a ⊆ b` iff every bit set in `a` is set in `b`.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentParticipation {
-    /// Agent may author `ak.message.create` / `ak.reaction.add` as
-    /// itself (reply-as-agent) in this scope.
-    #[serde(default)]
-    pub reply: bool,
-    /// A mention authored by a principal other than the agent's
-    /// controller is delivered to the agent and may trigger autonomous
-    /// handling. When false, only the controller's own mentions reach
-    /// the agent.
-    #[serde(default)]
-    pub accept_third_party_mention: bool,
-    /// Agent may author `actor_id=controller, executed_by=agent`
-    /// (act-on-behalf), subject to AKP-0008 §4.10 approval constraints.
-    #[serde(default)]
-    pub act_on_behalf: bool,
-}
-
-impl AgentParticipation {
-    /// Minimal element — every bit off.
-    pub const NONE: Self = Self {
-        reply: false,
-        accept_third_party_mention: false,
-        act_on_behalf: false,
-    };
-
-    /// Maximal element — every bit on (the deployment-default ceiling
-    /// fold seed).
-    pub const ALL: Self = Self {
-        reply: true,
-        accept_third_party_mention: true,
-        act_on_behalf: true,
-    };
-
-    /// Bitwise AND. Used both for folding the ceiling chain and for
-    /// `effective = ceiling ∩ selection`.
-    #[must_use]
-    pub fn intersect(self, other: Self) -> Self {
-        Self {
-            reply: self.reply && other.reply,
-            accept_third_party_mention: self.accept_third_party_mention
-                && other.accept_third_party_mention,
-            act_on_behalf: self.act_on_behalf && other.act_on_behalf,
-        }
-    }
-
-    /// `self ⊆ other`: every enabled bit of `self` is enabled in
-    /// `other`.
-    #[must_use]
-    pub fn is_subset_of(self, other: Self) -> bool {
-        (!self.reply || other.reply)
-            && (!self.accept_third_party_mention || other.accept_third_party_mention)
-            && (!self.act_on_behalf || other.act_on_behalf)
-    }
-}
-
 /// Optional per-bit governance ceiling declaration for Circle / Strand
 /// objects. Omitted bits inherit the parent ceiling independently.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -115,7 +60,11 @@ impl AgentParticipation {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationCeiling {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reply: Option<bool>,
+    pub reply_message: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reaction_add: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reaction_remove: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accept_third_party_mention: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -147,7 +96,9 @@ impl AgentParticipationCeiling {
     #[must_use]
     pub fn materialize(self, parent: AgentParticipation) -> AgentParticipation {
         AgentParticipation {
-            reply: self.reply.unwrap_or(parent.reply),
+            reply_message: self.reply_message.unwrap_or(parent.reply_message),
+            reaction_add: self.reaction_add.unwrap_or(parent.reaction_add),
+            reaction_remove: self.reaction_remove.unwrap_or(parent.reaction_remove),
             accept_third_party_mention: self
                 .accept_third_party_mention
                 .unwrap_or(parent.accept_third_party_mention),
@@ -159,79 +110,15 @@ impl AgentParticipationCeiling {
 impl From<AgentParticipation> for AgentParticipationCeiling {
     fn from(value: AgentParticipation) -> Self {
         Self {
-            reply: Some(value.reply),
+            reply_message: Some(value.reply_message),
+            reaction_add: Some(value.reaction_add),
+            reaction_remove: Some(value.reaction_remove),
             accept_third_party_mention: Some(value.accept_third_party_mention),
             act_on_behalf: Some(value.act_on_behalf),
         }
     }
 }
 
-/// The scope a participation selection / ceiling applies to. Realm,
-/// Circle, or Strand — the three levels at which a controller can set a
-/// selection and at which governance can declare a ceiling.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentParticipationScope {
-    Realm {
-        realm_id: RealmId,
-    },
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
-    Strand {
-        realm_id: RealmId,
-        strand_id: StrandId,
-    },
-}
-
-impl AgentParticipationScope {
-    /// Canonical account-data scope_key suffix (AKP-0010 §5.1):
-    /// `realm:<realm_uuid>` / `circle:<realm_uuid>:<circle_uuid>` /
-    /// `strand:<realm_uuid>:<strand_uuid>`. The uuid part is the segment
-    /// after the last `:` of each typed id.
-    #[must_use]
-    pub fn scope_key(&self) -> String {
-        match self {
-            Self::Realm { realm_id } => format!("realm:{}", uuid_part(realm_id.as_str())),
-            Self::Circle {
-                realm_id,
-                circle_id,
-            } => {
-                format!(
-                    "circle:{}:{}",
-                    uuid_part(realm_id.as_str()),
-                    uuid_part(circle_id.as_str())
-                )
-            }
-            Self::Strand {
-                realm_id,
-                strand_id,
-            } => {
-                format!(
-                    "strand:{}:{}",
-                    uuid_part(realm_id.as_str()),
-                    uuid_part(strand_id.as_str())
-                )
-            }
-        }
-    }
-
-    /// The Realm this scope belongs to.
-    #[must_use]
-    pub fn realm_id(&self) -> &RealmId {
-        match self {
-            Self::Realm { realm_id }
-            | Self::Circle { realm_id, .. }
-            | Self::Strand { realm_id, .. } => realm_id,
-        }
-    }
-}
-
-fn uuid_part(typed_id: &str) -> &str {
-    typed_id.rsplit(':').next().unwrap_or(typed_id)
-}
 
 /// Error surfaced by the reducer-pure participation validators.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
@@ -317,22 +204,12 @@ pub fn validate_selection_within_ceiling(
     }
 }
 
-/// Request body for `ak.self.agent.participation.resource.replace`
-/// (`PUT /_arkret/self/agents/{agent_id}/participation`).
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentParticipationReplaceRequestBody {
-    #[serde(rename = "participation_scope")]
-    pub scope: AgentParticipationScope,
-    pub selection: AgentParticipation,
-}
-
 /// One resolved per-scope participation entry: the controller-set
 /// selection, the governance ceiling, and their effective intersection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationEntry {
-    #[serde(rename = "participation_scope")]
+    #[serde(rename = "target_scope")]
     pub scope: AgentParticipationScope,
     pub selection: AgentParticipation,
     pub ceiling: AgentParticipation,

@@ -30,7 +30,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
     AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId,
-    new_prefixed_uuid7,
 };
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
@@ -922,8 +921,11 @@ impl Event {
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
+        let event_unix_ms = u64::try_from(created_at.timestamp_millis()).map_err(|_| {
+            Error::Protocol("event created_at must not precede the Unix epoch".to_owned())
+        })?;
         Self::new_with_id_at(
-            EventId::new(new_prefixed_uuid7("ak:event:"))?,
+            EventId::new_v7_at(event_unix_ms),
             kind,
             scope_ref,
             actor_id,

@@ -118,6 +118,20 @@ macro_rules! uuid_id_type {
             /// The `ak:<kind>:` wire prefix this id-kind validates against.
             pub const KIND_PREFIX: &'static str = $prefix;
 
+            /// Mint a canonical typed UUIDv7 identifier from an explicit
+            /// observed Unix millisecond timestamp.
+            ///
+            /// The timestamp is supplied by the platform boundary, while the
+            /// SDK owns the RFC 9562 layout, randomness and same-millisecond
+            /// monotonic counter. If the observed clock moves backward, the
+            /// encoded time stays at or after the last generated id. Callers
+            /// therefore cannot accidentally mint
+            /// this identifier with another kind's prefix or depend on an
+            /// unsupported target clock.
+            pub fn new_v7_at(unix_ms: u64) -> Self {
+                Self::from_uuid(uuid_v7_at(unix_ms))
+            }
+
             /// Bare RFC 9562 UUIDv7 payload — the database at-rest form.
             /// Infallible: construction already validated the canonical
             /// `ak:<kind>:<uuidv7>` shape.
@@ -434,7 +448,36 @@ pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
 /// `conformance/encoding.md` §4 and is the canonical wire form for typed
 /// `ak:<kind>:` identifiers (Arkret v1, 2026-05-09 onward).
 pub fn new_prefixed_uuid7(prefix: &str) -> String {
-    format!("{prefix}{}", uuid::Uuid::now_v7())
+    format!("{prefix}{}", uuid_v7_at(platform_unix_ms()))
+}
+
+static UUID_V7_CONTEXT: std::sync::Mutex<uuid::ContextV7> =
+    std::sync::Mutex::new(uuid::ContextV7::new());
+
+/// Generate a bare RFC 9562 UUIDv7 from an explicit observed platform time.
+///
+/// This is the only untyped generation primitive exposed by the SDK. Protocol
+/// identifiers should use their concrete `new_v7_at` constructor instead;
+/// this function exists for opaque non-protocol correlation values that still
+/// require UUIDv7 ordering. The shared context preserves monotonicity across a
+/// clock rollback, so the encoded timestamp may be later than `unix_ms` but is
+/// never moved backward relative to an id already minted in this process.
+pub fn uuid_v7_at(unix_ms: u64) -> uuid::Uuid {
+    let seconds = unix_ms / 1_000;
+    let subsec_nanos = ((unix_ms % 1_000) * 1_000_000) as u32;
+    let context = UUID_V7_CONTEXT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    uuid::Uuid::new_v7(uuid::Timestamp::from_unix(&*context, seconds, subsec_nanos))
+}
+
+fn platform_unix_ms() -> u64 {
+    use web_time::{SystemTime, UNIX_EPOCH};
+
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| u64::try_from(duration.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
 }
 
 /// Validate that `value` is a canonical lower-case RFC 9562 UUIDv7 in the
@@ -609,6 +652,13 @@ id_type!(OperationId, |value: &str| is_strict_typed_id(
     value,
     "ak:operation:"
 ) || is_hash(value));
+
+impl OperationId {
+    /// Mint the UUIDv7 form of an Operation id at an explicit Unix timestamp.
+    pub fn new_v7_at(unix_ms: u64) -> Self {
+        Self(format!("ak:operation:{}", uuid_v7_at(unix_ms)))
+    }
+}
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
 
 impl MessageId {
@@ -1063,6 +1113,31 @@ mod tests {
         let id2 = new_prefixed_uuid7("ak:space:");
         assert_ne!(id, id2);
         assert!(SpaceId::new(id).is_ok());
+    }
+
+    #[test]
+    fn typed_uuidv7_generation_preserves_kind_time_and_monotonicity() {
+        let unix_ms = 1_725_000_123_456;
+        let first = RealmId::new_v7_at(unix_ms);
+        let second = RealmId::new_v7_at(unix_ms);
+
+        assert!(first.as_str().starts_with(RealmId::KIND_PREFIX));
+        assert!(second.as_str().starts_with(RealmId::KIND_PREFIX));
+        assert!(first < second, "same-millisecond ids must remain ordered");
+
+        let timestamp = first.uuid().get_timestamp().expect("UUIDv7 timestamp");
+        let (seconds, nanos) = timestamp.to_unix();
+        let encoded_unix_ms = seconds
+            .saturating_mul(1_000)
+            .saturating_add(u64::from(nanos / 1_000_000));
+        assert!(
+            encoded_unix_ms >= unix_ms,
+            "the shared monotonic context may advance a rolled-back clock but never regress it"
+        );
+
+        let operation = OperationId::new_v7_at(unix_ms);
+        assert!(operation.as_str().starts_with("ak:operation:"));
+        assert!(OperationId::new(operation.into_string()).is_ok());
     }
 
     /// `DeviceMessageTransactionId` and `TransactionId` are disjoint value
