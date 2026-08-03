@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-03.5;
-//! sha256=fed869d1a550d99c0850d45aadef0ba5ab75d55194c56260c9799ba3835b9533 Entries: error_codes=276
+//! Input: registry/error-code-registry.json; version=2026-08-03.6;
+//! sha256=5c2df9e9af5c07d519d433c5872ef6c8f7d2746be06990be275853003c70e78d Entries: error_codes=275
 
 use serde::{Deserialize, Serialize};
 
@@ -195,7 +195,6 @@ pub enum ErrorCode {
     OrganizationRegistrationScopeUnsupported,
     OrganizationRegistrationStale,
     OverbroadRequest,
-    ParticipationEvidenceConflict,
     PayloadDigestMismatch,
     PayloadTooLarge,
     PolicyCombinationInvalid,
@@ -485,7 +484,6 @@ impl ErrorCode {
         Self::OrganizationRegistrationScopeUnsupported,
         Self::OrganizationRegistrationStale,
         Self::OverbroadRequest,
-        Self::ParticipationEvidenceConflict,
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
         Self::PolicyCombinationInvalid,
@@ -781,7 +779,6 @@ impl ErrorCode {
         "organization_registration_scope_unsupported";
     pub const ORGANIZATION_REGISTRATION_STALE: &'static str = "organization_registration_stale";
     pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
-    pub const PARTICIPATION_EVIDENCE_CONFLICT: &'static str = "participation_evidence_conflict";
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
     pub const POLICY_COMBINATION_INVALID: &'static str = "policy_combination_invalid";
@@ -1088,7 +1085,6 @@ impl ErrorCode {
             }
             Self::OrganizationRegistrationStale => "organization_registration_stale",
             Self::OverbroadRequest => "overbroad_request",
-            Self::ParticipationEvidenceConflict => "participation_evidence_conflict",
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
             Self::PolicyCombinationInvalid => "policy_combination_invalid",
@@ -1395,7 +1391,6 @@ impl ErrorCode {
             }
             "organization_registration_stale" => Some(Self::OrganizationRegistrationStale),
             "overbroad_request" => Some(Self::OverbroadRequest),
-            "participation_evidence_conflict" => Some(Self::ParticipationEvidenceConflict),
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
             "policy_combination_invalid" => Some(Self::PolicyCombinationInvalid),
@@ -2855,14 +2850,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "A presentation request asks for unrelated handles, credential identifiers, or global identifiers beyond its declared purpose.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ParticipationEvidenceConflict,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A participation challenge or accepted target receipt was reused outside its exact agent/scope/commitment/target/verifier/audience binding, expired, or paired with different signed batch bytes. The target Realm authority performs no write.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PayloadDigestMismatch,

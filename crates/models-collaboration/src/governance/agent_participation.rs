@@ -7,47 +7,13 @@
 //! where `effective_ceiling` is the bitwise AND of every enclosing
 //! level's ceiling (AKP-0010 §3–§5).
 //!
-//! Enforcement is not in this module: `reply` / `act_on_behalf`
-//! materialize into ordinary `ak.capability.grant` records, and
-//! `accept_third_party_mention` drives the dispatcher's mention fanout
-//! gate. This module only supplies the wire vocabulary and the
-//! reducer-pure tighten-only validators that those layers call.
+//! Participation is an additional execution gate, never a capability grant.
+//! An action is allowed only when ordinary capability/lifecycle checks pass
+//! and the current selection/ceiling intersection enables its bit.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest as _, Sha256};
 
 use crate::protocol_journey::{ParticipationBits, ParticipationScope};
-
-/// Stable grant id for the capability materialized from one Agent
-/// participation selection. Keeping this derivation shared lets the controller
-/// replace or revoke the same grant cell across repeated selection changes.
-#[must_use]
-pub fn agent_participation_grant_id(agent_id: &str, scope_key: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(b"ak:grant:agent_participation:v1:");
-    hasher.update(agent_id.as_bytes());
-    hasher.update(b"\0");
-    hasher.update(scope_key.as_bytes());
-    let digest = hasher.finalize();
-    let mut bytes = [0u8; 16];
-    bytes.copy_from_slice(&digest[..16]);
-    bytes[6] = (bytes[6] & 0x0F) | 0x70;
-    bytes[8] = (bytes[8] & 0x3F) | 0x80;
-    let hex = |slice: &[u8]| {
-        slice
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    };
-    format!(
-        "ak:grant:{}-{}-{}-{}-{}",
-        hex(&bytes[0..4]),
-        hex(&bytes[4..6]),
-        hex(&bytes[6..8]),
-        hex(&bytes[8..10]),
-        hex(&bytes[10..16]),
-    )
-}
 
 /// Governance object shape used by Realm, Circle and Strand schemas.
 /// Native personal-agent permissions are explicitly namespaced so future
@@ -78,15 +44,6 @@ pub enum AgentParticipationError {
     CeilingWiden {
         parent: ParticipationBits,
         child: ParticipationBits,
-    },
-    /// A controller selection enables a bit the effective ceiling
-    /// disables.
-    #[error(
-        "reason=agent_participation_exceeds_ceiling: selection {selection:?} exceeds ceiling {ceiling:?}"
-    )]
-    ExceedsCeiling {
-        ceiling: ParticipationBits,
-        selection: ParticipationBits,
     },
 }
 
@@ -137,30 +94,17 @@ pub fn effective_participation(
     ceiling.intersect(selection)
 }
 
-/// Validate a controller selection against the effective ceiling: every
-/// enabled bit MUST be permitted by the ceiling (AKP-0010 §8.1). Returns
-/// `Ok(())` iff `selection ⊆ ceiling`.
-pub fn validate_selection_within_ceiling(
-    ceiling: ParticipationBits,
-    selection: ParticipationBits,
-) -> Result<(), AgentParticipationError> {
-    if selection.is_subset_of(ceiling) {
-        Ok(())
-    } else {
-        Err(AgentParticipationError::ExceedsCeiling { ceiling, selection })
-    }
-}
-
-/// One resolved per-scope participation entry: the controller-set
-/// selection, the governance ceiling, and their effective intersection.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// One controller-owned, versioned per-scope participation selection.
+/// Governance and deployment ceilings are evaluated at action time and are
+/// intentionally not copied into this authority record.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationEntry {
     #[serde(rename = "target_scope")]
     pub scope: ParticipationScope,
     pub selection: ParticipationBits,
-    pub ceiling: ParticipationBits,
-    pub effective: ParticipationBits,
+    pub version: u64,
 }
 
 /// Response for `ak.self.agent.participation.{set,get}`.
@@ -275,16 +219,6 @@ mod tests {
     }
 
     #[test]
-    fn selection_within_ceiling_gate() {
-        let ceiling = p(true, false, false);
-        assert!(validate_selection_within_ceiling(ceiling, p(true, false, false)).is_ok());
-        assert!(matches!(
-            validate_selection_within_ceiling(ceiling, p(true, true, false)),
-            Err(AgentParticipationError::ExceedsCeiling { .. })
-        ));
-    }
-
-    #[test]
     fn ceiling_chain_folds_by_intersection() {
         // deployment ⊇ realm ⊇ circle ⊇ strand.
         let chain = [
@@ -310,21 +244,5 @@ mod tests {
             scope.scope_key(),
             "strand:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"
         );
-    }
-
-    #[test]
-    fn participation_grant_id_is_stable_and_scope_specific() {
-        let agent = "did:web:agent.example";
-        let realm_scope = "realm:01970000-0000-7000-8000-000000000000";
-        let first = agent_participation_grant_id(agent, realm_scope);
-        assert_eq!(first, agent_participation_grant_id(agent, realm_scope));
-        assert_ne!(
-            first,
-            agent_participation_grant_id(
-                agent,
-                "strand:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"
-            )
-        );
-        assert!(arkret_wire::GrantId::new(first).is_ok());
     }
 }

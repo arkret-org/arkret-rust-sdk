@@ -552,14 +552,6 @@ mod tests {
             resources: vec![],
             constraints: vec![],
         };
-        let participation_ceiling =
-            arkret_models_collaboration::protocol_journey::ParticipationBits {
-                reply_message: true,
-                reaction_add: false,
-                reaction_remove: false,
-                accept_third_party_mention: false,
-                act_on_behalf: false,
-            };
         let mut disclosure = AgentRequestedScopeDisclosure {
             schema: SchemaId::AgentRequestedScopeDisclosureV1,
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
@@ -569,11 +561,9 @@ mod tests {
                 &agent_id,
                 &controller_id,
                 &requested_scope,
-                participation_ceiling,
             )
             .unwrap(),
             requested_scope,
-            participation_ceiling,
             verifier_did: service_id.clone(),
             audience: NonEmptyString::new(
                 arkret_wire::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
@@ -596,7 +586,7 @@ mod tests {
         };
         disclosure.proofs[0].event_digest = disclosure.payload_digest().unwrap();
         let mut tampered_disclosure = disclosure.clone();
-        tampered_disclosure.participation_ceiling.reply_message = false;
+        tampered_disclosure.requested_scope.actions.clear();
         assert!(tampered_disclosure.validate().is_err());
         let authorize_event = Event::new(
             EventKind::AGENT_KEY_AUTHORIZE,

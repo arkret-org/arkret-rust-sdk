@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-03.5;
-//! sha256=fed869d1a550d99c0850d45aadef0ba5ab75d55194c56260c9799ba3835b9533
-//! Entries: reason_codes=457
+//! Input: registry/error-code-registry.json; version=2026-08-03.6;
+//! sha256=5c2df9e9af5c07d519d433c5872ef6c8f7d2746be06990be275853003c70e78d
+//! Entries: reason_codes=456
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -26,7 +26,6 @@ pub enum ReasonCode {
     AgentKeyAuthorizationExpired,
     AgentParticipationCeilingUnresolved,
     AgentParticipationCeilingWiden,
-    AgentParticipationExceedsCeiling,
     AgentPaused,
     AgentPcrRecoveryNotReady,
     AgentReplyNotPermitted,
@@ -497,8 +496,6 @@ impl ReasonCode {
     pub const AGENT_PARTICIPATION_CEILING_UNRESOLVED: &'static str =
         "agent_participation_ceiling_unresolved";
     pub const AGENT_PARTICIPATION_CEILING_WIDEN: &'static str = "agent_participation_ceiling_widen";
-    pub const AGENT_PARTICIPATION_EXCEEDS_CEILING: &'static str =
-        "agent_participation_exceeds_ceiling";
     pub const AGENT_PAUSED: &'static str = "agent_paused";
     pub const AGENT_PCR_RECOVERY_NOT_READY: &'static str = "agent_pcr_recovery_not_ready";
     pub const AGENT_REPLY_NOT_PERMITTED: &'static str = "agent_reply_not_permitted";
@@ -1048,7 +1045,6 @@ impl ReasonCode {
                 Self::AGENT_PARTICIPATION_CEILING_UNRESOLVED
             }
             Self::AgentParticipationCeilingWiden => Self::AGENT_PARTICIPATION_CEILING_WIDEN,
-            Self::AgentParticipationExceedsCeiling => Self::AGENT_PARTICIPATION_EXCEEDS_CEILING,
             Self::AgentPaused => Self::AGENT_PAUSED,
             Self::AgentPcrRecoveryNotReady => Self::AGENT_PCR_RECOVERY_NOT_READY,
             Self::AgentReplyNotPermitted => Self::AGENT_REPLY_NOT_PERMITTED,
@@ -1619,7 +1615,6 @@ impl ReasonCode {
                 Self::AgentParticipationCeilingUnresolved
             }
             Self::AGENT_PARTICIPATION_CEILING_WIDEN => Self::AgentParticipationCeilingWiden,
-            Self::AGENT_PARTICIPATION_EXCEEDS_CEILING => Self::AgentParticipationExceedsCeiling,
             Self::AGENT_PAUSED => Self::AgentPaused,
             Self::AGENT_PCR_RECOVERY_NOT_READY => Self::AgentPcrRecoveryNotReady,
             Self::AGENT_REPLY_NOT_PERMITTED => Self::AgentReplyNotPermitted,
@@ -2311,17 +2306,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PARTICIPATION_CEILING_UNRESOLVED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "Evaluating `ak.self.agent.participation.resource.replace` required folding the immutable provision-derived ceiling with the deployment⊇Realm⊇Circle⊇Strand agent-participation ceiling, but one or more layers were in a bottom (⊥) / unresolvable state at the operation's basis. The fold MUST treat any unresolved layer as the most restrictive (empty selection / full deny) and the replace MUST `failed_precondition`; an unresolved layer MUST NOT be read as 'no declaration = no tightening'. See zh/authz/capabilities.md §5.4.",
+        description: "An Agent action or mention fanout requires the current target-local deployment/Realm/Circle/Strand participation policy, but one or more required layers are bottom (⊥), stale or unresolvable. The action-time gate treats the unresolved policy as all false. The controller's private selection remains stored unchanged. See zh/authz/capabilities.md §5.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PARTICIPATION_CEILING_WIDEN,
         applies_to: &["state_resolution"],
         description: "Sub-reason for failed_precondition when a Realm/Circle/Strand agent_participation ceiling write would widen (enable a bit disabled by) its parent ceiling. The deployment ⊇ Realm ⊇ Circle ⊇ Strand ceiling chain is tighten-only (monotone). See zh/models/realm-and-space.md, zh/models/circle.md, zh/authz/capabilities.md §5.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AGENT_PARTICIPATION_EXCEEDS_CEILING,
-        applies_to: &["state_resolution", "service_call"],
-        description: "Sub-reason for failed_precondition when a controller's ak.self.agent.participation.resource.replace selection enables a bit disabled by either the immutable provision-derived ceiling or the effective deployment/Realm/Circle/Strand governance ceiling. Effective participation = provision-derived ceiling ∩ governance ceiling ∩ selection. See zh/authz/capabilities.md §5.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PAUSED,
@@ -2336,12 +2326,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_REPLY_NOT_PERMITTED,
         applies_to: &["state_resolution"],
-        description: "A native personal agent attempted to author ak.message.create / ak.reaction.add in a scope where its effective participation reply bit is false (no reply-enabled selection ∩ ceiling covering the scope). See zh/authz/capabilities.md §5.4 and zh/models/private-objects.md §4.1.",
+        description: "A native personal agent attempted to author ak.message.create in a scope where current controller selection and current target policy do not both enable reply_message. See zh/authz/capabilities.md §5.4 and zh/models/private-objects.md §4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The complete immutable Agent requested_scope commitment is missing from accepted-at Agent DID history, differs from the service projection, or its domain-separated digest does not verify. Pairing, Realm grant admission, participation and agent session issuance MUST fail closed and MUST NOT treat a service-local Agent row as the authority source. See zh/identity/key-management.md section 3.6.1.",
+        description: "The complete immutable Agent requested_scope commitment is missing from accepted-at Agent DID history, differs from the service projection, or its domain-separated digest does not verify. Pairing, Realm grant admission and agent session issuance MUST fail closed and MUST NOT treat a service-local Agent row as the authority source. See zh/identity/key-management.md section 3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_RUNTIME_REQUEST_CONFLICT,

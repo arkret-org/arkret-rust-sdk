@@ -18,7 +18,6 @@ use crate::events_payloads::agent::{
 use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapshot, PublicKey};
 use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody};
 use crate::internal_prelude::*;
-use crate::protocol_journey::ParticipationBits;
 
 pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT: &str =
     "ak.agent-runtime-key-possession-proof-v1";
@@ -210,7 +209,7 @@ pub fn agent_key_pairing_request_binding_digest(
 }
 
 /// Controller-signed, verifier-bound private disclosure of an Agent's
-/// immutable requested-scope and five-bit participation ceilings.
+/// immutable requested scope.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -220,7 +219,6 @@ pub struct AgentRequestedScopeDisclosure {
     pub agent_id: Did,
     pub controller_id: Did,
     pub requested_scope: AgentKeyScope,
-    pub participation_ceiling: ParticipationBits,
     pub requested_scope_digest: Hash,
     pub verifier_did: Did,
     pub audience: NonEmptyString,
@@ -308,7 +306,6 @@ impl AgentRequestedScopeDisclosure {
             &self.agent_id,
             &self.controller_id,
             &self.requested_scope,
-            self.participation_ceiling,
         )?;
         if self.requested_scope_digest != expected {
             return Err(Error::Protocol(
@@ -2136,7 +2133,6 @@ struct AgentRequestedScopeCommitment<'a> {
     controller_id: &'a str,
     kind: &'static str,
     requested_scope: &'a AgentKeyScope,
-    participation_ceiling: ParticipationBits,
 }
 
 /// Compute the immutable provision ceiling commitment fixed in the accepted
@@ -2145,7 +2141,6 @@ pub fn agent_requested_scope_digest(
     agent_id: &Did,
     controller_id: &Did,
     requested_scope: &AgentKeyScope,
-    participation_ceiling: ParticipationBits,
 ) -> Result<Hash> {
     Hash::new(canonical::canonical_sha256(
         &AgentRequestedScopeCommitment {
@@ -2153,7 +2148,6 @@ pub fn agent_requested_scope_digest(
             controller_id: controller_id.as_str(),
             kind: "ak.agent.requested_scope_commitment.v1",
             requested_scope,
-            participation_ceiling,
         },
     )?)
     .map_err(Error::from)
@@ -2279,13 +2273,6 @@ mod tests {
                 "actions": ["ak.message.create"],
                 "resources": []
             },
-            "participation_ceiling": {
-                "reply_message": true,
-                "reaction_add": false,
-                "reaction_remove": false,
-                "accept_third_party_mention": false,
-                "act_on_behalf": false
-            },
             "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
             "verifier_did": "did:webvh:z6mkfixture:verifier.example",
             "audience": "ak.gate.account.command.pair_agent_key",
@@ -2297,30 +2284,13 @@ mod tests {
     }
 
     #[test]
-    fn requested_scope_disclosure_requires_closed_five_bit_ceiling() {
+    fn requested_scope_disclosure_is_closed() {
         let valid = requested_scope_disclosure_wire();
-        let parsed: AgentRequestedScopeDisclosure = serde_json::from_value(valid.clone()).unwrap();
-        assert!(parsed.participation_ceiling.reply_message);
-        assert!(!parsed.participation_ceiling.accept_third_party_mention);
+        serde_json::from_value::<AgentRequestedScopeDisclosure>(valid.clone()).unwrap();
 
-        let mut missing = valid.clone();
-        missing
-            .as_object_mut()
-            .unwrap()
-            .remove("participation_ceiling");
-        assert!(serde_json::from_value::<AgentRequestedScopeDisclosure>(missing).is_err());
-
-        let mut old_three_bit = valid.clone();
-        old_three_bit["participation_ceiling"] = serde_json::json!({
-            "reply": true,
-            "accept_third_party_mention": false,
-            "act_on_behalf": false
-        });
-        assert!(serde_json::from_value::<AgentRequestedScopeDisclosure>(old_three_bit).is_err());
-
-        let mut unknown_bit = valid;
-        unknown_bit["participation_ceiling"]["forward_message"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<AgentRequestedScopeDisclosure>(unknown_bit).is_err());
+        let mut unknown = valid;
+        unknown["participation_ceiling"] = serde_json::json!({"reply_message": true});
+        assert!(serde_json::from_value::<AgentRequestedScopeDisclosure>(unknown).is_err());
     }
 
     #[test]
@@ -2744,46 +2714,22 @@ mod tests {
             ]
         }))
         .unwrap();
-        let participation_ceiling = ParticipationBits {
-            reply_message: true,
-            reaction_add: true,
-            reaction_remove: false,
-            accept_third_party_mention: false,
-            act_on_behalf: false,
-        };
-        let digest = agent_requested_scope_digest(
-            &agent_id,
-            &controller_id,
-            &requested_scope,
-            participation_ceiling,
-        )
-        .unwrap();
+        let digest =
+            agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope).unwrap();
 
         assert_eq!(
             digest.as_str(),
-            "sha256:ed09b8fa1706647e9908bfd584b4fa2ac69fbd4efb6b639350e214d4c280e386"
+            "sha256:fc25a74d604984484de924bf889d612ba574d4bb4970620c70dc603adf22a042"
         );
         assert_eq!(
             digest,
-            agent_requested_scope_digest(
-                &agent_id,
-                &controller_id,
-                &requested_scope,
-                participation_ceiling,
-            )
-            .unwrap()
+            agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope,).unwrap()
         );
 
-        let tightened = agent_requested_scope_digest(
-            &agent_id,
-            &controller_id,
-            &requested_scope,
-            ParticipationBits {
-                reply_message: false,
-                ..participation_ceiling
-            },
-        )
-        .unwrap();
+        let mut narrower_scope = requested_scope.clone();
+        narrower_scope.actions.pop();
+        let tightened =
+            agent_requested_scope_digest(&agent_id, &controller_id, &narrower_scope).unwrap();
         assert_ne!(digest, tightened);
     }
 }

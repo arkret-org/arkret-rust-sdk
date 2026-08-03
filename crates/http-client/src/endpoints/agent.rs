@@ -17,8 +17,7 @@ use arkret_models_collaboration::agent_signer_evidence::{
 };
 use arkret_models_collaboration::governance::agent_participation::AgentParticipationOutcome;
 use arkret_models_collaboration::protocol_journey::{
-    ParticipationReplaceReceipt, ParticipationReplacementBatch, SidecarEnsureOutcome,
-    SidecarEnsureRequestBody,
+    ParticipationReplaceRequestBody, SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
 use arkret_wire::{GrantId, RealmId, SidecarId};
 use reqwest::Method;
@@ -218,8 +217,8 @@ impl Client {
     pub async fn agent_participation_replace(
         &self,
         agent_id: &str,
-        request: &ParticipationReplacementBatch,
-    ) -> Result<ParticipationReplaceReceipt> {
+        request: &ParticipationReplaceRequestBody,
+    ) -> Result<AgentParticipationOutcome> {
         let path = format!(
             "{}/{}/participation",
             AGENTS_PATH,

@@ -1,13 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-03.9;
-//! sha256=f9cb533d149228a772042ea84964fde8f7371d43ed4abf13c47ef631875b8ca8 Input: registry/
-//! capability-action-registry.json; version=2026-08-03.9;
-//! sha256=6c8146d8894a2cb3095501bf055fda1735672ad5757b0895c2fa4be929e80137 Input: registry/
-//! schema-registry.json; version=2026-08-03.9;
-//! sha256=d79d48a8df35d2b77fc85507f0e417cf077f91cd855d389ac381f462fc111a64 Input: registry/
-//! account-data-key-registry.json; version=2026-07-30;
-//! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=54,
+//! Input: registry/id-kind-registry.json; version=2026-08-03.10;
+//! sha256=9804410f01cc313a451ad39ceef107b452f818cdc45bb8ff3b2d85851b4a6009 Input: registry/
+//! capability-action-registry.json; version=2026-08-03.10;
+//! sha256=3a3b6dec0c456966b9535c3d806175cd2d2f5ab7a5afe32c327e2d44830baf61 Input: registry/
+//! schema-registry.json; version=2026-08-03.10;
+//! sha256=d085b54d1afe5ea1e997e1b47d50a6a39aa10d1dc48423d6258a633e15828c3c Input: registry/
+//! account-data-key-registry.json; version=2026-08-03;
+//! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=54,
 //! special_forms=10, actions=169, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};

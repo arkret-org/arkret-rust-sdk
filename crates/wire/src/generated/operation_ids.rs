@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-03.9;
-//! sha256=d422f419b194fa03043d28891d7699bf09ac86de13846093f014d900e92a966d Entries: registered=231
+//! Input: registry/operation-registry.json; version=2026-08-03.10;
+//! sha256=c0cf9c10a339d0c15e089eb4f29ef50e8a21ddd129c0ddc458cbb9bb9fec90ff Entries: registered=228
 
 use serde::{Deserialize, Serialize};
 
@@ -71,8 +71,6 @@ pub enum ServiceOperationId {
     OpenMimiQueryProviderDirectory,
     PeerAccountStatusCommandSubmit,
     PeerAccountStatusQueryAuthoringBasis,
-    PeerAgentParticipationCommandReplace,
-    PeerAgentParticipationQueryPrepareScopeEvidence,
     PeerContactsCommandSubmit,
     PeerDirectConversationOperationControlCommandDeliver,
     PeerDirectConversationOperationControlCommandSubmit,
@@ -124,7 +122,6 @@ pub enum ServiceOperationId {
     SelfAgentCommandResume,
     SelfAgentGrantCommandAttach,
     SelfAgentGrantResourceDelete,
-    SelfAgentParticipationQueryPrepareScopeEvidence,
     SelfAgentParticipationResourceGet,
     SelfAgentParticipationResourceReplace,
     SelfAgentQueryList,
@@ -305,8 +302,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS,
-    ServiceOperationId::PEER_AGENT_PARTICIPATION_COMMAND_REPLACE,
-    ServiceOperationId::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER,
     ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT,
@@ -358,7 +353,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
     ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
     ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
-    ServiceOperationId::SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_GET,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE,
     ServiceOperationId::SELF_AGENT_QUERY_LIST,
@@ -579,8 +573,6 @@ impl ServiceOperationId {
         Self::OpenMimiQueryProviderDirectory,
         Self::PeerAccountStatusCommandSubmit,
         Self::PeerAccountStatusQueryAuthoringBasis,
-        Self::PeerAgentParticipationCommandReplace,
-        Self::PeerAgentParticipationQueryPrepareScopeEvidence,
         Self::PeerContactsCommandSubmit,
         Self::PeerDirectConversationOperationControlCommandDeliver,
         Self::PeerDirectConversationOperationControlCommandSubmit,
@@ -632,7 +624,6 @@ impl ServiceOperationId {
         Self::SelfAgentCommandResume,
         Self::SelfAgentGrantCommandAttach,
         Self::SelfAgentGrantResourceDelete,
-        Self::SelfAgentParticipationQueryPrepareScopeEvidence,
         Self::SelfAgentParticipationResourceGet,
         Self::SelfAgentParticipationResourceReplace,
         Self::SelfAgentQueryList,
@@ -859,10 +850,6 @@ impl ServiceOperationId {
         "ak.peer.account_status.command.submit";
     pub const PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS: &'static str =
         "ak.peer.account_status.query.authoring_basis";
-    pub const PEER_AGENT_PARTICIPATION_COMMAND_REPLACE: &'static str =
-        "ak.peer.agent.participation.command.replace";
-    pub const PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE: &'static str =
-        "ak.peer.agent.participation.query.prepare_scope_evidence";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER: &'static str =
         "ak.peer.direct_conversation.operation_control.command.deliver";
@@ -944,8 +931,6 @@ impl ServiceOperationId {
     pub const SELF_AGENT_GRANT_COMMAND_ATTACH: &'static str = "ak.self.agent.grant.command.attach";
     pub const SELF_AGENT_GRANT_RESOURCE_DELETE: &'static str =
         "ak.self.agent.grant.resource.delete";
-    pub const SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE: &'static str =
-        "ak.self.agent.participation.query.prepare_scope_evidence";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_GET: &'static str =
         "ak.self.agent.participation.resource.get";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str =
@@ -1217,12 +1202,6 @@ impl ServiceOperationId {
             Self::PeerAccountStatusQueryAuthoringBasis => {
                 Self::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS
             }
-            Self::PeerAgentParticipationCommandReplace => {
-                Self::PEER_AGENT_PARTICIPATION_COMMAND_REPLACE
-            }
-            Self::PeerAgentParticipationQueryPrepareScopeEvidence => {
-                Self::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE
-            }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerDirectConversationOperationControlCommandDeliver => {
                 Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER
@@ -1308,9 +1287,6 @@ impl ServiceOperationId {
             Self::SelfAgentCommandResume => Self::SELF_AGENT_COMMAND_RESUME,
             Self::SelfAgentGrantCommandAttach => Self::SELF_AGENT_GRANT_COMMAND_ATTACH,
             Self::SelfAgentGrantResourceDelete => Self::SELF_AGENT_GRANT_RESOURCE_DELETE,
-            Self::SelfAgentParticipationQueryPrepareScopeEvidence => {
-                Self::SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE
-            }
             Self::SelfAgentParticipationResourceGet => Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET,
             Self::SelfAgentParticipationResourceReplace => {
                 Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE
@@ -1593,12 +1569,6 @@ impl ServiceOperationId {
             Self::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS => {
                 Some(Self::PeerAccountStatusQueryAuthoringBasis)
             }
-            Self::PEER_AGENT_PARTICIPATION_COMMAND_REPLACE => {
-                Some(Self::PeerAgentParticipationCommandReplace)
-            }
-            Self::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE => {
-                Some(Self::PeerAgentParticipationQueryPrepareScopeEvidence)
-            }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER => {
                 Some(Self::PeerDirectConversationOperationControlCommandDeliver)
@@ -1692,9 +1662,6 @@ impl ServiceOperationId {
             Self::SELF_AGENT_COMMAND_RESUME => Some(Self::SelfAgentCommandResume),
             Self::SELF_AGENT_GRANT_COMMAND_ATTACH => Some(Self::SelfAgentGrantCommandAttach),
             Self::SELF_AGENT_GRANT_RESOURCE_DELETE => Some(Self::SelfAgentGrantResourceDelete),
-            Self::SELF_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE => {
-                Some(Self::SelfAgentParticipationQueryPrepareScopeEvidence)
-            }
             Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET => {
                 Some(Self::SelfAgentParticipationResourceGet)
             }
@@ -3306,54 +3273,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerAgentParticipationCommandReplace,
-        http_method: "POST",
-        http_path: "/_arkret/peer/agents/participation:replace",
-        grpc: Some("PeerAgent/ParticipationReplace"),
-        mq: Some("peer.agent.participation.command.replace"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_relay_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_receipt",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("transparent_signed_batch_relay"),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerAgentParticipationQueryPrepareScopeEvidence,
-        http_method: "POST",
-        http_path: "/_arkret/peer/agents/participation/scope-evidence:prepare",
-        grpc: Some("PeerAgent/ParticipationScopeEvidencePrepare"),
-        mq: Some("peer.agent.participation.query.prepare_scope_evidence"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_prepare_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_challenge",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("transparent_private_challenge_relay"),
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerContactsCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/peer/contacts",
@@ -4454,30 +4373,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentParticipationQueryPrepareScopeEvidence,
-        http_method: "POST",
-        http_path: "/_arkret/self/agents/{agent_id}/participation/scope-evidence:prepare",
-        grpc: Some("SelfAgent/ParticipationScopeEvidencePrepare"),
-        mq: Some("self.agent.participation.query.prepare_scope_evidence"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_prepare_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_scope_evidence_challenge",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("private_target_challenge_reservation_only"),
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentParticipationResourceGet,
         http_method: "GET",
         http_path: "/_arkret/self/agents/{agent_id}/participation",
@@ -4507,19 +4402,16 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replacement_batch",
+            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_receipt",
+            "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&[
-                "ak.capability.grant",
-                "ak.capability.revoke",
-            ])),
-            rationale: None,
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("controller_private_versioned_account_state"),
         }),
     },
     ServiceOperationDescriptor {

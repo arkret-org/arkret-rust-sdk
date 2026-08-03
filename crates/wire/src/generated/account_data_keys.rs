@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-07-30;
-//! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3
+//! Input: registry/account-data-key-registry.json; version=2026-08-03;
+//! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -81,13 +81,12 @@ impl AccountDataKey {
     /// event referencing only an opaque digest. See private-objects.md §4.1. Key pattern:
     /// `ak.agent.draft.v1:<agent_id>:<draft_id>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
-    /// Controller-owned per-scope agent participation selection (reply / accept_third_party_mention
-    /// / act_on_behalf). scope_key is realm:<realm_uuid> | circle:<realm_uuid>:<circle_uuid> |
-    /// strand:<realm_uuid>:<strand_uuid>. Effective participation = immutable provision-derived
-    /// ceiling ∩ deployment/Realm/Circle/Strand governance ceiling ∩ selection. Realm governance
-    /// cannot restore a bit omitted at provision time. accept_third_party_mention drives the
-    /// dispatcher mention gate; reply / act_on_behalf materialize into ak.capability.grant. See
-    /// zh/models/private-objects.md §4.1. Key pattern:
+    /// Account-Authority-owned versioned per-scope Agent participation selection. scope_key is
+    /// realm:<realm_uuid> | circle:<realm_uuid>:<circle_uuid> | strand:<realm_uuid>:<strand_uuid>.
+    /// The record stores only target_scope, the required five-bit selection, and its CAS version.
+    /// It grants no capability and copies no ceiling/effective value; target enforcement intersects
+    /// current selection with current local governance/deployment ceilings, ordinary capability and
+    /// lifecycle. See zh/models/private-objects.md §4.1. Key pattern:
     /// `ak.agent.participation.v1:<agent_id>:<scope_key>`.
     pub const AGENT_PARTICIPATION_V1: &'static str = "ak.agent.participation.v1";
     /// Controller-private per-context Sidecar hosted-view state. Synchronizes display_mode

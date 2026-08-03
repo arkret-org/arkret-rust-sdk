@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-03.9;
-//! sha256=d422f419b194fa03043d28891d7699bf09ac86de13846093f014d900e92a966d Input: registry/
-//! operations-error-mapping.json; version=2026-08-03.4;
-//! sha256=6e12be7af21d6adbe136d0b6021820ee13aed0c3d32b74995e6b40f06aa881eb Input: registry/
-//! error-code-registry.json; version=2026-08-03.5;
-//! sha256=fed869d1a550d99c0850d45aadef0ba5ab75d55194c56260c9799ba3835b9533 Entries: operations=231
+//! Input: registry/operation-registry.json; version=2026-08-03.10;
+//! sha256=c0cf9c10a339d0c15e089eb4f29ef50e8a21ddd129c0ddc458cbb9bb9fec90ff Input: registry/
+//! operations-error-mapping.json; version=2026-08-03.5;
+//! sha256=35fcf60658f7f32ec7eb37b430a5a2b31c57e6c94ee00df023f809d53d6f3966 Input: registry/
+//! error-code-registry.json; version=2026-08-03.6;
+//! sha256=5c2df9e9af5c07d519d433c5872ef6c8f7d2746be06990be275853003c70e78d Entries: operations=228
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -409,20 +409,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerAgentParticipationCommandReplace,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::ParticipationEvidenceConflict),
-            OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationExceedsCeiling),
-            OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationCeilingUnresolved),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerAgentParticipationQueryPrepareScopeEvidence,
-        operation_specific: &[OperationSpecificError::ErrorCode(
-            ErrorCode::ParticipationEvidenceConflict,
-        )],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerContactsCommandSubmit,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
@@ -790,23 +776,12 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAgentParticipationQueryPrepareScopeEvidence,
-        operation_specific: &[OperationSpecificError::ErrorCode(
-            ErrorCode::ParticipationEvidenceConflict,
-        )],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAgentParticipationResourceGet,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAgentParticipationResourceReplace,
-        operation_specific: &[
-            OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationExceedsCeiling),
-            OperationSpecificError::ReasonCode(ReasonCode::AgentParticipationCeilingUnresolved),
-            OperationSpecificError::ReasonCode(ReasonCode::AgentRequestedScopeCommitmentInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::ParticipationEvidenceConflict),
-        ],
+        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::CasConflict)],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAgentQueryList,
