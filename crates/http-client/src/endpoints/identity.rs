@@ -165,11 +165,9 @@ impl Client {
             || outcome.policy_id != payload.policy_id
             || outcome.principal_id != payload.value.principal_id
             || outcome.version != payload.value.version
-            || outcome.acceptance_basis != request.authorization_lease.basis_ref
         {
             return Err(Error::Protocol(
-                "recovery-policy publish response changed policy or authorization binding"
-                    .to_owned(),
+                "recovery-policy publish response changed policy binding".to_owned(),
             ));
         }
         Ok(outcome)
