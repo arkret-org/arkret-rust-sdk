@@ -317,19 +317,20 @@ pub fn validate_realm_bootstrap_unit(
         {
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
         }
-        let descriptor = followup.kind.descriptor();
-        if descriptor.is_some_and(|descriptor| {
-            descriptor.reducer_input && descriptor.lattice == Some("cas_register")
-        }) {
-            arkret_schema::validate_registered_cell_writes_in_context(
-                followup,
-                arkret_schema::EventCellContractContext::OrdinaryRealmBootstrap,
-            )
-            .map_err(|error| match error.reason_code() {
-                "plane_cross_write" => RealmBootstrapValidationError::PlaneCrossWrite,
-                _ => RealmBootstrapValidationError::EffectsPayloadMismatch,
-            })?;
-        }
+        // Every member of the closed bootstrap follow-up set is an active
+        // reducer input. Validate its complete `cell_writes[]` contract. The
+        // event-kind registry explicitly forbids the former flattened
+        // single-target aliases, so consulting descriptor.lattice here would
+        // skip every migrated contract and turn bootstrap validation into a
+        // no-op.
+        arkret_schema::validate_registered_cell_writes_in_context(
+            followup,
+            arkret_schema::EventCellContractContext::OrdinaryRealmBootstrap,
+        )
+        .map_err(|error| match error.reason_code() {
+            "plane_cross_write" => RealmBootstrapValidationError::PlaneCrossWrite,
+            _ => RealmBootstrapValidationError::EffectsPayloadMismatch,
+        })?;
     }
     Ok(ValidatedRealmBootstrap {
         realm_id: realm_id.to_owned(),
@@ -414,6 +415,17 @@ mod tests {
                 .capability_action_registry_digest
                 .as_str(),
             DIGEST
+        );
+    }
+
+    #[test]
+    fn rejects_bootstrap_followup_routed_with_data_plane_basis() {
+        let mut followup = history_sharing_followup();
+        followup.seal_ref =
+            Some(arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap());
+        assert_eq!(
+            validate_realm_bootstrap_unit(&[create(), followup]),
+            Err(RealmBootstrapValidationError::PlaneCrossWrite)
         );
     }
 
