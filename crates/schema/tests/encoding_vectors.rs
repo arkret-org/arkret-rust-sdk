@@ -578,12 +578,14 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 let descriptor = EventKind::try_new(event_kind)
                     .and_then(|kind| kind.descriptor())
                     .unwrap_or_else(|| panic!("{vector_id}: source event kind is not registered"));
+                assert_eq!(descriptor.cell_writes.len(), 1);
+                let write = descriptor.cell_writes[0];
                 assert_eq!(
-                    descriptor.cell_family,
+                    write.cell_family.map(|family| family.as_str()),
                     source["cell_family"].as_str(),
                     "{vector_id}: source cell family drifted"
                 );
-                let registered_rule = descriptor.cell_subject_rule.unwrap().to_json_value();
+                let registered_rule = write.cell_subject_rule.unwrap().to_json_value();
                 assert_eq!(
                     registered_rule["components"], source["components"],
                     "{vector_id}: fixture sources drifted from the generated descriptor"
@@ -703,12 +705,14 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 let descriptor = EventKind::try_new(event_kind)
                     .and_then(|kind| kind.descriptor())
                     .unwrap_or_else(|| panic!("{vector_id}: source event kind is not registered"));
+                assert_eq!(descriptor.cell_writes.len(), 1);
+                let write = descriptor.cell_writes[0];
                 assert_eq!(
-                    descriptor.cell_family,
+                    write.cell_family.map(|family| family.as_str()),
                     source["cell_family"].as_str(),
                     "{vector_id}: source cell family drifted"
                 );
-                let registered_rule = descriptor
+                let registered_rule = write
                     .cell_subject_rule
                     .unwrap_or_else(|| panic!("{vector_id}: source subject rule is missing"))
                     .to_json_value();
