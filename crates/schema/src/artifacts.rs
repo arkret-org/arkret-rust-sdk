@@ -482,7 +482,8 @@ impl SpecArtifactBundle {
     /// Look up the [`ComponentDescriptor`] for a state event kind.
     ///
     /// Returns `Ok(None)` when the kind is not registered, `Err` when the
-    /// registry entry is malformed (missing `cell_family` or a `.vN` suffix).
+    /// registry entry does not identify one component slot or its cell family
+    /// lacks a `.vN` suffix.
     pub fn component(&self, event_kind: &str) -> Result<Option<ComponentDescriptor>> {
         let Some(entry) = registry_entry(
             &self.event_kind_registry,
@@ -492,17 +493,15 @@ impl SpecArtifactBundle {
         ) else {
             return Ok(None);
         };
-        // Current v1 registry cell metadata is keyed by `cell_family`; old
-        // component_* artifact shapes are rejected as drift.
-        let component_type = entry
-            .get("cell_family")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                Error::Protocol(format!(
-                    "event kind {event_kind} missing cell_family in registry"
-                ))
-            })?
-            .to_owned();
+        // A single-write kind owns one component slot. Current registry rows
+        // carry that identity in `cell_writes[0]`; the top-level fields remain
+        // readable only for still-unmigrated single-write rows.
+        let (component_type, cell_subject) = component_cell_identity(entry).ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind {event_kind} does not declare one unambiguous component slot"
+            ))
+        })?;
+        let component_type = component_type.to_owned();
         let component_version = component_type
             .rsplit_once(".v")
             .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
@@ -513,17 +512,17 @@ impl SpecArtifactBundle {
             })?;
         let criticality = Criticality::Required;
         // Alias owner is the first registry entry with the same cell identity.
-        let component_slot_alias_of = entry.get("cell_subject").and_then(|cell_subject| {
+        let component_slot_alias_of = cell_subject.and_then(|cell_subject| {
             let canonical_owner = self.event_kind_registry["event_kinds"]
                 .as_array()
                 .and_then(|entries| {
                     entries.iter().find_map(|other| {
                         let other_kind = other.get("event_kind").and_then(Value::as_str)?;
-                        let other_family = other.get("cell_family").and_then(Value::as_str)?;
+                        let (other_family, other_subject) = component_cell_identity(other)?;
                         if other_family != component_type {
                             return None;
                         }
-                        if other.get("cell_subject") != Some(cell_subject) {
+                        if other_subject != Some(cell_subject) {
                             return None;
                         }
                         Some(other_kind.to_owned())
@@ -1441,6 +1440,21 @@ pub(super) fn registry_entry<'a>(
         .as_array()?
         .iter()
         .find(|entry| entry[key_field].as_str() == Some(expected_key))
+}
+
+fn component_cell_identity(entry: &Value) -> Option<(&str, Option<&Value>)> {
+    if let Some(family) = entry.get("cell_family").and_then(Value::as_str) {
+        return Some((family, entry.get("cell_subject")));
+    }
+    let writes = entry.get("cell_writes")?.as_array()?;
+    if writes.len() != 1 {
+        return None;
+    }
+    let write = &writes[0];
+    Some((
+        write.get("cell_family")?.as_str()?,
+        write.get("cell_subject"),
+    ))
 }
 
 #[cfg(test)]

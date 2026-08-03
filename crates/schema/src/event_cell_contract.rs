@@ -1530,6 +1530,26 @@ mod tests {
             .expect("the registered contract must be evaluable")
     }
 
+    fn sole_write(event: &Event) -> arkret_wire::events::kinds::EventCellWriteDescriptor {
+        let writes = event.kind.descriptor().unwrap().cell_writes;
+        assert_eq!(
+            writes.len(),
+            1,
+            "test fixture must target one registered write"
+        );
+        writes[0]
+    }
+
+    fn subject_rule(event: &Event) -> Option<EventCellRule> {
+        sole_write(event).cell_subject_rule
+    }
+
+    fn value_rule(event: &Event) -> EventCellRule {
+        sole_write(event)
+            .value_projection_rule
+            .expect("test fixture write must declare a value projection")
+    }
+
     fn write(cell: &str, op: ProjectedOp) -> ProjectedCellWrite {
         ProjectedCellWrite {
             cell: CellRef::new(cell).unwrap(),
@@ -1675,9 +1695,8 @@ mod tests {
     #[test]
     fn rsvp_composite_preserves_null_and_explicit_envelope_actor() {
         let event = rsvp_event(Value::Null);
-        let descriptor = event.kind.descriptor().unwrap();
         assert_eq!(
-            derive_subject(&event, descriptor.cell_subject_rule).unwrap(),
+            derive_subject(&event, subject_rule(&event)).unwrap(),
             "3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc"
         );
         validate_registered_cell_writes(&event).unwrap();
@@ -1696,7 +1715,7 @@ mod tests {
 
         let instance = rsvp_event(json!("2026-07-26T09:00:00[Asia/Shanghai]"));
         assert_eq!(
-            derive_subject(&instance, descriptor.cell_subject_rule).unwrap(),
+            derive_subject(&instance, subject_rule(&instance)).unwrap(),
             "tc2S5LQybi5y3tI-hoyB6HoBWFepT_tDfFcmHJk_jd0"
         );
     }
@@ -1705,7 +1724,7 @@ mod tests {
     fn rsvp_composite_rejects_missing_invalid_and_unregistered_components() {
         let mut missing = rsvp_event(Value::Null);
         missing.payload.remove("occurrence");
-        let rule = missing.kind.descriptor().unwrap().cell_subject_rule;
+        let rule = subject_rule(&missing);
         assert!(matches!(
             derive_subject(&missing, rule),
             Err(EventCellContractError::SubjectDerivation { .. })
@@ -1777,7 +1796,7 @@ mod tests {
 
     fn registered_subject(kind: &str, payload: Value) -> String {
         let event = subject_event(kind, payload);
-        derive_subject(&event, event.kind.descriptor().unwrap().cell_subject_rule).unwrap()
+        derive_subject(&event, subject_rule(&event)).unwrap()
     }
 
     #[test]
@@ -1914,7 +1933,7 @@ mod tests {
         status: &str,
     ) -> Result<String, EventCellContractError> {
         let event = accountability_event(scope, status);
-        derive_subject(&event, event.kind.descriptor().unwrap().cell_subject_rule)
+        derive_subject(&event, subject_rule(&event))
     }
 
     #[test]
@@ -1954,15 +1973,7 @@ mod tests {
             .payload
             .insert("issuer".to_owned(), json!("did:web:other-issuer.example"));
         assert_ne!(
-            derive_subject(
-                &different_issuer,
-                different_issuer
-                    .kind
-                    .descriptor()
-                    .unwrap()
-                    .cell_subject_rule
-            )
-            .unwrap(),
+            derive_subject(&different_issuer, subject_rule(&different_issuer)).unwrap(),
             baseline
         );
         let mut different_subject = accountability_event(json!("employment"), "active");
@@ -1970,15 +1981,7 @@ mod tests {
             .payload
             .insert("subject".to_owned(), json!("did:web:other-subject.example"));
         assert_ne!(
-            derive_subject(
-                &different_subject,
-                different_subject
-                    .kind
-                    .descriptor()
-                    .unwrap()
-                    .cell_subject_rule
-            )
-            .unwrap(),
+            derive_subject(&different_subject, subject_rule(&different_subject)).unwrap(),
             baseline
         );
     }
@@ -2113,12 +2116,7 @@ mod tests {
         // onto the Event any more, so the assertion is on the derived append —
         // registry-projected value, envelope `actor_seq` as `issuer_seq`.
         let event = delivery_share_event();
-        let rule = event
-            .kind
-            .descriptor()
-            .unwrap()
-            .value_projection_rule
-            .unwrap();
+        let rule = value_rule(&event);
         let value =
             derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
         assert_eq!(
@@ -2424,6 +2422,7 @@ mod tests {
                 "object": {
                     "id": "ak:realm:019f9000-0000-7000-8000-000000000021",
                     "created_by": "did:webvh:z6mkfixture:alice.example",
+                    "reducer_profile": "ak.reducer.core.v1",
                     "notary": {
                         "type": "single_did",
                         "did": "did:webvh:z6mkfixture:alice.example"
@@ -2460,6 +2459,10 @@ mod tests {
                     append_op(json!("ak:realm:019f9000-0000-7000-8000-000000000021"), 0),
                 ),
                 write(
+                    arkret_wire::REALM_REDUCER_PROFILE_CELL,
+                    set_op(json!("ak.reducer.core.v1")),
+                ),
+                write(
                     "ak:cell:ak.component.notary.v1:null",
                     set_op(object["notary"].clone()),
                 ),
@@ -2489,7 +2492,7 @@ mod tests {
         });
         let event = realm_create_event(json!([provision_ref.clone()]));
         let writes = project(&event);
-        assert_eq!(writes.len(), 6);
+        assert_eq!(writes.len(), 7);
         assert_eq!(
             writes.last(),
             Some(&write(
@@ -2511,7 +2514,7 @@ mod tests {
             }]),
             json!([provision_ref.clone(), provision_ref]),
         ] {
-            assert_eq!(project(&realm_create_event(refs)).len(), 5);
+            assert_eq!(project(&realm_create_event(refs)).len(), 6);
         }
     }
 
@@ -2699,7 +2702,7 @@ mod tests {
     #[test]
     fn delivery_subject_selects_the_share_kind_branch() {
         let event = delivery_share_event();
-        let rule = event.kind.descriptor().unwrap().cell_subject_rule;
+        let rule = subject_rule(&event);
         let member_subject = derive_subject(&event, rule).unwrap();
 
         // The RRK branch derives from a different target field, so the same
@@ -2740,11 +2743,10 @@ mod tests {
                 "policy_digest": format!("sha256:{}", "aa".repeat(32))
             }),
         );
-        let descriptor = event.kind.descriptor().unwrap();
-        let subject = derive_subject(&event, descriptor.cell_subject_rule).unwrap();
+        let subject = derive_subject(&event, subject_rule(&event)).unwrap();
         let value = derive_value_projection(
             &event,
-            descriptor.value_projection_rule.unwrap(),
+            value_rule(&event),
             arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap();
@@ -2758,7 +2760,11 @@ mod tests {
         // And a Realm-scoped share must still land on a different cell.
         assert_ne!(
             subject,
-            derive_subject(&delivery_share_event(), descriptor.cell_subject_rule).unwrap()
+            derive_subject(
+                &delivery_share_event(),
+                subject_rule(&delivery_share_event())
+            )
+            .unwrap()
         );
     }
 
@@ -2768,7 +2774,7 @@ mod tests {
         event
             .payload
             .insert("recovery_recipient_id".to_owned(), json!("rr-1"));
-        let rule = event.kind.descriptor().unwrap().cell_subject_rule;
+        let rule = subject_rule(&event);
         let error = derive_subject(&event, rule).unwrap_err();
         assert!(
             format!("{error}").contains("forbidden field payload.recovery_recipient_id"),
@@ -2782,7 +2788,7 @@ mod tests {
         event
             .payload
             .insert("share_kind".to_owned(), json!("member-device"));
-        let rule = event.kind.descriptor().unwrap().cell_subject_rule;
+        let rule = subject_rule(&event);
         let error = derive_subject(&event, rule).unwrap_err();
         assert!(
             format!("{error}").contains("no registered branch"),
@@ -2813,12 +2819,7 @@ mod tests {
         // duplicate. Each of these differs only in a field that is signed and
         // changes delivery meaning.
         let base = delivery_share_event();
-        let rule = base
-            .kind
-            .descriptor()
-            .unwrap()
-            .value_projection_rule
-            .unwrap();
+        let rule = value_rule(&base);
         let suite = arkret_canonical::DigestSuite::Sha256;
         let baseline = derive_value_projection(&base, rule, suite).unwrap();
 
@@ -2884,13 +2885,9 @@ mod tests {
         second
             .payload
             .insert("ciphertext".to_owned(), json!("b3RoZXI"));
-        let rule = second.kind.descriptor().unwrap().value_projection_rule;
-        let second_value = derive_value_projection(
-            &second,
-            rule.unwrap(),
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap();
+        let rule = value_rule(&second);
+        let second_value =
+            derive_value_projection(&second, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
         assert_ne!(first_value, second_value);
 
         // The commitment is over the complete canonical signed payload.
@@ -2906,12 +2903,7 @@ mod tests {
         // A blake3 Realm must project a blake3 material digest; hard-coding
         // SHA-256 would diverge from every conformant implementation's state.
         let event = delivery_share_event();
-        let rule = event
-            .kind
-            .descriptor()
-            .unwrap()
-            .value_projection_rule
-            .unwrap();
+        let rule = value_rule(&event);
         let blake3 =
             derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Blake3).unwrap();
         let payload = Value::Object(event.payload.clone().into_iter().collect());
@@ -2940,10 +2932,9 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("to_epoch");
-        let rule = event.kind.descriptor().unwrap().value_projection_rule;
+        let rule = value_rule(&event);
         let value =
-            derive_value_projection(&event, rule.unwrap(), arkret_canonical::DigestSuite::Sha256)
-                .unwrap();
+            derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
         let object = value.as_object().unwrap();
         assert!(object.contains_key("from_epoch"));
         assert!(

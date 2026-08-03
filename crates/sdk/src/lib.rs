@@ -185,8 +185,8 @@ pub use arkret_models_collaboration::objects::relation::*;
 pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
-/// Closed journey contracts are namespaced to avoid collisions with legacy
-/// projection vocabulary such as `HistoryVisibility`.
+/// Closed journey contracts are namespaced; shared wire vocabularies such as
+/// `HistoryVisibility` re-export the canonical `arkret-wire` type.
 pub use arkret_models_collaboration::protocol_journey;
 pub use arkret_models_collaboration::runtime_identity::*;
 pub use arkret_models_collaboration::seal_transparency::*;

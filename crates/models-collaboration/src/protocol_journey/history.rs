@@ -6,22 +6,17 @@
 
 use std::collections::BTreeSet;
 
+// `protocol-journey-wire.schema.json#/$defs/history_visibility`,
+// `realm.schema.json#/properties/history_visibility`, and
+// `event-payload.schema.json#/$defs/history_visibility_value` share one closed
+// wire vocabulary. Re-export the canonical SDK primitive instead of creating
+// a second nominal Rust type with identical literals.
+pub use arkret_wire::HistoryVisibility;
 use arkret_wire::{Did, EventId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{ProtocolOpaqueId, ProtocolSignature, string_marker};
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum HistoryVisibility {
-    WorldReadable,
-    Shared,
-    Invited,
-    Joined,
-    Restricted,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
