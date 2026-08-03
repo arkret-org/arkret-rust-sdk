@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::agent_signer_evidence::{AgentAuthorizationAdmission, AgentSignerEvidenceBundle};
+use crate::agent_signer_evidence::{AgentSignerEvidence, AgentSignerEvidenceBundle};
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
@@ -1032,7 +1032,21 @@ impl EventsSubmitFederationRequestBody {
                 ));
             }
             for evidence in &bundle.evidence {
-                let binding = &evidence.signing_key_binding;
+                let AgentSignerEvidence::HistoricalEvent {
+                    admission_evidence,
+                    event_admission_receipt,
+                    ..
+                } = evidence
+                else {
+                    return Err(Error::Protocol(
+                        "federation Event transport requires historical Agent signer evidence"
+                            .to_owned(),
+                    ));
+                };
+                let binding = &admission_evidence
+                    .agent_authority_snapshot
+                    .core
+                    .signing_key_binding;
                 let matches_event = self.transported_events().any(|event| {
                     if event.applet_id.is_some() {
                         return false;
@@ -1045,19 +1059,12 @@ impl EventsSubmitFederationRequestBody {
                     {
                         return false;
                     }
-                    event
-                        .unsigned
-                        .get("agent_authorization_admission")
-                        .cloned()
-                        .and_then(|value| {
-                            serde_json::from_value::<AgentAuthorizationAdmission>(value).ok()
-                        })
-                        .is_some_and(|admission| {
-                            admission.agent_id == binding.agent_id
-                                && admission.verification_method == binding.verification_method
-                                && admission.authorization_event_id
-                                    == binding.agent_key_authorize_event_id
-                        })
+                    event_admission_receipt.event_id == event.event_id
+                        && event_admission_receipt.agent_id == binding.agent_id
+                        && event_admission_receipt.verification_method
+                            == binding.verification_method
+                        && event_admission_receipt.agent_key_authorize_event_id
+                            == binding.agent_key_authorize_event_id
                 });
                 if !matches_event {
                     return Err(Error::Protocol(
@@ -1068,12 +1075,6 @@ impl EventsSubmitFederationRequestBody {
             }
         }
         Ok(())
-    }
-
-    /// Backward-compatible entry point retained for callers compiled against
-    /// the earlier evidence-only name.
-    pub fn validate_signer_key_evidence(&self) -> Result<()> {
-        self.validate_federation_transport()
     }
 }
 
@@ -1265,7 +1266,7 @@ mod tests {
             signer_key_evidence: vec![unrelated],
             agent_signer_evidence_bundle: None,
         };
-        assert!(request.validate_signer_key_evidence().is_err());
+        assert!(request.validate_federation_transport().is_err());
     }
 
     fn publication_proof(

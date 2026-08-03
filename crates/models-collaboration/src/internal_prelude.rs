@@ -18,7 +18,6 @@ pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;
 
 pub(crate) use crate::ObjectRef;
-pub(crate) use crate::events_payloads::contact::*;
 pub(crate) use crate::events_payloads::event_wire::*;
 pub(crate) use crate::events_payloads::history_sharing::*;
 pub(crate) use crate::events_payloads::message::*;

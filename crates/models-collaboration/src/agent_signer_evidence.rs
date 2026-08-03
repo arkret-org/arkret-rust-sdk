@@ -1,20 +1,20 @@
-//! Portable Native Agent signer-evidence wire models.
+//! Current-only portable Native Agent signer-evidence wire models.
 //!
-//! These closed DTOs are the Rust counterparts of
-//! `agent-signing-key-binding.schema.json`,
-//! `agent-signer-evidence.schema.json`, and
-//! `agent-signer-evidence-operations.schema.json`.
+//! Current admission and historical verification are deliberately different
+//! enum branches. Historical validity is carried by the destination-signed
+//! Event admission receipt and is never reconstructed from a later snapshot.
 
 use arkret_wire::{
-    Base64UrlString, Did, DidUrl, EventId, Hash, NonEmptyString, RealmId, SchemaId, Seal, SealId,
+    Base64UrlString, Did, DidUrl, Event, EventId, Hash, NonEmptyString, ProtocolOperationId,
+    RealmId, SchemaId, Seal, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const AGENT_SIGNING_KEY_BINDING_CONTEXT: &str = "ak.agent-signing-key-binding-v1\n";
-pub const AGENT_EVIDENCE_FRESHNESS_CONTEXT: &str = "ak.agent-evidence-freshness-v1\n";
 pub const AGENT_KEY_COMPONENT: &str = arkret_wire::CellFamilyId::AGENT_KEY_V1;
+pub const AGENT_STATUS_COMPONENT: &str = "ak.component.agent.status.v1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -74,14 +74,11 @@ pub enum AgentAuthorizationStatus {
 pub struct AgentAuthorizationEvidence {
     pub status: AgentAuthorizationStatus,
     pub authorized_event_id: EventId,
-    pub accepted_frontier: NonEmptyString,
+    pub accepted_seal_id: SealId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub valid_from_frontier: NonEmptyString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub valid_until_frontier: Option<NonEmptyString>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -90,42 +87,38 @@ pub struct AgentAuthorizationEvidence {
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_seal_id: Option<SealId>,
 }
 
-/// Server-stamped transport metadata recording the exact Native Agent
-/// authorization state used when an Event was admitted.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AgentAuthorizationAdmission {
-    pub agent_id: Did,
-    pub verification_method: DidUrl,
-    pub authorization_event_id: EventId,
-    pub accepted_frontier: NonEmptyString,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
+pub struct AgentKeyCellEntry {
+    pub tag: NonEmptyString,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub value: Value,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentAuthorizationStateWitness {
     pub component: NonEmptyString,
     pub agent_id: Did,
     pub authorization_event_id: EventId,
-    pub accepted_frontier: NonEmptyString,
     pub seal_id: SealId,
     pub state_root: Hash,
     pub seal: Seal,
     pub cell_ref: NonEmptyString,
-    pub cell_value: Value,
+    pub cell_value: Vec<AgentKeyCellEntry>,
     pub leaf_digest: Hash,
     pub leaf_index: u64,
     pub leaf_count: u64,
     pub inclusion_proof: Vec<Hash>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentAuthorizationTransitionWitness {
@@ -134,12 +127,64 @@ pub struct AgentAuthorizationTransitionWitness {
     pub authorization_event_id: EventId,
     pub transition_event_id: EventId,
     pub transition_key_id: NonEmptyString,
-    pub accepted_frontier: NonEmptyString,
     pub seal_id: SealId,
     pub state_root: Hash,
     pub seal: Seal,
     pub cell_ref: NonEmptyString,
-    pub cell_value: Value,
+    pub cell_value: Vec<AgentKeyCellEntry>,
+    pub leaf_digest: Hash,
+    pub leaf_index: u64,
+    pub leaf_count: u64,
+    pub inclusion_proof: Vec<Hash>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentLifecycleStatus {
+    Active,
+    Paused,
+    Deactivated,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentLifecycleProvenance {
+    DelegatedPcrGenesis {
+        realm_create_event_id: EventId,
+        agent_provision_event_id: EventId,
+    },
+    PauseAccepted {
+        pause_event_id: EventId,
+        predecessor_active_event_id: EventId,
+    },
+    ResumeAccepted {
+        resume_event_id: EventId,
+        predecessor_pause_event_id: EventId,
+    },
+    DeactivateAccepted {
+        deactivate_event_id: EventId,
+        predecessor_status_event_id: EventId,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentLifecycleWitness {
+    pub component: NonEmptyString,
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub status: AgentLifecycleStatus,
+    pub provenance: AgentLifecycleProvenance,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub accepted_status_event: Event,
+    pub seal_id: SealId,
+    pub state_root: Hash,
+    pub seal: Seal,
+    pub cell_ref: NonEmptyString,
+    pub cell_value: AgentLifecycleStatus,
     pub leaf_digest: Hash,
     pub leaf_index: u64,
     pub leaf_count: u64,
@@ -147,30 +192,177 @@ pub struct AgentAuthorizationTransitionWitness {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AgentEvidenceSourceProof {
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentDetachedJws {
     pub kind: NonEmptyString,
-    pub verification_method: DidUrl,
     pub jws: NonEmptyString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AgentEvidenceFreshnessAttestation {
-    pub source_service_id: Did,
-    pub observed_frontier: NonEmptyString,
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentSnapshotLease {
+    pub authority_kind: NonEmptyString,
+    pub authority_service_id: Did,
+    pub verification_method: DidUrl,
+    pub snapshot_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub source_proof: AgentEvidenceSourceProof,
+    pub proof: AgentDetachedJws,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentAuthoritySnapshotCore {
+    pub authority_service_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub frontier_seal_id: SealId,
+    pub frontier_state_root: Hash,
+    pub signing_key_binding: AgentSigningKeyBinding,
+    pub authorization: AgentAuthorizationEvidence,
+    pub key_state_witness: AgentAuthorizationStateWitness,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_transition_witness: Option<AgentAuthorizationTransitionWitness>,
+    pub agent_lifecycle_witness: AgentLifecycleWitness,
+    pub seal_lineage: Vec<Seal>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentAuthoritySnapshot {
+    pub core: AgentAuthoritySnapshotCore,
+    pub snapshot_digest: Hash,
+    pub lease: AgentSnapshotLease,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ControllerAccountGateBasis {
+    AccountBindingDefault {
+        binding_version: u64,
+        binding_frontier_digest: Hash,
+    },
+    AccountStatusEvent {
+        status_event_id: EventId,
+        status_event_digest: Hash,
+        status_frontier_digest: Hash,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ControllerAccountEligibility {
+    Active,
+    Inactive,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ControllerAccountStatus {
+    Active,
+    SoftLoggedOut,
+    Locked,
+    Suspended,
+    Deactivated,
+    ErasurePending,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ControllerAccountGateAttestation {
+    pub schema: NonEmptyString,
+    pub principal_id: Did,
+    pub eligibility: ControllerAccountEligibility,
+    pub status: ControllerAccountStatus,
+    pub basis: ControllerAccountGateBasis,
+    pub basis_digest: Hash,
+    pub authority_service_id: Did,
+    pub verification_method: DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub proof: AgentDetachedJws,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentAdmissionEvidence {
+    pub agent_authority_snapshot: AgentAuthoritySnapshot,
+    pub controller_account_gate_attestation: ControllerAccountGateAttestation,
+    pub admission_evidence_digest: Hash,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentCurrentObservation {
+    pub operation_id: ProtocolOperationId,
+    pub request_digest: Hash,
+    pub verifier_id: Did,
+    pub audience: Did,
+    pub challenge: NonEmptyString,
+    pub agent_snapshot_digest: Hash,
+    pub agent_key_seal_id: SealId,
+    pub agent_status_seal_id: SealId,
+    pub controller_gate_attestation_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub evaluated_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentEventAdmissionReceipt {
+    pub schema: NonEmptyString,
+    pub event_id: EventId,
+    pub event_digest: Hash,
+    pub realm_id: RealmId,
+    pub event_admitted_seal_id: SealId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub agent_id: Did,
+    pub verification_method: DidUrl,
+    pub agent_key_authorize_event_id: EventId,
+    pub admission_evidence_digest: Hash,
+    pub agent_snapshot_digest: Hash,
+    pub agent_key_seal_id: SealId,
+    pub agent_status_seal_id: SealId,
+    pub controller_gate_attestation_digest: Hash,
+    pub receiver_service_id: Did,
+    pub proof: AgentDetachedJws,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentEvidenceOuterAttestation {
+    pub domain: NonEmptyString,
+    pub core_digest: Hash,
+    pub source_service_id: Did,
+    pub verification_method: DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub proof: AgentDetachedJws,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentEvidenceTransparency {
     pub profile: NonEmptyString,
     pub log_id: NonEmptyString,
@@ -181,45 +373,69 @@ pub struct AgentEvidenceTransparency {
     pub witness_signatures: Vec<NonEmptyString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "verification_mode",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct AgentSignerEvidence {
-    pub schema: NonEmptyString,
-    pub signing_key_binding: AgentSigningKeyBinding,
-    pub authorization: AgentAuthorizationEvidence,
-    pub state_witness: AgentAuthorizationStateWitness,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_witness: Option<AgentAuthorizationTransitionWitness>,
-    pub seal_lineage: Vec<Seal>,
-    pub freshness_attestation: AgentEvidenceFreshnessAttestation,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transparency: Option<AgentEvidenceTransparency>,
+pub enum AgentSignerEvidence {
+    CurrentAdmission {
+        schema: NonEmptyString,
+        admission_evidence: AgentAdmissionEvidence,
+        current_observation: AgentCurrentObservation,
+        outer_attestation: AgentEvidenceOuterAttestation,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        transparency: Option<AgentEvidenceTransparency>,
+    },
+    HistoricalEvent {
+        schema: NonEmptyString,
+        admission_evidence: AgentAdmissionEvidence,
+        event_admission_receipt: AgentEventAdmissionReceipt,
+        outer_attestation: AgentEvidenceOuterAttestation,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        transparency: Option<AgentEvidenceTransparency>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "verification_mode",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct AgentSignerEvidenceQuerySelector {
-    pub agent_id: Did,
-    pub verification_method: DidUrl,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_key_authorize_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_accepted_frontier: Option<NonEmptyString>,
+pub enum AgentSignerEvidenceQuerySelector {
+    CurrentAdmission {
+        agent_id: Did,
+        verification_method: DidUrl,
+        operation_id: ProtocolOperationId,
+        request_digest: Hash,
+        verifier_id: Did,
+        audience: Did,
+        challenge: NonEmptyString,
+    },
+    HistoricalEvent {
+        agent_id: Did,
+        verification_method: DidUrl,
+        event_id: EventId,
+        event_digest: Hash,
+        receiver_service_id: Did,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSignerEvidenceQueryRequestBodyBody {
     pub realm_id: RealmId,
     pub queries: Vec<AgentSignerEvidenceQuerySelector>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentSignerEvidenceQueryFailureReason {
     AgentSignerEvidenceMissing,
     AgentSignerEvidenceStale,
@@ -228,25 +444,25 @@ pub enum AgentSignerEvidenceQueryFailureReason {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSignerEvidenceQueryFailure {
     pub selector: AgentSignerEvidenceQuerySelector,
     pub reason: AgentSignerEvidenceQueryFailureReason,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSignerEvidenceQueryOutcome {
     pub evidence: Vec<AgentSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failures: Option<Vec<AgentSignerEvidenceQueryFailure>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSignerEvidenceBundle {
     pub schema: SchemaId,
     pub evidence: Vec<AgentSignerEvidence>,

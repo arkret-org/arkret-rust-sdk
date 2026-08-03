@@ -107,14 +107,13 @@ pub struct View {
     pub id: ViewId,
     pub realm_id: RealmId,
     pub kind: ViewKind,
-    /// Round C47 (spec e10b6ad): View sharing visibility. Private views are
+    /// Optional sharing visibility in the current schema. Private views are
     /// actor-private account data; shared views are canonical Space objects.
-    /// `None` keeps backward decode for fixtures predating the field.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visibility: Option<ViewVisibility>,
-    /// Shared View lifecycle. Omitted is equivalent to active on wire.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<ViewState>,
+    /// Required lifecycle state. The current wire contract has no omitted-state
+    /// default: creators must send `active` explicitly.
+    pub state: ViewState,
     /// Reducer-derived timestamp, present only for tombstoned Views.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -241,7 +240,7 @@ impl View {
         // View terminal. A private View is removed by physically deleting its
         // account-data key, and a published shared View can never be demoted
         // back to private, so neither may appear here.
-        if self.state == Some(ViewState::Tombstoned) {
+        if self.state == ViewState::Tombstoned {
             return Err(Error::Protocol(
                 "private account-data view must not carry the shared tombstoned state".to_owned(),
             ));
@@ -255,10 +254,7 @@ impl View {
     }
 
     pub fn validate_lifecycle(&self) -> Result<()> {
-        match (
-            self.state.unwrap_or(ViewState::Active),
-            self.state_changed_at,
-        ) {
+        match (self.state, self.state_changed_at) {
             (ViewState::Active, None) | (ViewState::Tombstoned, Some(_)) => Ok(()),
             (ViewState::Active, Some(_)) => Err(Error::Protocol(
                 "active view must not carry state_changed_at".to_owned(),

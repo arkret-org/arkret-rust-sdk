@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-03.2;
-//! sha256=2581369970dda0321f81cbb97dc0fb06d5ce2d06ab7f5fd7933b98e73b7e74d7
+//! Input: registry/error-code-registry.json; version=2026-08-03.4;
+//! sha256=7aab9c928e8600e36ccefb8ec635bdc7de622743ba9b58b9c364a873597b34a2
 //! Entries: reason_codes=458
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2882,7 +2882,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "direct_conversation_participant_authority_denied",
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish the immutable stable binding, exact participant, active membership, Realm/Strand/current-MLS-generation cross-binding, lifecycle, resource, consent, device or Agent gate required for the requested allowlisted action. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
+        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish the immutable stable binding, exact participant, active membership, Realm/Strand/current-MLS-generation cross-binding, lifecycle, resource, both directional Contact heads/scopes, device or Agent gate required for the requested allowlisted action. Consent is not an authority source. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
     },
     ReasonCodeDescriptor {
         code: "direct_conversation_root_mask_violation",

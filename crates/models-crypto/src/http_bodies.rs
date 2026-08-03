@@ -243,24 +243,24 @@ pub struct KeyPackagesClaimRequestBody {
     pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
-    pub proofs: [KeyPackageClaimProof; 1],
+    pub holder_acceptance_proof: KeyPackageClaimProof,
 }
 
 impl KeyPackagesClaimRequestBody {
-    /// The protocol payload digest removes `proofs` entirely and preserves
+    /// The protocol payload digest removes `holder_acceptance_proof` entirely and preserves
     /// every actually present optional request member.
     pub fn payload_digest(&self) -> Result<Hash, arkret_wire::Error> {
         let mut value = serde_json::to_value(self)?;
         value
             .as_object_mut()
             .expect("KeyPackagesClaimRequestBody serializes as an object")
-            .remove("proofs");
+            .remove("holder_acceptance_proof");
         Hash::new(arkret_canonical::canonical_sha256(&value)?)
             .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
     }
 
     pub fn proof_binding_bytes(&self) -> Result<Vec<u8>, arkret_wire::Error> {
-        let proof = &self.proofs[0];
+        let proof = &self.holder_acceptance_proof;
         Ok(arkret_canonical::canonical_json_bytes(
             &serde_json::json!({
                 "context": "ak.keypackage-claim-request-proof-v1",
@@ -289,7 +289,7 @@ impl KeyPackagesClaimRequestBody {
                     .to_owned(),
             ));
         }
-        let proof = &self.proofs[0];
+        let proof = &self.holder_acceptance_proof;
         if &proof.audience != authority_service_id
             || proof.payload_digest != self.payload_digest()?
             || !proof
@@ -567,9 +567,36 @@ pub enum PeerKeyPackagesClaimQueryState {
     Unknown,
     Pending,
     Claimed,
+    Consumed,
     ClaimFailed,
     Expired,
     Revoked,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyPackageClaimTerminalState {
+    NeverClaimed,
+    Expired,
+    Revoked,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackageClaimTerminalReceipt {
+    pub domain: NonEmptyString,
+    pub claim_request_id: Base64UrlString,
+    pub request_digest: Hash,
+    pub terminal_state: KeyPackageClaimTerminalState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_package_refs: Option<KeyPackageRefArray>,
+    pub source_service_id: Did,
+    pub destination_service_id: Did,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub terminal_at: DateTime<Utc>,
+    pub signature: KeyOperationSignature,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -580,6 +607,10 @@ pub struct PeerKeyPackagesClaimQueryOutcome {
     pub state: PeerKeyPackagesClaimQueryState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_outcome: Option<PeerKeyPackagesClaimOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub consume_receipt: Option<KeyPackageConsumeReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_receipt: Option<KeyPackageClaimTerminalReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -597,15 +628,35 @@ impl PeerKeyPackagesClaimQueryOutcome {
         match self.state {
             PeerKeyPackagesClaimQueryState::Pending
                 if self.claim_outcome.is_none()
+                    && self.consume_receipt.is_none()
+                    && self.terminal_receipt.is_none()
                     && self.retry_after_ms.is_some_and(|value| value > 0)
                     && self.error_code.is_none() =>
             {
                 Ok(())
             }
             PeerKeyPackagesClaimQueryState::Claimed
-            | PeerKeyPackagesClaimQueryState::Expired
-            | PeerKeyPackagesClaimQueryState::Revoked
                 if self.claim_outcome.is_some()
+                    && self.consume_receipt.is_none()
+                    && self.terminal_receipt.is_none()
+                    && self.retry_after_ms.is_none()
+                    && self.error_code.is_none() =>
+            {
+                Ok(())
+            }
+            PeerKeyPackagesClaimQueryState::Consumed
+                if self.claim_outcome.is_some()
+                    && self.consume_receipt.is_some()
+                    && self.terminal_receipt.is_none()
+                    && self.retry_after_ms.is_none()
+                    && self.error_code.is_none() =>
+            {
+                Ok(())
+            }
+            PeerKeyPackagesClaimQueryState::Expired | PeerKeyPackagesClaimQueryState::Revoked
+                if self.claim_outcome.is_some()
+                    && self.consume_receipt.is_none()
+                    && self.terminal_receipt.is_some()
                     && self.retry_after_ms.is_none()
                     && self.error_code.is_none() =>
             {
@@ -613,6 +664,8 @@ impl PeerKeyPackagesClaimQueryOutcome {
             }
             PeerKeyPackagesClaimQueryState::ClaimFailed
                 if self.claim_outcome.is_none()
+                    && self.consume_receipt.is_none()
+                    && self.terminal_receipt.is_some()
                     && self.retry_after_ms.is_none()
                     && self.error_code == Some(PeerKeyPackageClaimErrorCode::ClaimFailed) =>
             {
@@ -620,6 +673,8 @@ impl PeerKeyPackagesClaimQueryOutcome {
             }
             PeerKeyPackagesClaimQueryState::Unknown
                 if self.claim_outcome.is_none()
+                    && self.consume_receipt.is_none()
+                    && self.terminal_receipt.is_none()
                     && self.retry_after_ms.is_none()
                     && self.error_code.is_none() =>
             {
@@ -772,22 +827,43 @@ pub fn peer_keypackage_claim_receipt_signing_bytes(
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyPackagesConsumeRequestBody {
-    #[serde(default)]
-    pub key_package_refs: Vec<String>,
-    pub consumer_device_id: DeviceId,
+#[serde(deny_unknown_fields)]
+pub struct RecipientMlsDurableReceipt {
+    pub domain: NonEmptyString,
+    pub claim_request_id: Base64UrlString,
+    pub key_package_ref: NonEmptyString,
+    pub recipient_principal_id: Did,
+    pub recipient_device_id: DeviceId,
+    pub recipient_service_id: Did,
+    pub realm_id: RealmId,
+    pub mls_group_id: NonEmptyString,
+    pub mls_epoch: u64,
+    pub welcome_ref: NonEmptyString,
+    pub welcome_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub durable_at: DateTime<Utc>,
+    pub device_verification_method: NonEmptyString,
     pub signature: KeyOperationSignature,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub claim_ids: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub welcome_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackagesConsumeRequestBody {
+    pub owner_account_id: Did,
+    pub key_package_refs: KeyPackageRefArray,
+    pub consumer_device_id: DeviceId,
+    pub claim_ids: Vec<NonEmptyString>,
+    pub welcome_ref: NonEmptyString,
+    pub recipient_durable_receipt: RecipientMlsDurableReceipt,
+    pub signature: KeyOperationSignature,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
 }
 
@@ -795,19 +871,18 @@ pub struct KeyPackagesConsumeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesConsumeUnsignedRequest {
-    #[serde(default)]
-    pub key_package_refs: Vec<String>,
+    pub owner_account_id: Did,
+    pub key_package_refs: KeyPackageRefArray,
     pub consumer_device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub claim_ids: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub welcome_ref: Option<String>,
+    pub claim_ids: Vec<NonEmptyString>,
+    pub welcome_ref: NonEmptyString,
+    pub recipient_durable_receipt: RecipientMlsDurableReceipt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
+    pub mls_group_id: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
 }
@@ -816,10 +891,12 @@ impl KeyPackagesConsumeRequestBody {
     #[must_use]
     pub fn unsigned(&self) -> KeyPackagesConsumeUnsignedRequest {
         KeyPackagesConsumeUnsignedRequest {
+            owner_account_id: self.owner_account_id.clone(),
             key_package_refs: self.key_package_refs.clone(),
             consumer_device_id: self.consumer_device_id.clone(),
             claim_ids: self.claim_ids.clone(),
             welcome_ref: self.welcome_ref.clone(),
+            recipient_durable_receipt: self.recipient_durable_receipt.clone(),
             realm_id: self.realm_id.clone(),
             strand_id: self.strand_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
@@ -832,11 +909,13 @@ impl KeyPackagesConsumeUnsignedRequest {
     #[must_use]
     pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesConsumeRequestBody {
         KeyPackagesConsumeRequestBody {
+            owner_account_id: self.owner_account_id,
             key_package_refs: self.key_package_refs,
             consumer_device_id: self.consumer_device_id,
             signature,
             claim_ids: self.claim_ids,
             welcome_ref: self.welcome_ref,
+            recipient_durable_receipt: self.recipient_durable_receipt,
             realm_id: self.realm_id,
             strand_id: self.strand_id,
             mls_group_id: self.mls_group_id,
@@ -853,9 +932,29 @@ pub fn keypackages_consume_signing_input(
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackageConsumeReceipt {
+    pub domain: NonEmptyString,
+    pub claim_request_id: Base64UrlString,
+    pub claim_ids: Vec<NonEmptyString>,
+    pub key_package_refs: KeyPackageRefArray,
+    pub recipient_durable_receipt: RecipientMlsDurableReceipt,
+    pub welcome_ref: NonEmptyString,
+    pub realm_id: RealmId,
+    pub mls_group_id: NonEmptyString,
+    pub mls_epoch: u64,
+    pub source_service_id: Did,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub consumed_at: DateTime<Utc>,
+    pub signature: KeyOperationSignature,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyPackagesConsumeOutcome {
-    #[serde(default)]
     pub consumed: KeyPackageRefArray,
+    pub consume_receipt: KeyPackageConsumeReceipt,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
 }

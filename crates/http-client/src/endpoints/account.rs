@@ -6,14 +6,14 @@ use arkret_models_collaboration::account_lifecycle::{
     AccountView,
 };
 use arkret_models_collaboration::http_bodies::{
-    AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, ContactRequestOutcome,
-    ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
-    ContactTombstoneRequestBody, DevicePairingBootstrap, DevicePairingResolveRequestBody,
-    DevicePairingStageOutcome, DevicePairingStageRequestBody, DevicePairingStatusOutcome,
-    DevicePairingStatusRequestBody,
+    AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, DevicePairingBootstrap,
+    DevicePairingResolveRequestBody, DevicePairingStageOutcome, DevicePairingStageRequestBody,
+    DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
 use arkret_models_collaboration::protocol_journey::{
-    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
+    ContactOperationOutcome, ContactOperationRequestBody, ContactRespondRequestBody,
+    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
+    DirectConversationResolveRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
@@ -544,15 +544,15 @@ impl Client {
 
     pub async fn contacts_request(
         &self,
-        request: &ContactRequestRequestBody,
-    ) -> Result<ContactRequestOutcome> {
+        request: &ContactOperationRequestBody,
+    ) -> Result<ContactOperationOutcome> {
         self.post(PATH_SELF_CONTACTS_REQUEST, request).await
     }
 
     pub async fn contacts_respond(
         &self,
         request: &ContactRespondRequestBody,
-    ) -> Result<ContactRespondOutcome> {
+    ) -> Result<ContactOperationOutcome> {
         self.post(PATH_SELF_CONTACTS_RESPOND, request).await
     }
 
@@ -563,7 +563,7 @@ impl Client {
     pub async fn contacts_tombstone(
         &self,
         request: &ContactTombstoneRequestBody,
-    ) -> Result<ContactTombstone> {
+    ) -> Result<ContactOperationOutcome> {
         self.post(PATH_SELF_CONTACTS_TOMBSTONE, request).await
     }
 

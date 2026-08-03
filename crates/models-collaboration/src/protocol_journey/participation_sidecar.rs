@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    Base64UrlString, CircleId, Did, DidUrl, EventId, EventInitialSubmission, Hash, RealmId,
+    Base64UrlString, CircleId, Did, DidUrl, Event, EventId, EventInitialSubmission, Hash, RealmId,
     RelationId, SidecarId, StrandId,
 };
 use chrono::{DateTime, Utc};
@@ -469,9 +469,10 @@ pub struct SidecarEnsureCommitRequestBody {
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: ProtocolOpaqueId,
     pub reservation_handle: ProtocolOpaqueId,
-    pub sidecar_id: SidecarId,
-    pub create_event: EventInitialSubmission,
-    pub context_attach_event: EventInitialSubmission,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub create_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub context_attach_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -482,8 +483,8 @@ pub struct SidecarEnsureAttachRequestBody {
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: ProtocolOpaqueId,
     pub reservation_handle: ProtocolOpaqueId,
-    pub sidecar_id: SidecarId,
-    pub context_attach_event: EventInitialSubmission,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub context_attach_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -562,17 +563,55 @@ impl<'de> Deserialize<'de> for SidecarAcceptedOk {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SidecarEnsureOutcome {
-    Prepared {
+pub struct SidecarPreparedEventDraft {
+    pub event_id: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub kind: arkret_wire::EventKind,
+    pub unsigned_event_bytes: Base64UrlString,
+    pub event_digest: Hash,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "branch", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum SidecarPreparedOutcome {
+    New {
         operation_id: ProtocolOperationId,
         reservation_handle: ProtocolOpaqueId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         sidecar_id: SidecarId,
+        backing_circle_id: CircleId,
         private_strand_id: StrandId,
         private_relation_id: RelationId,
+        create_event_id: EventId,
+        context_attach_event_id: EventId,
+        create_event_draft: SidecarPreparedEventDraft,
+        context_attach_event_draft: SidecarPreparedEventDraft,
+    },
+    Existing {
+        operation_id: ProtocolOperationId,
+        reservation_handle: ProtocolOpaqueId,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        expires_at: DateTime<Utc>,
+        sidecar_id: SidecarId,
+        backing_circle_id: CircleId,
+        private_strand_id: StrandId,
+        private_relation_id: RelationId,
+        context_attach_event_id: EventId,
+        context_attach_event_draft: SidecarPreparedEventDraft,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum SidecarEnsureOutcome {
+    Prepared {
+        #[serde(flatten)]
+        prepared: SidecarPreparedOutcome,
     },
     Accepted {
         operation_id: ProtocolOperationId,

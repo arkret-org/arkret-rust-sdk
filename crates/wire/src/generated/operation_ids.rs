@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-03.3;
-//! sha256=8a13a6d4766fd6ecca6bc4410d97b62a40a1402beff2b3602f79b2ca13cd328f Entries: registered=227
+//! Input: registry/operation-registry.json; version=2026-08-03.6;
+//! sha256=e0448d5d543ef3e0e451b0087cf7312e0301adb596402e7265fff957322c9438 Entries: registered=231
 
 use serde::{Deserialize, Serialize};
 
@@ -74,6 +74,10 @@ pub enum ServiceOperationId {
     PeerAgentParticipationCommandReplace,
     PeerAgentParticipationQueryPrepareScopeEvidence,
     PeerContactsCommandSubmit,
+    PeerDirectConversationOperationControlCommandDeliver,
+    PeerDirectConversationOperationControlCommandSubmit,
+    PeerDirectConversationOperationControlQueryExecutionBundle,
+    PeerDirectConversationOperationControlQueryReadCertificate,
     PeerEventsCommandSubmit,
     PeerEventsQueryDescribe,
     PeerEventsQueryFrontier,
@@ -304,6 +308,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_AGENT_PARTICIPATION_COMMAND_REPLACE,
     ServiceOperationId::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER,
+    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE,
+    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE,
     ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER,
@@ -574,6 +582,10 @@ impl ServiceOperationId {
         Self::PeerAgentParticipationCommandReplace,
         Self::PeerAgentParticipationQueryPrepareScopeEvidence,
         Self::PeerContactsCommandSubmit,
+        Self::PeerDirectConversationOperationControlCommandDeliver,
+        Self::PeerDirectConversationOperationControlCommandSubmit,
+        Self::PeerDirectConversationOperationControlQueryExecutionBundle,
+        Self::PeerDirectConversationOperationControlQueryReadCertificate,
         Self::PeerEventsCommandSubmit,
         Self::PeerEventsQueryDescribe,
         Self::PeerEventsQueryFrontier,
@@ -852,6 +864,14 @@ impl ServiceOperationId {
     pub const PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE: &'static str =
         "ak.peer.agent.participation.query.prepare_scope_evidence";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
+    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER: &'static str =
+        "ak.peer.direct_conversation.operation_control.command.deliver";
+    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT: &'static str =
+        "ak.peer.direct_conversation.operation_control.command.submit";
+    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE: &'static str =
+        "ak.peer.direct_conversation.operation_control.query.execution_bundle";
+    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE: &'static str =
+        "ak.peer.direct_conversation.operation_control.query.read_certificate";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
     pub const PEER_EVENTS_QUERY_DESCRIBE: &'static str = "ak.peer.events.query.describe";
     pub const PEER_EVENTS_QUERY_FRONTIER: &'static str = "ak.peer.events.query.frontier";
@@ -1204,6 +1224,18 @@ impl ServiceOperationId {
                 Self::PEER_AGENT_PARTICIPATION_QUERY_PREPARE_SCOPE_EVIDENCE
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
+            Self::PeerDirectConversationOperationControlCommandDeliver => {
+                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER
+            }
+            Self::PeerDirectConversationOperationControlCommandSubmit => {
+                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT
+            }
+            Self::PeerDirectConversationOperationControlQueryExecutionBundle => {
+                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE
+            }
+            Self::PeerDirectConversationOperationControlQueryReadCertificate => {
+                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE
+            }
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
             Self::PeerEventsQueryDescribe => Self::PEER_EVENTS_QUERY_DESCRIBE,
             Self::PeerEventsQueryFrontier => Self::PEER_EVENTS_QUERY_FRONTIER,
@@ -1568,6 +1600,18 @@ impl ServiceOperationId {
                 Some(Self::PeerAgentParticipationQueryPrepareScopeEvidence)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
+            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER => {
+                Some(Self::PeerDirectConversationOperationControlCommandDeliver)
+            }
+            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT => {
+                Some(Self::PeerDirectConversationOperationControlCommandSubmit)
+            }
+            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE => {
+                Some(Self::PeerDirectConversationOperationControlQueryExecutionBundle)
+            }
+            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE => {
+                Some(Self::PeerDirectConversationOperationControlQueryReadCertificate)
+            }
             Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
             Self::PEER_EVENTS_QUERY_DESCRIBE => Some(Self::PeerEventsQueryDescribe),
             Self::PEER_EVENTS_QUERY_FRONTIER => Some(Self::PeerEventsQueryFrontier),
@@ -3334,6 +3378,102 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerDirectConversationOperationControlCommandDeliver,
+        http_method: "POST",
+        http_path: "/_arkret/peer/direct-conversation-operation-control/execution-bundles",
+        grpc: Some("PeerDirectConversationOperationControl/DeliverExecutionBundle"),
+        mq: Some("peer.direct_conversation.operation_control.command.deliver"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_delivery_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_delivery_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("certified_external_effect_and_destination_ledger_only"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerDirectConversationOperationControlCommandSubmit,
+        http_method: "POST",
+        http_path: "/_arkret/peer/direct-conversation-operation-control/messages",
+        grpc: Some("PeerDirectConversationOperationControl/Submit"),
+        mq: Some("peer.direct_conversation.operation_control.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_message_submit_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_message_receipt",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("authenticated_replica_protocol_log_only"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerDirectConversationOperationControlQueryExecutionBundle,
+        http_method: "POST",
+        http_path: "/_arkret/peer/direct-conversation-operation-control/execution-bundles/query",
+        grpc: Some("PeerDirectConversationOperationControl/QueryExecutionBundle"),
+        mq: Some("peer.direct_conversation.operation_control.query.execution_bundle"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_query_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_query_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("read_only_exact_execution_bundle_or_delivery_receipt_lookup"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerDirectConversationOperationControlQueryReadCertificate,
+        http_method: "POST",
+        http_path: "/_arkret/peer/direct-conversation-operation-control/read-certificates/query",
+        grpc: Some("PeerDirectConversationOperationControl/ReadCertificate"),
+        mq: Some("peer.direct_conversation.operation_control.query.read_certificate"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_read_certificate",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("read_only_fresh_quorum_certificate_assembly"),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/peer/events",
@@ -4423,7 +4563,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
+        idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/protocol-journey-wire.schema.json#/$defs/sidecar_ensure_request",
@@ -5103,13 +5243,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
+        idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/protocol-journey-wire.schema.json#/$defs/contact_reject_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_reject_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5133,7 +5273,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_request_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5151,13 +5291,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
+        idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/protocol-journey-wire.schema.json#/$defs/contact_respond_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_respond_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5181,7 +5321,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/protocol-journey-wire.schema.json#/$defs/contact_scope_update_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_scope_update_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5199,13 +5339,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
+        idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/protocol-journey-wire.schema.json#/$defs/contact_tombstone_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_outcome",
+            "schemas/protocol-journey-wire.schema.json#/$defs/contact_tombstone_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {

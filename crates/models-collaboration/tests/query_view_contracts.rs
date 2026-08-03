@@ -92,7 +92,7 @@ fn collection_view() -> View {
         realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
-        state: None,
+        state: ViewState::Active,
         state_changed_at: None,
         renderer: Some(ViewRenderer::Board),
         title: Some("Board".to_owned()),
@@ -173,7 +173,7 @@ fn private_account_data_view_binds_visibility_state_and_key() {
 
     // `tombstoned` is the shared terminal; a private View is removed by
     // physically deleting its account-data key.
-    view.state = Some(ViewState::Tombstoned);
+    view.state = ViewState::Tombstoned;
     view.state_changed_at = Some(Utc::now());
     assert!(view.validate_private_account_data(&key).is_err());
 }
@@ -201,7 +201,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
-        state: None,
+        state: ViewState::Active,
         state_changed_at: None,
         renderer: Some(ViewRenderer::Board),
         title: Some("Board".to_owned()),
@@ -231,7 +231,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         value["collection"]["item_facets"],
         json!(["stateful", "rankable"])
     );
-    view.state = Some(ViewState::Tombstoned);
+    view.state = ViewState::Tombstoned;
     assert!(view.validate_lifecycle().is_err());
     view.state_changed_at = Some(Utc::now());
     view.validate_lifecycle().unwrap();

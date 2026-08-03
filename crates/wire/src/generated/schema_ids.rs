@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-03.3;
-//! sha256=b85323eaa9114c639cc7a30c7ce33eec985e6a6dc669e035d2a77f7747ae901b Entries: schema_ids=180,
-//! active=178
+//! Input: registry/schema-registry.json; version=2026-08-03.6;
+//! sha256=9acdc3b938746a008e29a603f6512c15aa78b9df73377af0609eb9235014ca50 Entries: schema_ids=181,
+//! active=181
 
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +28,7 @@ pub enum SchemaId {
     AgentSidecarExchangeControlV1,
     AgentSidecarExchangeProjectionV1,
     AgentSidecarViewStateV1,
+    AgentSignerAdmissionReceiptV1,
     AgentSignerEvidenceV1,
     AgentSignerEvidenceBundleV1,
     AgentSignerEvidenceQueryOutcomeV1,
@@ -62,6 +63,7 @@ pub enum SchemaId {
     ContactOperationsV1,
     ContactScopeUpdateV1,
     ContentBlockPollV1,
+    ControllerAccountGateAttestationV1,
     CrossSigningPublishV1,
     CrossSigningResetV1,
     CursorV1,
@@ -124,7 +126,6 @@ pub enum SchemaId {
     ObjectAddressingV1,
     OfflinePublicationV1,
     PatchV1,
-    PeerContactDeliveryRequestV1,
     PersonalProductivityV1,
     PinV1,
     PolicyV1,
@@ -212,6 +213,7 @@ impl SchemaId {
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
+        Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
         Self::AgentSignerEvidenceBundleV1,
         Self::AgentSignerEvidenceQueryOutcomeV1,
@@ -246,6 +248,7 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ControllerAccountGateAttestationV1,
         Self::CrossSigningPublishV1,
         Self::CrossSigningResetV1,
         Self::CursorV1,
@@ -308,7 +311,6 @@ impl SchemaId {
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
         Self::PatchV1,
-        Self::PeerContactDeliveryRequestV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
@@ -396,6 +398,7 @@ impl SchemaId {
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
+        Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
         Self::AgentSignerEvidenceBundleV1,
         Self::AgentSignerEvidenceQueryOutcomeV1,
@@ -430,6 +433,7 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ControllerAccountGateAttestationV1,
         Self::CrossSigningPublishV1,
         Self::CrossSigningResetV1,
         Self::CursorV1,
@@ -465,6 +469,7 @@ impl SchemaId {
         Self::InviteV1,
         Self::InviteDeliveryRequestV1,
         Self::InviteReceivePolicyV1,
+        Self::JoinPolicyOperationsV1,
         Self::KeyBackupV1,
         Self::KeyBackupActiveSeriesV1,
         Self::KeyBackupPlaintextV1,
@@ -611,6 +616,10 @@ impl SchemaId {
     /// Controller-private encrypted account-data plaintext for per-context Sidecar display mode and
     /// hosted-view state.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.schema.agent_sidecar_view_state.v1";
+    /// Destination-signed immutable receipt for the exact Native Agent signer evidence used when
+    /// one Event was accepted.
+    pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
+        "ak.schema.agent_signer_admission_receipt.v1";
     /// Portable Native Agent signer authorization, state-witness, and freshness evidence used
     /// outside the ordinary device directory.
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
@@ -708,6 +717,10 @@ impl SchemaId {
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
+    /// Privacy-minimal Account Authority attestation of the controller principal lifecycle gate;
+    /// never carries service-local account identity or a raw account cell.
+    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
+        "ak.schema.controller_account_gate_attestation.v1";
     /// Wire payload schema for ak.cross_signing.publish — establishes the PSK→{SSK, USK} binding on
     /// the principal control stream. See device-lifecycle.md §5.1.
     pub const CROSS_SIGNING_PUBLISH_V1: &'static str = "ak.schema.cross_signing_publish.v1";
@@ -861,11 +874,6 @@ impl SchemaId {
     pub const OFFLINE_PUBLICATION_V1: &'static str = "ak.schema.offline_publication.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
-    /// Deprecated legacy service-to-service Contact carrier retained only for historical
-    /// resolution. New writes use the closed ak.peer.contacts.command.submit request in
-    /// protocol-journey-wire.schema.json.
-    pub const PEER_CONTACT_DELIVERY_REQUEST_V1: &'static str =
-        "ak.schema.peer_contact_delivery_request.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
     pub const PERSONAL_PRODUCTIVITY_V1: &'static str = "ak.schema.personal_productivity.v1";
     /// Payload schemas for shared pin events.
@@ -1064,6 +1072,7 @@ impl SchemaId {
             Self::AgentSidecarExchangeControlV1 => Self::AGENT_SIDECAR_EXCHANGE_CONTROL_V1,
             Self::AgentSidecarExchangeProjectionV1 => Self::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
+            Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
             Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
             Self::AgentSignerEvidenceBundleV1 => Self::AGENT_SIGNER_EVIDENCE_BUNDLE_V1,
             Self::AgentSignerEvidenceQueryOutcomeV1 => Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
@@ -1100,6 +1109,9 @@ impl SchemaId {
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
+            Self::ControllerAccountGateAttestationV1 => {
+                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
+            }
             Self::CrossSigningPublishV1 => Self::CROSS_SIGNING_PUBLISH_V1,
             Self::CrossSigningResetV1 => Self::CROSS_SIGNING_RESET_V1,
             Self::CursorV1 => Self::CURSOR_V1,
@@ -1164,7 +1176,6 @@ impl SchemaId {
             Self::ObjectAddressingV1 => Self::OBJECT_ADDRESSING_V1,
             Self::OfflinePublicationV1 => Self::OFFLINE_PUBLICATION_V1,
             Self::PatchV1 => Self::PATCH_V1,
-            Self::PeerContactDeliveryRequestV1 => Self::PEER_CONTACT_DELIVERY_REQUEST_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
@@ -1263,6 +1274,7 @@ impl SchemaId {
                 "schemas/agent-sidecar-exchange-projection.schema.json"
             }
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
+            Self::AgentSignerAdmissionReceiptV1 => "schemas/agent-signer-evidence.schema.json",
             Self::AgentSignerEvidenceV1 => "schemas/agent-signer-evidence.schema.json",
             Self::AgentSignerEvidenceBundleV1 => {
                 "schemas/agent-signer-evidence-operations.schema.json"
@@ -1305,6 +1317,7 @@ impl SchemaId {
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/protocol-journey-wire.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
+            Self::ControllerAccountGateAttestationV1 => "schemas/agent-signer-evidence.schema.json",
             Self::CrossSigningPublishV1 => "schemas/cross-signing-publish.schema.json",
             Self::CrossSigningResetV1 => "schemas/cross-signing-reset.schema.json",
             Self::CursorV1 => "schemas/cursor.schema.json",
@@ -1373,9 +1386,6 @@ impl SchemaId {
             Self::ObjectAddressingV1 => "schemas/object-addressing.schema.json",
             Self::OfflinePublicationV1 => "schemas/offline-publication.schema.json",
             Self::PatchV1 => "schemas/patch.schema.json",
-            Self::PeerContactDeliveryRequestV1 => {
-                "schemas/peer-contact-delivery-request.schema.json"
-            }
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
@@ -1478,6 +1488,7 @@ impl SchemaId {
                 Some(Self::AgentSidecarExchangeProjectionV1)
             }
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
+            Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
             Self::AGENT_SIGNER_EVIDENCE_BUNDLE_V1 => Some(Self::AgentSignerEvidenceBundleV1),
             Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
@@ -1520,6 +1531,9 @@ impl SchemaId {
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
+            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
+                Some(Self::ControllerAccountGateAttestationV1)
+            }
             Self::CROSS_SIGNING_PUBLISH_V1 => Some(Self::CrossSigningPublishV1),
             Self::CROSS_SIGNING_RESET_V1 => Some(Self::CrossSigningResetV1),
             Self::CURSOR_V1 => Some(Self::CursorV1),
@@ -1588,7 +1602,6 @@ impl SchemaId {
             Self::OBJECT_ADDRESSING_V1 => Some(Self::ObjectAddressingV1),
             Self::OFFLINE_PUBLICATION_V1 => Some(Self::OfflinePublicationV1),
             Self::PATCH_V1 => Some(Self::PatchV1),
-            Self::PEER_CONTACT_DELIVERY_REQUEST_V1 => Some(Self::PeerContactDeliveryRequestV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),

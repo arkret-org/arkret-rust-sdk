@@ -7,16 +7,12 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_crypto::{
-    KeyPackageClaimRecord, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimAuthorizationDraft,
-    PeerKeyPackagesClaimRequestBody,
-};
 use arkret_wire::{
     Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalReceipt, Cursor, DeviceId,
-    Did, Error, Event, EventId, EventInitialSubmission, EventKind, Hash, IngressReceipt,
-    MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
-    ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope,
-    SpaceId, StrandId, canonical,
+    Did, Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri,
+    MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, ReasonCode,
+    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
+    StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,13 +21,13 @@ use serde_json::Value;
 use crate::event_sync::{RealmActorFrontierView, RealmSealFrontierView};
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::authorization::GrantList;
-use crate::governance::peer_contact::ContactIntroductionEvidence;
 use crate::objects::blob::BlobUploadMetadata;
 use crate::objects::mimi::{
     MimiCiphertext, MimiConsentPurpose, MimiConsentTarget, MimiDelivery, MimiFailure,
     MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
     MimiNotificationRouting, MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
+use crate::protocol_journey::{ContactPeer, ContactScopes};
 use crate::session_grant_bodies::SessionGrantOutcome;
 use crate::sync_frames::client_sync::SyncRequestBody;
 use crate::sync_frames::snapshot::SnapshotBootstrap;
@@ -125,11 +121,6 @@ impl std::fmt::Display for DevicePairingCode {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.0)
     }
-}
-
-// is_false is used as a serde skip_serializing_if predicate in this module.
-fn is_false(value: &bool) -> bool {
-    !*value
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1213,6 +1204,7 @@ pub enum ContactState {
     PendingIncoming,
     Accepted,
     Rejected,
+    Expired,
     Tombstoned,
 }
 
@@ -1222,73 +1214,6 @@ pub enum ContactState {
 pub enum DirectConversationSummaryState {
     Found,
     Suspended,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectConversationResolveState {
-    Found,
-    CreationRequired,
-    Suspended,
-    TemporarilyUnavailable,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectConversationNextAction {
-    RemoteKeypackageClaim,
-    DirectConversationMaterialization,
-    Retry,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectConversationOperationState {
-    Reserved,
-    Materializing,
-    Found,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectConversationOperation {
-    pub operation_id: NonEmptyString,
-    pub pair_key: Hash,
-    pub coordinator_service_id: Did,
-    pub operation_state: DirectConversationOperationState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub main_strand_id: Option<StrandId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-impl DirectConversationOperation {
-    pub fn validate_shape(&self) -> Result<()> {
-        match self.operation_state {
-            DirectConversationOperationState::Reserved if self.expires_at.is_some() => Ok(()),
-            DirectConversationOperationState::Materializing
-            | DirectConversationOperationState::Found
-                if self.expires_at.is_none()
-                    && self.realm_id.is_some()
-                    && self.main_strand_id.is_some() =>
-            {
-                Ok(())
-            }
-            _ => Err(Error::Protocol(
-                "direct conversation durable operation shape is invalid".to_owned(),
-            )),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1319,8 +1244,9 @@ pub struct ContactAgentProjection {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(try_from = "ContactListRowWire")]
 pub struct ContactListRow {
-    pub peer: Did,
+    pub peer: ContactPeer,
     pub state: ContactState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_event_ref: Option<EventId>,
@@ -1328,16 +1254,11 @@ pub struct ContactListRow {
     pub response_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tombstone_event_ref: Option<EventId>,
-    #[serde(default)]
-    pub granted_by_me: Vec<String>,
-    #[serde(default)]
-    pub granted_to_me: Vec<String>,
-    #[serde(default)]
-    pub bidirectional_scopes: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub effective_scopes: Vec<String>,
+    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_by_peer_scopes: ContactScopes,
+    pub bidirectional_scopes: ContactScopes,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_consent_grant_ref: Option<EventId>,
+    pub effective_scopes: Option<ContactScopes>,
     /// Principal Server service DID hosting the peer, when known (e.g. learned
     /// from a cross-Principal-Server contact delivery). Lets the holder address
     /// responses/invites to the peer's home server. Omitted for
@@ -1354,6 +1275,68 @@ pub struct ContactListRow {
     pub agents: Vec<ContactAgentProjection>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContactListRowWire {
+    peer: ContactPeer,
+    state: ContactState,
+    #[serde(default)]
+    request_event_ref: Option<EventId>,
+    #[serde(default)]
+    response_event_ref: Option<EventId>,
+    #[serde(default)]
+    tombstone_event_ref: Option<EventId>,
+    granted_to_peer_scopes: ContactScopes,
+    granted_by_peer_scopes: ContactScopes,
+    bidirectional_scopes: ContactScopes,
+    #[serde(default)]
+    effective_scopes: Option<ContactScopes>,
+    #[serde(default)]
+    peer_service_id: Option<Did>,
+    #[serde(default)]
+    direct_conversation: Option<DirectConversationSummary>,
+    #[serde(default)]
+    agents: Vec<ContactAgentProjection>,
+}
+
+impl TryFrom<ContactListRowWire> for ContactListRow {
+    type Error = Error;
+
+    fn try_from(wire: ContactListRowWire) -> Result<Self> {
+        let row = Self {
+            peer: wire.peer,
+            state: wire.state,
+            request_event_ref: wire.request_event_ref,
+            response_event_ref: wire.response_event_ref,
+            tombstone_event_ref: wire.tombstone_event_ref,
+            granted_to_peer_scopes: wire.granted_to_peer_scopes,
+            granted_by_peer_scopes: wire.granted_by_peer_scopes,
+            bidirectional_scopes: wire.bidirectional_scopes,
+            effective_scopes: wire.effective_scopes,
+            peer_service_id: wire.peer_service_id,
+            direct_conversation: wire.direct_conversation,
+            agents: wire.agents,
+        };
+        row.validate_shape()?;
+        Ok(row)
+    }
+}
+
+impl ContactListRow {
+    pub fn validate_shape(&self) -> Result<()> {
+        if self
+            .effective_scopes
+            .as_ref()
+            .is_some_and(|scopes| scopes != &self.bidirectional_scopes)
+        {
+            return Err(Error::Protocol(
+                "effective_scopes must equal bidirectional_scopes when present".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ContactListQuery {
@@ -1367,306 +1350,12 @@ pub struct ContactListQuery {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ContactList {
-    #[serde(default)]
     pub contacts: Vec<ContactListRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<arkret_wire::cursor::Cursor>,
-    #[serde(default)]
     pub has_more: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactRequestOutcome {
-    pub request_event_ref: EventId,
-    #[serde(default)]
-    pub requester_consent_refs: Vec<EventId>,
-    pub state: ContactState,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactRespondRequestBody {
-    pub request_id: EventId,
-    pub requester: Did,
-    pub action: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub granted_scopes: Vec<String>,
-    /// Cross-Principal-Server addressing (spec §4.1): when the original
-    /// `requester` is hosted on a different Principal Server, the responder
-    /// supplies the requester's home service DID so the accept / reject fact
-    /// is federated back via `ak.peer.contacts.command.submit`. Omit for same-server
-    /// responses.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requester_service_id: Option<Did>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactRespondOutcome {
-    pub response_event_ref: EventId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub consent_grant_refs: Vec<EventId>,
-    pub state: ContactState,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactTombstoneRequestBody {
-    pub contact: Did,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub revoke_scopes: Vec<String>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub full_peer_revoke: bool,
-    #[serde(default)]
-    pub block_peer: bool,
-    /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
-    /// §4.1): when `contact` (the peer) is hosted on a different Principal
-    /// Server, the holder supplies the peer's home service DID so the
-    /// `ak.contact.tombstoned` fact is federated to the peer's server via
-    /// `ak.peer.contacts.command.submit`. Omit for same-server tombstones; when absent
-    /// the issuer falls back to the peer's recorded `peer_service_id` on the
-    /// stored contact row.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_service_id: Option<Did>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactTombstone {
-    pub tombstone_event_ref: EventId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub consent_revoke_refs: Vec<EventId>,
-    pub state: ContactState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub partial_revoke: Option<bool>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectConversationResolveRequestBody {
-    pub peer: Did,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub create: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_claim_request: Option<PeerKeyPackagesClaimRequestBody>,
-}
-
-impl DirectConversationResolveRequestBody {
-    pub fn validate_shape(&self) -> Result<()> {
-        if self.peer_claim_request.is_some() && (!self.create || self.idempotency_key.is_none()) {
-            return Err(Error::Protocol(
-                "peer_claim_request requires create=true and idempotency_key".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectConversationMaterializationDraft {
-    pub operation_id: NonEmptyString,
-    pub operation_state: DirectConversationOperationState,
-    pub pair_key: Hash,
-    pub coordinator_service_id: Did,
-    pub claim_nonce: Base64UrlString,
-    pub mls_group_id: MlsGroupId,
-    pub mls_genesis_event_ref: EventId,
-    pub mls_commit_event_ref: EventId,
-    pub mls_welcome_event_ref: EventId,
-    pub claimed_keypackage: KeyPackageClaimRecord,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub claim_receipt: Option<PeerKeyPackageClaimReceipt>,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub realm_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub peer_member_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub main_strand_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub binding_event: Event,
-}
-
-impl DirectConversationMaterializationDraft {
-    pub fn expected_event_ids(&self) -> Vec<&EventId> {
-        let mut event_ids = vec![&self.realm_event.event_id];
-        event_ids.extend([
-            &self.peer_member_event.event_id,
-            &self.main_strand_event.event_id,
-            &self.binding_event.event_id,
-        ]);
-        event_ids
-    }
-
-    pub fn validate_shape(&self) -> Result<()> {
-        let expected = vec![
-            (&self.realm_event, EventKind::REALM_CREATE),
-            (&self.peer_member_event, EventKind::MEMBER_STATE),
-            (&self.main_strand_event, EventKind::STRAND_CREATE),
-            (&self.binding_event, EventKind::DIRECT_CONVERSATION_BOUND),
-        ];
-        if expected
-            .iter()
-            .any(|(event, kind)| event.kind.as_str() != *kind || !event.proofs.is_empty())
-        {
-            return Err(Error::Protocol(
-                "direct conversation materialization Event draft shape is invalid".into(),
-            ));
-        }
-        if self.operation_state != DirectConversationOperationState::Materializing
-            || self.realm_event.realm_id != self.peer_member_event.realm_id
-            || self.realm_event.realm_id != self.main_strand_event.realm_id
-            || self.realm_event.actor_id != self.peer_member_event.actor_id
-            || self.realm_event.actor_id != self.main_strand_event.actor_id
-            || self.realm_event.actor_id != self.binding_event.actor_id
-        {
-            return Err(Error::Protocol(
-                "direct conversation materialization Event draft binding is invalid".into(),
-            ));
-        }
-        let binding: crate::events_payloads::device_identity::DirectConversationBoundPayload =
-            serde_json::from_value(serde_json::to_value(&self.binding_event.payload).map_err(
-                |_| {
-                    Error::Protocol(
-                        "direct conversation materialization binding payload is invalid".into(),
-                    )
-                },
-            )?)
-            .map_err(|_| {
-                Error::Protocol(
-                    "direct conversation materialization binding payload is invalid".into(),
-                )
-            })?;
-        if binding.realm_id != self.realm_event.realm_id
-            || binding.main_strand_id.as_str()
-                != self
-                    .main_strand_event
-                    .payload
-                    .get("object")
-                    .and_then(|object| object.get("id"))
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-            || !binding
-                .member_event_refs
-                .iter()
-                .any(|event_id| event_id == &self.realm_event.event_id)
-            || !binding
-                .member_event_refs
-                .iter()
-                .any(|event_id| event_id == &self.peer_member_event.event_id)
-            || binding.main_strand_create_ref != self.main_strand_event.event_id
-            || binding.mls_group_id != self.mls_group_id
-            || binding.mls_genesis_event_ref != self.mls_genesis_event_ref
-            || binding.mls_commit_event_ref != self.mls_commit_event_ref
-            || binding.mls_welcome_event_ref != self.mls_welcome_event_ref
-        {
-            return Err(Error::Protocol(
-                "direct conversation materialization binding refs do not match drafts".into(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectConversationResolveOutcome {
-    pub state: DirectConversationResolveState,
-    pub pair_key: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub main_strand_id: Option<StrandId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub operation: Option<DirectConversationOperation>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_action: Option<DirectConversationNextAction>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub claim_authorization_draft: Option<PeerKeyPackagesClaimAuthorizationDraft>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub materialization_draft: Option<DirectConversationMaterializationDraft>,
-}
-
-impl DirectConversationResolveOutcome {
-    pub fn validate_shape(&self) -> Result<()> {
-        match self.state {
-            DirectConversationResolveState::CreationRequired => {
-                let operation = self.operation.as_ref().ok_or_else(|| {
-                    Error::Protocol("creation_required must carry a durable operation".into())
-                })?;
-                operation.validate_shape()?;
-                if operation.pair_key != self.pair_key {
-                    return Err(Error::Protocol(
-                        "direct conversation operation pair_key mismatch".into(),
-                    ));
-                }
-                match self.next_action {
-                    Some(DirectConversationNextAction::RemoteKeypackageClaim)
-                        if self.claim_authorization_draft.is_some()
-                            && self.materialization_draft.is_none() =>
-                    {
-                        Ok(())
-                    }
-                    Some(DirectConversationNextAction::DirectConversationMaterialization)
-                        if operation.operation_state
-                            == DirectConversationOperationState::Materializing
-                            && self.claim_authorization_draft.is_none()
-                            && self.materialization_draft.as_ref().is_some_and(|draft| {
-                                draft.validate_shape().is_ok()
-                                    && draft.operation_id == operation.operation_id
-                                    && draft.pair_key == operation.pair_key
-                                    && draft.coordinator_service_id
-                                        == operation.coordinator_service_id
-                                    && draft.realm_event.realm_id
-                                        == *operation.realm_id.as_ref().unwrap()
-                            }) =>
-                    {
-                        Ok(())
-                    }
-                    Some(DirectConversationNextAction::Retry)
-                        if self.claim_authorization_draft.is_none()
-                            && self.materialization_draft.is_none() =>
-                    {
-                        Ok(())
-                    }
-                    _ => Err(Error::Protocol(
-                        "creation_required fields do not match next_action".into(),
-                    )),
-                }
-            }
-            DirectConversationResolveState::Found | DirectConversationResolveState::Suspended
-                if self.realm_id.is_some()
-                    && self.main_strand_id.is_some()
-                    && self.binding_event_ref.is_some()
-                    && self.operation.is_none()
-                    && self.next_action.is_none()
-                    && self.claim_authorization_draft.is_none()
-                    && self.materialization_draft.is_none() =>
-            {
-                Ok(())
-            }
-            DirectConversationResolveState::TemporarilyUnavailable
-                if self.operation.is_none()
-                    && self.next_action.is_none()
-                    && self.claim_authorization_draft.is_none()
-                    && self.materialization_draft.is_none() =>
-            {
-                Ok(())
-            }
-            _ => Err(Error::Protocol(
-                "direct conversation resolver outcome shape is invalid".into(),
-            )),
-        }
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1703,27 +1392,6 @@ pub struct EventsQueryOutcome {
     pub has_more: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub range_completeness: Option<EventsRangeCompleteness>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactRequestRequestBody {
-    pub target: Did,
-    #[serde(default)]
-    pub requested_scopes: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<String>,
-    /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
-    /// §4.1): when `target` is hosted on a different Principal Server, the
-    /// requester MUST supply the target's home service DID so the issuer-side
-    /// server can federate the signed `ak.contact.requested` fact via
-    /// `ak.peer.contacts.command.submit`. Omit for same-server requests.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_service_id: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub introduction_evidence: Option<ContactIntroductionEvidence>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

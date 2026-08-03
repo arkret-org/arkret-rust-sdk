@@ -546,7 +546,7 @@ pub struct DirectConversationBoundPayload {
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub authorization_basis: DirectConversationAuthorizationBasis,
-    pub member_event_refs: ContactEventRefs,
+    pub member_event_refs: Vec<EventId>,
     pub main_strand_create_ref: EventId,
     pub mls_group_id: MlsGroupId,
     pub mls_genesis_event_ref: EventId,

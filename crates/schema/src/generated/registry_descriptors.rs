@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-03.3;
-//! sha256=808ea2383d66ab211394de4c40040117f59b4fe43db7381398be9ca1a34546f0 Input: registry/
-//! capability-action-registry.json; version=2026-08-03.3;
-//! sha256=9a96674b0e0ea3eaba98f318f9dad997bb74126c99ea242c218913d63797e9b3 Input: registry/
-//! schema-registry.json; version=2026-08-03.3;
-//! sha256=b85323eaa9114c639cc7a30c7ce33eec985e6a6dc669e035d2a77f7747ae901b Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-03.6;
+//! sha256=93eecfea2f8c7d82b1f198950fdca320b185598fce9cf36fd0409940f0ac45da Input: registry/
+//! capability-action-registry.json; version=2026-08-03.6;
+//! sha256=737f560eced0908efb20ad2e93767bab5d909c921af6a8eafac60e44b6be6e73 Input: registry/
+//! schema-registry.json; version=2026-08-03.6;
+//! sha256=9acdc3b938746a008e29a603f6512c15aa78b9df73377af0609eb9235014ca50 Input: registry/
 //! account-data-key-registry.json; version=2026-07-30;
 //! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=54,
-//! special_forms=10, actions=169, schemas=178, account_data_patterns=24
+//! special_forms=10, actions=169, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -2943,6 +2943,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-sidecar-view-state.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
+        file: "schemas/agent-signer-evidence.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_V1,
         file: "schemas/agent-signer-evidence.schema.json",
     },
@@ -3077,6 +3081,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
         file: "schemas/content-block-poll.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1,
+        file: "schemas/agent-signer-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CROSS_SIGNING_PUBLISH_V1,
@@ -3217,6 +3225,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::INVITE_RECEIVE_POLICY_V1,
         file: "schemas/invite-receive-policy.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::JOIN_POLICY_OPERATIONS_V1,
+        file: "schemas/join-policy-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::KEY_BACKUP_V1,

@@ -1,9 +1,9 @@
-use arkret_wire::{DeviceId, Did, Event, EventId, Hash};
+use arkret_wire::{Base64UrlString, DeviceId, Did, Event, EventId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, string_marker};
-use crate::governance::peer_contact::PeerContactAddress;
+use crate::governance::peer_contact::{ContactIntroductionEvidence, PeerContactAddress};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -330,7 +330,6 @@ pub enum ContactBasis {
     Glare {
         sorted_pair_members: [Did; 2],
         requests: [ContactBasisRequestRef; 2],
-        causal_concurrency_proof: ContactCurrentProof,
     },
 }
 
@@ -405,6 +404,9 @@ pub struct ContactPrepareRequestBody {
     pub idempotency_key: ProtocolOpaqueId,
     pub peer: ContactPeer,
     pub granted_to_peer_scopes: ContactScopes,
+    pub introduction_evidence: ContactIntroductionEvidence,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -459,7 +461,6 @@ pub struct ContactAcceptPrepareRequestBody {
     pub request_receipt: RequestAcceptanceReceipt,
     pub action: ContactAcceptAction,
     pub granted_to_peer_scopes: ContactScopes,
-    pub normal_basis_evidence: ContactBasisEvidenceBundle,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -542,24 +543,122 @@ pub enum ContactOperationRejectReason {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ContactOperationOutcome {
-    Prepared {
+pub struct ContactPreparedEventDraft {
+    pub event_id: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub kind: arkret_wire::EventKind,
+    pub unsigned_event_bytes: Base64UrlString,
+    pub event_digest: Hash,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactResultKind {
+    Request,
+    Response,
+    Reject,
+    ScopeUpdate,
+    Tombstone,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactPreparedOutcome {
+    Request {
         operation_id: ProtocolOperationId,
         reservation_handle: ProtocolOpaqueId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
+        event_draft: ContactPreparedEventDraft,
     },
-    Accepted {
+    Response {
         operation_id: ProtocolOperationId,
-        accepted_event_ref: EventId,
+        reservation_handle: ProtocolOpaqueId,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        expires_at: DateTime<Utc>,
+        event_draft: ContactPreparedEventDraft,
+    },
+    Reject {
+        operation_id: ProtocolOperationId,
+        reservation_handle: ProtocolOpaqueId,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        expires_at: DateTime<Utc>,
+        event_draft: ContactPreparedEventDraft,
+    },
+    ScopeUpdate {
+        operation_id: ProtocolOperationId,
+        reservation_handle: ProtocolOpaqueId,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        expires_at: DateTime<Utc>,
+        event_draft: ContactPreparedEventDraft,
+    },
+    Tombstone {
+        operation_id: ProtocolOperationId,
+        reservation_handle: ProtocolOpaqueId,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        expires_at: DateTime<Utc>,
+        event_draft: ContactPreparedEventDraft,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactAcceptedOutcome {
+    Request {
+        operation_id: ProtocolOperationId,
+        request_acceptance_receipt: RequestAcceptanceReceipt,
+    },
+    Response {
+        operation_id: ProtocolOperationId,
+        normal_response_acceptance_receipt: NormalResponseAcceptanceReceipt,
         lineage: ContactLineage,
         current_proof: ContactCurrentProof,
     },
-    Rejected {
+    Reject {
         operation_id: ProtocolOperationId,
-        reason: ContactOperationRejectReason,
+        reject_acceptance_receipt: RejectAcceptanceReceipt,
+    },
+    ScopeUpdate {
+        operation_id: ProtocolOperationId,
+        lineage: ContactLineage,
+        current_proof: ContactCurrentProof,
+    },
+    Tombstone {
+        operation_id: ProtocolOperationId,
+        lineage: ContactLineage,
+        current_proof: ContactCurrentProof,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactFailedOutcome {
+    pub result_kind: ContactResultKind,
+    pub operation_id: ProtocolOperationId,
+    pub reason: ContactOperationRejectReason,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactOperationOutcome {
+    Prepared {
+        #[serde(flatten)]
+        outcome: ContactPreparedOutcome,
+    },
+    Accepted {
+        #[serde(flatten)]
+        outcome: ContactAcceptedOutcome,
+    },
+    Failed {
+        #[serde(flatten)]
+        outcome: ContactFailedOutcome,
     },
 }
 
@@ -574,6 +673,7 @@ pub enum PeerContactSubmitRequestBody {
         request_receipt: RequestAcceptanceReceipt,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
+        introduction_evidence: ContactIntroductionEvidence,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         current_proof: Option<ContactCurrentProof>,
     },
@@ -613,6 +713,38 @@ pub enum PeerContactSubmitRequestBody {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
     },
+    ProofRefresh {
+        idempotency_key: ProtocolOpaqueId,
+        prior_mirror_receipt: PeerContactMirrorReceipt,
+        current_proof: ContactCurrentProof,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        contact_address: PeerContactAddress,
+    },
+    GlareFinalize {
+        idempotency_key: ProtocolOpaqueId,
+        basis_id: Hash,
+        basis: ContactBasis,
+        request_receipts: [RequestAcceptanceReceipt; 2],
+        remote_mirror_receipt: PeerContactMirrorReceipt,
+        glare_concurrency_attestation: GlareConcurrencyAttestation,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        contact_address: PeerContactAddress,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct GlareConcurrencyAttestation {
+    pub issuer: Did,
+    pub peer: Did,
+    pub request_receipt_digests: [Hash; 2],
+    pub observed_frontier: Vec<EventId>,
+    pub complete_through: u64,
+    pub unconsumed_slot_checkpoint: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub observed_at: DateTime<Utc>,
+    pub signature: ProtocolSignature,
 }
 
 string_marker!(
@@ -646,36 +778,98 @@ pub struct PeerContactMirrorReceipt {
     pub signature: ProtocolSignature,
 }
 
+string_marker!(
+    PeerContactControlReceiptDomain,
+    V1,
+    "ak.peer-contact.control-receipt.v1"
+);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum PeerContactControlKind {
+    ProofRefresh,
+    GlareFinalize,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PeerContactControlReceipt {
+    pub domain: PeerContactControlReceiptDomain,
+    pub request_kind: PeerContactControlKind,
+    pub request_digest: Hash,
+    pub disposition: PeerContactDisposition,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_digest: Option<Hash>,
+    pub recipient_service_id: Did,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub received_at: DateTime<Utc>,
+    pub issuer: Did,
+    pub signature: ProtocolSignature,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PeerContactEventSubmitOutcome {
+    pub result_kind: ContactResultKind,
+    pub status: PeerContactDisposition,
+    pub mirror_receipt: PeerContactMirrorReceipt,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_proof: Option<ContactCurrentProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum PeerContactControlSubmitOutcome {
+    ProofRefresh {
+        status: PeerContactDisposition,
+        control_receipt: PeerContactControlReceipt,
+        current_proof: ContactCurrentProof,
+    },
+    GlareFinalize {
+        status: PeerContactDisposition,
+        control_receipt: PeerContactControlReceipt,
+        glare_concurrency_attestation: GlareConcurrencyAttestation,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        current_proof: Option<ContactCurrentProof>,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PeerContactControlDeferredOutcome {
+    pub status: PeerContactDisposition,
+    pub request_kind: PeerContactControlKind,
+    pub control_receipt: PeerContactControlReceipt,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum PeerContactSubmitOutcome {
-    Accepted {
-        mirror_receipt: PeerContactMirrorReceipt,
-    },
-    Duplicate {
-        mirror_receipt: PeerContactMirrorReceipt,
-    },
-    Deferred {
-        mirror_receipt: PeerContactMirrorReceipt,
-    },
+    Event(PeerContactEventSubmitOutcome),
+    Control(PeerContactControlSubmitOutcome),
+    ControlDeferred(PeerContactControlDeferredOutcome),
 }
 
 impl PeerContactSubmitOutcome {
     pub fn validate(&self) -> arkret_wire::Result<()> {
-        let valid = matches!(
-            self,
-            Self::Accepted { mirror_receipt }
-                if mirror_receipt.disposition == PeerContactDisposition::Accepted
-        ) || matches!(
-            self,
-            Self::Duplicate { mirror_receipt }
-                if mirror_receipt.disposition == PeerContactDisposition::Duplicate
-        ) || matches!(
-            self,
-            Self::Deferred { mirror_receipt }
-                if mirror_receipt.disposition == PeerContactDisposition::Deferred
-        );
+        let valid = match self {
+            Self::Event(outcome) => outcome.status == outcome.mirror_receipt.disposition,
+            Self::Control(_) => true,
+            Self::ControlDeferred(outcome) => {
+                outcome.status == PeerContactDisposition::Deferred
+                    && outcome.control_receipt.disposition == PeerContactDisposition::Deferred
+            }
+        };
         if valid {
             Ok(())
         } else {
