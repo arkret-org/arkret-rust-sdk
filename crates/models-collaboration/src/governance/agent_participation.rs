@@ -16,11 +16,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
-pub use crate::protocol_journey::{
-    ParticipationBits as AgentParticipation,
-    ParticipationReplacementBatch as AgentParticipationReplaceRequestBody,
-    ParticipationScope as AgentParticipationScope,
-};
+use crate::protocol_journey::{ParticipationBits, ParticipationScope};
 
 /// Stable grant id for the capability materialized from one Agent
 /// participation selection. Keeping this derivation shared lets the controller
@@ -53,24 +49,6 @@ pub fn agent_participation_grant_id(agent_id: &str, scope_key: &str) -> String {
     )
 }
 
-/// Optional per-bit governance ceiling declaration for Circle / Strand
-/// objects. Omitted bits inherit the parent ceiling independently.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentParticipationCeiling {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reply_message: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reaction_add: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reaction_remove: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accept_third_party_mention: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub act_on_behalf: Option<bool>,
-}
-
 /// Governance object shape used by Realm, Circle and Strand schemas.
 /// Native personal-agent permissions are explicitly namespaced so future
 /// applet-agent policy cannot be confused with this ceiling.
@@ -79,43 +57,14 @@ pub struct AgentParticipationCeiling {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub native_agent: Option<AgentParticipationCeiling>,
+    pub native_agent: Option<ParticipationBits>,
 }
 
 impl AgentParticipationPolicy {
     /// Materialize the native-agent declaration against its parent ceiling.
     #[must_use]
-    pub fn materialize_native_agent(self, parent: AgentParticipation) -> AgentParticipation {
-        self.native_agent
-            .map_or(parent, |ceiling| ceiling.materialize(parent))
-    }
-}
-
-impl AgentParticipationCeiling {
-    /// Materialize this declaration against its parent ceiling.
-    #[must_use]
-    pub fn materialize(self, parent: AgentParticipation) -> AgentParticipation {
-        AgentParticipation {
-            reply_message: self.reply_message.unwrap_or(parent.reply_message),
-            reaction_add: self.reaction_add.unwrap_or(parent.reaction_add),
-            reaction_remove: self.reaction_remove.unwrap_or(parent.reaction_remove),
-            accept_third_party_mention: self
-                .accept_third_party_mention
-                .unwrap_or(parent.accept_third_party_mention),
-            act_on_behalf: self.act_on_behalf.unwrap_or(parent.act_on_behalf),
-        }
-    }
-}
-
-impl From<AgentParticipation> for AgentParticipationCeiling {
-    fn from(value: AgentParticipation) -> Self {
-        Self {
-            reply_message: Some(value.reply_message),
-            reaction_add: Some(value.reaction_add),
-            reaction_remove: Some(value.reaction_remove),
-            accept_third_party_mention: Some(value.accept_third_party_mention),
-            act_on_behalf: Some(value.act_on_behalf),
-        }
+    pub fn materialize_native_agent(self, parent: ParticipationBits) -> ParticipationBits {
+        self.native_agent.unwrap_or(parent)
     }
 }
 
@@ -127,8 +76,8 @@ pub enum AgentParticipationError {
         "reason=agent_participation_ceiling_widen: child {child:?} widens parent ceiling {parent:?}"
     )]
     CeilingWiden {
-        parent: AgentParticipation,
-        child: AgentParticipation,
+        parent: ParticipationBits,
+        child: ParticipationBits,
     },
     /// A controller selection enables a bit the effective ceiling
     /// disables.
@@ -136,8 +85,8 @@ pub enum AgentParticipationError {
         "reason=agent_participation_exceeds_ceiling: selection {selection:?} exceeds ceiling {ceiling:?}"
     )]
     ExceedsCeiling {
-        ceiling: AgentParticipation,
-        selection: AgentParticipation,
+        ceiling: ParticipationBits,
+        selection: ParticipationBits,
     },
 }
 
@@ -145,8 +94,8 @@ pub enum AgentParticipationError {
 /// participation ceiling MAY only tighten (drop bits from) its parent
 /// ceiling, never widen it. Returns `Ok(())` iff `child ⊆ parent`.
 pub fn validate_agent_participation_tightens(
-    parent: AgentParticipation,
-    child: AgentParticipation,
+    parent: ParticipationBits,
+    child: ParticipationBits,
 ) -> Result<(), AgentParticipationError> {
     if child.is_subset_of(parent) {
         Ok(())
@@ -158,34 +107,33 @@ pub fn validate_agent_participation_tightens(
 /// Validate a partial child ceiling declaration against its parent and
 /// return the materialized child ceiling.
 pub fn validate_agent_participation_ceiling_tightens(
-    parent: AgentParticipation,
-    child: AgentParticipationCeiling,
-) -> Result<AgentParticipation, AgentParticipationError> {
-    let materialized = child.materialize(parent);
-    validate_agent_participation_tightens(parent, materialized)?;
-    Ok(materialized)
+    parent: ParticipationBits,
+    child: ParticipationBits,
+) -> Result<ParticipationBits, AgentParticipationError> {
+    validate_agent_participation_tightens(parent, child)?;
+    Ok(child)
 }
 
-/// Fold a ceiling chain by intersection, seeded with [`AgentParticipation::ALL`].
+/// Fold a ceiling chain by intersection, seeded with [`ParticipationBits::ALL`].
 /// Because invariant 1 already guarantees monotone tightening, this is
 /// equivalent to taking the innermost explicit value, but folding by AND
 /// is fail-closed against historically non-conforming data (AKP-0010 §4.4).
-pub fn fold_ceiling_chain<I>(chain: I) -> AgentParticipation
+pub fn fold_ceiling_chain<I>(chain: I) -> ParticipationBits
 where
-    I: IntoIterator<Item = AgentParticipation>,
+    I: IntoIterator<Item = ParticipationBits>,
 {
     chain
         .into_iter()
-        .fold(AgentParticipation::ALL, |acc, c| acc.intersect(c))
+        .fold(ParticipationBits::ALL, |acc, c| acc.intersect(c))
 }
 
 /// Effective participation = effective ceiling ∩ controller selection
 /// (AKP-0010 §2).
 #[must_use]
 pub fn effective_participation(
-    ceiling: AgentParticipation,
-    selection: AgentParticipation,
-) -> AgentParticipation {
+    ceiling: ParticipationBits,
+    selection: ParticipationBits,
+) -> ParticipationBits {
     ceiling.intersect(selection)
 }
 
@@ -193,8 +141,8 @@ pub fn effective_participation(
 /// enabled bit MUST be permitted by the ceiling (AKP-0010 §8.1). Returns
 /// `Ok(())` iff `selection ⊆ ceiling`.
 pub fn validate_selection_within_ceiling(
-    ceiling: AgentParticipation,
-    selection: AgentParticipation,
+    ceiling: ParticipationBits,
+    selection: ParticipationBits,
 ) -> Result<(), AgentParticipationError> {
     if selection.is_subset_of(ceiling) {
         Ok(())
@@ -209,10 +157,10 @@ pub fn validate_selection_within_ceiling(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationEntry {
     #[serde(rename = "target_scope")]
-    pub scope: AgentParticipationScope,
-    pub selection: AgentParticipation,
-    pub ceiling: AgentParticipation,
-    pub effective: AgentParticipation,
+    pub scope: ParticipationScope,
+    pub selection: ParticipationBits,
+    pub ceiling: ParticipationBits,
+    pub effective: ParticipationBits,
 }
 
 /// Response for `ak.self.agent.participation.{set,get}`.
@@ -229,11 +177,11 @@ mod tests {
     use super::*;
     use arkret_wire::{RealmId, StrandId};
 
-    fn p(reply: bool, mention: bool, aob: bool) -> AgentParticipation {
-        AgentParticipation {
+    fn p(reply: bool, mention: bool, aob: bool) -> ParticipationBits {
+        ParticipationBits {
             reply_message: reply,
-            reaction_add: false,
-            reaction_remove: false,
+            reaction_add: reply,
+            reaction_remove: reply,
             accept_third_party_mention: mention,
             act_on_behalf: aob,
         }
@@ -241,8 +189,8 @@ mod tests {
 
     #[test]
     fn subset_and_intersect() {
-        assert!(AgentParticipation::NONE.is_subset_of(AgentParticipation::ALL));
-        assert!(!AgentParticipation::ALL.is_subset_of(AgentParticipation::NONE));
+        assert!(ParticipationBits::NONE.is_subset_of(ParticipationBits::ALL));
+        assert!(!ParticipationBits::ALL.is_subset_of(ParticipationBits::NONE));
         assert!(p(true, false, false).is_subset_of(p(true, true, false)));
         assert!(!p(true, true, false).is_subset_of(p(true, false, false)));
         assert_eq!(
@@ -266,15 +214,9 @@ mod tests {
     }
 
     #[test]
-    fn ceiling_declaration_inherits_omitted_bits() {
+    fn complete_ceiling_tightens_parent() {
         let parent = p(true, false, true);
-        let child = AgentParticipationCeiling {
-            reply_message: Some(false),
-            reaction_add: None,
-            reaction_remove: None,
-            accept_third_party_mention: None,
-            act_on_behalf: None,
-        };
+        let child = p(false, false, true);
         assert_eq!(
             validate_agent_participation_ceiling_tightens(parent, child).unwrap(),
             p(false, false, true)
@@ -284,12 +226,12 @@ mod tests {
     #[test]
     fn governance_policy_wraps_native_agent_ceiling() {
         let policy = AgentParticipationPolicy {
-            native_agent: Some(AgentParticipationCeiling {
-                reply_message: Some(true),
-                reaction_add: None,
-                reaction_remove: None,
-                accept_third_party_mention: None,
-                act_on_behalf: Some(false),
+            native_agent: Some(ParticipationBits {
+                reply_message: true,
+                reaction_add: false,
+                reaction_remove: false,
+                accept_third_party_mention: false,
+                act_on_behalf: false,
             }),
         };
         assert_eq!(
@@ -297,6 +239,9 @@ mod tests {
             serde_json::json!({
                 "native_agent": {
                     "reply_message": true,
+                    "reaction_add": false,
+                    "reaction_remove": false,
+                    "accept_third_party_mention": false,
                     "act_on_behalf": false
                 }
             })
@@ -312,13 +257,7 @@ mod tests {
     #[test]
     fn ceiling_declaration_rejects_explicit_widening() {
         let parent = p(true, false, false);
-        let child = AgentParticipationCeiling {
-            reply_message: None,
-            reaction_add: None,
-            reaction_remove: None,
-            accept_third_party_mention: Some(true),
-            act_on_behalf: None,
-        };
+        let child = p(true, true, false);
         assert!(matches!(
             validate_agent_participation_ceiling_tightens(parent, child),
             Err(AgentParticipationError::CeilingWiden { .. })
@@ -363,7 +302,7 @@ mod tests {
             RealmId::new("ak:realm:01970000-0000-7000-8000-000000000000".to_owned()).unwrap();
         let strand =
             StrandId::new("ak:strand:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
-        let scope = AgentParticipationScope::Strand {
+        let scope = ParticipationScope::Strand {
             realm_id: realm,
             strand_id: strand,
         };

@@ -471,8 +471,6 @@ pub enum ContactAcceptRequestBody {
     Commit(ContactCommitRequestBody),
 }
 
-pub type ContactRespondRequestBody = ContactAcceptRequestBody;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -551,6 +549,25 @@ pub struct ContactPreparedEventDraft {
     pub kind: arkret_wire::EventKind,
     pub unsigned_event_bytes: Base64UrlString,
     pub event_digest: Hash,
+}
+
+impl ContactPreparedEventDraft {
+    pub fn unsigned_event(&self) -> arkret_wire::Result<Event> {
+        let bytes = arkret_canonical::base64url_decode(
+            self.unsigned_event_bytes.as_str().as_bytes(),
+        )?;
+        let event = Event::from_digest_payload_bytes(&bytes)?;
+        if event.event_id != self.event_id
+            || event.kind != self.kind
+            || Hash::new(event.event_digest()?)? != self.event_digest
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "prepared Contact Event metadata does not match unsigned_event_bytes".to_owned(),
+            ));
+        }
+        event.validate_for_authoring_structural()?;
+        Ok(event)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

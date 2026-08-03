@@ -89,10 +89,21 @@ foreach ($k in $arr) {
         Bottom = if ($null -eq $row.bottom) { $null } else { [string]$row.bottom }
         Plane = if ($null -eq $row.plane) { $null } else { [string]$row.plane }
         Sealed = [bool]$row.sealed
-        CellWriteFamilies = @(
+        CellWrites = @(
             if ($null -eq $row.cell_writes) { } else {
                 foreach ($write in $row.cell_writes) {
-                    if ($null -ne $write.cell_family) { [string]$write.cell_family }
+                    [PSCustomObject]@{
+                        CellFamily = if ($null -eq $write.cell_family) { $null } else { [string]$write.cell_family }
+                        CellRefRule = if ($null -eq $write.cell_ref) { $null } else { ($write.cell_ref | ConvertTo-Json -Compress -Depth 40) }
+                        CellSubjectRule = if ($null -eq $write.cell_subject) { $null } else { ($write.cell_subject | ConvertTo-Json -Compress -Depth 40) }
+                        Lattice = if ($null -eq $write.lattice) { $null } else { [string]$write.lattice }
+                        Bottom = if ($null -eq $write.bottom) { $null } else { [string]$write.bottom }
+                        InitialValueRule = if ($null -eq $write.initial_value) { $null } else { ($write.initial_value | ConvertTo-Json -Compress -Depth 40) }
+                        ValueProjectionRule = if ($null -eq $write.value_projection) { $null } else { ($write.value_projection | ConvertTo-Json -Compress -Depth 40) }
+                        EffectProjectionRule = if ($null -eq $write.effect_projection) { $null } else { ($write.effect_projection | ConvertTo-Json -Compress -Depth 40) }
+                        ConditionRule = if ($null -eq $write.condition) { $null } else { ($write.condition | ConvertTo-Json -Compress -Depth 40) }
+                        DerivedMembersRule = if ($null -eq $write.derived_members) { $null } else { ($write.derived_members | ConvertTo-Json -Compress -Depth 40) }
+                    }
                 }
             }
         )
@@ -106,7 +117,9 @@ $cellFamilyPlaneByFamily = @{}
 foreach ($entry in $entries) {
     $families = New-Object System.Collections.Generic.List[string]
     if ($null -ne $entry.CellFamily) { $families.Add($entry.CellFamily) | Out-Null }
-    foreach ($family in $entry.CellWriteFamilies) {
+    foreach ($write in $entry.CellWrites) {
+        $family = $write.CellFamily
+        if ($null -eq $family) { continue }
         if (-not $families.Contains($family)) { $families.Add($family) | Out-Null }
     }
     if ($families.Count -eq 0) {
@@ -144,6 +157,8 @@ $cellFamilyPlanes = @($cellFamilyNames | ForEach-Object {
 })
 
 $categories = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.Category })
+$lattices = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Lattice) { $_.Lattice } } })
+$bottomModes = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Bottom) { $_.Bottom } } })
 
 $lines = New-Object System.Collections.Generic.List[string]
 $add = { param($s) $lines.Add($s) | Out-Null }
@@ -256,6 +271,59 @@ foreach ($entry in $cellFamilyPlanes) {
 & $add "    }"
 & $add "}"
 & $add ""
+& $add "/// Closed lattice identifier used by registry-declared event cell writes."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
+& $add "pub enum EventCellLattice {"
+foreach ($lattice in $lattices) {
+    & $add "    $(ConvertTo-SimpleVariant -Value $lattice),"
+}
+& $add "}"
+& $add ""
+& $add "impl EventCellLattice {"
+& $add "    pub const fn as_str(self) -> &'static str {"
+& $add "        match self {"
+foreach ($lattice in $lattices) {
+    & $add "            Self::$(ConvertTo-SimpleVariant -Value $lattice) => `"$lattice`","
+}
+& $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "/// Closed bottom-state behavior used by registry-declared event cell writes."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
+& $add "pub enum EventCellBottom {"
+foreach ($bottom in $bottomModes) {
+    & $add "    $(ConvertTo-SimpleVariant -Value $bottom),"
+}
+& $add "}"
+& $add ""
+& $add "impl EventCellBottom {"
+& $add "    pub const fn as_str(self) -> &'static str {"
+& $add "        match self {"
+foreach ($bottom in $bottomModes) {
+    & $add "            Self::$(ConvertTo-SimpleVariant -Value $bottom) => `"$bottom`","
+}
+& $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "/// One complete registry-declared cell write for an event kind. Complex"
+& $add "/// projection and subject rules remain canonical JSON, but their ownership"
+& $add "/// and presence are represented by this SDK type rather than downstream DTOs."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+& $add "pub struct EventCellWriteDescriptor {"
+& $add "    pub cell_family: Option<CellFamilyId>,"
+& $add "    pub cell_ref_rule: Option<&'static str>,"
+& $add "    pub cell_subject_rule: Option<&'static str>,"
+& $add "    pub lattice: Option<EventCellLattice>,"
+& $add "    pub bottom: Option<EventCellBottom>,"
+& $add "    pub initial_value_rule: Option<&'static str>,"
+& $add "    pub value_projection_rule: Option<&'static str>,"
+& $add "    pub effect_projection_rule: Option<&'static str>,"
+& $add "    pub condition_rule: Option<&'static str>,"
+& $add "    pub derived_members_rule: Option<&'static str>,"
+& $add "}"
+& $add ""
 & $add "/// Registry-owned CBA plane for one cell family."
 & $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
 & $add "pub struct CellFamilyPlaneDescriptor {"
@@ -273,6 +341,7 @@ foreach ($entry in $cellFamilyPlanes) {
 & $add "    pub admission: Option<&'static str>,"
 & $add "    pub payload_schema: Option<&'static str>,"
 & $add "    pub payload_schema_ref: Option<&'static str>,"
+& $add "    pub cell_writes: &'static [EventCellWriteDescriptor],"
 & $add "    pub cell_family: Option<&'static str>,"
 & $add "    /// JSON cell-subject rule; ``None`` means the envelope ``realm_id``."
 & $add "    pub cell_subject_rule: Option<&'static str>,"
@@ -520,6 +589,42 @@ foreach ($e in $entries) {
     & $add "        admission: $admission,"
     & $add "        payload_schema: $payloadSchema,"
     & $add "        payload_schema_ref: $payloadSchemaRef,"
+    if ($e.CellWrites.Count -eq 0) {
+        & $add "        cell_writes: &[],"
+    } else {
+        & $add "        cell_writes: &["
+        foreach ($write in $e.CellWrites) {
+            $cellWriteFamily = if ($null -eq $write.CellFamily) {
+                "None"
+            } else {
+                $familyBody = $write.CellFamily -replace '^ak\.component\.', ''
+                $familyVariant = ConvertTo-SimpleVariant -Value $familyBody
+                "Some(CellFamilyId::$familyVariant)"
+            }
+            $cellWriteLattice = if ($null -eq $write.Lattice) { "None" } else { "Some(EventCellLattice::$(ConvertTo-SimpleVariant -Value $write.Lattice))" }
+            $cellWriteBottom = if ($null -eq $write.Bottom) { "None" } else { "Some(EventCellBottom::$(ConvertTo-SimpleVariant -Value $write.Bottom))" }
+            $cellRefRule = if ($null -eq $write.CellRefRule) { "None" } else { "Some(r#`"$($write.CellRefRule)`"#)" }
+            $cellSubject = if ($null -eq $write.CellSubjectRule) { "None" } else { "Some(r#`"$($write.CellSubjectRule)`"#)" }
+            $initialValue = if ($null -eq $write.InitialValueRule) { "None" } else { "Some(r#`"$($write.InitialValueRule)`"#)" }
+            $valueProjection = if ($null -eq $write.ValueProjectionRule) { "None" } else { "Some(r#`"$($write.ValueProjectionRule)`"#)" }
+            $effectProjection = if ($null -eq $write.EffectProjectionRule) { "None" } else { "Some(r#`"$($write.EffectProjectionRule)`"#)" }
+            $condition = if ($null -eq $write.ConditionRule) { "None" } else { "Some(r#`"$($write.ConditionRule)`"#)" }
+            $derivedMembers = if ($null -eq $write.DerivedMembersRule) { "None" } else { "Some(r#`"$($write.DerivedMembersRule)`"#)" }
+            & $add "            EventCellWriteDescriptor {"
+            & $add "                cell_family: $cellWriteFamily,"
+            & $add "                cell_ref_rule: $cellRefRule,"
+            & $add "                cell_subject_rule: $cellSubject,"
+            & $add "                lattice: $cellWriteLattice,"
+            & $add "                bottom: $cellWriteBottom,"
+            & $add "                initial_value_rule: $initialValue,"
+            & $add "                value_projection_rule: $valueProjection,"
+            & $add "                effect_projection_rule: $effectProjection,"
+            & $add "                condition_rule: $condition,"
+            & $add "                derived_members_rule: $derivedMembers,"
+            & $add "            },"
+        }
+        & $add "        ],"
+    }
     & $add "        cell_family: $cellFamily,"
     & $add "        cell_subject_rule: $cellSubjectRule,"
     & $add "        value_projection_rule: $valueProjectionRule,"
@@ -538,14 +643,17 @@ foreach ($e in $entries) {
 & $add "    #[test]"
 & $add "    fn every_registered_cell_family_uses_its_generated_plane() {"
 & $add "        for descriptor in EVENT_KIND_DESCRIPTORS {"
-& $add "            let Some(cell_family) = descriptor.cell_family else {"
-& $add "                continue;"
-& $add "            };"
-& $add "            assert_eq!("
-& $add "                cba_cell_family_plane(cell_family).map(CbaEffectPlane::as_str),"
-& $add "                descriptor.plane,"
-& $add '                "cell family {cell_family} drifted from its event descriptor",'
-& $add "            );"
+& $add "            let mut families = descriptor.cell_writes.iter().filter_map(|write| write.cell_family.map(CellFamilyId::as_str)).collect::<Vec<_>>();"
+& $add "            if let Some(cell_family) = descriptor.cell_family {"
+& $add "                families.push(cell_family);"
+& $add "            }"
+& $add "            for cell_family in families {"
+& $add "                assert_eq!("
+& $add "                    cba_cell_family_plane(cell_family).map(CbaEffectPlane::as_str),"
+& $add "                    descriptor.plane,"
+& $add '                    "cell family {cell_family} drifted from its event descriptor",'
+& $add "                );"
+& $add "            }"
 & $add "        }"
 & $add "    }"
 & $add ""
