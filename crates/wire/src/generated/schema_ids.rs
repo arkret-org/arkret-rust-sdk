@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-03.10;
-//! sha256=d085b54d1afe5ea1e997e1b47d50a6a39aa10d1dc48423d6258a633e15828c3c Entries: schema_ids=181,
+//! Input: registry/schema-registry.json; version=2026-08-04.1;
+//! sha256=9d2ee0e2f626b927b5cf85eb152d0f39a553b6263dd61a7b0777a897be0f4344 Entries: schema_ids=181,
 //! active=181
 
 use serde::{Deserialize, Serialize};
@@ -890,10 +890,10 @@ impl SchemaId {
     /// Conversation operation control, membership compensation, history ingress, KeyPackage
     /// terminal handling, Sidecar and external execution attestation.
     pub const PROTOCOL_JOURNEY_WIRE_V1: &'static str = "ak.schema.protocol_journey_wire.v1";
-    /// Defs-only canonical PublicKey DTO (kty/kid/alg/key, optional key_digest). Owned by its own
-    /// document so device, agent, account and to-device surfaces reference one shared definition
-    /// instead of reverse-referencing each other's bundles. The {kid, alg, public_key} spelling is
-    /// not canonical wire and MUST be rejected.
+    /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
+    /// own document so device, agent, account and to-device surfaces reference one shared
+    /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
+    /// spelling is not canonical wire and MUST be rejected.
     pub const PUBLIC_KEY_V1: &'static str = "ak.schema.public_key.v1";
     /// Closed request/response DTO bundle for push device registration and push wakeup delivery.
     pub const PUSH_OPERATIONS_V1: &'static str = "ak.schema.push_operations.v1";

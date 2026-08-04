@@ -6,8 +6,8 @@
 //! sha256=8ac4e357f9c8759ad0ee46582a045c1501665ac3c49b34262fecbbca8c7c28d9 Input: registry/
 //! digest-suite-registry.json; version=2026-08-03.1;
 //! sha256=0d52d951b73b3e5621ad365b52c3ca32b3ff04b5fe6ff49f2dbf2218fc2949a7 Input: registry/
-//! signature-alg-registry.json; version=2026-07-13;
-//! sha256=e31df27e0c7bb4ad76c41209a65a0075d88f49783c1663cf36b47da4f5462505 Input: registry/
+//! signature-alg-registry.json; version=2026-08-04.2;
+//! sha256=e381cf8a9c28a76f3c891897895d1e7188d648c7ab68f5888b6c75c67ed31d55 Input: registry/
 //! hpke-suite-registry.json; version=2026-07-13;
 //! sha256=2c6f58d88acf500b1532db9ebc4baafeaac8856be55fd924a2a6a7073f185e6b Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-07-29;
@@ -436,7 +436,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "kind",
             "verification_method",
-            "signature_algorithm",
+            "alg",
             "challenge",
             "audience",
             "created_at",
