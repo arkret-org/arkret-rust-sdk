@@ -252,6 +252,37 @@ pub struct ServiceDescribe {
 
 impl ServiceDescribe {
     pub const SCHEMA: &'static str = SchemaId::SERVICE_DESCRIBE_V1;
+
+    /// Publish the exact shared SDK build compiled into this service.
+    pub fn install_current_arkret_build_identity(&mut self) -> Result<()> {
+        self.extensions.insert(
+            ARKRET_BUILD_IDENTITY_EXTENSION.to_owned(),
+            serde_json::to_value(ArkretBuildIdentity::current())?,
+        );
+        Ok(())
+    }
+
+    /// Decode the SDK-owned build identity extension without a local DTO.
+    pub fn arkret_build_identity(&self) -> Result<Option<ArkretBuildIdentity>> {
+        self.extensions
+            .get(ARKRET_BUILD_IDENTITY_EXTENSION)
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(Error::from)
+    }
+
+    /// Require this service description to come from the exact SDK source
+    /// compiled into the caller.
+    pub fn validate_current_arkret_build_identity(&self) -> Result<()> {
+        let identity = self.arkret_build_identity()?.ok_or_else(|| {
+            Error::Protocol(format!(
+                "ServiceDescribe: missing {ARKRET_BUILD_IDENTITY_EXTENSION}"
+            ))
+        })?;
+        identity.validate_current()
+    }
+
     /// Build a complete development-mode description for a service surface.
     pub fn development(
         service_id: Did,
@@ -528,6 +559,24 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn sdk_build_identity_round_trips_through_shared_type() {
+        let mut description = ServiceDescribe::development(
+            Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::PrincipalServer,
+        );
+        description.install_current_arkret_build_identity().unwrap();
+
+        assert_eq!(
+            description.arkret_build_identity().unwrap(),
+            Some(ArkretBuildIdentity::current())
+        );
+        description
+            .validate_current_arkret_build_identity()
+            .unwrap();
+    }
 
     fn directory_description() -> ServiceDescribe {
         ServiceDescribe {

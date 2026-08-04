@@ -2071,6 +2071,16 @@ mod tests {
                     .any(|line| line.eq_ignore_ascii_case("idempotency-key: evt-idem-1")),
                 "missing Idempotency-Key header: {headers}"
             );
+            assert!(
+                headers.lines().any(|line| {
+                    line.eq_ignore_ascii_case(&format!(
+                        "{}: {}",
+                        arkret_wire::HEADER_ARKRET_SDK_SOURCE_SHA256,
+                        arkret_wire::SDK_SOURCE_SHA256
+                    ))
+                }),
+                "missing exact Arkret SDK identity header: {headers}"
+            );
         }
     }
 }

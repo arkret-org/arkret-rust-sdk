@@ -138,6 +138,10 @@ impl Client {
             builder = builder.header(USER_AGENT, user_agent);
         }
         if include_auth {
+            builder = builder.header(
+                arkret_wire::HEADER_ARKRET_SDK_SOURCE_SHA256,
+                arkret_wire::SDK_SOURCE_SHA256,
+            );
             self.apply_auth(builder, &method_for_auth, &url_for_auth)
         } else {
             Ok(builder)

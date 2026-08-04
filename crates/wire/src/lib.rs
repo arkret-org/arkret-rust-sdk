@@ -26,6 +26,7 @@ pub mod serde_helpers {
 pub mod applet_revoke_mode;
 pub mod authorization_lease_issuance_fixture;
 pub mod bottom;
+pub mod build_identity;
 pub mod cba;
 pub mod cba_proof_bundle;
 pub mod cell;
@@ -73,6 +74,10 @@ pub use authorization_lease_issuance_fixture::{
     AuthorizationLeaseIssuanceProjection, run_authorization_lease_issuance_fixture,
 };
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
+pub use build_identity::{
+    ARKRET_BUILD_IDENTITY_EXTENSION, ArkretBuildIdentity, HEADER_ARKRET_SDK_SOURCE_SHA256,
+    SDK_SOURCE_SHA256,
+};
 pub use cba::{
     LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
     ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
