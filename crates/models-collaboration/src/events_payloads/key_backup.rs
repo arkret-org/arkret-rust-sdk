@@ -191,9 +191,7 @@ impl KeyBackupActiveSeries {
             .get_mut("auth_data")
             .and_then(Value::as_object_mut)
             .ok_or_else(|| {
-                Error::Protocol(
-                    "active-series auth_data must serialize as an object".to_owned(),
-                )
+                Error::Protocol("active-series auth_data must serialize as an object".to_owned())
             })?
             .remove("signature");
         Ok(canonical::canonical_json_bytes(&unsigned)?)
@@ -625,8 +623,8 @@ mod key_backup_active_series_tests {
             precondition.predicate.value,
             Some(serde_json::to_value(&first).unwrap())
         );
-        let subject = composite_subject(&[first.actor_id.as_str(), first.backup_kind.as_str()])
-            .unwrap();
+        let subject =
+            composite_subject(&[first.actor_id.as_str(), first.backup_kind.as_str()]).unwrap();
         assert_eq!(
             precondition.cell.as_str(),
             format!(

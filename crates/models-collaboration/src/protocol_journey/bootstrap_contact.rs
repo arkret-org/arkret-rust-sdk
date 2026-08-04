@@ -553,9 +553,8 @@ pub struct ContactPreparedEventDraft {
 
 impl ContactPreparedEventDraft {
     pub fn unsigned_event(&self) -> arkret_wire::Result<Event> {
-        let bytes = arkret_canonical::base64url_decode(
-            self.unsigned_event_bytes.as_str().as_bytes(),
-        )?;
+        let bytes =
+            arkret_canonical::base64url_decode(self.unsigned_event_bytes.as_str().as_bytes())?;
         let event = Event::from_digest_payload_bytes(&bytes)?;
         if event.event_id != self.event_id
             || event.kind != self.kind

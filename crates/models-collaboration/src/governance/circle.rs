@@ -30,8 +30,8 @@ use crate::governance::agent_participation::{
     AgentParticipationError, AgentParticipationPolicy,
     validate_agent_participation_ceiling_tightens,
 };
-use crate::protocol_journey::ParticipationBits;
 use crate::objects::space::ChildScopePolicy;
+use crate::protocol_journey::ParticipationBits;
 
 /// Top-level Circle directory visibility (spec circle.schema.json
 /// `directory_visibility` enum).

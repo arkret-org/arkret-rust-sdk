@@ -1118,8 +1118,8 @@ mod event_wire_surface_tests {
         let bytes = canonical::canonical_json_bytes(&with_proofs).unwrap();
         assert!(Event::from_digest_payload_bytes(&bytes).is_err());
 
-        let canonical = canonical::canonical_json_bytes(&base_event().digest_payload().unwrap())
-            .unwrap();
+        let canonical =
+            canonical::canonical_json_bytes(&base_event().digest_payload().unwrap()).unwrap();
         let mut spaced = Vec::with_capacity(canonical.len() + 1);
         spaced.extend_from_slice(b" ");
         spaced.extend_from_slice(&canonical);
