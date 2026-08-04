@@ -1,5 +1,4 @@
-//! Cross-domain primitives and transport evidence from
-//! `protocol-journey-wire.schema.json`.
+//! Operation identifiers, signatures, and membership-compensation evidence.
 
 use std::fmt;
 
@@ -49,6 +48,74 @@ impl<'de> Deserialize<'de> for ProtocolOpaqueId {
         Self::new(String::deserialize(deserializer)?).map_err(de::Error::custom)
     }
 }
+
+macro_rules! semantic_opaque_id {
+    ($name:ident, $label:literal) => {
+        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+        pub struct $name(ProtocolOpaqueId);
+
+        impl $name {
+            pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+                ProtocolOpaqueId::new(value)
+                    .map(Self)
+                    .map_err(|_| concat!($label, " must contain 1 to 512 characters"))
+            }
+
+            pub fn as_str(&self) -> &str {
+                self.0.as_str()
+            }
+
+            pub fn into_opaque(self) -> ProtocolOpaqueId {
+                self.0
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str(self.as_str())
+            }
+        }
+
+        impl Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.serialize_str(self.as_str())
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                Self::new(String::deserialize(deserializer)?).map_err(de::Error::custom)
+            }
+        }
+
+        impl From<ProtocolOpaqueId> for $name {
+            fn from(value: ProtocolOpaqueId) -> Self {
+                Self(value)
+            }
+        }
+
+        impl From<$name> for ProtocolOpaqueId {
+            fn from(value: $name) -> Self {
+                value.0
+            }
+        }
+    };
+}
+
+semantic_opaque_id!(IdempotencyKey, "idempotency key");
+semantic_opaque_id!(ReservationHandle, "reservation handle");
+semantic_opaque_id!(KeyPackageRef, "key package ref");
+semantic_opaque_id!(KeyPackageClaimId, "key package claim id");
+semantic_opaque_id!(EffectId, "effect id");
+semantic_opaque_id!(MlsCiphersuiteId, "MLS ciphersuite id");
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -46,13 +46,13 @@ pub mod ingress_budget;
 pub mod notary;
 pub mod object_address;
 pub mod offline_publication;
+pub mod operation_types;
 pub mod patch;
 pub mod peer_operation_paths;
 pub mod plaintext;
 pub mod platform;
 pub mod primitives;
 pub mod problem_details;
-pub mod protocol_journey;
 pub mod query_auth;
 pub mod receive_policy;
 pub mod recovery_authority;
@@ -136,13 +136,13 @@ pub use offline_publication::{
     RECOVERY_ACCOUNT_AUTHORITY_SET_ID, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
     RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier, distinct_issuer_count,
 };
+pub use operation_types::*;
 pub use patch::*;
 pub use peer_operation_paths::*;
 pub use plaintext::PlaintextDataClassKind;
 pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use primitives::{proof_kind, *};
 pub use problem_details::*;
-pub use protocol_journey::*;
 pub use query_auth::{
     QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
 };

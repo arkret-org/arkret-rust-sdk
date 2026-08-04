@@ -1,126 +1,16 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    Base64UrlString, CircleId, Did, Event, EventId, Hash, RealmId, RelationId, SidecarId, StrandId,
+    Base64UrlString, CircleId, Did, Event, EventId, Hash, IdempotencyKey, ProtocolOperationId,
+    ProtocolSignature, RealmId, RelationId, ReservationHandle, SidecarId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, string_marker};
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ParticipationBits {
-    pub reply_message: bool,
-    pub reaction_add: bool,
-    pub reaction_remove: bool,
-    pub accept_third_party_mention: bool,
-    pub act_on_behalf: bool,
-}
-
-impl ParticipationBits {
-    pub const NONE: Self = Self {
-        reply_message: false,
-        reaction_add: false,
-        reaction_remove: false,
-        accept_third_party_mention: false,
-        act_on_behalf: false,
-    };
-
-    pub const ALL: Self = Self {
-        reply_message: true,
-        reaction_add: true,
-        reaction_remove: true,
-        accept_third_party_mention: true,
-        act_on_behalf: true,
-    };
-
-    #[must_use]
-    pub fn intersect(self, other: Self) -> Self {
-        Self {
-            reply_message: self.reply_message && other.reply_message,
-            reaction_add: self.reaction_add && other.reaction_add,
-            reaction_remove: self.reaction_remove && other.reaction_remove,
-            accept_third_party_mention: self.accept_third_party_mention
-                && other.accept_third_party_mention,
-            act_on_behalf: self.act_on_behalf && other.act_on_behalf,
-        }
-    }
-
-    #[must_use]
-    pub fn is_subset_of(self, ceiling: Self) -> bool {
-        (!self.reply_message || ceiling.reply_message)
-            && (!self.reaction_add || ceiling.reaction_add)
-            && (!self.reaction_remove || ceiling.reaction_remove)
-            && (!self.accept_third_party_mention || ceiling.accept_third_party_mention)
-            && (!self.act_on_behalf || ceiling.act_on_behalf)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ParticipationScope {
-    Realm {
-        realm_id: RealmId,
-    },
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
-    Strand {
-        realm_id: RealmId,
-        strand_id: StrandId,
-    },
-}
-
-impl ParticipationScope {
-    pub fn realm_id(&self) -> &RealmId {
-        match self {
-            Self::Realm { realm_id }
-            | Self::Circle { realm_id, .. }
-            | Self::Strand { realm_id, .. } => realm_id,
-        }
-    }
-
-    /// Stable account-data key used by participation projections.
-    #[must_use]
-    pub fn scope_key(&self) -> String {
-        match self {
-            Self::Realm { realm_id } => format!("realm:{}", uuid_part(realm_id.as_str())),
-            Self::Circle {
-                realm_id,
-                circle_id,
-            } => format!(
-                "circle:{}:{}",
-                uuid_part(realm_id.as_str()),
-                uuid_part(circle_id.as_str())
-            ),
-            Self::Strand {
-                realm_id,
-                strand_id,
-            } => format!(
-                "strand:{}:{}",
-                uuid_part(realm_id.as_str()),
-                uuid_part(strand_id.as_str())
-            ),
-        }
-    }
-}
-
-fn uuid_part(typed_id: &str) -> &str {
-    typed_id.rsplit(':').next().unwrap_or(typed_id)
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ParticipationReplaceRequestBody {
-    pub target_scope: ParticipationScope,
-    pub selection: ParticipationBits,
-    pub expected_version: u64,
-}
+use crate::agent_operations::{
+    AgentSidecarAccessReadiness, PendingSidecarAccessReconciliationItem,
+};
+use crate::string_marker;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -140,7 +30,7 @@ string_marker!(SidecarAttachPhase, Attach, "attach");
 pub struct SidecarEnsurePrepareRequestBody {
     pub phase: SidecarPreparePhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub source_realm_id: RealmId,
     pub controller_id: Did,
     pub context_ref: SidecarContextRef,
@@ -152,8 +42,8 @@ pub struct SidecarEnsurePrepareRequestBody {
 pub struct SidecarEnsureCommitRequestBody {
     pub phase: SidecarCommitPhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
-    pub reservation_handle: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
+    pub reservation_handle: ReservationHandle,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub create_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -166,8 +56,8 @@ pub struct SidecarEnsureCommitRequestBody {
 pub struct SidecarEnsureAttachRequestBody {
     pub phase: SidecarAttachPhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
-    pub reservation_handle: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
+    pub reservation_handle: ReservationHandle,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub context_attach_event: Event,
 }
@@ -179,38 +69,6 @@ pub enum SidecarEnsureRequestBody {
     Prepare(SidecarEnsurePrepareRequestBody),
     Commit(SidecarEnsureCommitRequestBody),
     Attach(SidecarEnsureAttachRequestBody),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SidecarAccessReadiness {
-    Opening,
-    AccessReconciliationPending,
-    KeyMaterialPending,
-    EpochUpdateRequired,
-    Ready,
-    Failed,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SidecarProvisioningPhase {
-    BackingScopeMembership,
-    MlsWelcome,
-    MlsRemove,
-    EpochRotation,
-    DeviceKeyMaterial,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarPendingAccessReconciliation {
-    pub agent_id: Did,
-    pub provisioning_phase: SidecarProvisioningPhase,
-    pub reason: ProtocolOpaqueId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -264,7 +122,7 @@ pub struct SidecarPreparedEventDraft {
 pub enum SidecarPreparedOutcome {
     New {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         sidecar_id: SidecarId,
@@ -278,7 +136,7 @@ pub enum SidecarPreparedOutcome {
     },
     Existing {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         sidecar_id: SidecarId,
@@ -306,8 +164,8 @@ pub enum SidecarEnsureOutcome {
         sidecar_id: SidecarId,
         private_strand_id: StrandId,
         private_relation_id: RelationId,
-        access_readiness: SidecarAccessReadiness,
-        pending_access_reconciliations: Vec<SidecarPendingAccessReconciliation>,
+        access_readiness: AgentSidecarAccessReadiness,
+        pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
     },
 }
 
@@ -320,8 +178,8 @@ struct SidecarAcceptedOutcomePayload {
     sidecar_id: SidecarId,
     private_strand_id: StrandId,
     private_relation_id: RelationId,
-    access_readiness: SidecarAccessReadiness,
-    pending_access_reconciliations: Vec<SidecarPendingAccessReconciliation>,
+    access_readiness: AgentSidecarAccessReadiness,
+    pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
 }
 
 impl<'de> Deserialize<'de> for SidecarEnsureOutcome {
@@ -380,13 +238,14 @@ impl SidecarEnsureOutcome {
             pending_access_reconciliations,
             ..
         } = self
-            && ((*access_readiness == SidecarAccessReadiness::Ready
+            && ((*access_readiness == AgentSidecarAccessReadiness::Ready
                 && !pending_access_reconciliations.is_empty())
                 || pending_access_reconciliations
                     .iter()
-                    .collect::<BTreeSet<_>>()
-                    .len()
-                    != pending_access_reconciliations.len())
+                    .enumerate()
+                    .any(|(index, item)| {
+                        pending_access_reconciliations[index + 1..].contains(item)
+                    }))
         {
             return Err(arkret_wire::Error::Protocol(
                 "invalid accepted Sidecar readiness outcome".to_owned(),

@@ -5,15 +5,17 @@ use arkret_models_collaboration::account_lifecycle::{
     AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
     AccountView,
 };
+use arkret_models_collaboration::contact_operations::{
+    ContactAcceptRequestBody, ContactOperationOutcome, ContactOperationRequestBody,
+    ContactTombstoneRequestBody,
+};
 use arkret_models_collaboration::http_bodies::{
     AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, DevicePairingBootstrap,
     DevicePairingResolveRequestBody, DevicePairingStageOutcome, DevicePairingStageRequestBody,
     DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
-use arkret_models_collaboration::protocol_journey::{
-    ContactAcceptRequestBody, ContactOperationOutcome, ContactOperationRequestBody,
-    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
-    DirectConversationResolveRequestBody,
+use arkret_models_collaboration::operation_control::{
+    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,

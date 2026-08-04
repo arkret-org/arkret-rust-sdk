@@ -13,23 +13,26 @@ pub mod agent_operations;
 pub mod agent_signer_evidence;
 pub mod applet_service;
 pub mod call_signal;
+pub mod contact_operations;
 pub mod event_query;
 pub mod event_sync;
 pub mod events_payloads;
 pub mod federation;
 pub mod governance;
 pub mod governance_payloads;
+pub mod history_operations;
 pub mod http_bodies;
 mod internal_prelude;
 pub mod mls_group_state_material;
 pub mod object_lifecycle;
 pub mod object_patch;
 pub mod objects;
-pub mod protocol_journey;
+pub mod operation_control;
 pub mod resolved_state;
 pub mod runtime_identity;
 pub mod seal_transparency;
 pub mod session_grant_bodies;
+pub mod sidecar_operations;
 pub mod signal_message_stream;
 pub mod signal_plaintext;
 pub mod sync_frames;
@@ -44,3 +47,16 @@ pub use resolved_state::ResolvedStateEvent;
 
 /// Canonical object reference string (typed id / DID / content digest).
 pub type ObjectRef = String;
+
+macro_rules! string_marker {
+    ($name:ident, $variant:ident, $wire:literal) => {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+        pub enum $name {
+            #[serde(rename = $wire)]
+            $variant,
+        }
+    };
+}
+
+pub(crate) use string_marker;

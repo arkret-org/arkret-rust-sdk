@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-04.1;
-//! sha256=5f0c70bce3c66b16329cd11a6332afa5a2bbb3eee97745baa0631e27d7f7a14b Input: registry/
-//! capability-action-registry.json; version=2026-08-04.1;
-//! sha256=f92fb773ea6848e5a45f88cfbc515e26dff50e06e25e50b2789d356155c1c03b Input: registry/
-//! schema-registry.json; version=2026-08-04.1;
-//! sha256=9d2ee0e2f626b927b5cf85eb152d0f39a553b6263dd61a7b0777a897be0f4344 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-05.1;
+//! sha256=9b19e8688891b7225b3f95d8c915773df5e67e73270d269046c8109f51d3ff65 Input: registry/
+//! capability-action-registry.json; version=2026-08-05.1;
+//! sha256=3cf7df348b3b5f02eb6f4ada2bc531f4770c16447c398ed3eb8742196a0e996a Input: registry/
+//! schema-registry.json; version=2026-08-05.1;
+//! sha256=58c7b207ec660fa3f5db165bdeba541ccc4052aafa74229d3a367eb6d0ba3423 Input: registry/
 //! account-data-key-registry.json; version=2026-08-03;
 //! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=54,
-//! special_forms=10, actions=169, schemas=181, account_data_patterns=24
+//! special_forms=10, actions=169, schemas=180, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -3076,7 +3076,7 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTACT_SCOPE_UPDATE_V1,
-        file: "schemas/protocol-journey-wire.schema.json",
+        file: "schemas/operation-control.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
@@ -3331,6 +3331,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/offline-publication.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::OPERATION_CONTROL_V1,
+        file: "schemas/operation-control.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::PATCH_V1,
         file: "schemas/patch.schema.json",
     },
@@ -3349,14 +3353,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::PRINCIPAL_LOCATOR_V1,
         file: "schemas/principal-locator.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::PROTOCOL_JOURNEY_TRACEABILITY_V1,
-        file: "schemas/protocol-journey-traceability.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::PROTOCOL_JOURNEY_WIRE_V1,
-        file: "schemas/protocol-journey-wire.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PUBLIC_KEY_V1,

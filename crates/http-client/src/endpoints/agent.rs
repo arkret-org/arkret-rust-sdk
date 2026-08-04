@@ -15,9 +15,11 @@ use arkret_models_collaboration::agent_operations::{
 use arkret_models_collaboration::agent_signer_evidence::{
     AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBodyBody,
 };
-use arkret_models_collaboration::governance::agent_participation::AgentParticipationOutcome;
-use arkret_models_collaboration::protocol_journey::{
-    ParticipationReplaceRequestBody, SidecarEnsureOutcome, SidecarEnsureRequestBody,
+use arkret_models_collaboration::governance::agent_participation::{
+    AgentParticipationOutcome, ParticipationReplaceRequestBody,
+};
+use arkret_models_collaboration::sidecar_operations::{
+    SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
 use arkret_wire::{GrantId, RealmId, SidecarId};
 use reqwest::Method;

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-04.1;
-//! sha256=9d2ee0e2f626b927b5cf85eb152d0f39a553b6263dd61a7b0777a897be0f4344 Entries: schema_ids=181,
-//! active=181
+//! Input: registry/schema-registry.json; version=2026-08-05.1;
+//! sha256=58c7b207ec660fa3f5db165bdeba541ccc4052aafa74229d3a367eb6d0ba3423 Entries: schema_ids=180,
+//! active=180
 
 use serde::{Deserialize, Serialize};
 
@@ -125,13 +125,12 @@ pub enum SchemaId {
     NotificationV1,
     ObjectAddressingV1,
     OfflinePublicationV1,
+    OperationControlV1,
     PatchV1,
     PersonalProductivityV1,
     PinV1,
     PolicyV1,
     PrincipalLocatorV1,
-    ProtocolJourneyTraceabilityV1,
-    ProtocolJourneyWireV1,
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
@@ -310,13 +309,12 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
+        Self::OperationControlV1,
         Self::PatchV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
-        Self::ProtocolJourneyTraceabilityV1,
-        Self::ProtocolJourneyWireV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -495,13 +493,12 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
+        Self::OperationControlV1,
         Self::PatchV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
-        Self::ProtocolJourneyTraceabilityV1,
-        Self::ProtocolJourneyWireV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -872,6 +869,10 @@ impl SchemaId {
     pub const OBJECT_ADDRESSING_V1: &'static str = "ak.schema.object_addressing.v1";
     /// AuthorizationLease and IngressReceipt proof objects.
     pub const OFFLINE_PUBLICATION_V1: &'static str = "ak.schema.offline_publication.v1";
+    /// Closed shared wire carriers for bootstrap, Contact, participation, stable Direct
+    /// Conversation operation control, membership compensation, history ingress, KeyPackage
+    /// terminal handling, Sidecar and external execution attestation.
+    pub const OPERATION_CONTROL_V1: &'static str = "ak.schema.operation_control.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
@@ -882,14 +883,6 @@ impl SchemaId {
     /// Signed online invite locator asserting subject_id and recipient_service_id for private
     /// invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
-    /// Closed schema for the single static A-J/CJ/PJ traceability registry. Runtime revisions,
-    /// execution evidence, release results and self references are not fields of this schema.
-    pub const PROTOCOL_JOURNEY_TRACEABILITY_V1: &'static str =
-        "ak.schema.protocol_journey_traceability.v1";
-    /// Closed shared wire carriers for bootstrap, Contact, participation, stable Direct
-    /// Conversation operation control, membership compensation, history ingress, KeyPackage
-    /// terminal handling, Sidecar and external execution attestation.
-    pub const PROTOCOL_JOURNEY_WIRE_V1: &'static str = "ak.schema.protocol_journey_wire.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
     /// own document so device, agent, account and to-device surfaces reference one shared
     /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
@@ -1175,13 +1168,12 @@ impl SchemaId {
             Self::NotificationV1 => Self::NOTIFICATION_V1,
             Self::ObjectAddressingV1 => Self::OBJECT_ADDRESSING_V1,
             Self::OfflinePublicationV1 => Self::OFFLINE_PUBLICATION_V1,
+            Self::OperationControlV1 => Self::OPERATION_CONTROL_V1,
             Self::PatchV1 => Self::PATCH_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
-            Self::ProtocolJourneyTraceabilityV1 => Self::PROTOCOL_JOURNEY_TRACEABILITY_V1,
-            Self::ProtocolJourneyWireV1 => Self::PROTOCOL_JOURNEY_WIRE_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
@@ -1315,7 +1307,7 @@ impl SchemaId {
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
-            Self::ContactScopeUpdateV1 => "schemas/protocol-journey-wire.schema.json",
+            Self::ContactScopeUpdateV1 => "schemas/operation-control.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ControllerAccountGateAttestationV1 => "schemas/agent-signer-evidence.schema.json",
             Self::CrossSigningPublishV1 => "schemas/cross-signing-publish.schema.json",
@@ -1385,15 +1377,12 @@ impl SchemaId {
             Self::NotificationV1 => "schemas/notification.schema.json",
             Self::ObjectAddressingV1 => "schemas/object-addressing.schema.json",
             Self::OfflinePublicationV1 => "schemas/offline-publication.schema.json",
+            Self::OperationControlV1 => "schemas/operation-control.schema.json",
             Self::PatchV1 => "schemas/patch.schema.json",
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
-            Self::ProtocolJourneyTraceabilityV1 => {
-                "schemas/protocol-journey-traceability.schema.json"
-            }
-            Self::ProtocolJourneyWireV1 => "schemas/protocol-journey-wire.schema.json",
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
@@ -1601,13 +1590,12 @@ impl SchemaId {
             Self::NOTIFICATION_V1 => Some(Self::NotificationV1),
             Self::OBJECT_ADDRESSING_V1 => Some(Self::ObjectAddressingV1),
             Self::OFFLINE_PUBLICATION_V1 => Some(Self::OfflinePublicationV1),
+            Self::OPERATION_CONTROL_V1 => Some(Self::OperationControlV1),
             Self::PATCH_V1 => Some(Self::PatchV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
-            Self::PROTOCOL_JOURNEY_TRACEABILITY_V1 => Some(Self::ProtocolJourneyTraceabilityV1),
-            Self::PROTOCOL_JOURNEY_WIRE_V1 => Some(Self::ProtocolJourneyWireV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),

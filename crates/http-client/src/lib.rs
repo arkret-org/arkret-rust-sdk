@@ -833,10 +833,11 @@ mod tests {
     mod events_submit_tests {
         use std::collections::BTreeMap;
 
+        use arkret_models_collaboration::contact_operations::ContactPeer;
         use arkret_models_collaboration::http_bodies::MimiReportAbuseRequestBody;
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
-        use arkret_models_collaboration::protocol_journey::{
-            ContactPeer, DirectConversationLookupMarker, DirectConversationLookupRequestBody,
+        use arkret_models_collaboration::operation_control::{
+            DirectConversationLookupMarker, DirectConversationLookupRequestBody,
             DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
             DirectConversationResolveStateOutcome,
         };

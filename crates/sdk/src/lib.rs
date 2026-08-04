@@ -111,6 +111,7 @@ pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
 pub use arkret_models_collaboration::agent_signer_evidence::*;
 pub use arkret_models_collaboration::call_signal::*;
+pub use arkret_models_collaboration::contact_operations;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
 pub use arkret_models_collaboration::events_payloads::agent::*;
@@ -157,6 +158,7 @@ pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::resource_selector::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::governance_payloads::*;
+pub use arkret_models_collaboration::history_operations;
 pub use arkret_models_collaboration::http_bodies::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
@@ -185,12 +187,11 @@ pub use arkret_models_collaboration::objects::relation::*;
 pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
-/// Closed journey contracts are namespaced; shared wire vocabularies such as
-/// `HistoryVisibility` re-export the canonical `arkret-wire` type.
-pub use arkret_models_collaboration::protocol_journey;
+pub use arkret_models_collaboration::operation_control;
 pub use arkret_models_collaboration::runtime_identity::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
+pub use arkret_models_collaboration::sidecar_operations;
 pub use arkret_models_collaboration::signal_message_stream::*;
 pub use arkret_models_collaboration::signal_plaintext::*;
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
@@ -355,12 +356,14 @@ pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
     AccountDataKey, BindingKind, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileId,
-    DidFreshnessRiskTier, EXPORTER_LABELS, EvaluationClass, EventKind, ExporterLabelId,
-    HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProfileId, ProofContextId,
-    QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKind,
-    ServiceOperationDescriptor, ServiceOperationId, WireError, XExtensionMap,
-    contains_query_auth_material, error_codes as error, is_query_auth_parameter,
+    DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass, EventKind, ExporterLabelId,
+    HPKE_SUITES, IdempotencyKey, KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES,
+    MLS_EXTENSIONS, MlsCiphersuiteId, PROOF_CONTEXTS, ProfileId, ProofContextId, ProtocolOpaqueId,
+    ProtocolOperationId, ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS,
+    ReservationHandle, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SIGNATURE_ALGORITHMS, SchemaId, ServiceKind, ServiceOperationDescriptor, ServiceOperationId,
+    WireError, XExtensionMap, contains_query_auth_material, error_codes as error,
+    is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};

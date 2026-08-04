@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-04.1;
-//! sha256=e8fb057b34cde2ba1f8b9500d7b8e46b3426ae3aee19140af53ea022011cd7df Entries: registered=228
+//! Input: registry/operation-registry.json; version=2026-08-05.1;
+//! sha256=09bdcc91175ba608fa8464e7a5a9e743b4740d8fdeab66d9227c70a5675a8be7 Entries: registered=228
 
 use serde::{Deserialize, Serialize};
 
@@ -2462,10 +2462,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/cancel_device_bootstrap_request",
+            "schemas/operation-control.schema.json#/$defs/cancel_device_bootstrap_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/cancel_device_bootstrap_outcome",
+            "schemas/operation-control.schema.json#/$defs/cancel_device_bootstrap_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3284,10 +3284,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/peer_contact_submit_request",
+            "schemas/operation-control.schema.json#/$defs/peer_contact_submit_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/peer_contact_submit_outcome",
+            "schemas/operation-control.schema.json#/$defs/peer_contact_submit_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3308,10 +3308,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_delivery_request",
+            "schemas/operation-control.schema.json#/$defs/execution_bundle_delivery_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_delivery_outcome",
+            "schemas/operation-control.schema.json#/$defs/execution_bundle_delivery_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3332,10 +3332,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_message_submit_request",
+            "schemas/operation-control.schema.json#/$defs/operation_control_message_submit_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_message_receipt",
+            "schemas/operation-control.schema.json#/$defs/operation_control_message_receipt",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3356,10 +3356,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_query_request",
+            "schemas/operation-control.schema.json#/$defs/execution_bundle_query_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/execution_bundle_query_outcome",
+            "schemas/operation-control.schema.json#/$defs/execution_bundle_query_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3380,10 +3380,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_read_request",
+            "schemas/operation-control.schema.json#/$defs/operation_control_read_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/operation_control_read_certificate",
+            "schemas/operation-control.schema.json#/$defs/operation_control_read_certificate",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4402,7 +4402,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/participation_replace_request",
+            "schemas/operation-control.schema.json#/$defs/participation_replace_request",
         ),
         response_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
@@ -4458,10 +4458,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/sidecar_ensure_request",
+            "schemas/operation-control.schema.json#/$defs/sidecar_ensure_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/sidecar_ensure_outcome",
+            "schemas/operation-control.schema.json#/$defs/sidecar_ensure_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5138,10 +5138,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_reject_request",
+            "schemas/operation-control.schema.json#/$defs/contact_reject_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_reject_outcome",
+            "schemas/operation-control.schema.json#/$defs/contact_reject_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5162,10 +5162,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_operation_request",
+            "schemas/operation-control.schema.json#/$defs/contact_operation_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_request_outcome",
+            "schemas/operation-control.schema.json#/$defs/contact_request_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5186,10 +5186,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_respond_request",
+            "schemas/operation-control.schema.json#/$defs/contact_respond_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_respond_outcome",
+            "schemas/operation-control.schema.json#/$defs/contact_respond_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5210,10 +5210,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_scope_update_request",
+            "schemas/operation-control.schema.json#/$defs/contact_scope_update_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_scope_update_outcome",
+            "schemas/operation-control.schema.json#/$defs/contact_scope_update_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5234,10 +5234,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_tombstone_request",
+            "schemas/operation-control.schema.json#/$defs/contact_tombstone_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/contact_tombstone_outcome",
+            "schemas/operation-control.schema.json#/$defs/contact_tombstone_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5364,10 +5364,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_resolve_request",
+            "schemas/operation-control.schema.json#/$defs/direct_conversation_resolve_request",
         ),
         response_schema_ref: Some(
-            "schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_resolve_outcome",
+            "schemas/operation-control.schema.json#/$defs/direct_conversation_resolve_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {

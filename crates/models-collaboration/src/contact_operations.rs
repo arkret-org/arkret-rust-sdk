@@ -1,9 +1,12 @@
-use arkret_wire::{Base64UrlString, DeviceId, Did, Event, EventId, Hash};
+use arkret_wire::{
+    Base64UrlString, DeviceId, Did, Event, EventId, Hash, IdempotencyKey, ProtocolOpaqueId,
+    ProtocolOperationId, ProtocolSignature, ReservationHandle,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, string_marker};
 use crate::governance::peer_contact::{ContactIntroductionEvidence, PeerContactAddress};
+use crate::string_marker;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -175,7 +178,7 @@ pub struct CancelDeviceBootstrapRequestBody {
     pub transaction_id: ProtocolOpaqueId,
     pub mode: BootstrapMode,
     pub canonical_request_digest: Hash,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -384,8 +387,8 @@ pub struct ContactLineage {
 pub struct ContactCommitRequestBody {
     pub phase: ContactCommitPhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
-    pub reservation_handle: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
+    pub reservation_handle: ReservationHandle,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub signed_event: Event,
 }
@@ -401,7 +404,7 @@ string_marker!(ContactRejectAction, Reject, "reject");
 pub struct ContactPrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub peer: ContactPeer,
     pub granted_to_peer_scopes: ContactScopes,
     pub introduction_evidence: ContactIntroductionEvidence,
@@ -423,7 +426,7 @@ pub enum ContactOperationRequestBody {
 pub struct ContactScopeUpdatePrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub peer: ContactPeer,
     pub basis_id: Hash,
     pub version: u64,
@@ -457,7 +460,7 @@ pub struct ContactBasisEvidenceBundle {
 pub struct ContactAcceptPrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub request_receipt: RequestAcceptanceReceipt,
     pub action: ContactAcceptAction,
     pub granted_to_peer_scopes: ContactScopes,
@@ -477,7 +480,7 @@ pub enum ContactAcceptRequestBody {
 pub struct ContactRejectPrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub request_receipt: RequestAcceptanceReceipt,
     pub action: ContactRejectAction,
 }
@@ -496,7 +499,7 @@ pub enum ContactRejectRequestBody {
 pub struct ContactTombstonePrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub peer: ContactPeer,
     pub basis_id: Hash,
     pub version: u64,
@@ -586,35 +589,35 @@ pub enum ContactResultKind {
 pub enum ContactPreparedOutcome {
     Request {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         event_draft: ContactPreparedEventDraft,
     },
     Response {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         event_draft: ContactPreparedEventDraft,
     },
     Reject {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         event_draft: ContactPreparedEventDraft,
     },
     ScopeUpdate {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         event_draft: ContactPreparedEventDraft,
     },
     Tombstone {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         event_draft: ContactPreparedEventDraft,
@@ -683,7 +686,7 @@ pub enum ContactOperationOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum PeerContactSubmitRequestBody {
     Request {
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         signed_event: Event,
         request_receipt: RequestAcceptanceReceipt,
@@ -694,7 +697,7 @@ pub enum PeerContactSubmitRequestBody {
         current_proof: Option<ContactCurrentProof>,
     },
     Response {
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         signed_event: Event,
         response_receipt: NormalResponseAcceptanceReceipt,
@@ -704,7 +707,7 @@ pub enum PeerContactSubmitRequestBody {
         current_proof: Option<ContactCurrentProof>,
     },
     Reject {
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         signed_event: Event,
         reject_receipt: RejectAcceptanceReceipt,
@@ -712,7 +715,7 @@ pub enum PeerContactSubmitRequestBody {
         contact_address: PeerContactAddress,
     },
     ScopeUpdate {
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         signed_event: Event,
         lineage: ContactLineage,
@@ -721,7 +724,7 @@ pub enum PeerContactSubmitRequestBody {
         contact_address: PeerContactAddress,
     },
     Tombstone {
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         signed_event: Event,
         lineage: ContactLineage,
@@ -730,14 +733,14 @@ pub enum PeerContactSubmitRequestBody {
         contact_address: PeerContactAddress,
     },
     ProofRefresh {
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         prior_mirror_receipt: PeerContactMirrorReceipt,
         current_proof: ContactCurrentProof,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
     },
     GlareFinalize {
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         basis_id: Hash,
         basis: ContactBasis,
         request_receipts: [RequestAcceptanceReceipt; 2],

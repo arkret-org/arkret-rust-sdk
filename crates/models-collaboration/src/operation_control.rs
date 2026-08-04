@@ -5,7 +5,9 @@ use arkret_models_crypto::{
     PeerKeyPackagesClaimAuthorizationDraft, PeerKeyPackagesClaimRequestBody,
 };
 use arkret_wire::{
-    Base64UrlString, DeviceId, Did, DidUrl, Event, EventId, Hash, RealmId, StrandId,
+    Base64UrlString, DeviceId, Did, DidUrl, EffectId, Event, EventId, Hash, IdempotencyKey,
+    KeyPackageClaimId, KeyPackageRef, MlsCiphersuiteId, MlsGroupId, ProtocolOpaqueId,
+    ProtocolOperationId, ProtocolSignature, RealmId, ReservationHandle, StrandId,
     TypedTrustDomainId,
 };
 pub use arkret_wire::{
@@ -17,7 +19,8 @@ pub use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{ContactPeer, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, string_marker};
+use crate::contact_operations::ContactPeer;
+use crate::string_marker;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
@@ -45,6 +48,43 @@ impl<'de> Deserialize<'de> for NonEmptyDigestList {
         Self::new(values).map_err(serde::de::Error::custom)
     }
 }
+
+macro_rules! semantic_hash {
+    ($name:ident) => {
+        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        #[serde(transparent)]
+        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+        pub struct $name(Hash);
+
+        impl $name {
+            pub fn new(value: Hash) -> Self {
+                Self(value)
+            }
+
+            pub fn as_hash(&self) -> &Hash {
+                &self.0
+            }
+
+            pub fn into_hash(self) -> Hash {
+                self.0
+            }
+        }
+
+        impl From<Hash> for $name {
+            fn from(value: Hash) -> Self {
+                Self(value)
+            }
+        }
+    };
+}
+
+semantic_hash!(OperationControlRegistryDigest);
+semantic_hash!(PairRegistryId);
+semantic_hash!(DirectConversationPairKey);
+semantic_hash!(OperationControlAuthorizationCoreDigest);
+semantic_hash!(DirectConversationMaterializationGenesisDigest);
+semantic_hash!(PeerClaimRequestDigest);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -280,7 +320,7 @@ pub struct EffectValueCore {
     pub pair_key: Hash,
     pub operation_id: ProtocolOperationId,
     pub attempt_sequence: u64,
-    pub effect_id: ProtocolOpaqueId,
+    pub effect_id: EffectId,
     pub effect: OperationControlEffect,
     pub effect_digest: Hash,
     pub payload_digest: Hash,
@@ -389,27 +429,27 @@ pub enum JournalPlaintextSchemaRef {
     )]
     PeerKeyPackagesClaimRequest,
     #[serde(
-        rename = "schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_event_admission_journal"
+        rename = "schemas/operation-control.schema.json#/$defs/direct_conversation_event_admission_journal"
     )]
     DirectConversationEventAdmission,
     #[serde(
-        rename = "schemas/protocol-journey-wire.schema.json#/$defs/direct_conversation_compensation_journal"
+        rename = "schemas/operation-control.schema.json#/$defs/direct_conversation_compensation_journal"
     )]
     DirectConversationCompensation,
     #[serde(
-        rename = "schemas/protocol-journey-wire.schema.json#/$defs/attempt_cleanup_journal_plaintext"
+        rename = "schemas/operation-control.schema.json#/$defs/attempt_cleanup_journal_plaintext"
     )]
     AttemptCleanup,
     #[serde(
-        rename = "schemas/protocol-journey-wire.schema.json#/$defs/attempt_advance_journal_plaintext"
+        rename = "schemas/operation-control.schema.json#/$defs/attempt_advance_journal_plaintext"
     )]
     AttemptAdvance,
     #[serde(
-        rename = "schemas/protocol-journey-wire.schema.json#/$defs/host_transfer_prepare_journal_plaintext"
+        rename = "schemas/operation-control.schema.json#/$defs/host_transfer_prepare_journal_plaintext"
     )]
     HostTransferPrepare,
     #[serde(
-        rename = "schemas/protocol-journey-wire.schema.json#/$defs/host_transfer_finalize_journal_plaintext"
+        rename = "schemas/operation-control.schema.json#/$defs/host_transfer_finalize_journal_plaintext"
     )]
     HostTransferFinalize,
 }
@@ -430,7 +470,7 @@ pub struct OperationControlJournalAadCore {
     pub pair_key: Hash,
     pub operation_id: ProtocolOperationId,
     pub attempt_sequence: u64,
-    pub effect_id: ProtocolOpaqueId,
+    pub effect_id: EffectId,
     pub effect_digest: Hash,
     pub payload_digest: Hash,
     pub destination: Did,
@@ -492,7 +532,7 @@ pub struct JournalValidationCore {
     pub pair_key: Hash,
     pub operation_id: ProtocolOperationId,
     pub attempt_sequence: u64,
-    pub effect_id: ProtocolOpaqueId,
+    pub effect_id: EffectId,
     pub effect: OperationControlEffect,
     pub effect_digest: Hash,
     pub payload_digest: Hash,
@@ -576,7 +616,7 @@ pub struct AttemptCleanupCertificateBundle {
 pub struct HostTransferJournalEntry {
     pub journal_index: u64,
     pub attempt_sequence: u64,
-    pub effect_id: ProtocolOpaqueId,
+    pub effect_id: EffectId,
     pub value_digest: Hash,
     pub effect_commitment_digest: Hash,
     pub effect_head_digest: Hash,
@@ -735,7 +775,7 @@ pub enum OperationControlHead {
         registry_digest: Hash,
         pair_registry_id: Hash,
         pair_key: Hash,
-        effect_id: ProtocolOpaqueId,
+        effect_id: EffectId,
         effect_commitment_digest: Hash,
         effect_head_digest: Hash,
         predecessor_head_digest: Hash,
@@ -1511,7 +1551,7 @@ pub struct QdaReceipt {
     pub pair_key: Hash,
     pub operation_id: ProtocolOperationId,
     pub attempt_sequence: u64,
-    pub effect_id: ProtocolOpaqueId,
+    pub effect_id: EffectId,
     pub value_digest: Hash,
     pub journal_root: Hash,
     pub destination: Did,
@@ -1533,7 +1573,7 @@ pub struct QdaCertificate {
     pub pair_key: Hash,
     pub operation_id: ProtocolOperationId,
     pub attempt_sequence: u64,
-    pub effect_id: ProtocolOpaqueId,
+    pub effect_id: EffectId,
     pub value_digest: Hash,
     pub journal_root: Hash,
     pub destination: Did,
@@ -1562,7 +1602,7 @@ impl QdaCertificate {
             pair_key: &'a Hash,
             operation_id: &'a ProtocolOperationId,
             attempt_sequence: u64,
-            effect_id: &'a ProtocolOpaqueId,
+            effect_id: &'a EffectId,
             value_digest: &'a Hash,
             journal_root: &'a Hash,
             destination: &'a Did,
@@ -2204,14 +2244,14 @@ string_marker!(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct OperationControlAuthorizationCommitReceipt {
     pub domain: OperationControlAuthorizationCommitDomain,
-    pub registry_digest: Hash,
-    pub pair_registry_id: Hash,
-    pub pair_key: Hash,
+    pub registry_digest: OperationControlRegistryDigest,
+    pub pair_registry_id: PairRegistryId,
+    pub pair_key: DirectConversationPairKey,
     pub stable_operation_id: ProtocolOperationId,
     pub requester_id: Did,
-    pub authorization_core_digest: Hash,
-    pub materialization_genesis_digest: Hash,
-    pub claim_request_digest: Hash,
+    pub authorization_core_digest: OperationControlAuthorizationCoreDigest,
+    pub materialization_genesis_digest: DirectConversationMaterializationGenesisDigest,
+    pub claim_request_digest: PeerClaimRequestDigest,
     pub slot_version: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub committed_at: DateTime<Utc>,
@@ -2270,7 +2310,7 @@ pub struct DirectConversationMaterializationGenesis {
     pub operation_id: ProtocolOperationId,
     pub attempt_sequence: u64,
     pub coordinates: DirectConversationCoordinates,
-    pub mls_group_id: ProtocolOpaqueId,
+    pub mls_group_id: MlsGroupId,
     pub event_slots: DirectConversationMaterializationEventSlots,
     pub compensation_delegation_core_digest: Hash,
     pub claim_authorization_draft: PeerKeyPackagesClaimAuthorizationDraft,
@@ -2360,52 +2400,110 @@ string_marker!(
 );
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "disposition", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ExecutionBundleDeliveryReceipt {
-    Accepted {
-        domain: ExecutionBundleDeliveryReceiptDomain,
-        submitted_bundle_digest: Hash,
-        effect_commitment_digest: Hash,
-        value_digest: Hash,
-        effect_head_digest: Hash,
-        effect_id: ProtocolOpaqueId,
-        destination: Did,
-        host_service_id: Did,
-        host_epoch: u64,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        recorded_at: DateTime<Utc>,
-        signature: ProtocolSignature,
-    },
-    Duplicate {
-        domain: ExecutionBundleDeliveryReceiptDomain,
-        submitted_bundle_digest: Hash,
-        effect_commitment_digest: Hash,
-        value_digest: Hash,
-        effect_head_digest: Hash,
-        effect_id: ProtocolOpaqueId,
-        destination: Did,
-        host_service_id: Did,
-        host_epoch: u64,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        recorded_at: DateTime<Utc>,
-        signature: ProtocolSignature,
-    },
+pub struct ExecutionBundleDeliveryReceiptCore {
+    pub domain: ExecutionBundleDeliveryReceiptDomain,
+    pub submitted_bundle_digest: Hash,
+    pub effect_commitment_digest: Hash,
+    pub value_digest: Hash,
+    pub effect_head_digest: Hash,
+    pub effect_id: EffectId,
+    pub destination: Did,
+    pub host_service_id: Did,
+    pub host_epoch: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub recorded_at: DateTime<Utc>,
+    pub signature: ProtocolSignature,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "disposition", rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ExecutionBundleDeliveryDisposition {
+    Accepted,
+    Duplicate,
     Deferred {
-        domain: ExecutionBundleDeliveryReceiptDomain,
-        submitted_bundle_digest: Hash,
-        effect_commitment_digest: Hash,
-        value_digest: Hash,
-        effect_head_digest: Hash,
-        effect_id: ProtocolOpaqueId,
-        destination: Did,
-        host_service_id: Did,
-        host_epoch: u64,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        recorded_at: DateTime<Utc>,
         missing_dependency_digests: NonEmptyDigestList,
-        signature: ProtocolSignature,
     },
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ExecutionBundleDeliveryReceipt {
+    #[serde(flatten)]
+    pub core: ExecutionBundleDeliveryReceiptCore,
+    #[serde(flatten)]
+    pub disposition: ExecutionBundleDeliveryDisposition,
+}
+
+impl<'de> Deserialize<'de> for ExecutionBundleDeliveryReceipt {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "snake_case")]
+        enum Disposition {
+            Accepted,
+            Duplicate,
+            Deferred,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireReceipt {
+            domain: ExecutionBundleDeliveryReceiptDomain,
+            submitted_bundle_digest: Hash,
+            effect_commitment_digest: Hash,
+            value_digest: Hash,
+            effect_head_digest: Hash,
+            effect_id: EffectId,
+            disposition: Disposition,
+            destination: Did,
+            host_service_id: Did,
+            host_epoch: u64,
+            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+            recorded_at: DateTime<Utc>,
+            #[serde(default)]
+            missing_dependency_digests: Option<NonEmptyDigestList>,
+            signature: ProtocolSignature,
+        }
+
+        let wire = WireReceipt::deserialize(deserializer)?;
+        let disposition = match (wire.disposition, wire.missing_dependency_digests) {
+            (Disposition::Accepted, None) => ExecutionBundleDeliveryDisposition::Accepted,
+            (Disposition::Duplicate, None) => ExecutionBundleDeliveryDisposition::Duplicate,
+            (Disposition::Deferred, Some(missing_dependency_digests)) => {
+                ExecutionBundleDeliveryDisposition::Deferred {
+                    missing_dependency_digests,
+                }
+            }
+            (Disposition::Deferred, None) => {
+                return Err(serde::de::Error::custom(
+                    "deferred delivery receipt requires missing_dependency_digests",
+                ));
+            }
+            (_, Some(_)) => {
+                return Err(serde::de::Error::custom(
+                    "missing_dependency_digests is only valid for disposition=deferred",
+                ));
+            }
+        };
+        Ok(Self {
+            core: ExecutionBundleDeliveryReceiptCore {
+                domain: wire.domain,
+                submitted_bundle_digest: wire.submitted_bundle_digest,
+                effect_commitment_digest: wire.effect_commitment_digest,
+                value_digest: wire.value_digest,
+                effect_head_digest: wire.effect_head_digest,
+                effect_id: wire.effect_id,
+                destination: wire.destination,
+                host_service_id: wire.host_service_id,
+                host_epoch: wire.host_epoch,
+                recorded_at: wire.recorded_at,
+                signature: wire.signature,
+            },
+            disposition,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2554,7 +2652,7 @@ pub struct DirectConversationPrepareAuthorizationRequestBody {
     pub create: DirectConversationCreateMarker,
     pub phase: DirectConversationPrepareAuthorizationPhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2566,8 +2664,8 @@ pub struct DirectConversationCommitAuthorizationRequestBody {
     pub create: DirectConversationCreateMarker,
     pub phase: DirectConversationCommitAuthorizationPhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
-    pub reservation_handle: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
+    pub reservation_handle: ReservationHandle,
     pub operation_control_authorization: OperationControlAuthorizationDraft,
     pub peer_claim_request: PeerKeyPackagesClaimRequestBody,
 }
@@ -2581,7 +2679,7 @@ pub struct DirectConversationPrepareMaterializationStepRequestBody {
     pub create: DirectConversationCreateMarker,
     pub phase: DirectConversationPrepareMaterializationStepPhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub operation_control_authorization: OperationControlAuthorization,
     pub step_evidence: DirectConversationMaterializationStepEvidence,
 }
@@ -2595,13 +2693,13 @@ pub struct DirectConversationCommitMaterializationStepRequestBody {
     pub create: DirectConversationCreateMarker,
     pub phase: DirectConversationCommitMaterializationStepPhase,
     pub operation_id: ProtocolOperationId,
-    pub idempotency_key: ProtocolOpaqueId,
+    pub idempotency_key: IdempotencyKey,
     pub operation_control_authorization: OperationControlAuthorization,
-    pub reservation_handle: ProtocolOpaqueId,
+    pub reservation_handle: ReservationHandle,
     pub signed_stage: DirectConversationSignedStage,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DirectConversationResolveRequestBody {
@@ -2610,6 +2708,77 @@ pub enum DirectConversationResolveRequestBody {
     CommitAuthorization(DirectConversationCommitAuthorizationRequestBody),
     PrepareMaterializationStep(DirectConversationPrepareMaterializationStepRequestBody),
     CommitMaterializationStep(DirectConversationCommitMaterializationStepRequestBody),
+}
+
+impl<'de> Deserialize<'de> for DirectConversationResolveRequestBody {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let object = value.as_object().ok_or_else(|| {
+            serde::de::Error::custom("direct conversation resolve request must be an object")
+        })?;
+        let create = object.get("create").ok_or_else(|| {
+            serde::de::Error::custom(
+                "direct conversation resolve request is missing discriminator field `create`",
+            )
+        })?;
+        match create.as_bool() {
+            Some(false) => serde_json::from_value(value)
+                .map(Self::Lookup)
+                .map_err(|error| {
+                    serde::de::Error::custom(format!(
+                        "invalid direct conversation lookup request: {error}"
+                    ))
+                }),
+            Some(true) => {
+                let phase = object.get("phase").ok_or_else(|| {
+                    serde::de::Error::custom(
+                        "direct conversation create request is missing discriminator field `phase`",
+                    )
+                })?;
+                let phase = phase.as_str().ok_or_else(|| {
+                    serde::de::Error::custom(
+                        "direct conversation create request discriminator `phase` must be a string",
+                    )
+                })?;
+                match phase {
+                    "prepare_authorization" => serde_json::from_value(value)
+                        .map(Self::PrepareAuthorization)
+                        .map_err(|error| {
+                            serde::de::Error::custom(format!(
+                                "invalid prepare_authorization request: {error}"
+                            ))
+                        }),
+                    "commit_authorization" => serde_json::from_value(value)
+                        .map(Self::CommitAuthorization)
+                        .map_err(|error| {
+                            serde::de::Error::custom(format!(
+                                "invalid commit_authorization request: {error}"
+                            ))
+                        }),
+                    "prepare_materialization_step" => serde_json::from_value(value)
+                        .map(Self::PrepareMaterializationStep)
+                        .map_err(|error| {
+                            serde::de::Error::custom(format!(
+                                "invalid prepare_materialization_step request: {error}"
+                            ))
+                        }),
+                    "commit_materialization_step" => serde_json::from_value(value)
+                        .map(Self::CommitMaterializationStep)
+                        .map_err(|error| {
+                            serde::de::Error::custom(format!(
+                                "invalid commit_materialization_step request: {error}"
+                            ))
+                        }),
+                    other => Err(serde::de::Error::custom(format!(
+                        "unknown direct conversation create phase `{other}`; expected one of prepare_authorization, commit_authorization, prepare_materialization_step, commit_materialization_step"
+                    ))),
+                }
+            }
+            None => Err(serde::de::Error::custom(
+                "direct conversation resolve discriminator `create` must be a boolean",
+            )),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2663,12 +2832,60 @@ pub enum DirectConversationUnavailableReason {
     OpaqueUnavailable,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DirectConversationResolveOutcome {
     State(DirectConversationResolveStateOutcome),
     Tombstoned(DirectConversationTombstonedOutcome),
+}
+
+impl<'de> Deserialize<'de> for DirectConversationResolveOutcome {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let object = value.as_object().ok_or_else(|| {
+            serde::de::Error::custom("direct conversation resolve outcome must be an object")
+        })?;
+        match (object.get("state"), object.get("status")) {
+            (Some(_), Some(_)) => Err(serde::de::Error::custom(
+                "direct conversation resolve outcome must contain exactly one discriminator: `state` or `status`",
+            )),
+            (Some(state), None) => {
+                if !state.is_string() {
+                    return Err(serde::de::Error::custom(
+                        "direct conversation resolve outcome discriminator `state` must be a string",
+                    ));
+                }
+                serde_json::from_value(value)
+                    .map(Self::State)
+                    .map_err(|error| {
+                        serde::de::Error::custom(format!(
+                            "invalid direct conversation state outcome: {error}"
+                        ))
+                    })
+            }
+            (None, Some(status)) => {
+                match status.as_str() {
+                    Some("tombstoned") => serde_json::from_value(value)
+                        .map(Self::Tombstoned)
+                        .map_err(|error| {
+                            serde::de::Error::custom(format!(
+                                "invalid direct conversation tombstoned outcome: {error}"
+                            ))
+                        }),
+                    Some(other) => Err(serde::de::Error::custom(format!(
+                        "unknown direct conversation outcome status `{other}`; expected tombstoned"
+                    ))),
+                    None => Err(serde::de::Error::custom(
+                        "direct conversation resolve outcome discriminator `status` must be a string",
+                    )),
+                }
+            }
+            (None, None) => Err(serde::de::Error::custom(
+                "direct conversation resolve outcome is missing discriminator field `state` or `status`",
+            )),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2677,7 +2894,7 @@ pub enum DirectConversationResolveOutcome {
 pub enum DirectConversationResolveStateOutcome {
     AuthorizationPrepared {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         registry_statement: PairRegistryStatement,
@@ -2691,7 +2908,7 @@ pub enum DirectConversationResolveStateOutcome {
     },
     MaterializationStepPrepared {
         operation_id: ProtocolOperationId,
-        reservation_handle: ProtocolOpaqueId,
+        reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         prepared_step: DirectConversationPreparedStage,
@@ -2738,13 +2955,13 @@ pub struct DirectConversationTombstonedOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MlsJoinAdmissionReceipt {
-    pub reservation_id: ProtocolOpaqueId,
+    pub reservation_id: ReservationHandle,
     pub realm_id: RealmId,
     pub member_id: Did,
     pub device_id: DeviceId,
-    pub keypackage_ref: ProtocolOpaqueId,
-    pub keypackage_claim_id: ProtocolOpaqueId,
-    pub group_id: ProtocolOpaqueId,
+    pub keypackage_ref: KeyPackageRef,
+    pub keypackage_claim_id: KeyPackageClaimId,
+    pub group_id: MlsGroupId,
     pub mls_generation: u64,
     pub expected_epoch: u64,
     pub security_frontier_digest: Hash,
@@ -2753,7 +2970,7 @@ pub struct MlsJoinAdmissionReceipt {
     pub member_event_id: EventId,
     pub eligible_committer: Did,
     pub committer_commitment_digest: Hash,
-    pub ciphersuite: ProtocolOpaqueId,
+    pub ciphersuite: MlsCiphersuiteId,
     pub issuer: Did,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -2865,6 +3082,81 @@ mod tests {
             }))
             .is_err()
         );
+    }
+
+    #[test]
+    fn direct_conversation_request_reports_discriminator_and_field_errors() {
+        let missing_phase = serde_json::from_value::<DirectConversationResolveRequestBody>(json!({
+            "peer": {"kind":"human", "principal_id":"did:web:alice.example"},
+            "create": true,
+            "operation_id": "ak:operation:test",
+            "idempotency_key": "idem-1"
+        }))
+        .unwrap_err()
+        .to_string();
+        assert!(missing_phase.contains("missing discriminator field `phase`"));
+
+        let misspelled_field =
+            serde_json::from_value::<DirectConversationResolveRequestBody>(json!({
+                "peer": {"kind":"human", "principal_id":"did:web:alice.example"},
+                "create": true,
+                "phase": "prepare_authorization",
+                "operation_id": "ak:operation:test",
+                "idempotency_kei": "idem-1"
+            }))
+            .unwrap_err()
+            .to_string();
+        assert!(misspelled_field.contains("idempotency_kei"));
+        assert!(misspelled_field.contains("prepare_authorization"));
+    }
+
+    #[test]
+    fn direct_conversation_outcome_reports_discriminator_errors() {
+        let missing = serde_json::from_value::<DirectConversationResolveOutcome>(json!({
+            "operation_id": "ak:operation:test"
+        }))
+        .unwrap_err()
+        .to_string();
+        assert!(missing.contains("missing discriminator field `state` or `status`"));
+
+        let conflicting = serde_json::from_value::<DirectConversationResolveOutcome>(json!({
+            "state": "creation_required",
+            "status": "tombstoned"
+        }))
+        .unwrap_err()
+        .to_string();
+        assert!(conflicting.contains("exactly one discriminator"));
+    }
+
+    #[test]
+    fn delivery_receipt_core_refactor_preserves_flat_wire_shape() {
+        let digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+        let wire = json!({
+            "domain": "ak.direct-conversation.execution-bundle-delivery-receipt.v1",
+            "submitted_bundle_digest": digest,
+            "effect_commitment_digest": digest,
+            "value_digest": digest,
+            "effect_head_digest": digest,
+            "effect_id": "effect-1",
+            "disposition": "deferred",
+            "destination": "did:web:destination.example",
+            "host_service_id": "did:web:host.example",
+            "host_epoch": 3,
+            "recorded_at": "2026-08-05T00:00:00.000Z",
+            "missing_dependency_digests": [digest],
+            "signature": {
+                "verification_method": "did:web:host.example#key-1",
+                "created_at": "2026-08-05T00:00:00.000Z",
+                "jws": "AA"
+            }
+        });
+        let receipt =
+            serde_json::from_value::<ExecutionBundleDeliveryReceipt>(wire.clone()).unwrap();
+        assert!(matches!(
+            receipt.disposition,
+            ExecutionBundleDeliveryDisposition::Deferred { .. }
+        ));
+        assert_eq!(serde_json::to_value(receipt).unwrap(), wire);
     }
 }
 

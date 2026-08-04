@@ -18,6 +18,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::contact_operations::{ContactPeer, ContactScopes};
 use crate::event_sync::{RealmActorFrontierView, RealmSealFrontierView};
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::authorization::GrantList;
@@ -27,7 +28,6 @@ use crate::objects::mimi::{
     MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
     MimiNotificationRouting, MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
-use crate::protocol_journey::{ContactPeer, ContactScopes};
 use crate::session_grant_bodies::SessionGrantOutcome;
 use crate::sync_frames::client_sync::SyncRequestBody;
 use crate::sync_frames::snapshot::SnapshotBootstrap;

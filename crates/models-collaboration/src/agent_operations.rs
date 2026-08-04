@@ -8,6 +8,7 @@
 
 use std::collections::BTreeSet;
 
+use arkret_wire::IdempotencyKey;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{EventInitialSubmission, SchemaId};
 
@@ -468,7 +469,7 @@ pub struct AgentRuntimeApprovalStatusOutcome {
 pub enum AgentProvisionRequestBody {
     Prepare {
         operation_id: ProtocolOperationId,
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         slug: String,
         requested_scope: AgentKeyScope,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -476,7 +477,7 @@ pub enum AgentProvisionRequestBody {
     },
     Commit {
         operation_id: ProtocolOperationId,
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
         agent_id: Did,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
@@ -2180,8 +2181,8 @@ pub enum AgentOperations {
     AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
     AgentGrantAttachOutcome(AgentGrantAttachOutcome),
     AgentGrantDetachOutcome(AgentGrantDetachOutcome),
-    AgentSidecarEnsureRequestBody(crate::protocol_journey::SidecarEnsureRequestBody),
-    AgentSidecarEnsureOutcome(crate::protocol_journey::SidecarEnsureOutcome),
+    AgentSidecarEnsureRequestBody(crate::sidecar_operations::SidecarEnsureRequestBody),
+    AgentSidecarEnsureOutcome(crate::sidecar_operations::SidecarEnsureOutcome),
     AgentSidecarView(Box<AgentSidecarView>),
     AgentSidecarList(AgentSidecarList),
 }

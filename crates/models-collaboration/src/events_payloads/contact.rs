@@ -1,7 +1,7 @@
 //! Contact event payloads.
 
+use crate::contact_operations::{ContactPeer, ContactScopes};
 use crate::internal_prelude::*;
-use crate::protocol_journey::{ContactPeer, ContactScopes};
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/contact_accepted_payload`.

@@ -1,22 +1,23 @@
 //! Closed history-sharing, causal-ingress, and KeyPackage terminal wire DTOs.
 //!
-//! These types mirror the corresponding definitions in
-//! `protocol-journey-wire.schema.json`. They intentionally model the wire
-//! unions directly instead of accepting product-defined strings or JSON.
+//! These types model the wire unions directly instead of accepting
+//! product-defined strings or JSON.
 
 use std::collections::BTreeSet;
 
-// `protocol-journey-wire.schema.json#/$defs/history_visibility`,
-// `realm.schema.json#/properties/history_visibility`, and
+// `realm.schema.json#/properties/history_visibility` and
 // `event-payload.schema.json#/$defs/history_visibility_value` share one closed
 // wire vocabulary. Re-export the canonical SDK primitive instead of creating
 // a second nominal Rust type with identical literals.
 pub use arkret_wire::HistoryVisibility;
-use arkret_wire::{Did, EventId, Hash};
+use arkret_wire::{
+    Did, EventId, Hash, IdempotencyKey, KeyPackageClaimId, KeyPackageRef, ProtocolOpaqueId,
+    ProtocolSignature,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{ProtocolOpaqueId, ProtocolSignature, string_marker};
+use crate::string_marker;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -131,20 +132,20 @@ string_marker!(KeypackageNoWriteAction, NoWrite, "no_write");
 pub enum KeypackageTerminalCommand {
     PublishedUnused {
         owner_account_id: Did,
-        keypackage_ref: ProtocolOpaqueId,
+        keypackage_ref: KeyPackageRef,
         action: KeypackageRetireAction,
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
     },
     ClaimedUnconsumed {
         owner_account_id: Did,
-        keypackage_ref: ProtocolOpaqueId,
-        claim_id: ProtocolOpaqueId,
+        keypackage_ref: KeyPackageRef,
+        claim_id: KeyPackageClaimId,
         action: KeypackageRevokeAction,
-        idempotency_key: ProtocolOpaqueId,
+        idempotency_key: IdempotencyKey,
     },
     Consumed {
         owner_account_id: Did,
-        keypackage_ref: ProtocolOpaqueId,
+        keypackage_ref: KeyPackageRef,
         action: KeypackageNoWriteAction,
     },
 }
