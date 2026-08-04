@@ -6,10 +6,6 @@ use crate::{EVENT_KIND_REGISTRY_SHA256, Error, Result};
 /// description. This is a development build guard, not a compatibility range.
 pub const ARKRET_BUILD_IDENTITY_EXTENSION: &str = "x_arkret_build_identity";
 
-/// Development request header used to reject a browser bundle compiled from a
-/// different shared SDK checkout before its body is parsed or persisted.
-pub const HEADER_ARKRET_SDK_SOURCE_SHA256: &str = "X-Arkret-SDK-Source-SHA256";
-
 /// Identity of the shared SDK contract compiled into one executable.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

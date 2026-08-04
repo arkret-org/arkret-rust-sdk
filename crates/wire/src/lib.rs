@@ -75,8 +75,7 @@ pub use authorization_lease_issuance_fixture::{
 };
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use build_identity::{
-    ARKRET_BUILD_IDENTITY_EXTENSION, ArkretBuildIdentity, HEADER_ARKRET_SDK_SOURCE_SHA256,
-    SDK_SOURCE_SHA256,
+    ARKRET_BUILD_IDENTITY_EXTENSION, ArkretBuildIdentity, SDK_SOURCE_SHA256,
 };
 pub use cba::{
     LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
