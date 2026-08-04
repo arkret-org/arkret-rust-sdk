@@ -128,6 +128,46 @@ pub fn owner_may_author_event_kind(
     )
 }
 
+/// True when the Realm owner aggregate directly authorizes the durable Events
+/// represented by `child_action` under the given registry basis.
+///
+/// This is the action-level form needed by local authorization preflights.
+/// It deliberately uses `target_event_kinds` (operational coverage), not
+/// `grant_authority_actions` (issuer upper bound), and rejects non-Event
+/// actions whose target set is empty instead of accepting the empty subset
+/// vacuously.
+pub fn owner_may_author_action(child_action: &str, registry_basis: Option<&Hash>) -> Result<bool> {
+    let basis = registry_basis.ok_or_else(|| {
+        Error::Protocol(
+            "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
+                .to_owned(),
+        )
+    })?;
+    let registry = super::capability_action_registry_snapshot(basis)?;
+    let child = super::capability_action_descriptor_in(&registry, child_action)?;
+    let child_event_kinds = child
+        .get("target_event_kinds")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "schema_violation: capability action '{child_action}' has no target_event_kinds"
+            ))
+        })?;
+    if child_event_kinds.is_empty() {
+        return Ok(false);
+    }
+    let owner = super::capability_action_descriptor_in(&registry, CapabilityActionId::REALM_OWNER)?;
+    let owner_event_kinds = owner
+        .get("target_event_kinds")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            Error::Protocol("schema_violation: ak.realm.owner has no target_event_kinds".to_owned())
+        })?;
+    Ok(child_event_kinds
+        .iter()
+        .all(|kind| owner_event_kinds.iter().any(|candidate| candidate == kind)))
+}
+
 fn descriptor_flag(descriptor: &serde_json::Value, field: &str) -> bool {
     descriptor
         .get(field)
@@ -193,6 +233,15 @@ mod tests {
         assert!(
             !action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.audit.export").unwrap()
         );
+    }
+
+    #[test]
+    fn owner_action_preflight_uses_snapshot_operational_coverage() {
+        let basis = basis();
+        assert!(owner_may_author_action("ak.invite.create", Some(&basis)).unwrap());
+        assert!(owner_may_author_action("ak.realm.update", Some(&basis)).unwrap());
+        assert!(!owner_may_author_action("ak.audit.export", Some(&basis)).unwrap());
+        assert!(!owner_may_author_action("ak.realm.destroy", Some(&basis)).unwrap());
     }
 
     #[test]
