@@ -288,7 +288,7 @@ pub enum CallRecordingArtifactKind {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CallRecordingEncryptionAlg {
+pub enum CallRecordingEncryptionAlgorithm {
     MlsExporterAeadXchacha20poly1305,
     MlsExporterAeadAes256Gcm,
     MlsExporterAeadXchacha20poly1305Stream,
@@ -327,7 +327,7 @@ pub struct CallRecordingEncryptionContext {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingEncryption {
-    pub alg: CallRecordingEncryptionAlg,
+    pub encryption_algorithm: CallRecordingEncryptionAlgorithm,
     pub exporter_label: String,
     pub context: CallRecordingEncryptionContext,
     pub ciphertext_digest: Hash,

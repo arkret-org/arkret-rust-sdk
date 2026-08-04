@@ -4,7 +4,6 @@ use chrono::{TimeZone, Timelike, Utc};
 fn proof_with_submillisecond_created_at() -> Proof {
     Proof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:web:alice.example#key-1").unwrap(),
         event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
         created_at: Utc

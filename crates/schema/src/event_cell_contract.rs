@@ -2060,7 +2060,7 @@ mod tests {
             "source_authorization_ref": "ak:event:019f9000-0000-7000-8000-000000000005",
             "sender_device_signature": {
                 "kid": "did:webvh:z6mkfixture:alice.example#ak:device:019f9000-0000-7000-8000-000000000004",
-                "alg": "EdDSA",
+                "signature_algorithm": "Ed25519",
                 "sig": "AAAA"
             },
             "key_scope": {

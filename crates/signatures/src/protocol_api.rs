@@ -77,7 +77,7 @@ use arkret_canonical::canonical;
 /// Re-export of the single source of truth in `arkret-wire`
 /// ([`arkret_wire::PRODUCTION_ALGORITHMS`]) so the structural gate
 /// (`Proof::validate_production`) and this crate's verifiers can never
-/// diverge again. The v1 set is exactly `["EdDSA"]` — see the wire constant's
+/// diverge again. The v1 set is exactly `["Ed25519"]` — see the wire constant's
 /// documentation for why the other registry-active rows are excluded.
 pub use arkret_wire::PRODUCTION_ALGORITHMS;
 pub use arkret_wire::Proof as ProtocolProof;
@@ -89,7 +89,7 @@ pub use error::{Error, Result};
 pub use jwk::{JsonWebKey, JsonWebKeyOperation, JsonWebKeySet, JsonWebKeyUse};
 pub use jwt::{
     JsonWebTokenClaims, JsonWebTokenHeader, JwtAlgorithm, JwtAudience, JwtType,
-    JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
+    JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_ed25519_jwt_with_jwks,
 };
 // `proof` is an unconditional module, so gating its re-export on
 // `collaboration` only made the crate root disagree with itself: a dependent
@@ -100,23 +100,23 @@ pub use jwt::{
 pub use proof::{
     Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
     EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, SignedPayload, SignerError,
-    VerifierError, build_proof_envelope, detached_jws_kind, sign_eddsa_detached_jws,
-    verify_detached_ed25519_signature, verify_eddsa_detached_jws_proof,
-    verify_eddsa_detached_jws_proof_with_digest_suite, verify_eddsa_signal_proof,
+    VerifierError, build_proof_envelope, detached_jws_kind, sign_ed25519_detached_jws,
+    verify_detached_ed25519_signature, verify_ed25519_detached_jws_proof,
+    verify_ed25519_detached_jws_proof_with_digest_suite, verify_ed25519_signal_proof,
 };
 #[cfg(feature = "collaboration")]
 pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
 
 /// Wire-reserved proof algorithms: registered `active` rows of the
-/// signature-alg-registry whose wire `proof_alg` value this SDK can parse and
+/// signature-alg-registry whose wire `jose_algorithm` value this SDK can parse and
 /// recognise, but for which it ships **no client signer or verifier yet**.
 ///
 /// `ES256` (ECDSA P-256, profile-gated classical interop) has no P-256
 /// signer/verifier in this workspace. `ML-DSA-65` (NIST FIPS 204 ML-DSA
 /// category 3, `role=v1_profile_gated_pqc` behind
 /// `ak.profile.signature.pqc.v1`) is here because the workspace pulls in no
-/// FIPS 204 / ML-DSA crate. The EdDSA verifier fails closed on both (they are
+/// FIPS 204 / ML-DSA crate. The Ed25519 verifier fails closed on both (they are
 /// never mistaken for valid). Activating either — adding the dependency and a
 /// dispatch arm — is a separate mid-term owner decision (SDK-SOTA-01), tracked
 /// so this constant is the single place to flip an entry into
@@ -169,7 +169,6 @@ impl DetachedSignatureBinding {
 pub struct DetachedSignature {
     pub kind: String,
     pub verification_method: DidUrl,
-    pub alg: String,
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -184,7 +183,6 @@ impl DetachedSignature {
     pub fn from_proof(proof: Proof) -> Self {
         Self {
             kind: proof.kind,
-            alg: proof.alg,
             verification_method: proof.verification_method,
             payload_digest: proof.event_digest,
             created_at: proof.created_at,
@@ -197,7 +195,6 @@ impl DetachedSignature {
     pub fn into_proof(self) -> Proof {
         Proof {
             kind: self.kind,
-            alg: self.alg,
             verification_method: self.verification_method,
             event_digest: self.payload_digest,
             created_at: self.created_at,
@@ -422,7 +419,7 @@ mod tests {
 
     /// SDK-SOTA-01 / SDK-CRY-02: `ES256` and `ML-DSA-65` are wire-reserved
     /// (registered active rows, no client impl) and MUST NOT be advertised as
-    /// usable production algorithms while the EdDSA verifier is the only
+    /// usable production algorithms while the Ed25519 verifier is the only
     /// signer/verifier shipped.
     #[test]
     fn production_algorithms_exclude_unimplemented_registry_rows() {
@@ -437,8 +434,8 @@ mod tests {
                 .any(|alg| FUTURE_ALGORITHMS.contains(alg))
         );
         // The production set is exactly the algorithms with a real
-        // signer/verifier: EdDSA only.
-        assert_eq!(PRODUCTION_ALGORITHMS, &["EdDSA"]);
+        // signer/verifier: Ed25519 only.
+        assert_eq!(PRODUCTION_ALGORITHMS, &["Ed25519"]);
     }
 
     #[test]
@@ -457,7 +454,6 @@ mod tests {
         .unwrap();
         let signature = DetachedSignature {
             kind: "did".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: binding.verification_method.clone(),
             payload_digest: binding.payload_digest.clone(),
             created_at: binding.created_at,
@@ -484,7 +480,6 @@ mod tests {
         });
         let proof = Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
@@ -535,7 +530,6 @@ mod tests {
         });
         let mut proof = Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),

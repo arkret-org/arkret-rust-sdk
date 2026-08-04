@@ -19,7 +19,7 @@ pub type MediaType = String;
 #[serde(deny_unknown_fields)]
 pub struct SignatureValue {
     pub kid: Did,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub sig: String,
 }
 
@@ -186,7 +186,6 @@ pub struct BlobPresignPayload {
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignDetachedJwsProof {
     pub kind: String,
-    pub alg: String,
     pub kid: String,
     pub jws: String,
 }

@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 pub struct DetachedPayloadProof {
     pub kind: String,
     pub verification_method: DidUrl,
-    pub alg: String,
     pub payload_digest: Hash,
     #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,

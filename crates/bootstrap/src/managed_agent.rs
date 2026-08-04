@@ -567,7 +567,6 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         previous_state_root: None,
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,

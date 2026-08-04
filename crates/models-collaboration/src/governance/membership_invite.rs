@@ -322,7 +322,7 @@ impl InviteRefPayload {
 
 pub const INVITE_CLAIM_AUDIENCE: &str = "arkret.invite.claim";
 pub const INVITE_BINDING_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.binding_proof.v1\n";
-pub const INVITE_SUBJECT_PROOF_ALG: &str = "EdDSA";
+pub const INVITE_SUBJECT_PROOF_ALG: &str = "Ed25519";
 pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subject_proof.v1\n";
 
 /// Verification-service proof carried by `ak.invite.claim`.
@@ -525,7 +525,7 @@ pub fn invite_binding_proof_transcript_digest(
 #[serde(deny_unknown_fields)]
 pub struct InviteSubjectProof {
     pub verification_method: DidUrl,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub transcript_digest: Hash,
     pub signature: String,
 }
@@ -538,7 +538,7 @@ impl InviteSubjectProof {
     ) -> Self {
         Self {
             verification_method,
-            alg: INVITE_SUBJECT_PROOF_ALG.to_owned(),
+            signature_algorithm: INVITE_SUBJECT_PROOF_ALG.to_owned(),
             transcript_digest,
             signature: signature.into(),
         }
@@ -550,9 +550,9 @@ impl InviteSubjectProof {
                 "invite subject proof verification_method must not be empty".to_owned(),
             ));
         }
-        if self.alg != INVITE_SUBJECT_PROOF_ALG {
+        if self.signature_algorithm != INVITE_SUBJECT_PROOF_ALG {
             return Err(Error::Protocol(
-                "invite subject proof alg must be EdDSA".to_owned(),
+                "invite subject proof alg must be Ed25519".to_owned(),
             ));
         }
         if !self.transcript_digest.as_str().starts_with("sha256:") {

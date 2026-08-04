@@ -473,7 +473,7 @@ impl CrossSigningPublish {
             "trust_domain": self.trust_domain.as_str(),
             "subordinate_key_kind": subordinate_kind,
             "subordinate_kid": subordinate.kid.as_str(),
-            "subordinate_alg": subordinate.alg.as_str(),
+            "subordinate_algorithm": subordinate.algorithm.as_str(),
             "subordinate_public_key": subordinate.public_key.as_str(),
             "generation": self.generation.get(),
         });
@@ -511,7 +511,7 @@ pub struct PublishedKey {
     /// or key-log head. A published cross-signing key is a controller key, so
     /// this is always a DID URL, never a profile-local key label.
     pub kid: DidUrl,
-    pub alg: NonEmptyString,
+    pub algorithm: NonEmptyString,
     pub public_key: NonEmptyString,
     pub key_format: KeyFormat,
 }
@@ -530,7 +530,7 @@ pub struct SubordinateSignedKeyBinding {
     /// against every published key. JSON Schema cannot express the cross-field
     /// constraint; conformance and receivers enforce it.
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub signature: NonEmptyString,
 }
 
@@ -539,7 +539,7 @@ pub struct SubordinateSignedKeyBinding {
 pub struct SubordinateSignedKey {
     /// DID URL of this subordinate key's verification method.
     pub kid: DidUrl,
-    pub alg: NonEmptyString,
+    pub algorithm: NonEmptyString,
     pub public_key: NonEmptyString,
     pub key_format: KeyFormat,
     pub binding: SubordinateSignedKeyBinding,
@@ -617,7 +617,7 @@ impl DeviceEnrollmentAuthorityBinding {
 pub struct DeviceQuorumSignature {
     pub device_id: DeviceId,
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub signature: Base64UrlString,
 }
 
@@ -657,14 +657,14 @@ impl<'de> Deserialize<'de> for DeviceQuorumThreshold {
 pub enum CrossSigningResetProof {
     PrincipalSigning {
         verification_method: DidUrl,
-        alg: NonEmptyString,
+        signature_algorithm: NonEmptyString,
         signature: Base64UrlString,
     },
     RecoveryUnlock {
         recovery_session_id: RecoverySessionId,
         recovery_secret_ref: NonEmptyString,
         unlock_commitment: Hash,
-        alg: NonEmptyString,
+        signature_algorithm: NonEmptyString,
         signature: Base64UrlString,
     },
     DeviceQuorum {
@@ -675,7 +675,7 @@ pub enum CrossSigningResetProof {
         recovery_session_id: RecoverySessionId,
         service_id: Did,
         verification_method: DidUrl,
-        alg: NonEmptyString,
+        signature_algorithm: NonEmptyString,
         signature: Base64UrlString,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         attestation_ref: Option<AttestationId>,
@@ -714,7 +714,6 @@ mod tests {
             created_at,
             signature: PayloadProof {
                 kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new(
                     "did:webvh:z6mkfixture:starid.example#service-key",
                 )
@@ -753,29 +752,29 @@ mod tests {
             "trust_domain": "ak:trust_domain:example.net",
             "principal_signing_key": {
                 "kid": "did:webvh:z6mkfixture:alice.example#psk",
-                "alg": "EdDSA",
+                "algorithm": "Ed25519",
                 "public_key": "z6MkPrincipal",
                 "key_format": "multibase"
             },
             "self_signing_key": {
                 "kid": "did:webvh:z6mkfixture:alice.example#ssk",
-                "alg": "EdDSA",
+                "algorithm": "Ed25519",
                 "public_key": "z6MkSelf",
                 "key_format": "multibase",
                 "binding": {
                     "verification_method": "did:webvh:z6mkfixture:alice.example#psk",
-                    "alg": "EdDSA",
+                    "signature_algorithm": "Ed25519",
                     "signature": "c2ln"
                 }
             },
             "user_signing_key": {
                 "kid": "did:webvh:z6mkfixture:alice.example#usk",
-                "alg": "EdDSA",
+                "algorithm": "Ed25519",
                 "public_key": "z6MkUser",
                 "key_format": "multibase",
                 "binding": {
                     "verification_method": "did:webvh:z6mkfixture:alice.example#psk",
-                    "alg": "EdDSA",
+                    "signature_algorithm": "Ed25519",
                     "signature": "c2ln"
                 }
             },
@@ -829,7 +828,6 @@ mod tests {
             "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
                 "kind": "detached_jws",
-                "alg": "EdDSA",
                 "verification_method": "did:webvh:z6mkfixture:registry.example#service-key",
                 "payload_digest":
                     "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -863,7 +861,6 @@ mod tests {
             "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
                 "kind": "detached_jws",
-                "alg": "EdDSA",
                 "verification_method": "did:webvh:z6mkfixture:registry.example#service-key",
                 "payload_digest":
                     "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -927,7 +924,7 @@ pub struct KeyVerificationContentNewDevicePubkey {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kid: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<NonEmptyString>,
+    pub algorithm: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub public_key: Option<NonEmptyString>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -1196,7 +1193,7 @@ mod key_verification_tests {
             "pairing_code": "482 913",
             "new_device_pubkey": {
                 "kid": "ak:device:01904100-0000-7000-8000-000000000002",
-                "alg": "EdDSA",
+                "algorithm": "Ed25519",
                 "public_key": "z6MkDevice",
                 "vendor_hint": true
             },

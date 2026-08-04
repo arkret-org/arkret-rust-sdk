@@ -549,7 +549,7 @@ pub enum WebSocketDpopCurve {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WebSocketDpopAlgorithm {
     #[default]
-    EdDSA,
+    Ed25519,
 }
 
 /// `typ` of the proof.
@@ -608,7 +608,7 @@ impl WebSocketDpopProtectedHeader {
     pub fn new(jwk: WebSocketDpopPublicJwk) -> Self {
         Self {
             typ: WebSocketDpopType::DpopJwt,
-            alg: WebSocketDpopAlgorithm::EdDSA,
+            alg: WebSocketDpopAlgorithm::Ed25519,
             jwk,
         }
     }

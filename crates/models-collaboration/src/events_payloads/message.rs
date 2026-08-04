@@ -687,7 +687,7 @@ impl ContentBlock {
                     "E2EE long_text attachment must use ak.blob.stream_aead.v1".to_owned(),
                 ));
             }
-            if !field("alg").ends_with("_stream") {
+            if !field("encryption_algorithm").ends_with("_stream") {
                 return Err(Error::Protocol(
                     "E2EE long_text attachment must use the matching _stream AEAD algorithm"
                         .to_owned(),

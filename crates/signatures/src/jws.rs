@@ -21,7 +21,7 @@ use ed25519_dalek::SigningKey;
 // Reach the function at its defining module rather than through the crate-root
 // re-export: that re-export is gated on `collaboration`, while this module is
 // not, so importing it from the root breaks any build without that feature.
-use crate::proof::sign_eddsa_detached_jws;
+use crate::proof::sign_ed25519_detached_jws;
 
 /// Produce a detached Ed25519 JWS over `canonical_bytes`.
 ///
@@ -34,7 +34,7 @@ use crate::proof::sign_eddsa_detached_jws;
 /// where the signed bytes are
 /// `BASE64URL(PROTECTED_HEADER) || "." || BASE64URL(canonical_bytes)`.
 ///
-/// The protected header is the SDK-canonical `{"alg":"EdDSA"}` — the same byte
+/// The protected header is the SDK-canonical `{"alg":"Ed25519"}` — the same byte
 /// string `arkret_identity::jws::verify_jws_ed25519` accepts. This function is
 /// the symmetric counterpart of that verifier: a verify after a sign over the
 /// same `canonical_bytes` and a resolver that returns the matching public key
@@ -53,7 +53,7 @@ pub fn sign_jws_ed25519(
     canonical_bytes: &[u8],
     signing_key: &SigningKey,
 ) -> Result<String, String> {
-    sign_eddsa_detached_jws(signing_key, canonical_bytes).map_err(|error| error.to_string())
+    sign_ed25519_detached_jws(signing_key, canonical_bytes).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -71,9 +71,9 @@ mod tests {
         let parts: Vec<&str> = jws.split('.').collect();
         assert_eq!(parts.len(), 3, "JWS must have 3 segments");
         assert!(parts[1].is_empty(), "payload segment must be empty");
-        // Header decodes to the SDK-canonical EdDSA marker.
+        // Header decodes to the SDK-canonical Ed25519 marker.
         let header = base64url_decode(parts[0]).expect("header decode");
-        assert_eq!(header.as_slice(), br#"{"alg":"EdDSA"}"#);
+        assert_eq!(header.as_slice(), br#"{"alg":"Ed25519"}"#);
         // Signature decodes to exactly 64 bytes.
         let sig = base64url_decode(parts[2]).expect("sig decode");
         assert_eq!(sig.len(), 64);

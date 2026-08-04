@@ -188,17 +188,6 @@ pub enum KeyPackageClaimProofKind {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum KeyPackageClaimProofAlgorithm {
-    #[serde(rename = "EdDSA")]
-    EdDsa,
-    #[serde(rename = "ES256")]
-    Es256,
-    #[serde(rename = "ML-DSA-65")]
-    MlDsa65,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum KeyPackageClaimProofPurpose {
     #[serde(rename = "holder_acceptance")]
     HolderAcceptance,
@@ -213,7 +202,6 @@ pub enum KeyPackageClaimProofPurpose {
 pub struct KeyPackageClaimProof {
     pub kind: KeyPackageClaimProofKind,
     pub verification_method: DidUrl,
-    pub alg: KeyPackageClaimProofAlgorithm,
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -1062,7 +1050,7 @@ mod tests {
                 "signed_at": "2026-07-21T00:00:00.000Z",
                 "signature": {
                     "kid": "did:webvh:z6mkfixture:alice.example#ssk-7",
-                    "alg": "EdDSA",
+                    "signature_algorithm": "Ed25519",
                     "sig": "c2lnbmF0dXJl"
                 }
             }
@@ -1187,7 +1175,7 @@ mod tests {
                 "device_verification_method": "did:webvh:z6mkfixture:owner.example#device-key-1",
                 "signature": {
                     "kid": "did:webvh:z6mkfixture:owner.example#device-key-1",
-                    "alg": "EdDSA",
+                    "signature_algorithm": "Ed25519",
                     "sig": "AA"
                 }
             },

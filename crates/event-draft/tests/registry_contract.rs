@@ -19,7 +19,6 @@ fn scope_ref() -> ScopeRef {
 fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap(),
         event_digest: Hash::new(
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",

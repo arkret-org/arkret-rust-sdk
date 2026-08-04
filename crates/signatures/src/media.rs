@@ -115,7 +115,7 @@ pub fn call_media_token_exchange(
 /// `kid -> ed25519 public key` map via [`with_keys`](Self::with_keys) /
 /// [`insert_key`](Self::insert_key). [`verify_call_media_token_outcome`] looks
 /// up the binding's `issuer_kid` and the `service_signature.kid` in this map to
-/// verify the EdDSA signatures; a missing key or a failed signature is rejected
+/// verify the Ed25519 signatures; a missing key or a failed signature is rejected
 /// with `token_issuer_unauthorised`.
 #[derive(Clone, Debug, Default)]
 pub struct MediaServiceAnchors {
@@ -237,7 +237,7 @@ pub fn participant_binding_signing_input(binding: &CallMediaParticipantBinding) 
     Ok(input)
 }
 
-/// Verify an EdDSA(ed25519) signature `sig_b64` (base64url, no padding) over
+/// Verify an Ed25519(ed25519) signature `sig_b64` (base64url, no padding) over
 /// `signing_input` using the verifying key registered under `kid` in `anchors`.
 /// Any missing key, malformed signature or failed verification surfaces as
 /// `token_issuer_unauthorised` (`media-service-binding.md` §3 default path).
@@ -288,7 +288,7 @@ fn verify_issuer_signature(
 ///   request and `participant_identity` matches the top-level one;
 /// - the binding's `expires_at` is after its `issued_at`;
 /// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]);
-/// - **both** `participant_binding.sig` and `service_signature.sig` verify as EdDSA(ed25519)
+/// - **both** `participant_binding.sig` and `service_signature.sig` verify as Ed25519(ed25519)
 ///   signatures over the normative `signing_input` ([`participant_binding_signing_input`]) under
 ///   the issuer verifying keys in `anchors`. Per `media-service-binding.md` §3 the default
 ///   verification path MUST verify both signatures; either failing — or a missing key — rejects

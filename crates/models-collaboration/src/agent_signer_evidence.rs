@@ -21,7 +21,7 @@ pub const AGENT_STATUS_COMPONENT: &str = "ak.component.agent.status.v1";
 #[serde(deny_unknown_fields)]
 pub struct AgentSigningPublicKey {
     pub kty: NonEmptyString,
-    pub alg: NonEmptyString,
+    pub algorithm: NonEmptyString,
     pub key: Base64UrlString,
 }
 

@@ -684,14 +684,13 @@ mod tests {
     fn proof(digest: Hash, actor: &Did, created_at: DateTime<Utc>) -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new(format!("{}#device-key", actor.as_str())).unwrap(),
             payload_digest: digest,
             created_at,
             domain: None,
             audience: None::<Audience>,
             proof_purpose: None,
-            jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
+            jws: "eyJhbGciOiJFZDI1NTE5In0..AA".to_owned(),
         }
     }
 

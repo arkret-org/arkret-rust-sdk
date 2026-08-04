@@ -923,7 +923,6 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
     let mut proof = Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
@@ -975,7 +974,6 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
     let mut proof = Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),

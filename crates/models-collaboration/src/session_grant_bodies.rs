@@ -297,6 +297,79 @@ pub struct SessionGrantRefreshProof {
     pub verification_method: Option<DidUrl>,
 }
 
+/// Canonical operation selector bound into every session-grant refresh proof.
+pub const SESSION_GRANT_REFRESH_OPERATION: &str = "resume_soft_logged_out_session";
+
+#[derive(Serialize)]
+struct SessionGrantRefreshRequestDigestInput<'a> {
+    operation: &'static str,
+    grant_jwt_hash: String,
+    principal_id: &'a str,
+    device_id: &'a str,
+    audience: &'a str,
+    grant_binding_key_id: &'a str,
+}
+
+#[derive(Serialize)]
+struct SessionGrantRefreshProofSigningInput<'a> {
+    principal_id: &'a str,
+    device_id: &'a str,
+    audience: &'a str,
+    challenge: &'a str,
+    request_canonical_digest: &'a str,
+    #[serde(serialize_with = "arkret_canonical::serialize_canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+    #[serde(serialize_with = "arkret_canonical::serialize_canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+}
+
+/// Compute the single protocol-owned digest for a session-grant refresh
+/// request. Human-device and Agent-runtime refresh branches MUST call this
+/// function rather than defining local signing-input structs.
+pub fn session_grant_refresh_request_digest(
+    grant_jwt: &str,
+    principal_id: &str,
+    device_id: &str,
+    audience: &str,
+    grant_binding_key_id: &str,
+) -> Result<Hash> {
+    let input = SessionGrantRefreshRequestDigestInput {
+        operation: SESSION_GRANT_REFRESH_OPERATION,
+        grant_jwt_hash: canonical::sha256_digest(grant_jwt.as_bytes()),
+        principal_id,
+        device_id,
+        audience,
+        grant_binding_key_id,
+    };
+    Ok(Hash::new(canonical::canonical_sha256(&input)?)?)
+}
+
+/// Produce the canonical bytes signed by a session-grant refresh proof. This
+/// is shared by every authentication branch so field order, timestamp
+/// encoding, and future transcript changes cannot drift between products.
+#[allow(clippy::too_many_arguments)]
+pub fn session_grant_refresh_proof_signing_bytes(
+    principal_id: &str,
+    device_id: &str,
+    audience: &str,
+    challenge: &str,
+    request_canonical_digest: &str,
+    issued_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+) -> Result<Vec<u8>> {
+    Ok(canonical::canonical_json_bytes(
+        &SessionGrantRefreshProofSigningInput {
+            principal_id,
+            device_id,
+            audience,
+            challenge,
+            request_canonical_digest,
+            issued_at,
+            expires_at,
+        },
+    )?)
+}
+
 /// `ak.gate.account.command.refresh_session_grant` outcome.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

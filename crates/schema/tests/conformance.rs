@@ -266,7 +266,6 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
     let actor = Did::new(input["actor_id"].as_str().unwrap()).unwrap();
     let proof = Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new(input["verification_method"].as_str().unwrap()).unwrap(),
         event_digest: Hash::new(input["event_digest"].as_str().unwrap()).unwrap(),
         created_at: input["created_at"].as_str().unwrap().parse().unwrap(),

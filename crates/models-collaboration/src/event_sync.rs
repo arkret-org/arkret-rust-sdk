@@ -1164,7 +1164,6 @@ mod tests {
             "payload": {},
             "proofs": [{
                 "kind": "detached_jws",
-                "alg": "EdDSA",
                 "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000002",
                 "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "created_at": "2026-07-21T08:00:00.000Z",
@@ -1202,7 +1201,6 @@ mod tests {
             "authorization_ref": "did:web:alice.example#device-enrollment",
             "proofs": [{
                 "kind": "detached_jws",
-                "alg": "EdDSA",
                 "verification_method": "did:web:auth.example#enrollment",
                 "event_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "created_at": "2026-07-21T07:00:00.000Z",
@@ -1272,7 +1270,6 @@ mod tests {
     ) -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: verification_method.clone(),
             payload_digest,
             created_at,
@@ -1384,7 +1381,6 @@ mod tests {
             absolute_due_at: received_at + chrono::Duration::seconds(90),
             authority_set_ref: authority_set_digest.clone(),
             signature: PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:web:authority.example#key-1").unwrap(),
                 extra: Default::default(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
@@ -1507,7 +1503,6 @@ mod tests {
             previous_state_root: None,
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
                 extra: Default::default(),
                 payload_digest: hash('5'),

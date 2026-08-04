@@ -210,7 +210,7 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
             Ok(())
         }
         fn algorithm(&self) -> &str {
-            "EdDSA"
+            "Ed25519"
         }
     }
 
@@ -241,7 +241,6 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
         // Also exercise the proof-envelope dev-kind gate.
         let proof = build_proof_envelope(
             v.kind.clone(),
-            v.algorithm.clone(),
             DidUrl::new("did:web:test.example#key-1").unwrap(),
             dummy_hash.clone(),
             None,

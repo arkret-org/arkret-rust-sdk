@@ -8,7 +8,7 @@ This crate is the single source of truth for:
 - The `EventSigner` / `EventVerifier` traits each backend implements.
 - Generic Ed25519 detached-JWS primitives (`Ed25519DetachedJwsSigner` /
   `Ed25519DetachedJwsVerifier`) for protocol binding objects supplied by callers.
-- The `sign_event` / `verify_eddsa_detached_jws_proof` event-proof pipeline,
+- The `sign_event` / `verify_ed25519_detached_jws_proof` event-proof pipeline,
   which constructs and signs the mandatory `ak.event-proof-v1` binding object.
 - A `ProofType` tag and `ProductionVerifier` adapter that refuse dev/test
   proofs in production deployments.
@@ -22,7 +22,7 @@ consolidates them into one pipeline. Migration steps:
 
 1. Replace local `canonical_*` helpers with `EventProofBuilder::canonical_bytes`.
 2. Replace local Event proof signers with `sign_event` and verification with
-   `verify_eddsa_detached_jws_proof`. Do not sign raw Event-envelope bytes.
+   `verify_ed25519_detached_jws_proof`. Do not sign raw Event-envelope bytes.
 3. Wrap every verifier with `ProductionVerifier::wrap(...)` and pass the
    incoming proof through `assert_production_proof` so any dev-kind
    (`dev`, `test`, `mock`, `stub`, `dummy`) proof or `ProofType::Development`

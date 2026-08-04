@@ -74,7 +74,7 @@ fn manifest_for_items(
             checked_at: created_at,
             witness_attestations: Vec::new(),
         },
-        signature: DetachedJwsProof::eddsa(
+        signature: DetachedJwsProof::ed25519(
             DidUrl::new("did:webvh:z6mkfixture:generator.example#snapshot").unwrap(),
             hash(2),
             created_at,
@@ -333,7 +333,6 @@ fn merkle_verify_rejects_mismatched_leaf_count() {
 fn move_sig(payload_digest: Hash) -> PayloadSignature {
     PayloadSignature {
         extra: Default::default(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:generator.example#k1").unwrap(),
         payload_digest,
         created_at: Utc::now(),

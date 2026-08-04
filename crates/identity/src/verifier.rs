@@ -461,13 +461,13 @@ pub fn public_key_material_from_binding(
 /// | check | Event profile (used here) | generic detached-JWS profile |
 /// | --- | --- | --- |
 /// | `kid` header member | **rejected** (`deny_unknown_fields`) | accepted and returned |
-/// | `header.alg` vs `proof.alg` | **must be equal** | not compared |
+/// | `header.alg` | **must be `Ed25519`** | **must be `Ed25519`** |
 /// | `event_digest` vs canonical bytes | **constant-time compared** | not applicable |
 ///
 /// Routing an Event proof through [`verify_jws_with_binding`] would therefore
-/// verify the wrong bytes *and* relax two header checks. This function keeps the
+/// verify the wrong bytes *and* relax the `kid` header check. This function keeps the
 /// Event-specific path
-/// ([`arkret_signatures::verify_eddsa_detached_jws_proof`]) and only replaces
+/// ([`arkret_signatures::verify_ed25519_detached_jws_proof`]) and only replaces
 /// where the key comes from: the binding's pinned document instead of a live
 /// resolver. Zero network calls by construction — there is no
 /// [`DidResolver`] parameter.
@@ -530,8 +530,13 @@ pub fn verify_event_proof_with_binding(
     }
 
     let public_key = public_key_material_from_binding(accepted, presented)?;
-    arkret_signatures::verify_eddsa_detached_jws_proof(proof, envelope_bytes, actor_id, &public_key)
-        .map_err(|source| BindingVerifyError::Proof { source })
+    arkret_signatures::verify_ed25519_detached_jws_proof(
+        proof,
+        envelope_bytes,
+        actor_id,
+        &public_key,
+    )
+    .map_err(|source| BindingVerifyError::Proof { source })
 }
 
 /// [`verify_event_proof_with_binding`] with the envelope bytes and binding
@@ -1056,7 +1061,7 @@ mod tests {
     mod event_proof {
         use arkret_canonical::base64url::base64url_encode;
         use arkret_signatures::{
-            Ed25519DetachedJwsVerifier, EventProofBuilder, sign_eddsa_detached_jws,
+            Ed25519DetachedJwsVerifier, EventProofBuilder, sign_ed25519_detached_jws,
         };
         use arkret_wire::{EventId, EventRequirements, Hlc, RealmId, ScopeRef, proof_kind};
         use chrono::TimeZone;
@@ -1111,7 +1116,6 @@ mod tests {
         fn unsigned_proof(event: &Event) -> Proof {
             Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: verification_method(),
                 event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
                     envelope_bytes(event),
@@ -1136,7 +1140,7 @@ mod tests {
             let binding_bytes = proof
                 .canonical_binding_bytes(&event.actor_id)
                 .expect("binding bytes");
-            proof.jws = sign_eddsa_detached_jws(&signing_key(), &binding_bytes).expect("sign");
+            proof.jws = sign_ed25519_detached_jws(&signing_key(), &binding_bytes).expect("sign");
             proof
         }
 
@@ -1198,7 +1202,7 @@ mod tests {
             let event = event();
             let bytes = envelope_bytes(&event);
             let mut proof = unsigned_proof(&event);
-            proof.jws = sign_eddsa_detached_jws(&signing_key(), &bytes).expect("sign");
+            proof.jws = sign_ed25519_detached_jws(&signing_key(), &bytes).expect("sign");
 
             let error = verify_event_proof_with_binding(&proof, &bytes, &event.actor_id, &accepted)
                 .unwrap_err();
@@ -1225,7 +1229,7 @@ mod tests {
                 .canonical_binding_bytes(&event.actor_id)
                 .expect("binding bytes");
             proof.jws = detached_jws_with_header(
-                serde_json::json!({"alg": "EdDSA", "kid": verification_method().as_str()}),
+                serde_json::json!({"alg": "Ed25519", "kid": verification_method().as_str()}),
                 &binding_bytes,
             );
 
@@ -1248,9 +1252,7 @@ mod tests {
         }
 
         #[test]
-        fn the_protected_header_alg_must_equal_the_proof_alg() {
-            // The generic profile only checks `header.alg == "EdDSA"`; it never
-            // compares the header against the proof's own declared `alg`.
+        fn an_unsupported_protected_header_algorithm_is_rejected() {
             let document = document(&format!("{}#key-1", did()));
             let accepted = accepted(&document);
             let event = event();
@@ -1259,8 +1261,7 @@ mod tests {
                 .canonical_binding_bytes(&event.actor_id)
                 .expect("binding bytes");
             proof.jws =
-                detached_jws_with_header(serde_json::json!({"alg": "EdDSA"}), &binding_bytes);
-            proof.alg = "ES256".to_owned();
+                detached_jws_with_header(serde_json::json!({"alg": "ES256"}), &binding_bytes);
 
             let error = verify_event_proof_with_binding(
                 &proof,
@@ -1271,11 +1272,15 @@ mod tests {
             .unwrap_err();
             assert!(
                 matches!(error, BindingVerifyError::Proof { .. }),
-                "a proof alg that disagrees with the header must be rejected, got {error}"
+                "an unsupported protected header algorithm must be rejected, got {error}"
             );
-            Ed25519DetachedJwsVerifier::new()
+            let generic_error = Ed25519DetachedJwsVerifier::new()
                 .verify_detached_jws(&proof.jws, &binding_bytes, &public_key())
-                .expect("the generic profile ignores the proof's declared alg");
+                .unwrap_err();
+            assert!(
+                matches!(generic_error, arkret_signatures::VerifierError::Backend(_)),
+                "the generic Ed25519 verifier must also reject ES256, got {generic_error}"
+            );
         }
 
         #[test]
@@ -1288,7 +1293,7 @@ mod tests {
                 .canonical_binding_bytes(&event.actor_id)
                 .expect("binding bytes");
             proof.jws = detached_jws_with_header(
-                serde_json::json!({"alg": "EdDSA", "crit": ["b64"]}),
+                serde_json::json!({"alg": "Ed25519", "crit": ["b64"]}),
                 &binding_bytes,
             );
             assert!(

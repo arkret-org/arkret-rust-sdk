@@ -4,8 +4,8 @@ use chrono::Duration;
 use serde_json::Value;
 
 use super::constants::{
-    DEFAULT_SNAPSHOT_CHUNK_BYTES, DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND,
-    EMPTY_SHA256_DIGEST, SNAPSHOT_CHUNK_TYPE, SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS,
+    DEFAULT_SNAPSHOT_CHUNK_BYTES, DETACHED_JWS_PROOF_KIND, EMPTY_SHA256_DIGEST,
+    SNAPSHOT_CHUNK_TYPE, SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS,
     SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS,
 };
 use super::merkle::{build_levels, sha256_digest};
@@ -510,13 +510,12 @@ impl SnapshotManifest {
             ));
         }
         if self.signature.kind != DETACHED_JWS_PROOF_KIND
-            || self.signature.alg != DETACHED_JWS_ALG_EDDSA
             || self.signature.verification_method.trim().is_empty()
             || self.signature.jws.trim().is_empty()
         {
             return Err(SnapshotValidationError::new(
                 SnapshotValidationCode::SnapshotAuthorityUnverified,
-                "snapshot signature is not a production EdDSA detached JWS proof",
+                "snapshot signature is not a structurally valid detached JWS proof",
             ));
         }
         let expected_digest = self.expected_signature_digest().map_err(|err| {

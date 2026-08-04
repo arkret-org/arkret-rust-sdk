@@ -352,7 +352,6 @@ impl ProposalMemberReceipt {
         let verification_method = signer.verification_method_id().clone();
         let placeholder_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
         let signer_binding = PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: verification_method.clone(),
             payload_digest: placeholder_digest.clone(),
             created_at: received_at,
@@ -372,7 +371,6 @@ impl ProposalMemberReceipt {
             absolute_due_at: received_at + policy.absolute_horizon,
             authority_set_ref,
             signature: PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method,
                 payload_digest: placeholder_digest,
                 created_at: received_at,
@@ -387,7 +385,6 @@ impl ProposalMemberReceipt {
                 "proposal member signer changed verification method while signing".to_owned(),
             ));
         }
-        member.signature.alg = signed.alg;
         member.signature.jws = signed.jws;
         member.validate_structural(policy)?;
         Ok(member)
@@ -913,7 +910,6 @@ mod tests {
 
         fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature> {
             Ok(PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method: self.verification_method.clone(),
                 payload_digest: Hash::new(canonical::sha256_digest(canonical_bytes))?,
                 created_at: at(999),
@@ -933,7 +929,6 @@ mod tests {
 
     fn signature(payload_digest: Hash, created_at: DateTime<Utc>) -> PayloadSignature {
         PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#notary-1")
                 .unwrap(),
             payload_digest,

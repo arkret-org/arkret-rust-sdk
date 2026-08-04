@@ -13,7 +13,6 @@ use serde_json::Value;
 
 use crate::{Did, DidUrl, Error, Hash, Hlc, RealmId, Result, SealId, canonical};
 
-pub const SEAL_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
 pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
 pub const MAX_SEAL_COVERED_EVENT_DIGESTS: usize = 1_048_576;
 
@@ -39,7 +38,6 @@ pub fn compute_seal_id(canonical_bytes: &[u8]) -> Result<SealId> {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PayloadSignature {
     pub verification_method: DidUrl,
-    pub alg: String,
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -262,15 +260,12 @@ impl Seal {
             ));
         }
         match &self.notary_signature {
-            NotarySig::Single(sig) => Self::validate_signature_alg(&sig.alg)?,
+            NotarySig::Single(_) => {}
             NotarySig::Multi(multi) => {
                 if multi.signatures.is_empty() {
                     return Err(Error::Protocol(
                         "Seal multi_sig must have at least one signature".to_owned(),
                     ));
-                }
-                for sig in &multi.signatures {
-                    Self::validate_signature_alg(&sig.alg)?;
                 }
             }
             NotarySig::Threshold(t) => {
@@ -297,15 +292,6 @@ impl Seal {
                     ));
                 }
             }
-        }
-        Ok(())
-    }
-
-    fn validate_signature_alg(alg: &str) -> Result<()> {
-        if !SEAL_SIGNATURE_ALGS.contains(&alg) {
-            return Err(Error::Protocol(format!(
-                "Seal signature alg '{alg}' is not in allowed set {SEAL_SIGNATURE_ALGS:?}"
-            )));
         }
         Ok(())
     }
@@ -360,7 +346,6 @@ mod tests {
 
     fn sig() -> PayloadSignature {
         PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xaa),
             created_at: Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap(),
@@ -423,7 +408,6 @@ mod tests {
     #[test]
     fn signature_variants_decode() {
         let value = json!({
-            "alg": "EdDSA",
             "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
             "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "created_at": "2026-06-11T00:00:00.000Z",
@@ -442,7 +426,6 @@ mod tests {
         let multi = json!({
             "kind": "multi_sig",
             "signatures": [{
-                "alg": "EdDSA",
                 "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
                 "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "created_at": "2026-06-11T00:00:00.000Z",

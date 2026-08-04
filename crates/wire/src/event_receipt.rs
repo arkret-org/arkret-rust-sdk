@@ -273,7 +273,6 @@ mod event_batch_receipt_tests {
             created_at: Utc::now(),
             proofs: vec![Proof {
                 kind: "DataIntegrityProof".to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:web:service.example#key-1").unwrap(),
                 event_digest: hash(0xdd),
                 created_at: Utc::now(),

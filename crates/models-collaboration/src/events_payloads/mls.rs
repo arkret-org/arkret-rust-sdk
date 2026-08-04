@@ -656,8 +656,8 @@ impl MlsWelcomeClaimEnvelope {
         if self.signature.kid.is_empty() || self.signature.sig.is_empty() {
             return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
-        if let Some(alg) = self.signature.alg.as_deref()
-            && !matches!(alg, "EdDSA" | "Ed25519")
+        if let Some(alg) = self.signature.signature_algorithm.as_deref()
+            && alg != "Ed25519"
         {
             return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
@@ -931,7 +931,7 @@ mod tests {
             created_at,
             signature: KeyOperationSignature {
                 kid: NonEmptyString::new("did:webvh:z6mkfixture:alice.example#device").unwrap(),
-                alg: Some(NonEmptyString::new("EdDSA").unwrap()),
+                signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
                 sig: Base64UrlString::new("signature").unwrap(),
             },
         }

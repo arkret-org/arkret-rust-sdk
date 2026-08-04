@@ -557,7 +557,6 @@ mod tests {
         let digest = lease.lease_digest().unwrap();
         lease.proofs = vec![PayloadProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#key-1")
                 .unwrap(),
             payload_digest: digest,
@@ -595,7 +594,6 @@ mod tests {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
                 .unwrap(),
-            alg: "EdDSA".to_owned(),
             event_digest,
             created_at: event.created_at,
             domain: None,

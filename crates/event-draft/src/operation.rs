@@ -382,7 +382,7 @@ pub struct CausalRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OperationSignature {
     pub key_id: String,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub sig: String,
 }
 

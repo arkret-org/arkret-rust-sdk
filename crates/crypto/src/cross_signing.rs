@@ -27,7 +27,7 @@ pub fn cross_signing_publish_cell_subject(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceTrustBinding {
     pub verification_method: DidUrl,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub ssk_generation: u64,
     pub signature: String,
 }
@@ -159,15 +159,20 @@ pub fn verify_device_cross_signing_chain(
         anchored_psk,
     } = input;
     // Signature-domain integrity: every key record and binding on the chain
-    // declares an `alg`, and this verifier only implements Ed25519. Any other
+    // declares an algorithm, and this verifier only implements Ed25519. Any other
     // declared algorithm MUST fail closed instead of being silently verified
     // as Ed25519 (a declared `ML-DSA-65` binding must never pass because its
     // carried key happens to decode as 32 bytes).
-    const EDDSA_ALG: &str = "EdDSA";
-    if publish.principal_signing_key.alg.as_str() != EDDSA_ALG
-        || publish.self_signing_key.alg.as_str() != EDDSA_ALG
-        || publish.self_signing_key.binding.alg.as_str() != EDDSA_ALG
-        || binding.alg != EDDSA_ALG
+    const ED25519_ALG: &str = "Ed25519";
+    if publish.principal_signing_key.algorithm.as_str() != ED25519_ALG
+        || publish.self_signing_key.algorithm.as_str() != ED25519_ALG
+        || publish
+            .self_signing_key
+            .binding
+            .signature_algorithm
+            .as_str()
+            != ED25519_ALG
+        || binding.signature_algorithm != ED25519_ALG
     {
         return DeviceTrustState::Unverified;
     }

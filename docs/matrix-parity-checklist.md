@@ -70,7 +70,7 @@ Device authorization has no bootstrap self-authorization escape hatch. A device 
 
 ### What's still spec-only, not yet in SDK
 
-- **PSK-signature verification glue**: `evaluate_trust_chain` takes a `verify_signature` closure so the SDK doesn't pull a DID-method resolver into `arkret-crypto`. Production adapters need to wire that closure to the same Ed25519 / EdDSA verifier used by [`arkret-signatures::verify_ed25519_move_signature`](../crates/signatures/src/signer.rs) plus the DID key-log resolver. The SDK ships the state machine; it does not ship a one-call "set up cross-signing end-to-end with my DID document" helper.
+- **PSK-signature verification glue**: `evaluate_trust_chain` takes a `verify_signature` closure so the SDK doesn't pull a DID-method resolver into `arkret-crypto`. Production adapters need to wire that closure to the same Ed25519 / Ed25519 verifier used by [`arkret-signatures::verify_ed25519_move_signature`](../crates/signatures/src/signer.rs) plus the DID key-log resolver. The SDK ships the state machine; it does not ship a one-call "set up cross-signing end-to-end with my DID document" helper.
 - **`ak.device.authorize` payload schema**: the SDK's `ak.device.authorize` event still uses the JSON `Value` payload shape; a typed `ak.schema.device_authorize.v1` envelope mirroring `CrossSigningPublishContent` is the next layer.
 - **MLS leaf re-key after reset**: spec §14.2 step 3 says senders SHOULD issue an Empty Commit after a reset so the new SSK generation is covered by transcript hashes. The SDK exposes the MLS commit primitives but doesn't auto-trigger this; downstream apps (inkson / soland) wire it.
 

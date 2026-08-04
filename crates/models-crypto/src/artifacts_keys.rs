@@ -125,14 +125,14 @@ pub enum ProofKind {
 /// Counterpart for the shared signature object used by key operations:
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/signature` and
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/signature`
-/// (identical shape: `{kid, alg?, sig}`).
+/// (identical shape: `{kid, signature_algorithm?, sig}`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyOperationSignature {
     pub kid: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<NonEmptyString>,
+    pub signature_algorithm: Option<NonEmptyString>,
     pub sig: Base64UrlString,
 }
 
@@ -753,7 +753,7 @@ pub struct RecoveryPrincipalSigningProof {
     pub kind: RecoveryPrincipalSigningProofKind,
     pub challenge: Challenge,
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub signature: Base64UrlString,
 }
 
@@ -772,7 +772,7 @@ pub struct RecoverySessionUnlockProof {
     pub challenge: Challenge,
     pub recovery_secret_ref: NonEmptyString,
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub unlock_commitment: Hash,
     pub signature: Base64UrlString,
 }
@@ -783,7 +783,7 @@ pub struct RecoverySessionUnlockProof {
 pub struct RecoveryDeviceQuorumSignature {
     pub device_id: DeviceId,
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub signature: Base64UrlString,
 }
 
@@ -821,7 +821,7 @@ pub struct TrustedRecoveryServiceSessionProof {
     pub service_id: Did,
     pub audience: NonEmptyString,
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attestation_ref: Option<NonEmptyString>,
     pub signature: Base64UrlString,
@@ -1141,7 +1141,7 @@ pub struct ThresholdRecoveryProofShareReleasesItem {
     pub holder: Did,
     pub transcript_digest: Hash,
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub signature: Base64UrlString,
 }
 

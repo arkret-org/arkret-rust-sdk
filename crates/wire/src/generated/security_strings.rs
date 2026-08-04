@@ -436,7 +436,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "kind",
             "verification_method",
-            "alg",
+            "signature_algorithm",
             "challenge",
             "audience",
             "created_at",

@@ -1138,7 +1138,6 @@ mod event_wire_surface_tests {
 
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
             created_at: event.created_at,
@@ -1166,7 +1165,6 @@ mod event_wire_surface_tests {
         event.created_at = whole_second;
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             created_at: whole_second,
@@ -1454,7 +1452,6 @@ mod event_wire_surface_tests {
         });
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),

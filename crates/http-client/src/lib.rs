@@ -960,7 +960,6 @@ mod tests {
             let lease_digest = authorization_lease.lease_digest().unwrap();
             authorization_lease.proofs = vec![PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#key-1")
                     .unwrap(),
                 payload_digest: lease_digest,
@@ -1731,10 +1730,9 @@ mod tests {
                     "proof":{
                         "kind":"detached_jws",
                         "verification_method":"did:web:mimi.example.test#notary-key",
-                        "alg":"EdDSA",
                         "payload_digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000",
                         "created_at":"2026-08-01T00:00:00.000Z",
-                        "jws":"eyJhbGciOiJFZERTQSJ9..c2ln"
+                        "jws":"eyJhbGciOiJFZDI1NTE5In0..c2ln"
                     }
                 }"#,
             )

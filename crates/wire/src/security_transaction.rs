@@ -883,7 +883,7 @@ impl SecurityTransactionCreateRequest {
 #[serde(deny_unknown_fields)]
 pub struct ClientStepAttestationAuthData {
     pub verification_method: DidUrl,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub signature: String,
     pub signed_fields: Vec<String>,
 }
@@ -924,7 +924,7 @@ pub struct SecurityTransactionContinueRequest<A = Value> {
 
 impl<A: Serialize> ClientStepAttestation<A> {
     pub fn validate_structural(&self) -> Result<()> {
-        if self.auth_data.alg != "EdDSA"
+        if self.auth_data.signature_algorithm != "Ed25519"
             || self.auth_data.verification_method.is_empty()
             || self.auth_data.signature.is_empty()
             || self
@@ -2139,7 +2139,7 @@ mod tests {
                 auth_data: ClientStepAttestationAuthData {
                     verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device")
                         .unwrap(),
-                    alg: "EdDSA".to_owned(),
+                    signature_algorithm: "Ed25519".to_owned(),
                     signature: "c2ln".to_owned(),
                     signed_fields: CLIENT_STEP_ATTESTATION_SIGNED_FIELDS
                         .iter()

@@ -24,12 +24,14 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 
-/// A runtime-key request body together with the digest of its generated
-/// public key. The digest is reused by the controller-side authorize event.
+/// A runtime-key request body together with the private request-domain digest
+/// of its generated PublicKey DTO. This digest MUST NOT be copied into the
+/// controller-side authorize event, which commits the raw-key authorization
+/// digest returned by [`ValidatedAgentRuntimePublicKey::authorization_digest`].
 #[derive(Clone, Debug)]
 pub struct RuntimeKeyRequest<T> {
     pub body: T,
-    pub public_key_digest: Hash,
+    pub runtime_request_public_key_digest: Hash,
 }
 
 /// Build and sign the two runtime-key pairing request shapes from one
@@ -50,12 +52,16 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         endpoint_device_id: DeviceId,
     ) -> Self {
         let verification_method = format!("{}#{endpoint_device_id}", bootstrap.agent_id);
-        let proof_expires_at = bootstrap.pairing_expires_at;
+        let proof_created_at = Utc::now();
+        let proof_expires_at = std::cmp::min(
+            bootstrap.pairing_expires_at,
+            proof_created_at + chrono::Duration::seconds(300),
+        );
         Self {
             signing_key,
             bootstrap,
             verification_method,
-            proof_created_at: Utc::now(),
+            proof_created_at,
             proof_expires_at,
             runtime_attestation: None,
         }
@@ -89,12 +95,12 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         Ok(serde_json::json!({
             "kty": "OKP",
             "kid": self.verification_method,
-            "alg": "EdDSA",
+            "algorithm": "Ed25519",
             "key": arkret_canonical::base64url_encode(self.signing_key.verifying_key().to_bytes()),
         }))
     }
 
-    pub fn public_key_digest(&self) -> Result<Hash> {
+    pub fn runtime_request_public_key_digest(&self) -> Result<Hash> {
         agent_runtime_public_key_digest(&self.public_key()?)
     }
 
@@ -114,7 +120,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                 proof_of_possession,
                 runtime_attestation: self.runtime_attestation.clone(),
             },
-            public_key_digest,
+            runtime_request_public_key_digest: public_key_digest,
         })
     }
 
@@ -163,7 +169,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                 runtime_attestation: self.runtime_attestation.clone(),
                 authorize_event,
             },
-            public_key_digest,
+            runtime_request_public_key_digest: public_key_digest,
         })
     }
 
@@ -208,7 +214,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         let mut proof_of_possession = AgentRuntimeKeyPossessionProof {
             kind: AgentRuntimeKeyPossessionProofKind::AgentRuntimeKeyPossession,
             verification_method,
-            alg: AgentRuntimeKeyAlgorithm::EdDsa,
+            signature_algorithm: AgentRuntimeKeyAlgorithm::Ed25519,
             challenge: self.bootstrap.pairing_request_id.clone(),
             audience: self.bootstrap.service_id.clone(),
             expires_at: proof_expires_at,
@@ -277,6 +283,37 @@ struct AgentRuntimeKeyBinding<'a> {
 }
 
 pub fn agent_runtime_public_key_digest(public_key: &impl Serialize) -> Result<Hash> {
+    parse_agent_runtime_public_key(public_key, None)
+        .map(|validated| validated.runtime_request_digest)
+}
+
+/// A closed, canonical Agent runtime signing key. Both digest domains are
+/// returned together so callers cannot accidentally compare one domain with
+/// the other.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ValidatedAgentRuntimePublicKey {
+    pub public_key: PublicKey,
+    pub raw_public_key: [u8; 32],
+    pub runtime_request_digest: Hash,
+    pub authorization_digest: Hash,
+}
+
+/// Parse and validate the sole v1 Agent runtime key profile.
+///
+/// The request DTO is closed to `OKP` + `Ed25519`, its `kid` must equal the
+/// request verification method, and the key must use the canonical unpadded
+/// base64url encoding of exactly 32 bytes.
+pub fn validate_agent_runtime_public_key(
+    public_key: &impl Serialize,
+    expected_verification_method: &DidUrl,
+) -> Result<ValidatedAgentRuntimePublicKey> {
+    parse_agent_runtime_public_key(public_key, Some(expected_verification_method))
+}
+
+fn parse_agent_runtime_public_key(
+    public_key: &impl Serialize,
+    expected_verification_method: Option<&DidUrl>,
+) -> Result<ValidatedAgentRuntimePublicKey> {
     let public_key = serde_json::to_value(public_key).map_err(|error| {
         Error::Protocol(format!(
             "agent runtime public_key must serialize to JSON: {error}"
@@ -292,18 +329,40 @@ pub fn agent_runtime_public_key_digest(public_key: &impl Serialize) -> Result<Ha
             "agent runtime public_key.kty must be OKP".to_owned(),
         ));
     }
-    if !matches!(key.alg.as_str(), "EdDSA" | "Ed25519") {
+    if key.algorithm.as_str() != "Ed25519" {
         return Err(Error::Protocol(
-            "agent public_key.alg must be EdDSA (runtime PoP) or Ed25519 (raw signer binding)"
-                .to_owned(),
+            "agent runtime public_key.algorithm must be Ed25519".to_owned(),
         ));
     }
-    if base64url_decode(key.key.as_bytes())?.len() != 32 {
+    if key.key_digest.is_some() {
         return Err(Error::Protocol(
-            "agent runtime public_key.key must be a 32-byte Ed25519 key".to_owned(),
+            "agent runtime public_key must not contain key_digest".to_owned(),
         ));
     }
-    Hash::new(canonical::canonical_sha256(&public_key)?).map_err(Error::from)
+    if expected_verification_method.is_some_and(|expected| key.kid.as_str() != expected.as_str()) {
+        return Err(Error::Protocol(
+            "agent runtime public_key.kid must match verification_method".to_owned(),
+        ));
+    }
+    let raw_public_key = base64url_decode(key.key.as_bytes())?;
+    let raw_public_key: [u8; 32] = raw_public_key.try_into().map_err(|_| {
+        Error::Protocol("agent runtime public_key.key must be a 32-byte Ed25519 key".to_owned())
+    })?;
+    if arkret_canonical::base64url_encode(raw_public_key) != key.key.as_str() {
+        return Err(Error::Protocol(
+            "agent runtime public_key.key must use canonical unpadded base64url".to_owned(),
+        ));
+    }
+    let runtime_request_digest =
+        Hash::new(canonical::canonical_sha256(&public_key)?).map_err(Error::from)?;
+    let authorization_digest =
+        Hash::new(canonical::sha256_digest(&raw_public_key)).map_err(Error::from)?;
+    Ok(ValidatedAgentRuntimePublicKey {
+        public_key: key,
+        raw_public_key,
+        runtime_request_digest,
+        authorization_digest,
+    })
 }
 
 /// Digest the runtime attestation value used by the stable approval binding.
@@ -425,7 +484,7 @@ mod tests {
     fn runtime_key_binding_matches_normative_vector() {
         let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
         let public_key = json!({
-            "alg": "EdDSA",
+            "algorithm": "Ed25519",
             "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
             "kty": "OKP"
@@ -444,7 +503,7 @@ mod tests {
 
         assert_eq!(
             public_key_digest.as_str(),
-            "sha256:3f8b93f88218363d5d1c236b3f52ccb173c25545de57e3e5122fca676dab728f"
+            "sha256:0e48ac82511ec75f4c9d3992c5ce26b319e774b57aa0d107f17b94bc58b1d925"
         );
         assert_eq!(
             attestation_digest.as_str(),
@@ -452,7 +511,7 @@ mod tests {
         );
         assert_eq!(
             binding_digest.as_str(),
-            "sha256:a2d4f27ec366e970e2f4f7853414c2ce3ec266d720bc77c0fcb0a513e86bd3f7"
+            "sha256:1e06d0f56c0e3d78fe94833228c370693c793fdc679f977212b0f039360acedd"
         );
     }
 
@@ -460,13 +519,13 @@ mod tests {
     fn runtime_key_binding_changes_when_key_material_changes() {
         let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
         let first = json!({
-            "alg": "EdDSA",
+            "algorithm": "Ed25519",
             "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
             "kty": "OKP"
         });
         let second = json!({
-            "alg": "EdDSA",
+            "algorithm": "Ed25519",
             "key": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
             "kty": "OKP"
@@ -534,6 +593,39 @@ mod tests {
     }
 
     #[test]
+    fn runtime_key_request_builder_caps_default_proof_lifetime() {
+        let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
+        let agent_id = Did::new("did:webvh:z6mkfixture:runtime-builder.agent.example").unwrap();
+        let pairing_expires_at = Utc::now() + chrono::Duration::minutes(10);
+        let bootstrap = AgentPairingBootstrap {
+            arkret_base_url: "https://arkret.example".to_owned(),
+            service_id: Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            agent_id,
+            pairing_request_id: arkret_wire::OpaqueLocalId::new(
+                "01970000-0000-7000-8000-000000000022",
+            )
+            .unwrap(),
+            pairing_code: "12345678".to_owned(),
+            pairing_expires_at,
+        };
+
+        let request = RuntimeKeyRequestBuilder::new(
+            &signing_key,
+            bootstrap,
+            DeviceId::new("ak:device:01970000-0000-7000-8000-000000000022").unwrap(),
+        )
+        .build_approval_request()
+        .unwrap();
+        let proof = request.body.proof_of_possession;
+
+        assert_eq!(
+            proof.expires_at,
+            proof.created_at + chrono::Duration::seconds(300)
+        );
+        assert!(proof.expires_at <= pairing_expires_at);
+    }
+
+    #[test]
     fn runtime_key_request_builder_assembles_both_pairing_shapes() {
         let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
         let agent_id = Did::new("did:webvh:z6mkfixture:runtime-builder.agent.example").unwrap();
@@ -568,14 +660,13 @@ mod tests {
             expires_at: issued_at + chrono::Duration::minutes(5),
             proofs: vec![Proof {
                 kind: "detached_jws".to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new(format!("{controller_id}#key-1")).unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: issued_at,
                 domain: None,
                 audience: None,
                 proof_purpose: None,
-                jws: "eyJhbGciOiJFZERTQSJ9..c2ln".to_owned(),
+                jws: "eyJhbGciOiJFZDI1NTE5In0..c2ln".to_owned(),
             }],
         };
         disclosure.proofs[0].event_digest = disclosure.payload_digest().unwrap();
@@ -629,7 +720,10 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(approval.public_key_digest, pairing.public_key_digest);
+        assert_eq!(
+            approval.runtime_request_public_key_digest,
+            pairing.runtime_request_public_key_digest
+        );
         assert_eq!(
             serde_json::to_value(approval.body.public_key).unwrap(),
             serde_json::to_value(pairing.body.public_key).unwrap()

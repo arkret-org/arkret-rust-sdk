@@ -98,7 +98,7 @@ mod tests {
     fn published_key(kid: &str) -> PublishedKey {
         PublishedKey {
             kid: DidUrl::new(kid.to_owned()).unwrap(),
-            alg: NonEmptyString::new("EdDSA").unwrap(),
+            algorithm: NonEmptyString::new("Ed25519").unwrap(),
             public_key: NonEmptyString::new("z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH")
                 .unwrap(),
             key_format: KeyFormat::Multibase,
@@ -109,12 +109,12 @@ mod tests {
         let key = published_key(kid);
         SubordinateSignedKey {
             kid: key.kid,
-            alg: key.alg,
+            algorithm: key.algorithm,
             public_key: key.public_key,
             key_format: key.key_format,
             binding: SubordinateSignedKeyBinding {
                 verification_method: controller.clone(),
-                alg: NonEmptyString::new("EdDSA").unwrap(),
+                signature_algorithm: NonEmptyString::new("Ed25519").unwrap(),
                 signature: NonEmptyString::new("signature").unwrap(),
             },
         }
@@ -183,7 +183,7 @@ mod tests {
             .unwrap(),
             hpke_key: NonEmptyString::new("z6LSdevice").unwrap(),
             algorithms: vec![NonEmptyString::new("ak.mls.v1").unwrap()],
-            device_key_algorithm: Some(NonEmptyString::new("EdDSA").unwrap()),
+            device_key_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
             authorized_by: DeviceOrPrincipalRef::Did(principal.clone()),
             scopes: None,
             not_before: created_at,
@@ -194,7 +194,7 @@ mod tests {
             proof: None,
             cross_signing_binding: Some(DeviceCrossSigningBinding {
                 verification_method: DidUrl::new("did:web:alice.example#ssk").unwrap(),
-                alg: NonEmptyString::new("EdDSA").unwrap(),
+                signature_algorithm: NonEmptyString::new("Ed25519").unwrap(),
                 ssk_generation: std::num::NonZeroU64::new(1).unwrap(),
                 signature: Base64UrlString::new("c2lnbmF0dXJl").unwrap(),
             }),

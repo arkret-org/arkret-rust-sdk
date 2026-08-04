@@ -300,18 +300,18 @@ fn external_schema_refs_and_enums_are_enforced() {
     };
     let key = json!({
         "kid": "did:webvh:z6mkfixture:alice.example#psk-1",
-        "alg": "EdDSA",
+        "algorithm": "Ed25519",
         "public_key": "z6MkiExample",
         "key_format": "multibase"
     });
     let subordinate_key = json!({
         "kid": "did:webvh:z6mkfixture:alice.example#ssk-1",
-        "alg": "EdDSA",
+        "algorithm": "Ed25519",
         "public_key": "z6MkiExampleSub",
         "key_format": "multibase",
         "binding": {
             "verification_method": "did:webvh:z6mkfixture:alice.example#psk-1",
-            "alg": "EdDSA",
+            "signature_algorithm": "Ed25519",
             "signature": "sig"
         }
     });

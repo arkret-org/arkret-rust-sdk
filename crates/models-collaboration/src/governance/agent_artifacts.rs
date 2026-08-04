@@ -71,7 +71,7 @@ pub struct PendingMemberReconciliationItem {
 pub struct PublicKey {
     pub kty: NonEmptyString,
     pub kid: NonEmptyString,
-    pub alg: NonEmptyString,
+    pub algorithm: NonEmptyString,
     pub key: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_digest: Option<Hash>,

@@ -114,7 +114,7 @@ impl CanonicalPublicMaterial {
 #[serde(deny_unknown_fields)]
 pub struct ReplacementDevicePossessionProof {
     pub verification_method: DidUrl,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub transcript_digest: Hash,
     pub signature: String,
 }
@@ -234,7 +234,7 @@ impl RecoveryAuthorizationPreimage {
             || self.registry_previous_head.is_empty()
             || self.did_entry_ref.is_empty()
             || self.possession_proof.verification_method.is_empty()
-            || self.possession_proof.alg.is_empty()
+            || self.possession_proof.signature_algorithm.is_empty()
             || self.possession_proof.signature.is_empty()
         {
             return Err(Error::Protocol(
@@ -315,7 +315,7 @@ pub enum IssueAuthorityTicketStep {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ServiceSignatureAlgorithm {
-    EdDSA,
+    Ed25519,
     ES256,
     PS256,
 }
@@ -325,7 +325,7 @@ pub enum ServiceSignatureAlgorithm {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryAuthorityTicketAuthData {
     pub verification_method: DidUrl,
-    pub alg: ServiceSignatureAlgorithm,
+    pub signature_algorithm: ServiceSignatureAlgorithm,
     pub signature: String,
     pub signed_fields: Vec<String>,
 }
@@ -633,7 +633,7 @@ pub enum RecoveryModelGenerationRef {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryCompletionAttestationAuthData {
     pub verification_method: DidUrl,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub signature: String,
     pub signed_fields: Vec<String>,
 }
@@ -667,12 +667,12 @@ impl RecoveryCompletionAttestation {
                 "recovery completion attestation schema is invalid".to_owned(),
             ));
         }
-        if self.auth_data.alg != "EdDSA"
+        if self.auth_data.signature_algorithm != "Ed25519"
             || self.auth_data.verification_method.is_empty()
             || self.auth_data.signature.is_empty()
         {
             return Err(Error::Protocol(
-                "recovery completion attestation requires a complete EdDSA authorization"
+                "recovery completion attestation requires a complete Ed25519 authorization"
                     .to_owned(),
             ));
         }
@@ -705,7 +705,7 @@ impl RecoveryCompletionAttestation {
     }
 
     /// Canonical coordinator signature transcript. `auth_data` is excluded so
-    /// the EdDSA signature cannot recursively contain itself.
+    /// the Ed25519 signature cannot recursively contain itself.
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
         let value = serde_json::to_value(self)?;
         let object = value.as_object().ok_or_else(|| {
@@ -914,7 +914,7 @@ mod tests {
                         "did:webvh:z6mkfixture:principal.example#signing",
                     )
                     .unwrap(),
-                    alg: "EdDSA".to_owned(),
+                    signature_algorithm: "Ed25519".to_owned(),
                     signature: "c2lnbmF0dXJl".to_owned(),
                     signed_fields: RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS
                         .iter()
@@ -984,7 +984,7 @@ mod tests {
             "expires_at": "2026-07-28T00:05:00.000Z",
             "auth_data": {
                 "verification_method": "did:web:principal.example#service-signing-key",
-                "alg": "EdDSA",
+                "signature_algorithm": "Ed25519",
                 "signature": "c2ln",
                 "signed_fields": RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS
             }

@@ -71,7 +71,6 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
         previous_state_root: None,
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,
@@ -190,7 +189,6 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         previous_state_root: None,
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,
@@ -295,7 +293,6 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         previous_state_root: None,
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,
@@ -384,7 +381,6 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
         previous_state_root: None,
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: Utc::now(),

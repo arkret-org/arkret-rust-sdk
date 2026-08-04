@@ -292,7 +292,6 @@ impl SignalAeadBinding<'_> {
 pub struct SignalProof {
     pub kind: String,
     pub verification_method: DidUrl,
-    pub alg: String,
     pub envelope_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -641,7 +640,6 @@ mod tests {
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{}#{}", actor(), device())).unwrap(),
-                alg: "EdDSA".to_owned(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: sent_at(),
                 domain: None,

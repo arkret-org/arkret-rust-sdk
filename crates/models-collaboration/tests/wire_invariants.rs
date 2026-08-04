@@ -68,7 +68,6 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
         proof: SignalProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new(format!("{}#{}", did(), device_id())).unwrap(),
-            alg: "EdDSA".to_owned(),
             envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: sent_at,
             domain: None,

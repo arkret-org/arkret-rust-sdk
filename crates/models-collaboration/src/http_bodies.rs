@@ -1122,7 +1122,6 @@ mod mimi_consent_tests {
             actor_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned()).unwrap(),
             signature: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new(
                     "did:webvh:z6mkfixture:example.com:users:alice#device-1",
                 )
@@ -1463,7 +1462,7 @@ pub struct DevicePairingChallengeProof {
     /// device id under that name was the one counterexample. Reusing the old
     /// name for this value is a hard reject.
     pub kid: DeviceId,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub transcript_digest: Hash,
     pub signature: Base64UrlString,
 }

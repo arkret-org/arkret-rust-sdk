@@ -947,7 +947,6 @@ mod agent_selector_outcome_tests {
             source_refs: Vec::new(),
             proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:example.com#key-1")
                     .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),

@@ -69,7 +69,7 @@ pub struct AttestationMeasurement {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AttestationKey {
-    pub alg: String,
+    pub algorithm: String,
 
     pub public_key_b64u: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

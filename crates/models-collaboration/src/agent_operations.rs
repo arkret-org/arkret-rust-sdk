@@ -34,8 +34,8 @@ pub enum AgentRuntimeKeyPossessionProofKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentRuntimeKeyAlgorithm {
-    #[serde(rename = "EdDSA")]
-    EdDsa,
+    #[serde(rename = "Ed25519")]
+    Ed25519,
 }
 
 /// Closed proof that a runtime controls the proposed Agent Ed25519 key and
@@ -46,7 +46,7 @@ pub enum AgentRuntimeKeyAlgorithm {
 pub struct AgentRuntimeKeyPossessionProof {
     pub kind: AgentRuntimeKeyPossessionProofKind,
     pub verification_method: DidUrl,
-    pub alg: AgentRuntimeKeyAlgorithm,
+    pub signature_algorithm: AgentRuntimeKeyAlgorithm,
     pub challenge: OpaqueLocalId,
     pub audience: Did,
     #[serde(with = "canonical_timestamp")]
@@ -77,6 +77,23 @@ pub fn agent_runtime_key_binding_digest(
     public_key: &PublicKey,
     runtime_attestation: Option<&AgentKeyAuthorizePayloadRuntimeAttestation>,
 ) -> Result<Hash> {
+    if public_key.kty.as_str() != "OKP"
+        || public_key.algorithm.as_str() != "Ed25519"
+        || public_key.kid.as_str() != verification_method.as_str()
+        || public_key.key_digest.is_some()
+    {
+        return Err(Error::Protocol(
+            "Agent runtime public key does not match the closed Ed25519 profile".to_owned(),
+        ));
+    }
+    let raw_public_key = arkret_canonical::base64url_decode(public_key.key.as_str())?;
+    if raw_public_key.len() != 32
+        || arkret_canonical::base64url_encode(&raw_public_key) != public_key.key.as_str()
+    {
+        return Err(Error::Protocol(
+            "Agent runtime public key is not canonical 32-byte Ed25519 material".to_owned(),
+        ));
+    }
     let public_key_digest = Hash::new(canonical::canonical_sha256(public_key)?)
         .map_err(|error| Error::Protocol(error.to_string()))?;
     let attestation = runtime_attestation
@@ -103,7 +120,7 @@ impl AgentRuntimeKeyPossessionProof {
             "context": AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT,
             "kind": "agent_runtime_key_possession",
             "verification_method": self.verification_method,
-            "alg": "EdDSA",
+            "signature_algorithm": self.signature_algorithm,
             "challenge": self.challenge,
             "audience": self.audience,
             "created_at": canonical::format_timestamp_canonical(self.created_at),
@@ -131,7 +148,8 @@ impl AgentRuntimeKeyPossessionProof {
         verifier_now: DateTime<Utc>,
     ) -> Result<Vec<u8>> {
         if public_key.kty.as_str() != "OKP"
-            || public_key.alg.as_str() != "EdDSA"
+            || public_key.algorithm.as_str() != "Ed25519"
+            || public_key.key_digest.is_some()
             || public_key.kid.as_str() != verification_method.as_str()
             || &self.verification_method != verification_method
             || &self.challenge != pairing_request_id
@@ -2228,13 +2246,13 @@ mod tests {
             "public_key": {
                 "kty": "OKP",
                 "kid": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
-                "alg": "EdDSA",
+                "algorithm": "Ed25519",
                 "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
             },
             "proof_of_possession": {
                 "kind": "agent_runtime_key_possession",
                 "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
-                "alg": "EdDSA",
+                "signature_algorithm": "Ed25519",
                 "challenge": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
                 "audience": "did:webvh:z6mkfixture:service.example",
                 "created_at": "2026-07-20T00:00:00.000Z",

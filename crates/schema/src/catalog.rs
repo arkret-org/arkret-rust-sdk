@@ -100,7 +100,6 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "payload": {"body": "hello"},
                 "proofs": [{
                     "kind": "detached_jws",
-                    "alg": "EdDSA",
                     "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
                     "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                     "created_at": "2026-05-02T00:00:00.000Z",
@@ -125,7 +124,6 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "payload": {},
                 "proofs": [{
                     "kind": "detached_jws",
-                    "alg": "EdDSA",
                     "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
                     "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                     "created_at": "2026-05-02T00:00:00.000Z",

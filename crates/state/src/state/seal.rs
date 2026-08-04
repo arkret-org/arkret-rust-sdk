@@ -1051,7 +1051,6 @@ mod tests {
         };
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at: event.created_at,
@@ -1090,7 +1089,6 @@ mod tests {
     fn dummy_signature() -> PayloadSignature {
         PayloadSignature {
             extra: Default::default(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xff),
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
@@ -1160,7 +1158,6 @@ mod tests {
             "payload": {},
             "proofs": [{
                 "kind": "detached_jws",
-                "alg": "EdDSA",
                 "verification_method": format!("{actor_id}#device-1"),
                 "event_digest": format!("sha256:{}", "a".repeat(64)),
                 "created_at": "2026-07-26T00:00:00.000Z",

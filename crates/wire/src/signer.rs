@@ -553,7 +553,6 @@ impl ThresholdAggregator {
             // via the same scheme verifier.
             let encoded_sig = crate::base64url::base64url_encode(&partial.signature);
             signatures.push(PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method: partial.kid.clone(),
                 payload_digest: payload_digest.clone(),
                 created_at: Utc::now(),
@@ -713,7 +712,6 @@ mod tests {
         fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes)).unwrap();
             Ok(PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method: self.kid.clone(),
                 payload_digest,
                 created_at: Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap(),
@@ -745,7 +743,7 @@ mod tests {
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
         match &a.notary_signature {
-            NotarySig::Single(sig) => assert_eq!(sig.alg, "EdDSA"),
+            NotarySig::Single(sig) => assert!(!sig.jws.is_empty()),
             other => panic!("expected single sig, got {other:?}"),
         }
     }

@@ -126,7 +126,7 @@ struct AttachmentEnvelopeFields {
     /// Construction scheme (`SCHEME_WHOLE_FILE` / `SCHEME_STREAM`).
     pub scheme: String,
     /// AEAD algorithm id.
-    pub alg: String,
+    pub encryption_algorithm: String,
     /// MLS group-binding key reference (`{algorithm, group_state_ref}`),
     /// identical to `encrypted-envelope.schema.json#/properties/key_ref`.
     pub key_ref: KeyRefObject,
@@ -348,7 +348,7 @@ pub fn encrypt_stream(
         blob_ref: format!("ak:blob:sha256:{}", sha256_hex(&ciphertext)),
         encrypted: true,
         scheme: SCHEME_STREAM.to_owned(),
-        alg: ALG_STREAM_XCHACHA.to_owned(),
+        encryption_algorithm: ALG_STREAM_XCHACHA.to_owned(),
         key_ref: params.key_ref.clone(),
         epoch: params.epoch,
         ciphertext_digest: format!("sha256:{}", sha256_hex(&ciphertext)),
@@ -382,12 +382,12 @@ struct StreamContext {
 
 impl StreamContext {
     fn new(env: &AttachmentEnvelopeFields, content_key: &[u8; 32]) -> Result<Self> {
-        if env.scheme != SCHEME_STREAM || env.alg != ALG_STREAM_XCHACHA {
+        if env.scheme != SCHEME_STREAM || env.encryption_algorithm != ALG_STREAM_XCHACHA {
             return Err(protocol(
                 "unsupported_attachment_scheme",
                 &format!(
                     "scheme={} alg={} not stream XChaCha20-Poly1305",
-                    env.scheme, env.alg
+                    env.scheme, env.encryption_algorithm
                 ),
             ));
         }
@@ -699,7 +699,7 @@ pub fn encrypt_whole_file(
         blob_ref: format!("ak:blob:sha256:{}", sha256_hex(&ciphertext)),
         encrypted: true,
         scheme: SCHEME_WHOLE_FILE.to_owned(),
-        alg: ALG_WHOLE_FILE_XCHACHA.to_owned(),
+        encryption_algorithm: ALG_WHOLE_FILE_XCHACHA.to_owned(),
         key_ref,
         epoch,
         ciphertext_digest: format!("sha256:{}", sha256_hex(&ciphertext)),
@@ -722,12 +722,12 @@ pub fn decrypt_whole_file(
     content_key: &[u8; 32],
 ) -> Result<Vec<u8>> {
     let env = envelope_fields(env)?;
-    if env.scheme != SCHEME_WHOLE_FILE || env.alg != ALG_WHOLE_FILE_XCHACHA {
+    if env.scheme != SCHEME_WHOLE_FILE || env.encryption_algorithm != ALG_WHOLE_FILE_XCHACHA {
         return Err(protocol(
             "unsupported_attachment_scheme",
             &format!(
                 "scheme={} alg={} not whole-file XChaCha20-Poly1305",
-                env.scheme, env.alg
+                env.scheme, env.encryption_algorithm
             ),
         ));
     }
@@ -837,7 +837,7 @@ mod tests {
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(fields.segment_count, Some(3));
         assert_eq!(fields.scheme, SCHEME_STREAM);
-        assert_eq!(fields.alg, ALG_STREAM_XCHACHA);
+        assert_eq!(fields.encryption_algorithm, ALG_STREAM_XCHACHA);
 
         // one-shot
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), plaintext);
@@ -1012,7 +1012,7 @@ mod tests {
 
         // AES-GCM alg under the stream scheme must NOT be force-decrypted
         let mut bad = envelope_fields(&env).unwrap();
-        bad.alg = "mls_exporter_aead_aes_256_gcm_stream".to_owned();
+        bad.encryption_algorithm = "mls_exporter_aead_aes_256_gcm_stream".to_owned();
         let bad = typed_envelope(bad).unwrap();
         let err = decrypt_stream(&ct, &bad, &key).unwrap_err();
         assert_eq!(reason(&err), "unsupported_attachment_scheme");
@@ -1026,7 +1026,7 @@ mod tests {
             encrypt_whole_file(&p, &key, test_key_ref(), 7, "text/plain".to_owned()).unwrap();
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(fields.scheme, SCHEME_WHOLE_FILE);
-        assert_eq!(fields.alg, ALG_WHOLE_FILE_XCHACHA);
+        assert_eq!(fields.encryption_algorithm, ALG_WHOLE_FILE_XCHACHA);
         assert!(fields.nonce.is_some());
         assert_eq!(decrypt_whole_file(&ct, &env, &key).unwrap(), p);
 
@@ -1042,7 +1042,7 @@ mod tests {
 
         // AES alg closure
         let mut bad = envelope_fields(&env).unwrap();
-        bad.alg = "mls_exporter_aead_aes_256_gcm".to_owned();
+        bad.encryption_algorithm = "mls_exporter_aead_aes_256_gcm".to_owned();
         let bad = typed_envelope(bad).unwrap();
         assert_eq!(
             reason(&decrypt_whole_file(&ct, &bad, &key).unwrap_err()),
@@ -1070,7 +1070,7 @@ mod tests {
             "blob_ref": "ak:blob:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             "encrypted": true,
             "scheme": "ak.blob.stream_aead.v1",
-            "alg": "mls_exporter_aead_xchacha20poly1305_stream",
+            "encryption_algorithm": "mls_exporter_aead_xchacha20poly1305_stream",
             "key_ref": { "algorithm": "MLS", "group_state_ref": "ak:event:01964148-0000-7000-8000-000000000000" },
             "epoch": 42,
             "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",

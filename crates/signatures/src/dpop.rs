@@ -10,7 +10,7 @@ use super::jwk::JsonWebKey;
 use crate::{Error, Result};
 
 pub const DPOP_PROOF_TYP: &str = "dpop+jwt";
-pub const DPOP_PROOF_ALG: &str = "EdDSA";
+pub const DPOP_PROOF_ALG: &str = "Ed25519";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedDpopClaims {
@@ -50,7 +50,7 @@ pub enum DpopVerificationError {
     InvalidJson,
     #[error("DPoP proof typ is not dpop+jwt")]
     InvalidType,
-    #[error("DPoP proof alg is not EdDSA")]
+    #[error("DPoP proof alg is not Ed25519")]
     InvalidAlgorithm,
     #[error("DPoP proof header is missing a valid Ed25519 public JWK")]
     InvalidJwk,

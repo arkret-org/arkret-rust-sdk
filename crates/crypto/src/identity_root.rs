@@ -247,7 +247,10 @@ pub fn recovery_unlock_transcript(
         }
     };
     let proof_body = BTreeMap::from([
-        ("alg".to_owned(), Value::String("Ed25519".to_owned())),
+        (
+            "signature_algorithm".to_owned(),
+            Value::String("Ed25519".to_owned()),
+        ),
         (
             "challenge".to_owned(),
             serde_json::to_value(&session.challenge)
@@ -322,7 +325,7 @@ pub fn build_recovery_unlock_proof(
             .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
         verification_method: DidUrl::new(recovery_secret_ref.trim().to_owned())
             .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
-        alg: NonEmptyString::new("Ed25519")
+        signature_algorithm: NonEmptyString::new("Ed25519")
             .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
         unlock_commitment,
         signature: Base64UrlString::new(arkret_canonical::base64url_encode(signature.to_bytes()))

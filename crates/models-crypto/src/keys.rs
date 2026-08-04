@@ -28,6 +28,55 @@ pub struct KeysUploadRequestBody {
     pub fallback_keys: AlgorithmKeyRecords,
 }
 
+/// Canonical unsigned projection for `keys/upload`.
+///
+/// Both key maps are always serialized, including as `{}`, because the
+/// signature transcript in `device-lifecycle.md` §8.1 fixes that exact shape.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeysUploadUnsignedRequest {
+    pub device_id: DeviceId,
+    pub one_time_keys: AlgorithmKeyRecords,
+    pub fallback_keys: AlgorithmKeyRecords,
+}
+
+impl KeysUploadRequestBody {
+    #[must_use]
+    pub fn unsigned(&self) -> KeysUploadUnsignedRequest {
+        KeysUploadUnsignedRequest {
+            device_id: self.device_id.clone(),
+            one_time_keys: self.one_time_keys.clone(),
+            fallback_keys: self.fallback_keys.clone(),
+        }
+    }
+}
+
+impl KeysUploadUnsignedRequest {
+    #[must_use]
+    pub fn into_signed(self, device_signature: KeyOperationSignature) -> KeysUploadRequestBody {
+        KeysUploadRequestBody {
+            device_id: self.device_id,
+            device_signature,
+            one_time_keys: self.one_time_keys,
+            fallback_keys: self.fallback_keys,
+        }
+    }
+}
+
+pub const KEYS_UPLOAD_SIGNATURE_DOMAIN: &str = "ak.keys-upload-v1\n";
+
+/// Build the one SDK-owned `keys/upload` signing transcript.
+pub fn keys_upload_signing_input(
+    unsigned: &KeysUploadUnsignedRequest,
+) -> arkret_canonical::Result<Vec<u8>> {
+    let canonical = arkret_canonical::canonical_json_bytes(unsigned)?;
+    let mut input = Vec::with_capacity(KEYS_UPLOAD_SIGNATURE_DOMAIN.len() + canonical.len());
+    input.extend_from_slice(KEYS_UPLOAD_SIGNATURE_DOMAIN.as_bytes());
+    input.extend_from_slice(&canonical);
+    Ok(input)
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -96,7 +145,7 @@ pub struct QueryDeviceCrossSigningBinding {
     /// signature, e.g. `did:webvh:...#ak_self_signing_v1`.
     pub verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<NonEmptyString>,
+    pub signature_algorithm: Option<NonEmptyString>,
     /// `cross_signing.publish` generation under which the SSK signed this
     /// device binding; compared to the principal's accepted generation per
     /// §5.2.1.
@@ -256,6 +305,38 @@ mod device_generation_tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn keys_upload_transcript_is_sdk_owned_and_keeps_empty_maps() {
+        let unsigned = KeysUploadUnsignedRequest {
+            device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
+            one_time_keys: BTreeMap::new(),
+            fallback_keys: BTreeMap::new(),
+        };
+
+        assert_eq!(
+            String::from_utf8(keys_upload_signing_input(&unsigned).unwrap()).unwrap(),
+            concat!(
+                "ak.keys-upload-v1\n",
+                "{\"device_id\":\"ak:device:0196419b-0000-7000-8000-000000000001\",",
+                "\"fallback_keys\":{},\"one_time_keys\":{}}"
+            )
+        );
+
+        let signed = unsigned.into_signed(KeyOperationSignature {
+            kid: NonEmptyString::new("did:web:alice.example#device").unwrap(),
+            signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
+            sig: Base64UrlString::new("c2ln").unwrap(),
+        });
+        assert_eq!(
+            signed
+                .device_signature
+                .signature_algorithm
+                .unwrap()
+                .as_str(),
+            "Ed25519"
+        );
+    }
 
     #[test]
     fn device_generation_trust_models_are_exclusive_and_fully_anchored() {

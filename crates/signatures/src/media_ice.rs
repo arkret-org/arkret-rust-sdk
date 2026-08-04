@@ -85,7 +85,7 @@ fn verify_ice_config_signature(
     anchors: &MediaServiceAnchors,
     kid: &str,
 ) -> Result<()> {
-    if outcome.signature.alg != MediaIceSignatureAlgorithm::EdDsa {
+    if outcome.signature.signature_algorithm != MediaIceSignatureAlgorithm::Ed25519 {
         return Err(Error::Protocol(
             "ice_config_denied: unsupported signature algorithm".to_owned(),
         ));
@@ -135,7 +135,7 @@ fn verify_ice_config_signature(
 /// Checks (fail closed):
 /// - the top-level `signature.kid` resolves to an anchored media-service DID;
 /// - `refresh_lead_seconds < ttl_seconds` and `ttl_seconds > 0`;
-/// - `signature.sig` verifies as EdDSA(ed25519) over the canonical transcript;
+/// - `signature.sig` verifies as Ed25519(ed25519) over the canonical transcript;
 /// - every TURN credential passes the pairwise-pseudonym privacy guard.
 pub fn verify_ice_config_outcome(
     outcome: &MediaIceConfigOutcome,
@@ -236,7 +236,7 @@ mod tests {
         let signing_input = ice_config_signing_input(&outcome).unwrap();
         outcome.signature = MediaIceConfigSignature {
             kid: kid.to_owned(),
-            alg: MediaIceSignatureAlgorithm::EdDsa,
+            signature_algorithm: MediaIceSignatureAlgorithm::Ed25519,
             signature_input: MediaIceSignatureInput::IceConfigV1,
             payload_digest: Hash::new(arkret_canonical::sha256_digest(&canonical)).unwrap(),
             sig: arkret_canonical::base64url_encode(key.sign(&signing_input).to_bytes()),
@@ -280,7 +280,7 @@ mod tests {
             next_retry_at: None,
             signature: MediaIceConfigSignature {
                 kid: kid.to_owned(),
-                alg: MediaIceSignatureAlgorithm::EdDsa,
+                signature_algorithm: MediaIceSignatureAlgorithm::Ed25519,
                 signature_input: MediaIceSignatureInput::IceConfigV1,
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 sig: "AAAA".to_owned(),

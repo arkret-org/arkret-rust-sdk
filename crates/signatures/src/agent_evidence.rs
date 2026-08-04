@@ -24,8 +24,11 @@ use ed25519_dalek::SigningKey;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::agent::agent_runtime_public_key_digest;
-use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_eddsa_detached_jws};
+use crate::agent::{
+    ValidatedAgentRuntimePublicKey, agent_runtime_public_key_digest,
+    validate_agent_runtime_public_key,
+};
+use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached_jws};
 
 const SNAPSHOT_LEASE_DOMAIN: &str = "ak.agent-authority-snapshot-v1";
 const CONTROLLER_GATE_DOMAIN: &str = "ak.controller-account-gate-v1";
@@ -317,25 +320,72 @@ pub fn build_agent_signing_key_binding(
     controller_verification_method: DidUrl,
     controller_signing_key: &SigningKey,
 ) -> Result<AgentSigningKeyBinding, AgentEvidenceRejectedReason> {
-    let public_key = AgentSigningPublicKey {
+    let runtime_public_key = arkret_models_collaboration::governance::agent_artifacts::PublicKey {
         kty: NonEmptyString::new("OKP".to_owned())
             .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        alg: NonEmptyString::new("Ed25519".to_owned())
+        kid: NonEmptyString::new(verification_method.as_str().to_owned())
+            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
+        algorithm: NonEmptyString::new("Ed25519".to_owned())
             .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
         key: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
             agent_public_key,
         ))
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
+        key_digest: None,
     };
-    let public_key_digest = agent_signing_public_key_digest(&verification_method, &public_key)?;
-    let mut binding = AgentSigningKeyBinding {
+    let mut binding = prepare_agent_signing_key_binding(
+        agent_id,
+        agent_key_id,
+        verification_method,
+        &runtime_public_key,
+        agent_key_authorize_event_id,
+        issued_at,
+        expires_at,
+        controller_id,
+        controller_verification_method,
+    )?;
+    let jws = sign_ed25519_detached_jws(
+        controller_signing_key,
+        &agent_signing_key_binding_signing_bytes(&binding)?,
+    )
+    .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    finish_agent_signing_key_binding(&mut binding, &jws)?;
+    Ok(binding)
+}
+
+/// Prepare the sole canonical public signing-key binding from a validated
+/// runtime request key. The controller signature is intentionally a second
+/// step so clients backed by hardware or process-external signers can still
+/// use the SDK-owned wire construction.
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_agent_signing_key_binding(
+    agent_id: Did,
+    agent_key_id: NonEmptyString,
+    verification_method: DidUrl,
+    runtime_public_key: &arkret_models_collaboration::governance::agent_artifacts::PublicKey,
+    agent_key_authorize_event_id: EventId,
+    issued_at: DateTime<Utc>,
+    expires_at: Option<DateTime<Utc>>,
+    controller_id: Did,
+    controller_verification_method: DidUrl,
+) -> Result<AgentSigningKeyBinding, AgentEvidenceRejectedReason> {
+    let validated = validate_agent_runtime_public_key(runtime_public_key, &verification_method)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let public_key = AgentSigningPublicKey {
+        kty: NonEmptyString::new("OKP".to_owned())
+            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
+        algorithm: NonEmptyString::new("Ed25519".to_owned())
+            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
+        key: validated.public_key.key,
+    };
+    let binding = AgentSigningKeyBinding {
         schema: NonEmptyString::new(SchemaId::AGENT_SIGNING_KEY_BINDING_V1.to_owned())
             .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
         agent_id,
         agent_key_id,
         verification_method,
         public_key,
-        public_key_digest,
+        public_key_digest: validated.authorization_digest,
         agent_key_authorize_event_id,
         issued_at,
         expires_at,
@@ -348,14 +398,72 @@ pub fn build_agent_signing_key_binding(
                 .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
         },
     };
-    let jws = sign_eddsa_detached_jws(
-        controller_signing_key,
-        &agent_signing_key_binding_signing_bytes(&binding)?,
-    )
-    .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    binding.controller_proof.jws =
-        NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     Ok(binding)
+}
+
+/// Attach the controller-produced detached JWS without letting a client
+/// rebuild or mutate any SDK-owned binding fields.
+pub fn finish_agent_signing_key_binding(
+    binding: &mut AgentSigningKeyBinding,
+    controller_jws: &str,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    binding.controller_proof.jws = NonEmptyString::new(controller_jws.to_owned())
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    Ok(())
+}
+
+/// Validate that the private runtime-request DTO and the public authorization
+/// binding carry the same Ed25519 key while preserving their two distinct
+/// digest domains.
+pub fn validate_agent_pairing_key_material(
+    runtime_public_key: &arkret_models_collaboration::governance::agent_artifacts::PublicKey,
+    expected_verification_method: &DidUrl,
+    binding: &AgentSigningKeyBinding,
+) -> Result<ValidatedAgentRuntimePublicKey, AgentEvidenceRejectedReason> {
+    let validated =
+        validate_agent_runtime_public_key(runtime_public_key, expected_verification_method)
+            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    if binding.public_key.key != validated.public_key.key {
+        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+    }
+    validate_agent_signing_key_binding_digest_domains(
+        binding,
+        expected_verification_method,
+        &validated.runtime_request_digest,
+        &validated.authorization_digest,
+    )?;
+    Ok(validated)
+}
+
+/// Verify both named digest domains for a persisted pairing where only the
+/// digests and public signing-key binding remain available.
+pub fn validate_agent_signing_key_binding_digest_domains(
+    binding: &AgentSigningKeyBinding,
+    expected_verification_method: &DidUrl,
+    expected_runtime_request_digest: &Hash,
+    expected_authorization_digest: &Hash,
+) -> Result<[u8; 32], AgentEvidenceRejectedReason> {
+    if binding.verification_method != *expected_verification_method
+        || binding.public_key.kty.as_str() != "OKP"
+        || binding.public_key.algorithm.as_str() != "Ed25519"
+    {
+        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+    }
+    let authorization_digest = agent_signing_public_key_digest(&binding.public_key)?;
+    let runtime_request_digest = agent_signing_public_key_runtime_request_digest(
+        expected_verification_method,
+        &binding.public_key,
+    )?;
+    if binding.public_key_digest != authorization_digest
+        || authorization_digest != *expected_authorization_digest
+        || runtime_request_digest != *expected_runtime_request_digest
+    {
+        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+    }
+    let raw = base64url_decode(binding.public_key.key.as_str())
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    raw.try_into()
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -381,7 +489,7 @@ pub fn verify_agent_signing_key_binding(
             != binding.controller_id.as_str()
         || binding.controller_proof.kind.as_str() != DETACHED_JWS_KIND
         || binding.public_key.kty.as_str() != "OKP"
-        || binding.public_key.alg.as_str() != "Ed25519"
+        || binding.public_key.algorithm.as_str() != "Ed25519"
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
@@ -390,12 +498,9 @@ pub fn verify_agent_signing_key_binding(
     let key: [u8; 32] = raw
         .try_into()
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let binding_public_key_digest =
-        agent_signing_public_key_digest(&binding.verification_method, &binding.public_key)?;
-    let runtime_public_key_digest =
-        agent_signing_public_key_runtime_digest(&binding.verification_method, &binding.public_key)?;
+    let binding_public_key_digest = agent_signing_public_key_digest(&binding.public_key)?;
     if binding_public_key_digest != binding.public_key_digest
-        || &runtime_public_key_digest != expected_public_key_digest
+        || &binding_public_key_digest != expected_public_key_digest
         || agent_signing_key_binding_digest(binding)? != *expected_binding_digest
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
@@ -734,7 +839,7 @@ fn current_observation_matches(
 }
 
 /// Extract and strictly validate the destination assertion method carried in
-/// the receipt's protected detached-JWS header. Missing `kid`, non-EdDSA,
+/// the receipt's protected detached-JWS header. Missing `kid`, non-Ed25519,
 /// non-canonical headers, unsupported extensions, and malformed DIDs fail
 /// closed before historical key resolution.
 pub fn historical_receipt_verification_method(
@@ -771,7 +876,7 @@ fn historical_receipt_protected_method(
         .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)?;
     let header: ProtectedHeader = canonical::from_canonical_json_slice(&protected)
         .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)?;
-    if header.alg != "EdDSA" || header.typ.is_some() || header.crit.is_some() {
+    if header.alg != "Ed25519" || header.typ.is_some() || header.crit.is_some() {
         return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
     }
     header
@@ -958,26 +1063,35 @@ fn verify_witness_branch(
 }
 
 pub fn agent_signing_public_key_digest(
-    verification_method: &DidUrl,
     public_key: &AgentSigningPublicKey,
 ) -> Result<Hash, AgentEvidenceRejectedReason> {
-    agent_runtime_public_key_digest(&serde_json::json!({
-        "kty": public_key.kty,
-        "kid": verification_method,
-        "alg": public_key.alg,
-        "key": public_key.key,
-    }))
-    .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
+    if public_key.kty.as_str() != "OKP" || public_key.algorithm.as_str() != "Ed25519" {
+        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+    }
+    let raw = base64url_decode(public_key.key.as_str())
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let raw: [u8; 32] = raw
+        .try_into()
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    if arkret_canonical::base64url_encode(raw) != public_key.key.as_str() {
+        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+    }
+    Hash::new(canonical::sha256_digest(&raw))
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
-pub fn agent_signing_public_key_runtime_digest(
+/// Reconstruct the canonical runtime-request JWK digest from a public signing
+/// binding. This digest belongs only to the private pairing request domain; it
+/// is deliberately distinct from [`agent_signing_public_key_digest`], which
+/// hashes the 32-byte Ed25519 key used by the public authorization contract.
+pub fn agent_signing_public_key_runtime_request_digest(
     verification_method: &DidUrl,
     public_key: &AgentSigningPublicKey,
 ) -> Result<Hash, AgentEvidenceRejectedReason> {
     agent_runtime_public_key_digest(&serde_json::json!({
         "kty": public_key.kty,
         "kid": verification_method,
-        "alg": "EdDSA",
+        "algorithm": "Ed25519",
         "key": public_key.key,
     }))
     .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
@@ -1114,4 +1228,31 @@ fn authorization_record_fields_match(
             .get("signing_key_binding_digest")
             .and_then(Value::as_str)
             == Some(binding_digest.as_str())
+}
+
+#[cfg(test)]
+mod digest_domain_tests {
+    use super::*;
+
+    #[test]
+    fn authorization_digest_hashes_raw_key_not_runtime_jwk() {
+        let public_key = AgentSigningPublicKey {
+            kty: NonEmptyString::new("OKP").unwrap(),
+            algorithm: NonEmptyString::new("Ed25519").unwrap(),
+            key: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode([42_u8; 32]))
+                .unwrap(),
+        };
+        let verification_method = DidUrl::new("did:web:agent.example#runtime-key-1").unwrap();
+
+        let authorization_digest = agent_signing_public_key_digest(&public_key).unwrap();
+        let runtime_request_digest =
+            agent_signing_public_key_runtime_request_digest(&verification_method, &public_key)
+                .unwrap();
+
+        assert_eq!(
+            authorization_digest.as_str(),
+            "sha256:544e62cee8033709e389e5b2755343d0d0fa8c4850215cfb6331717e80d1aea3"
+        );
+        assert_ne!(authorization_digest, runtime_request_digest);
+    }
 }

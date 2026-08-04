@@ -59,7 +59,7 @@ pub struct SnapshotChunkManifest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotSignature {
     pub kind: String,
-    pub alg: String,
+    pub signature_algorithm: String,
     pub verification_method: DidUrl,
     pub payload_digest: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

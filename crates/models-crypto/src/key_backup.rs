@@ -1954,7 +1954,7 @@ pub struct RecoveryKeyEntry {
     /// Dedicated backup recipient entry paired with this signing key.
     pub key_agreement_ref: DidUrl,
     /// Signature algorithm; v1 fixes this to `Ed25519`.
-    pub alg: RecoveryKeySignatureAlgorithm,
+    pub signature_algorithm: RecoveryKeySignatureAlgorithm,
     /// Earliest instant this key may authorize a `recovery_unlock` proof.
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
@@ -2024,7 +2024,7 @@ pub enum RecoveryHpkeSuite {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryKeyAgreementEntry {
     pub key_agreement_ref: DidUrl,
-    pub alg: RecoveryKeyAgreementAlgorithm,
+    pub key_agreement_algorithm: RecoveryKeyAgreementAlgorithm,
     pub public_key_multibase: NonEmptyString,
     pub hpke_suites: Vec<RecoveryHpkeSuite>,
     #[serde(rename = "use")]

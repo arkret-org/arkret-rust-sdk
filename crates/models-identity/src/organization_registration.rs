@@ -642,14 +642,13 @@ mod tests {
     fn payload_proof(created_at: DateTime<Utc>, verification_method: &DidUrl) -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: verification_method.clone(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at,
             domain: None,
             audience: None,
             proof_purpose: None,
-            jws: "eyJhbGciOiJFZERTQSJ9..fixture".to_owned(),
+            jws: "eyJhbGciOiJFZDI1NTE5In0..fixture".to_owned(),
         }
     }
 

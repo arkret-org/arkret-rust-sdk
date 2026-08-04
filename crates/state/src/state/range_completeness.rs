@@ -586,7 +586,6 @@ mod tests {
         event.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: DidUrl::new(format!("{actor}#device")).unwrap(),
-            alg: "EdDSA".to_owned(),
             event_digest: digest,
             created_at: event.created_at,
             domain: None,
@@ -651,7 +650,6 @@ mod tests {
         payload.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
-            alg: "EdDSA".to_owned(),
             event_digest: Hash::new(arkret_canonical::canonical_sha256(&unsigned_payload).unwrap())
                 .unwrap(),
             created_at,
@@ -693,7 +691,6 @@ mod tests {
         event.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
-            alg: "EdDSA".to_owned(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at,
             domain: None,

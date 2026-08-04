@@ -250,7 +250,7 @@ where
             let public_key =
                 public_key_material_from_did_document_value(&method.public_key_multibase)
                     .map_err(to_signature_error)?;
-            arkret_signatures::verify_eddsa_detached_jws_proof(
+            arkret_signatures::verify_ed25519_detached_jws_proof(
                 proof,
                 canonical_bytes,
                 binding_actor_id,

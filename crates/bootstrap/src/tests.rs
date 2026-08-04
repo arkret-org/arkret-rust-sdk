@@ -62,7 +62,6 @@ impl PayloadSigner for FixtureSigner {
 
     fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature, WireError> {
         Ok(PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: self.verification_method.clone(),
             payload_digest: Hash::new(arkret_canonical::canonical::sha256_digest(canonical_bytes))?,
             created_at: Utc::now(),
@@ -76,7 +75,6 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
     let digest = Hash::new(event.event_digest().unwrap()).unwrap();
     event.proofs = vec![Proof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: verification_method.clone(),
         event_digest: digest,
         created_at: event.created_at,
@@ -106,7 +104,7 @@ fn bootstrap_unit() -> (Event, Event) {
         device_public_key: NonEmptyString::new("z6MkDeviceKey").unwrap(),
         hpke_key: NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
         algorithms: vec![NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap()],
-        device_key_algorithm: Some(NonEmptyString::new("EdDSA").unwrap()),
+        device_key_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
         authorized_by: DeviceOrPrincipalRef::Did(authority.clone()),
         scopes: None,
         not_before: create.created_at,
@@ -331,7 +329,6 @@ fn submission(
     };
     lease.proofs = vec![PayloadProof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new(format!("{}#bootstrap-authority", event.actor_id))
             .unwrap(),
         payload_digest: lease.lease_digest().unwrap(),

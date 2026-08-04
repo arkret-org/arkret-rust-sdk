@@ -3,8 +3,8 @@
 //!
 //! These vectors pin the converged bytes that must not drift:
 //!
-//! 1. The detached-JWS protected header is exactly `{"alg":"EdDSA"}` across the ecosystem
-//!    (base64url `eyJhbGciOiJFZERTQSJ9`), matching spec §6, soland `move_seal_wire`, cotest and
+//! 1. The detached-JWS protected header is exactly `{"alg":"Ed25519"}` across the ecosystem
+//!    (base64url `eyJhbGciOiJFZDI1NTE5In0`), matching spec §6, soland `move_seal_wire`, cotest and
 //!    teabay `sdk::jws`.
 //! 2. `Ed25519PayloadSigner` (Move/Seal signing) and the generic detached-JWS signer produce the
 //!    same signing input and same 64-byte signature for identical canonical bytes, proving the
@@ -16,17 +16,17 @@
 use arkret_canonical::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
 
 /// SDK-canonical detached-JWS protected header, base64url-no-pad.
-const PROTECTED_HEADER_B64URL: &str = "eyJhbGciOiJFZERTQSJ9";
+const PROTECTED_HEADER_B64URL: &str = "eyJhbGciOiJFZDI1NTE5In0";
 
 #[test]
-fn detached_jws_protected_header_is_alg_eddsa_only() {
+fn detached_jws_protected_header_is_alg_ed25519_only() {
     let decoded = base64url_decode(PROTECTED_HEADER_B64URL).unwrap();
     assert_eq!(
-        decoded, br#"{"alg":"EdDSA"}"#,
-        "JWS header MUST be alg=EdDSA with no typ/crit"
+        decoded, br#"{"alg":"Ed25519"}"#,
+        "JWS header MUST be alg=Ed25519 with no typ/crit"
     );
     assert_eq!(
-        base64url_encode(br#"{"alg":"EdDSA"}"#),
+        base64url_encode(br#"{"alg":"Ed25519"}"#),
         PROTECTED_HEADER_B64URL
     );
 }
@@ -55,7 +55,7 @@ fn payload_signer_and_generic_detached_jws_signer_share_one_header_and_signature
         Ed25519PayloadSigner::from_did_key_seed(seed, did, DidUrl::new(vm).unwrap());
     let signature = payload_signer.sign_payload(&canonical_bytes).unwrap();
 
-    // The JWS header segment MUST be the canonical alg=EdDSA header.
+    // The JWS header segment MUST be the canonical alg=Ed25519 header.
     let header_seg = signature.jws.split('.').next().unwrap();
     assert_eq!(
         header_seg, PROTECTED_HEADER_B64URL,

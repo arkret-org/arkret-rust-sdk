@@ -152,8 +152,8 @@ pub struct MediaIceConstraints {
 pub enum MediaIceSignatureAlgorithm {
     #[serde(rename = "ES256")]
     Es256,
-    #[serde(rename = "EdDSA")]
-    EdDsa,
+    #[serde(rename = "Ed25519")]
+    Ed25519,
     #[serde(rename = "ML-DSA-65")]
     MlDsa65,
 }
@@ -170,7 +170,7 @@ pub enum MediaIceSignatureInput {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceConfigSignature {
     pub kid: String,
-    pub alg: MediaIceSignatureAlgorithm,
+    pub signature_algorithm: MediaIceSignatureAlgorithm,
     pub signature_input: MediaIceSignatureInput,
     pub payload_digest: Hash,
     pub sig: String,

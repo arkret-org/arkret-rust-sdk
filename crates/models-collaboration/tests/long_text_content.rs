@@ -34,7 +34,7 @@ fn e2ee_block() -> ContentBlock {
                 "blob_ref": format!("ak:blob:sha256:{}", "b".repeat(64)),
                 "encrypted": true,
                 "scheme": "ak.blob.stream_aead.v1",
-                "alg": "mls_exporter_aead_xchacha20poly1305_stream",
+                "encryption_algorithm": "mls_exporter_aead_xchacha20poly1305_stream",
                 "key_ref": {
                     "algorithm": "MLS",
                     "group_state_ref": "ak:event:01900000-0000-7000-8000-000000000000"
@@ -114,7 +114,7 @@ fn plaintext_branch_requires_a_hash_addressed_blob_ref() {
 fn e2ee_branch_requires_the_streaming_aead_scheme() {
     let mut attachment = e2ee_block().extra.get("attachment").unwrap().clone();
     attachment["scheme"] = json!("ak.blob.whole_file_aead.v1");
-    attachment["alg"] = json!("mls_exporter_aead_xchacha20poly1305");
+    attachment["encryption_algorithm"] = json!("mls_exporter_aead_xchacha20poly1305");
     let whole_file = e2ee_block().with_field("attachment", attachment);
     assert!(whole_file.validate_long_text().is_err());
 }

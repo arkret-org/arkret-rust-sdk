@@ -161,8 +161,8 @@ pub use recovery_authority::{
 };
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{
-    MultiSigKind, MultiSignature, NotarySig, PayloadSignature, SEAL_SIGNATURE_ALGS, Seal, SealKind,
-    ThresholdSigKind, ThresholdSignature, compute_seal_id, seal_canonical_bytes,
+    MultiSigKind, MultiSignature, NotarySig, PayloadSignature, Seal, SealKind, ThresholdSigKind,
+    ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,

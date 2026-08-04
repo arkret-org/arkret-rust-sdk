@@ -59,7 +59,7 @@ pub enum DevicePairingProofError {
     UnsupportedKey,
     #[error("device pairing verification_method does not match new_device_pubkey.kid")]
     VerificationMethodMismatch,
-    #[error("device pairing proof algorithm does not match new_device_pubkey.alg")]
+    #[error("device pairing proof signature_algorithm does not match new_device_pubkey.algorithm")]
     AlgorithmMismatch,
     #[error("device pairing proof uses the wrong transcript")]
     TranscriptMismatch,
@@ -133,7 +133,7 @@ pub fn sign_server_device_pairing_challenge(
     Ok(DevicePairingChallengeProof {
         transcript: DevicePairingChallengeTranscriptKind::ServerMediated,
         kid,
-        alg: NonEmptyString::new(public_key.alg.as_str().to_owned())
+        signature_algorithm: NonEmptyString::new(public_key.algorithm.as_str().to_owned())
             .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
         transcript_digest,
         signature: Base64UrlString::new(
@@ -158,7 +158,7 @@ pub fn verify_server_device_pairing_challenge(
     if proof.kid.as_str() != public_key.kid.as_str() {
         return Err(DevicePairingProofError::VerificationMethodMismatch);
     }
-    if proof.alg.as_str() != public_key.alg.as_str() {
+    if proof.signature_algorithm.as_str() != public_key.algorithm.as_str() {
         return Err(DevicePairingProofError::AlgorithmMismatch);
     }
     let public_key_bytes = URL_SAFE_NO_PAD
@@ -221,7 +221,7 @@ pub fn sign_to_device_pairing_challenge(
     Ok(DevicePairingChallengeProof {
         transcript: DevicePairingChallengeTranscriptKind::ToDevice,
         kid,
-        alg: NonEmptyString::new(public_key.alg.as_str().to_owned())
+        signature_algorithm: NonEmptyString::new(public_key.algorithm.as_str().to_owned())
             .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
         transcript_digest,
         signature: Base64UrlString::new(
@@ -248,7 +248,7 @@ pub fn verify_to_device_pairing_challenge(
     if proof.kid.as_str() != public_key.kid.as_str() {
         return Err(DevicePairingProofError::VerificationMethodMismatch);
     }
-    if proof.alg.as_str() != public_key.alg.as_str() {
+    if proof.signature_algorithm.as_str() != public_key.algorithm.as_str() {
         return Err(DevicePairingProofError::AlgorithmMismatch);
     }
     let public_key_bytes = URL_SAFE_NO_PAD
@@ -279,7 +279,7 @@ fn validate_public_key(
     public_key: &PublicKey,
     expected_bytes: &[u8; 32],
 ) -> Result<(), DevicePairingProofError> {
-    if public_key.kty.as_str() != "OKP" || !matches!(public_key.alg.as_str(), "EdDSA" | "Ed25519") {
+    if public_key.kty.as_str() != "OKP" || public_key.algorithm.as_str() != "Ed25519" {
         return Err(DevicePairingProofError::UnsupportedKey);
     }
     let decoded = URL_SAFE_NO_PAD
@@ -304,7 +304,7 @@ mod tests {
         let public_key = PublicKey {
             kty: NonEmptyString::new("OKP").unwrap(),
             kid: NonEmptyString::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            alg: NonEmptyString::new("EdDSA").unwrap(),
+            algorithm: NonEmptyString::new("Ed25519").unwrap(),
             key: Base64UrlString::new(
                 URL_SAFE_NO_PAD.encode(signing_key.verifying_key().to_bytes()),
             )

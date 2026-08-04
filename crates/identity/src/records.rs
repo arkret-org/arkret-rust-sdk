@@ -33,7 +33,6 @@ pub fn attach_did_key_log_controller_proof(
     let mut proof = DetachedPayloadProof {
         kind: "detached_jws".to_owned(),
         verification_method: verification_method.clone(),
-        alg: "EdDSA".to_owned(),
         payload_digest: entry.proof_payload_digest()?,
         created_at: Utc::now(),
         domain: None,
@@ -141,13 +140,6 @@ pub fn verify_did_key_log(
                     proof.kind
                 )));
             }
-            if proof.alg != "EdDSA" {
-                // Fail closed: this verifier implements Ed25519 only.
-                return Err(Error::Protocol(format!(
-                    "DID key log proof alg '{}' is not supported by this verifier",
-                    proof.alg
-                )));
-            }
             if !constant_time_digest_eq(&payload_digest, &proof.payload_digest) {
                 return Err(Error::Protocol(
                     "DID key log proof payload_digest does not match the canonical entry bytes"
@@ -245,7 +237,6 @@ impl DidRegistryReceipt {
             signature: DetachedPayloadProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: verification_method.clone(),
-                alg: "EdDSA".to_owned(),
                 payload_digest: placeholder_digest(),
                 created_at,
                 domain: None,

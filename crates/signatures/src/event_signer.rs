@@ -24,7 +24,7 @@
 //! transitively via `event_digest` (they are top-level Envelope fields).
 //!
 //! The companion verification path is
-//! [`crate::proof::verify_eddsa_detached_jws_proof`]
+//! [`crate::proof::verify_ed25519_detached_jws_proof`]
 //! (`crates/signatures/src/proof.rs`), which rebuilds the same binding
 //! object via [`arkret_wire::Proof::canonical_binding_bytes`].
 
@@ -140,7 +140,6 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
     // does not include `alg`/`jws`, so it can be built before signing.
     let mut proof = Proof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: verification_method.clone(),
         event_digest: payload_digest.clone(),
         created_at,
@@ -151,7 +150,6 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
     };
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id)?;
     let signature = signer.sign_payload(&binding_bytes)?;
-    proof.alg = signature.alg;
     proof.jws = signature.jws;
 
     // Idempotent: replace any existing proof from the same verification
@@ -262,7 +260,6 @@ mod tests {
             // coverage tests; no Ed25519 dep required.
             let stub_jws = format!("stub..{}", payload_digest.as_str());
             Ok(PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method: self.kid.clone(),
                 payload_digest,
                 created_at: Utc::now(),
@@ -282,7 +279,7 @@ mod tests {
         assert_eq!(event.proofs[0].event_digest.as_str(), digest);
         assert_eq!(event.proofs[0].verification_method, vm_alice());
         assert_eq!(event.proofs[0].kind, proof_kind::DETACHED_JWS);
-        assert_eq!(event.proofs[0].alg, "EdDSA");
+        assert!(!event.proofs[0].jws.is_empty());
         // validate_proof_bindings (production) round-trips.
         event.validate_proof_bindings().unwrap();
     }

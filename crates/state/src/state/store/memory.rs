@@ -1119,7 +1119,6 @@ mod tests {
         };
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at: event.created_at,
@@ -1134,7 +1133,6 @@ mod tests {
     fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<Hash>) -> Seal {
         let sig = PayloadSignature {
             extra: Default::default(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xff),
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
@@ -1176,7 +1174,6 @@ mod tests {
             authority_set_ref: authority_set_ref.clone(),
             signature: PayloadSignature {
                 extra: Default::default(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
                     .unwrap(),
                 payload_digest: hash(0),
@@ -1212,7 +1209,6 @@ mod tests {
             authority_set_ref: receipt.authority_set_ref.clone(),
             proofs: vec![PayloadSignature {
                 extra: Default::default(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
                     .unwrap(),
                 payload_digest: hash(0),

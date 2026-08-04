@@ -430,7 +430,7 @@ mod realm_key_share_tests {
             "recipient_principal_id": "did:webvh:z6mkfixture:bob.example",
             "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
             "source_authorization_ref": "ak:event:019f9000-0000-7000-8000-000000000005",
-            "sender_device_signature": {"kid": "k", "alg": "EdDSA", "sig": "AAAA"},
+            "sender_device_signature": {"kid": "k", "signature_algorithm": "Ed25519", "sig": "AAAA"},
             "key_scope": {
                 "effective_scope": {
                     "kind": "realm",

@@ -11,8 +11,8 @@
 //!
 //! The profile divergence this file used to report is gone. The v1 fixture
 //! signs `{context, event_digest, actor_id, verification_method, created_at,
-//! domain}` under `{"alg":"EdDSA"}`, which is the SDK event-proof profile
-//! (`Proof::canonical_binding_bytes` + `verify_eddsa_detached_jws_proof`):
+//! domain}` under `{"alg":"Ed25519"}`, which is the SDK event-proof profile
+//! (`Proof::canonical_binding_bytes` + `verify_ed25519_detached_jws_proof`):
 //! the duplicate `payload_digest` and the `typ`/`kid` header members were
 //! removed by the kernel restructure. So the vector is verified end to end
 //! here, not only below the transcript layer.
@@ -21,7 +21,7 @@ use arkret_canonical::{base64url_decode, base64url_encode, canonical};
 use arkret_schema::embedded_json_artifact;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
 use arkret_signatures::{
-    FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_eddsa_detached_jws_proof,
+    FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof,
 };
 use arkret_wire::{Did, DidUrl, Hash, Proof};
 use ed25519_dalek::Signer as _;
@@ -171,7 +171,7 @@ fn ed25519_detached_jws_vector_verifies_with_sdk_primitives() {
 /// itself is not verifiable here because the SDK ships no P-256 / FIPS 204
 /// verifier — both algorithms are wire-reserved and MUST fail closed.
 #[test]
-fn non_eddsa_vectors_pin_canonical_chain_and_stay_wire_reserved() {
+fn non_ed25519_vectors_pin_canonical_chain_and_stay_wire_reserved() {
     let fixture = fixture();
 
     let es256 = vector(&fixture, "ak.vector.encoding.crypto.es256_detached_jws.v1");
@@ -210,10 +210,9 @@ fn non_eddsa_vectors_pin_canonical_chain_and_stay_wire_reserved() {
 /// Build a well-formed SDK `Proof` around a negative-case JWS so the reject
 /// path under test (alg gate / payload segment) is reached with everything
 /// else valid.
-fn proof_for_negative(base: &Value, alg: &str, jws: &str) -> Proof {
+fn proof_for_negative(base: &Value, jws: &str) -> Proof {
     Proof {
         kind: "detached_jws".to_owned(),
-        alg: alg.to_owned(),
         verification_method: DidUrl::new(s(&base["proof"], "verification_method")).unwrap(),
         event_digest: Hash::new(s(base, "event_digest")).unwrap(),
         created_at: s(&base["proof"], "created_at").parse().unwrap(),
@@ -279,8 +278,8 @@ fn negative_cases_reject_through_sdk_verifiers() {
             Some(alg),
             "{case_name}: fixture header alg drifted"
         );
-        let proof = proof_for_negative(&base, alg, s(&case, "proof_jws"));
-        let err = verify_eddsa_detached_jws_proof(
+        let proof = proof_for_negative(&base, s(&case, "proof_jws"));
+        let err = verify_ed25519_detached_jws_proof(
             &proof,
             &canonical_event_bytes,
             &actor,
@@ -289,7 +288,7 @@ fn negative_cases_reject_through_sdk_verifiers() {
         .expect_err(case_name);
         let text = format!("{err}");
         assert!(
-            text.contains("non-EdDSA"),
+            text.contains("non-Ed25519"),
             "{case_name}: expected the algorithm gate, got: {text}"
         );
     }
@@ -297,9 +296,9 @@ fn negative_cases_reject_through_sdk_verifiers() {
     // reject_non_empty_payload_segment: the detached profile must refuse an
     // attached payload segment even though the signature would verify.
     let attached = negative_case(&fixture, "reject_non_empty_payload_segment");
-    let proof = proof_for_negative(&base, "EdDSA", s(&attached, "proof_jws"));
+    let proof = proof_for_negative(&base, s(&attached, "proof_jws"));
     let err =
-        verify_eddsa_detached_jws_proof(&proof, &canonical_event_bytes, &actor, &base_public_key)
+        verify_ed25519_detached_jws_proof(&proof, &canonical_event_bytes, &actor, &base_public_key)
             .expect_err("attached payload segment must be rejected");
     assert!(
         format!("{err}").contains("empty payload segment"),

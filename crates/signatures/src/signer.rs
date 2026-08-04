@@ -80,12 +80,12 @@ impl PayloadSigner for Ed25519PayloadSigner {
 
     fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<PayloadSignature> {
         // Detached JWS over canonical bytes: SDK-canonical header
-        // `{"alg":"EdDSA"}` (no `typ`, matching spec §6 / soland / cotest /
+        // `{"alg":"Ed25519"}` (no `typ`, matching spec §6 / soland / cotest /
         // teabay), then base64url-no-pad(header) + "." + "" (detached
         // payload) + "." + base64url-no-pad(signature). Per spec §3 the SDK
         // keeps the JWS detached so the receiver re-derives the payload from
         // the canonical body bytes rather than from the JWS itself.
-        let header = r#"{"alg":"EdDSA"}"#;
+        let header = r#"{"alg":"Ed25519"}"#;
         let header_b64 = base64url_encode(header.as_bytes());
         let signing_input = format!("{header_b64}.{}", base64url_encode(canonical_bytes));
         let signature = self.signing_key.sign(signing_input.as_bytes());
@@ -96,7 +96,6 @@ impl PayloadSigner for Ed25519PayloadSigner {
             .map_err(|err| WireError::Protocol(format!("invalid canonical hash: {err}")))?;
 
         Ok(PayloadSignature {
-            alg: "EdDSA".to_owned(),
             verification_method: self.kid.clone(),
             payload_digest,
             created_at: Utc::now(),
@@ -150,9 +149,9 @@ pub fn verify_ed25519_payload_signature(
         .map_err(|err| Error::Protocol(format!("invalid header base64: {err}")))?;
     let header: ProtectedHeader = canonical::from_canonical_json_slice(&header_bytes)
         .map_err(|err| Error::Protocol(format!("invalid protected header: {err}")))?;
-    if sig.alg != "EdDSA" || header.alg != sig.alg {
+    if header.alg != "Ed25519" {
         return Err(Error::Protocol(
-            "payload signature and protected header alg must both be EdDSA".to_owned(),
+            "payload signature and protected header alg must both be Ed25519".to_owned(),
         ));
     }
     if header.typ.is_some() || header.crit.is_some() {
@@ -230,7 +229,7 @@ mod tests {
         );
         let bytes = sample_canonical_bytes();
         let sig = signer.sign_payload(&bytes).unwrap();
-        assert_eq!(sig.alg, "EdDSA");
+        assert!(!sig.jws.is_empty());
         assert_eq!(&sig.verification_method, signer.verification_method_id());
         verify_ed25519_payload_signature(&bytes, &sig, &signer.verifying_key()).unwrap();
     }
@@ -279,7 +278,7 @@ mod tests {
         a.validate_structural().unwrap();
         match &a.notary_signature {
             NotarySig::Single(sig) => {
-                assert_eq!(sig.alg, "EdDSA");
+                assert!(!sig.jws.is_empty());
                 let bytes = a.canonical_bytes_for_id().unwrap();
                 verify_ed25519_payload_signature(&bytes, sig, &signer.verifying_key()).unwrap();
             }
@@ -319,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn verify_ed25519_rejects_non_eddsa_protected_header() {
+    fn verify_ed25519_rejects_non_ed25519_protected_header() {
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [3u8; 32],
             alice(),
@@ -331,6 +330,6 @@ mod tests {
         sig.jws = format!("{}..{signature}", base64url_encode(br#"{"alg":"none"}"#));
         let error =
             verify_ed25519_payload_signature(&bytes, &sig, &signer.verifying_key()).unwrap_err();
-        assert!(error.to_string().contains("must both be EdDSA"));
+        assert!(error.to_string().contains("must both be Ed25519"));
     }
 }

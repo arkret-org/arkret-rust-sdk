@@ -168,7 +168,7 @@ impl DeviceAuthorizePayload {
         let device_key_algorithm = self.device_key_algorithm.as_deref().ok_or_else(|| {
             Error::Protocol("device_authorize_device_key_algorithm_required".to_owned())
         })?;
-        if !matches!(device_key_algorithm, "EdDSA" | "Ed25519") {
+        if device_key_algorithm != "Ed25519" {
             return Err(Error::Protocol(
                 "device_authorize_device_key_algorithm_unsupported".to_owned(),
             ));
@@ -392,7 +392,7 @@ use arkret_wire::SchemaId;
 #[serde(deny_unknown_fields)]
 pub struct DeviceCrossSigningBinding {
     pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
+    pub signature_algorithm: NonEmptyString,
     pub ssk_generation: NonZeroU64,
     pub signature: Base64UrlString,
 }
@@ -647,7 +647,7 @@ mod tests {
     fn cross_signing_binding() -> DeviceCrossSigningBinding {
         DeviceCrossSigningBinding {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#ssk").unwrap(),
-            alg: NonEmptyString::new("EdDSA").unwrap(),
+            signature_algorithm: NonEmptyString::new("Ed25519").unwrap(),
             ssk_generation: NonZeroU64::new(1).unwrap(),
             signature: Base64UrlString::new("c2ln").unwrap(),
         }
@@ -684,7 +684,7 @@ mod tests {
     #[test]
     fn device_authorize_possession_input_binds_device_and_recovery_context() {
         let mut payload = base_device_authorize_payload();
-        payload.device_key_algorithm = Some(NonEmptyString::new("EdDSA").unwrap());
+        payload.device_key_algorithm = Some(NonEmptyString::new("Ed25519").unwrap());
         payload.cross_signing_binding = Some(cross_signing_binding());
         payload.scopes = Some(vec![
             NonEmptyString::new("write").unwrap(),
@@ -742,7 +742,7 @@ mod tests {
         let mut conflicting_binding = device_authorize_value();
         conflicting_binding["cross_signing_binding"] = json!({
             "verification_method": "did:webvh:z6mkfixture:alice.example#ssk",
-            "alg": "EdDSA",
+            "signature_algorithm": "Ed25519",
             "ssk_generation": 1,
             "signature": "c2ln"
         });

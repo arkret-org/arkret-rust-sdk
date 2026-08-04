@@ -4,7 +4,7 @@ use arkret_models_integration::{
     AppletDidMethodVersionEvidence, AppletEndpointAuth, AppletEndpointEntry, AppletEndpointMethod,
     AppletInstallAppletId, AppletInstallPlan, AppletInstallRequestBody, AppletNamespaceDomain,
     AppletNamespaceEntry, AppletPackage, AppletRegistrationEpochEvidence, AppletWireNamespaces,
-    E2eeEffect, WebhookAuth, WebhookSignatureAlg, WidgetEffect, WireAppletRegistration,
+    E2eeEffect, HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect, WireAppletRegistration,
     sign_registration,
 };
 use arkret_wire::{
@@ -129,7 +129,7 @@ fn package_with_required_fields() -> AppletPackage {
     });
     package.webhook_auth = WebhookAuth::http_message_signature(
         format!("{}#key-1", package.service_id),
-        vec![WebhookSignatureAlg::EdDsa],
+        vec![HttpMessageSignatureAlgorithm::Ed25519],
     );
     package
 }
@@ -147,7 +147,6 @@ fn wire_registration_round_trips_and_excludes_proof_from_digest() {
     let mut signed = registration;
     signed.proof = Some(Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: expected_digest.clone(),
         created_at: Utc::now(),
@@ -170,7 +169,6 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
     package.seal().unwrap();
     package.proof = Some(Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: package.package_digest.clone().unwrap(),
         created_at: Utc::now(),
@@ -327,7 +325,6 @@ fn sign_registration_attaches_matching_payload_digest() {
         fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<PayloadSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
             Ok(PayloadSignature {
-                alg: "EdDSA".to_owned(),
                 verification_method: self.verification_method.clone(),
                 payload_digest: payload_digest.clone(),
                 created_at: Utc::now(),
@@ -350,6 +347,6 @@ fn sign_registration_attaches_matching_payload_digest() {
     .unwrap();
 
     let proof = registration.proof.as_ref().unwrap();
-    assert_eq!(proof.alg, "EdDSA");
+    assert!(proof.jws.starts_with("eyJhbGciOiJFZDI1NTE5In0."));
     assert_eq!(proof.event_digest, registration.payload_digest().unwrap());
 }

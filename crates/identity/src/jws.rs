@@ -677,7 +677,7 @@ mod tests {
             did: did.clone(),
             material: encode_ed25519_multibase(&signing.verifying_key()),
         };
-        let header = base64url_encode(br#"{"alg":"EdDSA","alg":"EdDSA"}"#);
+        let header = base64url_encode(br#"{"alg":"Ed25519","alg":"Ed25519"}"#);
         let signature = base64url_encode([1u8; 64]);
         let jws = format!("{header}..{signature}");
 

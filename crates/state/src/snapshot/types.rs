@@ -3,7 +3,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::constants::{DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND};
+use super::constants::DETACHED_JWS_PROOF_KIND;
 use super::merkle::sha256_digest;
 use crate::{BlobRef, Did, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
 
@@ -104,7 +104,6 @@ impl SnapshotManifest {
     pub fn signature_as_proof(&self) -> crate::models::Proof {
         crate::models::Proof {
             kind: self.signature.kind.clone(),
-            alg: self.signature.alg.clone(),
             verification_method: self.signature.verification_method.clone(),
             event_digest: self.signature.payload_digest.clone(),
             created_at: self.signature.created_at,
@@ -226,7 +225,6 @@ pub enum SnapshotAuthorityKind {
 pub struct DetachedJwsProof {
     pub kind: String,
     pub verification_method: DidUrl,
-    pub alg: String,
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -234,7 +232,7 @@ pub struct DetachedJwsProof {
 }
 
 impl DetachedJwsProof {
-    pub fn eddsa(
+    pub fn ed25519(
         verification_method: DidUrl,
         payload_digest: Hash,
         created_at: DateTime<Utc>,
@@ -242,7 +240,6 @@ impl DetachedJwsProof {
     ) -> Self {
         Self {
             kind: DETACHED_JWS_PROOF_KIND.to_owned(),
-            alg: DETACHED_JWS_ALG_EDDSA.to_owned(),
             verification_method,
             payload_digest,
             created_at,

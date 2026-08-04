@@ -22,7 +22,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "expires_at": "2100-01-01T00:00:00.000Z",
             "device_signature": {
                 "kid": "did:webvh:z6mkfixture:alice.example#ak:device:01904100-0000-7000-8000-000000000001",
-                "alg": "EdDSA",
+                "signature_algorithm": "Ed25519",
                 "sig": "c2ln"
             },
             "revocation_status": "active"

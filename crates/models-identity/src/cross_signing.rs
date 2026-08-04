@@ -239,23 +239,23 @@ impl CrossSigningResetPayload {
         match &self.proof {
             CrossSigningResetProof::PrincipalSigning {
                 verification_method,
-                alg,
+                signature_algorithm,
                 ..
             } => json!({
                 "verification_method": verification_method,
-                "alg": alg,
+                "signature_algorithm": signature_algorithm,
             }),
             CrossSigningResetProof::RecoveryUnlock {
                 recovery_session_id,
                 recovery_secret_ref,
                 unlock_commitment,
-                alg,
+                signature_algorithm,
                 ..
             } => {
                 let mut body = json!({
                     "recovery_session_id": recovery_session_id,
                     "recovery_secret_ref": recovery_secret_ref,
-                    "alg": alg,
+                    "signature_algorithm": signature_algorithm,
                 });
                 if include_unlock_commitment && let Some(object) = body.as_object_mut() {
                     object.insert(
@@ -275,7 +275,7 @@ impl CrossSigningResetPayload {
                         json!({
                             "device_id": signature.device_id,
                             "verification_method": signature.verification_method,
-                            "alg": signature.alg,
+                            "signature_algorithm": signature.signature_algorithm,
                         })
                     })
                     .collect::<Vec<_>>();
@@ -288,7 +288,7 @@ impl CrossSigningResetPayload {
                 recovery_session_id,
                 service_id,
                 verification_method,
-                alg,
+                signature_algorithm,
                 attestation_ref,
                 ..
             } => {
@@ -296,7 +296,7 @@ impl CrossSigningResetPayload {
                     "recovery_session_id": recovery_session_id,
                     "service_id": service_id,
                     "verification_method": verification_method,
-                    "alg": alg,
+                    "signature_algorithm": signature_algorithm,
                 });
                 if let Some(attestation_ref) = attestation_ref
                     && let Some(object) = body.as_object_mut()
@@ -374,7 +374,7 @@ mod tests {
             "proof": {
                 "kind": "principal_signing",
                 "verification_method": "did:webvh:z6mkfixture:alice.example#did-control",
-                "alg": "EdDSA",
+                "signature_algorithm": "Ed25519",
                 "signature": "AAAA"
             },
             "issued_at": "2026-05-30T00:00:00.000Z"
@@ -436,7 +436,7 @@ mod tests {
             "signatures": [{
                 "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
                 "verification_method": "did:webvh:z6mkfixture:alice.example#device-1",
-                "alg": "EdDSA",
+                "signature_algorithm": "Ed25519",
                 "signature": "AAAA"
             }]
         });

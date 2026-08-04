@@ -1487,7 +1487,7 @@ mod tests {
         assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:6d8fe9cbeac00fabd573ccc06b0f3ede3b7203f4ea888bb95122bd51f30f3282"
+            "sha256:7772362445cc5bf07db60841bbc3ce6a499f753360be1ce97e5683b6c9ed9e52"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));

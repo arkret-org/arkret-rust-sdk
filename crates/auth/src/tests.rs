@@ -209,7 +209,7 @@ fn json_web_key_set_accepts_typed_public_keys_and_rejects_ambiguous_input() {
             {
                 "kty": "OKP",
                 "use": "sig",
-                "alg": "EdDSA",
+                "alg": "Ed25519",
                 "kid": "ed25519-2026-07",
                 "crv": "Ed25519",
                 "x": "AQAB"
@@ -762,7 +762,6 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
     let document = DidDocument::new(alice.clone(), verification_method, "public-key");
     let proof = Proof {
         kind: "did-proof".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new(verification_method).unwrap(),
         event_digest: Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
         created_at: Utc::now(),

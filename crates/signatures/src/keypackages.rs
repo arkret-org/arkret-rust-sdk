@@ -39,7 +39,9 @@ pub fn keypackage_signature_from_bytes(
         .map_err(|_| KeyPackageSignatureError::InvalidSignatureEncoding)?;
     Ok(KeyOperationSignature {
         kid,
-        alg: Some(NonEmptyString::new("Ed25519").expect("static algorithm is non-empty")),
+        signature_algorithm: Some(
+            NonEmptyString::new("Ed25519").expect("static algorithm is non-empty"),
+        ),
         sig: Base64UrlString::new(URL_SAFE_NO_PAD.encode(signature))
             .expect("Ed25519 signature base64url is valid"),
     })
@@ -65,9 +67,9 @@ pub fn verify_keypackage_signing_input(
         return Err(KeyPackageSignatureError::VerificationMethodMismatch);
     }
     if !signature
-        .alg
+        .signature_algorithm
         .as_ref()
-        .is_some_and(|algorithm| matches!(algorithm.as_str(), "Ed25519" | "EdDSA"))
+        .is_some_and(|algorithm| algorithm.as_str() == "Ed25519")
     {
         return Err(KeyPackageSignatureError::UnsupportedAlgorithm);
     }

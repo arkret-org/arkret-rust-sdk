@@ -229,7 +229,6 @@ mod tests {
     fn placeholder_payload_proof() -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1").unwrap(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: Utc::now(),

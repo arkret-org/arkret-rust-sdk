@@ -742,7 +742,6 @@ mod tests {
                         "did:webvh:z6mkfixture:ps.bob.example#server-key-1",
                     )
                     .unwrap(),
-                    alg: "EdDSA".to_owned(),
                     payload_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
                     created_at: issued_at,
                     domain: None,
@@ -864,7 +863,6 @@ mod tests {
             expires_at: Some(expires_at),
             proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1")
                     .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),

@@ -150,7 +150,7 @@ impl JsonWebKey {
             || (!key_ops.is_empty() && !key_ops.contains(&JsonWebKeyOperation::Verify))
             || alg
                 .as_ref()
-                .is_some_and(|algorithm| algorithm.as_str() != "EdDSA")
+                .is_some_and(|algorithm| algorithm.as_str() != "Ed25519")
         {
             return None;
         }

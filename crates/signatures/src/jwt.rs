@@ -1,6 +1,6 @@
-//! EdDSA JWT verification against JSON Web Key Sets.
+//! Ed25519 JWT verification against JSON Web Key Sets.
 //!
-//! This module intentionally supports only compact JWS/JWT with `alg=EdDSA`
+//! This module intentionally supports only compact JWS/JWT with `alg=Ed25519`
 //! and `OKP` / `Ed25519` keys. RSA and ECDSA JWTs must be verified by a host
 //! adapter until the SDK owns those algorithm implementations.
 
@@ -18,8 +18,8 @@ use super::jwk::JsonWebKeySet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JwtAlgorithm {
-    #[serde(rename = "EdDSA")]
-    EdDsa,
+    #[serde(rename = "Ed25519")]
+    Ed25519,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -258,7 +258,7 @@ struct VerificationKey {
     public_key: VerifyingKey,
 }
 
-pub fn verify_eddsa_jwt_with_jwks(
+pub fn verify_ed25519_jwt_with_jwks(
     jwt: &str,
     jwks: &JsonWebKeySet,
     policy: &JwtVerificationPolicy,
@@ -409,8 +409,8 @@ mod tests {
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);
         let public_key = signing_key.verifying_key();
         let header = match kid {
-            Some(kid) => json!({"alg": "EdDSA", "kid": kid, "typ": "JWT"}),
-            None => json!({"alg": "EdDSA", "typ": "JWT"}),
+            Some(kid) => json!({"alg": "Ed25519", "kid": kid, "typ": "JWT"}),
+            None => json!({"alg": "Ed25519", "typ": "JWT"}),
         };
         let header_b64 = base64url_encode(serde_json::to_vec(&header).unwrap());
         let claims_b64 = base64url_encode(serde_json::to_vec(&claims).unwrap());
@@ -430,14 +430,14 @@ mod tests {
     }
 
     #[test]
-    fn verifies_eddsa_jwt_against_jwks() {
+    fn verifies_ed25519_jwt_against_jwks() {
         let now = 1_715_990_000;
         let (jwt, jwks) = jwt_fixture(now, Some("key-1"));
         let policy = JwtVerificationPolicy::new(now)
             .issuer(non_empty("https://issuer.example"))
             .audience(non_empty("arkret-client"));
 
-        let verified = verify_eddsa_jwt_with_jwks(&jwt, &jwks, &policy).unwrap();
+        let verified = verify_ed25519_jwt_with_jwks(&jwt, &jwks, &policy).unwrap();
         assert_eq!(
             verified.key_id.as_ref().map(NonEmptyString::as_str),
             Some("key-1")
@@ -459,13 +459,13 @@ mod tests {
             .issuer(non_empty("https://issuer.example"))
             .audience(non_empty("arkret-client"));
         assert_eq!(
-            verify_eddsa_jwt_with_jwks(&tampered, &jwks, &policy),
+            verify_ed25519_jwt_with_jwks(&tampered, &jwks, &policy),
             Err(JwtVerificationError::InvalidSignature)
         );
 
         let wrong_audience = JwtVerificationPolicy::new(now).audience(non_empty("unknown-client"));
         assert_eq!(
-            verify_eddsa_jwt_with_jwks(&jwt, &jwks, &wrong_audience),
+            verify_ed25519_jwt_with_jwks(&jwt, &jwks, &wrong_audience),
             Err(JwtVerificationError::AudienceMismatch)
         );
     }
@@ -477,7 +477,7 @@ mod tests {
         let second = jwks.keys()[0].clone();
         let ambiguous = JsonWebKeySet::new(vec![jwks.keys()[0].clone(), second]).unwrap();
         assert_eq!(
-            verify_eddsa_jwt_with_jwks(&jwt, &ambiguous, &JwtVerificationPolicy::new(now)),
+            verify_ed25519_jwt_with_jwks(&jwt, &ambiguous, &JwtVerificationPolicy::new(now)),
             Err(JwtVerificationError::AmbiguousKeySelection)
         );
     }
@@ -497,12 +497,12 @@ mod tests {
         );
 
         assert_eq!(
-            verify_eddsa_jwt_with_jwks(&jwt, &jwks, &JwtVerificationPolicy::new(now)),
+            verify_ed25519_jwt_with_jwks(&jwt, &jwks, &JwtVerificationPolicy::new(now)),
             Err(JwtVerificationError::Expired)
         );
 
         let policy = JwtVerificationPolicy::new(now).require_exp(false);
-        assert!(verify_eddsa_jwt_with_jwks(&jwt, &jwks, &policy).is_ok());
+        assert!(verify_ed25519_jwt_with_jwks(&jwt, &jwks, &policy).is_ok());
     }
 
     #[test]

@@ -217,7 +217,6 @@ pub struct AppletPackageE2eePolicy {
 pub struct DetachedProof {
     pub kind: String,
     pub verification_method: DidUrl,
-    pub alg: SignatureAlg,
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -297,9 +296,6 @@ pub type NonEmptyStringArray = Vec<NonEmptyString>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/profile_id`.
 pub type ProfileId = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/signature_alg`.
-pub type SignatureAlg = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

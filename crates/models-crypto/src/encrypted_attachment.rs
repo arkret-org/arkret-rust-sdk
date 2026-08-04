@@ -80,7 +80,7 @@ pub struct WholeFileEncryptedAttachment {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
     pub encrypted: EncryptedAttachmentMarker,
     pub scheme: WholeFileEncryptionScheme,
-    pub alg: WholeFileEncryptionAlgorithm,
+    pub encryption_algorithm: WholeFileEncryptionAlgorithm,
     pub key_ref: EncryptedAttachmentKeyRef,
     pub epoch: u64,
     pub ciphertext_digest: Hash,
@@ -113,7 +113,7 @@ pub struct StreamEncryptedAttachment {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
     pub encrypted: EncryptedAttachmentMarker,
     pub scheme: StreamEncryptionScheme,
-    pub alg: StreamEncryptionAlgorithm,
+    pub encryption_algorithm: StreamEncryptionAlgorithm,
     pub key_ref: EncryptedAttachmentKeyRef,
     pub epoch: u64,
     pub ciphertext_digest: Hash,

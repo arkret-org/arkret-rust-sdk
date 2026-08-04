@@ -9,7 +9,6 @@ pub const EVENT_SET_ALGORITHM_MERKLE_V1: &str = "merkle_event_set_v1";
 pub const SNAPSHOT_SECURITY_STANDARD: &str = "standard";
 pub const SNAPSHOT_SECURITY_HIGH_ASSURANCE: &str = "high_assurance";
 pub const DETACHED_JWS_PROOF_KIND: &str = "detached_jws";
-pub const DETACHED_JWS_ALG_EDDSA: &str = "EdDSA";
 pub const SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS: i64 = 2_592_000_000;
 pub const SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS: i64 = 604_800_000;
 pub const EMPTY_SHA256_DIGEST: &str =

@@ -143,23 +143,20 @@ pub enum WebhookAuthKind {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WebhookSignatureAlg {
-    #[serde(rename = "EdDSA")]
-    EdDsa,
-    #[serde(rename = "ES256")]
-    Es256,
-    #[serde(rename = "ML-DSA-65")]
-    MlDsa65,
+pub enum HttpMessageSignatureAlgorithm {
+    #[serde(rename = "ed25519")]
+    Ed25519,
+    #[serde(rename = "ecdsa-p256-sha256")]
+    EcdsaP256Sha256,
 }
 
-impl WebhookSignatureAlg {
+impl HttpMessageSignatureAlgorithm {
     /// Wire name used for serialization and canonical epoch-transcript
     /// ordering (`AppletRegistrationEpochTranscript` in the `arkret` umbrella).
     pub fn as_wire_name(self) -> &'static str {
         match self {
-            Self::EdDsa => "EdDSA",
-            Self::Es256 => "ES256",
-            Self::MlDsa65 => "ML-DSA-65",
+            Self::Ed25519 => "ed25519",
+            Self::EcdsaP256Sha256 => "ecdsa-p256-sha256",
         }
     }
 }
@@ -171,7 +168,7 @@ impl WebhookSignatureAlg {
 pub struct WebhookAuth {
     pub kind: WebhookAuthKind,
     pub key_ref: String,
-    pub accepted_algs: Vec<WebhookSignatureAlg>,
+    pub accepted_signature_algorithms: Vec<HttpMessageSignatureAlgorithm>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature_header: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -181,12 +178,12 @@ pub struct WebhookAuth {
 impl WebhookAuth {
     pub fn http_message_signature(
         key_ref: impl Into<String>,
-        accepted_algs: Vec<WebhookSignatureAlg>,
+        accepted_signature_algorithms: Vec<HttpMessageSignatureAlgorithm>,
     ) -> Self {
         Self {
             kind: WebhookAuthKind::HttpMessageSignature,
             key_ref: key_ref.into(),
-            accepted_algs,
+            accepted_signature_algorithms,
             signature_header: None,
             extra: XExtensionMap::default(),
         }
@@ -499,7 +496,6 @@ pub fn sign_registration<S: PayloadSigner + ?Sized>(
     let sig = signer.sign_payload(&canonical_bytes)?;
     reg.proof = Some(Proof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
-        alg: sig.alg,
         verification_method: verification_method.to_owned(),
         event_digest: payload_digest,
         created_at: Utc::now(),
@@ -783,14 +779,16 @@ impl AppletRegistrationEpochTranscript {
             &self.accepted_signing_keys,
             |left, right| left.key_ref == right.key_ref,
         )?;
-        self.webhook_auth.accepted_algs.sort_by(|left, right| {
-            left.as_wire_name()
-                .as_bytes()
-                .cmp(right.as_wire_name().as_bytes())
-        });
+        self.webhook_auth
+            .accepted_signature_algorithms
+            .sort_by(|left, right| {
+                left.as_wire_name()
+                    .as_bytes()
+                    .cmp(right.as_wire_name().as_bytes())
+            });
         reject_duplicate_adjacent_by(
-            "webhook_auth.accepted_algs",
-            &self.webhook_auth.accepted_algs,
+            "webhook_auth.accepted_signature_algorithms",
+            &self.webhook_auth.accepted_signature_algorithms,
             |left, right| left == right,
         )?;
         self.endpoint_policy.endpoints.sort_by(|left, right| {
@@ -879,8 +877,8 @@ impl AppletRegistrationEpochTranscript {
             |left, right| left.key_ref.as_bytes().cmp(right.key_ref.as_bytes()),
         )?;
         validate_strictly_sorted_by(
-            "webhook_auth.accepted_algs",
-            &self.webhook_auth.accepted_algs,
+            "webhook_auth.accepted_signature_algorithms",
+            &self.webhook_auth.accepted_signature_algorithms,
             |left, right| {
                 left.as_wire_name()
                     .as_bytes()
@@ -900,7 +898,7 @@ impl AppletRegistrationEpochTranscript {
         )?;
         if self.accepted_signing_keys.is_empty()
             || self.endpoint_policy.endpoints.is_empty()
-            || self.webhook_auth.accepted_algs.is_empty()
+            || self.webhook_auth.accepted_signature_algorithms.is_empty()
             || self.security_policy.claimed_profiles.is_empty()
         {
             return Err(Error::Protocol(
@@ -1105,7 +1103,7 @@ impl AppletPackage {
             endpoint_policy: AppletEndpointPolicy::default(),
             webhook_auth: WebhookAuth::http_message_signature(
                 webhook_key_ref,
-                vec![WebhookSignatureAlg::EdDsa],
+                vec![HttpMessageSignatureAlgorithm::Ed25519],
             ),
             receive_events: false,
             receive_signals: false,
@@ -1201,7 +1199,6 @@ impl AppletPackage {
         let sig = signer.sign_payload(&canonical_bytes)?;
         self.proof = Some(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            alg: sig.alg,
             verification_method: verification_method.to_owned(),
             event_digest: payload_digest,
             created_at: Utc::now(),

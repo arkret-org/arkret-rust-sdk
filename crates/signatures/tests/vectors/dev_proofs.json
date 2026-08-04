@@ -5,21 +5,21 @@
       "name": "rejects_dev_kind_proof_envelope",
       "proof_type": "development",
       "kind": "dev",
-      "algorithm": "EdDSA",
+      "algorithm": "Ed25519",
       "expect_rejected": true
     },
     {
       "name": "rejects_mock_kind_proof_envelope",
       "proof_type": "development",
       "kind": "mock",
-      "algorithm": "EdDSA",
+      "algorithm": "Ed25519",
       "expect_rejected": true
     },
     {
       "name": "accepts_detached_jws_production_proof",
       "proof_type": "production",
       "kind": "detached_jws",
-      "algorithm": "EdDSA",
+      "algorithm": "Ed25519",
       "expect_rejected": false
     }
   ]

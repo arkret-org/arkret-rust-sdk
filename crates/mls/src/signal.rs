@@ -722,7 +722,6 @@ mod tests {
                     parts.sender_actor_id, parts.sender_device_id
                 ))
                 .unwrap(),
-                alg: "EdDSA".to_owned(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: binding.sent_at,
                 domain: None,

@@ -873,7 +873,6 @@ mod tests {
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
                 .unwrap(),
             event_digest: digest,
@@ -909,7 +908,6 @@ mod tests {
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(PayloadSignature {
                 extra: Default::default(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#key-1")
                     .unwrap(),
                 payload_digest: hash(0),

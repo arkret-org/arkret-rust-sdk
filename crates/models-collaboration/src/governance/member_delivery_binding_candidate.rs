@@ -274,7 +274,6 @@ mod tests {
             ],
             proofs: vec![Proof {
                 kind: "detached_jws".to_owned(),
-                alg: "EdDSA".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:principal.example#key-1")
                     .unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),

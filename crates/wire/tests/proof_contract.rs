@@ -12,7 +12,6 @@ fn test_realm_id() -> RealmId {
 fn valid_proof() -> Proof {
     Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -27,26 +26,7 @@ fn valid_proof() -> Proof {
 }
 
 #[test]
-fn proof_validate_rejects_alg_none() {
-    let mut proof = valid_proof();
-    proof.alg = "none".to_owned();
-    assert!(proof.validate().is_err());
-    assert!(proof.validate().unwrap_err().to_string().contains("'none'"));
-}
-
-#[test]
-fn proof_validate_rejects_none_case_insensitive() {
-    let mut proof = valid_proof();
-    proof.alg = "NONE".to_owned();
-    assert!(proof.validate().is_err());
-}
-
-#[test]
 fn proof_validate_rejects_empty_fields() {
-    let mut proof = valid_proof();
-    proof.alg = "".to_owned();
-    assert!(proof.validate().is_err());
-
     // `verification_method` is a `DidUrl`; an empty value is unrepresentable,
     // so the runtime emptiness check was removed with the migration. See
     // `proof_verification_method_rejects_non_did_url` below.
@@ -77,68 +57,11 @@ fn proof_validate_production_rejects_dev_kinds() {
 }
 
 #[test]
-fn proof_validate_production_rejects_unsupported_algorithms() {
-    let mut proof = valid_proof();
-    proof.alg = "HS256".to_owned();
-    assert!(proof.validate_production().is_err());
-
-    let mut proof = valid_proof();
-    proof.alg = "RSASSA-PKCS1-v1_5".to_owned();
-    assert!(proof.validate_production().is_err());
-}
-
-#[test]
-fn proof_validate_production_accepts_only_verifiable_algorithms() {
-    // SDK-CRY-02: the accepted set is the intersection of the
-    // signature-alg-registry active rows (encoding.md §6.1) with what this
-    // SDK can actually verify — exactly EdDSA.
-    let mut proof = valid_proof();
-    proof.alg = "EdDSA".to_owned();
-    assert!(proof.validate_production().is_ok());
-}
-
-#[test]
-fn proof_validate_production_rejects_algorithms_without_a_verifier() {
-    // ES256 / ML-DSA-65 are registry-active but ship no signer/verifier in
-    // this SDK; admitting them would let a proof pass the structural gate
-    // that no verifier can actually check (alg-confusion foot-gun).
-    for alg in &["ES256", "ML-DSA-65"] {
-        let mut proof = valid_proof();
-        proof.alg = alg.to_string();
-        assert!(
-            proof.validate_production().is_err(),
-            "should reject unverifiable algorithm: {alg}"
-        );
-    }
-}
-
-#[test]
-fn proof_validate_production_requires_exact_algorithm_case() {
-    // Matching is case-sensitive, aligned with the verifiers: `eddsa` must
-    // not pass the gate only to be rejected by the case-sensitive verifier.
-    for alg in &["eddsa", "EDDSA", "EddSA"] {
-        let mut proof = valid_proof();
-        proof.alg = alg.to_string();
-        assert!(
-            proof.validate_production().is_err(),
-            "should reject non-exact-case algorithm: {alg}"
-        );
-    }
-}
-
-#[test]
-fn proof_validate_production_rejects_unregistered_algorithms() {
-    // ES256K / RS256 / PS256 are NOT in the signature-alg-registry active set
-    // and MUST be rejected — admitting them widens the SDK's security gate
-    // beyond the protocol-accepted algorithms (encoding.md §6.1).
-    for alg in &["ES256K", "RS256", "PS256"] {
-        let mut proof = valid_proof();
-        proof.alg = alg.to_string();
-        assert!(
-            proof.validate_production().is_err(),
-            "should reject unregistered algorithm: {alg}"
-        );
-    }
+fn proof_wrapper_rejects_duplicate_outer_algorithm_selector() {
+    let mut value = serde_json::to_value(valid_proof()).unwrap();
+    value["alg"] = json!("Ed25519");
+    let error = serde_json::from_value::<Proof>(value).unwrap_err();
+    assert!(error.to_string().contains("unknown field `alg`"));
 }
 
 #[test]
@@ -298,7 +221,6 @@ fn event_validate_proof_bindings_checks_digest_match() {
     let digest = event.event_digest().unwrap();
     let proof = Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
@@ -329,7 +251,6 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
 
     let bad_proof = Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -364,7 +285,6 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let digest = event.event_digest().unwrap();
     let proof = Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),

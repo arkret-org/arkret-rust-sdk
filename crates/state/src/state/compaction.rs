@@ -161,7 +161,6 @@ mod tests {
     fn seal(kind: SealKind) -> Seal {
         let sig = PayloadSignature {
             extra: Default::default(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:a.example#k1").unwrap(),
             payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
             created_at: chrono::Utc::now(),

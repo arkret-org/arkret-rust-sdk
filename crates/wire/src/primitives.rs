@@ -927,7 +927,6 @@ fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Au
 pub struct Proof {
     pub kind: String,
     pub verification_method: DidUrl,
-    pub alg: String,
     pub event_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -955,7 +954,6 @@ pub enum PayloadProofPurpose {
 pub struct PayloadProof {
     pub kind: String,
     pub verification_method: DidUrl,
-    pub alg: String,
     pub payload_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -972,11 +970,6 @@ impl PayloadProof {
     pub fn validate(&self) -> Result<()> {
         if self.kind.is_empty() {
             return Err(Error::Protocol("proof kind must not be empty".to_owned()));
-        }
-        if self.alg.is_empty() || self.alg.eq_ignore_ascii_case("none") {
-            return Err(Error::Protocol(
-                "proof algorithm must be a concrete registered algorithm".to_owned(),
-            ));
         }
         if self.jws.is_empty() {
             return Err(Error::Protocol("proof JWS must not be empty".to_owned()));
@@ -1000,12 +993,6 @@ impl PayloadProof {
             return Err(Error::Protocol(format!(
                 "unsupported production proof kind: {}",
                 self.kind
-            )));
-        }
-        if !PRODUCTION_ALGORITHMS.contains(&self.alg.as_str()) {
-            return Err(Error::Protocol(format!(
-                "unsupported production proof algorithm: {}",
-                self.alg
             )));
         }
         Ok(())
@@ -1050,15 +1037,15 @@ pub struct CriticalExtension {
 /// for the SDK's proof-algorithm gate (`arkret-signatures` re-exports it).
 ///
 /// This is the intersection of the `active` rows of
-/// `artifacts/registry/signature-alg-registry.json` (`proof_alg` values, per
-/// `encoding.md` §6.1) with what this SDK can actually verify: only `EdDSA`
+/// `artifacts/registry/signature-alg-registry.json` (`jose_algorithm` values, per
+/// `encoding.md` §6.1) with what this SDK can actually verify: only `Ed25519`
 /// (Ed25519, default-MUST). `ES256` and `ML-DSA-65` are registered active rows
 /// but ship no signer/verifier here — admitting them in `validate_production`
 /// would let an `alg` the SDK cannot check pass a gate that callers may treat
 /// as authoritative (alg-confusion foot-gun), so they are fail-closed excluded
 /// until an implementation lands. Matching is exact and case-sensitive, in
-/// line with the verifiers (`alg == "EdDSA"`).
-pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA"];
+/// line with the verifiers (`alg == "Ed25519"`).
+pub const PRODUCTION_ALGORITHMS: &[&str] = &["Ed25519"];
 
 /// Proof kinds that indicate development/test mode and are rejected in production.
 const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
@@ -1163,19 +1150,9 @@ impl Proof {
 
     /// Validate proof structural requirements.
     ///
-    /// Rejects `alg:none`, empty verification methods, empty JWS, and
-    /// empty kind.
+    /// Rejects empty JWS and kind values. The signature layer validates the
+    /// protected JOSE `alg`; the Arkret wrapper deliberately does not repeat it.
     pub fn validate(&self) -> Result<()> {
-        if self.alg.eq_ignore_ascii_case("none") {
-            return Err(Error::Protocol(
-                "proof algorithm 'none' is not allowed".to_owned(),
-            ));
-        }
-        if self.alg.is_empty() {
-            return Err(Error::Protocol(
-                "proof algorithm must not be empty".to_owned(),
-            ));
-        }
         if self.jws.is_empty() {
             return Err(Error::Protocol("proof JWS must not be empty".to_owned()));
         }
@@ -1197,7 +1174,8 @@ impl Proof {
 
     /// Validate that this proof uses a production-grade algorithm and kind.
     ///
-    /// Rejects `alg:none`, unknown algorithms, and dev/test proof kinds.
+    /// Rejects dev/test proof kinds. The cryptographic verifier rejects an
+    /// unsupported protected-header algorithm.
     pub fn validate_production(&self) -> Result<()> {
         self.validate()?;
         if DEV_PROOF_KINDS
@@ -1207,15 +1185,6 @@ impl Proof {
             return Err(Error::Protocol(format!(
                 "production proofs must not use dev/test kind: {}",
                 self.kind
-            )));
-        }
-        // Exact case-sensitive match, consistent with the verifiers: a proof
-        // with `alg = "eddsa"` must not pass this gate only to be rejected by
-        // the case-sensitive signature verifier.
-        if !PRODUCTION_ALGORITHMS.contains(&self.alg.as_str()) {
-            return Err(Error::Protocol(format!(
-                "unsupported production proof algorithm: {}",
-                self.alg
             )));
         }
         Ok(())
@@ -1393,7 +1362,6 @@ mod tests {
         let digest = Hash::new(echo.echo_digest().unwrap()).unwrap();
         echo.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:server.example#key-1").unwrap(),
             event_digest: digest,
             created_at: echo.observed_at,

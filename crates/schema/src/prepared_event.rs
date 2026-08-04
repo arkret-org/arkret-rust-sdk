@@ -215,7 +215,6 @@ mod tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:agent.example#agent-device")
                 .unwrap(),
-            alg: "EdDSA".to_owned(),
             event_digest: Hash::new(
                 "sha256:0000000000000000000000000000000000000000000000000000000000000000",
             )

@@ -640,12 +640,12 @@ mod key_backup_active_series_tests {
         let subordinate = |fragment: &str, public_key: &str| {
             json!({
                 "kid": format!("did:web:alice.example#{fragment}"),
-                "alg": "Ed25519",
+                "algorithm": "Ed25519",
                 "public_key": public_key,
                 "key_format": "multibase",
                 "binding": {
                     "verification_method": "did:web:alice.example#ak_principal_signing_v1",
-                    "alg": "Ed25519",
+                    "signature_algorithm": "Ed25519",
                     "signature": "c2lnbmF0dXJl"
                 }
             })
@@ -655,7 +655,7 @@ mod key_backup_active_series_tests {
             "trust_domain": "ak:trust_domain:alice.example",
             "principal_signing_key": {
                 "kid": "did:web:alice.example#ak_principal_signing_v1",
-                "alg": "Ed25519",
+                "algorithm": "Ed25519",
                 "public_key": "z6MkfixturePrincipalSigningKeyForTests001",
                 "key_format": "multibase"
             },

@@ -204,7 +204,6 @@ pub trait ExtensionManifestProofVerifier {
         &self,
         publisher_id: &Did,
         verification_method: &str,
-        algorithm: &str,
         signing_bytes: &[u8],
         detached_jws: &str,
     ) -> Result<()>;
@@ -707,7 +706,6 @@ pub fn load_extension_manifests(
             proof_verifier.verify(
                 &manifest.publisher_id,
                 &proof.verification_method,
-                &proof.alg,
                 &signing_bytes,
                 &proof.jws,
             )?;
@@ -861,7 +859,6 @@ mod tests {
             &self,
             publisher_id: &Did,
             verification_method: &str,
-            algorithm: &str,
             signing_bytes: &[u8],
             detached_jws: &str,
         ) -> Result<()> {
@@ -871,7 +868,6 @@ mod tests {
                 verification_method,
                 "did:web:publisher.example#manifest-signing"
             );
-            assert_eq!(algorithm, "EdDSA");
             assert_eq!(detached_jws, "detached-signature");
             let value: Value = crate::canonical::from_canonical_json_slice(signing_bytes)?;
             assert_eq!(
@@ -941,7 +937,6 @@ mod tests {
                 kind: crate::proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new("did:web:publisher.example#manifest-signing")
                     .unwrap(),
-                alg: "EdDSA".to_owned(),
                 event_digest: hash(0),
                 created_at: published_at,
                 domain: None,

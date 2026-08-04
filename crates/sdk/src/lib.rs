@@ -346,8 +346,8 @@ pub use arkret_wire::receive_policy::{
     InviteReceiveAction, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
 pub use arkret_wire::seal::{
-    MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
-    ThresholdSignature, compute_seal_id, seal_canonical_bytes,
+    MultiSigKind, MultiSignature, NotarySig, Seal, SealKind, ThresholdSigKind, ThresholdSignature,
+    compute_seal_id, seal_canonical_bytes,
 };
 pub use arkret_wire::self_contact_paths::*;
 pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregator};

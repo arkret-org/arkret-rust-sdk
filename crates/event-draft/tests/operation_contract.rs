@@ -60,7 +60,6 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     let digest = operation.operation_digest().unwrap();
     operation.proofs = vec![Proof {
         kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),

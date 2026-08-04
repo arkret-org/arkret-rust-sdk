@@ -48,7 +48,7 @@ fn invite_claim_binding_proof(verification_method: &str) -> Value {
 fn invite_subject_proof(verification_method: &str) -> Value {
     json!({
         "verification_method": verification_method,
-        "alg": "EdDSA",
+        "signature_algorithm": "Ed25519",
         "transcript_digest": hash(),
         "signature": "c2ln",
     })
