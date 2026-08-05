@@ -158,7 +158,8 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::ContactRejected
         | EventKind::ContactScopeUpdate
         | EventKind::ContactTombstoned
-        | EventKind::DirectConversationBound => EventProductClass::Contact,
+        | EventKind::DirectConversationBound
+        | EventKind::DirectConversationMlsGenerationActivate => EventProductClass::Contact,
         EventKind::DeviceAuthorize
         | EventKind::CrossSigningPublish
         | EventKind::CrossSigningReset
