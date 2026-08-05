@@ -307,82 +307,104 @@ pub fn validate_direct_conversation_binding(
                 .to_owned(),
         ));
     }
-    match payload.binding_state {
-        DirectConversationAuthoredBindingState::Active => {}
-        DirectConversationAuthoredBindingState::Retired => {
-            if payload.supersedes_binding_ref.is_none() {
-                return Err(Error::Protocol(
-                    "retired direct conversation binding requires supersedes_binding_ref (schema_violation)"
-                        .to_owned(),
-                ));
-            }
-        }
-    }
     Ok(())
 }
 
-#[derive(Clone, Debug)]
-pub struct DirectConversationBindingCandidate {
-    pub event_ref: EventId,
-    pub event_digest: Hash,
-    pub payload: DirectConversationBoundPayload,
+/// Which participant of a pair is allowed to author the Direct Conversation founding unit.
+///
+/// The founder is derived from the pair's **root** Contact basis and never from the current one, so
+/// tombstone/recontact cycles cannot flip it. Both sides compute it independently from data both
+/// already hold and both already signed, which is what removes the cross-server creation race: only
+/// one principal can create, so the contention collapses into a unique index on that principal's own
+/// Principal Server.
+///
+/// See `zh/identity/contact-and-direct-conversation.md` §5.2.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DirectConversationFounderBasis {
+    /// Exactly one accepted request. The founder is the **responder** — the participant that is not
+    /// the request issuer.
+    ///
+    /// This is deliberate and normative: the basis is lit up by the responder's
+    /// `normal_response_acceptance_receipt`, which proves the responder was online at the moment the
+    /// basis came into existence. The requester may have gone offline days earlier. Since base v1
+    /// defines no fallback, naming the possibly-absent party as founder would leave the pair unable
+    /// to ever create the conversation.
+    Normal {
+        request_issuer: Did,
+    },
+    /// Concurrent requests from both sides. There is no responder, so the founder is the issuer of
+    /// `requests[0]` under the ordering already registered for glare requests.
+    Glare {
+        first_request_issuer: Did,
+    },
+    /// controller-to-own-Agent conversations have no Contact basis at all. The founder is fixed to
+    /// the controller so an Agent runtime key never needs Direct Conversation founding scope.
+    ControllerOwnedAgent {
+        controller_id: Did,
+    },
 }
 
-#[derive(Clone, Debug)]
-pub struct DirectConversationCandidateSelection {
-    pub canonical: Option<DirectConversationBindingCandidate>,
-    pub duplicate_active_refs: Vec<EventId>,
-    pub retired_active_refs: Vec<EventId>,
-}
-
-pub fn select_canonical_direct_conversation_binding(
-    candidates: impl IntoIterator<Item = DirectConversationBindingCandidate>,
-) -> Result<DirectConversationCandidateSelection> {
-    let candidates: Vec<_> = candidates.into_iter().collect();
-    let Some(pair_key) = candidates
-        .first()
-        .map(|candidate| candidate.payload.pair_key.clone())
-    else {
-        return Ok(DirectConversationCandidateSelection {
-            canonical: None,
-            duplicate_active_refs: Vec::new(),
-            retired_active_refs: Vec::new(),
-        });
-    };
-    if candidates
-        .iter()
-        .any(|candidate| candidate.payload.pair_key != pair_key)
-    {
+/// Derive the sole principal allowed to author the founding unit for `participants`.
+///
+/// `participants` is the unordered pair; ordering of the argument does not matter.
+pub fn direct_conversation_founder(
+    participants: [Did; 2],
+    basis: &DirectConversationFounderBasis,
+) -> Result<Did> {
+    let [left, right] = participants;
+    if left == right {
         return Err(Error::Protocol(
-            "direct conversation candidate reducer requires one pair_key".to_owned(),
+            "direct conversation requires two distinct participants".to_owned(),
         ));
     }
+    match basis {
+        DirectConversationFounderBasis::Normal { request_issuer } => {
+            if *request_issuer == left {
+                Ok(right)
+            } else if *request_issuer == right {
+                Ok(left)
+            } else {
+                Err(Error::Protocol(
+                    "direct conversation normal basis request issuer is not a pair participant"
+                        .to_owned(),
+                ))
+            }
+        }
+        DirectConversationFounderBasis::Glare {
+            first_request_issuer,
+        } => {
+            if *first_request_issuer == left || *first_request_issuer == right {
+                Ok(first_request_issuer.clone())
+            } else {
+                Err(Error::Protocol(
+                    "direct conversation glare basis requests[0] issuer is not a pair participant"
+                        .to_owned(),
+                ))
+            }
+        }
+        DirectConversationFounderBasis::ControllerOwnedAgent { controller_id } => {
+            if *controller_id == left || *controller_id == right {
+                Ok(controller_id.clone())
+            } else {
+                Err(Error::Protocol(
+                    "direct conversation controller-owned-Agent basis controller is not a pair participant"
+                        .to_owned(),
+                ))
+            }
+        }
+    }
+}
 
-    let retired_active_refs: BTreeSet<EventId> = candidates
-        .iter()
-        .filter(|candidate| {
-            candidate.payload.binding_state == DirectConversationAuthoredBindingState::Retired
-        })
-        .filter_map(|candidate| candidate.payload.supersedes_binding_ref.clone())
-        .collect();
-    let mut active: Vec<_> = candidates
-        .into_iter()
-        .filter(|candidate| {
-            candidate.payload.binding_state == DirectConversationAuthoredBindingState::Active
-                && !retired_active_refs.contains(&candidate.event_ref)
-        })
-        .collect();
-    active.sort_by(|left, right| left.event_digest.as_str().cmp(right.event_digest.as_str()));
-    let canonical = active.pop();
-    let duplicate_active_refs = active
-        .into_iter()
-        .map(|candidate| candidate.event_ref)
-        .collect();
-    Ok(DirectConversationCandidateSelection {
-        canonical,
-        duplicate_active_refs,
-        retired_active_refs: retired_active_refs.into_iter().collect(),
-    })
+/// Whether `actor` may author the founding unit for `participants` under `basis`.
+///
+/// Callers MUST NOT fall back to "whoever asked first" or to a timeout: waiting never grants create
+/// authority to the non-founder.
+pub fn direct_conversation_may_found(
+    actor: &Did,
+    participants: [Did; 2],
+    basis: &DirectConversationFounderBasis,
+) -> Result<bool> {
+    Ok(direct_conversation_founder(participants, basis)? == *actor)
 }
 
 #[cfg(test)]
@@ -530,10 +552,7 @@ mod tests {
         );
     }
 
-    fn binding_payload(
-        state: DirectConversationAuthoredBindingState,
-        supersedes_binding_ref: Option<EventId>,
-    ) -> DirectConversationBoundPayload {
+    fn binding_payload() -> DirectConversationBoundPayload {
         let alice = did("did:webvh:z6mkfixture:alice.example");
         let bob = did("did:webvh:z6mkfixture:bob.example");
         DirectConversationBoundPayload {
@@ -543,7 +562,6 @@ mod tests {
                 DirectConversationPairKeyParticipant::unmapped(bob.clone()),
             )
             .unwrap(),
-            binding_state: state,
             participants_unordered: vec![alice, bob],
             realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000101".to_owned())
                 .unwrap(),
@@ -551,20 +569,15 @@ mod tests {
                 "ak:strand:0196419b-0000-7000-8000-000000000201".to_owned(),
             )
             .unwrap(),
+            founding_unit_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             authorization_basis: DirectConversationAuthorizationBasis::accepted_contact(vec![
                 event_id("301"),
                 event_id("308"),
             ]),
-            member_event_refs: vec![event_id("302"), event_id("303")],
-            main_strand_create_ref: event_id("304"),
-            mls_group_id: MlsGroupId::new("ak:mls_group:direct-fixture").unwrap(),
-            mls_genesis_event_ref: event_id("305"),
-            mls_commit_event_ref: event_id("306"),
-            mls_welcome_event_ref: event_id("307"),
+            initial_exact_pair_generation_ref: event_id("309"),
             created_at: DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            supersedes_binding_ref,
         }
     }
 
@@ -588,7 +601,7 @@ mod tests {
             Utc::now(),
         )
         .object;
-        let payload = binding_payload(DirectConversationAuthoredBindingState::Active, None);
+        let payload = binding_payload();
         let mut members: BTreeSet<_> = payload.participants_unordered.iter().cloned().collect();
         assert!(
             validate_direct_conversation_binding(
@@ -630,34 +643,90 @@ mod tests {
     }
 
     #[test]
-    fn candidate_reducer_uses_digest_max_and_retirement() {
-        let lower_ref = event_id("501");
-        let higher_ref = event_id("502");
-        let lower = DirectConversationBindingCandidate {
-            event_ref: lower_ref.clone(),
-            event_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            payload: binding_payload(DirectConversationAuthoredBindingState::Active, None),
-        };
-        let higher = DirectConversationBindingCandidate {
-            event_ref: higher_ref.clone(),
-            event_digest: Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap(),
-            payload: binding_payload(DirectConversationAuthoredBindingState::Active, None),
-        };
-        let selection =
-            select_canonical_direct_conversation_binding([lower, higher.clone()]).unwrap();
-        assert_eq!(selection.canonical.unwrap().event_ref, higher.event_ref);
-        assert_eq!(selection.duplicate_active_refs, vec![lower_ref]);
+    fn normal_basis_founder_is_the_responder_not_the_requester() {
+        let alice = did("did:webvh:z6mkexample:alice.example");
+        let bob = did("did:webvh:z6mkexample:bob.example");
 
-        let retired = DirectConversationBindingCandidate {
-            event_ref: event_id("503"),
-            event_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
-            payload: binding_payload(
-                DirectConversationAuthoredBindingState::Retired,
-                Some(higher_ref.clone()),
-            ),
+        // Alice sends the request, Bob accepts. Bob lit up the basis and is provably online at that
+        // moment, so Bob founds. Naming Alice would pick the party most likely to be absent, and
+        // base v1 has no fallback.
+        let basis = DirectConversationFounderBasis::Normal {
+            request_issuer: alice.clone(),
         };
-        let selection = select_canonical_direct_conversation_binding([higher, retired]).unwrap();
-        assert!(selection.canonical.is_none());
-        assert_eq!(selection.retired_active_refs, vec![higher_ref]);
+        let founder =
+            direct_conversation_founder([alice.clone(), bob.clone()], &basis).unwrap();
+        assert_eq!(founder, bob);
+        assert_ne!(founder, alice, "founder must not be the request issuer");
+
+        // Argument order must not matter.
+        assert_eq!(
+            direct_conversation_founder([bob.clone(), alice.clone()], &basis).unwrap(),
+            bob
+        );
+
+        assert!(direct_conversation_may_found(&bob, [alice.clone(), bob.clone()], &basis).unwrap());
+        assert!(
+            !direct_conversation_may_found(&alice, [alice.clone(), bob.clone()], &basis).unwrap(),
+            "the non-founder may never author the founding unit"
+        );
+    }
+
+    #[test]
+    fn glare_basis_founder_is_the_first_request_issuer() {
+        let alice = did("did:webvh:z6mkexample:alice.example");
+        let bob = did("did:webvh:z6mkexample:bob.example");
+        let basis = DirectConversationFounderBasis::Glare {
+            first_request_issuer: alice.clone(),
+        };
+        assert_eq!(
+            direct_conversation_founder([alice.clone(), bob.clone()], &basis).unwrap(),
+            alice
+        );
+    }
+
+    #[test]
+    fn controller_owned_agent_founder_is_fixed_to_the_controller() {
+        let controller = did("did:webvh:z6mkexample:alice.example");
+        let agent = did("did:webvh:z6mkexample:alice-agent.example");
+        let basis = DirectConversationFounderBasis::ControllerOwnedAgent {
+            controller_id: controller.clone(),
+        };
+        // Fixed regardless of DID ordering, so an Agent runtime key never needs founding scope.
+        assert_eq!(
+            direct_conversation_founder([agent.clone(), controller.clone()], &basis).unwrap(),
+            controller
+        );
+        assert!(
+            !direct_conversation_may_found(&agent.clone(), [agent, controller], &basis).unwrap()
+        );
+    }
+
+    #[test]
+    fn founder_derivation_rejects_malformed_pairs() {
+        let alice = did("did:webvh:z6mkexample:alice.example");
+        let bob = did("did:webvh:z6mkexample:bob.example");
+        let carol = did("did:webvh:z6mkexample:carol.example");
+
+        // Issuer outside the pair: never guess the complement.
+        assert!(
+            direct_conversation_founder(
+                [alice.clone(), bob.clone()],
+                &DirectConversationFounderBasis::Normal {
+                    request_issuer: carol,
+                },
+            )
+            .is_err()
+        );
+
+        // Not two distinct participants.
+        assert!(
+            direct_conversation_founder(
+                [alice.clone(), alice.clone()],
+                &DirectConversationFounderBasis::Normal {
+                    request_issuer: alice,
+                },
+            )
+            .is_err()
+        );
     }
 }

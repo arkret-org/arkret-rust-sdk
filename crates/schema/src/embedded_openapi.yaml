@@ -345,7 +345,7 @@ components:
     AgentParticipationOutcome:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_participation_outcome
     AgentParticipationReplaceRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/participation_replace_request
+      $ref: ../schemas/principal-operations.schema.json#/$defs/participation_replace_request
     AgentPauseRequestBody:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_pause_request_body
     AgentProvisionOutcome:
@@ -367,9 +367,9 @@ components:
     AgentRuntimeApprovalStatusRequestBody:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body
     AgentSidecarEnsureOutcome:
-      $ref: ../schemas/operation-control.schema.json#/$defs/sidecar_ensure_outcome
+      $ref: ../schemas/principal-operations.schema.json#/$defs/sidecar_ensure_outcome
     AgentSidecarEnsureRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/sidecar_ensure_request
+      $ref: ../schemas/principal-operations.schema.json#/$defs/sidecar_ensure_request
     AgentSidecarList:
       $ref: ../schemas/agent-operations.schema.json#/$defs/agent_sidecar_list
     AgentSidecarView:
@@ -879,32 +879,32 @@ components:
     ContactList:
       $ref: ../schemas/contact-operations.schema.json#/$defs/contact_list
     ContactRejectOutcome:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_reject_outcome
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_reject_outcome
     ContactRejectRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_reject_request
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_reject_request
     ContactRequestOutcome:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_request_outcome
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_request_outcome
     ContactRequestRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_operation_request
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_operation_request
     ContactRespondOutcome:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_respond_outcome
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_respond_outcome
     ContactRespondRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_respond_request
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_respond_request
     ContactScopeUpdateOutcome:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_scope_update_outcome
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_scope_update_outcome
     ContactScopeUpdateRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_scope_update_request
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_scope_update_request
     ContactTombstone:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_tombstone_outcome
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_tombstone_outcome
     ContactTombstoneRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/contact_tombstone_request
+      $ref: ../schemas/contact-operations.schema.json#/$defs/contact_tombstone_request
     Cursor:
       type: string
       pattern: ^ak:cursor:[A-Za-z0-9_-]+$
     DeviceBootstrapCancelOutcome:
-      $ref: ../schemas/operation-control.schema.json#/$defs/cancel_device_bootstrap_outcome
+      $ref: ../schemas/principal-operations.schema.json#/$defs/cancel_device_bootstrap_outcome
     DeviceBootstrapCancelRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/cancel_device_bootstrap_request
+      $ref: ../schemas/principal-operations.schema.json#/$defs/cancel_device_bootstrap_request
     DeviceId:
       type: string
       pattern: ^ak:device:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
@@ -952,9 +952,9 @@ components:
     DidOperationSubmitRequestBody:
       $ref: ../schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody
     DirectConversationResolveOutcome:
-      $ref: ../schemas/operation-control.schema.json#/$defs/direct_conversation_resolve_outcome
+      $ref: ../schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_outcome
     DirectConversationResolveRequestBody:
-      $ref: ../schemas/operation-control.schema.json#/$defs/direct_conversation_resolve_request
+      $ref: ../schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_request
     DirectoryActorSearchOutcome:
       $ref: ../schemas/directory-operations.schema.json#/$defs/directory_actor_search_outcome
     DirectoryAgentSelectorResolutionOutcome:
@@ -1319,9 +1319,6 @@ components:
               - bootstrap_idempotency_conflict
               - contact_scope_stale
               - contact_lineage_conflict
-              - operation_control_quorum_unavailable
-              - operation_control_equivocation
-              - operation_control_certificate_invalid
               - membership_compensation_conflict
             message:
               type: string
@@ -4683,110 +4680,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ../schemas/operation-control.schema.json#/$defs/peer_contact_submit_request
+              $ref: ../schemas/contact-operations.schema.json#/$defs/peer_contact_submit_request
       responses:
         '200':
           description: Generic contact fact delivery receive outcome.
           content:
             application/json:
               schema:
-                $ref: ../schemas/operation-control.schema.json#/$defs/peer_contact_submit_outcome
-  /_arkret/peer/direct-conversation-operation-control/messages:
-    post:
-      operationId: ak.peer.direct_conversation.operation_control.command.submit
-      security:
-      - httpMessageSignature: []
-        sourceServiceId: []
-        destinationServiceId: []
-        sourceTrustDomain: []
-        destinationTrustDomain: []
-        contentDigest: []
-      summary: Submit one closed qDA/PBFT/view-change/read message to an immutable replica.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ../schemas/operation-control.schema.json#/$defs/operation_control_message_submit_request
-      responses:
-        '200':
-          description: Signed immutable-replica message receipt.
-          content:
-            application/json:
-              schema:
-                $ref: ../schemas/operation-control.schema.json#/$defs/operation_control_message_receipt
-  /_arkret/peer/direct-conversation-operation-control/execution-bundles:
-    post:
-      operationId: ak.peer.direct_conversation.operation_control.command.deliver
-      security:
-      - httpMessageSignature: []
-        sourceServiceId: []
-        destinationServiceId: []
-        sourceTrustDomain: []
-        destinationTrustDomain: []
-        contentDigest: []
-      summary: Deliver one fully certified ExecutionBundle to its exact destination.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ../schemas/operation-control.schema.json#/$defs/execution_bundle_delivery_request
-      responses:
-        '200':
-          description: Destination-signed durable delivery outcome.
-          content:
-            application/json:
-              schema:
-                $ref: ../schemas/operation-control.schema.json#/$defs/execution_bundle_delivery_outcome
-  /_arkret/peer/direct-conversation-operation-control/execution-bundles/query:
-    post:
-      operationId: ak.peer.direct_conversation.operation_control.query.execution_bundle
-      security:
-      - httpMessageSignature: []
-        sourceServiceId: []
-        destinationServiceId: []
-        sourceTrustDomain: []
-        destinationTrustDomain: []
-        contentDigest: []
-      summary: Recover an exact immutable ExecutionBundle or its destination receipt.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ../schemas/operation-control.schema.json#/$defs/execution_bundle_query_request
-      responses:
-        '200':
-          description: Exact bundle or exact delivery outcome.
-          content:
-            application/json:
-              schema:
-                $ref: ../schemas/operation-control.schema.json#/$defs/execution_bundle_query_outcome
-  /_arkret/peer/direct-conversation-operation-control/read-certificates/query:
-    post:
-      operationId: ak.peer.direct_conversation.operation_control.query.read_certificate
-      security:
-      - httpMessageSignature: []
-        sourceServiceId: []
-        destinationServiceId: []
-        sourceTrustDomain: []
-        destinationTrustDomain: []
-        contentDigest: []
-      summary: Produce a fresh q-certified operation-control head read.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ../schemas/operation-control.schema.json#/$defs/operation_control_read_request
-      responses:
-        '200':
-          description: Fresh read certificate containing q distinct signed receipts.
-          content:
-            application/json:
-              schema:
-                $ref: ../schemas/operation-control.schema.json#/$defs/operation_control_read_certificate
+                $ref: ../schemas/contact-operations.schema.json#/$defs/peer_contact_submit_outcome
   /_arkret/peer/keys/keypackages/claim:
     post:
       operationId: ak.peer.keys.keypackages.command.claim
@@ -5674,21 +5575,22 @@ paths:
                 $ref: '#/components/schemas/InviteLocatorRevokeOutcome'
   /_arkret/self/direct-conversations/resolve:
     post:
-      operationId: ak.self.direct_conversation.command.resolve
+      operationId: ak.self.direct_conversation.query.resolve
       security:
       - bearerAuth: []
         dpopProof: []
-      summary: Resolve or create the pair's single stable 1:1 DM entry.
+      summary: Resolve the pair's single stable 1:1 DM coordinates.
       description: |
-        Existing bindings return the same Realm and main Strand as found or
-        suspended without consulting KeyPackage inventory. First creation uses
-        one deterministic coordinator and one durable reserved/materializing/found
-        operation. Cross-service creation exposes typed remote KeyPackage claim
-        and materialization actions; all retries after external effect retain the
-        same operation, Realm and main Strand identifiers. A permanently
-        cancelled pair slot returns the tombstoned terminal outcome with frozen
-        operation, attempt and coordinates; later resolve calls exact-replay it
-        and cannot create a new attempt or binding for that pair.
+        Query-only. This endpoint never creates: a Direct Conversation Realm is
+        created solely by the founder derived from the pair's root Contact basis
+        (normal branch takes the responder, glare branch takes the requests[0]
+        issuer) through the direct_conversation_genesis admission variant of
+        ak.realm.create. Outcomes are evaluated in a fixed order and expose
+        creation_required, creation_blocked, awaiting_founder, provisional,
+        found, suspended or temporarily_unavailable. Waiting never grants create
+        authority to the non-founder; there is no timeout fallback or takeover.
+        Existing coordinates are never hidden by presence, session, KeyPackage
+        inventory or MLS reconcile state.
       requestBody:
         required: true
         content:

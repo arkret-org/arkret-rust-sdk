@@ -27,7 +27,7 @@ pub mod mls_group_state_material;
 pub mod object_lifecycle;
 pub mod object_patch;
 pub mod objects;
-pub mod operation_control;
+pub mod direct_conversation_ops;
 pub mod resolved_state;
 pub mod runtime_identity;
 pub mod seal_transparency;

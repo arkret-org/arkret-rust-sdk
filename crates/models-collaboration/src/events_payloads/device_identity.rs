@@ -540,23 +540,24 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/direct_conversation_bound_payload`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// The binding does not enforce uniqueness: at most one Direct Conversation Realm can exist per
+/// pair because only the derived founder may author the founding unit. This payload is the
+/// participant-visible endorsement of coordinates and of the first exact-pair MLS generation.
+///
+/// It carries no `binding_state`, no `supersedes_binding_ref` and no permanent `mls_group_id`: the
+/// binding is written once and never retired, and participant authority always reads the *current*
+/// active MLS generation rather than the founding group.
 pub struct DirectConversationBoundPayload {
     pub pair_key: Hash,
     pub participants_unordered: Vec<Did>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
+    pub founding_unit_digest: Hash,
     pub authorization_basis: DirectConversationAuthorizationBasis,
-    pub member_event_refs: Vec<EventId>,
-    pub main_strand_create_ref: EventId,
-    pub mls_group_id: MlsGroupId,
-    pub mls_genesis_event_ref: EventId,
-    pub mls_commit_event_ref: EventId,
-    pub mls_welcome_event_ref: EventId,
+    /// `generation 1` activation Event: the first exact-pair active MLS generation.
+    pub initial_exact_pair_generation_ref: EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub binding_state: DirectConversationAuthoredBindingState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes_binding_ref: Option<EventId>,
 }
 
 impl DirectConversationBoundPayload {
@@ -577,14 +578,6 @@ impl DirectConversationBoundPayload {
         if self.pair_key != expected {
             return Err(Error::Protocol(
                 "direct conversation pair_key mismatch (schema_violation)".to_owned(),
-            ));
-        }
-        if self.binding_state == DirectConversationAuthoredBindingState::Retired
-            && self.supersedes_binding_ref.is_none()
-        {
-            return Err(Error::Protocol(
-                "retired direct conversation binding requires supersedes_binding_ref (schema_violation)"
-                    .to_owned(),
             ));
         }
         Ok(())

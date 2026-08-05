@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-03.6;
-//! sha256=5c2df9e9af5c07d519d433c5872ef6c8f7d2746be06990be275853003c70e78d Entries: error_codes=275
+//! Input: registry/error-code-registry.json; version=2026-08-05.2;
+//! sha256=ad7471d5eb112d5716861d56eb189e4a0db886dde7a9374504a42e87ff41adc0 Entries: error_codes=272
 
 use serde::{Deserialize, Serialize};
 
@@ -185,9 +185,6 @@ pub enum ErrorCode {
     NotMember,
     NotaryRecoveryMissing,
     OneTimeKeysExhausted,
-    OperationControlCertificateInvalid,
-    OperationControlEquivocation,
-    OperationControlQuorumUnavailable,
     OrganizationRegistrationChallengeInvalid,
     OrganizationRegistrationControlProofInvalid,
     OrganizationRegistrationQuorumNotMet,
@@ -474,9 +471,6 @@ impl ErrorCode {
         Self::NotMember,
         Self::NotaryRecoveryMissing,
         Self::OneTimeKeysExhausted,
-        Self::OperationControlCertificateInvalid,
-        Self::OperationControlEquivocation,
-        Self::OperationControlQuorumUnavailable,
         Self::OrganizationRegistrationChallengeInvalid,
         Self::OrganizationRegistrationControlProofInvalid,
         Self::OrganizationRegistrationQuorumNotMet,
@@ -763,11 +757,6 @@ impl ErrorCode {
     pub const NOT_MEMBER: &'static str = "not_member";
     pub const NOTARY_RECOVERY_MISSING: &'static str = "notary_recovery_missing";
     pub const ONE_TIME_KEYS_EXHAUSTED: &'static str = "one_time_keys_exhausted";
-    pub const OPERATION_CONTROL_CERTIFICATE_INVALID: &'static str =
-        "operation_control_certificate_invalid";
-    pub const OPERATION_CONTROL_EQUIVOCATION: &'static str = "operation_control_equivocation";
-    pub const OPERATION_CONTROL_QUORUM_UNAVAILABLE: &'static str =
-        "operation_control_quorum_unavailable";
     pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str =
         "organization_registration_challenge_invalid";
     pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_INVALID: &'static str =
@@ -1067,9 +1056,6 @@ impl ErrorCode {
             Self::NotMember => "not_member",
             Self::NotaryRecoveryMissing => "notary_recovery_missing",
             Self::OneTimeKeysExhausted => "one_time_keys_exhausted",
-            Self::OperationControlCertificateInvalid => "operation_control_certificate_invalid",
-            Self::OperationControlEquivocation => "operation_control_equivocation",
-            Self::OperationControlQuorumUnavailable => "operation_control_quorum_unavailable",
             Self::OrganizationRegistrationChallengeInvalid => {
                 "organization_registration_challenge_invalid"
             }
@@ -1371,11 +1357,6 @@ impl ErrorCode {
             "not_member" => Some(Self::NotMember),
             "notary_recovery_missing" => Some(Self::NotaryRecoveryMissing),
             "one_time_keys_exhausted" => Some(Self::OneTimeKeysExhausted),
-            "operation_control_certificate_invalid" => {
-                Some(Self::OperationControlCertificateInvalid)
-            }
-            "operation_control_equivocation" => Some(Self::OperationControlEquivocation),
-            "operation_control_quorum_unavailable" => Some(Self::OperationControlQuorumUnavailable),
             "organization_registration_challenge_invalid" => {
                 Some(Self::OrganizationRegistrationChallengeInvalid)
             }
@@ -2770,30 +2751,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "No suitable one-time key or KeyPackage remains available for the requested device, principal, cipher suite, or profile.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::OperationControlCertificateInvalid,
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A qDA, PBFT, qCOMMIT, ancestor-chain, ExecutionBundle or read certificate is structurally valid JSON but fails cross-binding, immutable replica membership, distinct-signer, canonical-order, threshold, journal-root, head-transcript or signature validation.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::OperationControlEquivocation,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A replica signed conflicting semantic value/lock digests for the same immutable one-vote slot, or one permanent effect-ledger identity was presented with a different effect_commitment_digest. Different carriers or valid quorum witness subsets for the same semantic commitment are duplicates, not equivocation. True conflicting material is quarantined.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::OperationControlQuorumUnavailable,
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "No fresh q=2f+1 certificate proves the current operation-control head or required journal availability. The operation remains pending/fail closed and no external effect, cancel, transfer or attempt advance is inferred from a local replica head.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationChallengeInvalid,

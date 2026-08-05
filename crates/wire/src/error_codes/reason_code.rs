@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-03.6;
-//! sha256=5c2df9e9af5c07d519d433c5872ef6c8f7d2746be06990be275853003c70e78d
-//! Entries: reason_codes=456
+//! Input: registry/error-code-registry.json; version=2026-08-05.2;
+//! sha256=ad7471d5eb112d5716861d56eb189e4a0db886dde7a9374504a42e87ff41adc0
+//! Entries: reason_codes=459
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -147,12 +147,15 @@ pub enum ReasonCode {
     DeviceReanchorFrontierMismatch,
     DeviceRecoverySskGenerationMismatch,
     DidProofReplayWindowExceeded,
+    DirectConversationActivationAuthorInvalid,
     DirectConversationBindingInvalid,
     DirectConversationInviteForbidden,
     DirectConversationMemberCountInvalid,
+    DirectConversationPairMaterializationConflict,
     DirectConversationParticipantAuthorityDenied,
     DirectConversationRootMaskViolation,
     DirectConversationSpaceForbidden,
+    DirectConversationTerminalForbidden,
     DirectConversationThirdPartyMemberForbidden,
     DirectDownloadDisallowedPresignForbidden,
     DuplicateConflict,
@@ -650,18 +653,24 @@ impl ReasonCode {
     pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str =
         "device_recovery_ssk_generation_mismatch";
     pub const DID_PROOF_REPLAY_WINDOW_EXCEEDED: &'static str = "did_proof_replay_window_exceeded";
+    pub const DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID: &'static str =
+        "direct_conversation_activation_author_invalid";
     pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
         "direct_conversation_binding_invalid";
     pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str =
         "direct_conversation_invite_forbidden";
     pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str =
         "direct_conversation_member_count_invalid";
+    pub const DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT: &'static str =
+        "direct_conversation_pair_materialization_conflict";
     pub const DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED: &'static str =
         "direct_conversation_participant_authority_denied";
     pub const DIRECT_CONVERSATION_ROOT_MASK_VIOLATION: &'static str =
         "direct_conversation_root_mask_violation";
     pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str =
         "direct_conversation_space_forbidden";
+    pub const DIRECT_CONVERSATION_TERMINAL_FORBIDDEN: &'static str =
+        "direct_conversation_terminal_forbidden";
     pub const DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN: &'static str =
         "direct_conversation_third_party_member_forbidden";
     pub const DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN: &'static str =
@@ -1208,10 +1217,16 @@ impl ReasonCode {
                 Self::DEVICE_RECOVERY_SSK_GENERATION_MISMATCH
             }
             Self::DidProofReplayWindowExceeded => Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED,
+            Self::DirectConversationActivationAuthorInvalid => {
+                Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID
+            }
             Self::DirectConversationBindingInvalid => Self::DIRECT_CONVERSATION_BINDING_INVALID,
             Self::DirectConversationInviteForbidden => Self::DIRECT_CONVERSATION_INVITE_FORBIDDEN,
             Self::DirectConversationMemberCountInvalid => {
                 Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID
+            }
+            Self::DirectConversationPairMaterializationConflict => {
+                Self::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT
             }
             Self::DirectConversationParticipantAuthorityDenied => {
                 Self::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED
@@ -1220,6 +1235,9 @@ impl ReasonCode {
                 Self::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION
             }
             Self::DirectConversationSpaceForbidden => Self::DIRECT_CONVERSATION_SPACE_FORBIDDEN,
+            Self::DirectConversationTerminalForbidden => {
+                Self::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN
+            }
             Self::DirectConversationThirdPartyMemberForbidden => {
                 Self::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN
             }
@@ -1778,10 +1796,16 @@ impl ReasonCode {
                 Self::DeviceRecoverySskGenerationMismatch
             }
             Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED => Self::DidProofReplayWindowExceeded,
+            Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID => {
+                Self::DirectConversationActivationAuthorInvalid
+            }
             Self::DIRECT_CONVERSATION_BINDING_INVALID => Self::DirectConversationBindingInvalid,
             Self::DIRECT_CONVERSATION_INVITE_FORBIDDEN => Self::DirectConversationInviteForbidden,
             Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID => {
                 Self::DirectConversationMemberCountInvalid
+            }
+            Self::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT => {
+                Self::DirectConversationPairMaterializationConflict
             }
             Self::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED => {
                 Self::DirectConversationParticipantAuthorityDenied
@@ -1790,6 +1814,9 @@ impl ReasonCode {
                 Self::DirectConversationRootMaskViolation
             }
             Self::DIRECT_CONVERSATION_SPACE_FORBIDDEN => Self::DirectConversationSpaceForbidden,
+            Self::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN => {
+                Self::DirectConversationTerminalForbidden
+            }
             Self::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN => {
                 Self::DirectConversationThirdPartyMemberForbidden
             }
@@ -2923,6 +2950,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A soft-logout recovery DID proof was rejected because expires_at is missing or its freshness window exceeded the bound (expires_at - issued_at > 300s, or issued_at skew beyond tolerance); see account-lifecycle.md §4 and identity-did.md §5.1.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID,
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "An ak.direct_conversation.mls_generation.activate for generation 1 was authored by the founder instead of the joining participant. No portable proof exists that the peer Principal Server durably accepted the Welcome, so only the joiner can truthfully assert it, mirroring the rule that consume is called by the Welcome recipient and never proxied. Rejected even when every other field is correct. See zh/identity/contact-and-direct-conversation.md §7.3.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_BINDING_INVALID,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
         description: "An authored immutable Direct Conversation binding fact has an invalid issuer, pair key, authorization basis, Realm role, exact two-member set, main Strand, founding MLS references, or stable coordinator-operation cross-binding.",
@@ -2938,6 +2970,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A Direct Conversation binding or membership projection does not resolve to exactly two distinct principal participants. New writes fail closed; an existing stable conversation is returned as suspended rather than replaced.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT,
+        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
+        description: "A second accepted Direct Conversation Realm was observed for the same pair_key while both carried apparently valid founder admission and source acceptance receipts, indicating slot, cutover-fence or signature equivocation by a trusted current Principal Server. Both Realms freeze new Message, membership, policy, MLS and binding writes and all evidence is retained; implementations MUST NOT pick a winner by UUID or arrival order, tombstone either Realm, or migrate history. See zh/identity/contact-and-direct-conversation.md §5.7.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish the immutable stable binding, exact participant, active membership, Realm/Strand/current-MLS-generation cross-binding, lifecycle, resource, both directional Contact heads/scopes, device or Agent gate required for the requested allowlisted action. Consent is not an authority source. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
@@ -2951,6 +2988,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::DIRECT_CONVERSATION_SPACE_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision"],
         description: "A Space create/update/parent/archive/restore/tombstone operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Space containers are not permitted in this constrained Realm role.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN,
+        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
+        description: "A canonical Direct Conversation Realm received ak.realm.destroy or any ak.realm.tombstone. DM coordinates are permanent and successor-free, so an irreversible terminal would leave the pair unable to ever hold a Direct Conversation while the resolver still had to return the dead coordinates. Reversible ak.realm.archive / ak.realm.freeze remain allowed through ordinary Realm authority and only surface as send blockers. See zh/identity/contact-and-direct-conversation.md §8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN,

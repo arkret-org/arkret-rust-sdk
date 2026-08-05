@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-05.1;
-//! sha256=9b19e8688891b7225b3f95d8c915773df5e67e73270d269046c8109f51d3ff65 Input: registry/
-//! capability-action-registry.json; version=2026-08-05.1;
-//! sha256=3cf7df348b3b5f02eb6f4ada2bc531f4770c16447c398ed3eb8742196a0e996a Input: registry/
-//! schema-registry.json; version=2026-08-05.1;
-//! sha256=58c7b207ec660fa3f5db165bdeba541ccc4052aafa74229d3a367eb6d0ba3423 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-05.3;
+//! sha256=ea088c7a414831f13c1bb4be5d3506d034ae52c79fc66a563b67fc70fd077f9d Input: registry/
+//! capability-action-registry.json; version=2026-08-05.3;
+//! sha256=99eb6ab48c7d6f2cbcdc34bbb20e4995ca864bdb1f45bad9b27a518412f3d393 Input: registry/
+//! schema-registry.json; version=2026-08-05.3;
+//! sha256=0817e0f439ad9f10bf0a5d108c2a9730533c844dbab82d196becd2d657c87a9a Input: registry/
 //! account-data-key-registry.json; version=2026-08-03;
 //! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=54,
-//! special_forms=10, actions=169, schemas=180, account_data_patterns=24
+//! special_forms=10, actions=169, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -3076,7 +3076,7 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTACT_SCOPE_UPDATE_V1,
-        file: "schemas/operation-control.schema.json",
+        file: "schemas/contact-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
@@ -3133,6 +3133,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1,
         file: "schemas/did-webvh-witness-receipt.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::DIRECT_CONVERSATION_OPERATIONS_V1,
+        file: "schemas/direct-conversation-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DIRECTORY_OPERATIONS_V1,
@@ -3331,10 +3335,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/offline-publication.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::OPERATION_CONTROL_V1,
-        file: "schemas/operation-control.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::PATCH_V1,
         file: "schemas/patch.schema.json",
     },
@@ -3353,6 +3353,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::PRINCIPAL_LOCATOR_V1,
         file: "schemas/principal-locator.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PRINCIPAL_OPERATIONS_V1,
+        file: "schemas/principal-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PUBLIC_KEY_V1,

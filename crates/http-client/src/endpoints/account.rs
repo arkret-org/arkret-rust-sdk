@@ -14,7 +14,7 @@ use arkret_models_collaboration::http_bodies::{
     DevicePairingResolveRequestBody, DevicePairingStageOutcome, DevicePairingStageRequestBody,
     DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
-use arkret_models_collaboration::operation_control::{
+use arkret_models_collaboration::direct_conversation_ops::{
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
@@ -569,6 +569,12 @@ impl Client {
         self.post(PATH_SELF_CONTACTS_TOMBSTONE, request).await
     }
 
+    /// Query-only resolver for the pair's single stable Direct Conversation.
+    ///
+    /// This never creates. A Direct Conversation Realm is created only by the founder derived from
+    /// the pair's root Contact basis, through the `direct_conversation_genesis` admission variant of
+    /// `ak.realm.create`. `AwaitingFounder` never becomes create authority no matter how long the
+    /// caller waits: base v1 has no timeout fallback or takeover.
     pub async fn direct_conversation_resolve(
         &self,
         request: &DirectConversationResolveRequestBody,

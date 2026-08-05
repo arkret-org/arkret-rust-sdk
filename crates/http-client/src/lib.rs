@@ -836,10 +836,8 @@ mod tests {
         use arkret_models_collaboration::contact_operations::ContactPeer;
         use arkret_models_collaboration::http_bodies::MimiReportAbuseRequestBody;
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
-        use arkret_models_collaboration::operation_control::{
-            DirectConversationLookupMarker, DirectConversationLookupRequestBody,
+        use arkret_models_collaboration::direct_conversation_ops::{
             DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
-            DirectConversationResolveStateOutcome,
         };
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
         use arkret_models_crypto::MlsGovernanceProofRequestBodyBody;
@@ -1668,27 +1666,36 @@ mod tests {
                     "main_strand_id":"ak:strand:01904100-0000-7000-8000-d10000000002",
                     "binding_event_ref":"ak:event:01904100-0000-7000-8000-d10000000003"
                 },
+                "active_mls_generation_ref":"ak:event:01904100-0000-7000-8000-d10000000004",
                 "send_blockers": []
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
-            let request =
-                DirectConversationResolveRequestBody::Lookup(DirectConversationLookupRequestBody {
-                    peer: ContactPeer::Human {
-                        principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-                    },
-                    create: DirectConversationLookupMarker,
-                });
+            let request = DirectConversationResolveRequestBody {
+                peer: ContactPeer::Human {
+                    principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+                },
+            };
 
             let response = client.direct_conversation_resolve(&request).await.unwrap();
-            let DirectConversationResolveOutcome::State(
-                DirectConversationResolveStateOutcome::Found { coordinates, .. },
-            ) = response
+            let DirectConversationResolveOutcome::Found {
+                coordinates,
+                active_mls_generation_ref,
+                ..
+            } = response
             else {
                 panic!("expected found direct conversation");
             };
             assert_eq!(
-                coordinates.binding_event_ref.as_str(),
+                coordinates
+                    .binding_event_ref
+                    .as_ref()
+                    .expect("found carries a binding ref")
+                    .as_str(),
                 "ak:event:01904100-0000-7000-8000-d10000000003"
+            );
+            assert_eq!(
+                active_mls_generation_ref.as_str(),
+                "ak:event:01904100-0000-7000-8000-d10000000004"
             );
 
             let raw = capture.await.unwrap();
@@ -1698,13 +1705,11 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(parsed["peer"]["kind"], "human");
-            assert_eq!(
-                parsed["peer"]["principal_id"],
-                "did:webvh:z6mkfixture:bob.example"
+            assert!(
+                parsed.get("create").is_none(),
+                "resolve is query-only and MUST NOT carry a create phase: {parsed}"
             );
-            assert_eq!(parsed["create"], false);
-            assert!(parsed.get("idempotency_key").is_none());
+            assert!(parsed.get("peer").is_some(), "resolve body carries peer: {parsed}");
         }
 
         #[tokio::test]

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-05.1;
-//! sha256=09bdcc91175ba608fa8464e7a5a9e743b4740d8fdeab66d9227c70a5675a8be7 Input: registry/
-//! operations-error-mapping.json; version=2026-08-03.5;
-//! sha256=35fcf60658f7f32ec7eb37b430a5a2b31c57e6c94ee00df023f809d53d6f3966 Input: registry/
-//! error-code-registry.json; version=2026-08-03.6;
-//! sha256=5c2df9e9af5c07d519d433c5872ef6c8f7d2746be06990be275853003c70e78d Entries: operations=228
+//! Input: registry/operation-registry.json; version=2026-08-05.3;
+//! sha256=2b0cdc26369647a1deedfb04696d17811f9be86e883b1de6cc2a09596676e75d Input: registry/
+//! operations-error-mapping.json; version=2026-08-05.1;
+//! sha256=a640a2ff8e8d31fb67656f1f259f5d9ece9fc04d26f9231392079acf9d88045c Input: registry/
+//! error-code-registry.json; version=2026-08-05.2;
+//! sha256=ad7471d5eb112d5716861d56eb189e4a0db886dde7a9374504a42e87ff41adc0 Entries: operations=224
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -415,37 +415,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerDirectConversationOperationControlCommandDeliver,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::OperationControlEquivocation),
-            OperationSpecificError::ErrorCode(ErrorCode::OperationControlCertificateInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
-            OperationSpecificError::ErrorCode(ErrorCode::StaleFrontier),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerDirectConversationOperationControlCommandSubmit,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::OperationControlEquivocation),
-            OperationSpecificError::ErrorCode(ErrorCode::OperationControlCertificateInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerDirectConversationOperationControlQueryExecutionBundle,
-        operation_specific: &[OperationSpecificError::ErrorCode(
-            ErrorCode::OperationControlCertificateInvalid,
-        )],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerDirectConversationOperationControlQueryReadCertificate,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::OperationControlQuorumUnavailable),
-            OperationSpecificError::ErrorCode(ErrorCode::OperationControlCertificateInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::StaleFrontier),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1055,7 +1024,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfDirectConversationCommandResolve,
+        operation: ServiceOperationId::SelfDirectConversationQueryResolve,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),

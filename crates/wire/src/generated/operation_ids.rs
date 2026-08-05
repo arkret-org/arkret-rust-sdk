@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-05.1;
-//! sha256=09bdcc91175ba608fa8464e7a5a9e743b4740d8fdeab66d9227c70a5675a8be7 Entries: registered=228
+//! Input: registry/operation-registry.json; version=2026-08-05.3;
+//! sha256=2b0cdc26369647a1deedfb04696d17811f9be86e883b1de6cc2a09596676e75d Entries: registered=224
 
 use serde::{Deserialize, Serialize};
 
@@ -72,10 +72,6 @@ pub enum ServiceOperationId {
     PeerAccountStatusCommandSubmit,
     PeerAccountStatusQueryAuthoringBasis,
     PeerContactsCommandSubmit,
-    PeerDirectConversationOperationControlCommandDeliver,
-    PeerDirectConversationOperationControlCommandSubmit,
-    PeerDirectConversationOperationControlQueryExecutionBundle,
-    PeerDirectConversationOperationControlQueryReadCertificate,
     PeerEventsCommandSubmit,
     PeerEventsQueryDescribe,
     PeerEventsQueryFrontier,
@@ -167,7 +163,7 @@ pub enum ServiceOperationId {
     SelfDeviceMessagesCommandAck,
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesQueryList,
-    SelfDirectConversationCommandResolve,
+    SelfDirectConversationQueryResolve,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
     SelfEventsQueryDescribe,
@@ -303,10 +299,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER,
-    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE,
-    ServiceOperationId::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE,
     ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER,
@@ -398,7 +390,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
     ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST,
-    ServiceOperationId::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE,
+    ServiceOperationId::SELF_DIRECT_CONVERSATION_QUERY_RESOLVE,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
     ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE,
@@ -574,10 +566,6 @@ impl ServiceOperationId {
         Self::PeerAccountStatusCommandSubmit,
         Self::PeerAccountStatusQueryAuthoringBasis,
         Self::PeerContactsCommandSubmit,
-        Self::PeerDirectConversationOperationControlCommandDeliver,
-        Self::PeerDirectConversationOperationControlCommandSubmit,
-        Self::PeerDirectConversationOperationControlQueryExecutionBundle,
-        Self::PeerDirectConversationOperationControlQueryReadCertificate,
         Self::PeerEventsCommandSubmit,
         Self::PeerEventsQueryDescribe,
         Self::PeerEventsQueryFrontier,
@@ -669,7 +657,7 @@ impl ServiceOperationId {
         Self::SelfDeviceMessagesCommandAck,
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesQueryList,
-        Self::SelfDirectConversationCommandResolve,
+        Self::SelfDirectConversationQueryResolve,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
         Self::SelfEventsQueryDescribe,
@@ -851,14 +839,6 @@ impl ServiceOperationId {
     pub const PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS: &'static str =
         "ak.peer.account_status.query.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
-    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER: &'static str =
-        "ak.peer.direct_conversation.operation_control.command.deliver";
-    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT: &'static str =
-        "ak.peer.direct_conversation.operation_control.command.submit";
-    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE: &'static str =
-        "ak.peer.direct_conversation.operation_control.query.execution_bundle";
-    pub const PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE: &'static str =
-        "ak.peer.direct_conversation.operation_control.query.read_certificate";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
     pub const PEER_EVENTS_QUERY_DESCRIBE: &'static str = "ak.peer.events.query.describe";
     pub const PEER_EVENTS_QUERY_FRONTIER: &'static str = "ak.peer.events.query.frontier";
@@ -991,8 +971,8 @@ impl ServiceOperationId {
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
         "ak.self.device_messages.command.send";
     pub const SELF_DEVICE_MESSAGES_QUERY_LIST: &'static str = "ak.self.device_messages.query.list";
-    pub const SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE: &'static str =
-        "ak.self.direct_conversation.command.resolve";
+    pub const SELF_DIRECT_CONVERSATION_QUERY_RESOLVE: &'static str =
+        "ak.self.direct_conversation.query.resolve";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_QUERY_DESCRIBE: &'static str = "ak.self.events.query.describe";
@@ -1203,18 +1183,6 @@ impl ServiceOperationId {
                 Self::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
-            Self::PeerDirectConversationOperationControlCommandDeliver => {
-                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER
-            }
-            Self::PeerDirectConversationOperationControlCommandSubmit => {
-                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT
-            }
-            Self::PeerDirectConversationOperationControlQueryExecutionBundle => {
-                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE
-            }
-            Self::PeerDirectConversationOperationControlQueryReadCertificate => {
-                Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE
-            }
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
             Self::PeerEventsQueryDescribe => Self::PEER_EVENTS_QUERY_DESCRIBE,
             Self::PeerEventsQueryFrontier => Self::PEER_EVENTS_QUERY_FRONTIER,
@@ -1340,8 +1308,8 @@ impl ServiceOperationId {
             Self::SelfDeviceMessagesCommandAck => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK,
             Self::SelfDeviceMessagesCommandSend => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND,
             Self::SelfDeviceMessagesQueryList => Self::SELF_DEVICE_MESSAGES_QUERY_LIST,
-            Self::SelfDirectConversationCommandResolve => {
-                Self::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE
+            Self::SelfDirectConversationQueryResolve => {
+                Self::SELF_DIRECT_CONVERSATION_QUERY_RESOLVE
             }
             Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
             Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
@@ -1570,18 +1538,6 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusQueryAuthoringBasis)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
-            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_DELIVER => {
-                Some(Self::PeerDirectConversationOperationControlCommandDeliver)
-            }
-            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_COMMAND_SUBMIT => {
-                Some(Self::PeerDirectConversationOperationControlCommandSubmit)
-            }
-            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_EXECUTION_BUNDLE => {
-                Some(Self::PeerDirectConversationOperationControlQueryExecutionBundle)
-            }
-            Self::PEER_DIRECT_CONVERSATION_OPERATION_CONTROL_QUERY_READ_CERTIFICATE => {
-                Some(Self::PeerDirectConversationOperationControlQueryReadCertificate)
-            }
             Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
             Self::PEER_EVENTS_QUERY_DESCRIBE => Some(Self::PeerEventsQueryDescribe),
             Self::PEER_EVENTS_QUERY_FRONTIER => Some(Self::PeerEventsQueryFrontier),
@@ -1723,8 +1679,8 @@ impl ServiceOperationId {
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK => Some(Self::SelfDeviceMessagesCommandAck),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND => Some(Self::SelfDeviceMessagesCommandSend),
             Self::SELF_DEVICE_MESSAGES_QUERY_LIST => Some(Self::SelfDeviceMessagesQueryList),
-            Self::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE => {
-                Some(Self::SelfDirectConversationCommandResolve)
+            Self::SELF_DIRECT_CONVERSATION_QUERY_RESOLVE => {
+                Some(Self::SelfDirectConversationQueryResolve)
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT => Some(Self::SelfEventsCommandSubmit),
             Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL => Some(Self::SelfEventsCommandSubmitSeal),
@@ -2462,10 +2418,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/cancel_device_bootstrap_request",
+            "schemas/principal-operations.schema.json#/$defs/cancel_device_bootstrap_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/cancel_device_bootstrap_outcome",
+            "schemas/principal-operations.schema.json#/$defs/cancel_device_bootstrap_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3284,112 +3240,16 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/peer_contact_submit_request",
+            "schemas/contact-operations.schema.json#/$defs/peer_contact_submit_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/peer_contact_submit_outcome",
+            "schemas/contact-operations.schema.json#/$defs/peer_contact_submit_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerDirectConversationOperationControlCommandDeliver,
-        http_method: "POST",
-        http_path: "/_arkret/peer/direct-conversation-operation-control/execution-bundles",
-        grpc: Some("PeerDirectConversationOperationControl/DeliverExecutionBundle"),
-        mq: Some("peer.direct_conversation.operation_control.command.deliver"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("protocol_sequence"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/execution_bundle_delivery_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/execution_bundle_delivery_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("certified_external_effect_and_destination_ledger_only"),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerDirectConversationOperationControlCommandSubmit,
-        http_method: "POST",
-        http_path: "/_arkret/peer/direct-conversation-operation-control/messages",
-        grpc: Some("PeerDirectConversationOperationControl/Submit"),
-        mq: Some("peer.direct_conversation.operation_control.command.submit"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("protocol_sequence"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/operation_control_message_submit_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/operation_control_message_receipt",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("authenticated_replica_protocol_log_only"),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerDirectConversationOperationControlQueryExecutionBundle,
-        http_method: "POST",
-        http_path: "/_arkret/peer/direct-conversation-operation-control/execution-bundles/query",
-        grpc: Some("PeerDirectConversationOperationControl/QueryExecutionBundle"),
-        mq: Some("peer.direct_conversation.operation_control.query.execution_bundle"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/execution_bundle_query_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/execution_bundle_query_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("read_only_exact_execution_bundle_or_delivery_receipt_lookup"),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerDirectConversationOperationControlQueryReadCertificate,
-        http_method: "POST",
-        http_path: "/_arkret/peer/direct-conversation-operation-control/read-certificates/query",
-        grpc: Some("PeerDirectConversationOperationControl/ReadCertificate"),
-        mq: Some("peer.direct_conversation.operation_control.query.read_certificate"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/operation_control_read_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/operation_control_read_certificate",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("read_only_fresh_quorum_certificate_assembly"),
         }),
     },
     ServiceOperationDescriptor {
@@ -4402,7 +4262,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/participation_replace_request",
+            "schemas/principal-operations.schema.json#/$defs/participation_replace_request",
         ),
         response_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
@@ -4458,10 +4318,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/sidecar_ensure_request",
+            "schemas/principal-operations.schema.json#/$defs/sidecar_ensure_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/sidecar_ensure_outcome",
+            "schemas/principal-operations.schema.json#/$defs/sidecar_ensure_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5138,10 +4998,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_reject_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_reject_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_reject_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_reject_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5162,10 +5022,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_operation_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_operation_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_request_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_request_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5186,10 +5046,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_respond_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_respond_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_respond_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_respond_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5210,10 +5070,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_scope_update_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_scope_update_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_scope_update_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_scope_update_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5234,10 +5094,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_tombstone_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/contact_tombstone_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5353,30 +5213,24 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfDirectConversationCommandResolve,
+        id: ServiceOperationId::SelfDirectConversationQueryResolve,
         http_method: "POST",
         http_path: "/_arkret/self/direct-conversations/resolve",
         grpc: Some("SelfDirectConversation/Resolve"),
-        mq: Some("self.direct_conversation.command.resolve"),
+        mq: Some("self.direct_conversation.query.resolve"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
+        idempotency_mechanism: None,
+        retry_safe: None,
         request_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/direct_conversation_resolve_request",
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_request",
         ),
         response_schema_ref: Some(
-            "schemas/operation-control.schema.json#/$defs/direct_conversation_resolve_outcome",
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_outcome",
         ),
         uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "the_service_persists_only_the_coordinator_operation_record_and_returns_participant_authoring_material_or_an_existing_projection",
-            ),
-        }),
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsCommandSubmit,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-05.1;
-//! sha256=89e4f3790e123a6907cf94a4000d3a14e5fffa2af80168fc844cfb423bd4eae0 Entries: profile_ids=101
+//! Input: profiles/conformance-profiles.json; version=2026-08-05.4;
+//! sha256=54bc19d0c72825f34f09af772e9364b16cdd96147484ab2e3f34c722dd4d6be9 Entries: profile_ids=100
 
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +39,6 @@ pub enum ProfileId {
     CoreEventStoreV1,
     CrdtTextV1,
     CrossSigningResetV1,
-    DirectConversationOperationControlV1,
     DirectConversationRealmV1,
     DirectConversationRepairV1,
     DirectoryServiceV1,
@@ -144,7 +143,6 @@ impl ProfileId {
         Self::CoreEventStoreV1,
         Self::CrdtTextV1,
         Self::CrossSigningResetV1,
-        Self::DirectConversationOperationControlV1,
         Self::DirectConversationRealmV1,
         Self::DirectConversationRepairV1,
         Self::DirectoryServiceV1,
@@ -254,8 +252,6 @@ impl ProfileId {
     pub const CORE_EVENT_STORE_V1: &'static str = "ak.profile.core_event_store.v1";
     pub const CRDT_TEXT_V1: &'static str = "ak.profile.crdt.text.v1";
     pub const CROSS_SIGNING_RESET_V1: &'static str = "ak.profile.cross_signing.reset.v1";
-    pub const DIRECT_CONVERSATION_OPERATION_CONTROL_V1: &'static str =
-        "ak.profile.direct_conversation_operation_control.v1";
     pub const DIRECT_CONVERSATION_REALM_V1: &'static str =
         "ak.profile.direct_conversation_realm.v1";
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
@@ -379,9 +375,6 @@ impl ProfileId {
             Self::CoreEventStoreV1 => Self::CORE_EVENT_STORE_V1,
             Self::CrdtTextV1 => Self::CRDT_TEXT_V1,
             Self::CrossSigningResetV1 => Self::CROSS_SIGNING_RESET_V1,
-            Self::DirectConversationOperationControlV1 => {
-                Self::DIRECT_CONVERSATION_OPERATION_CONTROL_V1
-            }
             Self::DirectConversationRealmV1 => Self::DIRECT_CONVERSATION_REALM_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::DirectoryServiceV1 => Self::DIRECTORY_SERVICE_V1,
@@ -491,9 +484,6 @@ impl ProfileId {
             Self::CORE_EVENT_STORE_V1 => Some(Self::CoreEventStoreV1),
             Self::CRDT_TEXT_V1 => Some(Self::CrdtTextV1),
             Self::CROSS_SIGNING_RESET_V1 => Some(Self::CrossSigningResetV1),
-            Self::DIRECT_CONVERSATION_OPERATION_CONTROL_V1 => {
-                Some(Self::DirectConversationOperationControlV1)
-            }
             Self::DIRECT_CONVERSATION_REALM_V1 => Some(Self::DirectConversationRealmV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::DIRECTORY_SERVICE_V1 => Some(Self::DirectoryServiceV1),

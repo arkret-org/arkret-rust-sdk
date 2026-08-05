@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-05.1;
-//! sha256=58c7b207ec660fa3f5db165bdeba541ccc4052aafa74229d3a367eb6d0ba3423 Entries: schema_ids=180,
-//! active=180
+//! Input: registry/schema-registry.json; version=2026-08-05.3;
+//! sha256=0817e0f439ad9f10bf0a5d108c2a9730533c844dbab82d196becd2d657c87a9a Entries: schema_ids=181,
+//! active=181
 
 use serde::{Deserialize, Serialize};
 
@@ -76,6 +76,7 @@ pub enum SchemaId {
     DidContinuityProofV1,
     DidKeyLogEntryV1,
     DidWebvhWitnessReceiptV1,
+    DirectConversationOperationsV1,
     DirectoryOperationsV1,
     DisappearingMessagesV1,
     DraftSyncV1,
@@ -125,12 +126,12 @@ pub enum SchemaId {
     NotificationV1,
     ObjectAddressingV1,
     OfflinePublicationV1,
-    OperationControlV1,
     PatchV1,
     PersonalProductivityV1,
     PinV1,
     PolicyV1,
     PrincipalLocatorV1,
+    PrincipalOperationsV1,
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
@@ -260,6 +261,7 @@ impl SchemaId {
         Self::DidContinuityProofV1,
         Self::DidKeyLogEntryV1,
         Self::DidWebvhWitnessReceiptV1,
+        Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
         Self::DisappearingMessagesV1,
         Self::DraftSyncV1,
@@ -309,12 +311,12 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
-        Self::OperationControlV1,
         Self::PatchV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
+        Self::PrincipalOperationsV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -444,6 +446,7 @@ impl SchemaId {
         Self::DidContinuityProofV1,
         Self::DidKeyLogEntryV1,
         Self::DidWebvhWitnessReceiptV1,
+        Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
         Self::DisappearingMessagesV1,
         Self::DraftSyncV1,
@@ -493,12 +496,12 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
-        Self::OperationControlV1,
         Self::PatchV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
+        Self::PrincipalOperationsV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -706,8 +709,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface holder-private consent cell operations
     /// (ak.self.consent.*); see zh/identity/consent-model.md.
     pub const CONSENT_OPERATIONS_V1: &'static str = "ak.schema.consent_operations.v1";
-    /// Closed request/response DTO bundle for contact lifecycle operations and direct conversation
-    /// resolver.
+    /// Closed request/response DTO bundle for the Contact lifecycle: request, respond, reject,
+    /// scope replacement, tombstone, the portable basis evidence bundle, acceptance receipts and
+    /// the peer Contact carrier, plus the contact-list projection.
     pub const CONTACT_OPERATIONS_V1: &'static str = "ak.schema.contact_operations.v1";
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
     /// basis, version, predecessor and full granted-scope set.
@@ -756,6 +760,11 @@ impl SchemaId {
     /// returned by ak.root.identity.receipts.query.list as a tagged union discriminated on schema.
     /// Never substitutes for verifying the standard did-witness.json proofs.
     pub const DID_WEBVH_WITNESS_RECEIPT_V1: &'static str = "ak.schema.did_webvh_witness_receipt.v1";
+    /// Closed carriers for the Direct Conversation resolver and single-sided founding: the
+    /// query-only resolve request and tagged outcome, permanent coordinates, the resolver blocker
+    /// set and the source founding acceptance receipt.
+    pub const DIRECT_CONVERSATION_OPERATIONS_V1: &'static str =
+        "ak.schema.direct_conversation_operations.v1";
     /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
     /// discovery, handle lookup, agent selector lookup, and push webhook registration operations.
     pub const DIRECTORY_OPERATIONS_V1: &'static str = "ak.schema.directory_operations.v1";
@@ -869,10 +878,6 @@ impl SchemaId {
     pub const OBJECT_ADDRESSING_V1: &'static str = "ak.schema.object_addressing.v1";
     /// AuthorizationLease and IngressReceipt proof objects.
     pub const OFFLINE_PUBLICATION_V1: &'static str = "ak.schema.offline_publication.v1";
-    /// Closed shared wire carriers for bootstrap, Contact, participation, stable Direct
-    /// Conversation operation control, membership compensation, history ingress, KeyPackage
-    /// terminal handling, Sidecar and external execution attestation.
-    pub const OPERATION_CONTROL_V1: &'static str = "ak.schema.operation_control.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
@@ -883,6 +888,10 @@ impl SchemaId {
     /// Signed online invite locator asserting subject_id and recipient_service_id for private
     /// invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
+    /// Closed wire carriers scoped to a single principal: device bootstrap, participation
+    /// replacement, history ingress contracts, KeyPackage terminal handling, Sidecar staging and
+    /// the shared identifier, signature and receipt primitives those carriers reuse.
+    pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
     /// own document so device, agent, account and to-device surfaces reference one shared
     /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
@@ -1117,6 +1126,7 @@ impl SchemaId {
             Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
             Self::DidKeyLogEntryV1 => Self::DID_KEY_LOG_ENTRY_V1,
             Self::DidWebvhWitnessReceiptV1 => Self::DID_WEBVH_WITNESS_RECEIPT_V1,
+            Self::DirectConversationOperationsV1 => Self::DIRECT_CONVERSATION_OPERATIONS_V1,
             Self::DirectoryOperationsV1 => Self::DIRECTORY_OPERATIONS_V1,
             Self::DisappearingMessagesV1 => Self::DISAPPEARING_MESSAGES_V1,
             Self::DraftSyncV1 => Self::DRAFT_SYNC_V1,
@@ -1168,12 +1178,12 @@ impl SchemaId {
             Self::NotificationV1 => Self::NOTIFICATION_V1,
             Self::ObjectAddressingV1 => Self::OBJECT_ADDRESSING_V1,
             Self::OfflinePublicationV1 => Self::OFFLINE_PUBLICATION_V1,
-            Self::OperationControlV1 => Self::OPERATION_CONTROL_V1,
             Self::PatchV1 => Self::PATCH_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
+            Self::PrincipalOperationsV1 => Self::PRINCIPAL_OPERATIONS_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
@@ -1307,7 +1317,7 @@ impl SchemaId {
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
-            Self::ContactScopeUpdateV1 => "schemas/operation-control.schema.json",
+            Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ControllerAccountGateAttestationV1 => "schemas/agent-signer-evidence.schema.json",
             Self::CrossSigningPublishV1 => "schemas/cross-signing-publish.schema.json",
@@ -1322,6 +1332,9 @@ impl SchemaId {
             Self::DidContinuityProofV1 => "schemas/did-continuity-proof.schema.json",
             Self::DidKeyLogEntryV1 => "schemas/did-key-log-entry.schema.json",
             Self::DidWebvhWitnessReceiptV1 => "schemas/did-webvh-witness-receipt.schema.json",
+            Self::DirectConversationOperationsV1 => {
+                "schemas/direct-conversation-operations.schema.json"
+            }
             Self::DirectoryOperationsV1 => "schemas/directory-operations.schema.json",
             Self::DisappearingMessagesV1 => "schemas/disappearing-messages.schema.json",
             Self::DraftSyncV1 => "schemas/draft-sync.schema.json",
@@ -1377,12 +1390,12 @@ impl SchemaId {
             Self::NotificationV1 => "schemas/notification.schema.json",
             Self::ObjectAddressingV1 => "schemas/object-addressing.schema.json",
             Self::OfflinePublicationV1 => "schemas/offline-publication.schema.json",
-            Self::OperationControlV1 => "schemas/operation-control.schema.json",
             Self::PatchV1 => "schemas/patch.schema.json",
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
+            Self::PrincipalOperationsV1 => "schemas/principal-operations.schema.json",
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
@@ -1535,6 +1548,7 @@ impl SchemaId {
             Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
             Self::DID_KEY_LOG_ENTRY_V1 => Some(Self::DidKeyLogEntryV1),
             Self::DID_WEBVH_WITNESS_RECEIPT_V1 => Some(Self::DidWebvhWitnessReceiptV1),
+            Self::DIRECT_CONVERSATION_OPERATIONS_V1 => Some(Self::DirectConversationOperationsV1),
             Self::DIRECTORY_OPERATIONS_V1 => Some(Self::DirectoryOperationsV1),
             Self::DISAPPEARING_MESSAGES_V1 => Some(Self::DisappearingMessagesV1),
             Self::DRAFT_SYNC_V1 => Some(Self::DraftSyncV1),
@@ -1590,12 +1604,12 @@ impl SchemaId {
             Self::NOTIFICATION_V1 => Some(Self::NotificationV1),
             Self::OBJECT_ADDRESSING_V1 => Some(Self::ObjectAddressingV1),
             Self::OFFLINE_PUBLICATION_V1 => Some(Self::OfflinePublicationV1),
-            Self::OPERATION_CONTROL_V1 => Some(Self::OperationControlV1),
             Self::PATCH_V1 => Some(Self::PatchV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
+            Self::PRINCIPAL_OPERATIONS_V1 => Some(Self::PrincipalOperationsV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),
