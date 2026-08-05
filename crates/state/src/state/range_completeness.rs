@@ -554,7 +554,7 @@ mod tests {
 
     fn event(id: &str, seq: u64, kind: &str, prev_refs: Vec<EventId>) -> Event {
         let actor = Did::new("did:web:alice.example").unwrap();
-        let realm = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        let realm = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
         let mut event = Event {
             event_id: EventId::new(id).unwrap(),
             kind: EventKind::from(kind),
@@ -662,7 +662,7 @@ mod tests {
             unreachable!()
         };
         let mut event = Event {
-            event_id: EventId::new("ak:event:01904100-0000-7000-8000-000000000004").unwrap(),
+            event_id: EventId::new("ak:event:01904100-0000-8000-8000-000000000004").unwrap(),
             kind: EventKind::AttestationRangeCompleteness,
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
@@ -704,13 +704,13 @@ mod tests {
     #[test]
     fn root_is_order_stable_and_excludes_non_reducer_events() {
         let first = event(
-            "ak:event:01904100-0000-7000-8000-000000000002",
+            "ak:event:01904100-0000-8000-8000-000000000002",
             2,
             "ak.key_backup.active_series",
             Vec::new(),
         );
         let second = event(
-            "ak:event:01904100-0000-7000-8000-000000000003",
+            "ak:event:01904100-0000-8000-8000-000000000003",
             3,
             "ak.attestation.range_completeness",
             Vec::new(),
@@ -724,13 +724,13 @@ mod tests {
     #[test]
     fn full_realm_verifier_accepts_covered_active_series_and_rejects_tampering() {
         let genesis = event(
-            "ak:event:01904100-0000-7000-8000-000000000001",
+            "ak:event:01904100-0000-8000-8000-000000000001",
             0,
             "ak.realm.create",
             Vec::new(),
         );
         let active = event(
-            "ak:event:01904100-0000-7000-8000-000000000002",
+            "ak:event:01904100-0000-8000-8000-000000000002",
             1,
             "ak.key_backup.active_series",
             vec![genesis.event_id.clone()],
@@ -782,13 +782,13 @@ mod tests {
     #[test]
     fn high_assurance_rejects_single_source() {
         let genesis = event(
-            "ak:event:01904100-0000-7000-8000-000000000001",
+            "ak:event:01904100-0000-8000-8000-000000000001",
             0,
             "ak.realm.create",
             Vec::new(),
         );
         let active = event(
-            "ak:event:01904100-0000-7000-8000-000000000002",
+            "ak:event:01904100-0000-8000-8000-000000000002",
             1,
             "ak.key_backup.active_series",
             vec![genesis.event_id.clone()],
@@ -809,13 +809,13 @@ mod tests {
     #[test]
     fn verifier_rejects_claimed_actor_sequence_gap() {
         let genesis = event(
-            "ak:event:01904100-0000-7000-8000-000000000001",
+            "ak:event:01904100-0000-8000-8000-000000000001",
             0,
             "ak.realm.create",
             Vec::new(),
         );
         let active = event(
-            "ak:event:01904100-0000-7000-8000-000000000002",
+            "ak:event:01904100-0000-8000-8000-000000000002",
             2,
             "ak.key_backup.active_series",
             vec![genesis.event_id.clone()],
@@ -859,7 +859,7 @@ mod tests {
     #[test]
     fn root_rejects_an_event_with_an_unbound_proof_digest() {
         let mut active = event(
-            "ak:event:01904100-0000-7000-8000-000000000002",
+            "ak:event:01904100-0000-8000-8000-000000000002",
             1,
             "ak.key_backup.active_series",
             Vec::new(),
@@ -874,7 +874,7 @@ mod tests {
     #[test]
     fn root_uses_the_selected_realm_digest_suite() {
         let active = event(
-            "ak:event:01904100-0000-7000-8000-000000000002",
+            "ak:event:01904100-0000-8000-8000-000000000002",
             1,
             "ak.key_backup.active_series",
             Vec::new(),

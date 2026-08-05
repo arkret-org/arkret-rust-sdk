@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn projection_object_uses_the_spec_kind_member() {
         let object: ProjectionObject = serde_json::from_value(json!({
-            "id": "ak:strand:01904100-0000-7000-8000-000000000011",
+            "id": "ak:strand:01904100-0000-8000-8000-000000000011",
             "kind": "strand"
         }))
         .unwrap();

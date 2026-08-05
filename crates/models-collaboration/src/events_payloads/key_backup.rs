@@ -696,12 +696,12 @@ mod key_backup_active_series_tests {
                 serde_json::from_value(json!({
                     "kind": "service_attested",
                     "authority_did": "did:web:authority.example",
-                    "authorization_ref": "ak:event:01964137-0000-7000-8000-0000000000a1"
+                    "authorization_ref": "ak:event:01964137-0000-8000-8000-0000000000a1"
                 }))
                 .expect("enrollment authority binding fixture"),
             ),
             device_authorize_event_id: Some(
-                EventId::new("ak:event:01964137-0000-7000-8000-0000000000a1".to_owned()).unwrap(),
+                EventId::new("ak:event:01964137-0000-8000-8000-0000000000a1".to_owned()).unwrap(),
             ),
             authorized_generation_ref: Some(
                 NonEmptyString::new("did-version-7".to_owned()).unwrap(),
@@ -747,7 +747,7 @@ mod key_backup_active_series_tests {
             ControllerBackupTrustAnchor::CrossSigningGeneration(NonZeroU64::new(2).unwrap()),
             ControllerBackupTrustAnchor::DeviceGeneration {
                 authorize_event_id: EventId::new(
-                    "ak:event:01964137-0000-7000-8000-0000000000a1".to_owned(),
+                    "ak:event:01964137-0000-8000-8000-0000000000a1".to_owned(),
                 )
                 .unwrap(),
                 generation_ref: NonEmptyString::new("did-version-7".to_owned()).unwrap(),
@@ -788,7 +788,7 @@ mod key_backup_active_series_tests {
             .unwrap()
             .remove("ssk_generation");
         value["auth_data"]["device_authorize_event_id"] =
-            json!("ak:event:01964137-0000-7000-8000-0000000000a1");
+            json!("ak:event:01964137-0000-8000-8000-0000000000a1");
         let mixed: KeyBackupActiveSeries = serde_json::from_value(value).unwrap();
         assert_eq!(
             ControllerBackupTrustAnchor::from_record(&mixed),
@@ -824,7 +824,7 @@ mod key_backup_active_series_tests {
             resolve_controller_backup_trust_anchor(&outcome, &test_actor(), &test_device()),
             Ok(ControllerBackupTrustAnchor::DeviceGeneration {
                 authorize_event_id: EventId::new(
-                    "ak:event:01964137-0000-7000-8000-0000000000a1".to_owned()
+                    "ak:event:01964137-0000-8000-8000-0000000000a1".to_owned()
                 )
                 .unwrap(),
                 generation_ref: NonEmptyString::new("did-version-7".to_owned()).unwrap(),
@@ -895,7 +895,7 @@ mod key_backup_active_series_tests {
             .unwrap()
             .remove("ssk_generation");
         b["auth_data"]["device_authorize_event_id"] =
-            json!("ak:event:01964137-0000-7000-8000-000000000009");
+            json!("ak:event:01964137-0000-8000-8000-000000000009");
         b["frontier_ref"]
             .as_object_mut()
             .unwrap()

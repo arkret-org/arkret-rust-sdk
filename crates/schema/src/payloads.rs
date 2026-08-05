@@ -545,7 +545,7 @@ mod tests {
             .validate_payload(
                 "ak.rsvp.set",
                 &json!({
-                    "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                    "event_ref": "ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182",
                     "occurrence": null,
                     "entry": entry
                 }),
@@ -570,7 +570,7 @@ mod tests {
                 .validate_payload(
                     "ak.rsvp.set",
                     &json!({
-                        "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                        "event_ref": "ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182",
                         "occurrence": null,
                         "status": "accepted"
                     }),
@@ -583,7 +583,7 @@ mod tests {
                 .validate_payload(
                     "ak.rsvp.set",
                     &json!({
-                        "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                        "event_ref": "ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182",
                         "occurrence": null,
                         "entry": {"schedule_basis_refs": [
                             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -601,9 +601,9 @@ mod tests {
             .validate_payload(
                 "ak.strand.move",
                 &json!({
-                    "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
-                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                    "board_space_id": "ak:space:01904100-0000-8000-8000-111111111111",
+                    "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
                     "rank": "U"
                 }),
             )
@@ -612,8 +612,8 @@ mod tests {
             catalog.validate_payload(
                 "ak.strand.move",
                 &json!({
-                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                    "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
                     "rank": "U"
                 })
             ),
@@ -631,9 +631,9 @@ mod tests {
             .validate_payload(
                 EventKind::STRAND_MOVE,
                 &json!({
-                    "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
-                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                    "board_space_id": "ak:space:01904100-0000-8000-8000-111111111111",
+                    "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
                     "rank": "U"
                 }),
             )
@@ -644,8 +644,8 @@ mod tests {
                     EventKind::STRAND_MOVE,
                     &json!({
                         "board_space_id": "not-a-space-id",
-                        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                        "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                        "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+                        "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
                         "rank": "U"
                     }),
                 )
@@ -656,9 +656,9 @@ mod tests {
                 .validate_payload(
                     EventKind::STRAND_MOVE,
                     &json!({
-                        "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
-                        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                        "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                        "board_space_id": "ak:space:01904100-0000-8000-8000-111111111111",
+                        "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+                        "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
                         "rank": "U",
                         "unexpected": true
                     }),
@@ -1068,7 +1068,7 @@ mod tests {
     fn realm_organization_active_payload() -> Value {
         json!({
             "statement_id": "org-stmt-1",
-            "realm_id": "ak:realm:0196419b-0000-7000-8000-000000000010",
+            "realm_id": "ak:realm:0196419b-0000-8000-8000-000000000010",
             "organization_id": "did:webvh:example.test:orgs:org1",
             "relationship": "owner",
             "status": "active",

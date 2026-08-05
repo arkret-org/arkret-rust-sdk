@@ -317,23 +317,11 @@ impl DidDocument {
 
 /// Derive the deterministic principal-control Realm ID for a principal DID.
 pub fn principal_control_realm_id(principal_id: &Did) -> String {
-    let digest = arkret_canonical::canonical::sha256_bytes_from_slices(&[
-        b"ak:realm:principal-control:v1:",
-        principal_id.as_str().as_bytes(),
-    ]);
-    let mut bytes = [0_u8; 16];
-    bytes.copy_from_slice(&digest[..16]);
-    bytes[6] = (bytes[6] & 0x0f) | 0x70;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    let group =
-        |slice: &[u8]| -> String { slice.iter().map(|byte| format!("{byte:02x}")).collect() };
+    // Single source of the derivation: `arkret-identifiers` owns it so the
+    // envelope-construction path in `arkret-wire` derives the identical bytes.
     format!(
-        "ak:realm:{}-{}-{}-{}-{}",
-        group(&bytes[0..4]),
-        group(&bytes[4..6]),
-        group(&bytes[6..8]),
-        group(&bytes[8..10]),
-        group(&bytes[10..16])
+        "ak:realm:{}",
+        arkret_wire::principal_control_realm_uuid(principal_id.as_str())
     )
 }
 

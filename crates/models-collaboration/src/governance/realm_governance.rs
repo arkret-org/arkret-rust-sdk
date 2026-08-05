@@ -881,7 +881,7 @@ mod tests {
 
     fn realm(byte: char) -> RealmId {
         RealmId::new(format!(
-            "ak:realm:01904100-0000-7000-8000-0000000000{byte}{byte}"
+            "ak:realm:01904100-0000-8000-8000-0000000000{byte}{byte}"
         ))
         .unwrap()
     }
@@ -910,7 +910,7 @@ mod tests {
     #[test]
     fn realm_link_request_default_materializes_but_durable_payload_is_strict() {
         let request: RealmLinkCreateRequestBody = serde_json::from_value(serde_json::json!({
-            "target_realm_id": "ak:realm:01904100-0000-7000-8000-cfc039892036",
+            "target_realm_id": "ak:realm:01904100-0000-8000-8000-cfc039892036",
             "link_kind": "governed_by",
         }))
         .unwrap();
@@ -924,7 +924,7 @@ mod tests {
         );
         assert!(
             serde_json::from_value::<RealmLinkPayload>(serde_json::json!({
-                "target_realm_id": "ak:realm:01904100-0000-7000-8000-cfc039892036",
+                "target_realm_id": "ak:realm:01904100-0000-8000-8000-cfc039892036",
                 "link_kind": "governed_by",
             }))
             .is_err()
@@ -1120,11 +1120,11 @@ mod tests {
     #[test]
     fn realm_link_payload_serde_roundtrip() {
         let payload = RealmLinkPayload {
-            target_realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
+            target_realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-cfc039892036").unwrap(),
             link_kind: RealmLinkKind::JoinGateFrom,
             status: RealmLinkStatus::Active,
             label: Some("compliance gate".to_owned()),
-            commitment: Some("ak:event:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned()),
+            commitment: Some("ak:event:01904100-0000-8000-8000-aaaaaaaaaaaa".to_owned()),
         };
         let v = serde_json::to_value(&payload).unwrap();
         let back: RealmLinkPayload = serde_json::from_value(v).unwrap();
@@ -1134,7 +1134,7 @@ mod tests {
     #[test]
     fn realm_inheritance_policy_validate_rejects_excessive_depth() {
         let bad = RealmInheritancePolicy {
-            source_realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
+            source_realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-cfc039892036").unwrap(),
             allowed_policies: vec!["join_policy.v1".to_owned()],
             allowed_capability_bundles: vec!["bundle.admin.v1".to_owned()],
             max_depth: 2,
@@ -1142,7 +1142,7 @@ mod tests {
         assert!(bad.validate().is_err());
 
         let good = RealmInheritancePolicy {
-            source_realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
+            source_realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-cfc039892036").unwrap(),
             allowed_policies: vec!["join_policy.v1".to_owned()],
             allowed_capability_bundles: vec!["bundle.admin.v1".to_owned()],
             max_depth: 1,
@@ -1156,11 +1156,11 @@ mod tests {
             capability_id: CapabilityId::new("ak:capability:01904100-0000-7000-8000-bbbbbbbbbbbb")
                 .unwrap(),
             source_grant_ref: EventRef::new(
-                "ak:event:01904100-0000-7000-8000-cccccccccccc".to_owned(),
+                "ak:event:01904100-0000-8000-8000-cccccccccccc".to_owned(),
                 "authorized_by".to_owned(),
             ),
             source_realm_inheritance_policy_ref: EventRef::new(
-                "ak:event:01904100-0000-7000-8000-dddddddddddd".to_owned(),
+                "ak:event:01904100-0000-8000-8000-dddddddddddd".to_owned(),
                 "inherits_from".to_owned(),
             ),
             causal_frontier: "ak:frontier:02000000".to_owned(),

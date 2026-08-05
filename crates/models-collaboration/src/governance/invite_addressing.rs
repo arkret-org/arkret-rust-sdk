@@ -777,7 +777,7 @@ mod tests {
     #[test]
     fn introduction_evidence_consent_grant_roundtrips_wire_kind() {
         let evidence = IntroductionEvidence::ConsentGrant {
-            consent_grant_ref: EventId::new("ak:event:01904100-0000-7000-8000-79a90338768b")
+            consent_grant_ref: EventId::new("ak:event:01904100-0000-8000-8000-79a90338768b")
                 .unwrap(),
             consent_id: None,
         };

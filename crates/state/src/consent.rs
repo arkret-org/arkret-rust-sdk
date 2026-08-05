@@ -389,7 +389,7 @@ mod tests {
             scope: Scope::Invite,
             not_before: None,
             expires_at: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("ak:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
+            evidence_ref: Some("ak:event:01904100-0000-8000-8000-4ad9d5ef0089".to_owned()),
             reason: None,
             constraints: vec![],
         };

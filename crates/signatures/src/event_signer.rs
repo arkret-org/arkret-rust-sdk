@@ -185,7 +185,7 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -202,7 +202,7 @@ mod tests {
 
     fn make_event() -> Event {
         Event {
-            event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+            event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
             kind: "ak.message.create".into(),
             realm_id: realm(),
             scope_ref: arkret_wire::ScopeRef::Realm { realm_id: realm() },

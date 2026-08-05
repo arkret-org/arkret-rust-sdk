@@ -20,7 +20,7 @@
 //! let draft = OperationEnvelopeBuilder::new(
 //!     OperationId::new("ak:operation:01904100-0000-7000-8000-57d7d85564c5")?,
 //!     ScopeRef::Realm {
-//!         realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-668e2181b41d")?,
+//!         realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-668e2181b41d")?,
 //!     },
 //!     Did::new("did:webvh:z6mkfixture:alice.example")?,
 //!     EventKind::MESSAGE_CREATE,
@@ -28,7 +28,7 @@
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
 //! .with_payload(json!({
-//!     "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+//!     "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
 //!     "track_name": "main",
 //!     "content": {"kind": "ak.content.text", "body": "hello"}
 //! }))

@@ -112,7 +112,7 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
                 AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             ),
             Did::new("did:webvh:z6mkfixture:bot.example").unwrap(),
-            "ak:event:01904100-0000-7000-8000-deadbeefdead",
+            "ak:event:01904100-0000-8000-8000-deadbeefdead",
             AppletBridgeErrorClass::ExternalNetwork,
             "external_rate_limited",
             true,
@@ -151,7 +151,7 @@ mod tests {
                 AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             ),
             Did::new("did:webvh:z6mkfixture:bot.example").unwrap(),
-            "ak:event:01904100-0000-7000-8000-deadbeefdead",
+            "ak:event:01904100-0000-8000-8000-deadbeefdead",
             AppletBridgeErrorClass::Schema,
             "invalid_external_ref",
             false,

@@ -940,7 +940,7 @@ mod tests {
 
     fn receipt() -> ControlProposalReceipt {
         let mut member = ProposalMemberReceipt {
-            realm_id: RealmId::new("ak:realm:018f6b1d-7a20-7abc-8def-0123456789ab").unwrap(),
+            realm_id: RealmId::new("ak:realm:018f6b1d-8a20-8abc-8def-0123456789ab").unwrap(),
             proposal_digest: hash('a'),
             received_at: at(0),
             decision_due_at: at(30),
@@ -970,7 +970,7 @@ mod tests {
                 .unwrap(),
         };
         let member = ProposalMemberReceipt::issue_with_signer(
-            RealmId::new("ak:realm:018f6b1d-7a20-7abc-8def-0123456789ab").unwrap(),
+            RealmId::new("ak:realm:018f6b1d-8a20-8abc-8def-0123456789ab").unwrap(),
             hash('a'),
             hash('b'),
             at(0),

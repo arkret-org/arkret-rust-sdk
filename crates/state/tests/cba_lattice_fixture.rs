@@ -131,7 +131,7 @@ fn realm_link_payload(status: RealmLinkStatus, target_realm_id: RealmId) -> Real
 }
 
 fn realm_id(suffix: &str) -> RealmId {
-    RealmId::new(format!("ak:realm:01904100-0000-7000-8000-{suffix:0>12}")).unwrap()
+    RealmId::new(format!("ak:realm:01904100-0000-8000-8000-{suffix:0>12}")).unwrap()
 }
 
 /// Dispatch table: executes every assertion string the fixture's

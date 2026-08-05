@@ -922,6 +922,14 @@ fn effect_source_value(
             .ok_or_else(|| effect_set_error(kind, &format!("effect source {path} is missing")));
     }
     if let Some(field) = source.get("envelope_field").and_then(Value::as_str) {
+        // `realm_id` is the one envelope field whose wire form and in-memory
+        // form differ: `ak.realm.create` omits it on the wire because the Realm
+        // id is derived from that Event (zh/models/realm-and-space.md section
+        // 2.5.0), while `Event` keeps it resolved. Reducer projections want the
+        // resolved value — the genesis create log is keyed by it.
+        if field == "realm_id" {
+            return Ok(Value::String(event.realm_id.to_string()));
+        }
         let envelope = serde_json::to_value(event)
             .map_err(|error| effect_set_error(kind, &error.to_string()))?;
         return envelope
@@ -1266,6 +1274,15 @@ fn derive_subject_value(
                 .get("field")
                 .and_then(Value::as_str)
                 .ok_or_else(|| subject_error(&kind, "cell subject field is missing"))?;
+            // `envelope.event_id` is legal only under an `id:<kind>` rule, and
+            // it never yields the raw `ak:event:` string: the subject is the
+            // *derived object id* (spec `zh/models/common-fields.md` section
+            // 6.0). It has to be, or a create would write a different cell than
+            // every later update of the same object, which locates it by
+            // `payload.<kind>_id`.
+            if path == EVENT_ID_SUBJECT_SOURCE {
+                return derived_object_id_subject(event, rule_kind, &kind);
+            }
             if let Some(value) = field_value(event, path) {
                 return scalar_subject(value).map_err(|message| subject_error(&kind, &message));
             }
@@ -1273,6 +1290,64 @@ fn derive_subject_value(
                 .ok_or_else(|| subject_error(&kind, &format!("{path} is missing")))
         }
     }
+}
+
+/// The one envelope subject source that resolves to a derived value rather
+/// than a field: this Event's own object id.
+const EVENT_ID_SUBJECT_SOURCE: &str = "envelope.event_id";
+
+/// The object id this Event derives, when its registered contract locates the
+/// cell by `envelope.event_id` — i.e. when it is the create of an
+/// `id_source: event_derived` object.
+///
+/// Returns `None` for every other kind. Clients use this to name the object
+/// they just created without inventing an id the receiver would never agree
+/// with (spec `zh/models/common-fields.md` section 6.0).
+pub fn derived_object_id(event: &Event) -> Option<String> {
+    let kind = event.kind.as_str();
+    let registry = event_kind_registry().ok()?;
+    let row = registry
+        .get("event_kinds")
+        .and_then(Value::as_array)?
+        .iter()
+        .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind))?;
+    for write in row.get("cell_writes").and_then(Value::as_array)? {
+        let rule = write.get("cell_subject")?;
+        if rule.get("field").and_then(Value::as_str) != Some(EVENT_ID_SUBJECT_SOURCE) {
+            continue;
+        }
+        let rule_kind = rule.get("kind").and_then(Value::as_str).unwrap_or_default();
+        return derived_object_id_subject(event, rule_kind, kind).ok();
+    }
+    None
+}
+
+/// Retype this create Event's `event_id` into the object-id kind the rule
+/// declares (`{"kind": "id:strand", "field": "envelope.event_id"}`).
+///
+/// The UUID payload is shared verbatim; only the typed prefix changes. The
+/// target kind MUST be one whose registry `id_source` is `event_derived` — a
+/// producer-allocated kind can never be named this way, and accepting one would
+/// silently mint an id nobody can re-derive.
+fn derived_object_id_subject(
+    event: &Event,
+    rule_kind: &str,
+    kind: &str,
+) -> Result<String, EventCellContractError> {
+    let id_kind = rule_kind.strip_prefix("id:").ok_or_else(|| {
+        subject_error(
+            kind,
+            "envelope.event_id subject MUST declare an `id:<kind>` target",
+        )
+    })?;
+    let prefix = format!("ak:{id_kind}:");
+    if !arkret_wire::EVENT_DERIVED_ID_KIND_PREFIXES.contains(&prefix.as_str()) {
+        return Err(subject_error(
+            kind,
+            &format!("{prefix} is not an event-derived id kind"),
+        ));
+    }
+    Ok(format!("{prefix}{}", event.event_id.uuid()))
 }
 
 fn derive_composite(
@@ -1597,10 +1672,10 @@ mod tests {
     /// `event-auth-state-resolution.md` §9.5 recovery, built as a Control Move.
     fn conflict_recovery_event(target_cell: &str, resolved: Value) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9190",
+            "event_id": "ak:event:019f9e50-d787-84e0-8731-c9ad5eaa9190",
             "kind": "ak.state.conflict_recovery",
-            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180"},
+            "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 9,
             "created_at": "2026-07-26T01:00:00.000Z",
@@ -1658,10 +1733,10 @@ mod tests {
 
     fn rsvp_event(occurrence: Value) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9181",
+            "event_id": "ak:event:019f9e50-d787-84e0-8731-c9ad5eaa9181",
             "kind": EventKind::RSVP_SET,
-            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180"},
+            "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
@@ -1676,7 +1751,7 @@ mod tests {
                 "key_epoch": 1
             },
             "payload": {
-                "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                "event_ref": "ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182",
                 "occurrence": occurrence,
                 "entry": {
                     "schedule_basis_refs": [
@@ -1695,7 +1770,7 @@ mod tests {
         let event = rsvp_event(Value::Null);
         assert_eq!(
             derive_subject(&event, subject_rule(&event)).unwrap(),
-            "3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc"
+            "LjvpAsw7qCPnXbATwtWyUYHAncyxVuNfGaCjpuF0968"
         );
         validate_registered_cell_writes(&event).unwrap();
 
@@ -1706,7 +1781,7 @@ mod tests {
         assert_eq!(
             project(&event),
             vec![write(
-                "ak:cell:ak.component.calendar.rsvp.v1:3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc",
+                "ak:cell:ak.component.calendar.rsvp.v1:LjvpAsw7qCPnXbATwtWyUYHAncyxVuNfGaCjpuF0968",
                 set_op(event.payload.get("entry").unwrap().clone()),
             )]
         );
@@ -1714,7 +1789,7 @@ mod tests {
         let instance = rsvp_event(json!("2026-07-26T09:00:00[Asia/Shanghai]"));
         assert_eq!(
             derive_subject(&instance, subject_rule(&instance)).unwrap(),
-            "tc2S5LQybi5y3tI-hoyB6HoBWFepT_tDfFcmHJk_jd0"
+            "jf3fbUvz3MqDtt8iV7dbotMquW_ddop9YpeYfWwGK0Q"
         );
     }
 
@@ -1757,7 +1832,7 @@ mod tests {
         );
         assert_eq!(
             derive_subject(&shadow, rule).unwrap(),
-            "3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc"
+            "LjvpAsw7qCPnXbATwtWyUYHAncyxVuNfGaCjpuF0968"
         );
 
         let envelope_select = json!({
@@ -1777,10 +1852,10 @@ mod tests {
 
     fn subject_event(kind: &str, payload: Value) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9181",
+            "event_id": "ak:event:019f9e50-d787-84e0-8731-c9ad5eaa9181",
             "kind": kind,
-            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180"},
+            "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
@@ -1885,31 +1960,34 @@ mod tests {
         // {relation_id, kind, from_ref, to_ref} form, whose subject was
         // derivable but whose cell value was not — effect_projection is
         // `set value = payload.relation`, and §2.4.2 forbids assembling one.
+        // The subject is `retype(envelope.event_id)` — `subject_event` stamps
+        // `ak:event:019f9e50-d787-84e0-8731-c9ad5eaa9181`, so a payload id (here
+        // deliberately a different value) can never move the cell.
         assert_eq!(
             registered_subject(
                 "ak.relation.create",
-                json!({"relation": {"id": "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182"}})
+                json!({"relation": {"id": "ak:relation:019f9e50-d787-84e0-8731-c9ad5eaa9182"}})
             ),
-            "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182"
+            "ak:relation:019f9e50-d787-84e0-8731-c9ad5eaa9181"
         );
         assert_eq!(
             registered_subject(
                 "ak.profile.realm_override",
                 json!({
-                    "target_realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
-                    "target_ref": "ak:actor_profile:019f9e50-d787-74e0-8731-c9ad5eaa9182"
+                    "target_realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180",
+                    "target_ref": "ak:actor_profile:019f9e50-d787-84e0-8731-c9ad5eaa9182"
                 })
             ),
-            "S1MZHDKMf5kd80P1RGS85BD2prCffX7a3tNNg_Axy-4"
+            "4lmSqOslGpZYnmZGaLPOZPiWG7ExneiXpCVIFdPh3to"
         );
     }
 
     fn accountability_event(scope: Value, status: &str) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9190",
+            "event_id": "ak:event:019f9e50-d787-84e0-8731-c9ad5eaa9190",
             "kind": EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
-            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180"},
+            "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-84e0-8731-c9ad5eaa9180"},
             "actor_id": "did:web:issuer.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
@@ -2031,10 +2109,10 @@ mod tests {
 
     fn realm_facet(kind: &str, payload: Value) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000001",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000001",
             "kind": kind,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 3,
             "created_at": "2026-07-20T00:00:00.000Z",
@@ -2057,7 +2135,7 @@ mod tests {
             "recipient_principal_id": "did:webvh:z6mkfixture:bob.example",
             "recipient_device_id": "ak:device:019f9000-0000-7000-8000-000000000003",
             "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
-            "source_authorization_ref": "ak:event:019f9000-0000-7000-8000-000000000005",
+            "source_authorization_ref": "ak:event:019f9000-0000-8000-8000-000000000005",
             "sender_device_signature": {
                 "kid": "did:webvh:z6mkfixture:alice.example#ak:device:019f9000-0000-7000-8000-000000000004",
                 "signature_algorithm": "Ed25519",
@@ -2066,7 +2144,7 @@ mod tests {
             "key_scope": {
                 "effective_scope": {
                     "kind": "realm",
-                    "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"
+                    "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"
                 },
                 "policy_digest": format!("sha256:{}", "aa".repeat(32)),
                 "from_epoch": 1,
@@ -2076,10 +2154,10 @@ mod tests {
             "created_at": "2026-07-26T00:00:00.000Z"
         });
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000001",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000001",
             "kind": EventKind::REALM_KEY_SHARE,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2099,7 +2177,7 @@ mod tests {
 
     /// The delivery cell the member-device share KAT derives.
     const DELIVERY_CELL: &str =
-        "ak:cell:ak.component.realm_key.delivery.v1:ks8W0G2dV6cCdf3LJSEVB5horGJplQNFyjP1qN5-FM4";
+        "ak:cell:ak.component.realm_key.delivery.v1:iKNQUwv30eghixoceeX5OUtYghl4QaBYQVtRTz3ROUE";
 
     #[test]
     fn validates_delivery_append_from_registry() {
@@ -2129,10 +2207,10 @@ mod tests {
             payload["invitee"] = json!(invitee);
         }
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000011",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000011",
             "kind": EventKind::INVITE_CREATE,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 4,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2187,10 +2265,10 @@ mod tests {
     #[test]
     fn invite_accept_member_target_uses_explicit_envelope_actor() {
         let event: Event = serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000012",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000012",
             "kind": EventKind::INVITE_ACCEPT,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:bob.example",
             "actor_seq": 1,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2224,10 +2302,10 @@ mod tests {
 
     fn invite_terminal_event(kind: &str) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000013",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000013",
             "kind": kind,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 5,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2303,10 +2381,10 @@ mod tests {
 
     fn consent_revoke_event(observed_dots: Value) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000015",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000015",
             "kind": EventKind::CONSENT_REVOKE,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 6,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2327,8 +2405,8 @@ mod tests {
 
     #[test]
     fn consent_revoke_projects_each_explicit_dot_in_payload_order() {
-        let first = "ak:event:019f9000-0000-7000-8000-000000000011:0";
-        let second = "ak:event:019f9000-0000-7000-8000-000000000012:3";
+        let first = "ak:event:019f9000-0000-8000-8000-000000000011:0";
+        let second = "ak:event:019f9000-0000-8000-8000-000000000012:3";
         assert_eq!(
             project(&consent_revoke_event(json!([first, second]))),
             vec![
@@ -2350,13 +2428,13 @@ mod tests {
             (json!([]), "must not be empty"),
             (
                 json!([
-                    "ak:event:019f9000-0000-7000-8000-000000000011:0",
-                    "ak:event:019f9000-0000-7000-8000-000000000011:0"
+                    "ak:event:019f9000-0000-8000-8000-000000000011:0",
+                    "ak:event:019f9000-0000-8000-8000-000000000011:0"
                 ]),
                 "must be unique",
             ),
             (
-                json!(["ak:event:019f9000-0000-7000-8000-000000000011:00"]),
+                json!(["ak:event:019f9000-0000-8000-8000-000000000011:00"]),
                 "non-canonical dot",
             ),
             (json!(["not-a-dot"]), "non-canonical dot"),
@@ -2402,10 +2480,9 @@ mod tests {
 
     fn realm_create_event(refs: Value) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000021",
             "kind": EventKind::REALM_CREATE,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000021",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000021"},
+            "scope_ref": {"kind": "realm_genesis"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2414,7 +2491,6 @@ mod tests {
             "refs": refs,
             "payload": {
                 "object": {
-                    "id": "ak:realm:019f9000-0000-7000-8000-000000000021",
                     "created_by": "did:webvh:z6mkfixture:alice.example",
                     "reducer_profile": "ak.reducer.core.v1",
                     "notary": {
@@ -2450,7 +2526,7 @@ mod tests {
                 ),
                 write(
                     arkret_wire::REALM_CREATE_CELL,
-                    append_op(json!("ak:realm:019f9000-0000-7000-8000-000000000021"), 0),
+                    append_op(json!("ak:realm:019f9000-0000-8000-8000-000000000021"), 0),
                 ),
                 write(
                     "ak:cell:ak.component.notary.v1:null",
@@ -2480,7 +2556,7 @@ mod tests {
     #[test]
     fn realm_create_agent_status_write_requires_exactly_one_critical_provision_ref() {
         let provision_ref = json!({
-            "id": "ak:event:019f9000-0000-7000-8000-000000000022",
+            "id": "ak:event:019f9000-0000-8000-8000-000000000022",
             "role": "agent_provision",
             "critical": true
         });
@@ -2497,12 +2573,12 @@ mod tests {
 
         for refs in [
             json!([{
-                "id": "ak:event:019f9000-0000-7000-8000-000000000023",
+                "id": "ak:event:019f9000-0000-8000-8000-000000000023",
                 "role": "agent_provision",
                 "critical": false
             }]),
             json!([{
-                "id": "ak:event:019f9000-0000-7000-8000-000000000024",
+                "id": "ak:event:019f9000-0000-8000-8000-000000000024",
                 "role": "did_inception",
                 "critical": true
             }]),
@@ -2514,10 +2590,10 @@ mod tests {
 
     fn call_event(kind: &str, payload: Value) -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000021",
             "kind": kind,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 5,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2564,7 +2640,7 @@ mod tests {
                 write(
                     &format!("ak:cell:ak.component.call.roster.v1:{call_id}"),
                     add_op(
-                        "ak:event:019f9000-0000-7000-8000-000000000021:7",
+                        "ak:event:019f9000-0000-8000-8000-000000000021:7",
                         participant,
                     ),
                 ),
@@ -2595,7 +2671,7 @@ mod tests {
         let recording_id = "capture-019f9000";
         let subject = arkret_wire::composite_subject(&[call_id, recording_id]).unwrap();
         let recording_result = json!({
-            "recording_start_event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "recording_start_event_id": "ak:event:019f9000-0000-8000-8000-000000000021",
             "retention": {"consent_confirmed": true}
         });
         let recording = call_event(
@@ -2624,7 +2700,7 @@ mod tests {
         // The `capture_kind` discriminator alone moves both writes onto the
         // transcript families; a producer cannot mix the two capture axes.
         let transcript_result = json!({
-            "transcript_start_event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "transcript_start_event_id": "ak:event:019f9000-0000-8000-8000-000000000021",
             "retention": {"consent_confirmed": true}
         });
         let transcript = call_event(
@@ -2662,10 +2738,10 @@ mod tests {
             "actions": ["ak.realm.admin"]
         });
         let event: Event = serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-7000-8000-000000000001",
+            "event_id": "ak:event:019f9000-0000-8000-8000-000000000001",
             "kind": EventKind::CAPABILITY_GRANT,
-            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 3,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -2686,7 +2762,7 @@ mod tests {
             vec![write(
                 &format!("ak:cell:ak.component.capability.grant.v1:{grant_id}"),
                 add_op(
-                    "ak:event:019f9000-0000-7000-8000-000000000001:0",
+                    "ak:event:019f9000-0000-8000-8000-000000000001:0",
                     serde_json::to_value(&event.payload).unwrap(),
                 ),
             )]
@@ -2731,8 +2807,8 @@ mod tests {
             json!({
                 "effective_scope": {
                     "kind": "circle",
-                    "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
-                    "circle_id": "ak:circle:019f9000-0000-7000-8000-000000000007"
+                    "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
+                    "circle_id": "ak:circle:019f9000-0000-8000-8000-000000000007"
                 },
                 "policy_digest": format!("sha256:{}", "aa".repeat(32))
             }),
@@ -2746,7 +2822,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             value["effective_scope_id"],
-            json!("ak:circle:019f9000-0000-7000-8000-000000000007"),
+            json!("ak:circle:019f9000-0000-8000-8000-000000000007"),
             "circle branch must project the circle id"
         );
         validate_registered_cell_writes(&event).unwrap();
@@ -3015,17 +3091,17 @@ mod or_set_dot_vector_tests {
 
     use super::*;
 
-    const VECTOR_EVENT_ID: &str = "ak:event:01964185-0400-7000-8000-000000000000";
+    const VECTOR_EVENT_ID: &str = "ak:event:01964185-0400-8000-8000-000000000000";
 
     #[test]
     fn dot_matches_the_encoding_vector() {
         assert_eq!(
             or_set_dot(VECTOR_EVENT_ID, 0),
-            "ak:event:01964185-0400-7000-8000-000000000000:0"
+            "ak:event:01964185-0400-8000-8000-000000000000:0"
         );
         assert_eq!(
             or_set_dot(VECTOR_EVENT_ID, 1),
-            "ak:event:01964185-0400-7000-8000-000000000000:1"
+            "ak:event:01964185-0400-8000-8000-000000000000:1"
         );
     }
 
@@ -3035,11 +3111,11 @@ mod or_set_dot_vector_tests {
         for (value, expected) in [
             (
                 "ak:seal:01964185-0400-7000-8000-00000000000a",
-                "1iBmBx9eyxpIkSNfOAOpK85TXemME7YOfXe_MwkojTM",
+                "_MW1wChNmMzvCOcS5luH9XI6EOhEHi2e0Mr91jWWDq4",
             ),
             (
                 "ak:seal:01964185-0400-7000-8000-00000000000b",
-                "70hmv5IajqSpRoVHskF9M4V4h6nIZeftWLdvwWBlrhY",
+                "xqdQAkWDfswSR-ize8Gq50VJFTQjNvF5V0e0w8ikifY",
             ),
         ] {
             let tag = batch_add_tag(
@@ -3090,7 +3166,7 @@ mod or_set_dot_vector_tests {
     fn or_set_tag_rejects_a_bare_event_id() {
         // The negative case of the vector: a bare event_id is not a dot, and is
         // not unique across several or_set writes on one cell.
-        let realm = "ak:realm:01964185-0400-7000-8000-000000000002";
+        let realm = "ak:realm:01964185-0400-8000-8000-000000000002";
         let event: Event = serde_json::from_value(json!({
             "event_id": VECTOR_EVENT_ID,
             "kind": "ak.capability.grant",

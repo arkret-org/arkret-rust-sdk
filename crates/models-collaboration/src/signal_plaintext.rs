@@ -596,11 +596,11 @@ mod tests {
     }
 
     fn event_id() -> EventId {
-        EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap()
+        EventId::new("ak:event:01904100-0000-8000-8000-000000000001").unwrap()
     }
 
     fn strand_id() -> StrandId {
-        StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap()
+        StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap()
     }
 
     #[test]

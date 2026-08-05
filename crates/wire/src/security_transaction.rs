@@ -1695,7 +1695,7 @@ mod tests {
 
     fn event_unit(coordinator: &Did, event_id: EventId, kind: &str) -> PreparedEventUnit {
         let scope_ref = ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap(),
         };
         let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let event = Event::new_with_id_at(
@@ -1716,7 +1716,7 @@ mod tests {
             scope_ref: scope_ref.clone(),
             source: AuthoritySetPolicySource {
                 source_kind: AuthoritySetSourceKind::RealmControl,
-                source_ref: "ak:event:01904100-0000-7000-8000-111111111111".to_owned(),
+                source_ref: "ak:event:01904100-0000-8000-8000-111111111111".to_owned(),
                 source_digest: hash('a'),
                 generation_ref: "1".to_owned(),
             },
@@ -1778,7 +1778,7 @@ mod tests {
                 ciphertext_digest: hash('7'),
             }],
             active_series_event_id: EventId::new(format!(
-                "ak:event:01904100-0000-7000-8000-a0086f45c8{offset:02x}"
+                "ak:event:01904100-0000-8000-8000-a0086f45c8{offset:02x}"
             ))
             .unwrap(),
             old_backups: vec![BackupObjectRef {
@@ -1802,7 +1802,7 @@ mod tests {
             security_rotation_local_commit_digest(&transaction_id, &hash('e'), &backup_rotations)
                 .unwrap();
         let revoke_event_id =
-            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap();
+            EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap();
         let plan = SecurityRotationPlan {
             revoke_unit: event_unit(
                 &coordinator_service_id,
@@ -1973,12 +1973,12 @@ mod tests {
         let coordinator = Did::new("did:webvh:z6mkfixture:coordinator.example").unwrap();
         let authorize = event_unit(
             &coordinator,
-            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45ca01").unwrap(),
+            EventId::new("ak:event:01904100-0000-8000-8000-a0086f45ca01").unwrap(),
             "ak.device.authorize",
         );
         let update = event_unit(
             &coordinator,
-            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45ca02").unwrap(),
+            EventId::new("ak:event:01904100-0000-8000-8000-a0086f45ca02").unwrap(),
             "ak.device.list_update",
         );
         let mut authorize_request: EventsSubmitBatchRequestBody =
@@ -2010,11 +2010,11 @@ mod tests {
         };
         assert_eq!(
             binding.authorize_event_id.as_str(),
-            "ak:event:01904100-0000-7000-8000-a0086f45ca01"
+            "ak:event:01904100-0000-8000-8000-a0086f45ca01"
         );
         assert_eq!(
             binding.device_list_update_event_id.as_str(),
-            "ak:event:01904100-0000-7000-8000-a0086f45ca02"
+            "ak:event:01904100-0000-8000-8000-a0086f45ca02"
         );
     }
 
@@ -2032,7 +2032,7 @@ mod tests {
         let mut wrong_revoke = plan.clone();
         wrong_revoke.revoke_unit = event_unit(
             &resource.coordinator_service_id,
-            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c576").unwrap(),
+            EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c576").unwrap(),
             "ak.device.revoke",
         );
         let error = resource

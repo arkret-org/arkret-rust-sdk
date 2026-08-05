@@ -415,10 +415,16 @@ impl AuthorizationLease {
     pub fn validate_structural(&self) -> Result<()> {
         if let LeaseBasisRef::AnchorUnit(reference) = &self.basis_ref {
             reference.anchor_unit.validate_structural()?;
-            if self.scope_ref.realm_id() != &reference.anchor_unit.realm_id {
-                return Err(Error::Protocol(
-                    "anchor-unit lease basis realm_id does not match lease scope_ref".to_owned(),
-                ));
+            // A lease over a Realm genesis anchor unit carries the genesis
+            // scope, which names no Realm — the unit's own realm_id is the
+            // resolved one. Compare only when the scope names a Realm.
+            if let Some(scope_realm_id) = self.scope_ref.realm_id_opt() {
+                if scope_realm_id != &reference.anchor_unit.realm_id {
+                    return Err(Error::Protocol(
+                        "anchor-unit lease basis realm_id does not match lease scope_ref"
+                            .to_owned(),
+                    ));
+                }
             }
         }
         if self.expires_at <= self.issued_at {
@@ -591,7 +597,7 @@ mod tests {
 
     fn scope() -> ScopeRef {
         ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap(),
         }
     }
 
@@ -603,7 +609,7 @@ mod tests {
             scope_ref: scope(),
             source: AuthoritySetPolicySource {
                 source_kind: AuthoritySetSourceKind::RealmControl,
-                source_ref: "ak:event:01904100-0000-7000-8000-111111111111".to_owned(),
+                source_ref: "ak:event:01904100-0000-8000-8000-111111111111".to_owned(),
                 source_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
                 generation_ref: "1".to_owned(),
             },

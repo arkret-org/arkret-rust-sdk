@@ -673,7 +673,7 @@ mod tests {
     }
 
     fn fake_event_ref(suffix: &str) -> EventId {
-        EventId::new(format!("ak:event:01904100-0000-7000-8000-{:0>12}", suffix)).unwrap()
+        EventId::new(format!("ak:event:01904100-0000-8000-8000-{:0>12}", suffix)).unwrap()
     }
 
     #[test]

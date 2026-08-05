@@ -67,7 +67,7 @@ fn mls_payload_digest_regression_anchor() {
 #[test]
 fn mls_commit_payload_matches_registered_event_schema() {
     fn event(n: u8) -> EventId {
-        EventId::new(format!("ak:event:0196419b-0000-7000-8000-00000000000{n}")).unwrap()
+        EventId::new(format!("ak:event:0196419b-0000-8000-8000-00000000000{n}")).unwrap()
     }
 
     fn hash(byte: char) -> Hash {
@@ -76,7 +76,7 @@ fn mls_commit_payload_matches_registered_event_schema() {
 
     let group_id = base64url::base64url_encode(b"arkret-mls-test-group");
     let binding = MlsGovernanceBindingPayload::realm(
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000001").unwrap(),
         group_id.clone(),
         0,
         1,

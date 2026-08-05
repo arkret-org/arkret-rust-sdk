@@ -6,7 +6,7 @@ use chrono::Utc;
 use serde_json::json;
 
 fn test_realm_id() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
 }
 
 fn valid_proof() -> Proof {
@@ -387,7 +387,7 @@ fn critical_extension_uses_spec_extension_scope_field() {
         "profile_ref": "ak.profile.policy.v1",
         "parameters": {"mode": "strict"},
         "material_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "evidence_ref": "ak:event:01904100-0000-7000-8000-6c663fa0205f",
+        "evidence_ref": "ak:event:01904100-0000-8000-8000-6c663fa0205f",
         "fail_closed": true
     }))
     .unwrap();

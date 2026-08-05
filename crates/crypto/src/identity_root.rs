@@ -429,7 +429,7 @@ mod tests {
         });
         let scope_ref = json!({
             "kind": "realm",
-            "realm_id": "ak:realm:01964137-0000-7000-8000-000000000088"
+            "realm_id": "ak:realm:01964137-0000-8000-8000-000000000088"
         });
         if identity_model == "cross_signing" {
             value["ssk_generation"] = json!(7);

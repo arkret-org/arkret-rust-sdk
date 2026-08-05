@@ -104,7 +104,7 @@ mod tests {
         assert_eq!(registered, expected_families);
 
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
         for family in actual.keys() {
             let cell = CellRef::new(format!("ak:cell:{family}:coverage")).unwrap();
             registry
@@ -384,7 +384,7 @@ mod tests {
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
         let subject = kind
             .subject_for_effect(&json!({
-                "target_realm_id": "ak:realm:01904100-0000-7000-8000-000000000022",
+                "target_realm_id": "ak:realm:01904100-0000-8000-8000-000000000022",
                 "link_kind": "governed_by",
             }))
             .unwrap()
@@ -392,7 +392,7 @@ mod tests {
         assert_eq!(
             subject,
             composite_subject(&[
-                "ak:realm:01904100-0000-7000-8000-000000000022",
+                "ak:realm:01904100-0000-8000-8000-000000000022",
                 "governed_by",
             ])
             .unwrap()
@@ -401,7 +401,7 @@ mod tests {
 
         let sdk_registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
         let cell = CellRef::new(format!("ak:cell:ak.component.realm.link.v1:{subject}")).unwrap();
         let binding = sdk_registry.resolve(&realm_id, &cell).unwrap();
         assert_eq!(binding.lattice.kind(), SdkLatticeKind::Fsm);
@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn realm_member_fsm_uses_leave_as_the_normative_initial_state() {
         let registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011").unwrap();
         let cell =
             CellRef::new("ak:cell:ak.component.member.state.v1:did:web:bob.example".to_owned())
                 .unwrap();
@@ -452,7 +452,7 @@ mod tests {
         );
 
         let sdk_registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011").unwrap();
         let cell = CellRef::new(
             "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:01904100-0000-7000-8000-000000000012"
                 .to_owned(),
@@ -493,7 +493,7 @@ mod tests {
     fn fsm_initial_states_are_explicit_null_transitions() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
         for (family, initial) in [
             (arkret_wire::CellFamilyId::AUDIT_BINDING_V1, "active"),
             (arkret_wire::CellFamilyId::AUDIT_SESSION_V1, "request"),
@@ -517,13 +517,31 @@ mod tests {
     }
 
     #[test]
-    fn agent_status_starts_active_and_accepts_first_pause() {
+    fn agent_status_starts_uninitialized_and_accepts_provision_then_pause() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
         let cell = CellRef::new("ak:cell:ak.component.agent.status.v1:agent".to_owned()).unwrap();
         let binding = registry.resolve(&realm_id, &cell).unwrap();
-        assert_eq!(binding.lattice.initial_state(), Some(json!("active")));
+        // Spec zh/models/realm-and-space.md section 2.5 step 7: the reducer
+        // initial state is the registered internal `uninitialized`, which the
+        // managed-Agent genesis branch transitions to `active`. It is not a
+        // public lifecycle value, so nothing may treat it as active.
+        assert_eq!(
+            binding.lattice.initial_state(),
+            Some(json!("uninitialized"))
+        );
+
+        let provision = LatticeOp {
+            op_type: LatticeOpType::Transition,
+            tag: None,
+            value: None,
+            from: Some(json!("uninitialized")),
+            to: Some(json!("active")),
+            reason: None,
+            issuer_seq: None,
+        };
+        binding.lattice.validate_op(&provision).unwrap();
 
         let op = LatticeOp {
             op_type: LatticeOpType::Transition,
@@ -541,7 +559,7 @@ mod tests {
     fn membership_delivery_rebind_is_realm_only() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
         let circle_cell =
             CellRef::new("ak:cell:ak.component.circle.member.v1:membership".to_owned()).unwrap();
         let op = LatticeOp {
@@ -566,7 +584,7 @@ mod tests {
     fn last_resort_keypackage_preservation_does_not_invent_a_self_transition() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
         let cell =
             CellRef::new("ak:cell:ak.component.mls.keypackage.v1:last-resort".to_owned()).unwrap();
         let binding = registry.resolve(&realm_id, &cell).unwrap();
@@ -609,7 +627,7 @@ mod tests {
         );
 
         let sdk_registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011").unwrap();
         for family in [
             arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1,
             arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1,
@@ -757,7 +775,7 @@ mod tests {
         );
 
         let sdk_registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000033").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000033").unwrap();
         for family in [
             arkret_wire::CellFamilyId::CALL_MODERATION_V1,
             arkret_wire::CellFamilyId::CALL_ROSTER_V1,

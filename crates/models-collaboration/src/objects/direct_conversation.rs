@@ -273,7 +273,9 @@ pub fn validate_direct_conversation_binding(
 ) -> Result<()> {
     payload.validate_pair_key(trust_domain)?;
     DirectConversationRealmRole::validate(realm)?;
-    if payload.realm_id != realm.id || payload.main_strand_id != main_strand.id {
+    if Some(&payload.realm_id) != realm.id.as_ref()
+        || Some(&payload.main_strand_id) != main_strand.id.as_ref()
+    {
         return Err(Error::Protocol(
             "direct conversation binding object reference mismatch (schema_violation)".to_owned(),
         ));
@@ -284,7 +286,7 @@ pub fn validate_direct_conversation_binding(
             "direct_conversation_member_count_invalid".to_owned(),
         ));
     }
-    if main_strand.realm_id != realm.id
+    if Some(&main_strand.realm_id) != realm.id.as_ref()
         || main_strand.scope_circle_id.is_some()
         || main_strand.state != Some(ObjectState::Active)
     {
@@ -488,7 +490,7 @@ mod tests {
     fn builder_emits_closed_profiled_e2ee_realm() {
         let creator = did("did:webvh:z6mkfixture:alice.example");
         let payload = direct_conversation_realm_create_payload(
-            RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000101").unwrap(),
+            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101").unwrap(),
             creator.clone(),
             trust_domain(),
             NotaryProfile::SingleDid,
@@ -507,7 +509,7 @@ mod tests {
     }
 
     fn event_id(suffix: &str) -> EventId {
-        EventId::new(format!("ak:event:0196419b-0000-7000-8000-{suffix:0>12}")).unwrap()
+        EventId::new(format!("ak:event:0196419b-0000-8000-8000-{suffix:0>12}")).unwrap()
     }
 
     #[test]
@@ -563,10 +565,10 @@ mod tests {
             )
             .unwrap(),
             participants_unordered: vec![alice, bob],
-            realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000101".to_owned())
+            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101".to_owned())
                 .unwrap(),
             main_strand_id: StrandId::new(
-                "ak:strand:0196419b-0000-7000-8000-000000000201".to_owned(),
+                "ak:strand:0196419b-0000-8000-8000-000000000201".to_owned(),
             )
             .unwrap(),
             founding_unit_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
@@ -585,7 +587,7 @@ mod tests {
     fn validator_rejects_third_member_and_circle_scoped_main_strand() {
         let creator = did("did:webvh:z6mkfixture:alice.example");
         let realm = direct_conversation_realm_create_payload(
-            RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000101").unwrap(),
+            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101").unwrap(),
             creator.clone(),
             trust_domain(),
             NotaryProfile::SingleDid,
@@ -595,8 +597,8 @@ mod tests {
         )
         .object;
         let mut strand = direct_conversation_main_strand_create_payload(
-            StrandId::new("ak:strand:0196419b-0000-7000-8000-000000000201").unwrap(),
-            realm.id.clone(),
+            StrandId::new("ak:strand:0196419b-0000-8000-8000-000000000201").unwrap(),
+            realm.id.clone().expect("fixture Realm is materialised, so it has an id"),
             creator,
             Utc::now(),
         )
@@ -627,7 +629,7 @@ mod tests {
         );
         members.remove(&did("did:webvh:z6mkfixture:carol.example"));
         strand.scope_circle_id = Some(
-            arkret_wire::CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000401".to_owned())
+            arkret_wire::CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000401".to_owned())
                 .unwrap(),
         );
         assert!(

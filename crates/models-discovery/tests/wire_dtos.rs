@@ -26,18 +26,18 @@ fn directory_realm_search_outcome_decodes_typed_preview_fields() {
     let value = serde_json::json!({
         "realms": [
             {
-                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+                "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
                 "title": "Public Realm",
                 "member_count_bucket": "51-100",
                 "as_of": "2026-06-13T00:00:00.000Z",
-                "source_refs": ["ak:event:01904100-0000-7000-8000-000000000002"],
+                "source_refs": ["ak:event:01904100-0000-8000-8000-000000000002"],
                 "policy_revision": "rev-1"
             },
             {
-                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000003",
+                "realm_id": "ak:realm:01904100-0000-8000-8000-000000000003",
                 "member_count_bucket": 342,
                 "as_of": "2026-06-13T00:00:00.000Z",
-                "source_refs": ["ak:event:01904100-0000-7000-8000-000000000004"],
+                "source_refs": ["ak:event:01904100-0000-8000-8000-000000000004"],
                 "policy_revision": "rev-2"
             }
         ],
@@ -62,7 +62,7 @@ fn directory_realm_search_outcome_decodes_typed_preview_fields() {
 
 #[test]
 fn directory_search_realms_request_uses_source_realm_id() {
-    let source_realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let source_realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
     let request = DirectorySearchRealmsRequestBody {
         query: Some("release".to_owned()),
         organization_did: None,

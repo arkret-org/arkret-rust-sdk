@@ -861,7 +861,7 @@ mod tests {
     fn authorization_ref_accepts_only_the_schema_union() {
         for value in [
             "ak:grant:01904100-0000-7000-8000-cccccccccccc",
-            "ak:event:01904100-0000-7000-8000-cccccccccccc",
+            "ak:event:01904100-0000-8000-8000-cccccccccccc",
             "did:web:alice.example#managed-controller",
             crate::REALM_AUTHORITY_ROOT_CELL,
             "ak.authority.direct_conversation_participant.v1",

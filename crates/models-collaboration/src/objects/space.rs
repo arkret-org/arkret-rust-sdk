@@ -10,7 +10,15 @@ use serde_json::Value;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Space {
-    pub id: SpaceId,
+    /// The object id.
+    ///
+    /// Absent on the create payload: this kind's registry `id_source` is
+    /// `event_derived`, so the id is `from_event_id(&create.event_id)` and a
+    /// payload copy would be a second, forgeable truth (spec
+    /// `zh/models/common-fields.md` section 6.0). Present on every projected
+    /// snapshot, where the receiver has already derived it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<SpaceId>,
     pub schema: String,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -91,7 +99,7 @@ impl Space {
         created_by: Did,
     ) -> Self {
         Self {
-            id,
+            id: Some(id),
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
             default_realm_id: None,
@@ -170,8 +178,8 @@ mod tests {
 
     fn space(kind: &str) -> Space {
         Space::new(
-            SpaceId::new("ak:space:0196419b-0000-7000-8000-000000000001").unwrap(),
-            RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000002").unwrap(),
+            SpaceId::new("ak:space:0196419b-0000-8000-8000-000000000001").unwrap(),
+            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000002").unwrap(),
             kind,
             "Work",
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
@@ -188,7 +196,7 @@ mod tests {
             .is_err()
         );
         let mut value = serde_json::to_value(space("board")).unwrap();
-        value["default_scope_circle_id"] = json!("ak:circle:0196419b-0000-7000-8000-000000000003");
+        value["default_scope_circle_id"] = json!("ak:circle:0196419b-0000-8000-8000-000000000003");
         assert!(serde_json::from_value::<Space>(value).is_err());
     }
 

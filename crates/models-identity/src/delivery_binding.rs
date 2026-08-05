@@ -191,7 +191,7 @@ mod tests {
     }
 
     fn fake_event_id() -> EventId {
-        EventId::new("ak:event:01890000-0000-7000-8000-000000000001").unwrap()
+        EventId::new("ak:event:01890000-0000-8000-8000-000000000001").unwrap()
     }
 
     #[test]
@@ -275,7 +275,7 @@ mod tests {
             "delivery_modes": ["events"],
             "resolved_at": "2026-05-20T00:00:00.000Z",
             "service_acceptance_ref": {
-                "id": "ak:event:01890000-0000-7000-8000-000000000001",
+                "id": "ak:event:01890000-0000-8000-8000-000000000001",
                 "tag": "authorized_by"
             }
         });

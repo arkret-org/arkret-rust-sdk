@@ -761,11 +761,11 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a").unwrap()
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a").unwrap()
     }
 
     fn event_id() -> EventId {
-        EventId::new("ak:event:0196419b-0000-7000-8000-000000000002").unwrap()
+        EventId::new("ak:event:0196419b-0000-8000-8000-000000000002").unwrap()
     }
 
     fn hash(byte: u8) -> Hash {
@@ -1263,7 +1263,7 @@ mod tests {
     fn bundle_scope_tampering_is_rejected() {
         let mut fixture = fixture();
         fixture.bundle.effective_scope = ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014b").unwrap(),
+            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014b").unwrap(),
         };
         let error = verify(&fixture).unwrap_err();
         assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
@@ -1306,7 +1306,7 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.frontier_events[0].scope_ref = ScopeRef::Circle {
             realm_id: realm(),
-            circle_id: arkret_wire::CircleId::new("ak:circle:0196419b-0000-7000-8000-0000000000c1")
+            circle_id: arkret_wire::CircleId::new("ak:circle:0196419b-0000-8000-8000-0000000000c1")
                 .unwrap(),
         };
         let error = verify(&fixture).unwrap_err();

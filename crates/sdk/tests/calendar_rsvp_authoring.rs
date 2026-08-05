@@ -30,7 +30,7 @@ fn calendar() -> CalendarEventFields {
 
 fn authoring(basis: Vec<Hash>) -> RsvpAuthoring {
     RsvpAuthoring {
-        event_ref: StrandId::new("ak:strand:0196419b-0000-7000-8000-000000000201").unwrap(),
+        event_ref: StrandId::new("ak:strand:0196419b-0000-8000-8000-000000000201").unwrap(),
         occurrence: None,
         schedule_basis_refs: basis,
         response: RsvpResponseBranch::Plaintext(RsvpResponse {
@@ -55,9 +55,9 @@ fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret
         authoring(basis),
         &calendar(),
         &projection,
-        EventId::new("ak:event:0196419b-0000-7000-8000-000000000301").unwrap(),
+        EventId::new("ak:event:0196419b-0000-8000-8000-000000000301").unwrap(),
         arkret::ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000101").unwrap(),
+            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101").unwrap(),
         },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,

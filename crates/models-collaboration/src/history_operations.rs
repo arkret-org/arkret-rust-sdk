@@ -157,7 +157,7 @@ mod tests {
     use super::*;
 
     fn event_id(suffix: &str) -> String {
-        format!("ak:event:01964137-0000-7000-8000-{suffix}")
+        format!("ak:event:01964137-0000-8000-8000-{suffix}")
     }
 
     #[test]

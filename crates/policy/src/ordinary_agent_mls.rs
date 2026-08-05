@@ -67,13 +67,13 @@ mod tests {
 
     fn fixture() -> (Did, EventId, Vec<u8>, AgentMlsSignerView) {
         let signer = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
-        let authorization = EventId::new("ak:event:01964137-0000-7000-8000-000000000001").unwrap();
+        let authorization = EventId::new("ak:event:01964137-0000-8000-8000-000000000001").unwrap();
         let key = vec![7; 32];
         let view = AgentMlsSignerView {
             group_state: AuthorGroupStateView {
                 group_id: "group".to_owned(),
                 epoch: 4,
-                group_state_ref: "ak:event:01964137-0000-7000-8000-000000000004".to_owned(),
+                group_state_ref: "ak:event:01964137-0000-8000-8000-000000000004".to_owned(),
                 active_leaves: vec![AuthorLeaf {
                     leaf_index: 1,
                     credential: AuthorLeafCredential::Basic {
@@ -98,7 +98,7 @@ mod tests {
             &AgentMlsSignerClaim {
                 group_id: "group",
                 epoch: 4,
-                group_state_ref: "ak:event:01964137-0000-7000-8000-000000000004",
+                group_state_ref: "ak:event:01964137-0000-8000-8000-000000000004",
                 signer_id: signer,
                 signing_key: key,
                 agent_key_authorize_event_id: authorization,
@@ -121,7 +121,7 @@ mod tests {
 
         let mut wrong_lineage = view.clone();
         wrong_lineage.leaf_authorization_refs[0].1 =
-            EventId::new("ak:event:01964137-0000-7000-8000-000000000099").unwrap();
+            EventId::new("ak:event:01964137-0000-8000-8000-000000000099").unwrap();
         assert!(verify_fixture(&wrong_lineage, &signer, &authorization, &key).is_err());
 
         let mut duplicate_lineage = view.clone();
@@ -140,14 +140,14 @@ mod tests {
 
         let mut non_winning_state = view;
         non_winning_state.group_state.group_state_ref =
-            "ak:event:01964137-0000-7000-8000-000000000005".to_owned();
+            "ak:event:01964137-0000-8000-8000-000000000005".to_owned();
         assert!(verify_fixture(&non_winning_state, &signer, &authorization, &key).is_err());
     }
 
     #[test]
     fn duplicate_agent_leaf_is_rejected() {
         let signer = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
-        let authorization = EventId::new("ak:event:01964137-0000-7000-8000-000000000001").unwrap();
+        let authorization = EventId::new("ak:event:01964137-0000-8000-8000-000000000001").unwrap();
         let key = vec![7; 32];
         let leaf = |leaf_index| AuthorLeaf {
             leaf_index,

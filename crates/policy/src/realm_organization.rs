@@ -244,7 +244,7 @@ mod realm_organization_verifier_tests {
     use super::*;
 
     fn realm_id() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000010").unwrap()
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000010").unwrap()
     }
 
     fn org_did() -> Did {
@@ -336,7 +336,7 @@ mod realm_organization_verifier_tests {
 
     #[test]
     fn realm_id_mismatch_fails() {
-        let other = RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000099").unwrap();
+        let other = RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000099").unwrap();
         assert!(
             verify_realm_organization_statement(
                 &active_payload(),

@@ -842,7 +842,7 @@ mod tests {
 
     #[test]
     fn recording_start_requires_event_bound_consent_result() {
-        let event_id = EventId::new("ak:event:019a7360-0000-7000-8000-000000000003").unwrap();
+        let event_id = EventId::new("ak:event:019a7360-0000-8000-8000-000000000003").unwrap();
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "recording_id": "capture-1",
@@ -909,7 +909,7 @@ mod tests {
                     "retention": {
                         "consent_confirmed": true
                     },
-                    "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003",
+                    "transcript_start_event_id": "ak:event:019a7360-0000-8000-8000-000000000003",
                     "failure_reason_code": "storage_failed"
                 }
             }
@@ -924,7 +924,7 @@ mod tests {
         );
         assert_eq!(
             encoded["transcript_transition"]["result"]["transcript_start_event_id"],
-            "ak:event:019a7360-0000-7000-8000-000000000003"
+            "ak:event:019a7360-0000-8000-8000-000000000003"
         );
     }
 
@@ -994,7 +994,7 @@ mod tests {
                 "from": "transcribing",
                 "to": "ready",
                 "result": {
-                    "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003",
+                    "transcript_start_event_id": "ak:event:019a7360-0000-8000-8000-000000000003",
                     "retention": {"consent_confirmed": true},
                     "transcript_artifact_url": "https://backend.example/transcript.vtt"
                 }

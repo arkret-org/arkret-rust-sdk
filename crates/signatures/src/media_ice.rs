@@ -213,7 +213,7 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap()
     }
 
     const MEDIA_KID: &str = "did:webvh:z6mkfixture:media.example#notary-key";

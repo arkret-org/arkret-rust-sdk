@@ -231,7 +231,7 @@ mod event_batch_receipt_tests {
 
     #[test]
     fn bare_event_id_is_not_a_receipt_event() {
-        let encoded = "\"ak:event:0196419b-0000-7000-8000-000000000001\"";
+        let encoded = "\"ak:event:0196419b-0000-8000-8000-000000000001\"";
         assert!(serde_json::from_str::<EventBatchReceiptEvent>(encoded).is_err());
     }
 
@@ -246,7 +246,7 @@ mod event_batch_receipt_tests {
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
                 principal_id: Did::new("did:web:alice.example").unwrap(),
-                realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000001").unwrap(),
                 did_version_id: NonEmptyString::new("1-fixture").unwrap(),
                 registry_head: hash(0xcc),
                 reanchor_digest: reanchor_digest.clone(),
@@ -260,12 +260,12 @@ mod event_batch_receipt_tests {
             },
             events: vec![
                 item(
-                    "ak:event:0196419b-0000-7000-8000-000000000001",
+                    "ak:event:0196419b-0000-8000-8000-000000000001",
                     reanchor_digest,
                     "ak.device.reanchor",
                 ),
                 item(
-                    "ak:event:0196419b-0000-7000-8000-000000000002",
+                    "ak:event:0196419b-0000-8000-8000-000000000002",
                     authorize_digest,
                     "ak.device.authorize",
                 ),

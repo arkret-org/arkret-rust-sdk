@@ -627,7 +627,7 @@ mod tests {
             &pusher,
             &rule,
             &PushEventNotification {
-                event_id: EventId::new("ak:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
+                event_id: EventId::new("ak:event:01904100-0000-8000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 realm_id: None,
                 event_kind: "ak.message.create".to_owned(),

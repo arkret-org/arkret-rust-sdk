@@ -348,9 +348,14 @@ impl EventRequirements {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(try_from = "EventWire")]
 pub struct Event {
+    // `Serialize` is NOT derived: `EventSer` below is the single wire-shape
+    // exit, so `ak.realm.create` can omit `realm_id`
+    // (`zh/models/realm-and-space.md` section 2.5.0) while it stays resolved
+    // in memory here. Adding a field means adding it to `EventSer` too — the
+    // compiler enforces that.
     pub event_id: EventId,
     pub kind: EventKind,
     pub realm_id: RealmId,
@@ -475,12 +480,138 @@ impl FederatedDeviceSigningKeyEvidence {
     }
 }
 
+/// Derive the Realm id of an `ak.realm.create` from its own signed content.
+///
+/// `zh/models/realm-and-space.md` section 2.5.0 has two branches and both are
+/// pure functions of the signed Event, so the id stays self-certifying either
+/// way:
+///
+/// - **Principal Control Realm** (`payload.object.fields.purpose ==
+///   "principal_control"`) — subject-derived from the principal DID, so the
+///   address remains computable from the DID alone.
+/// - **Collaboration Realm** — event-derived: `retype(event_id)`.
+pub fn derive_genesis_realm_id(
+    event_id: &EventId,
+    actor_id: &Did,
+    payload_object: Option<&Value>,
+) -> RealmId {
+    let is_principal_control = payload_object
+        .and_then(|object| object.get("fields"))
+        .and_then(|fields| fields.get("purpose"))
+        .and_then(Value::as_str)
+        == Some("principal_control");
+    if is_principal_control {
+        RealmId::from_uuid(crate::principal_control_realm_uuid(actor_id.as_str()))
+    } else {
+        RealmId::from_event_id(event_id)
+    }
+}
+
+/// The single wire-shape exit for [`Event`].
+///
+/// `Event` keeps `realm_id` resolved in memory for every kind, but the genesis
+/// envelope of `ak.realm.create` MUST NOT carry it: the Realm id is derived
+/// from that Event's own `event_id`, so putting it back on the wire would place
+/// a function of the digest inside the digest preimage
+/// (`zh/models/realm-and-space.md` section 2.5.0).
+///
+/// Borrowing mirror rather than a field-type change: every read site of
+/// `event.realm_id` keeps working, and a new `Event` field fails to compile
+/// here until it is mirrored.
+#[derive(Serialize)]
+struct EventSer<'a> {
+    event_id: &'a EventId,
+    kind: &'a EventKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    realm_id: Option<&'a RealmId>,
+    scope_ref: &'a ScopeRef,
+    actor_id: &'a Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    executed_by: &'a Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    authorization_ref: &'a Option<AuthorizationRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    applet_id: &'a Option<AppletId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    external_ref: &'a Option<BTreeMap<String, Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    actor_kind: &'a Option<EnvelopeActorKind>,
+    actor_seq: u64,
+    #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
+    created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hlc: &'a Option<Hlc>,
+    prev_refs: &'a Vec<EventId>,
+    refs: &'a Vec<EventRef>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    causal_refs: &'a Vec<Hash>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    preconditions: &'a Vec<Precondition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seal_ref: &'a Option<SealId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    auth_context: &'a Option<AuthContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seal_basis: &'a Option<SealBasis>,
+    payload: &'a BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    redacts: &'a Option<EventId>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    unsigned: &'a BTreeMap<String, Value>,
+    proofs: &'a Vec<Proof>,
+    #[serde(skip_serializing_if = "EventRequirements::is_empty")]
+    requirements: &'a EventRequirements,
+}
+
+impl<'a> From<&'a Event> for EventSer<'a> {
+    fn from(event: &'a Event) -> Self {
+        Self {
+            event_id: &event.event_id,
+            kind: &event.kind,
+            realm_id: (event.kind != EventKind::REALM_CREATE).then_some(&event.realm_id),
+            scope_ref: &event.scope_ref,
+            actor_id: &event.actor_id,
+            executed_by: &event.executed_by,
+            authorization_ref: &event.authorization_ref,
+            applet_id: &event.applet_id,
+            external_ref: &event.external_ref,
+            actor_kind: &event.actor_kind,
+            actor_seq: event.actor_seq,
+            created_at: event.created_at,
+            hlc: &event.hlc,
+            prev_refs: &event.prev_refs,
+            refs: &event.refs,
+            causal_refs: &event.causal_refs,
+            preconditions: &event.preconditions,
+            seal_ref: &event.seal_ref,
+            auth_context: &event.auth_context,
+            seal_basis: &event.seal_basis,
+            payload: &event.payload,
+            redacts: &event.redacts,
+            unsigned: &event.unsigned,
+            proofs: &event.proofs,
+            requirements: &event.requirements,
+        }
+    }
+}
+
+impl Serialize for Event {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        EventSer::from(self).serialize(serializer)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EventWire {
     pub event_id: EventId,
     pub kind: String,
-    pub realm_id: RealmId,
+    /// Absent exactly for `ak.realm.create`; see `Event::realm_id`.
+    #[serde(default)]
+    pub realm_id: Option<RealmId>,
     pub scope_ref: ScopeRef,
     pub actor_id: Did,
     #[serde(default)]
@@ -525,10 +656,28 @@ impl TryFrom<EventWire> for Event {
     type Error = String;
 
     fn try_from(wire: EventWire) -> std::result::Result<Self, Self::Error> {
+        let kind = EventKind::from_wire(&wire.kind);
+        // zh/models/realm-and-space.md section 2.5.0: the genesis envelope
+        // omits realm_id and receivers derive it from the Event's own id.
+        let realm_id = match wire.realm_id {
+            Some(realm_id) => {
+                if kind == EventKind::REALM_CREATE {
+                    return Err("realm_id_not_event_derived: ak.realm.create MUST omit realm_id"
+                        .to_owned());
+                }
+                realm_id
+            }
+            None => {
+                if kind != EventKind::REALM_CREATE {
+                    return Err("realm_id is required".to_owned());
+                }
+                derive_genesis_realm_id(&wire.event_id, &wire.actor_id, wire.payload.get("object"))
+            }
+        };
         let event = Self {
             event_id: wire.event_id,
-            kind: EventKind::from_wire(&wire.kind),
-            realm_id: wire.realm_id,
+            kind,
+            realm_id,
             scope_ref: wire.scope_ref,
             actor_id: wire.actor_id,
             executed_by: wire.executed_by,
@@ -595,6 +744,12 @@ impl TryFrom<EventWire> for Event {
 #[non_exhaustive]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ScopeRef {
+    /// Genesis scope for `ak.realm.create` only.
+    ///
+    /// It carries no `realm_id` because the Realm's own id is derived from
+    /// this Event (`zh/models/realm-and-space.md` section 2.5.0). Embedding it
+    /// would put a function of the digest inside the digest preimage.
+    RealmGenesis,
     /// Realm-default security scope.
     Realm { realm_id: RealmId },
     /// The named Circle's security scope inside `realm_id`.
@@ -605,17 +760,31 @@ pub enum ScopeRef {
 }
 
 impl ScopeRef {
-    /// The parent Realm of this scope, regardless of variant.
-    pub fn realm_id(&self) -> &RealmId {
+    /// The parent Realm of this scope when the scope names one.
+    ///
+    /// `RealmGenesis` returns `None`: the Realm id is derived from the Event,
+    /// not carried by the scope. Use [`Event::realm_id`], which resolves both.
+    pub fn realm_id_opt(&self) -> Option<&RealmId> {
         match self {
-            Self::Realm { realm_id } | Self::Circle { realm_id, .. } => realm_id,
+            Self::RealmGenesis => None,
+            Self::Realm { realm_id } | Self::Circle { realm_id, .. } => Some(realm_id),
         }
+    }
+
+    /// The parent Realm of this scope.
+    ///
+    /// # Panics
+    /// Panics on `RealmGenesis`, which has no carried Realm id. Call
+    /// [`Self::realm_id_opt`] when the scope may be a genesis scope.
+    pub fn realm_id(&self) -> &RealmId {
+        self.realm_id_opt()
+            .expect("realm genesis scope carries no realm_id; use realm_id_opt")
     }
 
     /// The Circle id when this scope is a Circle, otherwise `None`.
     pub fn circle_id(&self) -> Option<&CircleId> {
         match self {
-            Self::Realm { .. } => None,
+            Self::RealmGenesis | Self::Realm { .. } => None,
             Self::Circle { circle_id, .. } => Some(circle_id),
         }
     }
@@ -633,6 +802,11 @@ pub enum EventSubmitContext {
     Standard,
     AnchorUnit,
 }
+
+/// A canonical-shaped `event_id` that stands in while the real one is being
+/// derived. It never enters a digest preimage, so its value is arbitrary — it
+/// only has to parse.
+const PLACEHOLDER_EVENT_ID: &str = "ak:event:00000000-0000-8000-8000-000000000000";
 
 impl Event {
     pub const SCHEMA: &'static str = SchemaId::EVENT_V1;
@@ -662,7 +836,16 @@ impl Event {
             }
         }
         object.insert("proofs".to_owned(), Value::Array(Vec::new()));
-        let event: Self = serde_json::from_value(value)?;
+        // `event_id` is not in the preimage either — section 4.0 derives it
+        // *from* this digest — so it cannot be read off these bytes. Reconstruct
+        // it the only way there is: seed the parse with a placeholder, then
+        // stamp the derived value. This is what makes the round-trip total.
+        object.insert(
+            "event_id".to_owned(),
+            Value::String(PLACEHOLDER_EVENT_ID.to_owned()),
+        );
+        let mut event: Self = serde_json::from_value(value)?;
+        event.event_id = event.derive_event_id()?;
         let canonical = arkret_canonical::canonical_json_bytes(&event.digest_payload()?)?;
         if canonical != bytes {
             return Err(Error::Protocol(
@@ -717,8 +900,77 @@ impl Event {
             for field in Self::REDUCER_STAMPED_TOP_LEVEL_FIELDS {
                 map.remove(field);
             }
+            // `encoding.md` §6: the preimage also drops `event_id`, because
+            // §4.0 derives that id *from this digest*. Leaving it in would put
+            // a function of the digest inside the digest's own input.
+            map.remove("event_id");
         }
         Ok(value)
+    }
+
+    /// Derive this Event's `event_id` from its own canonical content.
+    ///
+    /// `encoding.md` §4.0: a 34-bit `created_at` second segment plus 88 bits
+    /// from the leftmost 11 octets of the Event's `event_digest`. Callers
+    /// never choose the value; there is exactly one legal id per Event.
+    pub fn derive_event_id(&self) -> Result<EventId> {
+        self.derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+    }
+
+    /// [`Event::derive_event_id`] under the Realm's declared digest suite.
+    pub fn derive_event_id_with_digest_suite(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<EventId> {
+        let digest = self.event_digest_with_digest_suite(digest_suite)?;
+        let hex = digest
+            .split_once(':')
+            .map(|(_, rest)| rest)
+            .ok_or_else(|| Error::Protocol("event digest must carry a suite prefix".to_owned()))?;
+        let octets = (0..hex.len().min(22))
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
+            .collect::<std::result::Result<Vec<u8>, _>>()
+            .map_err(|_| Error::Protocol("event digest is not lowercase hex".to_owned()))?;
+        if octets.len() < 11 {
+            return Err(Error::Protocol(
+                "content-bound event ids need at least 11 digest octets".to_owned(),
+            ));
+        }
+        let seconds = u64::try_from(self.created_at.timestamp()).map_err(|_| {
+            Error::Protocol("event created_at must not precede the Unix epoch".to_owned())
+        })?;
+        Ok(EventId::from_uuid(
+            arkret_identifiers::content_bound_uuid(seconds, &octets),
+        ))
+    }
+
+    /// Re-derive the id and compare it with the carried value.
+    ///
+    /// `encoding.md` §6 makes the *order* a security property: a receiver MUST
+    /// run this before using `event_id` for deduplication, indexing, routing,
+    /// idempotency or authorization. Skipping it lets a forged id enter those
+    /// paths and be mistaken for a second variant of an existing Event.
+    pub fn verify_event_id_matches_content(&self) -> Result<()> {
+        self.verify_event_id_matches_content_with_digest_suite(
+            arkret_canonical::DigestSuite::Sha256,
+        )
+    }
+
+    /// [`Event::verify_event_id_matches_content`] under an explicit suite.
+    pub fn verify_event_id_matches_content_with_digest_suite(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        let derived = self.derive_event_id_with_digest_suite(digest_suite)?;
+        if derived == self.event_id {
+            Ok(())
+        } else {
+            Err(Error::Protocol(
+                "event_id_digest_mismatch: carried event_id does not equal the value re-derived                  from this Event's own canonical content"
+                    .to_owned(),
+            ))
+        }
     }
 
     pub fn event_digest(&self) -> Result<String> {
@@ -788,7 +1040,16 @@ impl Event {
         context: EventSubmitContext,
         require_proofs: bool,
     ) -> Result<()> {
-        if self.scope_ref.realm_id() != &self.realm_id {
+        // zh/models/realm-and-space.md section 2.5.0: the genesis scope carries
+        // no realm_id, so the equality check applies to every other kind and
+        // the genesis branch instead pins the closed scope shape.
+        if self.kind == EventKind::REALM_CREATE {
+            if self.scope_ref != ScopeRef::RealmGenesis {
+                return Err(Error::Protocol(
+                    "ak.realm.create MUST use the realm_genesis scope".to_owned(),
+                ));
+            }
+        } else if self.scope_ref.realm_id_opt() != Some(&self.realm_id) {
             return Err(Error::Protocol(
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
@@ -981,8 +1242,8 @@ impl Event {
         let event_unix_ms = u64::try_from(created_at.timestamp_millis()).map_err(|_| {
             Error::Protocol("event created_at must not precede the Unix epoch".to_owned())
         })?;
-        Self::new_with_id_at(
-            EventId::new_v7_at(event_unix_ms),
+        let _ = event_unix_ms;
+        Self::new_with_derived_id_at(
             kind,
             scope_ref,
             actor_id,
@@ -991,6 +1252,49 @@ impl Event {
             payload,
             created_at,
         )
+    }
+
+    /// Construct an Event whose `event_id` is derived from its own content.
+    ///
+    /// This is the only authoring entry point for ordinary Events: the id is
+    /// not a caller choice (`encoding.md` §4.0). It builds the envelope with a
+    /// placeholder id, computes the digest over the preimage — which excludes
+    /// `event_id` — and then stamps the derived id.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_derived_id_at(
+        kind: impl Into<String>,
+        scope_ref: ScopeRef,
+        actor_id: Did,
+        actor_seq: u64,
+        hlc: Hlc,
+        payload: Value,
+        created_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        // The placeholder never enters the digest preimage, so any valid id
+        // works here; it is overwritten before the Event is observable.
+        let placeholder = EventId::new(PLACEHOLDER_EVENT_ID)
+            .expect("placeholder id is a canonical content-bound shape");
+        let mut event = Self::new_with_id_at(
+            placeholder,
+            kind,
+            scope_ref,
+            actor_id,
+            actor_seq,
+            hlc,
+            payload,
+            created_at,
+        )?;
+        event.event_id = event.derive_event_id()?;
+        // A genesis scope names no Realm, so `realm_id` was computed from the
+        // placeholder id above; recompute it now that the real id is known.
+        if event.scope_ref.realm_id_opt().is_none() {
+            event.realm_id = derive_genesis_realm_id(
+                &event.event_id,
+                &event.actor_id,
+                event.payload.get("object"),
+            );
+        }
+        Ok(event)
     }
 
     /// Construct an Event with a caller-supplied identifier and instant.
@@ -1014,10 +1318,16 @@ impl Event {
                 "event payload must be a JSON object".to_owned(),
             ));
         };
+        let kind = EventKind::from_wire(&kind.into());
+        // A genesis scope names no Realm; the Realm id comes from this Event.
+        let realm_id = match scope_ref.realm_id_opt() {
+            Some(realm_id) => realm_id.clone(),
+            None => derive_genesis_realm_id(&event_id, &actor_id, payload.get("object")),
+        };
         Ok(Self {
             event_id,
-            kind: EventKind::from_wire(&kind.into()),
-            realm_id: scope_ref.realm_id().clone(),
+            kind,
+            realm_id,
             scope_ref,
             actor_id,
             actor_seq,
@@ -1053,7 +1363,7 @@ mod event_wire_surface_tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
     }
 
     fn realm_scope() -> ScopeRef {
@@ -1066,7 +1376,7 @@ mod event_wire_surface_tests {
 
     fn base_event() -> Event {
         Event {
-            event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+            event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
             kind: "ak.message.create".into(),
             realm_id: realm(),
             scope_ref: realm_scope(),
@@ -1084,7 +1394,7 @@ mod event_wire_surface_tests {
             requirements: EventRequirements::default(),
             redacts: None,
             payload: serde_json::from_value(json!({
-                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
                 "track_name": "discussion",
                 "content": {"kind": "ak.content.text", "body": "hello"}
             }))
@@ -1101,7 +1411,11 @@ mod event_wire_surface_tests {
 
     #[test]
     fn prepared_digest_payload_reconstructs_only_the_unsigned_event() {
-        let event = base_event();
+        // The round-trip is only total for an Event that carries its own
+        // derived id — which every wire Event must (section 4.0). Stamp it, so
+        // the fixture is a legal Event rather than one with a made-up id.
+        let mut event = base_event();
+        event.event_id = event.derive_event_id().unwrap();
         let bytes = canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
         let reconstructed = Event::from_digest_payload_bytes(&bytes).unwrap();
 
@@ -1216,7 +1530,7 @@ mod event_wire_surface_tests {
 
     #[test]
     fn event_new_with_id_at_preserves_the_allocated_identifier() {
-        let event_id = EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c576").unwrap();
+        let event_id = EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c576").unwrap();
         let event = Event::new_with_id_at(
             event_id.clone(),
             "ak.message.create",
@@ -1348,7 +1662,7 @@ mod event_wire_surface_tests {
         let mut rescoped = event;
         rescoped.scope_ref = ScopeRef::Circle {
             realm_id: realm(),
-            circle_id: CircleId::new("ak:circle:01904100-0000-7000-8000-1c1c1c1c1c1c").unwrap(),
+            circle_id: CircleId::new("ak:circle:01904100-0000-8000-8000-1c1c1c1c1c1c").unwrap(),
         };
 
         assert_ne!(baseline, rescoped.event_digest().unwrap());
@@ -1426,7 +1740,7 @@ mod event_wire_surface_tests {
     fn submit_rejects_a_scope_ref_that_disagrees_with_the_envelope_realm() {
         let mut event = base_event();
         event.scope_ref = ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000ff").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000ff").unwrap(),
         };
 
         let err = event.validate_for_submit_structural().unwrap_err();
@@ -1440,6 +1754,9 @@ mod event_wire_surface_tests {
     fn anchor_unit_allows_preconditions_without_any_cba_basis_field() {
         let mut event = base_event();
         event.kind = EventKind::from(EventKind::REALM_CREATE);
+        // A Realm genesis carries the closed `realm_genesis` scope and no
+        // `realm_id` (spec `zh/models/realm-and-space.md` section 2.5.0).
+        event.scope_ref = ScopeRef::RealmGenesis;
         event.preconditions.push(Precondition {
             cell: crate::CellRef::new("ak:cell:ak.component.realm.create.v1:null".to_owned())
                 .unwrap(),

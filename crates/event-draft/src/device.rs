@@ -80,7 +80,7 @@ mod tests {
 
     fn scope() -> ScopeRef {
         ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
         }
     }
 

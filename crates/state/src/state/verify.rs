@@ -803,7 +803,7 @@ mod tests {
     };
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {
@@ -825,7 +825,7 @@ mod tests {
 
     fn control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {
         let mut event = Event {
-            event_id: EventId::new("ak:event:0196419b-0000-7000-8000-000000000001").unwrap(),
+            event_id: EventId::new("ak:event:0196419b-0000-8000-8000-000000000001").unwrap(),
             kind: "ak.member.state".into(),
             realm_id: realm(),
             scope_ref: ScopeRef::Realm { realm_id: realm() },
@@ -986,7 +986,7 @@ mod tests {
     fn realm_mismatch_rejected() {
         let event = control_move(vec![], vec![]);
         let other =
-            RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000ffff".to_owned()).unwrap();
+            RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000ffff".to_owned()).unwrap();
         let err = verify_control_move(
             &event,
             &other,

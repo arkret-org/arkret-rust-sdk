@@ -676,7 +676,7 @@ mod tests {
         let authorize_event = Event::new(
             EventKind::AGENT_KEY_AUTHORIZE,
             arkret_wire::ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             },
             agent_id.clone(),
             1,
@@ -708,7 +708,7 @@ mod tests {
                     NonEmptyString::new(verification_method.to_string()).unwrap(),
                     verification_method.clone(),
                     signing_key.verifying_key().to_bytes(),
-                    EventId::new("ak:event:01970000-0000-7000-8000-000000000099").unwrap(),
+                    EventId::new("ak:event:01970000-0000-8000-8000-000000000099").unwrap(),
                     issued_at,
                     None,
                     controller_id.clone(),

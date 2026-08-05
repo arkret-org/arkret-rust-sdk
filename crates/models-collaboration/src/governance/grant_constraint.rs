@@ -620,7 +620,7 @@ impl GrantConstraint {
         approval.constraint_subkind = Some(GrantConstraintSubkind::Approval);
         approval.denied_write_fields = vec!["assignee".to_owned(), "status".to_owned()];
         approval.allowed_object_kinds = vec!["strand".to_owned()];
-        approval.allowed_view_ids = vec!["ak:view:01904100-0000-7000-8000-b74ef68eeddf".to_owned()];
+        approval.allowed_view_ids = vec!["ak:view:01904100-0000-8000-8000-b74ef68eeddf".to_owned()];
         approval.allowed_relation_kinds = vec!["responsible".to_owned()];
         approval.wip_limit_override = Some(false);
         approval.denied_view_kinds = vec!["public_board".to_owned()];
@@ -781,14 +781,14 @@ mod tests {
         let grant: CapabilityGrant = serde_json::from_value(json!({
             "id": "ak:grant:01904100-0000-7000-8000-000000000001",
             "schema": "ak.schema.capability.v1",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "issuer": "did:web:issuer.example",
             "subject": "did:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
             "issuer_authority_refs": [{
                 "kind": "realm_root",
-                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+                "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
                 "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
                 "controller_epoch_at_issuance": 0,
                 "authority_generation": 0
@@ -805,7 +805,7 @@ mod tests {
         let error = serde_json::from_value::<CapabilityGrant>(json!({
             "id": "ak:grant:01904100-0000-7000-8000-000000000001",
             "schema": "ak.schema.capability.v1",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "issuer": "did:web:issuer.example",
             "subject": "did:web:subject.example",
             "actions": ["ak.event.read"],
@@ -842,7 +842,7 @@ mod tests {
         let grant = CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             schema: "ak.schema.capability.v1".to_owned(),
-            realm_id: Some(RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()),
+            realm_id: Some(RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap()),
             issuer: Did::new("did:web:issuer.example").unwrap(),
             subject: CapabilitySubject::Did(Did::new("did:web:subject.example").unwrap()),
             actions: vec!["ak.event.read".to_owned()],
@@ -850,7 +850,7 @@ mod tests {
             capability_action_registry_digest: None,
             constraints: Vec::new(),
             issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
-                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
                 cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
                 controller_epoch_at_issuance: 0,
                 authority_generation: 0,

@@ -362,7 +362,7 @@ mod tests {
 
     use super::*;
 
-    const REALM: &str = "ak:realm:01964120-0000-7000-8000-000000000000";
+    const REALM: &str = "ak:realm:01964120-0000-8000-8000-000000000000";
     const ACTOR: &str = "did:web:founder.example";
     const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 

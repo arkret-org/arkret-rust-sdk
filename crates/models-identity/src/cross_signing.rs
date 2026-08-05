@@ -366,7 +366,7 @@ mod tests {
     fn principal_reset() -> Value {
         json!({
             "trust_domain": "ak:trust_domain:example.net",
-            "reset_event_id": "ak:event:01964137-0000-7000-8000-0000000000aa",
+            "reset_event_id": "ak:event:01964137-0000-8000-8000-0000000000aa",
             "principal_id": "did:webvh:z6mkfixture:alice.example",
             "previous_generation": 1,
             "new_generation": 2,

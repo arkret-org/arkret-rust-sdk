@@ -12,12 +12,15 @@ impl RealmState {
         let object = event
             .typed_payload::<MorphCreatePayload>(EventKind::MORPH_CREATE)?
             .object;
-        let morph_id = object.id;
+        // The object id is derived from this create Event, never read from the
+        // payload — the payload MUST NOT carry one (spec
+        // `zh/models/common-fields.md` section 6.0).
+        let morph_id = arkret_wire::MorphId::from_event_id(&event.event_id);
         let morph_id_str = morph_id.as_str().to_owned();
         let schema_refs = object.schema_refs;
         validate_morph_schema_refs(&schema_refs)?;
         let morph = Morph {
-            id: morph_id,
+            id: Some(morph_id),
             schema: SchemaId::MORPH_V1.to_owned(),
             realm_id: event.realm_id.clone(),
             scope_circle_id: object.scope_circle_id,
@@ -164,10 +167,9 @@ impl RealmState {
     pub(super) fn create_space(&mut self, event: &Event) -> Result<()> {
         let payload = Value::Object(event.payload.clone().into_iter().collect());
         let object = payload.get("object").unwrap_or(&payload);
-        let space_id = self
-            .extract_optional_field::<String>(object, "id")
-            .ok_or_else(|| Error::Protocol("container object requires id".to_owned()))?;
-        let id = SpaceId::new(space_id.clone())?;
+        // Derived from this create Event, never read from the payload.
+        let id = SpaceId::from_event_id(&event.event_id);
+        let space_id = id.as_str().to_owned();
         let realm_id = self.extract_field::<RealmId>(object, "realm_id")?;
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
@@ -179,7 +181,7 @@ impl RealmState {
 
         let space = Space {
             schema: SchemaId::SPACE_V1.to_owned(),
-            id,
+            id: Some(id),
             realm_id,
             default_realm_id: self.extract_optional_field(object, "default_realm_id"),
             parent_space_id: self.extract_optional_field(object, "parent_space_id"),
@@ -406,11 +408,9 @@ impl RealmState {
             .get("relation")
             .or_else(|| payload.get("object"))
             .unwrap_or(&payload);
-        let relation_id_str = self
-            .extract_optional_field::<String>(object, "relation_id")
-            .or_else(|| self.extract_optional_field::<String>(object, "id"))
-            .unwrap_or_else(|| relation_id_from_event_id(event.event_id.as_str()));
-        let relation_id = RelationId::new(relation_id_str.clone())?;
+        // Derived from this create Event, never read from the payload.
+        let relation_id = RelationId::from_event_id(&event.event_id);
+        let relation_id_str = relation_id.as_str().to_owned();
         let relation_kind: crate::RelationKind = self
             .extract_optional_field(object, "relation_kind")
             .or_else(|| self.extract_optional_field(object, "kind"))
@@ -428,7 +428,7 @@ impl RealmState {
 
         let relation = Relation {
             schema: "ak.schema.relation.v1".to_owned(),
-            id: relation_id,
+            id: Some(relation_id),
             realm_id: event.realm_id.clone(),
             scope_circle_id,
             effective_scope,
@@ -463,7 +463,8 @@ impl RealmState {
         let object = event
             .typed_payload::<StrandCreatePayload>(EventKind::STRAND_CREATE)?
             .object;
-        let strand_id = object.id;
+        // Derived from this create Event, never read from the payload.
+        let strand_id = arkret_wire::StrandId::from_event_id(&event.event_id);
         let strand_id_str = strand_id.as_str().to_owned();
         let metadata = object.metadata.unwrap_or_default();
         let tracks = if object.tracks.is_empty() {
@@ -477,7 +478,7 @@ impl RealmState {
             object.tracks
         };
         let subject = Strand {
-            id: strand_id,
+            id: Some(strand_id),
             schema: SchemaId::STRAND_V1.to_owned(),
             realm_id: event.realm_id.clone(),
             scope_circle_id: object.scope_circle_id,
@@ -679,13 +680,6 @@ fn validate_morph_schema_refs(schema_refs: &[String]) -> Result<()> {
 fn patch_to_value_map(patch: &crate::Patch) -> Result<BTreeMap<String, Value>> {
     let value = serde_json::to_value(patch)?;
     serde_json::from_value(value).map_err(Into::into)
-}
-
-fn relation_id_from_event_id(event_id: &str) -> String {
-    match event_id.strip_prefix("ak:event:") {
-        Some(suffix) => format!("ak:relation:{suffix}"),
-        None => format!("ak:relation:{event_id}"),
-    }
 }
 
 fn patch_metadata_fields(

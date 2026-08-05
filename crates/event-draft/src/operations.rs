@@ -606,7 +606,7 @@ mod tests {
 
     fn scope() -> ScopeRef {
         ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-6b91994c774d").unwrap(),
         }
     }
 
@@ -716,7 +716,7 @@ mod tests {
             EventKind::SPACE_CREATE,
             json!({
                 "object": {},
-                "space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"
+                "space_id": "ak:space:01904100-0000-8000-8000-c89a39a907e5"
             }),
             Vec::new(),
             true,
@@ -724,7 +724,7 @@ mod tests {
         let delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-bc16402a117e",
             EventKind::SPACE_TOMBSTONE,
-            json!({"space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"}),
+            json!({"space_id": "ak:space:01904100-0000-8000-8000-c89a39a907e5"}),
             vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
@@ -733,7 +733,7 @@ mod tests {
             EventKind::SPACE_CREATE,
             json!({
                 "object": {},
-                "space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"
+                "space_id": "ak:space:01904100-0000-8000-8000-c89a39a907e5"
             }),
             vec!["ak:operation:01904100-0000-7000-8000-bc16402a117e"],
             true,
@@ -747,7 +747,7 @@ mod tests {
             EventKind::SPACE_CREATE,
             json!({
                 "object": {},
-                "space_id": "ak:space:01904100-0000-7000-8000-9160607cbd81"
+                "space_id": "ak:space:01904100-0000-8000-8000-9160607cbd81"
             }),
             Vec::new(),
             false,

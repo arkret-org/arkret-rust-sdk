@@ -60,12 +60,29 @@ fn s<'a>(value: &'a Value, key: &str) -> &'a str {
         .unwrap_or_else(|| panic!("fixture field {key} must be a string"))
 }
 
+/// The Event digest preimage of `conformance/encoding.md` section 6: the signed
+/// envelope minus `proofs`, `unsigned`, `actor_kind` and `event_id`.
+///
+/// `event_without_proofs` is the envelope as it appears on the wire, so the
+/// remaining three exclusions have to be applied here — `event_id` above all,
+/// because section 4.0 derives it *from* this digest and leaving it in would put
+/// a function of the digest inside the digest's own input.
+fn digest_preimage(event: &Value) -> Value {
+    let mut event = event.clone();
+    if let Some(map) = event.as_object_mut() {
+        map.remove("unsigned");
+        map.remove("actor_kind");
+        map.remove("event_id");
+    }
+    event
+}
+
 /// Canonical bytes + digest chain for a detached-JWS vector: event payload,
 /// binding payload, protected header, detached payload and signing input.
 fn assert_canonical_chain(vector: &Value) {
     let name = s(vector, "name");
 
-    let event_bytes = canonical::canonical_json_bytes(&vector["event_without_proofs"]).unwrap();
+    let event_bytes = canonical::canonical_json_bytes(&digest_preimage(&vector["event_without_proofs"])).unwrap();
     assert_eq!(
         std::str::from_utf8(&event_bytes).unwrap(),
         s(vector, "canonical_event_payload"),
@@ -185,7 +202,7 @@ fn non_ed25519_vectors_pin_canonical_chain_and_stay_wire_reserved() {
     );
     // Raw detached signature vector: no JWS header, but the canonical event
     // + binding chain still pins the canonicalizer.
-    let event_bytes = canonical::canonical_json_bytes(&mldsa["event_without_proofs"]).unwrap();
+    let event_bytes = canonical::canonical_json_bytes(&digest_preimage(&mldsa["event_without_proofs"])).unwrap();
     assert_eq!(
         std::str::from_utf8(&event_bytes).unwrap(),
         s(&mldsa, "canonical_event_payload")
@@ -233,7 +250,7 @@ fn negative_cases_reject_through_sdk_verifiers() {
     };
     let actor = Did::new(s(&base["binding_object"], "actor_id")).unwrap();
     let canonical_event_bytes =
-        canonical::canonical_json_bytes(&base["event_without_proofs"]).unwrap();
+        canonical::canonical_json_bytes(&digest_preimage(&base["event_without_proofs"])).unwrap();
 
     // reject_flipped_signature_bit: raw Ed25519 verification must fail.
     let flipped = negative_case(&fixture, "reject_flipped_signature_bit");

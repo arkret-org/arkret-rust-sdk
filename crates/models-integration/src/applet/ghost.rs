@@ -175,7 +175,7 @@ mod tests {
         Event::new(
             kind,
             ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             },
             Did::new(actor).unwrap(),
             0,
@@ -190,7 +190,7 @@ mod tests {
         let mut event = Event::new(
             "ak.profile.create",
             ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             },
             Did::new("did:web:ghost.example").unwrap(),
             1,
@@ -200,7 +200,7 @@ mod tests {
         .unwrap();
         let authorization = AppletDelegatedEventAuthorization::new(
             Did::new("did:web:applet.example").unwrap(),
-            AuthorizationRef::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap(),
+            AuthorizationRef::new("ak:event:01904100-0000-8000-8000-000000000002").unwrap(),
             AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
         );
 
@@ -229,7 +229,7 @@ mod tests {
             "slack",
             "tenant-1",
             "user-1",
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             serde_json::from_value(serde_json::json!({
                 "protocol": "slack",
                 "external_id": "user-1"
@@ -264,7 +264,7 @@ mod tests {
             "protocol": "slack",
             "tenant": "tenant-1",
             "external_user_id": "user-1",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "external_ref": {
                 "protocol": "slack",
                 "external_id": "user-1"

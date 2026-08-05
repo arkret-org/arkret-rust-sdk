@@ -948,7 +948,7 @@ mod realm_control_payload_tests {
     #[test]
     fn realm_notary_payload_is_closed_and_validated() {
         let value = json!({
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "notary": {
                 "kind": "single_did",
                 "did": "did:web:notary.example"
@@ -996,7 +996,7 @@ mod realm_organization_tests {
     fn active_value() -> Value {
         json!({
             "statement_id": "org-stmt-1",
-            "realm_id": "ak:realm:0196419b-0000-7000-8000-000000000010",
+            "realm_id": "ak:realm:0196419b-0000-8000-8000-000000000010",
             "organization_id": "did:webvh:example.test:orgs:01J0000000000000000000000A",
             "relationship": "owner",
             "status": "active",

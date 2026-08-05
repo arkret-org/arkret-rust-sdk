@@ -864,9 +864,9 @@ mod tests {
         /// envelope into the request body. The fixture is deliberately
         /// stripped down so the serialised body is easy to assert against.
         fn fixture_event(content_body: &str) -> Event {
-            let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap();
+            let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap();
             Event {
-                event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+                event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
                 kind: "ak.message.create".into(),
                 realm_id: realm_id.clone(),
                 scope_ref: ScopeRef::Realm { realm_id },
@@ -1075,7 +1075,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_single_posts_initial_submission() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-8000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let submission = fixture_submission("hello");
@@ -1123,7 +1123,7 @@ mod tests {
         #[tokio::test]
         async fn mls_governance_proof_posts_typed_request() {
             let (client, capture) = spawn_capture_server("{}").await;
-            let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap();
+            let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap();
             let request = MlsGovernanceProofRequestBodyBody {
                 realm_id: realm_id.clone(),
                 effective_scope: ScopeRef::Realm {
@@ -1267,7 +1267,7 @@ mod tests {
 
         #[tokio::test]
         async fn http_message_signer_signs_self_requests_before_send() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-8000-8000-a0086f45c575"]}"#;
             let signer =
                 HttpMessageSigner::new("grant-key", Ed25519SigningKey::from_bytes(&[7u8; 32]));
             let (client, capture) =
@@ -1437,7 +1437,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_batch_posts_events_array() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-8000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let submissions = vec![fixture_submission("first"), fixture_submission("second")];
@@ -1502,9 +1502,9 @@ mod tests {
 
         #[tokio::test]
         async fn events_resolve_posts_closed_selectors() {
-            let event_id = EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap();
+            let event_id = EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap();
             let canned =
-                r#"{"events":[],"missing":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+                r#"{"events":[],"missing":["ak:event:01904100-0000-8000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
             let request = arkret_models_collaboration::http_bodies::EventsResolveRequestBody {
                 event_ids: vec![event_id.clone()],
@@ -1662,11 +1662,11 @@ mod tests {
                 "state":"found",
                 "coordinates": {
                     "pair_key":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    "realm_id":"ak:realm:01904100-0000-7000-8000-d10000000001",
-                    "main_strand_id":"ak:strand:01904100-0000-7000-8000-d10000000002",
-                    "binding_event_ref":"ak:event:01904100-0000-7000-8000-d10000000003"
+                    "realm_id":"ak:realm:01904100-0000-8000-8000-d10000000001",
+                    "main_strand_id":"ak:strand:01904100-0000-8000-8000-d10000000002",
+                    "binding_event_ref":"ak:event:01904100-0000-8000-8000-d10000000003"
                 },
-                "active_mls_generation_ref":"ak:event:01904100-0000-7000-8000-d10000000004",
+                "active_mls_generation_ref":"ak:event:01904100-0000-8000-8000-d10000000004",
                 "send_blockers": []
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
@@ -1691,11 +1691,11 @@ mod tests {
                     .as_ref()
                     .expect("found carries a binding ref")
                     .as_str(),
-                "ak:event:01904100-0000-7000-8000-d10000000003"
+                "ak:event:01904100-0000-8000-8000-d10000000003"
             );
             assert_eq!(
                 active_mls_generation_ref.as_str(),
-                "ak:event:01904100-0000-7000-8000-d10000000004"
+                "ak:event:01904100-0000-8000-8000-d10000000004"
             );
 
             let raw = capture.await.unwrap();
@@ -1771,7 +1771,7 @@ mod tests {
             )
             .await;
             let request = MimiReportAbuseRequestBody {
-                strand_id: StrandId::new("ak:strand:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
+                strand_id: StrandId::new("ak:strand:01904100-0000-8000-8000-f571eead1fc4").unwrap(),
                 mimi_room_uri: Some(MimiRoomUri::new("mimi://provider/rooms/room-1").unwrap()),
                 realm_id: None,
                 target_ref: NonEmptyString::new("mimi://provider/rooms/room-1/messages/msg-1")
@@ -1801,9 +1801,9 @@ mod tests {
         async fn events_submit_returns_partial_status() {
             let canned = r#"{
                 "status": "partial",
-                "accepted": ["ak:event:01904100-0000-7000-8000-a0086f45c575"],
+                "accepted": ["ak:event:01904100-0000-8000-8000-a0086f45c575"],
                 "rejected": [
-                    {"id": "ak:event:01904100-0000-7000-8000-deadbeefdead", "reason_code": "schema_violation"}
+                    {"id": "ak:event:01904100-0000-8000-8000-deadbeefdead", "reason_code": "schema_violation"}
                 ]
             }"#;
             let (client, _capture) = spawn_capture_server(canned).await;
@@ -2057,7 +2057,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_with_options_sends_idempotency_key() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-8000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let options = ClientRequestOptions::new().idempotency_key("evt-idem-1");

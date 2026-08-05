@@ -310,10 +310,10 @@ mod tests {
         let value = serde_json::json!({
             "session_id": "ak:audit_session:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d",
             "binding_id": "ak:audit_binding:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5e",
-            "realm_id": "ak:realm:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5f",
+            "realm_id": "ak:realm:018f0f51-8b44-8a2e-8c2f-9b1d6e3a4c5f",
             "effective_scope": {
                 "kind": "realm",
-                "realm_id": "ak:realm:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5f"
+                "realm_id": "ak:realm:018f0f51-8b44-8a2e-8c2f-9b1d6e3a4c5f"
             },
             "session_state": "authorize",
             "approved_recipient_audit_actor_id": "did:webvh:z6mkfixture:auditor.example",

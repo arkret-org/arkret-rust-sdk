@@ -121,14 +121,18 @@ fn bootstrap_unit() -> (Event, Event) {
     };
     let mut authorize = Event::new(
         EventKind::DEVICE_AUTHORIZE,
-        create.scope_ref.clone(),
+        // The genesis scope belongs to the create alone; the first authorize is
+        // an ordinary Control Move inside the Realm the create just named.
+        arkret_wire::ScopeRef::Realm {
+            realm_id: create.realm_id.clone(),
+        },
         create.actor_id.clone(),
         1,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         serde_json::to_value(payload).unwrap(),
     )
     .unwrap();
-    authorize.event_id = EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap();
+    authorize.event_id = EventId::new("ak:event:01904100-0000-8000-8000-000000000002").unwrap();
     authorize.created_at = create.created_at;
     authorize.prev_refs = vec![create.event_id.clone()];
     authorize.executed_by = Some(authority.clone());
@@ -156,7 +160,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
         ),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),
-        event_id: EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
+        event_id: EventId::new("ak:event:01904100-0000-8000-8000-000000000001").unwrap(),
         created_at: "2026-07-15T00:00:00.000Z".parse().unwrap(),
         hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     }
@@ -172,7 +176,9 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
     assert!(event.proofs.is_empty());
     assert_eq!(event.refs.len(), 1);
     assert_eq!(event.refs[0].role, DID_INCEPTION_REF_ROLE);
-    assert_eq!(event.scope_ref.realm_id(), &event.realm_id);
+    // A genesis envelope carries no realm_id and uses the closed genesis
+    // scope; the Realm id is derived (subject-derived for a PCR).
+    assert_eq!(event.scope_ref, arkret_wire::ScopeRef::RealmGenesis);
     assert!(event.scope_ref.circle_id().is_none());
     // Nothing on the wire says what this Event writes; the registry
     // contract does, and it must land on exactly the genesis leaf set.
@@ -202,7 +208,7 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
 #[test]
 fn builder_rejects_a_non_self_realm_and_indirect_inception_ref() {
     let mut wrong_realm = input();
-    wrong_realm.realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000002").unwrap();
+    wrong_realm.realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000002").unwrap();
     assert!(build_self_principal_pcr_create(wrong_realm, &registry_projection).is_err());
 
     let mut indirect = input();
@@ -254,7 +260,7 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
     let mut unrelated = authorize;
     unrelated.prev_refs = vec![
         create.event_id.clone(),
-        EventId::new("ak:event:01904100-0000-7000-8000-000000000099").unwrap(),
+        EventId::new("ak:event:01904100-0000-8000-8000-000000000099").unwrap(),
     ];
     assert!(
         validate_self_principal_bootstrap_unit(&create, &unrelated, &registry_projection).is_err()
@@ -384,7 +390,7 @@ fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
 }
 
 fn managed_agent_pcr_create() -> Event {
-    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000a1").unwrap();
     let agent = Did::new("did:web:agent.example").unwrap();
     let controller = Did::new("did:web:controller.example").unwrap();
     let mut create = Event::new(
@@ -407,12 +413,12 @@ fn managed_agent_pcr_create() -> Event {
         }),
     )
     .unwrap();
-    create.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a1").unwrap();
+    create.event_id = EventId::new("ak:event:01904100-0000-8000-8000-0000000000a1").unwrap();
     create.authorization_ref =
         Some(AuthorizationRef::new(format!("{agent}#managed-controller")).unwrap());
     create.executed_by = Some(controller);
     create.refs = vec![EventRef::new(
-        "ak:event:01904100-0000-7000-8000-0000000000a0",
+        "ak:event:01904100-0000-8000-8000-0000000000a0",
         "agent_provision",
     )];
     create
@@ -423,7 +429,7 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: Did::new("did:web:agent.example".to_owned()).unwrap(),
         controller_id: Did::new("did:web:controller.example".to_owned()).unwrap(),
-        realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap(),
+        realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000a1").unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),
@@ -546,7 +552,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         serde_json::json!({}),
     )
     .unwrap();
-    anchor.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a2").unwrap();
+    anchor.event_id = EventId::new("ak:event:01904100-0000-8000-8000-0000000000a2").unwrap();
     anchor.executed_by = Some(controller.clone());
     anchor.authorization_ref = create.authorization_ref.clone();
 
@@ -636,7 +642,7 @@ fn managed_agent_successor_resolves_registered_patch_from_frozen_predecessor() {
         }),
     )
     .unwrap();
-    update.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000b2").unwrap();
+    update.event_id = EventId::new("ak:event:01904100-0000-8000-8000-0000000000b2").unwrap();
     update.executed_by = Some(controller);
     update.authorization_ref = create.authorization_ref.clone();
     update.seal_basis = Some(first.seal_basis());
@@ -672,9 +678,9 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     let agent = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
     let event = build_agent_provision_event_draft(
         &controller,
-        &RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+        &RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
         &agent,
-        &RealmId::new("ak:realm:01904100-0000-7000-8000-000000000002").unwrap(),
+        &RealmId::new("ak:realm:01904100-0000-8000-8000-000000000002").unwrap(),
         &DidUrl::new(format!("{controller}#managed-agent")).unwrap(),
         "summary",
         &Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
@@ -684,7 +690,7 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
             created_at: "2026-07-18T01:02:03Z".parse().unwrap(),
             actor_seq: 4,
             hlc: Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
-            prev_refs: vec![EventId::new("ak:event:01904100-0000-7000-8000-000000000003").unwrap()],
+            prev_refs: vec![EventId::new("ak:event:01904100-0000-8000-8000-000000000003").unwrap()],
             seal_basis: Some(SealBasis {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap()],
             }),

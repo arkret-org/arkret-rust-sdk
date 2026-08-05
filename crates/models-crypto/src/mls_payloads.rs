@@ -771,7 +771,7 @@ fn object_ref_regex() -> &'static Regex {
     static OBJECT_REF: OnceLock<Regex> = OnceLock::new();
     OBJECT_REF.get_or_init(|| {
         Regex::new(
-            r"^(ak:(realm|circle|space|actor_profile|strand|message|morph|relation|view|policy|grant|invite|call|blob|snapshot|event|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ak:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+            r"^((?:ak:(realm|circle|space|actor_profile|strand|message|morph|relation|view|event):[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ak:(policy|grant|invite|call|blob|snapshot|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|ak:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
         )
         .expect("object_ref regex compiles")
     })
@@ -1250,11 +1250,11 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000001").unwrap()
     }
 
     fn event(n: u8) -> EventId {
-        EventId::new(format!("ak:event:0196419b-0000-7000-8000-00000000000{n}")).unwrap()
+        EventId::new(format!("ak:event:0196419b-0000-8000-8000-00000000000{n}")).unwrap()
     }
 
     fn hash(byte: char) -> Hash {
@@ -1368,7 +1368,7 @@ mod tests {
 
     #[test]
     fn mls_governance_binding_cbor_round_trips_circle_payload() {
-        let circle_id = CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000009").unwrap();
+        let circle_id = CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000009").unwrap();
         let binding = MlsGovernanceBindingPayload::circle(
             realm(),
             circle_id.clone(),
@@ -1460,7 +1460,7 @@ mod tests {
 
     #[test]
     fn sidecar_mls_binding_round_trips_and_is_validated_exactly() {
-        let circle_id = CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000009").unwrap();
+        let circle_id = CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000009").unwrap();
         let sidecar_binding = SidecarMlsBinding {
             sidecar_id: SidecarId::new("ak:sidecar:0196419b-0000-7000-8000-000000000010").unwrap(),
             desired_access_digest: hash('8'),
@@ -1487,7 +1487,7 @@ mod tests {
         assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:7772362445cc5bf07db60841bbc3ce6a499f753360be1ce97e5683b6c9ed9e52"
+            "sha256:c03b01dc2e51438d55ed27fe1e3ee1e44dc2d7aba7efd3ce6d430f1f0dd121c7"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));

@@ -108,7 +108,7 @@ mod tests {
     }
 
     fn governance_realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-00000000f1c0").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-00000000f1c0").unwrap()
     }
 
     fn governance_hash(byte: char) -> Hash {
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn create_group_with_governance_binding_stores_group_context_extension() {
-        let group_id_bytes = b"ak:realm:01904100-0000-7000-8000-f1c000000001";
+        let group_id_bytes = b"ak:realm:01904100-0000-8000-8000-f1c000000001";
         let group_id = base64url_encode(group_id_bytes);
         let binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = ArkretMlsIdentity::new_basic(
@@ -220,7 +220,7 @@ mod tests {
         )
         .unwrap();
         let group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000005")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-f1c000000005")
             .unwrap();
         let (group_info, ratchet_tree) = group.public_group_state_bytes().unwrap();
 
@@ -247,7 +247,7 @@ mod tests {
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000002")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-f1c000000002")
             .unwrap();
         let group_id = group.group_id();
         let binding = governance_binding(
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn add_member_commit_carries_governance_binding_into_welcome() {
-        let group_id_bytes = b"ak:realm:01904100-0000-7000-8000-f1c00000000a";
+        let group_id_bytes = b"ak:realm:01904100-0000-8000-8000-f1c00000000a";
         let group_id = base64url_encode(group_id_bytes);
         let genesis_binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = ArkretMlsIdentity::new_basic(
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn remove_member_commit_carries_governance_binding_to_survivors() {
-        let group_id_bytes = b"ak:realm:01904100-0000-7000-8000-f1c00000000b";
+        let group_id_bytes = b"ak:realm:01904100-0000-8000-8000-f1c00000000b";
         let group_id = base64url_encode(group_id_bytes);
         let genesis_binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = ArkretMlsIdentity::new_basic(
@@ -381,7 +381,7 @@ mod tests {
         )
         .unwrap();
         let group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000003")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-f1c000000003")
             .unwrap();
         let group_id = group.group_id();
         let expected = MlsGovernanceBindingValidationContext::for_commit(
@@ -410,7 +410,7 @@ mod tests {
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000004")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-f1c000000004")
             .unwrap();
         let group_id = group.group_id();
         let binding = governance_binding(&group_id, 0, 1, governance_hash('3'))
@@ -443,7 +443,7 @@ mod tests {
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000005")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-f1c000000005")
             .unwrap();
         let group_id = group.group_id();
         let binding = governance_binding(&group_id, 0, 1, governance_hash('4'));
@@ -488,7 +488,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a40")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-1ad6479d4a40")
             .unwrap();
         let hash_pre = alice_group.schedule_hash();
         assert!(
@@ -535,7 +535,7 @@ mod tests {
         let fresh_bob = ArkretMlsIdentity::new_basic(bob_principal, bob_device).unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a43")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-1ad6479d4a43")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let Err(fresh_error) = ArkretMlsGroup::join_from_welcome(fresh_bob, &add_result.welcome)
@@ -571,12 +571,12 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-1ad6479d4a41")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
-        let realm = b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41";
+        let realm = b"ak:realm:01904100-0000-8000-8000-1ad6479d4a41";
         let a = alice_group
             .export_secret(arkret_wire::ExporterLabelId::REACTION_ROUTING_V1, realm, 32)
             .unwrap();
@@ -590,7 +590,7 @@ mod tests {
         );
 
         // Different context (realm) MUST diverge.
-        let other_realm = b"ak:realm:01904100-0000-7000-8000-1ad6479d4a42";
+        let other_realm = b"ak:realm:01904100-0000-8000-8000-1ad6479d4a42";
         assert_ne!(
             a,
             alice_group
@@ -627,7 +627,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-1ad6479d4a41")
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
@@ -661,7 +661,7 @@ mod tests {
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-555555555555")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-555555555555")
             .unwrap();
         let pre_epoch = group.epoch();
         let pre_group_id = group.group_id();
@@ -698,7 +698,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-d652c78259d9")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-d652c78259d9")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
@@ -735,7 +735,7 @@ mod tests {
         let charlie_key_package = charlie.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-1eb2ca9cbcfe")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-1eb2ca9cbcfe")
             .unwrap();
         let add_result = alice_group
             .add_members(&[bob_key_package, charlie_key_package])
@@ -778,7 +778,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-f2f103987ef3")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-f2f103987ef3")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
@@ -811,14 +811,14 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-65bef476aed3")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-65bef476aed3")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = arkret_models_crypto::EncryptedEnvelopeAad {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65bef476aed3").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-65bef476aed3").unwrap(),
             event_kind: "ak.message.create".to_owned(),
-            event_id: Some(EventId::new("ak:event:01904100-0000-7000-8000-d5afe7e3de96").unwrap()),
+            event_id: Some(EventId::new("ak:event:01904100-0000-8000-8000-d5afe7e3de96").unwrap()),
             event_ref_digest: None,
             causal_refs: Some(Vec::new()),
             causal_ref_digests: None,
@@ -855,7 +855,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a3f")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-1ad6479d4a3f")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
@@ -909,7 +909,7 @@ mod tests {
         );
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-877788250807")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-877788250807")
             .unwrap();
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
@@ -948,7 +948,7 @@ mod tests {
         )
         .unwrap();
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-f2f103987ef3")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-f2f103987ef3")
             .unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
@@ -991,12 +991,12 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-469a459e1b8f")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-469a459e1b8f")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "ak:event:01904100-0000-7000-8000-f2fbe0d55fb4",
+            "ak:event:01904100-0000-8000-8000-f2fbe0d55fb4",
             "application/vnd.arkret.message+json",
             br#"{"body":"arrives before local key"}"#,
         )
@@ -1033,7 +1033,7 @@ mod tests {
 
         // Alice creates group and adds Bob and Charlie.
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-4cc289f6471e")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-4cc289f6471e")
             .unwrap();
         let bob_add = alice_group.add_member(&bob_kp).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
@@ -1115,7 +1115,7 @@ mod tests {
 
         let bob_key_package = bob.key_package_record().unwrap();
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-d652c78259d9")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-d652c78259d9")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let Err(error) = ArkretMlsGroup::join_from_welcome(mallory, &add_result.welcome) else {
@@ -1149,7 +1149,7 @@ mod tests {
         let charlie_kp = charlie.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-a78a8b504d40")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-a78a8b504d40")
             .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
@@ -1196,7 +1196,7 @@ mod tests {
         let charlie_kp = charlie.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-2fa70c9d6659")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-2fa70c9d6659")
             .unwrap();
         alice_group.add_member(&bob_kp).unwrap();
         alice_group.add_member(&charlie_kp).unwrap();
@@ -1241,7 +1241,7 @@ mod tests {
         )
         .unwrap();
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-3cf34eced3c3")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-3cf34eced3c3")
             .unwrap();
 
         let absent = Did::new("did:webvh:z6mkfixture:nobody.example").unwrap();
@@ -1257,10 +1257,10 @@ mod tests {
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-0abc0abc0abc")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-0abc0abc0abc")
             .unwrap();
 
-        let realm_id = "ak:realm:01904100-0000-7000-8000-0abc0abc0abc";
+        let realm_id = "ak:realm:01904100-0000-8000-8000-0abc0abc0abc";
         let aad = arkret_models_crypto::EncryptedEnvelopeAad::hidden(
             RealmId::new(realm_id).unwrap(),
             "ak.message.create",
@@ -1274,7 +1274,7 @@ mod tests {
             )
             .unwrap();
 
-        let commit_ref = "ak:event:01904100-0000-7000-8000-00000000c0a1";
+        let commit_ref = "ak:event:01904100-0000-8000-8000-00000000c0a1";
         let envelope = encrypted_envelope_from_payload(
             &payload,
             aad,
@@ -1365,7 +1365,7 @@ mod tests {
         let bob_kp = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-89444e193497")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-89444e193497")
             .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
@@ -1384,7 +1384,7 @@ mod tests {
 
     // ── mls_exporter_aead_v1 content scheme ──────────────────────────────────
 
-    const HISTORY_REALM: &str = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
+    const HISTORY_REALM: &str = "ak:realm:01904100-0000-8000-8000-e2eeae0d0001";
 
     fn exporter_aead_founder() -> ArkretMlsGroup {
         let alice = ArkretMlsIdentity::new_basic(
@@ -1393,14 +1393,14 @@ mod tests {
         )
         .unwrap();
         alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-e2eeae0d0001")
+            .create_group(b"ak:realm:01904100-0000-8000-8000-e2eeae0d0001")
             .unwrap()
     }
 
     fn exporter_aead_key_ref() -> arkret_models_crypto::KeyRefObject {
         arkret_models_crypto::KeyRefObject {
             algorithm: "MLS-EXPORTER-AEAD".to_owned(),
-            group_state_ref: "ak:event:01904100-0000-7000-8000-00000000ae01".to_owned(),
+            group_state_ref: "ak:event:01904100-0000-8000-8000-00000000ae01".to_owned(),
         }
     }
 
@@ -1462,7 +1462,7 @@ mod tests {
             .unwrap();
         assert_eq!(payload.scheme, EncryptedPayloadScheme::MlsExporterAeadV1);
 
-        let group_state_ref = "ak:event:01904100-0000-7000-8000-00000000ae01";
+        let group_state_ref = "ak:event:01904100-0000-8000-8000-00000000ae01";
         let envelope = encrypted_envelope_from_payload(
             &payload,
             envelope_aad,

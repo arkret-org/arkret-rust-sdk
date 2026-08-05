@@ -17,7 +17,15 @@ pub const RELATION_KIND_WATCHES: &str = "watches";
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Relation {
     pub schema: String,
-    pub id: RelationId,
+    /// The object id.
+    ///
+    /// Absent on the create payload: this kind's registry `id_source` is
+    /// `event_derived`, so the id is `from_event_id(&create.event_id)` and a
+    /// payload copy would be a second, forgeable truth (spec
+    /// `zh/models/common-fields.md` section 6.0). Present on every projected
+    /// snapshot, where the receiver has already derived it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<RelationId>,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,

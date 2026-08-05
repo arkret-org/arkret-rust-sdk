@@ -2610,11 +2610,11 @@ mod tests {
     use crate::events_payloads::ContentBlock;
 
     fn test_realm_id(seed: &str) -> RealmId {
-        RealmId::new(format!("ak:realm:01904100-0000-7000-8000-{seed}")).unwrap()
+        RealmId::new(format!("ak:realm:01904100-0000-8000-8000-{seed}")).unwrap()
     }
 
     fn test_circle_id(seed: &str) -> CircleId {
-        CircleId::new(format!("ak:circle:01904100-0000-7000-8000-{seed}")).unwrap()
+        CircleId::new(format!("ak:circle:01904100-0000-8000-8000-{seed}")).unwrap()
     }
 
     fn test_blob_id(seed: &str) -> BlobId {
@@ -2713,9 +2713,9 @@ mod tests {
 
     #[test]
     fn scheduled_send_validates_payload_digest_without_second_message_identity() {
-        let message_id = MessageId::new("ak:message:01904100-0000-7000-8000-000000000001").unwrap();
+        let message_id = MessageId::new("ak:message:01904100-0000-8000-8000-000000000001").unwrap();
         let payload = MessageCreatePayload::with_content(
-            StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap(),
+            StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap(),
             "discussion",
             ContentBlock::text("hello"),
         );
@@ -2909,7 +2909,7 @@ mod tests {
     #[test]
     fn private_key_builders_do_not_leak_raw_target_refs() {
         let ns = b"test namespace key";
-        let target_ref = "ak:message:01904100-0000-7000-8000-000000000001";
+        let target_ref = "ak:message:01904100-0000-8000-8000-000000000001";
         let snooze = snooze_account_data_key(ns, target_ref).unwrap();
         assert!(snooze.starts_with("ak.snooze.v1:"));
         assert!(!snooze.contains(target_ref));
@@ -2931,7 +2931,7 @@ mod tests {
     #[test]
     fn private_key_validator_accepts_typed_id_tail_namespaces() {
         let view_id =
-            arkret_wire::ViewId::new("ak:view:0196419b-0000-7000-8000-000000000001".to_owned())
+            arkret_wire::ViewId::new("ak:view:0196419b-0000-8000-8000-000000000001".to_owned())
                 .unwrap();
         let notification_id = arkret_wire::NotificationId::new(
             "ak:notification:0196419b-0000-7000-8000-000000000002".to_owned(),
@@ -2956,7 +2956,7 @@ mod tests {
             ("ak.views.private", "must not leak raw typed refs"),
             ("ak.views.private.", "ak.views.private.<view_id>"),
             (
-                "ak.views.private.ak:realm:0196419b-0000-7000-8000-000000000001",
+                "ak.views.private.ak:realm:0196419b-0000-8000-8000-000000000001",
                 "ak.views.private.<view_id>",
             ),
             ("ak.notifications.inbox", "must not leak raw typed refs"),
@@ -2965,7 +2965,7 @@ mod tests {
                 "ak.notifications.inbox.<notification_id>",
             ),
             (
-                "ak.notifications.inbox.ak:view:0196419b-0000-7000-8000-000000000001",
+                "ak.notifications.inbox.ak:view:0196419b-0000-8000-8000-000000000001",
                 "ak.notifications.inbox.<notification_id>",
             ),
         ] {
@@ -2977,7 +2977,7 @@ mod tests {
     #[test]
     fn private_key_validator_rejects_raw_refs() {
         let err = validate_private_account_data_key(
-            "ak.draft.v1:message:ak:message:01904100-0000-7000-8000-000000000001:main",
+            "ak.draft.v1:message:ak:message:01904100-0000-8000-8000-000000000001:main",
         )
         .unwrap_err();
         assert!(err.to_string().contains("must not leak raw typed refs"));
@@ -3204,7 +3204,7 @@ mod tests {
     #[test]
     fn wire_field_names_match_current_spec() {
         let draft = DraftSyncValue {
-            target_ref: "ak:message:01904100-0000-7000-8000-000000000001".to_owned(),
+            target_ref: "ak:message:01904100-0000-8000-8000-000000000001".to_owned(),
             kind: DraftKind::Message,
             draft_slot: "main".to_owned(),
             content: BTreeMap::from([("body".to_owned(), json!("draft"))]),

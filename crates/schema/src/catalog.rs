@@ -74,8 +74,8 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             schema_id: SchemaId::STRAND_V1.to_owned(),
             input: json!({
                 "schema": "ak.schema.strand.v1",
-                "id": "ak:strand:01904100-0000-7000-8000-b30c13414158",
-                "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
+                "id": "ak:strand:01904100-0000-8000-8000-b30c13414158",
+                "realm_id": "ak:realm:01904100-0000-8000-8000-65c7feb295d7",
                 "metadata": {"title": "Payment refactor"},
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
@@ -88,9 +88,9 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "event envelope minimal valid".to_owned(),
             schema_id: SchemaId::EVENT_V1.to_owned(),
             input: json!({
-                "event_id": "ak:event:01904100-0000-7000-8000-a0086f45c575",
+                "event_id": "ak:event:01904100-0000-8000-8000-a0086f45c575",
                 "kind": "ak.message.create",
-                "space_id": "ak:space:01904100-0000-7000-8000-65c7feb295d7",
+                "space_id": "ak:space:01904100-0000-8000-8000-65c7feb295d7",
                 "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
                 "created_at": "2026-05-02T00:00:00.000Z",
@@ -112,8 +112,8 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "event envelope rejects untrusted security extension".to_owned(),
             schema_id: SchemaId::EVENT_V1.to_owned(),
             input: json!({
-                "event_id": "ak:event:01904100-0000-7000-8000-a0086f45c575",
-                "space_id": "ak:space:01904100-0000-7000-8000-65c7feb295d7",
+                "event_id": "ak:event:01904100-0000-8000-8000-a0086f45c575",
+                "space_id": "ak:space:01904100-0000-8000-8000-65c7feb295d7",
                 "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
                 "kind": "ak.message.create",

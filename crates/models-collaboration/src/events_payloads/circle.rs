@@ -68,7 +68,7 @@ mod presence_tests {
     #[test]
     fn circle_membership_cas_preserves_missing_null_and_value() {
         let base = json!({
-            "circle_id": "ak:circle:0196419b-0000-7000-8000-000000000000",
+            "circle_id": "ak:circle:0196419b-0000-8000-8000-000000000000",
             "actor_id": "did:web:alice.example",
             "membership": "join"
         });

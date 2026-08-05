@@ -224,7 +224,7 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap()
     }
 
     fn scope() -> ScopeRef {
@@ -283,7 +283,7 @@ mod tests {
             expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                evidence_ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
+                evidence_ref: Some("ak:event:01970000-0000-8000-8000-000000000021".to_owned()),
                 request_canonical_digest: None,
                 pairing_request_id: None,
                 approved_by: Some(controller_id),
@@ -300,7 +300,7 @@ mod tests {
         let controller_id = did("controller");
         let event = build_agent_key_authorize_event(
             &key_authorize_payload(agent_id.clone(), controller_id.clone()),
-            EventId::new("ak:event:01970000-0000-7000-8000-000000000022".to_owned()).unwrap(),
+            EventId::new("ak:event:01970000-0000-8000-8000-000000000022".to_owned()).unwrap(),
             scope(),
             agent_id.clone(),
             controller_id.clone(),
@@ -328,7 +328,7 @@ mod tests {
         let controller_id = did("controller");
         let event = build_agent_key_authorize_event(
             &key_authorize_payload(agent_id.clone(), controller_id.clone()),
-            EventId::new("ak:event:01970000-0000-7000-8000-000000000022".to_owned()).unwrap(),
+            EventId::new("ak:event:01970000-0000-8000-8000-000000000022".to_owned()).unwrap(),
             scope(),
             agent_id.clone(),
             controller_id,
@@ -367,7 +367,7 @@ mod tests {
         let agent_id = did("agent");
         let controller_id = did("controller");
         let revoke_event_id =
-            EventId::new("ak:event:01970000-0000-7000-8000-000000000023".to_owned()).unwrap();
+            EventId::new("ak:event:01970000-0000-8000-8000-000000000023".to_owned()).unwrap();
         let event = build_agent_key_revoke_event(
             &AgentKeyRevokePayload {
                 agent_id: agent_id.clone(),

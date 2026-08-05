@@ -1649,7 +1649,7 @@ mod capability_grant_builder_tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
     }
 
     fn scope() -> arkret_wire::ScopeRef {
@@ -1731,7 +1731,7 @@ mod capability_grant_builder_tests {
             kind: event.kind.to_string(),
             subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             source_event_id: arkret_wire::EventId::new(
-                "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
+                "ak:event:01904100-0000-8000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),
             actor_id: alice(),
@@ -1989,7 +1989,7 @@ mod capability_grant_builder_tests {
             kind: "ak.capability.grant".to_owned(),
             subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             source_event_id: arkret_wire::EventId::new(
-                "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
+                "ak:event:01904100-0000-8000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),
             actor_id: alice(),

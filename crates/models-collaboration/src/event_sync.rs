@@ -1095,7 +1095,7 @@ mod tests {
     #[test]
     fn realm_actor_frontier_distinguishes_empty_and_seq_zero_histories() {
         let actor_id = Did::new("did:web:alice.example").unwrap();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
         RealmActorFrontierView::new(
             realm_id.clone(),
             actor_id.clone(),
@@ -1108,7 +1108,7 @@ mod tests {
             realm_id.clone(),
             actor_id.clone(),
             1,
-            vec![EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap()],
+            vec![EventId::new("ak:event:01904100-0000-8000-8000-000000000001").unwrap()],
             DigestSuite::Sha256,
         )
         .unwrap();
@@ -1122,19 +1122,19 @@ mod tests {
     #[test]
     fn realm_actor_frontier_digest_matches_the_spec_vector() {
         let frontier = RealmActorFrontierView::new(
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             43,
             vec![
-                EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
-                EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap(),
+                EventId::new("ak:event:01904100-0000-8000-8000-000000000001").unwrap(),
+                EventId::new("ak:event:01904100-0000-8000-8000-000000000002").unwrap(),
             ],
             DigestSuite::Sha256,
         )
         .unwrap();
         assert_eq!(
             frontier.frontier_digest.as_str(),
-            "sha256:4f928af58951a0a04f532b272fe6c45b371d33e932d0a15a8df84725a5efe1cf"
+            "sha256:c1b2e97b69fc7fa6765972391384aa59c9a36a3598bc096c30af552a451f6cf4"
         );
     }
 
@@ -1143,12 +1143,12 @@ mod tests {
     /// and no `seal_basis`.
     fn event_with_device_proof() -> Event {
         serde_json::from_value(json!({
-            "event_id": "ak:event:01904100-0000-7000-8000-000000000001",
+            "event_id": "ak:event:01904100-0000-8000-8000-000000000001",
             "kind": "ak.message.create",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "scope_ref": {
                 "kind": "realm",
-                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001"
+                "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001"
             },
             "actor_id": "did:web:alice.example",
             "actor_seq": 1,
@@ -1175,12 +1175,12 @@ mod tests {
 
     fn evidence() -> FederatedDeviceSigningKeyEvidence {
         let device_authorize_event = serde_json::from_value(json!({
-            "event_id": "ak:event:01904100-0000-7000-8000-000000000004",
+            "event_id": "ak:event:01904100-0000-8000-8000-000000000004",
             "kind": "ak.device.authorize",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000004",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000004",
             "scope_ref": {
                 "kind": "realm",
-                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000004"
+                "realm_id": "ak:realm:01904100-0000-8000-8000-000000000004"
             },
             "actor_id": "did:web:alice.example",
             "actor_seq": 1,
@@ -1292,7 +1292,7 @@ mod tests {
             scope_ref: event.scope_ref.clone(),
             source: AuthoritySetPolicySource {
                 source_kind: AuthoritySetSourceKind::RealmControl,
-                source_ref: "ak:event:01904100-0000-7000-8000-111111111111".to_owned(),
+                source_ref: "ak:event:01904100-0000-8000-8000-111111111111".to_owned(),
                 source_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
                 generation_ref: "1".to_owned(),
             },
@@ -1488,7 +1488,7 @@ mod tests {
             |byte: char| Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap();
         let mut seal = Seal {
             id: SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap(),
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             predecessor_refs: Vec::new(),
             delta: vec![Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
             control_event_set_root: hash('2'),
@@ -1521,7 +1521,7 @@ mod tests {
     fn federation_transport_is_single_realm_and_control_first() {
         let data = event_with_device_proof();
         let mut other_realm = data.clone();
-        let foreign_realm = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000099").unwrap();
+        let foreign_realm = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000099").unwrap();
         other_realm.realm_id = foreign_realm.clone();
         // The signed scope has to move with the envelope Realm, otherwise the
         // envelope is rejected for an inconsistent scope before the transport

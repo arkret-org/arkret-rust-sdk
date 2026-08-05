@@ -34,7 +34,9 @@
 //! Strand/Message necessarily changes the digest, so a token cannot be replayed
 //! across objects (scope-confusion defence). See [`verify_token_target`].
 
-use arkret_identifiers::is_lowercase_uuidv7;
+use arkret_identifiers::{
+    UUID_VERSION_EVENT_DERIVED, UUID_VERSION_REALM_EITHER, is_lowercase_typed_uuid,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result, canonical};
@@ -117,9 +119,15 @@ pub enum RealmRef {
 }
 
 impl RealmRef {
-    /// Classify a `<realm>` path segment per the UUIDv7-vs-alias rule.
+    /// Classify a `<realm>` path segment per the uuid-vs-alias rule.
+    ///
+    /// A Realm id is dual-form (spec `zh/models/realm-and-space.md` section
+    /// 2.5.0): a collaboration Realm is event-derived (UUIDv8) and a Principal
+    /// Control Realm is subject-derived from its principal DID in the UUIDv7
+    /// layout. Accepting only one of them would route half of all Realm links
+    /// to the alias branch.
     pub fn parse(segment: &str) -> Self {
-        if is_lowercase_uuidv7(segment) {
+        if is_lowercase_typed_uuid(segment, UUID_VERSION_REALM_EITHER) {
             RealmRef::RealmId(segment.to_owned())
         } else {
             RealmRef::Alias(segment.to_owned())
@@ -236,9 +244,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
             let strand_seg = segments
                 .next()
                 .ok_or_else(|| protocol_err("missing strand identifier after 'strand/'"))?;
-            if !is_lowercase_uuidv7(strand_seg) {
+            if !is_lowercase_typed_uuid(strand_seg, UUID_VERSION_EVENT_DERIVED) {
                 return Err(protocol_err(
-                    "strand segment must be a bare lowercase uuidv7",
+                    "strand segment must be a bare lowercase content-bound uuidv8",
                 ));
             }
             strand = Some(strand_seg.to_owned());
@@ -250,9 +258,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
                     let msg_seg = segments
                         .next()
                         .ok_or_else(|| protocol_err("missing message identifier after 'm/'"))?;
-                    if !is_lowercase_uuidv7(msg_seg) {
+                    if !is_lowercase_typed_uuid(msg_seg, UUID_VERSION_EVENT_DERIVED) {
                         return Err(protocol_err(
-                            "message segment must be a bare lowercase uuidv7",
+                            "message segment must be a bare lowercase content-bound uuidv8",
                         ));
                     }
                     message = Some(msg_seg.to_owned());
@@ -561,10 +569,10 @@ pub fn verify_token_target(
 mod tests {
     use super::*;
 
-    const R: &str = "01904100-0000-7000-8000-0000000000aa";
-    const F: &str = "01904100-0000-7000-8000-0000000000bb";
-    const F2: &str = "01904100-0000-7000-8000-0000000000cc";
-    const M: &str = "01904100-0000-7000-8000-0000000000dd";
+    const R: &str = "01904100-0000-8000-8000-0000000000aa";
+    const F: &str = "01904100-0000-8000-8000-0000000000bb";
+    const F2: &str = "01904100-0000-8000-8000-0000000000cc";
+    const M: &str = "01904100-0000-8000-8000-0000000000dd";
     const VIA: &str = "did:webvh:z6mkfixture:relay.example";
 
     fn realm_addr() -> ParsedAddress {

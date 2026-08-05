@@ -680,7 +680,7 @@ mod tests {
 
         let error = serde_json::from_value::<SyncRequestBody>(serde_json::json!({
             "after": "ak:cursor:abc",
-            "wait_for": {"target": {"event_id": "ak:event:01904100-0000-7000-8000-000000000001"}}
+            "wait_for": {"target": {"event_id": "ak:event:01904100-0000-8000-8000-000000000001"}}
         }))
         .expect_err("a body-level wait_for must be rejected, not silently dropped");
         assert!(error.to_string().contains("wait_for"), "{error}");
@@ -689,7 +689,7 @@ mod tests {
     #[test]
     fn backfill_request_serializes_correctly() {
         let request = BackfillRequestBody {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap(),
             from: BackfillFrom::Beginning,
             direction: BackfillDirection::Backward,
             limit: Some(100),
@@ -728,7 +728,7 @@ mod tests {
         let device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
         let service = Did::new("did:webvh:z6mkfixture:sync.example").unwrap();
         let filter = SyncFilter {
-            realms: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
+            realms: vec![RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap()],
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
@@ -767,8 +767,8 @@ mod tests {
 
     #[test]
     fn sync_filter_digest_normalizes_collection_fields() {
-        let realm_a = RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap();
-        let realm_b = RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000b2").unwrap();
+        let realm_a = RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000a1").unwrap();
+        let realm_b = RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000b2").unwrap();
         let filter_a = SyncFilter {
             realms: vec![realm_b.clone(), realm_a.clone(), realm_a.clone()],
             timeline_limit: Some(20),
@@ -850,7 +850,7 @@ mod tests {
 
     #[test]
     fn timeline_order_key_uses_causal_depth_then_hlc_actor_sequence_and_event() {
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap();
         let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let mut newer_hlc = Event::new(
             "ak.message.create",
@@ -863,7 +863,7 @@ mod tests {
             serde_json::json!({"body":"newer"}),
         )
         .unwrap();
-        newer_hlc.event_id = EventId::new("ak:event:01904100-0000-7000-8000-233457bf6148").unwrap();
+        newer_hlc.event_id = EventId::new("ak:event:01904100-0000-8000-8000-233457bf6148").unwrap();
         let mut deeper = Event::new(
             "ak.message.create",
             ScopeRef::Realm { realm_id },
@@ -873,7 +873,7 @@ mod tests {
             serde_json::json!({"body":"deeper"}),
         )
         .unwrap();
-        deeper.event_id = EventId::new("ak:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
+        deeper.event_id = EventId::new("ak:event:01904100-0000-8000-8000-ab84c4c0f437").unwrap();
 
         let mut keys = [
             TimelineOrderKey::from_event(&newer_hlc, 0),
@@ -887,8 +887,8 @@ mod tests {
 
     #[test]
     fn wait_for_frontier_requires_covering_positions() {
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let event_id = EventId::new("ak:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap();
+        let event_id = EventId::new("ak:event:01904100-0000-8000-8000-ab84c4c0f437").unwrap();
         let required = SyncStreamPosition {
             realm_id: realm_id.clone(),
             frontier: vec![event_id.clone()],
@@ -913,7 +913,7 @@ mod tests {
 
     #[test]
     fn limited_timeline_creates_backfill_gap_and_request() {
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
             "ak.message.create",
             ScopeRef::Realm {

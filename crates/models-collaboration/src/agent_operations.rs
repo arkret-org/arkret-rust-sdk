@@ -2326,14 +2326,14 @@ mod tests {
     fn sidecar_desired_access_digest_matches_normative_fixture() {
         let digest = agent_sidecar_desired_access_digest(
             SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000020").unwrap(),
-            RealmId::new("ak:realm:01964137-0000-7000-8000-000000000000").unwrap(),
+            RealmId::new("ak:realm:01964137-0000-8000-8000-000000000000").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             &[Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap()],
         )
         .unwrap();
         assert_eq!(
             digest.as_str(),
-            "sha256:a8c91fc896c6c19179770fdd629ca3fd24acbb8a3d824b0d76c6ad77f3a5767a"
+            "sha256:38abbaede2dded3e0318b26fd6ae5996cabc49d3f1a24e0760ba6c970b35533e"
         );
     }
 
@@ -2343,7 +2343,7 @@ mod tests {
         assert!(
             agent_sidecar_desired_access_digest(
                 SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000020").unwrap(),
-                RealmId::new("ak:realm:01964137-0000-7000-8000-000000000000").unwrap(),
+                RealmId::new("ak:realm:01964137-0000-8000-8000-000000000000").unwrap(),
                 controller.clone(),
                 &[controller],
             )
@@ -2354,8 +2354,8 @@ mod tests {
     #[test]
     fn sidecar_remove_reconciliation_requires_only_a_canonical_frontier() {
         let agent_id = Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap();
-        let event_a = EventId::new("ak:event:01964137-0000-7000-8000-000000000001").unwrap();
-        let event_b = EventId::new("ak:event:01964137-0000-7000-8000-000000000002").unwrap();
+        let event_a = EventId::new("ak:event:01964137-0000-8000-8000-000000000001").unwrap();
+        let event_b = EventId::new("ak:event:01964137-0000-8000-8000-000000000002").unwrap();
         let valid = PendingSidecarAccessReconciliationItem {
             agent_id,
             provisioning_phase: PendingSidecarAccessReconciliationStage::MlsRemove,
@@ -2387,9 +2387,9 @@ mod tests {
         let sidecar = AgentSidecar {
             id: SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000021").unwrap(),
             schema: AgentSidecarSchema::V1,
-            realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000020").unwrap(),
+            realm_id: RealmId::new("ak:realm:01964137-0000-8000-8000-000000000020").unwrap(),
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
-            backing_circle_id: CircleId::new("ak:circle:01964137-0000-7000-8000-000000000022")
+            backing_circle_id: CircleId::new("ak:circle:01964137-0000-8000-8000-000000000022")
                 .unwrap(),
             encryption_profile: AgentSidecarEncryptionProfile::MlsRfc9420,
             state: AgentSidecarState::Active,
@@ -2410,7 +2410,7 @@ mod tests {
     }
 
     fn fixture_event_id(suffix: u32) -> EventId {
-        EventId::new(format!("ak:event:01964137-0000-7000-8000-{suffix:012x}")).unwrap()
+        EventId::new(format!("ak:event:01964137-0000-8000-8000-{suffix:012x}")).unwrap()
     }
 
     fn fixture_agent() -> Did {
@@ -2420,8 +2420,8 @@ mod tests {
     fn fixture_request_context() -> AgentSidecarExchangeRequestContext {
         AgentSidecarExchangeRequestContext {
             source_track_ref: AgentSidecarSourceTrackRef {
-                realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
-                strand_id: StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
+                realm_id: RealmId::new("ak:realm:01964137-0000-8000-8000-000000000030").unwrap(),
+                strand_id: StrandId::new("ak:strand:01964137-0000-8000-8000-000000000031").unwrap(),
                 track_name: "discussion".to_owned(),
             },
             source_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
@@ -2438,13 +2438,13 @@ mod tests {
             schema: AgentSidecarExchangeProjectionSchema::V1,
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
             sidecar_id: SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000032").unwrap(),
-            private_strand_id: StrandId::new("ak:strand:01964137-0000-7000-8000-000000000033")
+            private_strand_id: StrandId::new("ak:strand:01964137-0000-8000-8000-000000000033")
                 .unwrap(),
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
             origin: AgentSidecarExchangeOrigin::SourceTrackRouted,
             source_track_ref: AgentSidecarSourceTrackRef {
-                realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
-                strand_id: StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
+                realm_id: RealmId::new("ak:realm:01964137-0000-8000-8000-000000000030").unwrap(),
+                strand_id: StrandId::new("ak:strand:01964137-0000-8000-8000-000000000031").unwrap(),
                 track_name: "discussion".to_owned(),
             },
             source_frontier_anchor: None,
@@ -2510,7 +2510,7 @@ mod tests {
 
         let mut unknown = serde_json::to_value(&projection).unwrap();
         unknown["private_circle_id"] =
-            serde_json::json!("ak:circle:01964137-0000-7000-8000-000000000035");
+            serde_json::json!("ak:circle:01964137-0000-8000-8000-000000000035");
         assert!(serde_json::from_value::<AgentSidecarExchangeProjection>(unknown).is_err());
 
         let mut account_data_key = serde_json::to_value(&projection).unwrap();

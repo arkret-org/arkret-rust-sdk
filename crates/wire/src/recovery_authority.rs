@@ -803,7 +803,7 @@ mod tests {
     fn publication_intent() -> AuthorizeEventPublicationIntent {
         let scope_ref = ScopeRef::Realm {
             realm_id: crate::RealmId::new(
-                "ak:realm:019a7360-0000-7000-8000-000000000018".to_owned(),
+                "ak:realm:019a7360-0000-8000-8000-000000000018".to_owned(),
             )
             .unwrap(),
         };
@@ -832,7 +832,7 @@ mod tests {
             }],
         };
         AuthorizeEventPublicationIntent {
-            event_id: EventId::new("ak:event:019a7360-0000-7000-8000-000000000017".to_owned())
+            event_id: EventId::new("ak:event:019a7360-0000-8000-8000-000000000017".to_owned())
                 .unwrap(),
             event_preimage_digest: hash('1'),
             actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
@@ -903,7 +903,7 @@ mod tests {
                 )
                 .unwrap(),
                 device_authorization_event_id: EventId::new(
-                    "ak:event:019a7360-0000-7000-8000-000000000004".to_owned(),
+                    "ak:event:019a7360-0000-8000-8000-000000000004".to_owned(),
                 )
                 .unwrap(),
                 device_authorization_event_digest: hash('4'),
@@ -923,7 +923,7 @@ mod tests {
                 },
             },
             device_authorization_event_id: EventId::new(
-                "ak:event:019a7360-0000-7000-8000-000000000004".to_owned(),
+                "ak:event:019a7360-0000-8000-8000-000000000004".to_owned(),
             )
             .unwrap(),
             result_model_generation_ref: RecoveryModelGenerationRef::CrossSigning(7),
@@ -976,8 +976,8 @@ mod tests {
             "registry_previous_head": "did:webvh:z6mkfixture:alice.example?versionId=1-genesis",
             "did_entry_ref": "did:webvh:z6mkfixture:alice.example?versionId=2-recovery",
             "did_entry_digest": hash('3'),
-            "reanchor_event_id": "ak:event:019a7360-0000-7000-8000-000000000016",
-            "authorize_event_id": "ak:event:019a7360-0000-7000-8000-000000000017",
+            "reanchor_event_id": "ak:event:019a7360-0000-8000-8000-000000000016",
+            "authorize_event_id": "ak:event:019a7360-0000-8000-8000-000000000017",
             "authorization_preimage_digest": hash('4'),
             "possession_proof_digest": hash('5'),
             "issued_at": "2026-07-28T00:00:00.000Z",

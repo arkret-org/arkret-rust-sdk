@@ -621,7 +621,7 @@ mod tests {
     #[test]
     fn account_subscribe_request_serializes_filter_deep_object() {
         let filter = SyncFilter {
-            realms: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()],
+            realms: vec![RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap()],
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
@@ -646,7 +646,7 @@ mod tests {
         assert!(query.contains("after=cur1"), "query: {query}");
         assert!(query.contains("catchup=true"), "query: {query}");
         assert!(
-            query.contains("filter.realms=ak%3Arealm%3A01904100-0000-7000-8000-000000000001"),
+            query.contains("filter.realms=ak%3Arealm%3A01904100-0000-8000-8000-000000000001"),
             "query: {query}"
         );
         assert!(query.contains("filter.timeline_limit=20"), "query: {query}");

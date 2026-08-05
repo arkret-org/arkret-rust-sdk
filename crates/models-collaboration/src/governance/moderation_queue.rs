@@ -99,8 +99,8 @@ mod tests {
             id: "ak:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
             report: ModerationReport::new(
                 "ak:report:01970e58-9d21-7000-8000-bbbbbbbbbbbb",
-                RealmId::new("ak:realm:01970e58-9d21-7000-8000-cccccccccccc").unwrap(),
-                "ak:message:01970e58-9d21-7000-8000-dddddddddddd",
+                RealmId::new("ak:realm:01970e58-9d21-8000-8000-cccccccccccc").unwrap(),
+                "ak:message:01970e58-9d21-8000-8000-dddddddddddd",
                 "spam",
                 Did::new("did:webvh:z6mkfixture:reporter.example").unwrap(),
             ),

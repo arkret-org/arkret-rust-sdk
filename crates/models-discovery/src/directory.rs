@@ -939,7 +939,7 @@ mod agent_selector_outcome_tests {
             issuer_service_id: Some(did("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
-            audience: Some("ak:realm:018f0000-0000-7000-8000-000000000001".to_owned()),
+            audience: Some("ak:realm:018f0000-0000-8000-8000-000000000001".to_owned()),
             claim_scope: BTreeMap::new(),
             expires_at: None,
             created_at: Utc::now(),

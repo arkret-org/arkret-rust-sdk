@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn hlc_generator_creates_monotonic_sequence() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-8000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             0x01970e589d21,
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn hlc_generator_handles_clock_rollback() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-8000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             0x01970e589d21,
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn hlc_generator_try_generate_reports_logical_overflow_without_waiting() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-8000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             HlcGenerator::current_time_ms() + 60_000,
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn hlc_generator_try_generate_advances_logical_when_not_saturated() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-8000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             HlcGenerator::current_time_ms() + 60_000,
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn hlc_generator_advances_with_remote() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-8000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             0x01970e589d21,
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn hlc_generator_rejects_future_hlc_beyond_skew() {
         let hlc_gen = HlcGenerator::new(
-            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-8000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
         );
@@ -387,8 +387,8 @@ mod tests {
 
     #[test]
     fn node_id_computation_is_deterministic_and_realm_scoped() {
-        let realm_a = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
-        let realm_b = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_a = "ak:realm:01904100-0000-8000-8000-9b64700c6ee8";
+        let realm_b = "ak:realm:01904100-0000-8000-8000-65c7feb295d7";
         let id1 = HlcGenerator::compute_node_id(realm_a, "device-1", b"secret");
         let id2 = HlcGenerator::compute_node_id(realm_a, "device-1", b"secret");
         // Same device + secret in another Realm must yield an unlinkable id.
@@ -403,8 +403,8 @@ mod tests {
 
     #[test]
     fn scoped_generation_keeps_one_sequence_with_unlinkable_node_ids() {
-        let realm_a = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
-        let realm_b = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_a = "ak:realm:01904100-0000-8000-8000-9b64700c6ee8";
+        let realm_b = "ak:realm:01904100-0000-8000-8000-65c7feb295d7";
         let secret = b"stable-local-secret";
         let mut generator = HlcGenerator::with_initial_time(realm_a, "device-1", secret, 0);
 
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn hlc_formats_with_fixed_width() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-8000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             1,

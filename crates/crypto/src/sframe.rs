@@ -235,7 +235,7 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap()
     }
 
     fn call() -> CallId {
@@ -277,7 +277,7 @@ mod tests {
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-recording-1".to_owned(),
                 media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-                recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000aa"
+                recording_start_event_id: "ak:event:01904100-0000-8000-8000-0000000000aa"
                     .to_owned(),
             },
         )
@@ -324,7 +324,7 @@ mod tests {
             focus_id: "fra-1".to_owned(),
             recording_id: String::new(),
             media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-            recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000aa".to_owned(),
+            recording_start_event_id: "ak:event:01904100-0000-8000-8000-0000000000aa".to_owned(),
         };
         assert!(derive_recording_key(&exporter, &context).is_err());
     }
@@ -336,7 +336,7 @@ mod tests {
             focus_id: "fra-1".to_owned(),
             recording_id: "rtc-transcript-1".to_owned(),
             media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-            transcript_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000bb".to_owned(),
+            transcript_start_event_id: "ak:event:01904100-0000-8000-8000-0000000000bb".to_owned(),
         }
     }
 
@@ -359,7 +359,7 @@ mod tests {
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-transcript-1".to_owned(),
                 media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-                recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000bb"
+                recording_start_event_id: "ak:event:01904100-0000-8000-8000-0000000000bb"
                     .to_owned(),
             },
         )
@@ -392,9 +392,9 @@ mod tests {
             "{\"call_id\":\"ak:call:0196441c-0000-7000-8000-000000000000\",\
              \"focus_id\":\"fra-1\",\
              \"media_service_id\":\"did:webvh:z6mkfixture:media.example\",\
-             \"realm_id\":\"ak:realm:01904100-0000-7000-8000-9b64700c6ee8\",\
+             \"realm_id\":\"ak:realm:01904100-0000-8000-8000-9b64700c6ee8\",\
              \"recording_id\":\"rtc-transcript-1\",\
-             \"transcript_start_event_id\":\"ak:event:01904100-0000-7000-8000-0000000000bb\"}"
+             \"transcript_start_event_id\":\"ak:event:01904100-0000-8000-8000-0000000000bb\"}"
         );
     }
 
@@ -411,7 +411,7 @@ mod tests {
              \"epoch_id\":7,\
              \"focus_id\":\"fra-1\",\
              \"participant_identity\":\"ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000\",\
-             \"realm_id\":\"ak:realm:01904100-0000-7000-8000-9b64700c6ee8\"}"
+             \"realm_id\":\"ak:realm:01904100-0000-8000-8000-9b64700c6ee8\"}"
         );
     }
 }

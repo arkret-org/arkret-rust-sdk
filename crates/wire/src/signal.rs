@@ -599,7 +599,7 @@ mod tests {
     use crate::primitives::proof_kind;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
     }
 
     fn sent_at() -> DateTime<Utc> {
@@ -628,7 +628,7 @@ mod tests {
                 scheme: SIGNAL_AEAD_SCHEME.to_owned(),
                 key_ref: SignalKeyRef {
                     algorithm: "MLS-EXPORTER-AEAD".to_owned(),
-                    group_state_ref: "ak:event:01904100-0000-7000-8000-cccccccccccc".to_owned(),
+                    group_state_ref: "ak:event:01904100-0000-8000-8000-cccccccccccc".to_owned(),
                 },
                 purpose: SIGNAL_AEAD_PURPOSE.to_owned(),
                 aead_profile: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned(),
@@ -678,7 +678,7 @@ mod tests {
         };
         assert!(too_many.validate().is_err());
 
-        let other_realm = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d8").unwrap();
+        let other_realm = RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d8").unwrap();
         let cross_realm = SignalRelayRequest {
             realm_id: other_realm,
             signals: vec![signal],

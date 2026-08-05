@@ -346,16 +346,16 @@ mod tests {
     #[test]
     fn scope_key_canonical() {
         let realm =
-            RealmId::new("ak:realm:01970000-0000-7000-8000-000000000000".to_owned()).unwrap();
+            RealmId::new("ak:realm:01970000-0000-8000-8000-000000000000".to_owned()).unwrap();
         let strand =
-            StrandId::new("ak:strand:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
+            StrandId::new("ak:strand:01970000-0000-8000-8000-000000000001".to_owned()).unwrap();
         let scope = ParticipationScope::Strand {
             realm_id: realm,
             strand_id: strand,
         };
         assert_eq!(
             scope.scope_key(),
-            "strand:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"
+            "strand:01970000-0000-8000-8000-000000000000:01970000-0000-8000-8000-000000000001"
         );
     }
 }

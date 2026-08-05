@@ -915,7 +915,7 @@ mod tests {
             )
             .unwrap(),
             intended_realm_id: RealmId::new(
-                "ak:realm:01904100-0000-7000-8000-000000000001".to_owned(),
+                "ak:realm:01904100-0000-8000-8000-000000000001".to_owned(),
             )
             .unwrap(),
             claim_id: NonEmptyString::new("ak:mls:kp:claim").unwrap(),
@@ -969,7 +969,7 @@ mod tests {
             "keypackage_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "keypackage_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "capabilities_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "agent_key_authorize_event_id": "ak:event:01904100-0000-7000-8000-000000000001"
+            "agent_key_authorize_event_id": "ak:event:01904100-0000-8000-8000-000000000001"
         });
         let claim_ref = serde_json::from_value::<MlsWelcomePayloadClaimRef>(value.clone()).unwrap();
         assert!(matches!(
@@ -979,7 +979,7 @@ mod tests {
 
         let mut mixed = value;
         mixed["device_authorize_event_id"] =
-            serde_json::json!("ak:event:01904100-0000-7000-8000-000000000002");
+            serde_json::json!("ak:event:01904100-0000-8000-8000-000000000002");
         assert!(serde_json::from_value::<MlsWelcomePayloadClaimRef>(mixed).is_err());
     }
 
@@ -990,7 +990,7 @@ mod tests {
             target_ref: None,
             event_id: None,
             target_event_id: Some(
-                EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
+                EventId::new("ak:event:01904100-0000-8000-8000-000000000001").unwrap(),
             ),
             track_name: None,
             reason: Some("author_redaction".to_owned()),
@@ -1001,7 +1001,7 @@ mod tests {
 
         assert_eq!(
             value["target_event_id"],
-            "ak:event:01904100-0000-7000-8000-000000000001"
+            "ak:event:01904100-0000-8000-8000-000000000001"
         );
         assert!(value.get("event_id").is_none());
     }
@@ -1011,10 +1011,10 @@ mod tests {
         let value = serde_json::json!({
             "binding_version": 1,
             "encoding_profile": "cbor-deterministic-rfc8949-v1",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "effective_scope": {
                 "kind": "realm",
-                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001"
+                "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001"
             },
             "mls_group_id": "Z3JvdXA",
             "previous_epoch": 0,

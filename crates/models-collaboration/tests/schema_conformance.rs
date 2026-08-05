@@ -39,11 +39,11 @@ use models::*;
 #[test]
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
+    // No relation id: it is derived from the create Event's event_id.
     let payload = RelationCreatePayload::new(
-        "ak:relation:01904100-0000-7000-8000-000000000001",
         "ak.relation.parent_of",
-        "ak:strand:01904100-0000-7000-8000-111111111111",
-        "ak:strand:01904100-0000-7000-8000-222222222222",
+        "ak:strand:01904100-0000-8000-8000-111111111111",
+        "ak:strand:01904100-0000-8000-8000-222222222222",
     )
     .with_rank("U");
     catalog
@@ -78,13 +78,13 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // join transition (unroutable): realm_id + actor_id + delivery_status
     // required, but delivery_binding only when routable.
     let join = MembershipPayload::join(
-        RealmId::new("ak:realm:01904100-0000-7000-8000-111111111111").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-8000-8000-111111111111").unwrap(),
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
     .with_invite_ref(MembershipInviteRef::Event(
-        EventId::new("ak:event:01904100-0000-7000-8000-222222222222").unwrap(),
+        EventId::new("ak:event:01904100-0000-8000-8000-222222222222").unwrap(),
     ));
     catalog
         .validate_payload("ak.member.state", &join.to_value().unwrap())
@@ -184,7 +184,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ak.realm.tombstone: reason + successor_realm_id both required by spec.
     let tombstone = RealmTombstonePayload::new(
-        RealmId::new("ak:realm:01904100-0000-7000-8000-333333333333").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-8000-8000-333333333333").unwrap(),
         "migrated to successor",
     );
     catalog
@@ -200,7 +200,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // Closed payload schemas reject unknown additive keys.
     let mut leaky = archive.to_value().unwrap();
-    leaky["successor_realm_id"] = json!("ak:realm:01904100-0000-7000-8000-444444444444");
+    leaky["successor_realm_id"] = json!("ak:realm:01904100-0000-8000-8000-444444444444");
     assert!(
         catalog
             .validate_payload("ak.realm.archive", &leaky)
@@ -216,9 +216,9 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         StrandWatchLevel, StrandWatchSetPayload,
     };
     let catalog = event_payload_validator_catalog().unwrap();
-    let board = || SpaceId::new("ak:space:01904100-0000-7000-8000-111111111111").unwrap();
-    let target = || SpaceId::new("ak:space:01904100-0000-7000-8000-222222222222").unwrap();
-    let strand = || StrandId::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap();
+    let board = || SpaceId::new("ak:space:01904100-0000-8000-8000-111111111111").unwrap();
+    let target = || SpaceId::new("ak:space:01904100-0000-8000-8000-222222222222").unwrap();
+    let strand = || StrandId::new("ak:strand:01904100-0000-8000-8000-6c663fa0205f").unwrap();
     let actor = || Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
 
     // ak.strand.move — board/target Space ids + rank; from_space_id +
@@ -278,7 +278,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ak.strand.archive / ak.strand.restore — object_lifecycle_payload, single
     // truth source `target_ref`.
-    let archive = ObjectLifecyclePayload::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f")
+    let archive = ObjectLifecyclePayload::new("ak:strand:01904100-0000-8000-8000-6c663fa0205f")
         .with_target_state("archived")
         .with_reason("season closed");
     catalog
@@ -287,7 +287,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     catalog
         .validate_payload(
             "ak.strand.restore",
-            &ObjectLifecyclePayload::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f")
+            &ObjectLifecyclePayload::new("ak:strand:01904100-0000-8000-8000-6c663fa0205f")
                 .to_value()
                 .unwrap(),
         )
@@ -295,7 +295,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // Closed payload schemas reject unknown additive keys.
     let mut leaky = mv.to_value().unwrap();
-    leaky["list_space_id"] = json!("ak:space:01904100-0000-7000-8000-222222222222");
+    leaky["list_space_id"] = json!("ak:space:01904100-0000-8000-8000-222222222222");
     assert!(catalog.validate_payload("ak.strand.move", &leaky).is_err());
 }
 
@@ -437,7 +437,7 @@ fn object_patch_payload_matches_registered_event_payload_schema() {
     let mut patch = Patch::new();
     patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
     let payload =
-        ObjectPatchPayload::for_target("ak:morph:0196419b-0000-7000-8000-000000000002", patch)
+        ObjectPatchPayload::for_target("ak:morph:0196419b-0000-8000-8000-000000000002", patch)
             .unwrap()
             .to_value()
             .unwrap();

@@ -19,9 +19,18 @@ fn actor_id() -> Did {
     Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap()
 }
 
+/// The object id a create Event derives, for the fixed `event()` id shape.
+///
+/// Create payloads carry no id (spec `zh/models/common-fields.md` section 6.0):
+/// the reducer retypes the create Event's own `event_id`, so a test that wants
+/// to name the object afterwards has to derive it the same way.
+fn derived_object_id(prefix: &str, seq: u64) -> String {
+    format!("{prefix}01904100-0000-8000-8000-{seq:012x}")
+}
+
 fn event(kind: &str, seq: u64, content: Value) -> Event {
     Event {
-        event_id: EventId::new(format!("ak:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
+        event_id: EventId::new(format!("ak:event:01904100-0000-8000-8000-{seq:012x}")).unwrap(),
         kind: kind.into(),
         realm_id: realm_id(),
         scope_ref: scope_ref(),
@@ -49,13 +58,12 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
     }
 }
 
-fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
+fn morph_event(seq: u64, title: &str) -> Event {
     event(
         EventKind::MORPH_CREATE,
         seq,
         json!({
             "object": {
-                "id": morph_id,
                 "schema": SchemaId::MORPH_V1,
                 "realm_id": realm_id().as_str(),
                 "schema_refs": [SchemaId::MORPH_V1],
@@ -108,14 +116,14 @@ fn realm_upgrade_rejects_an_unregistered_edge_without_mutating_profile() {
 
 #[test]
 fn space_events_create_update_parent_and_tombstone() {
-    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad3f";
-    let parent_space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad40";
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let parent_space_id = "ak:space:01904100-0000-8000-8000-1fb50799ad40";
     let create = event(
         EventKind::SPACE_CREATE,
         1,
         json!({
             "object": {
-                "id": space_id,
                 "schema": SchemaId::SPACE_V1,
                 "realm_id": realm_id().as_str(),
                 "kind": "list",
@@ -172,13 +180,12 @@ fn space_events_create_update_parent_and_tombstone() {
     assert_eq!(space.state, Some(crate::models::SpaceState::Tombstoned));
 }
 
-fn space_create_event(seq: u64, space_id: &str) -> Event {
+fn space_create_event(seq: u64) -> Event {
     event(
         EventKind::SPACE_CREATE,
         seq,
         json!({
             "object": {
-                "id": space_id,
                 "schema": SchemaId::SPACE_V1,
                 "realm_id": realm_id().as_str(),
                 "kind": "board",
@@ -192,8 +199,9 @@ fn space_create_event(seq: u64, space_id: &str) -> Event {
 
 #[test]
 fn space_archive_then_restore_round_trip() {
-    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad42";
-    let create = space_create_event(1, space_id);
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let create = space_create_event(1);
 
     let mut archive = event(EventKind::SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
@@ -212,8 +220,9 @@ fn space_archive_then_restore_round_trip() {
 
 #[test]
 fn space_restore_rejected_when_active() {
-    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad43";
-    let create = space_create_event(1, space_id);
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let create = space_create_event(1);
 
     let mut restore = event(EventKind::SPACE_RESTORE, 2, json!({ "space_id": space_id }));
     restore.prev_refs.push(create.event_id.clone());
@@ -231,8 +240,9 @@ fn space_restore_rejected_when_active() {
 
 #[test]
 fn space_restore_rejected_when_tombstoned() {
-    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad44";
-    let create = space_create_event(1, space_id);
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let create = space_create_event(1);
 
     let mut tombstone = event(
         EventKind::SPACE_TOMBSTONE,
@@ -259,13 +269,12 @@ fn space_restore_rejected_when_tombstoned() {
     assert_eq!(space.state_changed_at, Some(tombstone_at));
 }
 
-fn strand_create_event(seq: u64, strand_id: &str) -> Event {
+fn strand_create_event(seq: u64) -> Event {
     event(
         EventKind::STRAND_CREATE,
         seq,
         json!({
             "object": {
-                "id": strand_id,
                 "schema": SchemaId::STRAND_V1,
                 "realm_id": realm_id().as_str(),
                 "metadata": {"title": "Payment refactor"},
@@ -279,8 +288,9 @@ fn strand_create_event(seq: u64, strand_id: &str) -> Event {
 
 #[test]
 fn strand_archive_then_restore_round_trip() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-1fb50799ad50";
-    let create = strand_create_event(1, strand_id);
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
 
     let mut archive = event(
         EventKind::STRAND_ARCHIVE,
@@ -307,8 +317,9 @@ fn strand_archive_then_restore_round_trip() {
 
 #[test]
 fn strand_restore_rejected_when_active() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-1fb50799ad51";
-    let create = strand_create_event(1, strand_id);
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
 
     let mut restore = event(
         EventKind::STRAND_RESTORE,
@@ -337,8 +348,9 @@ fn strand_restore_rejected_when_active() {
 
 #[test]
 fn morph_archive_then_restore_round_trip() {
-    let morph_id = "ak:morph:01904100-0000-7000-8000-1fb50799ad60";
-    let create = morph_event(1, morph_id, "Task A");
+    let morph_id_owned = derived_object_id("ak:morph:", 1);
+    let morph_id = morph_id_owned.as_str();
+    let create = morph_event(1, "Task A");
 
     let mut archive = event(
         EventKind::MORPH_ARCHIVE,
@@ -363,8 +375,9 @@ fn morph_archive_then_restore_round_trip() {
 
 #[test]
 fn morph_restore_rejected_when_active() {
-    let morph_id = "ak:morph:01904100-0000-7000-8000-1fb50799ad61";
-    let create = morph_event(1, morph_id, "Task B");
+    let morph_id_owned = derived_object_id("ak:morph:", 1);
+    let morph_id = morph_id_owned.as_str();
+    let create = morph_event(1, "Task B");
 
     let mut restore = event(
         EventKind::MORPH_RESTORE,
@@ -393,8 +406,9 @@ fn morph_restore_rejected_when_active() {
 
 #[test]
 fn space_archive_rejected_when_already_archived() {
-    let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad42";
-    let create = space_create_event(1, space_id);
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let create = space_create_event(1);
     let mut archive1 = event(EventKind::SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive1.prev_refs.push(create.event_id.clone());
     let mut archive2 = event(EventKind::SPACE_ARCHIVE, 3, json!({ "space_id": space_id }));
@@ -417,8 +431,9 @@ fn space_archive_rejected_when_already_archived() {
 
 #[test]
 fn space_archive_rejected_when_tombstoned() {
-    let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad43";
-    let create = space_create_event(1, space_id);
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let create = space_create_event(1);
     let mut tombstone = event(
         EventKind::SPACE_TOMBSTONE,
         2,
@@ -444,8 +459,9 @@ fn space_archive_rejected_when_tombstoned() {
 
 #[test]
 fn space_tombstone_rejected_when_already_terminal() {
-    let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad44";
-    let create = space_create_event(1, space_id);
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let create = space_create_event(1);
     let mut tombstone1 = event(
         EventKind::SPACE_TOMBSTONE,
         2,
@@ -475,8 +491,9 @@ fn space_tombstone_rejected_when_already_terminal() {
 
 #[test]
 fn strand_archive_rejected_when_already_archived() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-2fb50799ad50";
-    let create = strand_create_event(1, strand_id);
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
     let mut archive1 = event(
         EventKind::STRAND_ARCHIVE,
         2,
@@ -506,8 +523,9 @@ fn strand_archive_rejected_when_already_archived() {
 
 #[test]
 fn morph_archive_rejected_when_already_archived() {
-    let morph_id = "ak:morph:01904100-0000-7000-8000-2fb50799ad60";
-    let create = morph_event(1, morph_id, "Task C");
+    let morph_id_owned = derived_object_id("ak:morph:", 1);
+    let morph_id = morph_id_owned.as_str();
+    let create = morph_event(1, "Task C");
     let mut archive1 = event(
         EventKind::MORPH_ARCHIVE,
         2,
@@ -537,8 +555,9 @@ fn morph_archive_rejected_when_already_archived() {
 
 #[test]
 fn space_update_rejected_when_archived() {
-    let space_id = "ak:space:01904100-0000-7000-8000-3fb50799ad42";
-    let create = space_create_event(1, space_id);
+    let space_id_owned = derived_object_id("ak:space:", 1);
+    let space_id = space_id_owned.as_str();
+    let create = space_create_event(1);
     let mut archive = event(EventKind::SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
     let mut update = event(
@@ -560,8 +579,9 @@ fn space_update_rejected_when_archived() {
 
 #[test]
 fn strand_update_rejected_when_archived() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-3fb50799ad50";
-    let create = strand_create_event(1, strand_id);
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
     let mut archive = event(
         EventKind::STRAND_ARCHIVE,
         2,
@@ -589,8 +609,9 @@ fn strand_update_rejected_when_archived() {
 
 #[test]
 fn morph_update_rejected_when_archived() {
-    let morph_id = "ak:morph:01904100-0000-7000-8000-3fb50799ad60";
-    let create = morph_event(1, morph_id, "Original Title");
+    let morph_id_owned = derived_object_id("ak:morph:", 1);
+    let morph_id = morph_id_owned.as_str();
+    let create = morph_event(1, "Original Title");
     let mut archive = event(
         EventKind::MORPH_ARCHIVE,
         2,
@@ -618,8 +639,7 @@ fn morph_update_rejected_when_archived() {
 
 #[test]
 fn strand_events_create_update_and_default_view_relation() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-1fb50799ad3f";
-    let view_ref = "ak:view:01904100-0000-7000-8000-08ca7b733afd";
+    let view_ref = "ak:view:01904100-0000-8000-8000-08ca7b733afd";
 
     let create = Event::new(
         EventKind::STRAND_CREATE,
@@ -629,7 +649,6 @@ fn strand_events_create_update_and_default_view_relation() {
         Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         json!({
             "object": {
-                "id": strand_id,
                 "schema": SchemaId::STRAND_V1,
                 "realm_id": realm_id().as_str(),
                 "metadata": {
@@ -643,6 +662,10 @@ fn strand_events_create_update_and_default_view_relation() {
         }),
     )
     .unwrap();
+    // `Event::new` mints the create's own id, so the Strand id is whatever that
+    // Event derives — the same value the reducer will compute.
+    let strand_id_owned = arkret_wire::StrandId::from_event_id(&create.event_id);
+    let strand_id = strand_id_owned.as_str();
     let mut update = Event::new(
         EventKind::STRAND_UPDATE,
         scope_ref(),
@@ -700,11 +723,7 @@ fn strand_events_create_update_and_default_view_relation() {
 #[test]
 fn realm_state_applies_morph_events() {
     let mut state = RealmState::new(realm_id());
-    let create_event = morph_event(
-        1,
-        "ak:morph:01904100-0000-7000-8000-bbe051c5f72e",
-        "Test task",
-    );
+    let create_event = morph_event(1, "Test task");
 
     state.apply_events(&[create_event]).unwrap();
     assert_eq!(state.morphs.len(), 1);
@@ -714,11 +733,11 @@ fn realm_state_applies_morph_events() {
 fn realm_state_sorts_events_by_hlc() {
     let event1 = Event {
         hlc: Some(Hlc::new("01970e589d21-0002-a13f9c2e").unwrap()),
-        ..morph_event(1, "ak:morph:01904100-0000-7000-8000-d48c478ecd0b", "Task 1")
+        ..morph_event(1, "Task 1")
     };
     let event2 = Event {
         hlc: Some(Hlc::new("01970e589d21-0001-a13f9c2e").unwrap()),
-        ..morph_event(2, "ak:morph:01904100-0000-7000-8000-e75dc3f6ab2e", "Task 2")
+        ..morph_event(2, "Task 2")
     };
 
     let mut state = RealmState::new(realm_id());
@@ -726,7 +745,7 @@ fn realm_state_sorts_events_by_hlc() {
 
     assert_eq!(
         state.frontier.first().unwrap().as_str(),
-        "ak:event:01904100-0000-7000-8000-000000000001"
+        "ak:event:01904100-0000-8000-8000-000000000001"
     );
 }
 
@@ -743,7 +762,7 @@ fn member_state_conflict_prefers_ban_semantics() {
         json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "ban" }),
     );
     ban.hlc = leave.hlc.clone();
-    ban.event_id = EventId::new("ak:event:01904100-0000-7000-8000-c9d398595fe8").unwrap();
+    ban.event_id = EventId::new("ak:event:01904100-0000-8000-8000-c9d398595fe8").unwrap();
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[leave, ban]).unwrap();
@@ -791,7 +810,7 @@ fn message_revision_redaction_and_reaction_converge() {
         "ak.message.create",
         1,
         json!({
-            "strand_id": "ak:strand:01904100-0000-7000-8000-1fb50799ad50",
+            "strand_id": "ak:strand:01904100-0000-8000-8000-1fb50799ad50",
             "track_name": "discussion",
             "content": { "kind": "ak.content.text", "body": "hello" }
         }),
@@ -831,11 +850,7 @@ fn message_revision_redaction_and_reaction_converge() {
 
 #[test]
 fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
-    let event = morph_event(
-        9,
-        "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
-        "Snapshot task",
-    );
+    let event = morph_event(9, "Snapshot task");
     let mut state = RealmState::new(realm_id());
 
     state.apply_events(std::slice::from_ref(&event)).unwrap();
@@ -901,11 +916,7 @@ fn merkle_root_promotes_odd_tail_without_duplication() {
 
 #[test]
 fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
-    let event = morph_event(
-        10,
-        "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
-        "Replayed task",
-    );
+    let event = morph_event(10, "Replayed task");
     let mut state = RealmState::new(realm_id());
     state.apply_events(std::slice::from_ref(&event)).unwrap();
     let mut snapshot = state.snapshot().unwrap();
@@ -929,11 +940,7 @@ fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
 fn reducer_convergence_is_order_independent() {
     let events: Vec<Event> = (0..5)
         .map(|i| {
-            morph_event(
-                i + 1,
-                &format!("ak:morph:01904100-0000-7000-8000-{i:012x}"),
-                &format!("Task {i}"),
-            )
+            morph_event(i + 1, &format!("Task {i}"))
         })
         .collect();
 
@@ -965,7 +972,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
         "ak.redaction",
         seq,
         json!({
-            "target_event_id": format!("ak:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq),
+            "target_event_id": format!("ak:event:01904100-0000-8000-8000-{:012x}", 0xdeadbeef + seq),
             "object_ref": object_ref,
         }),
     );
@@ -973,7 +980,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
     // the dispatcher invokes redact_event AND redact_object_for_event.
     ev.redacts = Some(
         EventId::new(format!(
-            "ak:event:01904100-0000-7000-8000-{:012x}",
+            "ak:event:01904100-0000-8000-8000-{:012x}",
             0xdeadbeef + seq
         ))
         .unwrap(),
@@ -983,8 +990,9 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
 
 #[test]
 fn redaction_with_strand_object_ref_flips_subject_to_redacted() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-3fb50799ad50";
-    let create = strand_create_event(1, strand_id);
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
     let mut redact = redaction_event(2, strand_id);
     redact.prev_refs.push(create.event_id.clone());
     let redact_at = redact.created_at;
@@ -999,8 +1007,9 @@ fn redaction_with_strand_object_ref_flips_subject_to_redacted() {
 
 #[test]
 fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
-    let morph_id = "ak:morph:01904100-0000-7000-8000-3fb50799ad60";
-    let create = morph_event(1, morph_id, "Sensitive task");
+    let morph_id_owned = derived_object_id("ak:morph:", 1);
+    let morph_id = morph_id_owned.as_str();
+    let create = morph_event(1, "Sensitive task");
     let mut redact = redaction_event(2, morph_id);
     redact.prev_refs.push(create.event_id.clone());
 
@@ -1013,8 +1022,9 @@ fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
 
 #[test]
 fn redaction_against_already_redacted_strand_rejects() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-3fb50799ad51";
-    let create = strand_create_event(1, strand_id);
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
     let mut redact1 = redaction_event(2, strand_id);
     redact1.prev_refs.push(create.event_id.clone());
     let mut redact2 = redaction_event(3, strand_id);
@@ -1034,8 +1044,9 @@ fn redaction_against_already_redacted_strand_rejects() {
 
 #[test]
 fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
-    let strand_id = "ak:strand:01904100-0000-7000-8000-4fb50799ad55";
-    let create = strand_create_event(1, strand_id);
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
     let mut update = event(
         EventKind::STRAND_TRACKS_UPDATE,
         2,
@@ -1193,8 +1204,9 @@ fn realm_organization_requires_subject_fields() {
 
 #[test]
 fn redaction_against_already_redacted_morph_rejects() {
-    let morph_id = "ak:morph:01904100-0000-7000-8000-3fb50799ad61";
-    let create = morph_event(1, morph_id, "Task");
+    let morph_id_owned = derived_object_id("ak:morph:", 1);
+    let morph_id = morph_id_owned.as_str();
+    let create = morph_event(1, "Task");
     let mut redact1 = redaction_event(2, morph_id);
     redact1.prev_refs.push(create.event_id.clone());
     let mut redact2 = redaction_event(3, morph_id);

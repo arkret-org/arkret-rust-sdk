@@ -21,7 +21,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde_json::{Value, json};
 
 fn realm() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()
+    RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap()
 }
 
 fn did() -> Did {
@@ -56,7 +56,7 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
             scheme: SIGNAL_AEAD_SCHEME.to_owned(),
             key_ref: SignalKeyRef {
                 algorithm: "MLS-EXPORTER-AEAD".to_owned(),
-                group_state_ref: "ak:event:01904100-0000-7000-8000-000000000006".to_owned(),
+                group_state_ref: "ak:event:01904100-0000-8000-8000-000000000006".to_owned(),
             },
             purpose: SIGNAL_AEAD_PURPOSE.to_owned(),
             aead_profile: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned(),
@@ -179,7 +179,7 @@ fn moderation_appeal_decision_uphold_rejects_modify_ref() {
         verdict: AppealVerdict::Uphold,
         reason_text_ref: "blob:reason".to_owned(),
         modify_decision_ref: Some(
-            EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap(),
+            EventId::new("ak:event:01904100-0000-8000-8000-000000000002").unwrap(),
         ),
         decided_at: Utc::now(),
     });
@@ -273,7 +273,7 @@ fn consent_revoke_requires_observed_dots() {
 
     let canonical = json!({
         "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
-        "observed_dots": ["ak:event:01904100-0000-7000-8000-000000000002:7"]
+        "observed_dots": ["ak:event:01904100-0000-8000-8000-000000000002:7"]
     });
     let parsed: ConsentRevokePayload = serde_json::from_value(canonical).unwrap();
     assert!(parsed.validate_minimal().is_ok());
@@ -287,8 +287,8 @@ fn consent_revoke_requires_observed_dots() {
     let duplicate_dots: ConsentRevokePayload = serde_json::from_value(json!({
         "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
         "observed_dots": [
-            "ak:event:01904100-0000-7000-8000-000000000002:7",
-            "ak:event:01904100-0000-7000-8000-000000000002:7"
+            "ak:event:01904100-0000-8000-8000-000000000002:7",
+            "ak:event:01904100-0000-8000-8000-000000000002:7"
         ]
     }))
     .unwrap();
@@ -309,7 +309,7 @@ fn consent_revoke_requires_observed_dots() {
 
 #[test]
 fn strand_cell_subject_helpers_return_strand_id() {
-    let strand = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000004").unwrap();
+    let strand = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000004").unwrap();
     assert_eq!(strand_update_cell_subject(&strand), strand.as_str());
     assert_eq!(strand_tracks_patch_cell_subject(&strand), strand.as_str());
 }

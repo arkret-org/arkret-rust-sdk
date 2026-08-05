@@ -9,12 +9,14 @@ use serde_json::json;
 #[test]
 fn object_create_payload_wraps_strand_draft() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
-    let strand = StrandCreateObject::new(strand_id, realm_id, actor)
+    let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
+    // A create object carries no id: the Strand id is derived from the create
+    // Event's own `event_id` (spec `zh/models/common-fields.md` section 6.0).
+    let strand = StrandCreateObject::new(realm_id, actor)
         .with_metadata_title("Incident")
         .with_track("discussion", StrandTrackConfig::discussion_primary());
     let payload = ObjectCreatePayload::new(strand).to_value().unwrap();
+    assert!(payload["object"].get("id").is_none());
     assert_eq!(payload["object"]["schema"], SchemaId::STRAND_V1);
     assert_eq!(payload["object"]["stage"], "draft");
     assert_eq!(payload["object"]["metadata"]["title"], "Incident");
@@ -24,7 +26,7 @@ fn object_create_payload_wraps_strand_draft() {
 
 #[test]
 fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap();
     let patch: Patch = serde_json::from_value(json!({
         "tracks.discussion.is_primary": {"$op": "set", "value": true}
     }))
@@ -36,7 +38,7 @@ fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
 
     assert_eq!(
         payload["strand_id"],
-        "ak:strand:01904100-0000-7000-8000-000000000002"
+        "ak:strand:01904100-0000-8000-8000-000000000002"
     );
     assert!(payload.get("target_ref").is_none());
     assert!(payload.get("patch").is_some());

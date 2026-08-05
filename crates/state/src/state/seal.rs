@@ -993,7 +993,7 @@ mod tests {
     };
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
@@ -1022,7 +1022,7 @@ mod tests {
         refs: Vec<EventRef>,
     ) -> Event {
         let mut event = Event {
-            event_id: EventId::new(format!("ak:event:0196419b-0000-7000-8000-{actor_seq:012}"))
+            event_id: EventId::new(format!("ak:event:0196419b-0000-8000-8000-{actor_seq:012}"))
                 .unwrap(),
             kind: "ak.member.state".into(),
             realm_id: realm(),
@@ -1170,12 +1170,12 @@ mod tests {
     #[test]
     fn completeness_root_is_actor_sequence_enveloped_and_requires_exact_coverage() {
         let alice = completeness_event(
-            "ak:event:019f0000-0000-7000-8000-000000000001",
+            "ak:event:019f0000-0000-8000-8000-000000000001",
             "did:web:alice.example",
             7,
         );
         let bob = completeness_event(
-            "ak:event:019f0000-0000-7000-8000-000000000002",
+            "ak:event:019f0000-0000-8000-8000-000000000002",
             "did:web:bob.example",
             3,
         );
@@ -1553,9 +1553,14 @@ mod tests {
 
         let covered = BTreeSet::from([create_digest.clone(), binding_digest.clone()]);
         let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
+        // `Seal.delta` is a canonical sorted, duplicate-free list — the staging
+        // order the test is about lives in the Seal's covered set, not in this
+        // wire field's order.
+        let mut delta = vec![create_digest.clone(), binding_digest.clone()];
+        delta.sort();
         let seal = signed_seal(
             Vec::new(),
-            vec![create_digest.clone(), binding_digest.clone()],
+            delta.clone(),
             control_event_set_root(&covered).unwrap(),
             compute_state_root(&post_state).unwrap(),
             0,
@@ -1572,6 +1577,8 @@ mod tests {
             EventSubmitContext::AnchorUnit,
         )
         .unwrap();
+        // Acceptance order stays causal (create, then the binding that depends
+        // on it) regardless of how `Seal.delta` sorts.
         assert_eq!(
             effect.accepted_event_digests,
             vec![create_digest, binding_digest]

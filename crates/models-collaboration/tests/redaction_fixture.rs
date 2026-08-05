@@ -90,10 +90,10 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     // plaintext body and derived surfaces that MUST NOT survive.
     let mut event = json!({
         "kind": "ak.message.create",
-        "event_id": "ak:event:01970e58-0004-7000-8000-0000000005a1",
+        "event_id": "ak:event:01970e58-0004-8000-8000-0000000005a1",
         "created_at": "2026-04-26T00:00:00.000Z",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "redacts": "ak:event:01970e58-0004-7000-8000-0000000005a0",
+        "redacts": "ak:event:01970e58-0004-8000-8000-0000000005a0",
         "content": {"kind": "ak.content.text", "body": "secret plaintext"},
         "reactions": [{"actor": "did:webvh:z6mkfixture:bob.example", "key": "+1"}],
         "mentions": [{"actor_id": "did:webvh:z6mkfixture:bob.example"}],
@@ -106,7 +106,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     redaction_tombstone_message_value(
         &mut event,
         redacted_at,
-        Some("ak:event:01970e58-0004-7000-8000-0000000005a2"),
+        Some("ak:event:01970e58-0004-8000-8000-0000000005a2"),
     );
 
     // Every fixture-preserved field must survive verbatim.
@@ -118,7 +118,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     }
     assert_eq!(
         event["event_id"],
-        json!("ak:event:01970e58-0004-7000-8000-0000000005a1")
+        json!("ak:event:01970e58-0004-8000-8000-0000000005a1")
     );
     assert_eq!(event["created_at"], json!("2026-04-26T00:00:00.000Z"));
     assert_eq!(
@@ -127,7 +127,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     );
     assert_eq!(
         event["redacts"],
-        json!("ak:event:01970e58-0004-7000-8000-0000000005a0")
+        json!("ak:event:01970e58-0004-8000-8000-0000000005a0")
     );
 
     // The plaintext body and every derived surface must be gone / cleared.

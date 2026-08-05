@@ -373,12 +373,12 @@ mod tests {
             "reservation_handle": "reservation-1",
             "expires_at": "2026-08-03T00:00:00.000Z",
             "sidecar_id": "ak:sidecar:01999999-0000-7000-8000-000000000001",
-            "backing_circle_id": "ak:circle:01999999-0000-7000-8000-000000000002",
-            "private_strand_id": "ak:strand:01999999-0000-7000-8000-000000000003",
-            "private_relation_id": "ak:relation:01999999-0000-7000-8000-000000000004",
-            "context_attach_event_id": "ak:event:01999999-0000-7000-8000-000000000005",
+            "backing_circle_id": "ak:circle:01999999-0000-8000-8000-000000000002",
+            "private_strand_id": "ak:strand:01999999-0000-8000-8000-000000000003",
+            "private_relation_id": "ak:relation:01999999-0000-8000-8000-000000000004",
+            "context_attach_event_id": "ak:event:01999999-0000-8000-8000-000000000005",
             "context_attach_event_draft": {
-                "event_id": "ak:event:01999999-0000-7000-8000-000000000005",
+                "event_id": "ak:event:01999999-0000-8000-8000-000000000005",
                 "kind": "ak.sidecar.context.attach",
                 "unsigned_event_bytes": "e30",
                 "event_digest": format!("sha256:{}", "00".repeat(32))
@@ -401,7 +401,7 @@ mod tests {
     #[test]
     fn control_frontier_rejects_empty_and_unsorted_membership_refs() {
         let event = |suffix: &str| {
-            EventId::new(format!("ak:event:01964137-0000-7000-8000-{suffix}")).unwrap()
+            EventId::new(format!("ak:event:01964137-0000-8000-8000-{suffix}")).unwrap()
         };
         let mut frontier = SidecarControlFrontier {
             create_event_ref: event("000000000001"),

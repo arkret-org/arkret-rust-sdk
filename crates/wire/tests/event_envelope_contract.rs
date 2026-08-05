@@ -12,7 +12,7 @@ use arkret_wire::{
 use serde_json::json;
 
 fn realm_id() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn event_new_sets_required_event_id() {
 #[test]
 fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
-        event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+        event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
         kind: "ak.message.create".into(),
         realm_id: realm_id(),
         scope_ref: ScopeRef::Realm {
@@ -64,13 +64,14 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         proofs: Vec::new(),
     };
 
-    // Pinned after `scope_ref` became a producer-signed transcript member and
-    // `effective_scope` / `effects` / `conflict_keys_digest` left the wire
-    // (`conformance/encoding.md` section 2). Every v1 Event digest changed once,
-    // deliberately; this value must only move again with the spec.
+    // Pinned after `scope_ref` became a producer-signed transcript member,
+    // `effective_scope` / `effects` / `conflict_keys_digest` left the wire, and
+    // `event_id` left the digest preimage because section 4.0 derives it from
+    // this very digest (`conformance/encoding.md` sections 2, 4.0 and 6). Every
+    // v1 Event digest changed; this value must only move again with the spec.
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:26fc7b974a46ea08739a3b43bbdabddff749aa4cd045fbd69a3f148b286a322b"
+        "sha256:808e5292e5a9084ead79d4540162e1d6340ccc229ca8ea8059654f05fd179db6"
     );
     let value = serde_json::to_value(&event).unwrap();
     assert_eq!(value["payload"]["body"], "hello");
@@ -80,15 +81,15 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 #[test]
 fn prev_frontier_digest_sorts_and_deduplicates_refs() {
     let refs_a = [
-        "ak:event:01904100-0000-7000-8000-000000000003",
-        "ak:event:01904100-0000-7000-8000-000000000001",
-        "ak:event:01904100-0000-7000-8000-000000000003",
-        "ak:event:01904100-0000-7000-8000-000000000002",
+        "ak:event:01904100-0000-8000-8000-000000000003",
+        "ak:event:01904100-0000-8000-8000-000000000001",
+        "ak:event:01904100-0000-8000-8000-000000000003",
+        "ak:event:01904100-0000-8000-8000-000000000002",
     ];
     let refs_b = [
-        "ak:event:01904100-0000-7000-8000-000000000001",
-        "ak:event:01904100-0000-7000-8000-000000000002",
-        "ak:event:01904100-0000-7000-8000-000000000003",
+        "ak:event:01904100-0000-8000-8000-000000000001",
+        "ak:event:01904100-0000-8000-8000-000000000002",
+        "ak:event:01904100-0000-8000-8000-000000000003",
     ];
 
     assert_eq!(
@@ -132,7 +133,7 @@ fn event_scalability_helpers_reject_over_limits() {
     assert!(validate_authority_control_depth(MAX_AUTHORITY_CONTROL_DEPTH + 1).is_err());
 
     let prev_refs = (0..MAX_EVENT_PREV_REFS)
-        .map(|index| format!("ak:event:01904100-0000-7000-8000-{index:012x}"))
+        .map(|index| format!("ak:event:01904100-0000-8000-8000-{index:012x}"))
         .collect::<Vec<_>>();
     validate_event_prev_refs(prev_refs.iter().map(String::as_str)).unwrap();
     let mut duplicate = prev_refs;

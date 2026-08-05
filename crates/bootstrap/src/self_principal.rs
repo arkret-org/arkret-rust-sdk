@@ -89,6 +89,8 @@ pub fn build_self_principal_pcr_create(
         Value::String(PRINCIPAL_CONTROL_PURPOSE.to_owned()),
     );
     realm.created_at = created_at;
+    // R3.1: the create payload carries no object id.
+    realm.id = None;
 
     let payload = payload_map(&RealmCreatePayload {
         object: realm,
@@ -97,11 +99,11 @@ pub fn build_self_principal_pcr_create(
     let mut event = Event::new_with_id_at(
         input.event_id,
         EventKind::REALM_CREATE,
-        // A Principal Control Realm has no Circles, so its genesis scope is
-        // always the Realm itself.
-        ScopeRef::Realm {
-            realm_id: input.realm_id,
-        },
+        // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
+        // carries no realm_id. For a PCR the id is subject-derived from the
+        // principal DID rather than from this Event, but the wire shape is the
+        // same closed `realm_genesis` scope for every ak.realm.create.
+        ScopeRef::RealmGenesis,
         input.principal_id,
         0,
         input.hlc,
@@ -308,7 +310,10 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         &realm.notary,
         NotaryValue::SingleDid { did, .. } if did == &event.actor_id
     );
-    if realm.id != event.realm_id
+    // R3.1: the create payload MUST omit the object id; the Realm id is
+    // derived from this genesis Event, so a payload copy would be a second,
+    // forgeable truth (zh/models/realm-and-space.md section 2.5.0).
+    if realm.id.is_some()
         || realm.schema != SchemaId::REALM_V1
         || realm.created_by != event.actor_id
         || realm.created_at != event.created_at

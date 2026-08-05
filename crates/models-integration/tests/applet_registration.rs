@@ -19,7 +19,7 @@ fn did(name: &str) -> Did {
 }
 
 fn realm() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
 }
 
 fn sample_epoch() -> Hash {
@@ -347,6 +347,12 @@ fn sign_registration_attaches_matching_payload_digest() {
     .unwrap();
 
     let proof = registration.proof.as_ref().unwrap();
-    assert!(proof.jws.starts_with("eyJhbGciOiJFZDI1NTE5In0."));
+    // `sign_registration` attaches the signer's JWS verbatim — here the stub's,
+    // which encodes the digest it was handed. Asserting a real Ed25519 JOSE
+    // header would only be testing the stub, and the stub never produces one.
+    assert_eq!(
+        proof.jws,
+        format!("stub..{}", registration.payload_digest().unwrap().as_str())
+    );
     assert_eq!(proof.event_digest, registration.payload_digest().unwrap());
 }

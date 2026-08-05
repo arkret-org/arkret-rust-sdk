@@ -58,7 +58,7 @@ fn commit_envelope_projects_to_mls_commit_operation() {
     let op = commit_envelope()
         .operation(
             OperationId::new("ak:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
-            RealmId::new("ak:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-8000-8000-4ecefcf31ad2").unwrap(),
         )
         .unwrap();
 
@@ -74,7 +74,7 @@ fn proposal_envelope_projects_to_mls_proposal_operation() {
     let op = proposal_envelope()
         .operation(
             OperationId::new("ak:operation:01904100-0000-7000-8000-335be376d210").unwrap(),
-            RealmId::new("ak:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-8000-8000-4ecefcf31ad2").unwrap(),
         )
         .unwrap();
 

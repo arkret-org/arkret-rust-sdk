@@ -6,7 +6,7 @@ use arkret_wire::{Did, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId
 use serde_json::json;
 
 fn realm_id() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
 }
 
 fn scope_ref() -> ScopeRef {
@@ -114,7 +114,7 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
             actor_seq: 1,
         },
         payload: json!({
-            "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "ak.content.text", "body": "hello"}
         }),
@@ -170,7 +170,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let envelope = builder
         .with_payload_field(
             "strand_id",
-            json!("ak:strand:01904100-0000-7000-8000-6c663fa0205f"),
+            json!("ak:strand:01904100-0000-8000-8000-6c663fa0205f"),
         )
         .with_payload_field("track_name", json!("discussion"))
         .build(&registry)

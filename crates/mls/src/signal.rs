@@ -335,8 +335,8 @@ mod tests {
     use super::*;
     use crate::identity::{ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity};
 
-    const REALM: &str = "ak:realm:01904100-0000-7000-8000-000000000042";
-    const GROUP_STATE_REF: &str = "ak:event:01904100-0000-7000-8000-cccccccccccc";
+    const REALM: &str = "ak:realm:01904100-0000-8000-8000-000000000042";
+    const GROUP_STATE_REF: &str = "ak:event:01904100-0000-8000-8000-cccccccccccc";
     const ALICE_DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000006";
     const BOB_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000000e";
     const TYPING: &[u8] = br#"{"kind":"typing"}"#;
@@ -348,13 +348,13 @@ mod tests {
         "\"epoch\":7,",
         "\"expires_at\":\"2026-07-28T12:00:30.000Z\",",
         "\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",",
-        "\"group_state_ref\":\"ak:event:01904100-0000-7000-8000-cccccccccccc\"},",
+        "\"group_state_ref\":\"ak:event:01904100-0000-8000-8000-cccccccccccc\"},",
         "\"nonce\":\"AAAAAAAAAAAAAAAA\",",
         "\"purpose\":\"ak.signal.v1\",",
-        "\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\",",
+        "\"realm_id\":\"ak:realm:01904100-0000-8000-8000-000000000042\",",
         "\"scheme\":\"ak.signal_exporter_aead.v1\",",
         "\"scope_ref\":{\"kind\":\"realm\",",
-        "\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},",
+        "\"realm_id\":\"ak:realm:01904100-0000-8000-8000-000000000042\"},",
         "\"seal_ref\":\"ak:seal:sha256:",
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
         "\"sender_actor_id\":\"did:webvh:z6mkfixture:alice.example\",",

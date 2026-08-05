@@ -22,7 +22,7 @@ fn vector() -> Value {
 
 fn cell() -> CellRef {
     CellRef::new(
-        "ak:cell:ak.component.calendar.rsvp.v1:3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc",
+        "ak:cell:ak.component.calendar.rsvp.v1:LjvpAsw7qCPnXbATwtWyUYHAncyxVuNfGaCjpuF0968",
     )
     .unwrap()
 }

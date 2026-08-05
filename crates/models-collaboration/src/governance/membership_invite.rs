@@ -730,11 +730,13 @@ pub struct RelationCreatePayload {
 
 /// The relation object a `ak.relation.create` payload carries.
 ///
-/// `object_snapshot` derives the object kind from the typed-id prefix on `id`,
-/// so there is deliberately no `type` member — the schema bans that name.
+/// There is deliberately no `id`: `ak.relation.create` is an `event_derived`
+/// kind, so the relation id is `RelationId::from_event_id(&event_id)` and the
+/// payload MUST omit it (spec `zh/models/common-fields.md` section 6.0). There
+/// is likewise no `type` member — the object kind comes from the typed-id
+/// prefix and the schema bans that name.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelationSnapshot {
-    pub id: String,
     /// Registered `relation_kind` (e.g. `ak.relation.parent_of`).
     pub kind: String,
     /// Source endpoint `object_ref` (canonical typed id / did / digest).
@@ -744,15 +746,15 @@ pub struct RelationSnapshot {
 }
 
 impl RelationCreatePayload {
+    /// Build the payload. There is no `relation_id` parameter: the relation
+    /// id is derived from the create Event that carries this payload.
     pub fn new(
-        relation_id: impl Into<String>,
         kind: impl Into<String>,
         from_ref: impl Into<ObjectRef>,
         to_ref: impl Into<ObjectRef>,
     ) -> Self {
         Self {
             relation: RelationSnapshot {
-                id: relation_id.into(),
                 kind: kind.into(),
                 from_ref: from_ref.into(),
                 to_ref: to_ref.into(),
@@ -794,7 +796,7 @@ mod tests {
 
     const SUBJECT: &str = "did:web:bob.example";
     const INVITE: &str = "ak:invite:0196419b-0000-7000-8000-000000000101";
-    const REALM: &str = "ak:realm:0196419b-0000-7000-8000-000000000001";
+    const REALM: &str = "ak:realm:0196419b-0000-8000-8000-000000000001";
     const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const SERVICE: &str = "did:web:verify.example";
     const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -865,7 +867,7 @@ mod tests {
                 "\"binding_proof_digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",
                 "\"invite_id\":\"ak:invite:0196419b-0000-7000-8000-000000000101\",",
-                "\"realm_id\":\"ak:realm:0196419b-0000-7000-8000-000000000001\",",
+                "\"realm_id\":\"ak:realm:0196419b-0000-8000-8000-000000000001\",",
                 "\"subject_id\":\"did:web:bob.example\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
                 "\"verification_service_id\":\"did:web:verify.example\"}"

@@ -24,7 +24,11 @@ fn now_utc_canonical() -> DateTime<Utc> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrandCreateObject {
-    pub id: StrandId,
+    /// Absent by contract: `ak.strand.create` is an `event_derived` kind, so
+    /// the Strand id is `StrandId::from_event_id(&event_id)` and the payload
+    /// MUST omit it (spec `zh/models/common-fields.md` section 6.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<StrandId>,
     pub schema: String,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,9 +61,10 @@ pub struct StrandCreateObject {
 impl arkret_models_collaboration::events_payloads::ProtocolCreateObject for StrandCreateObject {}
 
 impl StrandCreateObject {
-    pub fn new(id: StrandId, realm_id: RealmId, created_by: Did) -> Self {
+    /// Build a create input. There is no id parameter — see [`Self::id`].
+    pub fn new(realm_id: RealmId, created_by: Did) -> Self {
         Self {
-            id,
+            id: None,
             schema: SchemaId::STRAND_V1.to_owned(),
             realm_id,
             scope_circle_id: None,

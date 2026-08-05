@@ -1207,10 +1207,10 @@ impl ProtocolResourceSelector {
         vec![
             Self {
                 kind: ProtocolResourceSelectorKind::Event,
-                realm_id: Some("ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                realm_id: Some("ak:realm:01904100-0000-8000-8000-9b64700c6ee8".to_owned()),
                 space_id: None,
                 circle_id: None,
-                event_id: Some("ak:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
+                event_id: Some("ak:event:01904100-0000-8000-8000-51495aba0a08".to_owned()),
                 object_kind: None,
                 object_ref: None,
                 strand_id: None,
@@ -1251,13 +1251,13 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Notification,
-                realm_id: Some("ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                realm_id: Some("ak:realm:01904100-0000-8000-8000-9b64700c6ee8".to_owned()),
                 space_id: None,
                 circle_id: None,
                 actor_id: Some("did:webvh:z6mkfixture:alice.example".to_owned()),
                 object_kind: Some("device_verification".to_owned()),
                 object_ref: Some("ak:notify:01JS0NT000000000000000000".to_owned()),
-                strand_id: Some("ak:strand:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
+                strand_id: Some("ak:strand:01904100-0000-8000-8000-a1fffe3a8cc9".to_owned()),
                 message_id: None,
                 morph_id: None,
                 morph_kind: None,
@@ -1273,7 +1273,7 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Blob,
-                realm_id: Some("ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                realm_id: Some("ak:realm:01904100-0000-8000-8000-9b64700c6ee8".to_owned()),
                 space_id: None,
                 circle_id: None,
                 blob_ref: Some("ak:blob:sha256:0123456789abcdef".to_owned()),
@@ -1517,14 +1517,14 @@ mod spec_selector_tests {
     fn spec_object_round_trips_through_engine_form() {
         let spec = json!({
             "kind": "object",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-65c7feb295d7",
             "object_kind": "strand"
         });
         let selector = ResourceSelector::from_spec_value(&spec).unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Object {
-                realm_id: "ak:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
+                realm_id: "ak:realm:01904100-0000-8000-8000-65c7feb295d7".to_owned(),
                 object_kind: Some("strand".to_owned()),
                 object_ref: None,
                 match_scope: ProtocolResourceSelectorScope::Exact,
@@ -1568,7 +1568,7 @@ mod spec_selector_tests {
     fn governance_wildcard_fails_closed() {
         let err = ResourceSelector::from_spec_value(&json!({
             "kind": "policy",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7"
+            "realm_id": "ak:realm:01904100-0000-8000-8000-65c7feb295d7"
         }))
         .unwrap_err();
         assert!(format!("{err}").contains("selector_governance_wildcard_forbidden"));
@@ -1576,7 +1576,7 @@ mod spec_selector_tests {
 
     #[test]
     fn schema_selector_rejects_legacy_schema_id_field() {
-        let realm_id = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_id = "ak:realm:01904100-0000-8000-8000-65c7feb295d7";
         for spec in [
             json!({
                 "kind": "schema",
@@ -1599,7 +1599,7 @@ mod spec_selector_tests {
     fn schema_selector_serializes_only_canonical_schema_ref() {
         let spec = json!({
             "kind": "schema",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-65c7feb295d7",
             "schema_ref": "ak.schema.strand.v1"
         });
         let selector = ResourceSelector::from_spec_value(&spec).unwrap();
@@ -1617,7 +1617,7 @@ mod spec_selector_tests {
     #[test]
     fn spec_value_rejects_compact_string_selector() {
         let err = ResourceSelector::from_spec_value(&json!(
-            "realm:ak:realm:01904100-0000-7000-8000-65c7feb295d7"
+            "realm:ak:realm:01904100-0000-8000-8000-65c7feb295d7"
         ))
         .unwrap_err();
         assert!(format!("{err}").contains("resource selector must be an object"));
@@ -1625,9 +1625,9 @@ mod spec_selector_tests {
 
     #[test]
     fn space_selector_never_crosses_realm_boundaries() {
-        let realm_a = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
-        let realm_b = "ak:realm:01904100-0000-7000-8000-75c7feb295d7";
-        let space_id = "ak:space:01904100-0000-7000-8000-85c7feb295d7";
+        let realm_a = "ak:realm:01904100-0000-8000-8000-65c7feb295d7";
+        let realm_b = "ak:realm:01904100-0000-8000-8000-75c7feb295d7";
+        let space_id = "ak:space:01904100-0000-8000-8000-85c7feb295d7";
         let selector = ResourceSelector::from_spec_value(&json!({
             "kind": "space",
             "realm_id": realm_a,
@@ -1651,7 +1651,7 @@ mod spec_selector_tests {
 
     #[test]
     fn exact_space_without_space_id_matches_nothing() {
-        let realm_id = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_id = "ak:realm:01904100-0000-8000-8000-65c7feb295d7";
         let selector = ResourceSelector::from_spec_value(&json!({
             "kind": "space",
             "realm_id": realm_id
@@ -1659,14 +1659,14 @@ mod spec_selector_tests {
         .unwrap();
         assert!(!selector.matches(&Resource::Space {
             realm_id: realm_id.to_owned(),
-            space_id: "ak:space:01904100-0000-7000-8000-85c7feb295d7".to_owned(),
+            space_id: "ak:space:01904100-0000-8000-8000-85c7feb295d7".to_owned(),
         }));
     }
 
     #[test]
     fn realm_wide_space_is_limited_to_its_realm() {
-        let realm_a = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
-        let realm_b = "ak:realm:01904100-0000-7000-8000-75c7feb295d7";
+        let realm_a = "ak:realm:01904100-0000-8000-8000-65c7feb295d7";
+        let realm_b = "ak:realm:01904100-0000-8000-8000-75c7feb295d7";
         let selector = ResourceSelector::from_spec_value(&json!({
             "kind": "space",
             "realm_id": realm_a,
@@ -1676,11 +1676,11 @@ mod spec_selector_tests {
 
         assert!(selector.matches(&Resource::Space {
             realm_id: realm_a.to_owned(),
-            space_id: "ak:space:01904100-0000-7000-8000-85c7feb295d7".to_owned(),
+            space_id: "ak:space:01904100-0000-8000-8000-85c7feb295d7".to_owned(),
         }));
         assert!(!selector.matches(&Resource::Space {
             realm_id: realm_b.to_owned(),
-            space_id: "ak:space:01904100-0000-7000-8000-95c7feb295d7".to_owned(),
+            space_id: "ak:space:01904100-0000-8000-8000-95c7feb295d7".to_owned(),
         }));
         assert_eq!(
             selector.to_spec_value(),
@@ -1690,8 +1690,8 @@ mod spec_selector_tests {
 
     #[test]
     fn notification_selector_never_crosses_realm_boundaries() {
-        let realm_a = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
-        let realm_b = "ak:realm:01904100-0000-7000-8000-75c7feb295d7";
+        let realm_a = "ak:realm:01904100-0000-8000-8000-65c7feb295d7";
+        let realm_b = "ak:realm:01904100-0000-8000-8000-75c7feb295d7";
         let selector = ResourceSelector::from_spec_value(&json!({
             "kind": "notification",
             "realm_id": realm_a
@@ -1715,8 +1715,8 @@ mod spec_selector_tests {
     fn unsupported_hierarchical_scope_fails_closed() {
         let err = ResourceSelector::from_spec_value(&json!({
             "kind": "space",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
-            "space_id": "ak:space:01904100-0000-7000-8000-85c7feb295d7",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-65c7feb295d7",
+            "space_id": "ak:space:01904100-0000-8000-8000-85c7feb295d7",
             "match_scope": "subtree"
         }))
         .unwrap_err();

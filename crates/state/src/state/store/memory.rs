@@ -1063,7 +1063,7 @@ mod tests {
     };
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
@@ -1088,7 +1088,7 @@ mod tests {
     /// `event_digest` (the store key).
     fn control_move(actor_seq: u64) -> Event {
         let mut event = Event {
-            event_id: EventId::new(format!("ak:event:0196419b-0000-7000-8000-{actor_seq:012}"))
+            event_id: EventId::new(format!("ak:event:0196419b-0000-8000-8000-{actor_seq:012}"))
                 .unwrap(),
             kind: "ak.member.state".into(),
             realm_id: realm(),

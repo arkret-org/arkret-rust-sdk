@@ -785,7 +785,7 @@ mod tests {
     fn test_key_ref() -> KeyRefObject {
         KeyRefObject {
             algorithm: "MLS".to_owned(),
-            group_state_ref: "ak:event:01964148-0000-7000-8000-000000000000".to_owned(),
+            group_state_ref: "ak:event:01964148-0000-8000-8000-000000000000".to_owned(),
         }
     }
 
@@ -1071,7 +1071,7 @@ mod tests {
             "encrypted": true,
             "scheme": "ak.blob.stream_aead.v1",
             "encryption_algorithm": "mls_exporter_aead_xchacha20poly1305_stream",
-            "key_ref": { "algorithm": "MLS", "group_state_ref": "ak:event:01964148-0000-7000-8000-000000000000" },
+            "key_ref": { "algorithm": "MLS", "group_state_ref": "ak:event:01964148-0000-8000-8000-000000000000" },
             "epoch": 42,
             "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
             "segment_bytes": 262144,

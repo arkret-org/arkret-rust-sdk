@@ -112,7 +112,7 @@ fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
     static OBJECT_REF: OnceLock<regex::Regex> = OnceLock::new();
     let object_ref = OBJECT_REF.get_or_init(|| {
         regex::Regex::new(
-            r"^(ak:(realm|space|actor_profile|strand|message|morph|relation|view|policy|grant|invite|call|blob|snapshot|event|frank|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ak:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+            r"^((?:ak:(realm|space|actor_profile|strand|message|morph|relation|view|event):[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ak:(policy|grant|invite|call|blob|snapshot|frank|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|ak:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
         )
         .expect("object_ref regex compiles")
     });
@@ -141,12 +141,12 @@ mod tests {
             .unwrap();
 
         let payload =
-            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000001", patch)
+            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-8000-8000-000000000001", patch)
                 .unwrap();
         assert_eq!(
             payload.to_value().unwrap(),
             json!({
-                "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:strand:0196419b-0000-8000-8000-000000000001",
                 "patch": {
                     "fields.document": {
                         "$op": "set",
@@ -160,7 +160,7 @@ mod tests {
     #[test]
     fn object_patch_payload_deserialize_rejects_empty_patch() {
         let error = serde_json::from_value::<ObjectPatchPayload>(json!({
-            "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000003",
+            "target_ref": "ak:strand:0196419b-0000-8000-8000-000000000003",
             "patch": {}
         }))
         .unwrap_err();
@@ -183,7 +183,7 @@ mod tests {
             .unwrap();
 
         let error =
-            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000004", patch)
+            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-8000-8000-000000000004", patch)
                 .unwrap_err();
         assert!(
             error
@@ -200,7 +200,7 @@ mod tests {
             .unwrap();
 
         let error = ObjectPatchPayload::for_target(
-            "ak:message:0196419b-0000-7000-8000-000000000005",
+            "ak:message:0196419b-0000-8000-8000-000000000005",
             patch,
         )
         .unwrap_err();
@@ -216,7 +216,7 @@ mod tests {
         let mut patch = Patch::new();
         patch.insert_op("metadata.title", PatchOp::unset()).unwrap();
 
-        ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000006", patch)
+        ObjectPatchPayload::for_target("ak:strand:0196419b-0000-8000-8000-000000000006", patch)
             .unwrap();
     }
 }

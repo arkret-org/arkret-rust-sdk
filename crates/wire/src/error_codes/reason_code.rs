@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-05.2;
-//! sha256=ad7471d5eb112d5716861d56eb189e4a0db886dde7a9374504a42e87ff41adc0
-//! Entries: reason_codes=459
+//! Input: registry/error-code-registry.json; version=2026-08-06.1;
+//! sha256=a62d878155ec741125f43454984f28bec0c9e0efa1449b820e0dcf0e33244983
+//! Entries: reason_codes=465
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -107,6 +107,8 @@ pub enum ReasonCode {
     ControllerMembershipEnded,
     CounterBoundExceeded,
     CoveredSetMismatch,
+    CreatedAtBeforeBasisSeal,
+    CreatedAtBeforeCausalPredecessor,
     CrossDomainReplayRejected,
     CrossRealmStructuralRelation,
     CrossSigningReset,
@@ -170,6 +172,7 @@ pub enum ReasonCode {
     EpochUpdateRequired,
     ErasurePendingIsTerminal,
     ErasureReceiptStubDigestMismatch,
+    EventIdDigestMismatch,
     EvidenceRecipientMismatch,
     ExecutedByMissing,
     ExpiredInviteToken,
@@ -180,6 +183,7 @@ pub enum ReasonCode {
     FocusUnavailableForClient,
     ForensicAttributionMismatch,
     GateCheckFailed,
+    GenesisCreatedAtTooOld,
     GovernanceBindingMismatch,
     GrantExceedsIssuerAuthority,
     GrantRelinquishNotSubject,
@@ -280,6 +284,7 @@ pub enum ReasonCode {
     NoStrandTrackMessageGrant,
     NotProvisioned,
     Nsfw,
+    ObjectIdNotEventDerived,
     Ok,
     OperatorRejected,
     Other,
@@ -337,6 +342,7 @@ pub enum ReasonCode {
     RealmAuthorityControllerMismatch,
     RealmAuthorityRootConflict,
     RealmAuthorityRootMissing,
+    RealmIdNotEventDerived,
     RealmLinkInvalidTransition,
     RealmLinkSelfReference,
     RealmOrganizationAuthorizationInvalid,
@@ -595,6 +601,9 @@ impl ReasonCode {
     pub const CONTROLLER_MEMBERSHIP_ENDED: &'static str = "controller_membership_ended";
     pub const COUNTER_BOUND_EXCEEDED: &'static str = "counter_bound_exceeded";
     pub const COVERED_SET_MISMATCH: &'static str = "covered_set_mismatch";
+    pub const CREATED_AT_BEFORE_BASIS_SEAL: &'static str = "created_at_before_basis_seal";
+    pub const CREATED_AT_BEFORE_CAUSAL_PREDECESSOR: &'static str =
+        "created_at_before_causal_predecessor";
     pub const CROSS_DOMAIN_REPLAY_REJECTED: &'static str = "cross_domain_replay_rejected";
     pub const CROSS_REALM_STRUCTURAL_RELATION: &'static str = "cross_realm_structural_relation";
     pub const CROSS_SIGNING_RESET: &'static str = "cross_signing_reset";
@@ -691,6 +700,7 @@ impl ReasonCode {
     pub const ERASURE_PENDING_IS_TERMINAL: &'static str = "erasure_pending_is_terminal";
     pub const ERASURE_RECEIPT_STUB_DIGEST_MISMATCH: &'static str =
         "erasure_receipt_stub_digest_mismatch";
+    pub const EVENT_ID_DIGEST_MISMATCH: &'static str = "event_id_digest_mismatch";
     pub const EVIDENCE_RECIPIENT_MISMATCH: &'static str = "evidence_recipient_mismatch";
     pub const EXECUTED_BY_MISSING: &'static str = "executed_by_missing";
     pub const EXPIRED_INVITE_TOKEN: &'static str = "expired_invite_token";
@@ -701,6 +711,7 @@ impl ReasonCode {
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
     pub const FORENSIC_ATTRIBUTION_MISMATCH: &'static str = "forensic_attribution_mismatch";
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
+    pub const GENESIS_CREATED_AT_TOO_OLD: &'static str = "genesis_created_at_too_old";
     pub const GOVERNANCE_BINDING_MISMATCH: &'static str = "governance_binding_mismatch";
     pub const GRANT_EXCEEDS_ISSUER_AUTHORITY: &'static str = "grant_exceeds_issuer_authority";
     pub const GRANT_RELINQUISH_NOT_SUBJECT: &'static str = "grant_relinquish_not_subject";
@@ -823,6 +834,7 @@ impl ReasonCode {
     pub const NO_STRAND_TRACK_MESSAGE_GRANT: &'static str = "no_strand_track_message_grant";
     pub const NOT_PROVISIONED: &'static str = "not_provisioned";
     pub const NSFW: &'static str = "nsfw";
+    pub const OBJECT_ID_NOT_EVENT_DERIVED: &'static str = "object_id_not_event_derived";
     pub const OK: &'static str = "ok";
     pub const OPERATOR_REJECTED: &'static str = "operator_rejected";
     pub const OTHER: &'static str = "other";
@@ -886,6 +898,7 @@ impl ReasonCode {
         "realm_authority_controller_mismatch";
     pub const REALM_AUTHORITY_ROOT_CONFLICT: &'static str = "realm_authority_root_conflict";
     pub const REALM_AUTHORITY_ROOT_MISSING: &'static str = "realm_authority_root_missing";
+    pub const REALM_ID_NOT_EVENT_DERIVED: &'static str = "realm_id_not_event_derived";
     pub const REALM_LINK_INVALID_TRANSITION: &'static str = "realm_link_invalid_transition";
     pub const REALM_LINK_SELF_REFERENCE: &'static str = "realm_link_self_reference";
     pub const REALM_ORGANIZATION_AUTHORIZATION_INVALID: &'static str =
@@ -1147,6 +1160,8 @@ impl ReasonCode {
             Self::ControllerMembershipEnded => Self::CONTROLLER_MEMBERSHIP_ENDED,
             Self::CounterBoundExceeded => Self::COUNTER_BOUND_EXCEEDED,
             Self::CoveredSetMismatch => Self::COVERED_SET_MISMATCH,
+            Self::CreatedAtBeforeBasisSeal => Self::CREATED_AT_BEFORE_BASIS_SEAL,
+            Self::CreatedAtBeforeCausalPredecessor => Self::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR,
             Self::CrossDomainReplayRejected => Self::CROSS_DOMAIN_REPLAY_REJECTED,
             Self::CrossRealmStructuralRelation => Self::CROSS_REALM_STRUCTURAL_RELATION,
             Self::CrossSigningReset => Self::CROSS_SIGNING_RESET,
@@ -1262,6 +1277,7 @@ impl ReasonCode {
             Self::EpochUpdateRequired => Self::EPOCH_UPDATE_REQUIRED,
             Self::ErasurePendingIsTerminal => Self::ERASURE_PENDING_IS_TERMINAL,
             Self::ErasureReceiptStubDigestMismatch => Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH,
+            Self::EventIdDigestMismatch => Self::EVENT_ID_DIGEST_MISMATCH,
             Self::EvidenceRecipientMismatch => Self::EVIDENCE_RECIPIENT_MISMATCH,
             Self::ExecutedByMissing => Self::EXECUTED_BY_MISSING,
             Self::ExpiredInviteToken => Self::EXPIRED_INVITE_TOKEN,
@@ -1272,6 +1288,7 @@ impl ReasonCode {
             Self::FocusUnavailableForClient => Self::FOCUS_UNAVAILABLE_FOR_CLIENT,
             Self::ForensicAttributionMismatch => Self::FORENSIC_ATTRIBUTION_MISMATCH,
             Self::GateCheckFailed => Self::GATE_CHECK_FAILED,
+            Self::GenesisCreatedAtTooOld => Self::GENESIS_CREATED_AT_TOO_OLD,
             Self::GovernanceBindingMismatch => Self::GOVERNANCE_BINDING_MISMATCH,
             Self::GrantExceedsIssuerAuthority => Self::GRANT_EXCEEDS_ISSUER_AUTHORITY,
             Self::GrantRelinquishNotSubject => Self::GRANT_RELINQUISH_NOT_SUBJECT,
@@ -1400,6 +1417,7 @@ impl ReasonCode {
             Self::NoStrandTrackMessageGrant => Self::NO_STRAND_TRACK_MESSAGE_GRANT,
             Self::NotProvisioned => Self::NOT_PROVISIONED,
             Self::Nsfw => Self::NSFW,
+            Self::ObjectIdNotEventDerived => Self::OBJECT_ID_NOT_EVENT_DERIVED,
             Self::Ok => Self::OK,
             Self::OperatorRejected => Self::OPERATOR_REJECTED,
             Self::Other => Self::OTHER,
@@ -1463,6 +1481,7 @@ impl ReasonCode {
             Self::RealmAuthorityControllerMismatch => Self::REALM_AUTHORITY_CONTROLLER_MISMATCH,
             Self::RealmAuthorityRootConflict => Self::REALM_AUTHORITY_ROOT_CONFLICT,
             Self::RealmAuthorityRootMissing => Self::REALM_AUTHORITY_ROOT_MISSING,
+            Self::RealmIdNotEventDerived => Self::REALM_ID_NOT_EVENT_DERIVED,
             Self::RealmLinkInvalidTransition => Self::REALM_LINK_INVALID_TRANSITION,
             Self::RealmLinkSelfReference => Self::REALM_LINK_SELF_REFERENCE,
             Self::RealmOrganizationAuthorizationInvalid => {
@@ -1726,6 +1745,8 @@ impl ReasonCode {
             Self::CONTROLLER_MEMBERSHIP_ENDED => Self::ControllerMembershipEnded,
             Self::COUNTER_BOUND_EXCEEDED => Self::CounterBoundExceeded,
             Self::COVERED_SET_MISMATCH => Self::CoveredSetMismatch,
+            Self::CREATED_AT_BEFORE_BASIS_SEAL => Self::CreatedAtBeforeBasisSeal,
+            Self::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR => Self::CreatedAtBeforeCausalPredecessor,
             Self::CROSS_DOMAIN_REPLAY_REJECTED => Self::CrossDomainReplayRejected,
             Self::CROSS_REALM_STRUCTURAL_RELATION => Self::CrossRealmStructuralRelation,
             Self::CROSS_SIGNING_RESET => Self::CrossSigningReset,
@@ -1841,6 +1862,7 @@ impl ReasonCode {
             Self::EPOCH_UPDATE_REQUIRED => Self::EpochUpdateRequired,
             Self::ERASURE_PENDING_IS_TERMINAL => Self::ErasurePendingIsTerminal,
             Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH => Self::ErasureReceiptStubDigestMismatch,
+            Self::EVENT_ID_DIGEST_MISMATCH => Self::EventIdDigestMismatch,
             Self::EVIDENCE_RECIPIENT_MISMATCH => Self::EvidenceRecipientMismatch,
             Self::EXECUTED_BY_MISSING => Self::ExecutedByMissing,
             Self::EXPIRED_INVITE_TOKEN => Self::ExpiredInviteToken,
@@ -1851,6 +1873,7 @@ impl ReasonCode {
             Self::FOCUS_UNAVAILABLE_FOR_CLIENT => Self::FocusUnavailableForClient,
             Self::FORENSIC_ATTRIBUTION_MISMATCH => Self::ForensicAttributionMismatch,
             Self::GATE_CHECK_FAILED => Self::GateCheckFailed,
+            Self::GENESIS_CREATED_AT_TOO_OLD => Self::GenesisCreatedAtTooOld,
             Self::GOVERNANCE_BINDING_MISMATCH => Self::GovernanceBindingMismatch,
             Self::GRANT_EXCEEDS_ISSUER_AUTHORITY => Self::GrantExceedsIssuerAuthority,
             Self::GRANT_RELINQUISH_NOT_SUBJECT => Self::GrantRelinquishNotSubject,
@@ -1979,6 +2002,7 @@ impl ReasonCode {
             Self::NO_STRAND_TRACK_MESSAGE_GRANT => Self::NoStrandTrackMessageGrant,
             Self::NOT_PROVISIONED => Self::NotProvisioned,
             Self::NSFW => Self::Nsfw,
+            Self::OBJECT_ID_NOT_EVENT_DERIVED => Self::ObjectIdNotEventDerived,
             Self::OK => Self::Ok,
             Self::OPERATOR_REJECTED => Self::OperatorRejected,
             Self::OTHER => Self::Other,
@@ -2042,6 +2066,7 @@ impl ReasonCode {
             Self::REALM_AUTHORITY_CONTROLLER_MISMATCH => Self::RealmAuthorityControllerMismatch,
             Self::REALM_AUTHORITY_ROOT_CONFLICT => Self::RealmAuthorityRootConflict,
             Self::REALM_AUTHORITY_ROOT_MISSING => Self::RealmAuthorityRootMissing,
+            Self::REALM_ID_NOT_EVENT_DERIVED => Self::RealmIdNotEventDerived,
             Self::REALM_LINK_INVALID_TRANSITION => Self::RealmLinkInvalidTransition,
             Self::REALM_LINK_SELF_REFERENCE => Self::RealmLinkSelfReference,
             Self::REALM_ORGANIZATION_AUTHORIZATION_INVALID => {
@@ -2746,6 +2771,16 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A compaction Seal's covered set does not match the deterministic control view of the interval it claims to compact. Mismatched coverage MUST reject; only full-coverage compaction within seal_compaction_max_interval_ms enables bootstrap. See authz/event-auth-state-resolution.md and fixtures/cba-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::CREATED_AT_BEFORE_BASIS_SEAL,
+        applies_to: &["event_envelope"],
+        description: "Sub-reason for schema_violation when created_at is earlier than the sealed_at of the Seal this Event binds to (seal_ref for a DataEvent, max of seal_basis.leaves[].sealed_at for a Control Move), beyond the symmetric hard_future_skew_ms tolerance. Anchor units carry no such basis and are exempt; see zh/models/event-and-patch.md.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR,
+        applies_to: &["event_envelope"],
+        description: "Sub-reason for schema_violation when created_at is earlier than the greatest created_at among the accepted Events referenced in prev_refs. prev_refs is the causal frontier, so every referenced Event precedes this one; the bound is a signed-value comparison and uses no local clock. Empty prev_refs (genesis) does not carry this bound.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::CROSS_DOMAIN_REPLAY_REJECTED,
         applies_to: &["auth_decision"],
         description: "A ak.cross_signing.reset payload declared a trust_domain that does not match the receiver's own trust_domain (or the receiver is unable to validate that the declared trust_domain belongs to this deployment). Rejected before signature verification to prevent replay of reset proofs across deployments / sovereign trust domains. See zh/crypto-media/device-lifecycle.md §14.1.",
@@ -3065,6 +3100,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Retained erasure stub bytes do not match retained_stub_digest in the erasure receipt. Verifier MUST reject the receipt and treat the erasure as not completed (fail closed).",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::EVENT_ID_DIGEST_MISMATCH,
+        applies_to: &["event_envelope"],
+        description: "Sub-reason for schema_violation when the carried event_id does not equal the value re-derived from the Event's own canonical content per zh/conformance/encoding.md section 4.0. Receivers MUST re-derive and compare before using event_id for deduplication, indexing, routing, idempotency or authorization, and MUST NOT report this as proof_invalid: the distinct code is what localises cross-implementation canonical-JSON divergence and what prevents a forged event_id from entering the duplicate_conflict quarantine path.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::EVIDENCE_RECIPIENT_MISMATCH,
         applies_to: &["moderation_decision", "moderation_report"],
         description: "A moderation evidence package's encrypted_to recipient does not match the declared recipient_public_key_ref binding. The submission MUST reject. See governance/content-moderation.md.",
@@ -3113,6 +3153,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::GATE_CHECK_FAILED,
         applies_to: &["auth_decision", "state_resolution"],
         description: "External applicant-facing generic join gate failure. Wire response MUST NOT reveal whether a claim was absent, revoked, issuer-unreachable, parent-membership-missing, or challenge-invalid; detailed diagnostics are audit/reviewer-only. See zh/governance/join-policy.md §5.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::GENESIS_CREATED_AT_TOO_OLD,
+        applies_to: &["event_envelope"],
+        description: "Sub-reason for schema_violation when ak.realm.create is submitted through the self events surface with a created_at older than the deployment genesis submit window. The self surface never accepts federation peer wire, so a locally authored Realm genesis is always being created now; this bound does not and cannot apply to backfill.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GOVERNANCE_BINDING_MISMATCH,
@@ -3619,6 +3664,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Standard moderation reason: not-safe-for-work / explicit adult content posted outside permitted contexts.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::OBJECT_ID_NOT_EVENT_DERIVED,
+        applies_to: &["event_envelope"],
+        description: "Sub-reason for schema_violation when a create Event carries an object identifier in its payload for an object kind whose id MUST be derived from the create Event's event_id. Create payloads MUST omit the id; the reducer materialises it by retyping the event_id UUID. See zh/models/common-fields.md.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::OK,
         applies_to: &["batch_item", "auth_decision", "policy_decision"],
         description: "Sentinel value indicating an item or decision succeeded with no further reason.",
@@ -3907,6 +3957,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::REALM_AUTHORITY_ROOT_MISSING,
         applies_to: &["event_envelope", "state_resolution", "auth_decision"],
         description: "The Realm has no registered ak.component.realm.authority_root.v1 cell in the authorization basis, or a ak.realm.create bootstrap unit failed to materialize it. Reducer MUST reject the entire bootstrap unit atomically without leaving Realm metadata or creator membership, and MUST NOT fall back to created_by, membership or a realm_state.owner projection mirror. See zh/models/realm-and-space.md section 2.5.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::REALM_ID_NOT_EVENT_DERIVED,
+        applies_to: &["event_envelope"],
+        description: "Sub-reason for schema_violation when ak.realm.create carries an envelope realm_id whose UUID segment differs from the UUID segment of its own event_id, or when its payload.object still carries an id field. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_LINK_INVALID_TRANSITION,

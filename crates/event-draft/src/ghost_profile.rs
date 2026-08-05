@@ -181,7 +181,7 @@ mod tests {
     }
 
     fn profile_id() -> ActorProfileId {
-        ActorProfileId::new("ak:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
+        ActorProfileId::new("ak:actor_profile:01904100-0000-8000-8000-aaaaaaaaaaaa").unwrap()
     }
 
     fn applet_id() -> AppletId {
@@ -211,7 +211,7 @@ mod tests {
         let event = request
             .profile_create_event(
                 ScopeRef::Realm {
-                    realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cccccccccccc")
+                    realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-cccccccccccc")
                         .unwrap(),
                 },
                 1,

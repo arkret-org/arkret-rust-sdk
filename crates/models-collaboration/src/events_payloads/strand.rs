@@ -321,11 +321,11 @@ mod presence_tests {
     use super::*;
 
     fn realm_id() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000000").unwrap()
+        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000000").unwrap()
     }
 
     fn strand_id(suffix: &str) -> StrandId {
-        StrandId::new(format!("ak:strand:0196419b-0000-7000-8000-{suffix}")).unwrap()
+        StrandId::new(format!("ak:strand:0196419b-0000-8000-8000-{suffix}")).unwrap()
     }
 
     #[test]

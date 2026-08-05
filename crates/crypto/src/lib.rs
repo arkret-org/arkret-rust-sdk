@@ -100,7 +100,7 @@ mod tests {
         plan.push(
             "share",
             CryptoMachineRequestBody::ShareRoomKey {
-                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],
             },
@@ -143,8 +143,8 @@ mod tests {
             aead_profile: None,
         };
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
-            event_id: EventId::new("ak:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            event_id: EventId::new("ak:event:01904100-0000-8000-8000-4e7fda181f9f").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-6c355fb9dada").unwrap(),
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
             encrypted_content: payload,
@@ -181,7 +181,7 @@ mod tests {
             Some(&DeviceTrustState::Verified)
         );
 
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-6c355fb9dada").unwrap();
         binding
             .record_session(CryptoSessionRecord {
                 realm_id: realm_id.clone(),
@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn validate_rejects_invalid_withheld_key_record() {
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-6c355fb9dada").unwrap();
         let mut record = WithheldKeyRecord {
             realm_id,
             session_id: String::new(),
@@ -346,7 +346,7 @@ mod tests {
 
     fn make_session() -> CryptoSessionRecord {
         CryptoSessionRecord {
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-6c355fb9dada").unwrap(),
             session_id: "sess-prop".to_owned(),
             sender_key: "curve25519:def".to_owned(),
             algorithm: "ak.mls.v1".to_owned(),
@@ -436,8 +436,8 @@ mod tests {
     #[test]
     fn unable_to_decrypt_path_bad_ciphertext() {
         let mut binding = CryptoStoreBinding::default();
-        let event_id = EventId::new("ak:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let event_id = EventId::new("ak:event:01904100-0000-8000-8000-4e7fda181f9f").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-6c355fb9dada").unwrap();
         let payload = EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
             group_id: "group".to_owned(),

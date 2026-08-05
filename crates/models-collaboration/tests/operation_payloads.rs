@@ -37,12 +37,12 @@ fn encrypted_envelope() -> EncryptedEnvelope {
         "ciphertext": "AA",
         "aad_visibility_event_id": "hidden",
         "aad": {
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "event_kind": "ak.message.create"
         },
         "key_ref": {
             "algorithm": "MLS",
-            "group_state_ref": "ak:event:01904100-0000-7000-8000-000000000004"
+            "group_state_ref": "ak:event:01904100-0000-8000-8000-000000000004"
         },
         "payload_digest": format!("sha256:{}", "a".repeat(64)),
         "aad_digest": format!("sha256:{}", "b".repeat(64))
@@ -53,8 +53,8 @@ fn encrypted_envelope() -> EncryptedEnvelope {
 #[test]
 fn space_create_object_uses_canonical_timestamp() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let space_id = SpaceId::new("ak:space:01904100-0000-7000-8000-000000000002").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
+    let space_id = SpaceId::new("ak:space:01904100-0000-8000-8000-000000000002").unwrap();
     let space = Space::new(space_id, realm_id, "board", "Board", actor);
     let payload = ObjectCreatePayload::new(space).to_value().unwrap();
     canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
@@ -64,8 +64,8 @@ fn space_create_object_uses_canonical_timestamp() {
 #[test]
 fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-000000000002").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
+    let morph_id = MorphId::new("ak:morph:01904100-0000-8000-8000-000000000002").unwrap();
     let mut morph = Morph::new(morph_id, realm_id, "document", actor).with_metadata_title("Spec");
     morph
         .metadata
@@ -85,7 +85,7 @@ fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
 
 #[test]
 fn message_create_payload_requires_exactly_one_content_carrier() {
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap();
     let payload =
         MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
             .to_value()
@@ -96,7 +96,7 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
 
 #[test]
 fn message_payload_protection_axis_is_closed_and_typed() {
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap();
     let plain = MessageCreatePayload::with_protected_content(
         strand_id.clone(),
         "discussion",
@@ -129,7 +129,7 @@ fn message_metadata_payload_has_an_independent_mls_schema() {
     let mut envelope = encrypted_envelope();
     envelope.content_type = MESSAGE_METADATA_MLS_CONTENT_TYPE.to_owned();
     let encrypted_metadata = MlsEncryptedPayload::<MessageMetadata>::new(envelope.clone()).unwrap();
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap();
     let payload =
         MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
             .with_mls_encrypted_metadata(encrypted_metadata);
@@ -148,7 +148,7 @@ fn typed_mls_message_metadata_rejects_content_block_media_type() {
 
 #[test]
 fn message_event_schema_rejects_metadata_labeled_as_content_block() {
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap();
     let mut payload =
         MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
             .to_value()
@@ -171,7 +171,7 @@ fn message_event_schema_rejects_metadata_labeled_as_content_block() {
 
 #[test]
 fn message_create_payload_reads_plain_body_and_first_media_block() {
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap();
     let blob_ref = format!("ak:blob:sha256:{}", "a".repeat(64));
     let media = ContentBlock::new(CONTENT_KIND_FILE, "spec.pdf")
         .with_field("mime_type", json!("application/pdf"))
@@ -262,7 +262,7 @@ fn message_expiry_rejects_non_positive_ttl() {
 
 #[test]
 fn message_create_payload_carries_disappearing_expiry() {
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap();
     let expiry =
         DisappearingMessageExpiry::new(60_000, DisappearingMessageExpiryTrigger::OnLastRead)
             .unwrap()
@@ -286,8 +286,8 @@ fn message_create_payload_carries_disappearing_expiry() {
 #[test]
 fn message_create_payload_rejects_a_second_producer_chosen_identity() {
     let payload = serde_json::json!({
-        "strand_id": "ak:strand:01904100-0000-7000-8000-000000000002",
-        "message_id": "ak:message:01904100-0000-7000-8000-000000000003",
+        "strand_id": "ak:strand:01904100-0000-8000-8000-000000000002",
+        "message_id": "ak:message:01904100-0000-8000-8000-000000000003",
         "track_name": "discussion",
         "content": {"kind": "ak.content.text", "body": "hello"}
     });
@@ -298,8 +298,8 @@ fn message_create_payload_rejects_a_second_producer_chosen_identity() {
 #[test]
 fn morph_create_payload_rejects_both_content_carriers() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-000000000003").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
+    let morph_id = MorphId::new("ak:morph:01904100-0000-8000-8000-000000000003").unwrap();
     let mut morph = Morph::new(morph_id, realm_id, "document", actor);
     morph.content = Some(ContentBlock::text("hello"));
     morph.encrypted_content = Some(encrypted_envelope());

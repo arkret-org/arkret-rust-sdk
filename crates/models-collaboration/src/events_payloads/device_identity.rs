@@ -876,7 +876,7 @@ mod tests {
             "previous_device_generation": "1-QmPrevious",
             "new_device_generation": "2-QmCurrent",
             "pre_fence_basis": null,
-            "replacement_authorize_event_id": "ak:event:01904100-0000-7000-8000-000000000001",
+            "replacement_authorize_event_id": "ak:event:01904100-0000-8000-8000-000000000001",
             "replacement_authorize_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         });
         let payload: DeviceReanchorPayload = serde_json::from_value(valid.clone()).unwrap();

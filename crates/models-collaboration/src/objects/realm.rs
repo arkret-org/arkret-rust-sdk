@@ -81,7 +81,13 @@ pub struct SyncEndpoint {
 // (`id, schema, title, summary, security_class, trust_domain, …`); local
 // fields trail the cluster.
 pub struct Realm {
-    pub id: RealmId,
+    /// Present on the materialised object; absent from the create payload.
+    ///
+    /// Spec `zh/models/realm-and-space.md` section 2.5.0: `ak.realm.create`
+    /// MUST omit it — the Realm id is derived from the genesis Event, so a
+    /// payload copy would be a second, forgeable truth.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<RealmId>,
     pub schema: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -374,7 +380,7 @@ impl Realm {
         capability_action_registry_digest: Hash,
     ) -> Self {
         Self {
-            id,
+            id: Some(id),
             // `Realm` is the security-boundary type, so it serializes the
             // Realm schema id, not the container Space id.
             schema: SchemaId::REALM_V1.to_owned(),
@@ -587,7 +593,7 @@ mod tests {
     fn realm() -> Realm {
         let notary = Did::new("did:web:notary.example").unwrap();
         Realm::new(
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             "Policy Realm",
             notary.clone(),
             TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),

@@ -81,7 +81,7 @@ fn sample_cursor() -> Value {
 #[test]
 fn events_query_post_request_body_matches_its_schema_definition() {
     let fully_populated: EventsQueryPostRequestBody = serde_json::from_value(json!({
-        "realms": ["ak:realm:01904100-0000-7000-8000-000000000001"],
+        "realms": ["ak:realm:01904100-0000-8000-8000-000000000001"],
         "actors": ["did:web:alice.example"],
         "before": sample_cursor(),
         "after": sample_cursor(),
@@ -112,7 +112,7 @@ fn the_gate_detects_a_dto_missing_a_declared_field() {
 
     let declared = schema_property_names(SERVICE_OPERATION_DTOS, "EventsQueryPostRequestBody");
     let carried = serialized_field_names(&BehindTheSchema {
-        realms: vec!["ak:realm:01904100-0000-7000-8000-000000000001".to_owned()],
+        realms: vec!["ak:realm:01904100-0000-8000-8000-000000000001".to_owned()],
     });
     let missing: Vec<&String> = declared.difference(&carried).collect();
     assert!(
@@ -225,7 +225,7 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
         "kind": "ak.receipt.read",
         "payload_sequence": 9,
         "actor_id": "did:web:alice.example",
-        "event_id": "ak:event:01904100-0000-7000-8000-000000000001",
+        "event_id": "ak:event:01904100-0000-8000-8000-000000000001",
         "hlc": "01970e589d21-0001-a13f9c2e",
         "read_scope": {"kind": "realm"}
     }))
@@ -247,7 +247,7 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
     let typing: TypingPlaintext = serde_json::from_value(json!({
         "kind": "ak.typing",
         "payload_sequence": 3,
-        "strand_id": "ak:strand:01904100-0000-7000-8000-000000000002",
+        "strand_id": "ak:strand:01904100-0000-8000-8000-000000000002",
         "track_name": "discussion",
         "typing": true,
         "ttl_ms": 5000

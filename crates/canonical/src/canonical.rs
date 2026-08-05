@@ -1165,12 +1165,12 @@ mod tests {
         let parts = [
             "did:webvh:z6mkfixture:alice.example",
             "discussion",
-            "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
         ];
         let encoded = encode_state_subject(&parts);
         assert_eq!(
             encoded,
-            "did:webvh:z6mkfixture:alice.example|discussion|ak:strand:01904100-0000-7000-8000-6c663fa0205f"
+            "did:webvh:z6mkfixture:alice.example|discussion|ak:strand:01904100-0000-8000-8000-6c663fa0205f"
         );
         let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);

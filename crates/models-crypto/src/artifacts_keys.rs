@@ -1172,7 +1172,7 @@ mod recovery_completion_tests {
     fn add_publication_authority_context(value: &mut Value, identity_model: &str) {
         let scope_ref = json!({
             "kind": "realm",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000008"
+            "realm_id": "ak:realm:01904100-0000-8000-8000-000000000008"
         });
         let (authority_set_id, authority_set_policy, allowed_actions) = if identity_model
             == "cross_signing"
@@ -1186,7 +1186,7 @@ mod recovery_completion_tests {
                     "scope_ref": scope_ref,
                     "source": {
                         "source_kind": "cross_signing_publish",
-                        "source_ref": "ak:event:01904100-0000-7000-8000-000000000009",
+                        "source_ref": "ak:event:01904100-0000-8000-8000-000000000009",
                         "source_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                         "generation_ref": "2"
                     },

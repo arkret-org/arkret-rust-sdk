@@ -52,7 +52,7 @@ fn registered_specialized_defs_take_priority_over_name_matches() {
         .validate_payload(
             "ak.space.archive",
             &json!({
-                "space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                "space_id": "ak:space:01904100-0000-8000-8000-111111111111",
                 "reason": "done"
             }),
         )
@@ -74,7 +74,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.realm.update",
             "realm_update_payload",
             json!({
-                "target_ref": "ak:realm:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:realm:0196419b-0000-8000-8000-000000000001",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -82,7 +82,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.strand.update",
             "strand_patch_payload",
             json!({
-                "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:strand:0196419b-0000-8000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -90,7 +90,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.morph.update",
             "morph_update_payload",
             json!({
-                "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:morph:0196419b-0000-8000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -98,7 +98,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.space.update",
             "space_patch_payload",
             json!({
-                "space_id": "ak:space:0196419b-0000-7000-8000-000000000001",
+                "space_id": "ak:space:0196419b-0000-8000-8000-000000000001",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -106,7 +106,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.profile.update",
             "object_patch_payload",
             json!({
-                "target_ref": "ak:actor_profile:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:actor_profile:0196419b-0000-8000-8000-000000000001",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -137,8 +137,8 @@ fn patch_event_family_maps_to_canonical_payloads() {
         .validate_payload(
             "ak.profile.realm_override",
             &json!({
-                "target_ref": "ak:actor_profile:0196419b-0000-7000-8000-000000000001",
-                "target_realm_id": "ak:realm:0196419b-0000-7000-8000-000000000002",
+                "target_ref": "ak:actor_profile:0196419b-0000-8000-8000-000000000001",
+                "target_realm_id": "ak:realm:0196419b-0000-8000-8000-000000000002",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         )
@@ -157,7 +157,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
         .validate_payload(
             "ak.strand.tracks.update",
             &json!({
-                "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000001",
+                "strand_id": "ak:strand:0196419b-0000-8000-8000-000000000001",
                 "tracks": {
                     "main": { "title": "Main", "rank": "a0" }
                 }
@@ -172,7 +172,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
                 "ak.strand.tracks.update",
                 &json!({
                     "type": "ak.strand.tracks.update",
-                    "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000001"
+                    "strand_id": "ak:strand:0196419b-0000-8000-8000-000000000001"
                 }),
             )
             .is_err(),
@@ -183,7 +183,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             .validate_payload(
                 "ak.strand.update",
                 &json!({
-                    "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
+                    "target_ref": "ak:morph:0196419b-0000-8000-8000-000000000001",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )
@@ -202,7 +202,7 @@ fn morph_update_rejects_create_locked_morph_kind() {
         .validate_payload(
             "ak.morph.update",
             &json!({
-                "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:morph:0196419b-0000-8000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         )
@@ -212,7 +212,7 @@ fn morph_update_rejects_create_locked_morph_kind() {
             .validate_payload(
                 "ak.morph.update",
                 &json!({
-                    "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
+                    "target_ref": "ak:morph:0196419b-0000-8000-8000-000000000001",
                     "patch": { "morph_kind": { "$op": "set", "value": "task" } }
                 }),
             )
@@ -224,7 +224,7 @@ fn morph_update_rejects_create_locked_morph_kind() {
             .validate_payload(
                 "ak.morph.update",
                 &json!({
-                    "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
+                    "target_ref": "ak:strand:0196419b-0000-8000-8000-000000000001",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )

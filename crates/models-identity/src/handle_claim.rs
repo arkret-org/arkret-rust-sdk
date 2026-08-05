@@ -285,9 +285,9 @@ mod tests {
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),
                 service_acceptance_ref: Some(
-                    "ak:event:01890000-0000-7000-8000-000000000001".to_owned(),
+                    "ak:event:01890000-0000-8000-8000-000000000001".to_owned(),
                 ),
-                policy_event_ref: Some("ak:event:01890000-0000-7000-8000-000000000002".to_owned()),
+                policy_event_ref: Some("ak:event:01890000-0000-8000-8000-000000000002".to_owned()),
             }),
             ..Default::default()
         };
@@ -300,7 +300,7 @@ mod tests {
         assert!(value["created_at"].is_string());
         assert_eq!(
             value["member_delivery_binding"]["policy_event_ref"],
-            "ak:event:01890000-0000-7000-8000-000000000002"
+            "ak:event:01890000-0000-8000-8000-000000000002"
         );
         assert!(value["member_delivery_binding"].get("policy_ref").is_none());
     }
@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn remote_resolution_requires_proof_audience_and_delivery_binding() {
-        let audience = "ak:realm:01904100-0000-7000-8000-000000000001";
+        let audience = "ak:realm:01904100-0000-8000-8000-000000000001";
         let recipient = Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap();
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),

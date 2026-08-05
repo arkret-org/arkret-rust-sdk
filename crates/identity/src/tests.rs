@@ -18,7 +18,7 @@ fn pairwise_did(name: &str) -> Did {
 }
 
 fn realm() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap()
 }
 
 fn hlc() -> Hlc {

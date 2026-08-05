@@ -1540,7 +1540,7 @@ mod engine_wire_tests {
             issuer_authority_refs: vec![
                 arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::RealmRoot {
                     realm_id: RealmId::new(
-                        "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
+                        "ak:realm:01904100-0000-8000-8000-65c7feb295d7",
                     )
                     .unwrap(),
                     cell_ref: arkret_wire::REALM_AUTHORITY_ROOT_CELL.to_owned(),
@@ -1563,14 +1563,14 @@ mod engine_wire_tests {
             bob(),
             "ak.message.create".to_owned(),
             Resource::Realm {
-                realm_id: "ak:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
+                realm_id: "ak:realm:01904100-0000-8000-8000-65c7feb295d7".to_owned(),
             },
         )
         .with_cache_frontier(AuthzCacheFrontier {
             auth_state_digest:
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                     .to_owned(),
-            auth_frontier: vec!["ak:event:01964137-0000-7000-8000-000000000001".to_owned()],
+            auth_frontier: vec!["ak:event:01964137-0000-8000-8000-000000000001".to_owned()],
             policy_frontier_digest: None,
             membership_frontier_digest: None,
         })
@@ -1610,7 +1610,7 @@ mod engine_wire_tests {
         second.cache_frontier = Some(AuthzCacheFrontier {
             auth_state_digest:
                 "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
-            auth_frontier: vec!["ak:event:01964137-0000-7000-8000-000000000002".to_owned()],
+            auth_frontier: vec!["ak:event:01964137-0000-8000-8000-000000000002".to_owned()],
             policy_frontier_digest: None,
             membership_frontier_digest: None,
         });

@@ -97,7 +97,7 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
 
 #[test]
 fn events_subscribe_frame_parses_ndjson_line() {
-    let line = r#"{"cursor":"ak:cursor:resume","kind":"event","payload":{"event_id":"ak:event:01904100-0000-7000-8000-834e21b98552"},"realm_id":"ak:realm:01904100-0000-7000-8000-9b64700c6ee8"}"#;
+    let line = r#"{"cursor":"ak:cursor:resume","kind":"event","payload":{"event_id":"ak:event:01904100-0000-8000-8000-834e21b98552"},"realm_id":"ak:realm:01904100-0000-8000-8000-9b64700c6ee8"}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line)
         .unwrap()
         .unwrap();
@@ -105,12 +105,12 @@ fn events_subscribe_frame_parses_ndjson_line() {
     assert_eq!(frame.kind, EventsSubscribeFrameKind::Event);
     assert_eq!(
         frame.realm_id.as_ref().unwrap().as_str(),
-        "ak:realm:01904100-0000-7000-8000-9b64700c6ee8"
+        "ak:realm:01904100-0000-8000-8000-9b64700c6ee8"
     );
     assert_eq!(frame.cursor.as_ref().unwrap().as_str(), "ak:cursor:resume");
     assert_eq!(
         frame.payload.as_ref().unwrap()["event_id"],
-        "ak:event:01904100-0000-7000-8000-834e21b98552"
+        "ak:event:01904100-0000-8000-8000-834e21b98552"
     );
     assert!(frame.is_event());
     assert!(!frame.requires_resubscribe());
@@ -120,7 +120,7 @@ fn events_subscribe_frame_parses_ndjson_line() {
 #[test]
 fn events_subscribe_frame_control_helpers() {
     let dropped = EventsSubscribeFrame::from_ndjson_line(
-        r#"{"cursor":"ak:cursor:resume","kind":"dropped","realm_id":"ak:realm:01904100-0000-7000-8000-9b64700c6ee8","reconnect_after_ms":10000}"#,
+        r#"{"cursor":"ak:cursor:resume","kind":"dropped","realm_id":"ak:realm:01904100-0000-8000-8000-9b64700c6ee8","reconnect_after_ms":10000}"#,
     )
     .unwrap()
     .unwrap();

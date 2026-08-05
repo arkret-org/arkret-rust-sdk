@@ -252,9 +252,9 @@ mod tests {
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(
-                "ak:event:01890000-0000-7000-8000-000000000001".to_owned(),
+                "ak:event:01890000-0000-8000-8000-000000000001".to_owned(),
             ),
-            policy_event_ref: Some("ak:event:01890000-0000-7000-8000-000000000002".to_owned()),
+            policy_event_ref: Some("ak:event:01890000-0000-8000-8000-000000000002".to_owned()),
         }
     }
 
@@ -266,11 +266,11 @@ mod tests {
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),
             issuer_service_id: fake_did("principal"),
-            audience: "ak:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
+            audience: "ak:realm:0196419b-0000-8000-8000-000000000000".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
             issued_at: Utc::now(),
             source_refs: vec![
-                EventId::new("ak:event:01890000-0000-7000-8000-0000000000ff").unwrap(),
+                EventId::new("ak:event:01890000-0000-8000-8000-0000000000ff").unwrap(),
             ],
             proofs: vec![Proof {
                 kind: "detached_jws".to_owned(),

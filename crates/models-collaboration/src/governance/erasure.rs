@@ -262,7 +262,7 @@ mod erasure_receipt_tests {
             issuer: Did::new("did:webvh:z6mkfixture:erasure.example".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,
-                subject_ref: "ak:event:01970e58-0004-7000-8000-000000000004".to_owned(),
+                subject_ref: "ak:event:01970e58-0004-8000-8000-000000000004".to_owned(),
             },
             scope: ErasureScope {
                 storage_boundary: ErasureStorageBoundary::CanonicalLogMinimization,
@@ -298,7 +298,7 @@ mod erasure_receipt_tests {
             stub_schema: "ak.schema.erasure_verification_stub.v1".to_owned(),
             subject: VerificationStubSubject {
                 kind: "event".to_owned(),
-                subject_ref: "ak:event:01970e58-0004-7000-8000-000000000004".to_owned(),
+                subject_ref: "ak:event:01970e58-0004-8000-8000-000000000004".to_owned(),
             },
             scope: VerificationStubScope {
                 storage_boundary: "canonical_log_minimization".to_owned(),
@@ -319,7 +319,7 @@ mod erasure_receipt_tests {
         assert!(receipt.validate_with_retained_stub(&stub).is_ok());
 
         let mut tampered = stub;
-        tampered.subject.subject_ref = "ak:event:01970e58-0004-7000-8000-ffffffffffff".to_owned();
+        tampered.subject.subject_ref = "ak:event:01970e58-0004-8000-8000-ffffffffffff".to_owned();
         assert!(receipt.validate_with_retained_stub(&tampered).is_err());
     }
 }

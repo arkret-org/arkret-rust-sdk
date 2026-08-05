@@ -245,7 +245,15 @@ where
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Morph {
-    pub id: MorphId,
+    /// The object id.
+    ///
+    /// Absent on the create payload: this kind's registry `id_source` is
+    /// `event_derived`, so the id is `from_event_id(&create.event_id)` and a
+    /// payload copy would be a second, forgeable truth (spec
+    /// `zh/models/common-fields.md` section 6.0). Present on every projected
+    /// snapshot, where the receiver has already derived it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<MorphId>,
     pub schema: String,
     pub realm_id: RealmId,
     /// AKP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
@@ -317,7 +325,7 @@ impl Morph {
         created_by: Did,
     ) -> Self {
         Self {
-            id,
+            id: Some(id),
             schema: SchemaId::MORPH_V1.to_owned(),
             realm_id,
             scope_circle_id: None,
