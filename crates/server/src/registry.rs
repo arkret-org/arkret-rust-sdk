@@ -7,6 +7,12 @@ pub(crate) struct ServiceRoute {
     pub path: &'static str,
 }
 
+/// Lower-case the registry's HTTP method for route matching.
+///
+/// The arm list is explicit rather than a blanket `to_ascii_lowercase` because
+/// these are `&'static str`. `QUERY` (RFC 10008) joined the set when the Events
+/// read operations moved to it; without an arm it fell through unchanged and no
+/// longer matched the lower-cased registry side.
 fn route_method(method: &'static str) -> &'static str {
     match method {
         "DELETE" => "delete",
@@ -14,6 +20,7 @@ fn route_method(method: &'static str) -> &'static str {
         "HEAD" => "head",
         "POST" => "post",
         "PUT" => "put",
+        "QUERY" => "query",
         _ => method,
     }
 }

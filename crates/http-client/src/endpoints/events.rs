@@ -405,7 +405,7 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Describe the Event service via `ak.self.events.query.describe`
+    /// Describe the Event service via `ak.self.events.read.describe`
     /// (`GET /_arkret/self/events/describe`).
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/self/events/describe").await
@@ -522,7 +522,7 @@ impl Client {
     }
 
     /// Resolve the exact canonical Events identified by the closed selector
-    /// set accepted by `ak.self.events.query.resolve`.
+    /// set accepted by `ak.self.events.read.resolve`.
     pub async fn events_resolve(
         &self,
         request: &EventsResolveRequestBody,
@@ -531,7 +531,7 @@ impl Client {
         self.post("/_arkret/self/events/resolve", request).await
     }
 
-    /// Range-read Events via `ak.self.events.query.scan` (`GET /_arkret/self/events`). Pass
+    /// Range-read Events via `ak.self.events.read.scan` (`GET /_arkret/self/events`). Pass
     /// `before` to walk older history, `after` to catch up toward newer events,
     /// and `order` to override the default proximity-to-seal ordering.
     pub async fn events_query(
@@ -561,7 +561,7 @@ impl Client {
     }
 
     /// Range-read Events via the standard `EventsQueryOutcome` response
-    /// shape (`has_more`, `range_completeness`) from `ak.self.events.query.scan`.
+    /// shape (`has_more`, `range_completeness`) from `ak.self.events.read.scan`.
     pub async fn events_query_outcome(
         &self,
         realm_id: &str,
@@ -592,7 +592,7 @@ impl Client {
         self.send_json(builder).await
     }
 
-    /// Walk every page of `ak.self.events.query.scan` for a Realm using
+    /// Walk every page of `ak.self.events.read.scan` for a Realm using
     /// the standard `has_more` / `next_cursor` contract.
     pub async fn events_query_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
         self.events_query_all_pages_inner(realm_id, false).await

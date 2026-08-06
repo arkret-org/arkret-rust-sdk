@@ -72,10 +72,10 @@ pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;
 pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
 
 pub const PERSONAL_AGENT_RUNTIME_EVENT_SERVICE_SCOPES: &[&str] = &[
-    ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE,
-    ServiceOperationId::SELF_EVENTS_QUERY_SCAN,
+    ServiceOperationId::SELF_EVENTS_READ_DESCRIBE,
+    ServiceOperationId::SELF_EVENTS_READ_SCAN,
     ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
-    ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER,
+    ServiceOperationId::SELF_EVENTS_READ_FRONTIER,
     ServiceOperationId::SELF_EVENTS_RESOURCE_GET,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
 ];
@@ -83,10 +83,10 @@ pub const PERSONAL_AGENT_RUNTIME_EVENT_SERVICE_SCOPES: &[&str] = &[
 pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
     matches!(
         scope,
-        ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
-            | ServiceOperationId::SELF_EVENTS_QUERY_SCAN
+        ServiceOperationId::SELF_EVENTS_READ_DESCRIBE
+            | ServiceOperationId::SELF_EVENTS_READ_SCAN
             | ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
-            | ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
+            | ServiceOperationId::SELF_EVENTS_READ_FRONTIER
             | ServiceOperationId::SELF_EVENTS_RESOURCE_GET
             | ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
     )

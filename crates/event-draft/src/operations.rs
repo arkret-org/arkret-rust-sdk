@@ -113,18 +113,19 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS
         | ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER
         | ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW => OperationSurface::Directory,
-        ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
-        | ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
+        ServiceOperationId::SELF_EVENTS_READ_DESCRIBE
+        | ServiceOperationId::SELF_EVENTS_READ_FRONTIER
         | ServiceOperationId::SELF_EVENTS_RESOURCE_GET
-        | ServiceOperationId::SELF_EVENTS_QUERY_SCAN
-        | ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE
+        | ServiceOperationId::SELF_EVENTS_READ_SCAN
+        | ServiceOperationId::SELF_EVENTS_READ_RESOLVE
         | ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
         | ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
-        | ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE
-        | ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER
-        | ServiceOperationId::PEER_EVENTS_QUERY_SCAN
-        | ServiceOperationId::PEER_EVENTS_QUERY_SCAN_BODY
-        | ServiceOperationId::PEER_EVENTS_QUERY_RESOLVE
+        | ServiceOperationId::PEER_EVENTS_READ_DESCRIBE
+        | ServiceOperationId::PEER_EVENTS_READ_FRONTIER
+        // `POST /_arkret/peer/events/query` stopped being its own operation:
+        // it is a compatibility binding of `ak.peer.events.read.scan`.
+        | ServiceOperationId::PEER_EVENTS_READ_SCAN
+        | ServiceOperationId::PEER_EVENTS_READ_RESOLVE
         | ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT => OperationSurface::Events,
         ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE
         | ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET

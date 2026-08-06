@@ -458,6 +458,6 @@ mod tests {
         // Operations outside the `ak.edge.push.` surface (e.g. applet or
         // self-API operations) MUST NOT be advertisable by a push gateway.
         assert!(!service_kind.permits_operation("ak.edge.applet.command.invoke"));
-        assert!(!service_kind.permits_operation("ak.self.events.query.sync"));
+        assert!(!service_kind.permits_operation("ak.self.events.read.sync"));
     }
 }

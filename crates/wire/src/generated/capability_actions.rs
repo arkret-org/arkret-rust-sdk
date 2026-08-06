@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-06.3;
-//! sha256=e7fd8fc7f6a8322f9c0f02965f0b97ec671b83502ea53959256fab24abfd4941 Entries: registered=169
+//! Input: registry/capability-action-registry.json; version=2026-08-06.5;
+//! sha256=967dc8a781904d636d02a04c08577507c2a03f8c46b85e1c28eae511276b47c2 Entries: registered=169
 
 use serde::{Deserialize, Serialize};
 
@@ -150,7 +150,7 @@ pub enum CapabilityActionId {
     SelfBlobResourceGet,
     SelfBlobResourceHead,
     SelfBlobUploadCreate,
-    SelfEventsQueryScan,
+    SelfEventsReadScan,
     SelfEventsStreamSubscribe,
     SelfSnapshotQueryManifestHead,
     SidecarAccessReplace,
@@ -323,7 +323,7 @@ impl CapabilityActionId {
         Self::SelfBlobResourceGet,
         Self::SelfBlobResourceHead,
         Self::SelfBlobUploadCreate,
-        Self::SelfEventsQueryScan,
+        Self::SelfEventsReadScan,
         Self::SelfEventsStreamSubscribe,
         Self::SelfSnapshotQueryManifestHead,
         Self::SidecarAccessReplace,
@@ -499,7 +499,7 @@ impl CapabilityActionId {
     pub const SELF_BLOB_RESOURCE_GET: &'static str = "ak.self.blob.resource.get";
     pub const SELF_BLOB_RESOURCE_HEAD: &'static str = "ak.self.blob.resource.head";
     pub const SELF_BLOB_UPLOAD_CREATE: &'static str = "ak.self.blob.upload.create";
-    pub const SELF_EVENTS_QUERY_SCAN: &'static str = "ak.self.events.query.scan";
+    pub const SELF_EVENTS_READ_SCAN: &'static str = "ak.self.events.read.scan";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
     pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
         "ak.self.snapshot.query.manifest_head";
@@ -674,7 +674,7 @@ impl CapabilityActionId {
             Self::SelfBlobResourceGet => Self::SELF_BLOB_RESOURCE_GET,
             Self::SelfBlobResourceHead => Self::SELF_BLOB_RESOURCE_HEAD,
             Self::SelfBlobUploadCreate => Self::SELF_BLOB_UPLOAD_CREATE,
-            Self::SelfEventsQueryScan => Self::SELF_EVENTS_QUERY_SCAN,
+            Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
             Self::SelfSnapshotQueryManifestHead => Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD,
             Self::SidecarAccessReplace => Self::SIDECAR_ACCESS_REPLACE,
@@ -850,7 +850,7 @@ impl CapabilityActionId {
             Self::SELF_BLOB_RESOURCE_GET => Some(Self::SelfBlobResourceGet),
             Self::SELF_BLOB_RESOURCE_HEAD => Some(Self::SelfBlobResourceHead),
             Self::SELF_BLOB_UPLOAD_CREATE => Some(Self::SelfBlobUploadCreate),
-            Self::SELF_EVENTS_QUERY_SCAN => Some(Self::SelfEventsQueryScan),
+            Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
             Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::SelfSnapshotQueryManifestHead),
             Self::SIDECAR_ACCESS_REPLACE => Some(Self::SidecarAccessReplace),
