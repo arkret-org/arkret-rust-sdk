@@ -1,6 +1,9 @@
 //! Event stream / query / submit, snapshot, and authz endpoint methods
 //! on [`Client`].
 
+use arkret_models_collaboration::event_query::{
+    EventsDescribeRequestBody, EventsFrontierRequestBody, EventsQueryPostRequestBody,
+};
 use arkret_models_collaboration::event_sync::{
     EventsFrontierAccountClientState, EventsFrontierSelector,
 };
@@ -27,14 +30,85 @@ use arkret_state::SnapshotManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     AuthorizationLease, AuthorizationLeaseIssueRequest, ControlProposalDecisionPolicy,
-    ControlProposalReceipt, Event, EventInitialSubmission, EventSubmitContext, Hash,
-    ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest, Seal,
+    ControlProposalReceipt, Cursor, Event, EventInitialSubmission, EventSubmitContext, Hash,
+    ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest, RealmId, Seal,
 };
-use reqwest::{Method, Response};
+use reqwest::{Method, RequestBuilder, Response};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 const MAX_EVENTS_QUERY_PAGES: usize = 100;
+
+/// Controls the legacy GET/POST binding chosen when canonical HTTP QUERY is
+/// known to be unavailable or returns 405/501.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EventsReadOptions {
+    /// `Some(false)` is an explicit service-capability declaration that QUERY
+    /// is unavailable. `None` and `Some(true)` both try QUERY first.
+    pub query_supported: Option<bool>,
+    /// Service-advertised `limits.max_get_query_selectors` (default: 8).
+    pub max_get_query_selectors: usize,
+    /// GET is allowed only when the caller has established that URI query
+    /// logging is acceptable for this request.
+    pub query_string_logging_safe: bool,
+    /// Sensitive selectors must use the POST compatibility binding.
+    pub selectors_sensitive: bool,
+}
+
+impl Default for EventsReadOptions {
+    fn default() -> Self {
+        Self {
+            query_supported: None,
+            max_get_query_selectors: 8,
+            query_string_logging_safe: false,
+            selectors_sensitive: true,
+        }
+    }
+}
+
+impl EventsReadOptions {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub const fn query_supported(mut self, query_supported: bool) -> Self {
+        self.query_supported = Some(query_supported);
+        self
+    }
+
+    #[must_use]
+    pub const fn max_get_query_selectors(mut self, limit: usize) -> Self {
+        self.max_get_query_selectors = limit;
+        self
+    }
+
+    /// Declare that this individual selector is non-sensitive and URI query
+    /// logging is acceptable, making the GET compatibility binding eligible.
+    #[must_use]
+    pub const fn allow_non_sensitive_get(mut self) -> Self {
+        self.query_string_logging_safe = true;
+        self.selectors_sensitive = false;
+        self
+    }
+}
+
+fn query_method() -> Method {
+    Method::from_bytes(b"QUERY").expect("QUERY is a valid registered HTTP method")
+}
+
+fn query_method_unavailable(error: &Error) -> bool {
+    matches!(
+        error,
+        Error::Api {
+            status: 405 | 501,
+            ..
+        }
+    )
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EventsSubscribeOptions {
@@ -137,16 +211,63 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
+    async fn events_read_query_with_fallback<T, B, F>(
+        &self,
+        path: &str,
+        body: &B,
+        query_supported: Option<bool>,
+        fallback: F,
+    ) -> Result<T>
+    where
+        T: DeserializeOwned,
+        B: Serialize + ?Sized,
+        F: FnOnce(&Self) -> Result<RequestBuilder>,
+    {
+        if query_supported != Some(false) {
+            let query = self.canonical_json_body(self.request(query_method(), path)?, body)?;
+            match self.send_json(query).await {
+                Err(error) if query_method_unavailable(&error) => {}
+                result => return result,
+            }
+        }
+        self.send_json(fallback(self)?).await
+    }
+
     /// Fetch a selector-bound Event frontier and fail closed when the service
     /// returns a different union variant or scope.
     pub async fn events_frontier(
         &self,
         selector: &EventsFrontierSelector,
     ) -> Result<EventsFrontierAccountClientState> {
-        let builder = self
-            .request(Method::GET, "/_arkret/self/events/frontier")?
-            .query(&selector.query_pairs());
-        let state: EventsFrontierAccountClientState = self.send_json(builder).await?;
+        let query_pairs = selector.query_pairs();
+        let body = match selector {
+            EventsFrontierSelector::RealmActor { realm_id, actor_id } => {
+                EventsFrontierRequestBody {
+                    actor_id: Some(actor_id.clone()),
+                    realm_id: Some(realm_id.clone()),
+                }
+            }
+            EventsFrontierSelector::RealmSeal { realm_id } => EventsFrontierRequestBody {
+                actor_id: None,
+                realm_id: Some(realm_id.clone()),
+            },
+            EventsFrontierSelector::ActorAggregate { actor_id } => EventsFrontierRequestBody {
+                actor_id: Some(actor_id.clone()),
+                realm_id: None,
+            },
+        };
+        let state: EventsFrontierAccountClientState = self
+            .events_read_query_with_fallback(
+                "/_arkret/self/events/frontier",
+                &body,
+                None,
+                |client| {
+                    Ok(client
+                        .request(Method::GET, "/_arkret/self/events/frontier")?
+                        .query(&query_pairs))
+                },
+            )
+            .await?;
         selector.validate_response(&state.frontier)?;
         Ok(state)
     }
@@ -405,10 +526,27 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Describe the Event service via `ak.self.events.query.describe`
-    /// (`GET /_arkret/self/events/describe`).
+    /// Describe the Event service via `ak.self.events.read.describe`.
+    ///
+    /// HTTP QUERY with an empty JSON object is canonical. GET is retried only
+    /// when the server rejects QUERY with 405/501.
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {
-        self.get("/_arkret/self/events/describe").await
+        self.events_describe_with_request(&EventsDescribeRequestBody::default())
+            .await
+    }
+
+    /// Describe an actor- or Realm-scoped Event service capability view.
+    pub async fn events_describe_with_request(
+        &self,
+        request: &EventsDescribeRequestBody,
+    ) -> Result<ServiceDescribe> {
+        self.events_read_query_with_fallback(
+            "/_arkret/self/events/describe",
+            request,
+            None,
+            |client| client.request(Method::GET, "/_arkret/self/events/describe"),
+        )
+        .await
     }
 
     /// Fetch one accepted Event together with its server-visible receipt
@@ -484,10 +622,7 @@ impl Client {
         })
     }
 
-    fn events_subscribe_request(
-        &self,
-        options: &EventsSubscribeOptions,
-    ) -> Result<reqwest::RequestBuilder> {
+    fn events_subscribe_request(&self, options: &EventsSubscribeOptions) -> Result<RequestBuilder> {
         if options.realms.is_empty() && options.actors.is_empty() {
             return Err(Error::Protocol(
                 "events subscribe requires at least one realm or actor selector".to_owned(),
@@ -522,18 +657,101 @@ impl Client {
     }
 
     /// Resolve the exact canonical Events identified by the closed selector
-    /// set accepted by `ak.self.events.query.resolve`.
+    /// set accepted by `ak.self.events.read.resolve`.
     pub async fn events_resolve(
         &self,
         request: &EventsResolveRequestBody,
     ) -> Result<EventsResolveOutcome> {
         request.validate()?;
-        self.post("/_arkret/self/events/resolve", request).await
+        self.events_read_query_with_fallback(
+            "/_arkret/self/events/resolve",
+            request,
+            None,
+            |client| {
+                client.canonical_json_body(
+                    client.request(Method::POST, "/_arkret/self/events/resolve")?,
+                    request,
+                )
+            },
+        )
+        .await
     }
 
-    /// Range-read Events via `ak.self.events.query.scan` (`GET /_arkret/self/events`). Pass
-    /// `before` to walk older history, `after` to catch up toward newer events,
-    /// and `order` to override the default proximity-to-seal ordering.
+    /// Range-read Events via canonical `ak.self.events.read.scan` HTTP QUERY.
+    pub async fn events_read(
+        &self,
+        request: &EventsQueryPostRequestBody,
+    ) -> Result<EventsQueryOutcome> {
+        self.events_read_with_options(request, &EventsReadOptions::default())
+            .await
+    }
+
+    /// Range-read Events with explicit service-capability and compatibility
+    /// binding information.
+    pub async fn events_read_with_options(
+        &self,
+        request: &EventsQueryPostRequestBody,
+        options: &EventsReadOptions,
+    ) -> Result<EventsQueryOutcome> {
+        if request.realms.is_empty() && request.actors.is_empty() {
+            return Err(Error::Protocol(
+                "events read requires at least one realm or actor selector".to_owned(),
+            ));
+        }
+        if request.limit == Some(0) {
+            return Err(Error::Protocol(
+                "events read limit must be greater than zero".to_owned(),
+            ));
+        }
+
+        let selector_count = request.realms.len().saturating_add(request.actors.len());
+        let get_eligible = request.filters.is_none()
+            && selector_count <= options.max_get_query_selectors
+            && options.query_string_logging_safe
+            && !options.selectors_sensitive;
+        self.events_read_query_with_fallback(
+            "/_arkret/self/events",
+            request,
+            options.query_supported,
+            |client| {
+                if !get_eligible {
+                    return client.canonical_json_body(
+                        client.request(Method::POST, "/_arkret/self/events/query")?,
+                        request,
+                    );
+                }
+                let mut builder = client.request(Method::GET, "/_arkret/self/events")?;
+                for realm_id in &request.realms {
+                    builder = builder.query(&[("realms", realm_id.as_str())]);
+                }
+                for actor_id in &request.actors {
+                    builder = builder.query(&[("actors", actor_id.as_str())]);
+                }
+                if let Some(before) = request.before.as_ref() {
+                    builder = builder.query(&[("before", before.as_str())]);
+                }
+                if let Some(after) = request.after.as_ref() {
+                    builder = builder.query(&[("after", after.as_str())]);
+                }
+                if let Some(order) = request.order.as_deref() {
+                    builder = builder.query(&[("order", order)]);
+                }
+                if let Some(limit) = request.limit {
+                    builder = builder.query(&[("limit", limit)]);
+                }
+                if let Some(include_completeness) = request.include_completeness {
+                    builder = builder.query(&[("include_completeness", include_completeness)]);
+                }
+                Ok(builder)
+            },
+        )
+        .await
+    }
+
+    /// Deprecated source-level alias retained for SDK compatibility. It
+    /// forwards immediately to canonical `events_read_outcome` and never
+    /// emits an `*.events.query.*` wire operation ID.
+    #[deprecated(note = "use events_read_outcome; removal planned for the next major SDK release")]
     pub async fn events_query(
         &self,
         realm_id: &str,
@@ -542,26 +760,34 @@ impl Client {
         order: Option<&str>,
         limit: Option<u32>,
     ) -> Result<EventsQueryOutcome> {
-        let mut builder = self
-            .request(Method::GET, "/_arkret/self/events")?
-            .query(&[("realms", realm_id)]);
-        if let Some(before) = before {
-            builder = builder.query(&[("before", before)]);
-        }
-        if let Some(after) = after {
-            builder = builder.query(&[("after", after)]);
-        }
-        if let Some(order) = order {
-            builder = builder.query(&[("order", order)]);
-        }
-        if let Some(limit) = limit {
-            builder = builder.query(&[("limit", limit)]);
-        }
-        self.send_json(builder).await
+        self.events_read_outcome(realm_id, before, after, order, limit, None)
+            .await
     }
 
-    /// Range-read Events via the standard `EventsQueryOutcome` response
-    /// shape (`has_more`, `range_completeness`) from `ak.self.events.query.scan`.
+    /// Convenience wrapper for one Realm using the standard outcome shape.
+    pub async fn events_read_outcome(
+        &self,
+        realm_id: &str,
+        before: Option<&str>,
+        after: Option<&str>,
+        order: Option<&str>,
+        limit: Option<u32>,
+        include_completeness: Option<bool>,
+    ) -> Result<EventsQueryOutcome> {
+        let request = EventsQueryPostRequestBody {
+            realms: vec![RealmId::new(realm_id)?],
+            actors: Vec::new(),
+            before: before.map(Cursor::new).transpose()?,
+            after: after.map(Cursor::new).transpose()?,
+            order: order.map(ToOwned::to_owned),
+            limit,
+            filters: None,
+            include_completeness,
+        };
+        self.events_read(&request).await
+    }
+
+    #[deprecated(note = "use events_read_outcome; removal planned for the next major SDK release")]
     pub async fn events_query_outcome(
         &self,
         realm_id: &str,
@@ -571,31 +797,14 @@ impl Client {
         limit: Option<u32>,
         include_completeness: Option<bool>,
     ) -> Result<EventsQueryOutcome> {
-        let mut builder = self
-            .request(Method::GET, "/_arkret/self/events")?
-            .query(&[("realms", realm_id)]);
-        if let Some(before) = before {
-            builder = builder.query(&[("before", before)]);
-        }
-        if let Some(after) = after {
-            builder = builder.query(&[("after", after)]);
-        }
-        if let Some(order) = order {
-            builder = builder.query(&[("order", order)]);
-        }
-        if let Some(limit) = limit {
-            builder = builder.query(&[("limit", limit)]);
-        }
-        if let Some(include_completeness) = include_completeness {
-            builder = builder.query(&[("include_completeness", include_completeness)]);
-        }
-        self.send_json(builder).await
+        self.events_read_outcome(realm_id, before, after, order, limit, include_completeness)
+            .await
     }
 
-    /// Walk every page of `ak.self.events.query.scan` for a Realm using
+    /// Walk every page of `ak.self.events.read.scan` for a Realm using
     /// the standard `has_more` / `next_cursor` contract.
-    pub async fn events_query_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
-        self.events_query_all_pages_inner(realm_id, false).await
+    pub async fn events_read_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
+        self.events_read_all_pages_inner(realm_id, false).await
     }
 
     /// Walk every page and request range-completeness evidence for each page.
@@ -604,20 +813,20 @@ impl Client {
     /// absent `range_completeness` response remains absence, rather than an
     /// error, because feature negotiation decides whether the service supports
     /// this optional query extension.
-    pub async fn events_query_all_pages_with_completeness(
+    pub async fn events_read_all_pages_with_completeness(
         &self,
         realm_id: &str,
     ) -> Result<EventsQueryOutcome> {
-        self.events_query_all_pages_inner(realm_id, true).await
+        self.events_read_all_pages_inner(realm_id, true).await
     }
 
-    async fn events_query_all_pages_inner(
+    async fn events_read_all_pages_inner(
         &self,
         realm_id: &str,
         include_completeness: bool,
     ) -> Result<EventsQueryOutcome> {
         let mut combined = self
-            .events_query_outcome(
+            .events_read_outcome(
                 realm_id,
                 None,
                 None,
@@ -652,7 +861,7 @@ impl Client {
                 )));
             }
             let page = self
-                .events_query_outcome(
+                .events_read_outcome(
                     realm_id,
                     None,
                     Some(&next),
@@ -672,6 +881,23 @@ impl Client {
         Ok(combined)
     }
 
+    #[deprecated(
+        note = "use events_read_all_pages; removal planned for the next major SDK release"
+    )]
+    pub async fn events_query_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
+        self.events_read_all_pages(realm_id).await
+    }
+
+    #[deprecated(
+        note = "use events_read_all_pages_with_completeness; removal planned for the next major SDK release"
+    )]
+    pub async fn events_query_all_pages_with_completeness(
+        &self,
+        realm_id: &str,
+    ) -> Result<EventsQueryOutcome> {
+        self.events_read_all_pages_with_completeness(realm_id).await
+    }
+
     /// Fetch a complete accepted-Seal proof for a full-profile MLS
     /// governance binding.
     pub async fn mls_governance_proof(
@@ -679,8 +905,18 @@ impl Client {
         request: &MlsGovernanceProofRequestBodyBody,
     ) -> Result<MlsGovernanceProofBundle> {
         request.validate()?;
-        self.post("/_arkret/self/events/mls-governance-proof", request)
-            .await
+        self.events_read_query_with_fallback(
+            "/_arkret/self/events/mls-governance-proof",
+            request,
+            None,
+            |client| {
+                client.canonical_json_body(
+                    client.request(Method::POST, "/_arkret/self/events/mls-governance-proof")?,
+                    request,
+                )
+            },
+        )
+        .await
     }
 
     /// Fetch and authenticate every chunk of one logical MLS governance proof.
@@ -982,10 +1218,7 @@ mod tests {
         Event::new(
             "ak.message.create",
             arkret_wire::ScopeRef::Realm {
-                realm_id: arkret_wire::RealmId::new(
-                    "ak:realm:01904100-0000-8000-8000-000000000001",
-                )
-                .unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
             },
             arkret_wire::Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
             0,

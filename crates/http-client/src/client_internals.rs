@@ -421,7 +421,8 @@ impl Client {
                         | Method::TRACE
                         | Method::PUT
                         | Method::DELETE
-                ) || request.headers().contains_key(HEADER_IDEMPOTENCY_KEY)
+                ) || request.method().as_str() == "QUERY"
+                    || request.headers().contains_key(HEADER_IDEMPOTENCY_KEY)
             })
             .unwrap_or(false);
 

@@ -154,7 +154,7 @@ rand_core_09 = {package = "rand_core",version = "0.9",default-features = false}
 # OpenAPI 3 schema derives (`ToSchema`) for wire model types. Optional and
 # gated behind each model crate's `openapi` feature so the no-default data
 # graph stays framework-free; enabled by service crates that serve OpenAPI.
-salvo-oapi = {version = "0.95",default-features = false}
+salvo-oapi = {version = "=0.95.2",default-features = false}
 # macOS KeyStore backend, enabled only by the keystore crate target cfg.
 security-framework = {version = "3.7.0",default-features = false}
 serde = {version = "1.0.228",default-features = false,features = ["std", "derive"]}

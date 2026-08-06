@@ -31,7 +31,7 @@ pub enum FoundingAllowedOperation {
     CancelDeviceBootstrap,
     #[serde(rename = "ak.self.events.command.submit")]
     EventsSubmit,
-    #[serde(rename = "ak.self.events.query.resolve")]
+    #[serde(rename = "ak.self.events.read.resolve")]
     EventsResolve,
 }
 
@@ -911,7 +911,7 @@ mod tests {
             "ak.gate.account.command.enroll_device",
             "ak.gate.account.command.cancel_device_bootstrap",
             "ak.self.events.command.submit",
-            "ak.self.events.query.resolve"
+            "ak.self.events.read.resolve"
         ]);
         serde_json::from_value::<FoundingAllowedOperations>(founding.clone()).unwrap();
         let mut reordered = founding.as_array().unwrap().clone();

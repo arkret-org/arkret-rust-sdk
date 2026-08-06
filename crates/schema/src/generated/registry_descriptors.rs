@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-06.3;
-//! sha256=8a87b80cd803309a9fcc5f8e8c33fb295d9e5fab93ad53419763806292064344 Input: registry/
-//! capability-action-registry.json; version=2026-08-06.3;
-//! sha256=e7fd8fc7f6a8322f9c0f02965f0b97ec671b83502ea53959256fab24abfd4941 Input: registry/
-//! schema-registry.json; version=2026-08-06.3;
-//! sha256=e17986e6332f5a87dd0c65ea3c629c10a1bcd628c65aebf57d7f6cee72ac705f Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-06.5;
+//! sha256=b4503882f0328fa65f1c4dbe3d4ece747ac64bade25e971ccbf4ee60361c4674 Input: registry/
+//! capability-action-registry.json; version=2026-08-06.5;
+//! sha256=967dc8a781904d636d02a04c08577507c2a03f8c46b85e1c28eae511276b47c2 Input: registry/
+//! schema-registry.json; version=2026-08-06.5;
+//! sha256=e197c125d35b057203915169be8666147e1c999884e28d9b547cac40def13cdc Input: registry/
 //! account-data-key-registry.json; version=2026-08-03;
 //! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=54,
 //! special_forms=10, actions=169, schemas=181, account_data_patterns=24
@@ -2525,7 +2525,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfEventsQueryScan,
+        action: CapabilityActionId::SelfEventsReadScan,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],

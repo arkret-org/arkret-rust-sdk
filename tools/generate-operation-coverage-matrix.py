@@ -113,9 +113,9 @@ def generate(artifacts: Path, evidence_path_value: Path) -> str:
     )
     requirements = profiles.get("profile_requirements", {})
     roles = profiles.get("profile_roles", {})
-    if len(claimable) != 68:
+    if len(claimable) != 70:
         raise ValueError(
-            f"claimable profile set changed from the audited 68 to {len(claimable)}; "
+            f"claimable profile set changed from the audited 70 to {len(claimable)}; "
             "review the catalog boundary before regenerating"
         )
 

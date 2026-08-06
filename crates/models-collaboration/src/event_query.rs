@@ -8,6 +8,45 @@ use arkret_wire::{Cursor, Did, RealmId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Canonical QUERY content for `ak.self.events.read.describe`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventsDescribeRequestBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+}
+
+/// Canonical QUERY content for `ak.peer.events.read.describe`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsDescribeRequestBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+}
+
+/// Canonical QUERY content for `ak.self.events.read.frontier`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventsFrontierRequestBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+}
+
+/// Canonical QUERY content for `ak.peer.events.read.frontier`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsFrontierRequestBody {
+    pub realm_id: RealmId,
+}
+
 /// Ordering for event query scans.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

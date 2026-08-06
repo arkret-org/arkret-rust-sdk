@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.3;
-//! sha256=bdc830488a8bcab2579d79a16fefaa1ab48b6816394a33eeb2e19a299e74d6a6 Input: registry/
-//! operations-error-mapping.json; version=2026-08-05.1;
-//! sha256=a640a2ff8e8d31fb67656f1f259f5d9ece9fc04d26f9231392079acf9d88045c Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-06.5;
+//! sha256=249b59ab883d964e8f0b16ab176e5d0658db9fb38c909d8b17bd295c9a8c0eb7 Input: registry/
+//! operations-error-mapping.json; version=2026-08-06.1;
+//! sha256=bec701639de1fc2d8470a3c5d5fc2816cb00bd535ce88e8047cf96eb08f7922d Input: registry/
 //! error-code-registry.json; version=2026-08-06.1;
-//! sha256=a62d878155ec741125f43454984f28bec0c9e0efa1449b820e0dcf0e33244983 Entries: operations=224
+//! sha256=a62d878155ec741125f43454984f28bec0c9e0efa1449b820e0dcf0e33244983 Entries: operations=222
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -435,28 +435,21 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerEventsQueryDescribe,
+        operation: ServiceOperationId::PeerEventsReadDescribe,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerEventsQueryFrontier,
+        operation: ServiceOperationId::PeerEventsReadFrontier,
         operation_specific: &[OperationSpecificError::ErrorCode(
             ErrorCode::FrontierUnavailable,
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerEventsQueryResolve,
+        operation: ServiceOperationId::PeerEventsReadResolve,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerEventsQueryScan,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::CursorRevoked),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerEventsQueryScanBody,
+        operation: ServiceOperationId::PeerEventsReadScan,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::CursorRevoked),
@@ -1055,17 +1048,17 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsQueryDescribe,
+        operation: ServiceOperationId::SelfEventsReadDescribe,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsQueryFrontier,
+        operation: ServiceOperationId::SelfEventsReadFrontier,
         operation_specific: &[OperationSpecificError::ErrorCode(
             ErrorCode::FrontierUnavailable,
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsQueryMlsGovernanceProof,
+        operation: ServiceOperationId::SelfEventsReadMlsGovernanceProof,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::NotFound),
             OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceAnchorUnreachable),
@@ -1077,18 +1070,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsQueryResolve,
+        operation: ServiceOperationId::SelfEventsReadResolve,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsQueryScan,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::CursorRevoked),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsQueryScanBody,
+        operation: ServiceOperationId::SelfEventsReadScan,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::CursorRevoked),

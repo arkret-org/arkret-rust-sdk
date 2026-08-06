@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.3;
-//! sha256=bdc830488a8bcab2579d79a16fefaa1ab48b6816394a33eeb2e19a299e74d6a6 Entries: registered=224
+//! Input: registry/operation-registry.json; version=2026-08-06.5;
+//! sha256=249b59ab883d964e8f0b16ab176e5d0658db9fb38c909d8b17bd295c9a8c0eb7 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -73,11 +73,10 @@ pub enum ServiceOperationId {
     PeerAccountStatusQueryAuthoringBasis,
     PeerContactsCommandSubmit,
     PeerEventsCommandSubmit,
-    PeerEventsQueryDescribe,
-    PeerEventsQueryFrontier,
-    PeerEventsQueryResolve,
-    PeerEventsQueryScan,
-    PeerEventsQueryScanBody,
+    PeerEventsReadDescribe,
+    PeerEventsReadFrontier,
+    PeerEventsReadResolve,
+    PeerEventsReadScan,
     PeerInvitesCommandSubmit,
     PeerKeysKeypackagesCommandClaim,
     PeerKeysKeypackagesQueryClaim,
@@ -166,12 +165,11 @@ pub enum ServiceOperationId {
     SelfDirectConversationQueryResolve,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
-    SelfEventsQueryDescribe,
-    SelfEventsQueryFrontier,
-    SelfEventsQueryMlsGovernanceProof,
-    SelfEventsQueryResolve,
-    SelfEventsQueryScan,
-    SelfEventsQueryScanBody,
+    SelfEventsReadDescribe,
+    SelfEventsReadFrontier,
+    SelfEventsReadMlsGovernanceProof,
+    SelfEventsReadResolve,
+    SelfEventsReadScan,
     SelfEventsResourceGet,
     SelfEventsStreamSubscribe,
     SelfInviteLocatorCommandIssue,
@@ -300,11 +298,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE,
-    ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER,
-    ServiceOperationId::PEER_EVENTS_QUERY_RESOLVE,
-    ServiceOperationId::PEER_EVENTS_QUERY_SCAN,
-    ServiceOperationId::PEER_EVENTS_QUERY_SCAN_BODY,
+    ServiceOperationId::PEER_EVENTS_READ_DESCRIBE,
+    ServiceOperationId::PEER_EVENTS_READ_FRONTIER,
+    ServiceOperationId::PEER_EVENTS_READ_RESOLVE,
+    ServiceOperationId::PEER_EVENTS_READ_SCAN,
     ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
@@ -393,12 +390,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DIRECT_CONVERSATION_QUERY_RESOLVE,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
-    ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE,
-    ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER,
-    ServiceOperationId::SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF,
-    ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE,
-    ServiceOperationId::SELF_EVENTS_QUERY_SCAN,
-    ServiceOperationId::SELF_EVENTS_QUERY_SCAN_BODY,
+    ServiceOperationId::SELF_EVENTS_READ_DESCRIBE,
+    ServiceOperationId::SELF_EVENTS_READ_FRONTIER,
+    ServiceOperationId::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF,
+    ServiceOperationId::SELF_EVENTS_READ_RESOLVE,
+    ServiceOperationId::SELF_EVENTS_READ_SCAN,
     ServiceOperationId::SELF_EVENTS_RESOURCE_GET,
     ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
@@ -567,11 +563,10 @@ impl ServiceOperationId {
         Self::PeerAccountStatusQueryAuthoringBasis,
         Self::PeerContactsCommandSubmit,
         Self::PeerEventsCommandSubmit,
-        Self::PeerEventsQueryDescribe,
-        Self::PeerEventsQueryFrontier,
-        Self::PeerEventsQueryResolve,
-        Self::PeerEventsQueryScan,
-        Self::PeerEventsQueryScanBody,
+        Self::PeerEventsReadDescribe,
+        Self::PeerEventsReadFrontier,
+        Self::PeerEventsReadResolve,
+        Self::PeerEventsReadScan,
         Self::PeerInvitesCommandSubmit,
         Self::PeerKeysKeypackagesCommandClaim,
         Self::PeerKeysKeypackagesQueryClaim,
@@ -660,12 +655,11 @@ impl ServiceOperationId {
         Self::SelfDirectConversationQueryResolve,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
-        Self::SelfEventsQueryDescribe,
-        Self::SelfEventsQueryFrontier,
-        Self::SelfEventsQueryMlsGovernanceProof,
-        Self::SelfEventsQueryResolve,
-        Self::SelfEventsQueryScan,
-        Self::SelfEventsQueryScanBody,
+        Self::SelfEventsReadDescribe,
+        Self::SelfEventsReadFrontier,
+        Self::SelfEventsReadMlsGovernanceProof,
+        Self::SelfEventsReadResolve,
+        Self::SelfEventsReadScan,
         Self::SelfEventsResourceGet,
         Self::SelfEventsStreamSubscribe,
         Self::SelfInviteLocatorCommandIssue,
@@ -840,11 +834,10 @@ impl ServiceOperationId {
         "ak.peer.account_status.query.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
-    pub const PEER_EVENTS_QUERY_DESCRIBE: &'static str = "ak.peer.events.query.describe";
-    pub const PEER_EVENTS_QUERY_FRONTIER: &'static str = "ak.peer.events.query.frontier";
-    pub const PEER_EVENTS_QUERY_RESOLVE: &'static str = "ak.peer.events.query.resolve";
-    pub const PEER_EVENTS_QUERY_SCAN: &'static str = "ak.peer.events.query.scan";
-    pub const PEER_EVENTS_QUERY_SCAN_BODY: &'static str = "ak.peer.events.query.scan_body";
+    pub const PEER_EVENTS_READ_DESCRIBE: &'static str = "ak.peer.events.read.describe";
+    pub const PEER_EVENTS_READ_FRONTIER: &'static str = "ak.peer.events.read.frontier";
+    pub const PEER_EVENTS_READ_RESOLVE: &'static str = "ak.peer.events.read.resolve";
+    pub const PEER_EVENTS_READ_SCAN: &'static str = "ak.peer.events.read.scan";
     pub const PEER_INVITES_COMMAND_SUBMIT: &'static str = "ak.peer.invites.command.submit";
     pub const PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str =
         "ak.peer.keys.keypackages.command.claim";
@@ -975,13 +968,12 @@ impl ServiceOperationId {
         "ak.self.direct_conversation.query.resolve";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
-    pub const SELF_EVENTS_QUERY_DESCRIBE: &'static str = "ak.self.events.query.describe";
-    pub const SELF_EVENTS_QUERY_FRONTIER: &'static str = "ak.self.events.query.frontier";
-    pub const SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF: &'static str =
-        "ak.self.events.query.mls_governance_proof";
-    pub const SELF_EVENTS_QUERY_RESOLVE: &'static str = "ak.self.events.query.resolve";
-    pub const SELF_EVENTS_QUERY_SCAN: &'static str = "ak.self.events.query.scan";
-    pub const SELF_EVENTS_QUERY_SCAN_BODY: &'static str = "ak.self.events.query.scan_body";
+    pub const SELF_EVENTS_READ_DESCRIBE: &'static str = "ak.self.events.read.describe";
+    pub const SELF_EVENTS_READ_FRONTIER: &'static str = "ak.self.events.read.frontier";
+    pub const SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF: &'static str =
+        "ak.self.events.read.mls_governance_proof";
+    pub const SELF_EVENTS_READ_RESOLVE: &'static str = "ak.self.events.read.resolve";
+    pub const SELF_EVENTS_READ_SCAN: &'static str = "ak.self.events.read.scan";
     pub const SELF_EVENTS_RESOURCE_GET: &'static str = "ak.self.events.resource.get";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
     pub const SELF_INVITE_LOCATOR_COMMAND_ISSUE: &'static str =
@@ -1184,11 +1176,10 @@ impl ServiceOperationId {
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
-            Self::PeerEventsQueryDescribe => Self::PEER_EVENTS_QUERY_DESCRIBE,
-            Self::PeerEventsQueryFrontier => Self::PEER_EVENTS_QUERY_FRONTIER,
-            Self::PeerEventsQueryResolve => Self::PEER_EVENTS_QUERY_RESOLVE,
-            Self::PeerEventsQueryScan => Self::PEER_EVENTS_QUERY_SCAN,
-            Self::PeerEventsQueryScanBody => Self::PEER_EVENTS_QUERY_SCAN_BODY,
+            Self::PeerEventsReadDescribe => Self::PEER_EVENTS_READ_DESCRIBE,
+            Self::PeerEventsReadFrontier => Self::PEER_EVENTS_READ_FRONTIER,
+            Self::PeerEventsReadResolve => Self::PEER_EVENTS_READ_RESOLVE,
+            Self::PeerEventsReadScan => Self::PEER_EVENTS_READ_SCAN,
             Self::PeerInvitesCommandSubmit => Self::PEER_INVITES_COMMAND_SUBMIT,
             Self::PeerKeysKeypackagesCommandClaim => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
             Self::PeerKeysKeypackagesQueryClaim => Self::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
@@ -1313,12 +1304,11 @@ impl ServiceOperationId {
             }
             Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
             Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
-            Self::SelfEventsQueryDescribe => Self::SELF_EVENTS_QUERY_DESCRIBE,
-            Self::SelfEventsQueryFrontier => Self::SELF_EVENTS_QUERY_FRONTIER,
-            Self::SelfEventsQueryMlsGovernanceProof => Self::SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF,
-            Self::SelfEventsQueryResolve => Self::SELF_EVENTS_QUERY_RESOLVE,
-            Self::SelfEventsQueryScan => Self::SELF_EVENTS_QUERY_SCAN,
-            Self::SelfEventsQueryScanBody => Self::SELF_EVENTS_QUERY_SCAN_BODY,
+            Self::SelfEventsReadDescribe => Self::SELF_EVENTS_READ_DESCRIBE,
+            Self::SelfEventsReadFrontier => Self::SELF_EVENTS_READ_FRONTIER,
+            Self::SelfEventsReadMlsGovernanceProof => Self::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF,
+            Self::SelfEventsReadResolve => Self::SELF_EVENTS_READ_RESOLVE,
+            Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
             Self::SelfEventsResourceGet => Self::SELF_EVENTS_RESOURCE_GET,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
             Self::SelfInviteLocatorCommandIssue => Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
@@ -1539,11 +1529,10 @@ impl ServiceOperationId {
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
-            Self::PEER_EVENTS_QUERY_DESCRIBE => Some(Self::PeerEventsQueryDescribe),
-            Self::PEER_EVENTS_QUERY_FRONTIER => Some(Self::PeerEventsQueryFrontier),
-            Self::PEER_EVENTS_QUERY_RESOLVE => Some(Self::PeerEventsQueryResolve),
-            Self::PEER_EVENTS_QUERY_SCAN => Some(Self::PeerEventsQueryScan),
-            Self::PEER_EVENTS_QUERY_SCAN_BODY => Some(Self::PeerEventsQueryScanBody),
+            Self::PEER_EVENTS_READ_DESCRIBE => Some(Self::PeerEventsReadDescribe),
+            Self::PEER_EVENTS_READ_FRONTIER => Some(Self::PeerEventsReadFrontier),
+            Self::PEER_EVENTS_READ_RESOLVE => Some(Self::PeerEventsReadResolve),
+            Self::PEER_EVENTS_READ_SCAN => Some(Self::PeerEventsReadScan),
             Self::PEER_INVITES_COMMAND_SUBMIT => Some(Self::PeerInvitesCommandSubmit),
             Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM => {
                 Some(Self::PeerKeysKeypackagesCommandClaim)
@@ -1684,14 +1673,13 @@ impl ServiceOperationId {
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT => Some(Self::SelfEventsCommandSubmit),
             Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL => Some(Self::SelfEventsCommandSubmitSeal),
-            Self::SELF_EVENTS_QUERY_DESCRIBE => Some(Self::SelfEventsQueryDescribe),
-            Self::SELF_EVENTS_QUERY_FRONTIER => Some(Self::SelfEventsQueryFrontier),
-            Self::SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF => {
-                Some(Self::SelfEventsQueryMlsGovernanceProof)
+            Self::SELF_EVENTS_READ_DESCRIBE => Some(Self::SelfEventsReadDescribe),
+            Self::SELF_EVENTS_READ_FRONTIER => Some(Self::SelfEventsReadFrontier),
+            Self::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF => {
+                Some(Self::SelfEventsReadMlsGovernanceProof)
             }
-            Self::SELF_EVENTS_QUERY_RESOLVE => Some(Self::SelfEventsQueryResolve),
-            Self::SELF_EVENTS_QUERY_SCAN => Some(Self::SelfEventsQueryScan),
-            Self::SELF_EVENTS_QUERY_SCAN_BODY => Some(Self::SelfEventsQueryScanBody),
+            Self::SELF_EVENTS_READ_RESOLVE => Some(Self::SelfEventsReadResolve),
+            Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
             Self::SELF_EVENTS_RESOURCE_GET => Some(Self::SelfEventsResourceGet),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
             Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE => Some(Self::SelfInviteLocatorCommandIssue),
@@ -3277,33 +3265,37 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsQueryDescribe,
-        http_method: "GET",
+        id: ServiceOperationId::PeerEventsReadDescribe,
+        http_method: "QUERY",
         http_path: "/_arkret/peer/events/describe",
         grpc: Some("PeerEvents/Describe"),
-        mq: Some("peer.events.query.scan.describe"),
+        mq: Some("peer.events.read.describe"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "service_describe",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsDescribeRequestBody",
+        ),
         response_schema_ref: None,
         uncertain_outcome: None,
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsQueryFrontier,
-        http_method: "GET",
+        id: ServiceOperationId::PeerEventsReadFrontier,
+        http_method: "QUERY",
         http_path: "/_arkret/peer/events/frontier",
         grpc: Some("PeerEvents/Frontier"),
-        mq: Some("peer.events.query.scan.frontier"),
+        mq: Some("peer.events.read.frontier"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsFrontierRequestBody",
+        ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState",
         ),
@@ -3311,11 +3303,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsQueryResolve,
-        http_method: "POST",
+        id: ServiceOperationId::PeerEventsReadResolve,
+        http_method: "QUERY",
         http_path: "/_arkret/peer/events/resolve",
         grpc: Some("PeerEvents/Resolve"),
-        mq: Some("peer.events.query.scan.resolve"),
+        mq: Some("peer.events.read.resolve"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
@@ -3331,29 +3323,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsQueryScan,
-        http_method: "GET",
+        id: ServiceOperationId::PeerEventsReadScan,
+        http_method: "QUERY",
         http_path: "/_arkret/peer/events",
-        grpc: Some("PeerEvents/Query"),
-        mq: Some("peer.events.query.scan"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsQueryScanBody,
-        http_method: "POST",
-        http_path: "/_arkret/peer/events/query",
-        grpc: None,
-        mq: None,
+        grpc: Some("PeerEvents/Scan"),
+        mq: Some("peer.events.read.scan"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
@@ -5282,33 +5256,37 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsQueryDescribe,
-        http_method: "GET",
+        id: ServiceOperationId::SelfEventsReadDescribe,
+        http_method: "QUERY",
         http_path: "/_arkret/self/events/describe",
         grpc: Some("SelfEvents/Describe"),
-        mq: Some("self.events.query.scan.describe"),
+        mq: Some("self.events.read.describe"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "service_describe",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EventsDescribeRequestBody",
+        ),
         response_schema_ref: None,
         uncertain_outcome: None,
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsQueryFrontier,
-        http_method: "GET",
+        id: ServiceOperationId::SelfEventsReadFrontier,
+        http_method: "QUERY",
         http_path: "/_arkret/self/events/frontier",
         grpc: Some("SelfEvents/Frontier"),
-        mq: Some("self.events.query.scan.frontier"),
+        mq: Some("self.events.read.frontier"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierRequestBody",
+        ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierState",
         ),
@@ -5316,11 +5294,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsQueryMlsGovernanceProof,
-        http_method: "POST",
+        id: ServiceOperationId::SelfEventsReadMlsGovernanceProof,
+        http_method: "QUERY",
         http_path: "/_arkret/self/events/mls-governance-proof",
         grpc: Some("SelfEvents/MlsGovernanceProof"),
-        mq: Some("self.events.query.mls_governance_proof"),
+        mq: Some("self.events.read.mls_governance_proof"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
@@ -5334,11 +5312,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsQueryResolve,
-        http_method: "POST",
+        id: ServiceOperationId::SelfEventsReadResolve,
+        http_method: "QUERY",
         http_path: "/_arkret/self/events/resolve",
         grpc: Some("SelfEvents/Resolve"),
-        mq: Some("self.events.query.scan.resolve"),
+        mq: Some("self.events.read.resolve"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
@@ -5354,29 +5332,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsQueryScan,
-        http_method: "GET",
+        id: ServiceOperationId::SelfEventsReadScan,
+        http_method: "QUERY",
         http_path: "/_arkret/self/events",
-        grpc: Some("SelfEvents/Query"),
-        mq: Some("self.events.query.scan"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsQueryScanBody,
-        http_method: "POST",
-        http_path: "/_arkret/self/events/query",
-        grpc: None,
-        mq: None,
+        grpc: Some("SelfEvents/Scan"),
+        mq: Some("self.events.read.scan"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",

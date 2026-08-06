@@ -33,7 +33,7 @@ pub enum FrontierPeerRole {
     AnonymousHealth,
 }
 
-/// `ak.self.events.query.frontier` account-client response
+/// `ak.self.events.read.frontier` account-client response
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierAccountClientState`,
 /// SPEC-SOL-003 resolution): a single `frontier` object whose shape follows
 /// the request selector — actor (`{actor_id, actor_seq, event_id}`) or Realm
@@ -99,7 +99,7 @@ pub enum ActorAggregateFrontierKind {
     ActorAggregate,
 }
 
-/// Typed selector for `GET /_arkret/self/events/frontier`.
+/// Typed selector for canonical `QUERY /_arkret/self/events/frontier`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EventsFrontierSelector {
     RealmActor { realm_id: RealmId, actor_id: Did },
@@ -616,7 +616,7 @@ impl RealmSealFrontierView {
     }
 }
 
-/// `ak.peer.events.query.frontier` federation-peer response
+/// `ak.peer.events.read.frontier` federation-peer response
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState`).
 /// Returned to an authorized federation peer over signed S2S trust-domain
 /// headers: the realm's federation-visible head Event IDs, the
