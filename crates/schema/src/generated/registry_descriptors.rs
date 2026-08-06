@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-06.7;
-//! sha256=dc24b42b717ed29dbeab8aaa23de4a5996934da71ee10409bcb5d33700777a0e Input: registry/
-//! capability-action-registry.json; version=2026-08-06.7;
-//! sha256=f21713d912846372aa4ff75fe0cde7733c775db78098b9d2fa6870fd9a0fa614 Input: registry/
-//! schema-registry.json; version=2026-08-06.7;
-//! sha256=df7fc2decfa38b046bd05222f9c7acebf43772252f2a3ea58b7526671cf053a4 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-06.8;
+//! sha256=d23462746b729bb48173d223fdeb6ac83eea1549b690025d6f9c54834dbcbf92 Input: registry/
+//! capability-action-registry.json; version=2026-08-06.8;
+//! sha256=fd0562c7c9388141ab73189b49ed5915b53c82bfb31bcae8f2d3b73024a58ab6 Input: registry/
+//! schema-registry.json; version=2026-08-06.8;
+//! sha256=c45b6820db8d20d7a1f90fbb26ad45c2c1988c1bae9add390d953aed4ed3471b Input: registry/
 //! account-data-key-registry.json; version=2026-08-03;
 //! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=54,
 //! special_forms=10, actions=169, schemas=181, account_data_patterns=24
@@ -255,7 +255,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "operation",
         category: "security",
-        wire_form: "ak:operation:<opaque>",
+        wire_form: "ak:operation:<uuid>",
     },
     IdKindDescriptor {
         kind: "policy",

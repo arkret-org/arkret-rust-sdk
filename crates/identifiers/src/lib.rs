@@ -107,20 +107,18 @@ macro_rules! id_type {
 ///   `uuid` columns (bare) and reload as the prefixed wire form. Gated so the wasm/protocol build
 ///   never pulls diesel.
 ///
-/// Hash-bearing or hybrid kinds (`OperationId`, `BlobRef`, `SealId`,
-/// `Hash`, `Hash`), DIDs, cursors and `trust_domain` MUST stay on plain
-/// [`id_type!`] — they have no bare-uuid form.
+/// Hash-bearing kinds (`BlobRef`, `SealId`, `Hash`), `OperationId`, DIDs,
+/// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
+/// bare-uuid form.
 /// `ak:realm:` accepts two content-bound forms and MUST validate both.
 ///
-/// - **Collaboration Realm** — event-derived (UUIDv8, `encoding.md` §4.0):
-///   `realm_id = retype(genesis event_id)`, so the id self-certifies against
-///   the genesis Event.
+/// - **Collaboration Realm** — event-derived (UUIDv8, `encoding.md` §4.0): `realm_id =
+///   retype(genesis event_id)`, so the id self-certifies against the genesis Event.
 /// - **Principal Control Realm** — subject-derived (UUIDv7 layout):
-///   `H("ak:realm:principal-control:v1:" || principal_did)`. It carries no
-///   timestamp because it MUST stay computable from the DID alone; that
-///   addressability is the point. A PCR's identity anchor is its
-///   `did_inception` root, not its genesis Event, so it does not need — and
-///   cannot have — the event-derived form.
+///   `H("ak:realm:principal-control:v1:" || principal_did)`. It carries no timestamp because it
+///   MUST stay computable from the DID alone; that addressability is the point. A PCR's identity
+///   anchor is its `did_inception` root, not its genesis Event, so it does not need — and cannot
+///   have — the event-derived form.
 ///
 /// Neither form is producer-chosen. The branch is fixed by the create's
 /// `purpose`, never by the call site.
@@ -288,8 +286,9 @@ macro_rules! declare_uuid_id_kinds {
 ///
 /// Identifiers that are not registry `special_forms` rows stay on plain
 /// [`id_type!`]: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
-/// prefix), [`OperationId`] (hybrid typed-uuid-or-digest) and
-/// [`DeviceMessageTransactionId`] (a payload field charset, not an id kind).
+/// prefix), [`OperationId`] (producer-allocated, but with no bare-uuid form)
+/// and [`DeviceMessageTransactionId`] (a payload field charset, not an id
+/// kind).
 macro_rules! declare_special_form_id_kinds {
     ($($name:ident, $kind:literal, $expect:expr;)*) => {
         $(
@@ -545,7 +544,8 @@ pub fn principal_control_realm_uuid(principal_did: &str) -> uuid::Uuid {
 /// `domain` MUST be a distinct, versioned separator per id family, or two
 /// families would collide on the same subject.
 pub fn subject_derived_uuid(domain: &[u8], subject: &str) -> uuid::Uuid {
-    let digest = arkret_canonical::canonical::sha256_bytes_from_slices(&[domain, subject.as_bytes()]);
+    let digest =
+        arkret_canonical::canonical::sha256_bytes_from_slices(&[domain, subject.as_bytes()]);
     let mut bytes = [0_u8; 16];
     bytes.copy_from_slice(&digest[..16]);
     bytes[6] = (bytes[6] & 0x0f) | 0x70;
@@ -769,13 +769,18 @@ impl AppletIdentifier {
     }
 }
 
-// OperationId is hybrid: `ak:operation:<uuidv7>` OR a content hash. No bare
-// uuid form and no `special_forms` row, so it stays a text `id_type!`.
+// `id-kind-registry.json` gives `operation` `wire_form: ak:operation:<uuid>`
+// and `id_form: producer_allocated`, and it is not a `special_forms` row — the
+// content-addressed kinds (`blob`, `seal`, `service_registration_receipt`,
+// `membership_compensation_delegation`) all are. So a bare digest is not an
+// Operation id: accepting one here was permissiveness no producer emitted and
+// no consumer relied on. It stays a text `id_type!` because there is no bare
+// uuid form.
 id_type!(OperationId, |value: &str| is_strict_typed_id(
     value,
     "ak:operation:",
     UUID_VERSION_PRODUCER_ALLOCATED
-) || is_hash(value));
+));
 
 impl OperationId {
     /// Mint the UUIDv7 form of an Operation id at an explicit Unix timestamp.
@@ -1239,7 +1244,11 @@ mod tests {
         // `ak:space:` is event-derived now, so it must NOT be minted here;
         // use a producer-allocated kind instead.
         let id = new_prefixed_uuid7("ak:receipt:");
-        assert!(is_strict_typed_id(&id, "ak:receipt:", UUID_VERSION_PRODUCER_ALLOCATED));
+        assert!(is_strict_typed_id(
+            &id,
+            "ak:receipt:",
+            UUID_VERSION_PRODUCER_ALLOCATED
+        ));
         // Two consecutive calls produce different ids.
         let id2 = new_prefixed_uuid7("ak:receipt:");
         assert_ne!(id, id2);
@@ -1314,23 +1323,33 @@ mod tests {
         // Mixed-case ULID-form is rejected (intentionally non-UUIDv7).
         assert!(!is_strict_typed_id(
             "ak:space:01js0ke000000000000000000",
-            "ak:space:", UUID_VERSION_EVENT_DERIVED));
+            "ak:space:",
+            UUID_VERSION_EVENT_DERIVED
+        ));
         // Uppercase hex forbidden.
         assert!(!is_strict_typed_id(
             "ak:space:0196419B-0000-7000-8000-000000000000",
-            "ak:space:", UUID_VERSION_EVENT_DERIVED));
+            "ak:space:",
+            UUID_VERSION_EVENT_DERIVED
+        ));
         // Wrong UUID version (4 instead of 7).
         assert!(!is_strict_typed_id(
             "ak:space:0196419b-0000-4000-8000-000000000000",
-            "ak:space:", UUID_VERSION_EVENT_DERIVED));
+            "ak:space:",
+            UUID_VERSION_EVENT_DERIVED
+        ));
         // Wrong variant nibble (c not in {8,9,a,b}).
         assert!(!is_strict_typed_id(
             "ak:space:0196419b-0000-8000-c000-000000000000",
-            "ak:space:", UUID_VERSION_EVENT_DERIVED));
+            "ak:space:",
+            UUID_VERSION_EVENT_DERIVED
+        ));
         // Canonical UUIDv7 accepted.
         assert!(is_strict_typed_id(
             "ak:space:0196419b-0000-8000-8000-000000000000",
-            "ak:space:", UUID_VERSION_EVENT_DERIVED));
+            "ak:space:",
+            UUID_VERSION_EVENT_DERIVED
+        ));
     }
 
     #[test]
