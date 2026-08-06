@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/track-name-registry.json; version=2026-08-06.13;
-//! sha256=463bb5a7e406d852e70f1dbafdae0adb6b87c5035f2d4f6e1fca4a1ea44b0f20 Input: registry/
-//! binding-kind-registry.json; version=2026-08-06.13;
-//! sha256=4fea802b8529d9e1e557bb8d17d71b05a16c60fb813e954fd6236d657a6b23ee Input: registry/
+//! Input: registry/track-name-registry.json; version=2026-08-06.15;
+//! sha256=dda8fbb4b0b6ad70407c24b521453b565955593ed71120ef59c1d72599fd9eb7 Input: registry/
+//! binding-kind-registry.json; version=2026-08-06.15;
+//! sha256=91c29c8cd2d7d84f776672d1d3cde9811299e40e4e03c6840470d7bec7f73e5a Input: registry/
 //! authority-set-policy-registry.json; version=2026-07-29;
 //! sha256=dc07cbcb760b98bbefbeb59a101a76b7ca05d5f9a9e2d8f025096c1234f2e004 Entries: track_names=2,
 //! binding_kinds=3, authority_policy_kinds=2, authority_source_kinds=4

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.13;
-//! sha256=a258cd4885c1cc81c56608dc34acbf94983c4ce12055096c8ad03ff7d355b877 Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-06.15;
+//! sha256=59b13eb56aafcc9680158091cbb594beb98c3ee1aaab742f8112b0d01a9bd905 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -3977,7 +3977,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/account-data-operations.schema.json#/$defs/account_data_delete_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/account-data-operations.schema.json#/$defs/account_data_delete_outcome",
         ),
@@ -5946,7 +5948,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_archive_payload"),
+        request_schema_ref: Some(
+            "schemas/realm-read-operations.schema.json#/$defs/realm_archive_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
         ),
@@ -5970,7 +5974,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_destroy_payload"),
+        request_schema_ref: Some(
+            "schemas/realm-read-operations.schema.json#/$defs/realm_destroy_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
         ),
@@ -5994,7 +6000,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_freeze_payload"),
+        request_schema_ref: Some(
+            "schemas/realm-read-operations.schema.json#/$defs/realm_freeze_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
         ),
@@ -6019,7 +6027,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/event-payload.schema.json#/$defs/realm_tombstone_payload",
+            "schemas/realm-read-operations.schema.json#/$defs/realm_tombstone_request_body",
         ),
         response_schema_ref: Some(
             "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
