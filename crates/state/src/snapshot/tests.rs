@@ -58,7 +58,7 @@ fn manifest_for_items(
             algorithm: EventSetCommitmentAlgorithm::MerkleEventSetV1,
             root: hash(9),
             covered_event_count: 1,
-            covered_seals: vec![snapshot_v1_event_id("000000000001")],
+            covered_event_ids: vec![snapshot_v1_event_id("000000000001")],
             actor_seq_ranges: Vec::new(),
         },
         chunks: descriptors,
@@ -113,9 +113,9 @@ fn snapshot_v1_manifest_and_chunk_verify() {
 }
 
 #[test]
-fn snapshot_v1_covered_seals_mismatch_rejects() {
+fn snapshot_v1_covered_event_ids_mismatch_rejects() {
     let (mut manifest, payloads, _) = manifest_for_items(Vec::new());
-    manifest.event_set_commitment.covered_seals = vec![snapshot_v1_event_id("000000000002")];
+    manifest.event_set_commitment.covered_event_ids = vec![snapshot_v1_event_id("000000000002")];
     manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
     let err = verify_snapshot_manifest(
         &manifest,

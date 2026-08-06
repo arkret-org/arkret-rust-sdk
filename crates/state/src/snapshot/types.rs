@@ -165,7 +165,7 @@ pub struct EventSetCommitment {
     pub root: Hash,
     pub covered_event_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub covered_seals: Vec<EventId>,
+    pub covered_event_ids: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actor_seq_ranges: Vec<ActorSeqRangeCommitment>,
 }

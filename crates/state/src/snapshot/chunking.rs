@@ -211,14 +211,14 @@ pub fn snapshot_state_leaf_hash(item: &SnapshotMaterializedItem) -> Result<Hash>
 pub fn event_set_commitment(
     algorithm: EventSetCommitmentAlgorithm,
     entries: &[EventSetLeaf],
-    covered_seals: Vec<EventId>,
+    covered_event_ids: Vec<EventId>,
 ) -> Result<EventSetCommitment> {
     let root = event_set_root(&algorithm, entries)?;
     Ok(EventSetCommitment {
         algorithm,
         root,
         covered_event_count: entries.len() as u64,
-        covered_seals,
+        covered_event_ids,
         actor_seq_ranges: Vec::new(),
     })
 }
@@ -260,7 +260,7 @@ pub fn merkle_root_from_hashes(leaves: Vec<Hash>) -> Result<Hash> {
 pub fn manifest_frontiers_match(manifest: &SnapshotManifest) -> bool {
     event_id_sets_equal(
         &manifest.frontier.event_ids,
-        &manifest.event_set_commitment.covered_seals,
+        &manifest.event_set_commitment.covered_event_ids,
     )
 }
 
@@ -533,7 +533,7 @@ impl SnapshotManifest {
         if !manifest_frontiers_match(self) {
             return Err(SnapshotValidationError::new(
                 SnapshotValidationCode::InclusionProofFailed,
-                "event_set_commitment.covered_seals does not match frontier.event_ids",
+                "event_set_commitment.covered_event_ids does not match frontier.event_ids",
             ));
         }
 

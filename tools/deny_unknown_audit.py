@@ -348,6 +348,12 @@ def main() -> int:
         print(rendered, end="")
     if args.check:
         errors = validate(payload, allowlist)
+        if args.inventory.exists() and args.source_root.resolve() == ROOT.resolve():
+            tracked = json.loads(args.inventory.read_text(encoding="utf-8"))
+            if tracked != payload:
+                errors.append(
+                    "deny inventory drifted; regenerate tools/deny_unknown_inventory.json"
+                )
         if errors:
             for error in errors:
                 print(error, file=sys.stderr)
