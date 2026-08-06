@@ -18,8 +18,8 @@ use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
     AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId, Did, DidUrl, Event,
-    EventId, GrantId, Hash, NonEmptyString, PayloadProof, RealmId, ReasonCode, ReceiptId, Result,
-    ScopeRef, ServiceOperationId, canonical,
+    EventId, EventInitialSubmission, GrantId, Hash, NonEmptyString, PayloadProof, RealmId,
+    ReasonCode, ReceiptId, Result, ScopeRef, ServiceOperationId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -82,14 +82,34 @@ pub struct ConsentCellList {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ConsentUpdateRequestBody {
-    pub peer_did: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub consent_scope: Option<ConsentScope>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
+pub struct ConsentGrantRequestBody {
+    /// Initial publication of the caller-signed `ak.consent.grant` Control Move.
+    ///
+    /// `consent_id`, `peer`, `consent_scope`, `not_before` and `expires_at` all
+    /// live in `grant_event.event.payload`; the holder comes from the path.
+    /// `consent_id` is producer-allocated, so the caller mints it: it is the cell
+    /// subject, and the or_set add dot is
+    /// `ak:event:<enclosing event_id>:<write_index>` (spec
+    /// `zh/identity/consent-model.md` section 3.2). A service that wrote this
+    /// element itself would be putting consent into replicated cell state that no
+    /// Event in the log explains.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub grant_event: EventInitialSubmission,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ConsentRevokeRequestBody {
+    /// Initial publication of the caller-signed `ak.consent.revoke` Control Move.
+    ///
+    /// Its `payload.observed_dots` names the exact dots being removed, read back
+    /// from [`ConsentCellView::active_grant_dots`]: an observe-remove OR-Set
+    /// revoker has to enumerate them or two concurrent revokes race, one removing
+    /// the old dot and the other the new one while the UI reports success. A
+    /// `consent_scope=any` cascade is no exception.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub revoke_event: EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

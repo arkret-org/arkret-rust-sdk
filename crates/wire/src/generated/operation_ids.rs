@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.11;
-//! sha256=1c7be166b64fe1deaca6d6ef736d5b75ccd4a24b101def56e1a02711105f0f10 Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-06.12;
+//! sha256=baf3ad20d78947fd999b44a38241bb074586b56bbdb0accbf76c6c447575a4c5 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -4858,7 +4858,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_update_request_body",
+            "schemas/consent-operations.schema.json#/$defs/consent_grant_request_body",
         ),
         response_schema_ref: Some(
             "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
@@ -4910,7 +4910,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_update_request_body",
+            "schemas/consent-operations.schema.json#/$defs/consent_revoke_request_body",
         ),
         response_schema_ref: Some(
             "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
