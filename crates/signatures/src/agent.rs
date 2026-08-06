@@ -501,9 +501,13 @@ mod tests {
         )
         .unwrap();
 
+        // The three expected values are copied verbatim from
+        // `spec/v1/artifacts/fixtures/agent-vectors-fixture.json`, vector
+        // `ak.vector.agent.runtime_key_binding.v1`. The fixture is the truth;
+        // this test exists so the SDK cannot drift from it silently.
         assert_eq!(
             public_key_digest.as_str(),
-            "sha256:0e48ac82511ec75f4c9d3992c5ce26b319e774b57aa0d107f17b94bc58b1d925"
+            "sha256:30bde072332c796c2bfa2cca05564e592d49a6dd11719cfdb8a918c0897486a4"
         );
         assert_eq!(
             attestation_digest.as_str(),
@@ -511,7 +515,7 @@ mod tests {
         );
         assert_eq!(
             binding_digest.as_str(),
-            "sha256:1e06d0f56c0e3d78fe94833228c370693c793fdc679f977212b0f039360acedd"
+            "sha256:7ddf1d73489d73196f9f88e6fef5d0ce8808538377dd2924bbb105db807c3c2d"
         );
     }
 
