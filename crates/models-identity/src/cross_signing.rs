@@ -42,7 +42,6 @@ impl CrossSigningResetReason {
 #[serde(deny_unknown_fields)]
 pub struct CrossSigningResetPayload {
     trust_domain: TypedTrustDomainId,
-    reset_event_id: EventId,
     principal_id: Did,
     previous_generation: NonZeroU64,
     new_generation: NonZeroU64,
@@ -59,7 +58,6 @@ pub struct CrossSigningResetPayload {
 #[serde(deny_unknown_fields)]
 struct CrossSigningResetPayloadWire {
     trust_domain: TypedTrustDomainId,
-    reset_event_id: EventId,
     principal_id: Did,
     previous_generation: NonZeroU64,
     new_generation: NonZeroU64,
@@ -80,7 +78,6 @@ impl<'de> Deserialize<'de> for CrossSigningResetPayload {
         let wire = CrossSigningResetPayloadWire::deserialize(deserializer)?;
         Self::new(
             wire.trust_domain,
-            wire.reset_event_id,
             wire.principal_id,
             wire.previous_generation,
             wire.new_generation,
@@ -98,7 +95,6 @@ impl CrossSigningResetPayload {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         trust_domain: TypedTrustDomainId,
-        reset_event_id: EventId,
         principal_id: Did,
         previous_generation: NonZeroU64,
         new_generation: NonZeroU64,
@@ -109,7 +105,6 @@ impl CrossSigningResetPayload {
     ) -> Result<Self> {
         let payload = Self {
             trust_domain,
-            reset_event_id,
             principal_id,
             previous_generation,
             new_generation,
@@ -124,10 +119,6 @@ impl CrossSigningResetPayload {
 
     pub fn trust_domain(&self) -> &TypedTrustDomainId {
         &self.trust_domain
-    }
-
-    pub fn reset_event_id(&self) -> &EventId {
-        &self.reset_event_id
     }
 
     pub fn principal_id(&self) -> &Did {
@@ -314,7 +305,6 @@ impl CrossSigningResetPayload {
     fn reset_signing_body(&self, include_unlock_commitment: bool) -> Value {
         json!({
             "trust_domain": self.trust_domain,
-            "reset_event_id": self.reset_event_id,
             "principal_id": self.principal_id,
             "previous_generation": self.previous_generation,
             "new_generation": self.new_generation,
@@ -366,7 +356,6 @@ mod tests {
     fn principal_reset() -> Value {
         json!({
             "trust_domain": "ak:trust_domain:example.net",
-            "reset_event_id": "ak:event:01964137-0000-8000-8000-0000000000aa",
             "principal_id": "did:webvh:z6mkfixture:alice.example",
             "previous_generation": 1,
             "new_generation": 2,
@@ -395,6 +384,13 @@ mod tests {
         let mut unknown = principal_reset();
         unknown["legacy"] = json!(true);
         assert!(serde_json::from_value::<CrossSigningResetPayload>(unknown).is_err());
+
+        // encoding.md 6.0.1: the payload sits inside the event_digest preimage, so it cannot
+        // name the enclosing Event. The retired reset_event_id field must now be rejected.
+        let mut retired_self_reference = principal_reset();
+        retired_self_reference["reset_event_id"] =
+            json!("ak:event:01964137-0000-8000-8000-0000000000aa");
+        assert!(serde_json::from_value::<CrossSigningResetPayload>(retired_self_reference).is_err());
     }
 
     #[test]

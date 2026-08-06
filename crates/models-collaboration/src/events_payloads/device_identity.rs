@@ -237,9 +237,38 @@ impl DeviceAuthorizePayload {
         })?;
         binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)
     }
+
+}
+
+/// Canonical digest of an `ak.device.authorize` payload as it appears on the
+/// wire.
+///
+/// This is the value a B-model re-anchor commits to through
+/// [`DeviceReanchorPayload::replacement_authorize_payload_digest`]. The
+/// re-anchor cannot commit to the authorize Event id or envelope digest because
+/// that Event's `prev_refs` names the re-anchor, and every `event_id` derives
+/// from its own signed content — the two would be preimages of each other.
+/// Committing to the payload keeps the binding one-directional while still
+/// fixing which device is authorized.
+///
+/// It takes the wire `payload` object rather than [`DeviceAuthorizePayload`] on
+/// purpose: the producer and the verifier must hash the same bytes, and a
+/// parse-then-reserialize round trip is one normalization away from disagreeing.
+pub fn device_authorize_replacement_payload_digest(
+    payload: &Value,
+    digest_suite: canonical::DigestSuite,
+) -> Result<Hash> {
+    let bytes = canonical::canonical_json_bytes(payload)?;
+    Ok(Hash::new(canonical::digest(digest_suite, &bytes))?)
 }
 
 /// Closed B-model recovery payload for `ak.device.reanchor`.
+///
+/// The replacement binding commits to the authorize payload digest, never to
+/// that Event's id or envelope digest: the authorize envelope carries this
+/// Event's `event_id` in `prev_refs`, and every `event_id` is a function of its
+/// own signed content, so an id or envelope binding would make the two Events
+/// preimages of each other. See `key-management.md` §5.0.7.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorPayload {
@@ -248,8 +277,7 @@ pub struct DeviceReanchorPayload {
     pub previous_device_generation: NonEmptyString,
     pub new_device_generation: NonEmptyString,
     pub pre_fence_basis: Option<SealBasis>,
-    pub replacement_authorize_event_id: EventId,
-    pub replacement_authorize_digest: Hash,
+    pub replacement_authorize_payload_digest: Hash,
 }
 
 #[derive(Deserialize)]
@@ -261,8 +289,7 @@ struct DeviceReanchorPayloadWire {
     new_device_generation: NonEmptyString,
     #[serde(deserialize_with = "deserialize_required_nullable")]
     pre_fence_basis: Option<SealBasis>,
-    replacement_authorize_event_id: EventId,
-    replacement_authorize_digest: Hash,
+    replacement_authorize_payload_digest: Hash,
 }
 
 fn deserialize_required_nullable<'de, D, T>(
@@ -287,8 +314,7 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
             previous_device_generation: wire.previous_device_generation,
             new_device_generation: wire.new_device_generation,
             pre_fence_basis: wire.pre_fence_basis,
-            replacement_authorize_event_id: wire.replacement_authorize_event_id,
-            replacement_authorize_digest: wire.replacement_authorize_digest,
+            replacement_authorize_payload_digest: wire.replacement_authorize_payload_digest,
         };
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
@@ -327,11 +353,16 @@ impl DeviceReanchorPayload {
 /// applies; this helper requires the business delta to cover the re-anchor and
 /// its replacement device authorization while permitting other pending Control
 /// Moves admitted by the contextual Seal rules.
+///
+/// Both envelope digests are caller-supplied: the re-anchor payload binds the
+/// replacement by payload digest, so the authorize envelope digest exists only
+/// once both Events are formed.
 pub fn validate_device_reanchor_recovery_first_seal(
     payload: &DeviceReanchorPayload,
     predecessor_refs: &[SealId],
     delta: &[Hash],
     reanchor_digest: &Hash,
+    replacement_authorize_digest: &Hash,
 ) -> Result<()> {
     if payload.pre_fence_basis.is_some() {
         return Err(Error::Protocol(
@@ -357,7 +388,7 @@ pub fn validate_device_reanchor_recovery_first_seal(
         .any(|digest| digest.as_str() == reanchor_digest.as_str())
         || !delta
             .iter()
-            .any(|digest| digest.as_str() == payload.replacement_authorize_digest.as_str())
+            .any(|digest| digest.as_str() == replacement_authorize_digest.as_str())
     {
         return Err(Error::Protocol(
             "device reanchor recovery-first Seal delta must cover reanchor and replacement authorize"
@@ -876,27 +907,34 @@ mod tests {
             "previous_device_generation": "1-QmPrevious",
             "new_device_generation": "2-QmCurrent",
             "pre_fence_basis": null,
-            "replacement_authorize_event_id": "ak:event:01904100-0000-8000-8000-000000000001",
-            "replacement_authorize_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            "replacement_authorize_payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         });
         let payload: DeviceReanchorPayload = serde_json::from_value(valid.clone()).unwrap();
         assert_eq!(payload.did_version_number(), 2);
         let reanchor_digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        let authorize_digest = Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap();
         let delta = vec![
             Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             Hash::new(reanchor_digest.as_str().to_owned()).unwrap(),
-            Hash::new(payload.replacement_authorize_digest.as_str().to_owned()).unwrap(),
+            Hash::new(authorize_digest.as_str().to_owned()).unwrap(),
         ];
         assert!(
-            validate_device_reanchor_recovery_first_seal(&payload, &[], &delta, &reanchor_digest)
-                .is_ok()
+            validate_device_reanchor_recovery_first_seal(
+                &payload,
+                &[],
+                &delta,
+                &reanchor_digest,
+                &authorize_digest
+            )
+            .is_ok()
         );
         assert!(
             validate_device_reanchor_recovery_first_seal(
                 &payload,
                 &[SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap()],
                 &delta,
-                &reanchor_digest
+                &reanchor_digest,
+                &authorize_digest
             )
             .is_err()
         );
@@ -905,7 +943,8 @@ mod tests {
                 &payload,
                 &[],
                 &delta[..2],
-                &reanchor_digest
+                &reanchor_digest,
+                &authorize_digest
             )
             .is_err()
         );
@@ -915,7 +954,8 @@ mod tests {
                 &payload,
                 &[],
                 &missing_reanchor,
-                &reanchor_digest
+                &reanchor_digest,
+                &authorize_digest
             )
             .is_err()
         );
@@ -925,10 +965,16 @@ mod tests {
                 &payload,
                 &[],
                 &duplicate,
-                &reanchor_digest
+                &reanchor_digest,
+                &authorize_digest
             )
             .is_err()
         );
+
+        let mut carries_event_id = valid.clone();
+        carries_event_id["replacement_authorize_event_id"] =
+            json!("ak:event:01904100-0000-8000-8000-000000000001");
+        assert!(serde_json::from_value::<DeviceReanchorPayload>(carries_event_id).is_err());
 
         let mut missing_required_nullable = valid.clone();
         missing_required_nullable

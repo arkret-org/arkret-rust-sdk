@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-06.1;
-//! sha256=a62d878155ec741125f43454984f28bec0c9e0efa1449b820e0dcf0e33244983
-//! Entries: reason_codes=465
+//! Input: registry/error-code-registry.json; version=2026-08-06.3;
+//! sha256=cddc1cd1bd84e047fbab4160000d29af290825b42c7a0beb09373fa6f77f471b
+//! Entries: reason_codes=464
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -383,7 +383,6 @@ pub enum ReasonCode {
     RelaxedWindowExceedsCeiling,
     RequiresOrganizationApproval,
     ReservedCircleShortName,
-    ResetEventIdMismatch,
     RevocationFreshnessUnknown,
     RevokeOrderUnknownRequiresBackfillOrReview,
     RevokeUndoInvalidSignature,
@@ -948,7 +947,6 @@ impl ReasonCode {
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
     pub const REQUIRES_ORGANIZATION_APPROVAL: &'static str = "requires_organization_approval";
     pub const RESERVED_CIRCLE_SHORT_NAME: &'static str = "reserved_circle_short_name";
-    pub const RESET_EVENT_ID_MISMATCH: &'static str = "reset_event_id_mismatch";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
     pub const REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW: &'static str =
         "revoke_order_unknown_requires_backfill_or_review";
@@ -1526,7 +1524,6 @@ impl ReasonCode {
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
             Self::RequiresOrganizationApproval => Self::REQUIRES_ORGANIZATION_APPROVAL,
             Self::ReservedCircleShortName => Self::RESERVED_CIRCLE_SHORT_NAME,
-            Self::ResetEventIdMismatch => Self::RESET_EVENT_ID_MISMATCH,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
             Self::RevokeOrderUnknownRequiresBackfillOrReview => {
                 Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW
@@ -2111,7 +2108,6 @@ impl ReasonCode {
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
             Self::REQUIRES_ORGANIZATION_APPROVAL => Self::RequiresOrganizationApproval,
             Self::RESERVED_CIRCLE_SHORT_NAME => Self::ReservedCircleShortName,
-            Self::RESET_EVENT_ID_MISMATCH => Self::ResetEventIdMismatch,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
             Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW => {
                 Self::RevokeOrderUnknownRequiresBackfillOrReview
@@ -2957,7 +2953,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The atomic replacement ak.device.authorize id/digest, prev_refs, principal, device, session, or enrollment-authority proof does not exactly match the binding in ak.device.reanchor. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+        description: "The atomic replacement ak.device.authorize payload digest, prev_refs, principal, device, session, or enrollment-authority proof does not exactly match the binding in ak.device.reanchor. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_CONFLICT,
@@ -4162,11 +4158,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::RESERVED_CIRCLE_SHORT_NAME,
         applies_to: &["schema_validation", "state_resolution", "service_call"],
         description: "Ordinary Circle create/update attempted to use the SC- short-name prefix reserved for reducer-managed Agent Sidecar backing Circles. The write is rejected as schema_violation. See zh/models/circle.md §4 and zh/models/sidecar.md §5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RESET_EVENT_ID_MISMATCH,
-        applies_to: &["schema_violation"],
-        description: "ak.cross_signing.reset payload's reset_event_id does not match the enclosing Event Envelope's event_id. Binding reset_event_id into proof transcript prevents wrapping the same proof bytes into a different Event shell; receivers MUST reject the reset on any mismatch. See zh/crypto-media/device-lifecycle.md §14.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REVOCATION_FRESHNESS_UNKNOWN,
