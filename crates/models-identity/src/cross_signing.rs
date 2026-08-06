@@ -4,9 +4,7 @@ use std::collections::BTreeSet;
 use std::num::NonZeroU64;
 
 use arkret_canonical::binding_contexts;
-use arkret_wire::{
-    DeviceId, Did, Error, EventId, Hash, Result, SchemaId, TypedTrustDomainId, canonical,
-};
+use arkret_wire::{DeviceId, Did, Error, Hash, Result, SchemaId, TypedTrustDomainId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -390,7 +388,9 @@ mod tests {
         let mut retired_self_reference = principal_reset();
         retired_self_reference["reset_event_id"] =
             json!("ak:event:01964137-0000-8000-8000-0000000000aa");
-        assert!(serde_json::from_value::<CrossSigningResetPayload>(retired_self_reference).is_err());
+        assert!(
+            serde_json::from_value::<CrossSigningResetPayload>(retired_self_reference).is_err()
+        );
     }
 
     #[test]
