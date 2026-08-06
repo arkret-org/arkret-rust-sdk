@@ -19,7 +19,6 @@ use crate::{EventDraftError, Result};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GhostActorProfileRequest {
-    pub id: ActorProfileId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub principal_id: Did,
@@ -42,14 +41,15 @@ pub struct GhostActorProfileRequest {
 }
 
 impl GhostActorProfileRequest {
+    /// There is no `id` parameter: this builds the `ak.profile.create` payload,
+    /// and the profile id is derived from that create Event (spec
+    /// `zh/models/common-fields.md` section 6.0).
     pub fn new(
-        id: ActorProfileId,
         principal_id: Did,
         display_name: impl Into<String>,
         managed_by_applet: AppletId,
     ) -> Self {
         Self {
-            id,
             realm_id: None,
             principal_id,
             actor_kind: ActorKind::Integration,
@@ -126,7 +126,7 @@ impl GhostActorProfileRequest {
             );
         }
         Ok(ActorProfile {
-            id: self.id.clone(),
+            id: None,
             schema: SchemaId::ACTOR_PROFILE_V1.to_owned(),
             realm_id: self.realm_id.clone(),
             principal_id: self.principal_id.clone(),
@@ -191,7 +191,8 @@ mod tests {
     #[test]
     fn request_builds_schema_legal_profile_shape() {
         let request =
-            GhostActorProfileRequest::new(profile_id(), did("ghost"), "Ghost", applet_id())
+            GhostActorProfileRequest::new(
+            did("ghost"), "Ghost", applet_id())
                 .with_accountable_principal_ids(vec![did("owner")]);
 
         let profile = request.to_actor_profile().unwrap();
@@ -206,7 +207,8 @@ mod tests {
     #[test]
     fn request_builds_profile_create_event() {
         let request =
-            GhostActorProfileRequest::new(profile_id(), did("ghost"), "Ghost", applet_id())
+            GhostActorProfileRequest::new(
+            did("ghost"), "Ghost", applet_id())
                 .with_accountable_principal_ids(vec![did("owner")]);
         let event = request
             .profile_create_event(

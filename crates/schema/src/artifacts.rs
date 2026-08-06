@@ -1707,7 +1707,10 @@ mod tests {
     #[test]
     fn embedded_openapi_matches_live_spec_when_available() {
         let embedded = embedded_openapi_yaml().expect("embedded OpenAPI must load");
-        assert!(embedded.starts_with("openapi: 3.1.0\n"));
+        // 3.2 since the Events read operations moved to RFC 10008 QUERY, which
+        // earlier OpenAPI versions cannot express.
+        assert!(embedded.starts_with("openapi: 3.2.0
+"));
         assert!(embedded.contains("\npaths:\n"));
 
         let Some(artifacts_dir) = local_spec_artifacts_dir() else {

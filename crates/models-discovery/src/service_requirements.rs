@@ -459,5 +459,6 @@ mod tests {
         // self-API operations) MUST NOT be advertisable by a push gateway.
         assert!(!service_kind.permits_operation("ak.edge.applet.command.invoke"));
         assert!(!service_kind.permits_operation("ak.self.events.read.unknown"));
+        assert!(!service_kind.permits_operation("ak.self.events.read.sync"));
     }
 }

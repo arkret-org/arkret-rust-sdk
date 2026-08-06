@@ -122,6 +122,8 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
         | ServiceOperationId::PEER_EVENTS_READ_DESCRIBE
         | ServiceOperationId::PEER_EVENTS_READ_FRONTIER
+        // `POST /_arkret/peer/events/query` stopped being its own operation:
+        // it is a compatibility binding of `ak.peer.events.read.scan`.
         | ServiceOperationId::PEER_EVENTS_READ_SCAN
         | ServiceOperationId::PEER_EVENTS_READ_RESOLVE
         | ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT => OperationSurface::Events,

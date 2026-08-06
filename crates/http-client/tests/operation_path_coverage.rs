@@ -133,6 +133,12 @@ const NON_OPERATION_LITERALS: &[(&str, &str)] = &[
         "/_arkret/self/realms/!realm:example.test/join-applications/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "endpoints/join_policy.rs in-file unit test expectation with substituted sample values",
     ),
+    (
+        // `normalise` drops the query string, so the exemption is keyed on the
+        // path alone.
+        "/_arkret/self/events/query",
+        "lib.rs negative assertion that the client does NOT fall back to the          `POST /_arkret/self/events/query` compatibility binding of          `ak.self.events.read.scan`; a compatibility binding is not an operation          of its own (arkret-spec 580c26f1)",
+    ),
 ];
 
 /// Collapse a concrete or templated path to its registry-comparable shape:
