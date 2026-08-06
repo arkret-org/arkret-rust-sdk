@@ -10,7 +10,15 @@ use serde_json::Value;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorProfile {
-    pub id: ActorProfileId,
+    /// The object id.
+    ///
+    /// Absent on a create payload, and absent on a view synthesised from an
+    /// account record that has no `ak.profile.create` behind it — an
+    /// `event_derived` id exists only where an Event made it (spec
+    /// `zh/models/common-fields.md` section 6.0). Present on every projected
+    /// snapshot of a real profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<ActorProfileId>,
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,

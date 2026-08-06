@@ -531,10 +531,21 @@ pub fn new_prefixed_uuid7(prefix: &str) -> String {
 /// between the two by branch, and both callers (`arkret-wire` envelope
 /// construction and `arkret-models-identity`) must agree bit for bit.
 pub fn principal_control_realm_uuid(principal_did: &str) -> uuid::Uuid {
-    let digest = arkret_canonical::canonical::sha256_bytes_from_slices(&[
-        b"ak:realm:principal-control:v1:",
-        principal_did.as_bytes(),
-    ]);
+    subject_derived_uuid(b"ak:realm:principal-control:v1:", principal_did)
+}
+
+/// Derive a stable id from a subject under a domain separator.
+///
+/// The UUIDv7 layout is deliberate: a subject-derived id is *not* content-bound,
+/// and stamping it v8 would claim a derivation from an Event that does not
+/// exist. What it is instead is reproducible from the subject alone by anyone,
+/// which is the property the callers need — the same id must come back on every
+/// request, and no Event is involved.
+///
+/// `domain` MUST be a distinct, versioned separator per id family, or two
+/// families would collide on the same subject.
+pub fn subject_derived_uuid(domain: &[u8], subject: &str) -> uuid::Uuid {
+    let digest = arkret_canonical::canonical::sha256_bytes_from_slices(&[domain, subject.as_bytes()]);
     let mut bytes = [0_u8; 16];
     bytes.copy_from_slice(&digest[..16]);
     bytes[6] = (bytes[6] & 0x0f) | 0x70;
