@@ -539,7 +539,7 @@ soland 接线。
   [`service-http-binding.md`](../../arkret-spec/spec/v1/zh/sync/service-http-binding.md)。
 - Federation Move 广播 + Seal 拉取语义 →
   [`federation.md`](../../arkret-spec/spec/v1/zh/sync/federation.md)。
-- MLS commit Move + covered_seals cell 联动细节 →
+- MLS commit Move 与 security frontier 的联动细节 →
   [`audited-e2ee.md`](../../arkret-spec/spec/v1/zh/crypto-media/audited-e2ee.md)。
 - Recovery notary / emergency quorum 启用程序 →
   [`event-auth-state-resolution.md`](../../arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md) §13。
