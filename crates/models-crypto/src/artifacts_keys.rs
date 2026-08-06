@@ -3,11 +3,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString,
-    DeviceReanchorPreFenceBasis, DeviceId, Did, DidUrl, Error, EventId, Hash, LeaseBasisRef,
-    NonEmptyString, PolicyId, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
-    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId, ReasonCode, RecoverySessionId, Result,
-    SchemaId, ScopeRef, TransactionId, TypedTrustDomainId, XExtensionMap,
+    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
+    DeviceReanchorPreFenceBasis, Did, DidUrl, Error, EventId, Hash, LeaseBasisRef, NonEmptyString,
+    PolicyId, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID,
+    RealmId, ReasonCode, RecoverySessionId, Result, SchemaId, ScopeRef, TransactionId,
+    TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

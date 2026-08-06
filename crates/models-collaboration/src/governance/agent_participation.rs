@@ -231,8 +231,9 @@ pub struct AgentParticipationOutcome {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use arkret_wire::{RealmId, StrandId};
+
+    use super::*;
 
     fn p(reply: bool, mention: bool, aob: bool) -> ParticipationBits {
         ParticipationBits {

@@ -5,9 +5,9 @@
 //! continuation and read-your-writes barriers.
 
 use std::collections::BTreeMap;
-use web_time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
+use web_time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{Error, Result, SchemaId};
 

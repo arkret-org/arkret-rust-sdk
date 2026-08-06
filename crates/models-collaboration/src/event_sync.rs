@@ -364,7 +364,7 @@ pub enum ControlProposalDecisionState {
 #[serde(deny_unknown_fields)]
 pub struct PendingControlProposal {
     pub proposal_digest: Hash,
-    pub receipt: ControlProposalAck,
+    pub control_proposal_ack: ControlProposalAck,
     pub decisions: Vec<ControlProposalDecision>,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub current_decision_due_at: DateTime<Utc>,
@@ -397,7 +397,7 @@ pub struct ControlGovernanceHealth {
 #[serde(deny_unknown_fields)]
 pub struct RetainedControlProposalFault {
     pub proposal_digest: Hash,
-    pub receipt: ControlProposalAck,
+    pub control_proposal_ack: ControlProposalAck,
     pub decisions: Vec<ControlProposalDecision>,
     pub accepted_seal_id: SealId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -439,16 +439,16 @@ impl ControlGovernanceHealth {
         let mut has_overdue = false;
         for pending in &self.pending_proposals {
             if let Some(policy) = policy {
-                pending.receipt.validate_structural(policy)?;
+                pending.control_proposal_ack.validate_structural(policy)?;
             } else {
-                pending.receipt.validate_protocol_bounds()?;
+                pending.control_proposal_ack.validate_protocol_bounds()?;
             }
-            if pending.proposal_digest != pending.receipt.proposal_digest
-                || pending.absolute_due_at != pending.receipt.absolute_due_at
+            if pending.proposal_digest != pending.control_proposal_ack.proposal_digest
+                || pending.absolute_due_at != pending.control_proposal_ack.absolute_due_at
                 || usize::from(pending.defer_count) != pending.decisions.len()
             {
                 return Err(Error::Protocol(
-                    "pending control proposal does not preserve receipt/decision binding"
+                    "pending control proposal does not preserve Control Proposal Ack / decision binding"
                         .to_owned(),
                 ));
             }
@@ -460,16 +460,23 @@ impl ControlGovernanceHealth {
                     ));
                 }
                 if let Some(policy) = policy {
-                    decision.validate_chain(&pending.receipt, &verified_defers, policy)?;
+                    decision.validate_chain(
+                        &pending.control_proposal_ack,
+                        &verified_defers,
+                        policy,
+                    )?;
                 } else {
-                    decision.validate_chain_protocol_bounds(&pending.receipt, &verified_defers)?;
+                    decision.validate_chain_protocol_bounds(
+                        &pending.control_proposal_ack,
+                        &verified_defers,
+                    )?;
                 }
                 verified_defers.push(decision.clone());
             }
             let expected_due_at = verified_defers
                 .last()
                 .map(ControlProposalDecision::decision_due_at)
-                .unwrap_or(pending.receipt.decision_due_at);
+                .unwrap_or(pending.control_proposal_ack.decision_due_at);
             if pending.current_decision_due_at != expected_due_at {
                 return Err(Error::Protocol(
                     "pending proposal current_decision_due_at does not match its decision chain"
@@ -507,20 +514,20 @@ impl ControlGovernanceHealth {
         let mut previous_fault_key: Option<(DateTime<Utc>, &str)> = None;
         for fault in &self.retained_faults {
             if let Some(policy) = policy {
-                fault.receipt.validate_structural(policy)?;
+                fault.control_proposal_ack.validate_structural(policy)?;
             } else {
-                fault.receipt.validate_protocol_bounds()?;
+                fault.control_proposal_ack.validate_protocol_bounds()?;
             }
-            if fault.proposal_digest != fault.receipt.proposal_digest
+            if fault.proposal_digest != fault.control_proposal_ack.proposal_digest
                 || fault.fault_reason != ControlProposalFaultReason::ControlProposalDecisionOverdue
             {
                 return Err(Error::Protocol(
-                    "retained control proposal fault does not preserve its receipt binding"
+                    "retained control proposal fault does not preserve its Control Proposal Ack binding"
                         .to_owned(),
                 ));
             }
             let mut verified_defers = Vec::with_capacity(fault.decisions.len());
-            let mut previous_due_at = fault.receipt.decision_due_at;
+            let mut previous_due_at = fault.control_proposal_ack.decision_due_at;
             let mut missed_deadline = false;
             for decision in &fault.decisions {
                 if decision.is_reject() {
@@ -529,9 +536,16 @@ impl ControlGovernanceHealth {
                     ));
                 }
                 if let Some(policy) = policy {
-                    decision.validate_chain(&fault.receipt, &verified_defers, policy)?;
+                    decision.validate_chain(
+                        &fault.control_proposal_ack,
+                        &verified_defers,
+                        policy,
+                    )?;
                 } else {
-                    decision.validate_chain_protocol_bounds(&fault.receipt, &verified_defers)?;
+                    decision.validate_chain_protocol_bounds(
+                        &fault.control_proposal_ack,
+                        &verified_defers,
+                    )?;
                 }
                 missed_deadline |= !decision.satisfied_current_deadline(previous_due_at);
                 previous_due_at = decision.decision_due_at();
@@ -1409,7 +1423,7 @@ mod tests {
         let received_at = DateTime::parse_from_rfc3339("2026-07-29T20:57:46.276Z")
             .unwrap()
             .with_timezone(&Utc);
-        let receipt = control_proposal_ack_for(
+        let ack = control_proposal_ack_for(
             &event,
             &submission
                 .authorization_lease
@@ -1421,13 +1435,13 @@ mod tests {
         let health = ControlGovernanceHealth {
             status: ControlGovernanceHealthStatus::Healthy,
             pending_proposals: vec![PendingControlProposal {
-                proposal_digest: receipt.proposal_digest.clone(),
-                current_decision_due_at: receipt.decision_due_at,
-                absolute_due_at: receipt.absolute_due_at,
+                proposal_digest: ack.proposal_digest.clone(),
+                current_decision_due_at: ack.decision_due_at,
+                absolute_due_at: ack.absolute_due_at,
                 defer_count: 0,
                 decision_state: ControlProposalDecisionState::Pending,
                 fault_reason: None,
-                receipt,
+                control_proposal_ack: ack,
                 decisions: Vec::new(),
             }],
             retained_faults: Vec::new(),

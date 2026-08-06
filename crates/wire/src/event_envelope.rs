@@ -486,9 +486,8 @@ impl FederatedDeviceSigningKeyEvidence {
 /// pure functions of the signed Event, so the id stays self-certifying either
 /// way:
 ///
-/// - **Principal Control Realm** (`payload.object.fields.purpose ==
-///   "principal_control"`) — subject-derived from the principal DID, so the
-///   address remains computable from the DID alone.
+/// - **Principal Control Realm** (`payload.object.fields.purpose == "principal_control"`) —
+///   subject-derived from the principal DID, so the address remains computable from the DID alone.
 /// - **Collaboration Realm** — event-derived: `retype(event_id)`.
 pub fn derive_genesis_realm_id(
     event_id: &EventId,
@@ -523,10 +522,10 @@ pub fn derive_genesis_realm_id(
 ///
 /// * `proofs` — the signature cannot cover itself.
 /// * `unsigned` — receiver-local projection context, attached after signing.
-/// * `actor_kind` — the one v1 field the reducer stamps after the producer
-///   signs, so a peer recomputing the digest would never see the producer's value.
-/// * `event_id` — §4.0 derives the id *from this digest*, so leaving it in
-///   would put a function of the digest inside the digest's own input.
+/// * `actor_kind` — the one v1 field the reducer stamps after the producer signs, so a peer
+///   recomputing the digest would never see the producer's value.
+/// * `event_id` — §4.0 derives the id *from this digest*, so leaving it in would put a function of
+///   the digest inside the digest's own input.
 ///
 /// Everything else, `scope_ref` included, stays inside the transcript.
 pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
@@ -700,8 +699,9 @@ impl TryFrom<EventWire> for Event {
         let realm_id = match wire.realm_id {
             Some(realm_id) => {
                 if kind == EventKind::REALM_CREATE {
-                    return Err("realm_id_not_event_derived: ak.realm.create MUST omit realm_id"
-                        .to_owned());
+                    return Err(
+                        "realm_id_not_event_derived: ak.realm.create MUST omit realm_id".to_owned(),
+                    );
                 }
                 realm_id
             }
@@ -971,9 +971,9 @@ impl Event {
         let seconds = u64::try_from(self.created_at.timestamp()).map_err(|_| {
             Error::Protocol("event created_at must not precede the Unix epoch".to_owned())
         })?;
-        Ok(EventId::from_uuid(
-            arkret_identifiers::content_bound_uuid(seconds, &octets),
-        ))
+        Ok(EventId::from_uuid(arkret_identifiers::content_bound_uuid(
+            seconds, &octets,
+        )))
     }
 
     /// Re-derive the id and compare it with the carried value.
@@ -1275,13 +1275,7 @@ impl Event {
         })?;
         let _ = event_unix_ms;
         Self::new_with_derived_id_at(
-            kind,
-            scope_ref,
-            actor_id,
-            actor_seq,
-            hlc,
-            payload,
-            created_at,
+            kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
         )
     }
 

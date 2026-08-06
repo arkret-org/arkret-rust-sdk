@@ -1709,8 +1709,10 @@ mod tests {
         let embedded = embedded_openapi_yaml().expect("embedded OpenAPI must load");
         // 3.2 since the Events read operations moved to RFC 10008 QUERY, which
         // earlier OpenAPI versions cannot express.
-        assert!(embedded.starts_with("openapi: 3.2.0
-"));
+        assert!(embedded.starts_with(
+            "openapi: 3.2.0
+"
+        ));
         assert!(embedded.contains("\npaths:\n"));
 
         let Some(artifacts_dir) = local_spec_artifacts_dir() else {

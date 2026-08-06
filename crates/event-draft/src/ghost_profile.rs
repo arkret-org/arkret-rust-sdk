@@ -190,10 +190,8 @@ mod tests {
 
     #[test]
     fn request_builds_schema_legal_profile_shape() {
-        let request =
-            GhostActorProfileRequest::new(
-            did("ghost"), "Ghost", applet_id())
-                .with_accountable_principal_ids(vec![did("owner")]);
+        let request = GhostActorProfileRequest::new(did("ghost"), "Ghost", applet_id())
+            .with_accountable_principal_ids(vec![did("owner")]);
 
         let profile = request.to_actor_profile().unwrap();
 
@@ -206,10 +204,8 @@ mod tests {
 
     #[test]
     fn request_builds_profile_create_event() {
-        let request =
-            GhostActorProfileRequest::new(
-            did("ghost"), "Ghost", applet_id())
-                .with_accountable_principal_ids(vec![did("owner")]);
+        let request = GhostActorProfileRequest::new(did("ghost"), "Ghost", applet_id())
+            .with_accountable_principal_ids(vec![did("owner")]);
         let event = request
             .profile_create_event(
                 ScopeRef::Realm {
