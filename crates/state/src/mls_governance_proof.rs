@@ -446,6 +446,15 @@ where
     E: From<Error>,
     VerifyNotary: Fn(&Seal, &Value) -> std::result::Result<(), E>,
 {
+    // A Principal Control Realm's id derives from the principal DID, not from a
+    // create Event (realm-and-space.md 2.5.0 exception), so its uuid is a v7 and
+    // retyping it would fabricate an `ak:event:` id that names nothing. Retype is
+    // only sound between kinds fixed to the same id_form. T2 covers those Realms.
+    if realm_id.uuid().get_version_num() != 8 {
+        return Err(anchor_rejected(
+            "realm_id is not event-derived; a Principal Control Realm anchors on its              did_inception root (encryption-and-audit.md 2.5.4 T2), not on a create Event",
+        ));
+    }
     let expected_create_id = EventId::from_uuid(realm_id.uuid());
     if create_event.event_id != expected_create_id {
         return Err(anchor_rejected(
@@ -996,6 +1005,17 @@ mod tests {
             );
             Ok(())
         })
+    }
+
+    #[test]
+    fn a_pcr_realm_is_not_admitted_through_the_event_derived_rule() {
+        let (_, create) = self_certifying_create();
+        let candidate = seal(hash(0x11), Vec::new(), hash(0x12));
+        // A PCR id carries a v7 uuid: retyping it would name an Event that does
+        // not exist. The caller must take T2, not silently get a bad request.
+        let pcr = RealmId::new("ak:realm:0196419b-0000-7000-8000-0000000004d2").unwrap();
+        admit(&pcr, &create, &candidate)
+            .expect_err("event-derived admission must refuse a DID-derived Realm id");
     }
 
     #[test]
