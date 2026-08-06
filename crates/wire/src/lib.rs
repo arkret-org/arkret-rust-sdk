@@ -76,8 +76,8 @@ pub use authorization_lease_issuance_fixture::{
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use build_identity::{ARKRET_BUILD_IDENTITY_EXTENSION, ArkretBuildIdentity, SDK_SOURCE_SHA256};
 pub use cba::{
-    LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
-    ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
+    DeviceReanchorPreFenceBasis, LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition,
+    Predicate, PredicateOp, ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
 };
 pub use cba_proof_bundle::{AvailabilityReceipt, CbaProofBundle};
 pub use cell::{

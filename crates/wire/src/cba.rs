@@ -16,7 +16,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{CellRef, SealId};
+use crate::{CellRef, Hash, SealId};
 
 /// Signed governance basis of a Control Move.
 ///
@@ -69,6 +69,70 @@ impl SealBasis {
             ));
         }
         Ok(())
+    }
+}
+
+/// Accepted Seal frontier of a B-model recovery re-anchor.
+///
+/// Distinct from [`SealBasis`] on purpose. A Control Move's `seal_basis` carries
+/// leaves only, because the roots live on the Seals and a producer-authored copy
+/// would be a second truth the receiver must ignore anyway. This frontier is the
+/// one registered exception: `zh/authz/event-auth-state-resolution.md` §5.1 keeps
+/// both roots on the wire because they feed the recovery frontier
+/// compare-and-swap, and no amount of local recomputation tells a receiver
+/// whether the producer's snapshot was raced.
+///
+/// Carried by `ak.device.reanchor`'s `pre_fence_basis` and, byte-identically, by
+/// the recovery session's `accepted_seal_frontier` — the spec `$ref`s one shape
+/// from the other, and admission compares the two for equality.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceReanchorPreFenceBasis {
+    /// Accepted Seal ids in canonical ascending order without duplicates.
+    pub leaves: Vec<SealId>,
+    /// Control-plane event set root covered by the `leaves` view.
+    pub control_event_set_root: Hash,
+    /// Governance state root under the `leaves` view.
+    pub state_root: Hash,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeviceReanchorPreFenceBasisWire {
+    leaves: Vec<SealId>,
+    control_event_set_root: Hash,
+    state_root: Hash,
+}
+
+impl<'de> Deserialize<'de> for DeviceReanchorPreFenceBasis {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = DeviceReanchorPreFenceBasisWire::deserialize(deserializer)?;
+        let basis = Self {
+            leaves: wire.leaves,
+            control_event_set_root: wire.control_event_set_root,
+            state_root: wire.state_root,
+        };
+        basis
+            .validate_protocol_bounds()
+            .map_err(serde::de::Error::custom)?;
+        Ok(basis)
+    }
+}
+
+impl DeviceReanchorPreFenceBasis {
+    /// Validate the leaf collection constraints.
+    ///
+    /// Delegates to [`SealBasis`] so the 1..=64 bound and the canonical ordering
+    /// rule have exactly one implementation.
+    pub fn validate_protocol_bounds(&self) -> crate::Result<()> {
+        SealBasis {
+            leaves: self.leaves.clone(),
+        }
+        .validate_protocol_bounds()
     }
 }
 

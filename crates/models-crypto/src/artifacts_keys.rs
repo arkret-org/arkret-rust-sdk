@@ -3,11 +3,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did,
-    DidUrl, Error, EventId, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
-    RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId,
-    ReasonCode, RecoverySessionId, Result, SchemaId, ScopeRef, SealBasis, TransactionId,
-    TypedTrustDomainId, XExtensionMap,
+    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString,
+    DeviceReanchorPreFenceBasis, DeviceId, Did, DidUrl, Error, EventId, Hash, LeaseBasisRef,
+    NonEmptyString, PolicyId, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
+    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId, ReasonCode, RecoverySessionId, Result,
+    SchemaId, ScopeRef, TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -870,7 +870,7 @@ pub struct RecoverySessionState {
         feature = "openapi",
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
-    pub accepted_seal_frontier: Option<SealBasis>,
+    pub accepted_seal_frontier: Option<DeviceReanchorPreFenceBasis>,
     pub publication_authority_context: RecoveryPublicationAuthorityContext,
     pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
@@ -967,7 +967,7 @@ struct RecoverySessionStateWire {
     current_device_generation_ref: Option<NonEmptyString>,
     device_generation_status: Option<DeviceGenerationStatus>,
     registry_head: Option<Hash>,
-    accepted_seal_frontier: Option<SealBasis>,
+    accepted_seal_frontier: Option<DeviceReanchorPreFenceBasis>,
     publication_authority_context: RecoveryPublicationAuthorityContext,
     publication_authority_context_digest: Hash,
     challenge: Challenge,
