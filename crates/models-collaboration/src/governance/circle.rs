@@ -21,14 +21,14 @@ pub use arkret_wire::CircleId;
 /// types from this module.
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    Did, EncryptionProfile, EventId, HistoryVisibility, RealmId, ReasonCode, SchemaId,
+    Did, EncryptionProfile, EventId, EventInitialSubmission, HistoryVisibility, RealmId,
+    ReasonCode, SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::governance::agent_participation::ParticipationBits;
 use crate::governance::agent_participation::{
-    AgentParticipationError, AgentParticipationPolicy,
+    AgentParticipationError, AgentParticipationPolicy, ParticipationBits,
     validate_agent_participation_ceiling_tightens,
 };
 use crate::objects::space::ChildScopePolicy;
@@ -295,24 +295,16 @@ pub struct CircleView {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleCreateRequestBody {
-    pub realm_id: RealmId,
-    pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub directory_visibility: Option<CircleDirectoryVisibility>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub join_rule: Option<CircleJoinRule>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub history_visibility: Option<HistoryVisibility>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_encryption_floor: Option<EncryptionFloor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_floor: Option<EncryptionFloor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_participation: Option<AgentParticipationPolicy>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encryption_profile: Option<EncryptionProfile>,
+    /// Initial publication of the caller-signed `ak.circle.create` Event.
+    ///
+    /// The body carries nothing else: every actor-supplied Circle field lives in
+    /// `create_event.event.payload.object`, the parent Realm is
+    /// `create_event.event.realm_id`, and the Circle id is
+    /// `retype(create_event.event.event_id)`. A service MUST submit these exact
+    /// bytes through ordinary Event admission and MUST NOT co-sign, rebuild or
+    /// synthesize the Event.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub create_event: EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -827,6 +819,45 @@ impl Circle {
     ) -> Self {
         Self {
             id: Some(id),
+            schema: SchemaId::CIRCLE_V1.to_owned(),
+            realm_id,
+            profile_ref: None,
+            title: title.into(),
+            summary: None,
+            display,
+            directory_visibility: CircleDirectoryVisibility::Members,
+            join_rule: CircleJoinRule::Invite,
+            history_visibility: HistoryVisibility::Joined,
+            content_encryption_floor: None,
+            metadata_encryption_floor: None,
+            agent_participation: None,
+            encryption_profile: EncryptionProfile::None,
+            mls_group_ref: None,
+            state: CircleState::Active,
+            state_changed_at: None,
+            created_by,
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+        }
+    }
+
+    /// Build the Circle body of an `ak.circle.create` payload.
+    ///
+    /// [`Circle::new`] takes an id because it also describes a projected Circle.
+    /// A create payload carries none: `ak.circle.create` is
+    /// `id_source: event_derived`, so the id is `retype(create.event_id)` and a
+    /// payload copy would be a second, forgeable truth (spec
+    /// `zh/models/common-fields.md` section 6.0). Use this constructor to author
+    /// one instead of minting a placeholder id and clearing it afterwards.
+    pub fn create_object(
+        realm_id: RealmId,
+        title: impl Into<String>,
+        display: CircleDisplay,
+        created_by: Did,
+    ) -> Self {
+        Self {
+            id: None,
             schema: SchemaId::CIRCLE_V1.to_owned(),
             realm_id,
             profile_ref: None,
