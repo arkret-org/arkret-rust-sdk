@@ -18,9 +18,39 @@ use crate::{CellRef, Hash, ProjectedCellWrite, RealmId, Seal, SealId, canonical}
 #[derive(Clone, Debug)]
 pub struct SealEffect {
     pub seal: SealId,
+    /// Accepted Control Events in **reducer apply order** — causal first, then
+    /// digest-descending among concurrent Moves ([`deterministic_order`]).
+    ///
+    /// This is not the wire order. `Seal.delta` is byte-wise *ascending*, so for
+    /// two independent Moves this vector is its exact reverse. Use
+    /// [`SealEffect::wire_accepted_event_digests`] for anything a peer will
+    /// compare against.
     pub accepted_event_digests: Vec<Hash>,
     pub rejected_events: Vec<(Hash, String)>,
     pub post_state_root: Hash,
+}
+
+impl SealEffect {
+    /// The accepted set in the one order a peer can reproduce.
+    ///
+    /// `service-operation-dtos.schema.json#/$defs/EventSealSubmitOutcome`
+    /// defines `accepted_event_digests` as a *set*: byte-wise ascending and
+    /// unique, the same normalization `Seal.delta` carries. Apply order is a
+    /// local reducer detail and is deliberately not observable — a client cannot
+    /// recompute it without the causal graph, so an order-sensitive comparison
+    /// against it is a comparison between two different sequences.
+    ///
+    /// Both orders used to reach clients from the same field: this crate served
+    /// apply order while the server's short-circuit paths served `seal.delta`,
+    /// and three clients compared the result with `!=` against a `seal.delta`
+    /// clone. For a two-Event bootstrap those agree exactly when the causal
+    /// order happens to match ascending digest order — a coin flip per install.
+    pub fn wire_accepted_event_digests(&self) -> Vec<Hash> {
+        let mut digests = self.accepted_event_digests.clone();
+        digests.sort();
+        digests.dedup();
+        digests
+    }
 }
 
 #[derive(Debug, Error)]
@@ -1296,6 +1326,43 @@ mod tests {
         assert_eq!(first.union_proof.len(), 2);
         assert_eq!(first.view_hash, second.view_hash);
         assert_eq!(first.state_root, second.state_root);
+    }
+
+    /// The wire order is `Seal.delta`'s order, and it is *not* apply order.
+    ///
+    /// Pinned as an inequality on purpose: for two independent Moves apply order
+    /// is digest-descending and the wire order is ascending, so a service that
+    /// serves `SealEffect::accepted_event_digests` straight out of the reducer
+    /// hands a client the reverse of what `Seal.delta` says. Three clients
+    /// compared exactly that with `!=` against a `seal.delta` clone.
+    #[test]
+    fn wire_accepted_digests_are_ascending_not_apply_order() {
+        let basis = SealBasis {
+            leaves: vec![seal_id(0x11)],
+        };
+        let first = control_move(1, basis.clone(), Vec::new(), Vec::new());
+        let second = control_move(2, basis, Vec::new(), Vec::new());
+        let apply_order = deterministic_order(vec![
+            (control_event_digest(&first).unwrap(), first.clone()),
+            (control_event_digest(&second).unwrap(), second.clone()),
+        ])
+        .into_iter()
+        .map(|(digest, _)| digest)
+        .collect::<Vec<_>>();
+
+        let effect = SealEffect {
+            seal: seal_id(0x22),
+            accepted_event_digests: apply_order.clone(),
+            rejected_events: Vec::new(),
+            post_state_root: move_id(0x33),
+        };
+
+        let mut ascending = apply_order.clone();
+        ascending.sort();
+        assert_eq!(effect.wire_accepted_event_digests(), ascending);
+        // Concurrent Moves are applied greatest-digest-first, so the two orders
+        // are reverses of each other here.
+        assert_ne!(effect.wire_accepted_event_digests(), apply_order);
     }
 
     #[test]
