@@ -29,6 +29,17 @@ jobs:
         run: python tools/lint-time-representations.py
       - name: Guard registered cell-family constants
         run: python tools/lint-cell-family-literals.py
+      - name: Guard hand-rolled Event digest preimages
+        run: |
+          python tools/test_lint_event_preimage_authoring.py
+          python tools/lint-event-preimage-authoring.py
+      # The audit runs against this repo here; the cross-repo inventory lives in
+      # tools/event_derived_id_minting_allowlist.json and each downstream repo
+      # runs `--root .` against the same file from its sibling checkout.
+      - name: Audit event-derived id minting
+        run: |
+          python tools/test_lint_event_derived_id_minting.py
+          python tools/lint-event-derived-id-minting.py
       - name: Guard weak wire types and closed-schema boundaries
         run: |
           python tools/wire_value_audit.py --check
