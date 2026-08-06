@@ -222,36 +222,36 @@ pub struct RealmLinkPayload {
     pub commitment: Option<String>,
 }
 
-fn default_link_status() -> RealmLinkStatus {
-    RealmLinkStatus::Active
-}
+// Both cross-Realm link writes carry the caller-signed `ak.realm.link` Move.
+// They used to carry the edge fields, which left the signature for the service
+// to add -- `capabilities.md` sections 118/361 and `key-management.md` section
+// 411 forbid exactly that. Create and tombstone are the same Event kind moving
+// the same `(realm_id, target_realm_id, link_kind)` FSM cell, so they differ
+// only in the status their payload names; the source Realm is single-sourced by
+// `event.realm_id` and must equal the path `realm_id`. There is no request-side
+// default for `status` any more: `RealmLinkPayload` requires it, and a default
+// the caller never signed would be a field the service chose.
 
-/// Operation DTO for creating a Realm Link. The HTTP default is materialized
-/// when this value is converted into the strict durable payload.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkCreateRequestBody {
-    pub target_realm_id: RealmId,
-    pub link_kind: RealmLinkKind,
-    #[serde(default = "default_link_status")]
-    pub status: RealmLinkStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commitment: Option<String>,
+    /// Closed `ak.realm.link` Event authored and signed by the caller. Its
+    /// payload is [`RealmLinkPayload`].
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub link_event: EventInitialSubmission,
 }
 
-impl From<RealmLinkCreateRequestBody> for RealmLinkPayload {
-    fn from(request: RealmLinkCreateRequestBody) -> Self {
-        Self {
-            target_realm_id: request.target_realm_id,
-            link_kind: request.link_kind,
-            status: request.status,
-            label: request.label,
-            commitment: request.commitment,
-        }
-    }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmLinkDeleteRequestBody {
+    /// Closed `ak.realm.link` Event authored and signed by the caller, with
+    /// `payload.status` pinned to `tombstoned`. `link_kind` travels in that
+    /// signed payload rather than a query parameter, which would be outside the
+    /// bytes the caller signs.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub link_event: EventInitialSubmission,
 }
 
 /// A sealed Realm Link write and the canonical bytes needed to distinguish an
@@ -771,18 +771,34 @@ pub struct RealmPolicyServerView {
     pub from_org_fallback: bool,
 }
 
+// Both policy-server writes carry the caller-signed `ak.realm.policy_server`
+// Move. The request used to carry a narrower projection of the declaration,
+// which left the signature for the service to add and gave the same value two
+// definitions to drift between; the caller now signs
+// `RealmPolicyServerDeclarationPayload` itself, which is what the reducer
+// stores. `head_eq` moves with it: preconditions are inside the signed bytes, so
+// the caller reads the settled value and attaches the precondition.
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerReplaceRequestBody {
-    pub policy_server_did: Did,
-    pub policy_server_url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cache_ttl_seconds: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_timeout: Option<RealmPolicyServerOnTimeout>,
+    /// Closed `ak.realm.policy_server` Event authored and signed by the caller,
+    /// whose payload is a [`RealmPolicyServerPayload::Declaration`].
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub policy_server_event: EventInitialSubmission,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyServerDeleteRequestBody {
+    /// Closed `ak.realm.policy_server` Event authored and signed by the caller,
+    /// whose payload is exactly [`RealmPolicyServerTombstonePayload::VALUE`].
+    /// The removal is a signed Event, so this DELETE carries a request body the
+    /// way `ak.self.keys.backups.resource.delete` already does.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub policy_server_event: EventInitialSubmission,
 }
 
 /// `lifecycle_phase` discriminator for a projected `ak.realm.organization`
@@ -964,24 +980,25 @@ mod tests {
     }
 
     #[test]
-    fn realm_link_request_default_materializes_but_durable_payload_is_strict() {
-        let request: RealmLinkCreateRequestBody = serde_json::from_value(serde_json::json!({
-            "target_realm_id": "ak:realm:01904100-0000-8000-8000-cfc039892036",
-            "link_kind": "governed_by",
-        }))
-        .unwrap();
-        assert_eq!(request.status, RealmLinkStatus::Active);
-
-        let payload: RealmLinkPayload = request.into();
-        assert_eq!(payload.status, RealmLinkStatus::Active);
-        assert_eq!(
-            serde_json::to_value(payload).unwrap()["status"],
-            serde_json::json!("active")
-        );
+    fn realm_link_status_has_no_request_side_default_left() {
+        // The request body used to default `status` to `active` and materialize
+        // it on the way into the durable payload. Nothing may fill that field in
+        // now: it is inside the bytes the caller signs, and `RealmLinkPayload`
+        // has always required it.
         assert!(
             serde_json::from_value::<RealmLinkPayload>(serde_json::json!({
                 "target_realm_id": "ak:realm:01904100-0000-8000-8000-cfc039892036",
                 "link_kind": "governed_by",
+            }))
+            .is_err()
+        );
+        // The edge fields are no longer a request-body surface at all; the body
+        // carries one thing, and it is the signed Event.
+        assert!(
+            serde_json::from_value::<RealmLinkCreateRequestBody>(serde_json::json!({
+                "target_realm_id": "ak:realm:01904100-0000-8000-8000-cfc039892036",
+                "link_kind": "governed_by",
+                "status": "active",
             }))
             .is_err()
         );

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.15;
-//! sha256=59b13eb56aafcc9680158091cbb594beb98c3ee1aaab742f8112b0d01a9bd905 Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-06.16;
+//! sha256=caa49c1d0f3f977f0ce7d8eff90cc7003c9eaab6a430bd8bc7ed01bd17095ea1 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -6316,7 +6316,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/realm-link-operations.schema.json#/$defs/realm_link_delete_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome",
         ),
@@ -6356,7 +6358,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "empty_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_delete_request_body",
+        ),
         response_schema_ref: None,
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
