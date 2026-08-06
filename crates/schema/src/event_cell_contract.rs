@@ -1311,15 +1311,16 @@ pub fn derived_object_id(event: &Event) -> Option<String> {
         .and_then(Value::as_array)?
         .iter()
         .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind))?;
-    for write in row.get("cell_writes").and_then(Value::as_array)? {
-        let rule = write.get("cell_subject")?;
-        if rule.get("field").and_then(Value::as_str) != Some(EVENT_ID_SUBJECT_SOURCE) {
-            continue;
-        }
-        let rule_kind = rule.get("kind").and_then(Value::as_str).unwrap_or_default();
-        return derived_object_id_subject(event, rule_kind, kind).ok();
+    if row.get("id_source").and_then(Value::as_str) != Some("event_derived") {
+        return None;
     }
-    None
+    // The target id kind is declared, never inferred: `ak.profile.create`
+    // makes an `ak:actor_profile:`, and `ak.circle.create` appends to a
+    // Realm-level ordered log whose subject says nothing about the object it
+    // creates. Guessing from the event kind's middle segment would be wrong for
+    // both.
+    let id_kind = row.get("id_kind").and_then(Value::as_str)?;
+    derived_object_id_subject(event, &format!("id:{id_kind}"), kind).ok()
 }
 
 /// Retype this create Event's `event_id` into the object-id kind the rule

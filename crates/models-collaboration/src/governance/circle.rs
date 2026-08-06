@@ -166,7 +166,15 @@ pub struct CircleDisplay {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct Circle {
-    pub id: CircleId,
+    /// The object id.
+    ///
+    /// Absent on the create payload: `ak.circle.create`'s registry `id_source`
+    /// is `event_derived`, so the id is `CircleId::from_event_id(&event_id)`
+    /// and a payload copy would be a second, forgeable truth (spec
+    /// `zh/models/common-fields.md` section 6.0). Present on every projected
+    /// snapshot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<CircleId>,
     pub schema: String,
     /// Parent Realm — create-locked. Circle never re-binds to another Realm.
     pub realm_id: RealmId,
@@ -818,7 +826,7 @@ impl Circle {
         created_by: Did,
     ) -> Self {
         Self {
-            id,
+            id: Some(id),
             schema: SchemaId::CIRCLE_V1.to_owned(),
             realm_id,
             profile_ref: None,
