@@ -1750,7 +1750,7 @@ mod tests {
                     proofs: Vec::new(),
                 }),
                 cba_proof_bundles: Vec::new(),
-                control_proposal_receipt: None,
+                control_proposal_ack: None,
                 membership_compensation_evidence: None,
             }],
         };

@@ -15,7 +15,7 @@
 pub mod memory;
 
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalReceipt};
+use arkret_wire::{ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy};
 use thiserror::Error;
 
 use crate::lattice::ordered_log::IssuedOp;
@@ -57,7 +57,7 @@ pub fn control_event_digest(event: &Event) -> StoreResult<Hash> {
 pub struct SealedControlEventRecord {
     pub event: Event,
     pub seal: SealId,
-    pub proposal_receipt: Option<ControlProposalReceipt>,
+    pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
     pub decision_overdue: bool,
 }
@@ -65,7 +65,7 @@ pub struct SealedControlEventRecord {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PendingControlEventRecord {
     pub event: Event,
-    pub proposal_receipt: Option<ControlProposalReceipt>,
+    pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
 }
 
@@ -81,7 +81,7 @@ pub trait ControlEventStore: Send + Sync {
         self.put_pending_with_receipt(event, None)
     }
 
-    /// Atomically bind the first proposal receipt to the pending Event.
+    /// Atomically bind the first Control Proposal Ack to the pending Event.
     ///
     /// Replays may omit the receipt or provide the byte-identical stored
     /// value. A different receipt for the same digest is a conflict because it
@@ -89,7 +89,7 @@ pub trait ControlEventStore: Send + Sync {
     fn put_pending_with_receipt(
         &self,
         event: &Event,
-        proposal_receipt: Option<&ControlProposalReceipt>,
+        control_proposal_ack: Option<&ControlProposalAck>,
     ) -> StoreResult<()>;
 
     /// Promote a previously-pending Event to sealed under `seal`.
@@ -98,7 +98,7 @@ pub trait ControlEventStore: Send + Sync {
 
     fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
 
-    fn proposal_receipt(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalReceipt>>;
+    fn control_proposal_ack(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalAck>>;
 
     fn record_proposal_decision(
         &self,

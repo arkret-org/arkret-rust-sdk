@@ -9,7 +9,7 @@ use arkret_canonical::{
 use arkret_wire::{
     AttestationId, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
-    CbaProofBundle, ControlProposalReceipt, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
+    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
     LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RealmId, ReasonCode, ReceiptId,
     RecoveryAuthorityTicketId, RecoverySessionId, Result, SchemaId, ServiceOperationId,
@@ -1793,7 +1793,7 @@ pub struct RecoveryPolicyPublishRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub control_proposal_receipt: Option<ControlProposalReceipt>,
+    pub control_proposal_ack: Option<ControlProposalAck>,
 }
 
 impl RecoveryPolicyPublishRequest {
@@ -1824,7 +1824,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
             event: value.event,
             authorization_lease: Some(value.authorization_lease),
             cba_proof_bundles: value.cba_proof_bundles,
-            control_proposal_receipt: value.control_proposal_receipt,
+            control_proposal_ack: value.control_proposal_ack,
             membership_compensation_evidence: None,
         }
     }

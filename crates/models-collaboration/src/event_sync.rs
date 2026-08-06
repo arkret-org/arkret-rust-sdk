@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    CbaProofBundle, ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalReceipt,
+    CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
     Did, Error, Event, EventFederationSubmission, EventId, FederatedDeviceSigningKeyEvidence, Hash,
     Hlc, RealmId, Result, SchemaId, Seal, SealBasis, SealId,
 };
@@ -364,7 +364,7 @@ pub enum ControlProposalDecisionState {
 #[serde(deny_unknown_fields)]
 pub struct PendingControlProposal {
     pub proposal_digest: Hash,
-    pub receipt: ControlProposalReceipt,
+    pub receipt: ControlProposalAck,
     pub decisions: Vec<ControlProposalDecision>,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub current_decision_due_at: DateTime<Utc>,
@@ -397,7 +397,7 @@ pub struct ControlGovernanceHealth {
 #[serde(deny_unknown_fields)]
 pub struct RetainedControlProposalFault {
     pub proposal_digest: Hash,
-    pub receipt: ControlProposalReceipt,
+    pub receipt: ControlProposalAck,
     pub decisions: Vec<ControlProposalDecision>,
     pub accepted_seal_id: SealId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -1084,9 +1084,9 @@ mod tests {
     use arkret_wire::{
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
-        AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId,
-        ControlProposalReceiptKind, DeviceId, DidKey, DidUrl, Hash, IngressReceipt, LeaseBasisRef,
-        NotarySig, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealKind,
+        AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, ControlProposalAckKind,
+        DeviceId, DidKey, DidUrl, Hash, IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof,
+        PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
 
@@ -1310,10 +1310,10 @@ mod tests {
             authority_set_id: authority_set_policy.authority_set_id.clone(),
             authority_set_digest: authority_set_policy.digest().unwrap(),
         };
-        let control_proposal_receipt = event
+        let control_proposal_ack = event
             .seal_basis
             .as_ref()
-            .map(|_| proposal_receipt_for(&event, &authority_set_ref, issued_at));
+            .map(|_| control_proposal_ack_for(&event, &authority_set_ref, issued_at));
         let mut authorization_lease = AuthorizationLease {
             authorization_lease_id: AuthorizationLeaseId::new(
                 "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
@@ -1361,19 +1361,19 @@ mod tests {
             event,
             authorization_lease: Some(authorization_lease),
             ingress_receipts: vec![receipt],
-            control_proposal_receipt,
+            control_proposal_ack,
             membership_compensation_evidence: None,
         }
     }
 
-    fn proposal_receipt_for(
+    fn control_proposal_ack_for(
         event: &Event,
         authority_set_ref: &AuthoritySetRef,
         received_at: DateTime<Utc>,
-    ) -> ControlProposalReceipt {
+    ) -> ControlProposalAck {
         let proposal_digest = Hash::new(event.event_digest().unwrap()).unwrap();
         let authority_set_digest = authority_set_ref.authority_set_digest.clone();
-        let mut member_receipt = arkret_wire::ProposalMemberReceipt {
+        let mut authority_ack = arkret_wire::ControlProposalAuthorityAck {
             realm_id: event.realm_id.clone(),
             proposal_digest: proposal_digest.clone(),
             received_at,
@@ -1388,9 +1388,9 @@ mod tests {
                 jws: "a..b".to_owned(),
             },
         };
-        member_receipt.signature.payload_digest = member_receipt.member_receipt_digest().unwrap();
-        ControlProposalReceipt {
-            kind: ControlProposalReceiptKind::ProposalReceipt,
+        authority_ack.signature.payload_digest = authority_ack.authority_ack_digest().unwrap();
+        ControlProposalAck {
+            kind: ControlProposalAckKind::SignedAck,
             realm_id: event.realm_id.clone(),
             proposal_digest,
             received_at,
@@ -1398,7 +1398,7 @@ mod tests {
             absolute_due_at: received_at + chrono::Duration::seconds(90),
             defer_count: 0,
             authority_set_ref: authority_set_digest,
-            member_receipts: vec![member_receipt],
+            authority_acks: vec![authority_ack],
         }
     }
 
@@ -1409,7 +1409,7 @@ mod tests {
         let received_at = DateTime::parse_from_rfc3339("2026-07-29T20:57:46.276Z")
             .unwrap()
             .with_timezone(&Utc);
-        let receipt = proposal_receipt_for(
+        let receipt = control_proposal_ack_for(
             &event,
             &submission
                 .authorization_lease

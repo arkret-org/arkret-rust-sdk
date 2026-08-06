@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.6;
-//! sha256=2c6f66f6c53c09228a46957dd651107b761e6a56f6e2cdf55926c127a159b31c Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-06.7;
+//! sha256=03287ad32967363db924630fded604947cb0bac1c1b1e6a7510f338be123d855 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -158,7 +158,7 @@ pub enum ServiceOperationId {
     SelfContactCommandScopeUpdate,
     SelfContactCommandTombstone,
     SelfContactQueryList,
-    SelfControlProposalReceiptsCommandIssue,
+    SelfControlProposalAcksCommandIssue,
     SelfDeviceMessagesCommandAck,
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesQueryList,
@@ -383,7 +383,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONTACT_COMMAND_SCOPE_UPDATE,
     ServiceOperationId::SELF_CONTACT_COMMAND_TOMBSTONE,
     ServiceOperationId::SELF_CONTACT_QUERY_LIST,
-    ServiceOperationId::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE,
+    ServiceOperationId::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
     ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST,
@@ -648,7 +648,7 @@ impl ServiceOperationId {
         Self::SelfContactCommandScopeUpdate,
         Self::SelfContactCommandTombstone,
         Self::SelfContactQueryList,
-        Self::SelfControlProposalReceiptsCommandIssue,
+        Self::SelfControlProposalAcksCommandIssue,
         Self::SelfDeviceMessagesCommandAck,
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesQueryList,
@@ -957,8 +957,8 @@ impl ServiceOperationId {
         "ak.self.contact.command.scope_update";
     pub const SELF_CONTACT_COMMAND_TOMBSTONE: &'static str = "ak.self.contact.command.tombstone";
     pub const SELF_CONTACT_QUERY_LIST: &'static str = "ak.self.contact.query.list";
-    pub const SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE: &'static str =
-        "ak.self.control_proposal_receipts.command.issue";
+    pub const SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE: &'static str =
+        "ak.self.control_proposal_acks.command.issue";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK: &'static str =
         "ak.self.device_messages.command.ack";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
@@ -1293,8 +1293,8 @@ impl ServiceOperationId {
             Self::SelfContactCommandScopeUpdate => Self::SELF_CONTACT_COMMAND_SCOPE_UPDATE,
             Self::SelfContactCommandTombstone => Self::SELF_CONTACT_COMMAND_TOMBSTONE,
             Self::SelfContactQueryList => Self::SELF_CONTACT_QUERY_LIST,
-            Self::SelfControlProposalReceiptsCommandIssue => {
-                Self::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE
+            Self::SelfControlProposalAcksCommandIssue => {
+                Self::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE
             }
             Self::SelfDeviceMessagesCommandAck => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK,
             Self::SelfDeviceMessagesCommandSend => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND,
@@ -1662,8 +1662,8 @@ impl ServiceOperationId {
             Self::SELF_CONTACT_COMMAND_SCOPE_UPDATE => Some(Self::SelfContactCommandScopeUpdate),
             Self::SELF_CONTACT_COMMAND_TOMBSTONE => Some(Self::SelfContactCommandTombstone),
             Self::SELF_CONTACT_QUERY_LIST => Some(Self::SelfContactQueryList),
-            Self::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE => {
-                Some(Self::SelfControlProposalReceiptsCommandIssue)
+            Self::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE => {
+                Some(Self::SelfControlProposalAcksCommandIssue)
             }
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK => Some(Self::SelfDeviceMessagesCommandAck),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND => Some(Self::SelfDeviceMessagesCommandSend),
@@ -5097,21 +5097,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfControlProposalReceiptsCommandIssue,
+        id: ServiceOperationId::SelfControlProposalAcksCommandIssue,
         http_method: "POST",
-        http_path: "/_arkret/self/control-proposal-receipts",
-        grpc: Some("SelfControlProposalReceipts/Issue"),
-        mq: Some("self.control_proposal_receipts.command.issue"),
+        http_path: "/_arkret/self/control-proposal-acks",
+        grpc: Some("SelfControlProposalAcks/Issue"),
+        mq: Some("self.control_proposal_acks.command.issue"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/control-proposal-decision.schema.json#/$defs/proposal_receipt_issue_request",
+            "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_ack_issue_request",
         ),
         response_schema_ref: Some(
-            "schemas/control-proposal-decision.schema.json#/$defs/proposal_receipt_issue_outcome",
+            "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_ack_issue_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {

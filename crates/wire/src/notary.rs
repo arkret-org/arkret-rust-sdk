@@ -225,7 +225,7 @@ impl NotaryValue {
     }
 
     /// Whether a distinct signer set satisfies this exact current notary
-    /// profile for one canonical proposal receipt or decision payload.
+    /// profile for one canonical Control Proposal Ack or decision payload.
     ///
     /// Open-set members occupy independent signer slots and therefore never
     /// combine into a cross-leaf threshold. Mixed profiles accept either the

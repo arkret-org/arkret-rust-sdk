@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{ControlProposalDecision, ControlProposalReceipt};
+use arkret_wire::{ControlProposalAck, ControlProposalDecision};
 use serde_json::{Value, json};
 
 use super::{
@@ -41,7 +41,7 @@ struct MemoryControlEventStoreInner {
     sealed: BTreeMap<String, SealId>,
     /// Insertion order so list_pending is deterministic.
     insertion_order: Vec<String>,
-    proposal_receipts: BTreeMap<String, ControlProposalReceipt>,
+    control_proposal_acks: BTreeMap<String, ControlProposalAck>,
     proposal_decisions: BTreeMap<String, Vec<ControlProposalDecision>>,
     decision_overdue: BTreeSet<String>,
 }
@@ -50,17 +50,17 @@ impl ControlEventStore for MemoryControlEventStore {
     fn put_pending_with_receipt(
         &self,
         event: &Event,
-        proposal_receipt: Option<&ControlProposalReceipt>,
+        control_proposal_ack: Option<&ControlProposalAck>,
     ) -> StoreResult<()> {
         let digest = control_event_digest(event)?;
-        if let Some(receipt) = proposal_receipt
+        if let Some(receipt) = control_proposal_ack
             && (receipt.proposal_digest != digest || receipt.realm_id != event.realm_id)
         {
             return Err(StoreError::Conflict(
-                "proposal receipt does not bind the pending Control Move".to_owned(),
+                "Control Proposal Ack does not bind the pending Control Move".to_owned(),
             ));
         }
-        if let Some(receipt) = proposal_receipt {
+        if let Some(receipt) = control_proposal_ack {
             receipt
                 .validate_protocol_bounds()
                 .map_err(|error| StoreError::Conflict(error.to_string()))?;
@@ -70,12 +70,12 @@ impl ControlEventStore for MemoryControlEventStore {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let (Some(receipt), Some(stored)) = (
-            proposal_receipt,
-            inner.proposal_receipts.get(digest.as_str()),
+            control_proposal_ack,
+            inner.control_proposal_acks.get(digest.as_str()),
         ) && stored != receipt
         {
             return Err(StoreError::Conflict(
-                "pending Control Move already has a different proposal receipt".to_owned(),
+                "pending Control Move already has a different Control Proposal Ack".to_owned(),
             ));
         }
         let key = digest.as_str().to_owned();
@@ -83,12 +83,12 @@ impl ControlEventStore for MemoryControlEventStore {
             inner.insertion_order.push(key.clone());
         }
         inner.events.entry(key).or_insert_with(|| event.clone());
-        if let Some(receipt) = proposal_receipt {
-            match inner.proposal_receipts.get(digest.as_str()) {
+        if let Some(receipt) = control_proposal_ack {
+            match inner.control_proposal_acks.get(digest.as_str()) {
                 Some(_) => {}
                 None => {
                     inner
-                        .proposal_receipts
+                        .control_proposal_acks
                         .insert(digest.as_str().to_owned(), receipt.clone());
                 }
             }
@@ -125,7 +125,7 @@ impl ControlEventStore for MemoryControlEventStore {
                 "signed-rejected control Event {event_digest} cannot be sealed"
             )));
         }
-        if let Some(receipt) = inner.proposal_receipts.get(event_digest.as_str()) {
+        if let Some(receipt) = inner.control_proposal_acks.get(event_digest.as_str()) {
             let mut previous_due_at = receipt.decision_due_at;
             for decision in &decisions {
                 overdue |= !decision.satisfied_current_deadline(previous_due_at);
@@ -154,12 +154,12 @@ impl ControlEventStore for MemoryControlEventStore {
             .cloned())
     }
 
-    fn proposal_receipt(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalReceipt>> {
+    fn control_proposal_ack(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalAck>> {
         Ok(self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .proposal_receipts
+            .control_proposal_acks
             .get(event_digest.as_str())
             .cloned())
     }
@@ -185,12 +185,12 @@ impl ControlEventStore for MemoryControlEventStore {
             )));
         }
         let receipt = inner
-            .proposal_receipts
+            .control_proposal_acks
             .get(event_digest.as_str())
             .cloned()
             .ok_or_else(|| {
                 StoreError::Conflict(format!(
-                    "control Event {event_digest} has no proposal receipt"
+                    "control Event {event_digest} has no Control Proposal Ack"
                 ))
             })?;
         let decisions = inner
@@ -237,7 +237,7 @@ impl ControlEventStore for MemoryControlEventStore {
                 let event = inner.events.get(digest)?;
                 (event.realm_id == *realm_id).then(|| PendingControlEventRecord {
                     event: event.clone(),
-                    proposal_receipt: inner.proposal_receipts.get(digest).cloned(),
+                    control_proposal_ack: inner.control_proposal_acks.get(digest).cloned(),
                     decisions: inner
                         .proposal_decisions
                         .get(digest)
@@ -338,7 +338,7 @@ impl ControlEventStore for MemoryControlEventStore {
                 out.push(SealedControlEventRecord {
                     event: event.clone(),
                     seal: seal.clone(),
-                    proposal_receipt: inner.proposal_receipts.get(digest).cloned(),
+                    control_proposal_ack: inner.control_proposal_acks.get(digest).cloned(),
                     decisions: inner
                         .proposal_decisions
                         .get(digest)
@@ -1161,11 +1161,11 @@ mod tests {
         }
     }
 
-    fn proposal_receipt(event: &Event) -> ControlProposalReceipt {
+    fn control_proposal_ack(event: &Event) -> ControlProposalAck {
         let received_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
         let proposal_digest = control_event_digest(event).unwrap();
         let authority_set_ref = hash(0x44);
-        let mut member_receipt = arkret_wire::ProposalMemberReceipt {
+        let mut authority_ack = arkret_wire::ControlProposalAuthorityAck {
             realm_id: event.realm_id.clone(),
             proposal_digest: proposal_digest.clone(),
             received_at,
@@ -1181,9 +1181,9 @@ mod tests {
                 jws: "e30..c2ln".to_owned(),
             },
         };
-        member_receipt.signature.payload_digest = member_receipt.member_receipt_digest().unwrap();
-        ControlProposalReceipt {
-            kind: arkret_wire::ControlProposalReceiptKind::ProposalReceipt,
+        authority_ack.signature.payload_digest = authority_ack.authority_ack_digest().unwrap();
+        ControlProposalAck {
+            kind: arkret_wire::ControlProposalAckKind::SignedAck,
             realm_id: event.realm_id.clone(),
             proposal_digest,
             received_at,
@@ -1191,16 +1191,16 @@ mod tests {
             absolute_due_at: received_at + chrono::Duration::seconds(90),
             defer_count: 0,
             authority_set_ref,
-            member_receipts: vec![member_receipt],
+            authority_acks: vec![authority_ack],
         }
     }
 
-    fn signed_reject(receipt: &ControlProposalReceipt) -> ControlProposalDecision {
+    fn signed_reject(receipt: &ControlProposalAck) -> ControlProposalDecision {
         let decided_at = receipt.received_at + chrono::Duration::seconds(20);
         let mut decision = ControlProposalDecision::SignedReject {
             realm_id: receipt.realm_id.clone(),
             proposal_digest: receipt.proposal_digest.clone(),
-            receipt_digest: receipt.receipt_digest().unwrap(),
+            proposal_ack_digest: receipt.proposal_ack_digest().unwrap(),
             decided_at,
             decision_due_at: receipt.decision_due_at,
             absolute_due_at: receipt.absolute_due_at,
@@ -1229,7 +1229,7 @@ mod tests {
         let store = MemoryControlEventStore::default();
         let event = control_move(1);
         let event_digest = control_event_digest(&event).unwrap();
-        let receipt = proposal_receipt(&event);
+        let receipt = control_proposal_ack(&event);
         let decision = signed_reject(&receipt);
         let policy = arkret_wire::ControlProposalDecisionPolicy::default();
 
@@ -1267,7 +1267,7 @@ mod tests {
         let store = MemoryControlEventStore::default();
         let first = control_move(1);
         let digest = control_event_digest(&first).unwrap();
-        let receipt = proposal_receipt(&first);
+        let receipt = control_proposal_ack(&first);
         store
             .put_pending_with_receipt(&first, Some(&receipt))
             .unwrap();
@@ -1317,7 +1317,7 @@ mod tests {
         let first = control_move(1);
         let second = control_move(2);
         store
-            .put_pending_with_receipt(&first, Some(&proposal_receipt(&first)))
+            .put_pending_with_receipt(&first, Some(&control_proposal_ack(&first)))
             .unwrap();
         store.put_pending(&second).unwrap();
 

@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::cba_proof_bundle::CbaProofBundle;
-use crate::control_proposal::ControlProposalReceipt;
+use crate::control_proposal::ControlProposalAck;
 use crate::error::{Error, Result};
 use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
@@ -237,7 +237,7 @@ pub struct EventInitialSubmission {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub control_proposal_receipt: Option<ControlProposalReceipt>,
+    pub control_proposal_ack: Option<ControlProposalAck>,
     /// Present only for an `ak.member.state` compensation submission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
@@ -254,7 +254,7 @@ pub struct EventFederationSubmission {
     pub authorization_lease: Option<AuthorizationLease>,
     pub ingress_receipts: Vec<IngressReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub control_proposal_receipt: Option<ControlProposalReceipt>,
+    pub control_proposal_ack: Option<ControlProposalAck>,
     /// Byte-identical transport-only evidence forwarded from self admission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
@@ -283,9 +283,9 @@ fn validate_lease_binds_event(event: &Event, lease: &AuthorizationLease) -> Resu
     Ok(())
 }
 
-fn validate_control_proposal_receipt(
+fn validate_control_proposal_ack(
     event: &Event,
-    receipt: Option<&ControlProposalReceipt>,
+    receipt: Option<&ControlProposalAck>,
     context: EventSubmitContext,
 ) -> Result<()> {
     if let Some(receipt) = receipt {
@@ -297,13 +297,13 @@ fn validate_control_proposal_receipt(
         // identify a DataEvent and must fail closed.
         if context == EventSubmitContext::Standard && event.seal_basis.is_none() {
             return Err(Error::Protocol(
-                "DataEvent submissions forbid a control proposal receipt".to_owned(),
+                "DataEvent submissions forbid a Control Proposal Ack".to_owned(),
             ));
         }
         let event_digest = crate::Hash::new(event.event_digest()?)?;
         if receipt.realm_id != event.realm_id || receipt.proposal_digest != event_digest {
             return Err(Error::Protocol(
-                "control proposal receipt does not bind the submitted Event".to_owned(),
+                "Control Proposal Ack does not bind the submitted Event".to_owned(),
             ));
         }
     }
@@ -346,7 +346,7 @@ impl EventInitialSubmission {
             event,
             authorization_lease: None,
             cba_proof_bundles: Vec::new(),
-            control_proposal_receipt: None,
+            control_proposal_ack: None,
             membership_compensation_evidence: None,
         }
     }
@@ -358,7 +358,7 @@ impl EventInitialSubmission {
             event,
             authorization_lease: Some(authorization_lease),
             cba_proof_bundles: Vec::new(),
-            control_proposal_receipt: None,
+            control_proposal_ack: None,
             membership_compensation_evidence: None,
         }
     }
@@ -383,11 +383,7 @@ impl EventInitialSubmission {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
         }
-        validate_control_proposal_receipt(
-            &self.event,
-            self.control_proposal_receipt.as_ref(),
-            context,
-        )?;
+        validate_control_proposal_ack(&self.event, self.control_proposal_ack.as_ref(), context)?;
         validate_membership_compensation_evidence(
             &self.event,
             self.membership_compensation_evidence.as_ref(),
@@ -424,11 +420,7 @@ impl EventFederationSubmission {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
         }
-        validate_control_proposal_receipt(
-            &self.event,
-            self.control_proposal_receipt.as_ref(),
-            context,
-        )?;
+        validate_control_proposal_ack(&self.event, self.control_proposal_ack.as_ref(), context)?;
         validate_membership_compensation_evidence(
             &self.event,
             self.membership_compensation_evidence.as_ref(),
@@ -614,14 +606,14 @@ mod tests {
     }
 
     #[test]
-    fn caller_proven_anchor_allows_its_control_proposal_receipt_without_seal_basis() {
+    fn caller_proven_anchor_allows_its_control_proposal_ack_without_seal_basis() {
         let mut event = online_event();
         event.seal_ref = None;
         event.seal_basis = None;
         let proposal_digest = Hash::new(event.event_digest().unwrap()).unwrap();
         let now = Utc::now();
-        let receipt = ControlProposalReceipt {
-            kind: crate::ControlProposalReceiptKind::ProposalReceipt,
+        let receipt = ControlProposalAck {
+            kind: crate::ControlProposalAckKind::SignedAck,
             realm_id: event.realm_id.clone(),
             proposal_digest,
             received_at: now,
@@ -629,19 +621,15 @@ mod tests {
             absolute_due_at: now + chrono::Duration::hours(2),
             defer_count: 0,
             authority_set_ref: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            member_receipts: Vec::new(),
+            authority_acks: Vec::new(),
         };
 
         assert!(
-            validate_control_proposal_receipt(
-                &event,
-                Some(&receipt),
-                EventSubmitContext::Standard,
-            )
-            .is_err(),
+            validate_control_proposal_ack(&event, Some(&receipt), EventSubmitContext::Standard,)
+                .is_err(),
             "basis-free standard Events remain DataEvents"
         );
-        validate_control_proposal_receipt(&event, Some(&receipt), EventSubmitContext::AnchorUnit)
+        validate_control_proposal_ack(&event, Some(&receipt), EventSubmitContext::AnchorUnit)
             .expect("caller-proven closed anchors remain Control Moves");
     }
 
@@ -661,7 +649,7 @@ mod tests {
             event: online_event(),
             authorization_lease: None,
             ingress_receipts: Vec::new(),
-            control_proposal_receipt: None,
+            control_proposal_ack: None,
             membership_compensation_evidence: None,
         };
         submission.validate_structural().unwrap();
@@ -673,7 +661,7 @@ mod tests {
             event: online_event(),
             authorization_lease: Some(lease_for(&intent())),
             ingress_receipts: Vec::new(),
-            control_proposal_receipt: None,
+            control_proposal_ack: None,
             membership_compensation_evidence: None,
         };
         assert!(submission.validate_structural().is_err());

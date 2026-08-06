@@ -186,7 +186,7 @@ pub struct Realm {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_witness_freshness_window_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub receipt_sla_ms: Option<u64>,
+    pub proposal_intake_sla_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_decision_window_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -415,7 +415,7 @@ impl Realm {
             capability_action_registry_digest,
             revocation_freshness_window_ms: None,
             recovery_witness_freshness_window_ms: None,
-            receipt_sla_ms: None,
+            proposal_intake_sla_ms: None,
             proposal_decision_window_ms: None,
             proposal_absolute_deadline_ms: None,
             max_proposal_defers: None,
@@ -462,9 +462,9 @@ impl Realm {
                 .map_err(|_| Error::Protocol(format!("{field} exceeds the signed duration range")))
         };
         let policy = ControlProposalDecisionPolicy {
-            receipt_sla: duration_from_ms(
-                self.receipt_sla_ms.unwrap_or(86_400_000),
-                "receipt_sla_ms",
+            proposal_intake_sla: duration_from_ms(
+                self.proposal_intake_sla_ms.unwrap_or(86_400_000),
+                "proposal_intake_sla_ms",
             )?,
             decision_window: duration_from_ms(
                 self.proposal_decision_window_ms.unwrap_or(30_000),

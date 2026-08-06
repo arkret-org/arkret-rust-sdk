@@ -8,11 +8,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalReceipt, Cursor, DeviceId,
-    Did, Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri,
-    MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, ReasonCode,
-    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
-    StrandId, canonical,
+    Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalAck, Cursor, DeviceId, Did,
+    Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
+    MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, ReasonCode, RelationId,
+    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -250,7 +250,7 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ingress_receipts: Vec<IngressReceipt>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub control_proposal_receipts: Vec<ControlProposalReceipt>,
+    pub control_proposal_acks: Vec<ControlProposalAck>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

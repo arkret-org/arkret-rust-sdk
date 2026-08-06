@@ -29,9 +29,9 @@ use arkret_schema::PreparedStandardEvent;
 use arkret_state::SnapshotManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    AuthorizationLease, AuthorizationLeaseIssueRequest, ControlProposalDecisionPolicy,
-    ControlProposalReceipt, Cursor, Event, EventInitialSubmission, EventSubmitContext, Hash,
-    ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest, RealmId, Seal,
+    AuthorizationLease, AuthorizationLeaseIssueRequest, ControlProposalAck,
+    ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
+    Cursor, Event, EventInitialSubmission, EventSubmitContext, Hash, RealmId, Seal,
 };
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -290,7 +290,7 @@ impl Client {
     /// Ordinary Events use online admission without a prefetched lease. A
     /// closed anchor unit has no accepted authority yet, so this method obtains
     /// the complete anchor-unit lease set that lets the admitting Principal
-    /// Server issue the genesis proposal receipts atomically.
+    /// Server issue the genesis Control Proposal Acks atomically.
     pub async fn prepare_initial_submissions(
         &self,
         events: &[Event],
@@ -298,7 +298,7 @@ impl Client {
         let submit_context = initial_submission_context(events)?;
         if submit_context == EventSubmitContext::AnchorUnit {
             // Realm genesis has no accepted authority from which a caller can
-            // pre-collect a proposal receipt. The admitting Principal Server
+            // pre-collect a Control Proposal Ack. The admitting Principal Server
             // mints those receipts atomically after it has pre-admitted the
             // complete lease-bound unit. A device re-anchor, by contrast,
             // already has an accepted recovery authority and must arrive with
@@ -334,7 +334,7 @@ impl Client {
         mut issue_receipt: F,
     ) -> Result<Vec<EventInitialSubmission>>
     where
-        F: FnMut(&Event, &AuthorizationLease) -> Result<ControlProposalReceipt>,
+        F: FnMut(&Event, &AuthorizationLease) -> Result<ControlProposalAck>,
     {
         let submit_context = initial_submission_context(events)?;
         let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
@@ -349,7 +349,7 @@ impl Client {
         let outcome = self.issue_authorization_leases(&request, &options).await?;
         let mut submissions = Vec::with_capacity(events.len());
         for (event, lease) in events.iter().zip(outcome.authorization_leases) {
-            let control_proposal_receipt = if anchor_unit || event.seal_basis.is_some() {
+            let control_proposal_ack = if anchor_unit || event.seal_basis.is_some() {
                 Some(issue_receipt(event, &lease)?)
             } else {
                 None
@@ -358,7 +358,7 @@ impl Client {
                 event: event.clone(),
                 authorization_lease: Some(lease),
                 cba_proof_bundles: Vec::new(),
-                control_proposal_receipt,
+                control_proposal_ack,
                 membership_compensation_evidence: None,
             };
             submission.validate_structural_in_context(submit_context)?;
@@ -415,11 +415,11 @@ impl Client {
                 event: event.clone(),
                 authorization_lease: Some(lease),
                 cba_proof_bundles: Vec::new(),
-                control_proposal_receipt: None,
+                control_proposal_ack: None,
                 membership_compensation_evidence: None,
             };
             if (anchor_unit && collect_anchor_receipts) || event.seal_basis.is_some() {
-                let request = ProposalReceiptIssueRequest {
+                let request = ControlProposalAckIssueRequest {
                     event: event.clone(),
                     authorization_lease: submission
                         .authorization_lease
@@ -427,9 +427,9 @@ impl Client {
                         .expect("delayed submission was constructed with a lease"),
                     cba_proof_bundles: Vec::new(),
                 };
-                submission.control_proposal_receipt = Some(
+                submission.control_proposal_ack = Some(
                     if let Some((authority_clients, notary, policy)) = collector {
-                        self.collect_control_proposal_receipt(
+                        self.collect_control_proposal_ack(
                             &request,
                             authority_clients,
                             notary,
@@ -437,9 +437,9 @@ impl Client {
                         )
                         .await?
                     } else {
-                        let outcome = self.issue_control_proposal_receipt(&request).await?;
-                        ControlProposalReceipt::from_member_receipts_protocol_bounds(vec![
-                            outcome.member_receipt,
+                        let outcome = self.issue_control_proposal_ack(&request).await?;
+                        ControlProposalAck::from_authority_acks_protocol_bounds(vec![
+                            outcome.authority_ack,
                         ])?
                     },
                 );
@@ -450,15 +450,15 @@ impl Client {
         Ok(submissions)
     }
 
-    /// Collect and assemble one canonical proposal receipt set from independent
+    /// Collect and assemble one canonical Control Proposal Ack set from independent
     /// current authority transports.
-    pub async fn collect_control_proposal_receipt(
+    pub async fn collect_control_proposal_ack(
         &self,
-        request: &ProposalReceiptIssueRequest,
+        request: &ControlProposalAckIssueRequest,
         authority_clients: &[Client],
         notary: &NotaryValue,
         policy: ControlProposalDecisionPolicy,
-    ) -> Result<ControlProposalReceipt> {
+    ) -> Result<ControlProposalAck> {
         request.validate_structural()?;
         if authority_clients.is_empty() {
             return Err(Error::Protocol(
@@ -469,12 +469,12 @@ impl Client {
         for authority in authority_clients {
             members.push(
                 authority
-                    .issue_control_proposal_receipt(request)
+                    .issue_control_proposal_ack(request)
                     .await?
-                    .member_receipt,
+                    .authority_ack,
             );
         }
-        ControlProposalReceipt::from_member_receipts_for_notary(members, policy, notary)
+        ControlProposalAck::from_authority_acks_for_notary(members, policy, notary)
             .map_err(Into::into)
     }
 
@@ -506,21 +506,21 @@ impl Client {
         })
     }
 
-    pub async fn issue_control_proposal_receipt(
+    pub async fn issue_control_proposal_ack(
         &self,
-        request: &ProposalReceiptIssueRequest,
-    ) -> Result<ProposalReceiptIssueOutcome> {
+        request: &ControlProposalAckIssueRequest,
+    ) -> Result<ControlProposalAckIssueOutcome> {
         request.validate_structural()?;
-        let outcome: ProposalReceiptIssueOutcome = self
-            .post("/_arkret/self/control-proposal-receipts", request)
+        let outcome: ControlProposalAckIssueOutcome = self
+            .post("/_arkret/self/control-proposal-acks", request)
             .await?;
-        outcome.member_receipt.validate_protocol_bounds()?;
+        outcome.authority_ack.validate_protocol_bounds()?;
         let event_digest = Hash::new(request.event.event_digest()?)?;
-        if outcome.member_receipt.realm_id != request.event.realm_id
-            || outcome.member_receipt.proposal_digest != event_digest
+        if outcome.authority_ack.realm_id != request.event.realm_id
+            || outcome.authority_ack.proposal_digest != event_digest
         {
             return Err(Error::Protocol(
-                "proposal member receipt response changed the Event binding".to_owned(),
+                "proposal authority Ack response changed the Event binding".to_owned(),
             ));
         }
         Ok(outcome)

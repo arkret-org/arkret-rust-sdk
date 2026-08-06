@@ -121,8 +121,8 @@ pub fn build_self_principal_pcr_create(
 ///
 /// Each slot travels with one authorization lease bound to the complete
 /// ordered anchor unit. The admitting Principal Server uses that pre-admission
-/// evidence to mint the two proposal receipts inside the atomic genesis
-/// transaction, so callers must not attach proposal receipts themselves.
+/// evidence to mint the two Control Proposal Acks inside the atomic genesis
+/// transaction, so callers must not attach Control Proposal Acks themselves.
 pub fn self_principal_bootstrap_submit_request(
     create: EventInitialSubmission,
     authorize: EventInitialSubmission,
@@ -150,9 +150,9 @@ pub fn self_principal_bootstrap_submit_request(
         &[create.event.clone(), authorize.event.clone()],
         &leases,
     )?;
-    if create.control_proposal_receipt.is_some() || authorize.control_proposal_receipt.is_some() {
+    if create.control_proposal_ack.is_some() || authorize.control_proposal_ack.is_some() {
         return Err(Error::Protocol(
-            "self principal bootstrap proposal receipts are minted by the admitting server"
+            "self principal bootstrap Control Proposal Acks are minted by the admitting server"
                 .to_owned(),
         ));
     }

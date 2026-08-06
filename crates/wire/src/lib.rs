@@ -88,11 +88,11 @@ pub use cell::{
 pub use consent_scope::*;
 pub use constants::*;
 pub use control_proposal::{
-    ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalDeferReason,
-    ControlProposalReceipt, ControlProposalReceiptKind, ControlProposalRejectReason,
-    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_AUTHORITY_PROOFS, MAX_PROPOSAL_DECISION_WINDOW,
-    MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_RECEIPT_MEMBERS, MAX_PROPOSAL_RECEIPT_SLA,
-    ProposalMemberReceipt, ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest,
+    ControlProposalAck, ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest,
+    ControlProposalAckKind, ControlProposalAuthorityAck, ControlProposalDecision,
+    ControlProposalDecisionPolicy, ControlProposalDeferReason, ControlProposalRejectReason,
+    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_AUTHORITY_ACKS, MAX_PROPOSAL_AUTHORITY_PROOFS,
+    MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_INTAKE_SLA,
 };
 pub use error::{Error, Result, WireError};
 pub use error_codes::*;

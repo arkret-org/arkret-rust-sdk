@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.6;
-//! sha256=2c6f66f6c53c09228a46957dd651107b761e6a56f6e2cdf55926c127a159b31c Input: registry/
-//! operations-error-mapping.json; version=2026-08-06.1;
-//! sha256=bec701639de1fc2d8470a3c5d5fc2816cb00bd535ce88e8047cf96eb08f7922d Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-06.7;
+//! sha256=03287ad32967363db924630fded604947cb0bac1c1b1e6a7510f338be123d855 Input: registry/
+//! operations-error-mapping.json; version=2026-08-06.2;
+//! sha256=2f2e732e00796254f88316860242c34e57510bb67c47997136cdc1fd4fe62c06 Input: registry/
 //! error-code-registry.json; version=2026-08-06.3;
 //! sha256=cddc1cd1bd84e047fbab4160000d29af290825b42c7a0beb09373fa6f77f471b Entries: operations=222
 
@@ -993,7 +993,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfControlProposalReceiptsCommandIssue,
+        operation: ServiceOperationId::SelfControlProposalAcksCommandIssue,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),

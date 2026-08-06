@@ -976,7 +976,7 @@ mod tests {
                 // Optional receiver-relative dependency evidence; the fixture
                 // Event cites no seal_ref / seal_basis, so it needs none.
                 cba_proof_bundles: Vec::new(),
-                control_proposal_receipt: None,
+                control_proposal_ack: None,
                 membership_compensation_evidence: None,
             }
         }
