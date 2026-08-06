@@ -1,8 +1,9 @@
 //! Circle governance endpoint methods on [`Client`].
 
 use arkret_models_collaboration::governance::circle::{
-    CircleCreateRequestBody, CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody,
-    CircleMembershipOutcome, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
+    CircleArchiveRequestBody, CircleCreateRequestBody, CircleList, CircleMemberRequestBody,
+    CircleMembershipOutcome, CircleRestoreRequestBody, CircleScopeRotateOutcome,
+    CircleScopeRotateRequestBody, CircleTombstoneRequestBody, CircleView,
 };
 use reqwest::Method;
 
@@ -52,11 +53,13 @@ impl Client {
         .await
     }
 
-    async fn circle_lifecycle(
+    /// The three lifecycle actions differ only in the Event kind their body pins,
+    /// so the transport is shared and each caller keeps its own request type.
+    async fn circle_lifecycle<B: serde::Serialize>(
         &self,
         circle_id: &str,
         action: &str,
-        request: &CircleLifecycleRequestBody,
+        request: &B,
     ) -> Result<CircleView> {
         reject_path_segment(circle_id)?;
         reject_path_segment(action)?;
@@ -70,7 +73,7 @@ impl Client {
     pub async fn circle_archive(
         &self,
         circle_id: &str,
-        request: &CircleLifecycleRequestBody,
+        request: &CircleArchiveRequestBody,
     ) -> Result<CircleView> {
         self.circle_lifecycle(circle_id, "archive", request).await
     }
@@ -78,7 +81,7 @@ impl Client {
     pub async fn circle_restore(
         &self,
         circle_id: &str,
-        request: &CircleLifecycleRequestBody,
+        request: &CircleRestoreRequestBody,
     ) -> Result<CircleView> {
         self.circle_lifecycle(circle_id, "restore", request).await
     }
@@ -86,7 +89,7 @@ impl Client {
     pub async fn circle_tombstone(
         &self,
         circle_id: &str,
-        request: &CircleLifecycleRequestBody,
+        request: &CircleTombstoneRequestBody,
     ) -> Result<CircleView> {
         self.circle_lifecycle(circle_id, "tombstone", request).await
     }

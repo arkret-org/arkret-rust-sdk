@@ -343,9 +343,15 @@ impl CircleMembership {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleMemberRequestBody {
-    pub actor_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub membership: Option<CircleMembership>,
+    /// Initial publication of the caller-signed `ak.circle.member.state` Event.
+    ///
+    /// The target actor and the membership value live in
+    /// `member_event.event.payload`, and the Circle is `payload.circle_id`, which
+    /// must equal the path `circle_id`. Nothing else belongs here: the payload is
+    /// closed, and the `ak.circle.member.manage` decision is the admission path's,
+    /// evaluated against projected grants rather than asserted by the request.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub member_event: EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -379,11 +385,39 @@ pub struct CircleScopeRotateOutcome {
     pub note: Option<String>,
 }
 
+// The three Circle lifecycle operations take separate request types because each
+// pins its own Event kind. The body shape is identical: one caller-signed Event,
+// whose `payload.target_ref` single-sources the target Circle and must equal the
+// path `circle_id`. An optional human-readable reason is `payload.reason`.
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CircleLifecycleRequestBody {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<ReasonCode>,
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CircleArchiveRequestBody {
+    /// Closed `ak.circle.archive` Event authored and signed by the caller.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub lifecycle_event: EventInitialSubmission,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CircleRestoreRequestBody {
+    /// Closed `ak.circle.restore` Event authored and signed by the caller.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub lifecycle_event: EventInitialSubmission,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CircleTombstoneRequestBody {
+    /// Closed `ak.circle.tombstone` Event authored and signed by the caller.
+    ///
+    /// Tombstone is terminal: the lifecycle transition matrix admits no transition
+    /// out, so this Event is the whole record of who ended the Circle.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub lifecycle_event: EventInitialSubmission,
 }
 
 /// Circle lifecycle state. Mirrors spec circle.schema.json `state` enum.

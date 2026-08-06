@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.12;
-//! sha256=baf3ad20d78947fd999b44a38241bb074586b56bbdb0accbf76c6c447575a4c5 Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-06.13;
+//! sha256=a258cd4885c1cc81c56608dc34acbf94983c4ce12055096c8ad03ff7d355b877 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -4656,7 +4656,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body",
+            "schemas/circle-operations.schema.json#/$defs/circle_archive_request_body",
         ),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
         uncertain_outcome: Some(
@@ -4704,7 +4704,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body",
+            "schemas/circle-operations.schema.json#/$defs/circle_restore_request_body",
         ),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
         uncertain_outcome: Some(
@@ -4754,7 +4754,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body",
+            "schemas/circle-operations.schema.json#/$defs/circle_tombstone_request_body",
         ),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
         uncertain_outcome: Some(
