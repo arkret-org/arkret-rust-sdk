@@ -198,12 +198,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/patch.rs::PatchOperation.value",
-      "spec_pointer": "patch.schema.json#/additionalProperties/oneOf/1/properties/value",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
       "rust_field": "crates/models-collaboration/src/events_payloads/realm.rs::RealmCreatePayload.initial_relations",
       "spec_pointer": "event-payload.schema.json#/$defs/realm_create_payload/properties/initial_relations",
       "classification": "open_json",
@@ -929,12 +923,6 @@
       "spec_pointer": "service-describe.schema.json#/properties/verified_profiles/items/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/models-identity/src/account.rs::AccountDataReplaceRequestBody.content",
-      "spec_pointer": "account-data-operations.schema.json#/$defs/account_data_replace_request_body/properties/content",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
       "rust_field": "crates/models-identity/src/account.rs::AccountDataRow.content",

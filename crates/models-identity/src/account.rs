@@ -157,12 +157,41 @@ pub struct AccountRegistrationAudit {
     pub retry_after_ms: Option<u64>,
 }
 
+/// Body of `ak.self.account_data.resource.replace`.
+///
+/// `ak.account_data.set`'s actor-private cell subject is
+/// `composite[envelope.actor_id, payload.key]`, so the subject *is* the holder:
+/// only the holder can sign the Event, and a service that authors it under its own
+/// DID collapses every holder's value for one key into a single cell keyed by the
+/// service, sharing one `server_revision_cas` counter.
+///
+/// So the body carries the signed Event and nothing else. `expected_revision`,
+/// `key` and the value (`body` or `encrypted_payload`) all live in
+/// `set_event.event.payload`, which is where the CAS precondition has its one
+/// source. A tombstone payload is rejected here; erasure goes through
+/// [`AccountDataDeleteRequestBody`], which enforces the registered
+/// `deletion_mode`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataReplaceRequestBody {
-    pub expected_revision: u64,
-    pub content: Value,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub set_event: arkret_wire::EventInitialSubmission,
+}
+
+/// Body of `ak.self.account_data.resource.delete`.
+///
+/// Same signer rule as [`AccountDataReplaceRequestBody`]; the payload MUST carry
+/// `tombstone`. The DELETE takes a body because that is the only place the
+/// holder's signature can go — `ak.self.keys.backups.resource.delete` already
+/// shows a DELETE may carry one — and `expected_revision` moved into the payload
+/// rather than staying a query parameter, so one CAS precondition has one source.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AccountDataDeleteRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub set_event: arkret_wire::EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

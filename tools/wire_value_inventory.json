@@ -1,16 +1,16 @@
 {
   "summary": {
-    "total": 244,
+    "total": 242,
     "by_crate": {
       "auth": 1,
       "crypto": 1,
       "event-draft": 2,
       "identity": 5,
       "lattice-registry": 5,
-      "models-collaboration": 121,
+      "models-collaboration": 120,
       "models-crypto": 6,
       "models-discovery": 17,
-      "models-identity": 18,
+      "models-identity": 17,
       "models-integration": 18,
       "schema": 9,
       "server": 4,
@@ -20,12 +20,12 @@
     },
     "by_classification": {
       "internal_or_fixture": 60,
-      "open_json": 176,
+      "open_json": 174,
       "polymorphic_boundary": 8
     },
     "by_schema_shape": {
       "closed": 4,
-      "open_json": 10,
+      "open_json": 8,
       "open_json_container": 34,
       "open_map": 136,
       "unknown": 60
@@ -486,19 +486,6 @@
       "schema_shape": "open_map",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/models-collaboration/src/events_payloads/patch.rs::PatchOperation.value",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/events_payloads/patch.rs",
-      "line": 32,
-      "owner": "PatchOperation",
-      "field": "value",
-      "rust_type": "Option<Value>",
-      "spec_pointer": "patch.schema.json#/additionalProperties/oneOf/1/properties/value",
-      "schema_shape": "open_json",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/realm.rs::RealmCreatePayload.initial_relations",
@@ -2087,23 +2074,10 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-identity/src/account.rs::AccountDataReplaceRequestBody.content",
-      "crate": "models-identity",
-      "file": "crates/models-identity/src/account.rs",
-      "line": 164,
-      "owner": "AccountDataReplaceRequestBody",
-      "field": "content",
-      "rust_type": "Value",
-      "spec_pointer": "account-data-operations.schema.json#/$defs/account_data_replace_request_body/properties/content",
-      "schema_shape": "open_json",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
       "rust_field": "crates/models-identity/src/account.rs::AccountDataRow.content",
       "crate": "models-identity",
       "file": "crates/models-identity/src/account.rs",
-      "line": 173,
+      "line": 202,
       "owner": "AccountDataRow",
       "field": "content",
       "rust_type": "Value",
