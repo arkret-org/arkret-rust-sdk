@@ -19,6 +19,10 @@ use arkret_models_crypto::{
     KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
 };
 use arkret_models_discovery::ServiceDescribe;
+use arkret_models_identity::account::{
+    AccountDataDeleteOutcome, AccountDataDeleteRequestBody, AccountDataReplaceRequestBody,
+    AccountDataRow,
+};
 use arkret_wire::{BackupId, BlobRef};
 use reqwest::Method;
 use reqwest::header::{HeaderMap, RANGE};
@@ -27,7 +31,7 @@ use url::Url;
 use crate::client_internals::{
     MAX_RESPONSE_BODY_BYTES, read_body_limited, validate_base_url, validate_header_value,
 };
-use crate::{Client, ClientRequestOptions, Error, Result};
+use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 /// Protocol-level feature id the server must advertise before a caller uses
 /// the optional tus upload binding.
@@ -606,6 +610,47 @@ impl Client {
     ) -> Result<KeysBackupsDeleteOutcome> {
         let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
         self.delete_with_body(&path, request).await
+    }
+
+    /// Read one account-data entry.
+    pub async fn account_data_get(&self, account_data_key: &str) -> Result<AccountDataRow> {
+        reject_path_segment(account_data_key)?;
+        self.get(&format!("/_arkret/self/account_data/{account_data_key}"))
+            .await
+    }
+
+    /// Replace one account-data value with the holder-signed `ak.account_data.set`.
+    ///
+    /// `expected_revision`, the key and the value all live inside
+    /// `set_event.event.payload`, so the CAS precondition is covered by the
+    /// holder's signature rather than restated beside it.
+    pub async fn account_data_replace(
+        &self,
+        account_data_key: &str,
+        request: &AccountDataReplaceRequestBody,
+    ) -> Result<AccountDataRow> {
+        reject_path_segment(account_data_key)?;
+        self.put(
+            &format!("/_arkret/self/account_data/{account_data_key}"),
+            request,
+        )
+        .await
+    }
+
+    /// Erase one account-data entry with the holder-signed tombstone.
+    ///
+    /// The DELETE carries a body because that is the only place the holder's
+    /// signature can go; `delete_key_backup` above already shows a DELETE may
+    /// carry one.
+    pub async fn account_data_delete(
+        &self,
+        account_data_key: &str,
+        request: &AccountDataDeleteRequestBody,
+    ) -> Result<AccountDataDeleteOutcome> {
+        reject_path_segment(account_data_key)?;
+        let path = format!("/_arkret/self/account_data/{account_data_key}");
+        let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
+        self.send_json(builder).await
     }
 
     pub async fn erase_backup_series(
