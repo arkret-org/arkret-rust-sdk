@@ -507,6 +507,44 @@ pub fn derive_genesis_realm_id(
     }
 }
 
+/// The Event digest preimage of `conformance/encoding.md` §6, computed from a
+/// wire envelope that is already JSON.
+///
+/// This is the **only** implementation of the exclusion rule. It exists as a
+/// `Value -> Value` function, not just as [`Event::digest_payload`], because
+/// every verifier that holds an envelope it has not parsed into [`Event`] used
+/// to delete the excluded fields by hand — and every hand-rolled copy drifted
+/// from the rule at a different point (one forgot `event_id`, one forgot
+/// `actor_kind`, one hashed the envelope itself). A drifted preimage does not
+/// fail loudly: it produces bytes no other implementation can reproduce, so a
+/// valid signature verifies as invalid.
+///
+/// The excluded set and the reason each field is in it:
+///
+/// * `proofs` — the signature cannot cover itself.
+/// * `unsigned` — receiver-local projection context, attached after signing.
+/// * `actor_kind` — the one v1 field the reducer stamps after the producer
+///   signs, so a peer recomputing the digest would never see the producer's value.
+/// * `event_id` — §4.0 derives the id *from this digest*, so leaving it in
+///   would put a function of the digest inside the digest's own input.
+///
+/// Everything else, `scope_ref` included, stays inside the transcript.
+pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
+    let Value::Object(map) = envelope else {
+        return Err(Error::Protocol(
+            "Event digest preimage input must be a JSON object envelope".to_owned(),
+        ));
+    };
+    let mut map = map.clone();
+    map.remove("proofs");
+    map.remove("unsigned");
+    for field in Event::REDUCER_STAMPED_TOP_LEVEL_FIELDS {
+        map.remove(field);
+    }
+    map.remove("event_id");
+    Ok(Value::Object(map))
+}
+
 /// The single wire-shape exit for [`Event`].
 ///
 /// `Event` keeps `realm_id` resolved in memory for every kind, but the genesis
@@ -890,22 +928,15 @@ impl Event {
     /// Kept in lockstep with `conformance/encoding.md` §2 / §6. v1 has exactly
     /// one such field: `actor_kind`. `scope_ref` is producer-signed and MUST
     /// stay inside the transcript.
-    pub const REDUCER_STAMPED_TOP_LEVEL_FIELDS: [&'static str; 1] = ["actor_kind"];
+    ///
+    /// Deliberately private: it is one *part* of the exclusion rule, and every
+    /// caller that ever held it went on to hand-roll the rest of
+    /// [`event_digest_preimage`] — and each hand-rolled copy drifted. Callers
+    /// outside this module get the whole rule or nothing.
+    const REDUCER_STAMPED_TOP_LEVEL_FIELDS: [&'static str; 1] = ["actor_kind"];
 
     pub fn digest_payload(&self) -> Result<Value> {
-        let mut value = serde_json::to_value(self)?;
-        if let Value::Object(map) = &mut value {
-            map.remove("proofs");
-            map.remove("unsigned");
-            for field in Self::REDUCER_STAMPED_TOP_LEVEL_FIELDS {
-                map.remove(field);
-            }
-            // `encoding.md` §6: the preimage also drops `event_id`, because
-            // §4.0 derives that id *from this digest*. Leaving it in would put
-            // a function of the digest inside the digest's own input.
-            map.remove("event_id");
-        }
-        Ok(value)
+        event_digest_preimage(&serde_json::to_value(self)?)
     }
 
     /// Derive this Event's `event_id` from its own canonical content.

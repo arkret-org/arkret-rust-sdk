@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "repo": "arkret-rust-sdk",
+      "path": "crates/wire/src/event_envelope.rs",
+      "reason": "The single implementation of the encoding.md section 6 exclusion rule (`event_digest_preimage`). Every other caller delegates to it."
+    },
+    {
+      "repo": "inkson",
+      "path": "src/state/to_device_raw.rs",
+      "reason": "Clears the `event_id` bookkeeping slot on a locally queued to-device operation record. Not an Event envelope and not a digest preimage."
+    }
+  ]
+}

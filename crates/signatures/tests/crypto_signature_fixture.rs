@@ -60,21 +60,15 @@ fn s<'a>(value: &'a Value, key: &str) -> &'a str {
         .unwrap_or_else(|| panic!("fixture field {key} must be a string"))
 }
 
-/// The Event digest preimage of `conformance/encoding.md` section 6: the signed
-/// envelope minus `proofs`, `unsigned`, `actor_kind` and `event_id`.
+/// The Event digest preimage of `conformance/encoding.md` section 6.
 ///
 /// `event_without_proofs` is the envelope as it appears on the wire, so the
-/// remaining three exclusions have to be applied here — `event_id` above all,
-/// because section 4.0 derives it *from* this digest and leaving it in would put
-/// a function of the digest inside the digest's own input.
+/// remaining exclusions still have to be applied. They are applied by the SDK's
+/// single implementation rather than restated here: this file previously carried
+/// its own copy of the rule, which is exactly how the `arkret-spec` vector came
+/// to hash the *envelope* instead of the preimage.
 fn digest_preimage(event: &Value) -> Value {
-    let mut event = event.clone();
-    if let Some(map) = event.as_object_mut() {
-        map.remove("unsigned");
-        map.remove("actor_kind");
-        map.remove("event_id");
-    }
-    event
+    arkret_wire::event_digest_preimage(event).expect("fixture envelope must be a JSON object")
 }
 
 /// Canonical bytes + digest chain for a detached-JWS vector: event payload,

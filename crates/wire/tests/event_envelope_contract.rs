@@ -169,3 +169,77 @@ fn auth_context_rejects_a_producer_selected_capability_list() {
         "unexpected error: {error}"
     );
 }
+
+/// `event_digest_preimage` is the single implementation of the
+/// `conformance/encoding.md` §6 exclusion rule, and it MUST agree with
+/// [`Event::digest_payload`] field for field.
+///
+/// The two used to be independent copies of the same rule — one for callers
+/// holding a typed `Event`, one open-coded at every verifier holding raw JSON.
+/// The copies drifted: one forgot `event_id`, one forgot `actor_kind`, one
+/// hashed the envelope itself. None failed loudly; each produced bytes no other
+/// implementation reproduces, so valid signatures verified as invalid.
+#[test]
+fn event_digest_preimage_agrees_with_typed_digest_payload() {
+    let event = Event::new(
+        "ak.message.create",
+        ScopeRef::Realm {
+            realm_id: realm_id(),
+        },
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        1,
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        json!({"body": "hello"}),
+    )
+    .unwrap();
+
+    let envelope = serde_json::to_value(&event).unwrap();
+    assert_eq!(
+        arkret_wire::event_digest_preimage(&envelope).unwrap(),
+        event.digest_payload().unwrap()
+    );
+}
+
+/// Every excluded field is excluded, and nothing else is dropped.
+///
+/// Spelled out per field so a future edit that widens or narrows the set has to
+/// state which field it is changing and why: `proofs` (a signature cannot cover
+/// itself), `unsigned` (receiver-local, attached after signing), `actor_kind`
+/// (reducer-stamped after signing) and `event_id` (§4.0 derives it *from* this
+/// digest, so leaving it in has no fixed point).
+#[test]
+fn event_digest_preimage_drops_exactly_the_excluded_fields() {
+    let envelope = json!({
+        "event_id": "ak:event:01904100-0000-8000-8000-a0086f45c575",
+        "kind": "ak.message.create",
+        "actor_kind": "person",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "scope_ref": {"realm_id": "ak:realm:01904100-0000-8000-8000-65c7feb295d7"},
+        "payload": {"body": "hello"},
+        "proofs": [{"kind": "detached_jws"}],
+        "unsigned": {"local_receive_time": "ignored"}
+    });
+
+    let preimage = arkret_wire::event_digest_preimage(&envelope).unwrap();
+    let object = preimage.as_object().expect("preimage is an object");
+    for excluded in ["proofs", "unsigned", "actor_kind", "event_id"] {
+        assert!(
+            !object.contains_key(excluded),
+            "{excluded} must not enter the digest preimage"
+        );
+    }
+    assert_eq!(
+        object.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["actor_id", "kind", "payload", "scope_ref"],
+        "the preimage must keep every producer-signed member, `scope_ref` included"
+    );
+}
+
+/// A non-object input is a caller bug, not an empty preimage: silently hashing
+/// `null` would hand back a digest that verifies against nothing.
+#[test]
+fn event_digest_preimage_rejects_a_non_object_envelope() {
+    for input in [json!(null), json!([]), json!("event")] {
+        assert!(arkret_wire::event_digest_preimage(&input).is_err());
+    }
+}
