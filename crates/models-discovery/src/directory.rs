@@ -111,7 +111,12 @@ pub struct RealmPreview {
     pub join_candidates: Vec<RealmJoinCandidate>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    #[serde(default)]
+    /// Event ids this entry was derived from. Omitted when the entry has no
+    /// Event provenance: `directory-operations.schema.json` keeps `minItems: 1`
+    /// on the array, so an empty one is not a legal way to say "none" — and a
+    /// synthesized id would be worse than absence, since it looks verifiable and
+    /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -366,7 +371,12 @@ pub struct OrganizationPreview {
     pub realm_count: Option<u64>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    #[serde(default)]
+    /// Event ids this entry was derived from. Omitted when the entry has no
+    /// Event provenance: `directory-operations.schema.json` keeps `minItems: 1`
+    /// on the array, so an empty one is not a legal way to say "none" — and a
+    /// synthesized id would be worse than absence, since it looks verifiable and
+    /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -435,6 +445,12 @@ pub struct ActorPreview {
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
+    /// Event ids this entry was derived from. Omitted when the entry has no
+    /// Event provenance: `directory-operations.schema.json` keeps `minItems: 1`
+    /// on the array, so an empty one is not a legal way to say "none" — and a
+    /// synthesized id would be worse than absence, since it looks verifiable and
+    /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<EventId>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
