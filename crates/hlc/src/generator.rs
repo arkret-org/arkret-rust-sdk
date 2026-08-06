@@ -12,10 +12,10 @@
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
-use web_time::{SystemTime, UNIX_EPOCH};
 
 use arkret_identifiers::Hlc;
 use arkret_identifiers::hlc::{HLC_MAX_LOGICAL, HLC_MAX_PHYSICAL_MS, HlcFutureDrift};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::{HlcError, Result};
 

@@ -320,10 +320,8 @@ impl StrandWatchSetPayload {
     /// pins the derivation to [`arkret_schema::project_registered_cell_writes`],
     /// so this cannot quietly fork from the registry.
     pub fn cell_ref(&self) -> Result<CellRef> {
-        let subject = composite_subject(&[
-            self.strand_id.as_str(),
-            self.watcher_actor_id.as_str(),
-        ])?;
+        let subject =
+            composite_subject(&[self.strand_id.as_str(), self.watcher_actor_id.as_str()])?;
         Ok(CellRef::new(format!(
             "ak:cell:{}:{subject}",
             CellFamilyId::STRAND_WATCH_V1

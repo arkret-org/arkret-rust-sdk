@@ -8,9 +8,8 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::IdempotencyKey;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
-use arkret_wire::{EventInitialSubmission, SchemaId};
+use arkret_wire::{EventInitialSubmission, IdempotencyKey, SchemaId};
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
 use crate::events_payloads::agent::{

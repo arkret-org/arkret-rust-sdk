@@ -26,9 +26,8 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::governance::agent_participation::ParticipationBits;
 use crate::governance::agent_participation::{
-    AgentParticipationError, AgentParticipationPolicy,
+    AgentParticipationError, AgentParticipationPolicy, ParticipationBits,
     validate_agent_participation_ceiling_tightens,
 };
 use crate::objects::space::ChildScopePolicy;

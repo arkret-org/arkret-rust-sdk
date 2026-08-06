@@ -78,15 +78,15 @@ pub trait ControlEventStore: Send + Sync {
     /// Stash a control-plane Event that passed local format / proof
     /// pre-check. Re-`put_pending` of the same digest MUST be idempotent.
     fn put_pending(&self, event: &Event) -> StoreResult<()> {
-        self.put_pending_with_receipt(event, None)
+        self.put_pending_with_ack(event, None)
     }
 
     /// Atomically bind the first Control Proposal Ack to the pending Event.
     ///
-    /// Replays may omit the receipt or provide the byte-identical stored
-    /// value. A different receipt for the same digest is a conflict because it
+    /// Replays may omit the ack or provide the byte-identical stored
+    /// value. A different ack for the same digest is a conflict because it
     /// would move the already-committed deadlines.
-    fn put_pending_with_receipt(
+    fn put_pending_with_ack(
         &self,
         event: &Event,
         control_proposal_ack: Option<&ControlProposalAck>,

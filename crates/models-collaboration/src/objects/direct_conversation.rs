@@ -317,8 +317,8 @@ pub fn validate_direct_conversation_binding(
 /// The founder is derived from the pair's **root** Contact basis and never from the current one, so
 /// tombstone/recontact cycles cannot flip it. Both sides compute it independently from data both
 /// already hold and both already signed, which is what removes the cross-server creation race: only
-/// one principal can create, so the contention collapses into a unique index on that principal's own
-/// Principal Server.
+/// one principal can create, so the contention collapses into a unique index on that principal's
+/// own Principal Server.
 ///
 /// See `zh/identity/contact-and-direct-conversation.md` §5.2.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -327,23 +327,17 @@ pub enum DirectConversationFounderBasis {
     /// the request issuer.
     ///
     /// This is deliberate and normative: the basis is lit up by the responder's
-    /// `normal_response_acceptance_receipt`, which proves the responder was online at the moment the
-    /// basis came into existence. The requester may have gone offline days earlier. Since base v1
-    /// defines no fallback, naming the possibly-absent party as founder would leave the pair unable
-    /// to ever create the conversation.
-    Normal {
-        request_issuer: Did,
-    },
+    /// `normal_response_acceptance_receipt`, which proves the responder was online at the moment
+    /// the basis came into existence. The requester may have gone offline days earlier. Since
+    /// base v1 defines no fallback, naming the possibly-absent party as founder would leave the
+    /// pair unable to ever create the conversation.
+    Normal { request_issuer: Did },
     /// Concurrent requests from both sides. There is no responder, so the founder is the issuer of
     /// `requests[0]` under the ordering already registered for glare requests.
-    Glare {
-        first_request_issuer: Did,
-    },
+    Glare { first_request_issuer: Did },
     /// controller-to-own-Agent conversations have no Contact basis at all. The founder is fixed to
     /// the controller so an Agent runtime key never needs Direct Conversation founding scope.
-    ControllerOwnedAgent {
-        controller_id: Did,
-    },
+    ControllerOwnedAgent { controller_id: Did },
 }
 
 /// Derive the sole principal allowed to author the founding unit for `participants`.
@@ -598,7 +592,10 @@ mod tests {
         .object;
         let mut strand = direct_conversation_main_strand_create_payload(
             StrandId::new("ak:strand:0196419b-0000-8000-8000-000000000201").unwrap(),
-            realm.id.clone().expect("fixture Realm is materialised, so it has an id"),
+            realm
+                .id
+                .clone()
+                .expect("fixture Realm is materialised, so it has an id"),
             creator,
             Utc::now(),
         )
@@ -655,8 +652,7 @@ mod tests {
         let basis = DirectConversationFounderBasis::Normal {
             request_issuer: alice.clone(),
         };
-        let founder =
-            direct_conversation_founder([alice.clone(), bob.clone()], &basis).unwrap();
+        let founder = direct_conversation_founder([alice.clone(), bob.clone()], &basis).unwrap();
         assert_eq!(founder, bob);
         assert_ne!(founder, alice, "founder must not be the request issuer");
 

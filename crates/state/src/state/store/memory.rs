@@ -47,32 +47,31 @@ struct MemoryControlEventStoreInner {
 }
 
 impl ControlEventStore for MemoryControlEventStore {
-    fn put_pending_with_receipt(
+    fn put_pending_with_ack(
         &self,
         event: &Event,
         control_proposal_ack: Option<&ControlProposalAck>,
     ) -> StoreResult<()> {
         let digest = control_event_digest(event)?;
-        if let Some(receipt) = control_proposal_ack
-            && (receipt.proposal_digest != digest || receipt.realm_id != event.realm_id)
+        if let Some(ack) = control_proposal_ack
+            && (ack.proposal_digest != digest || ack.realm_id != event.realm_id)
         {
             return Err(StoreError::Conflict(
                 "Control Proposal Ack does not bind the pending Control Move".to_owned(),
             ));
         }
-        if let Some(receipt) = control_proposal_ack {
-            receipt
-                .validate_protocol_bounds()
+        if let Some(ack) = control_proposal_ack {
+            ack.validate_protocol_bounds()
                 .map_err(|error| StoreError::Conflict(error.to_string()))?;
         }
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let (Some(receipt), Some(stored)) = (
+        if let (Some(ack), Some(stored)) = (
             control_proposal_ack,
             inner.control_proposal_acks.get(digest.as_str()),
-        ) && stored != receipt
+        ) && stored != ack
         {
             return Err(StoreError::Conflict(
                 "pending Control Move already has a different Control Proposal Ack".to_owned(),
@@ -83,13 +82,13 @@ impl ControlEventStore for MemoryControlEventStore {
             inner.insertion_order.push(key.clone());
         }
         inner.events.entry(key).or_insert_with(|| event.clone());
-        if let Some(receipt) = control_proposal_ack {
+        if let Some(ack) = control_proposal_ack {
             match inner.control_proposal_acks.get(digest.as_str()) {
                 Some(_) => {}
                 None => {
                     inner
                         .control_proposal_acks
-                        .insert(digest.as_str().to_owned(), receipt.clone());
+                        .insert(digest.as_str().to_owned(), ack.clone());
                 }
             }
         }
@@ -125,8 +124,8 @@ impl ControlEventStore for MemoryControlEventStore {
                 "signed-rejected control Event {event_digest} cannot be sealed"
             )));
         }
-        if let Some(receipt) = inner.control_proposal_acks.get(event_digest.as_str()) {
-            let mut previous_due_at = receipt.decision_due_at;
+        if let Some(ack) = inner.control_proposal_acks.get(event_digest.as_str()) {
+            let mut previous_due_at = ack.decision_due_at;
             for decision in &decisions {
                 overdue |= !decision.satisfied_current_deadline(previous_due_at);
                 previous_due_at = decision.decision_due_at();
@@ -184,7 +183,7 @@ impl ControlEventStore for MemoryControlEventStore {
                 "sealed control Event {event_digest} cannot receive another proposal decision"
             )));
         }
-        let receipt = inner
+        let ack = inner
             .control_proposal_acks
             .get(event_digest.as_str())
             .cloned()
@@ -206,7 +205,7 @@ impl ControlEventStore for MemoryControlEventStore {
             )));
         }
         decision
-            .validate_chain(&receipt, decisions, policy)
+            .validate_chain(&ack, decisions, policy)
             .map_err(|error| StoreError::Conflict(error.to_string()))?;
         decisions.push(decision.clone());
         Ok(())
@@ -1195,18 +1194,18 @@ mod tests {
         }
     }
 
-    fn signed_reject(receipt: &ControlProposalAck) -> ControlProposalDecision {
-        let decided_at = receipt.received_at + chrono::Duration::seconds(20);
+    fn signed_reject(ack: &ControlProposalAck) -> ControlProposalDecision {
+        let decided_at = ack.received_at + chrono::Duration::seconds(20);
         let mut decision = ControlProposalDecision::SignedReject {
-            realm_id: receipt.realm_id.clone(),
-            proposal_digest: receipt.proposal_digest.clone(),
-            proposal_ack_digest: receipt.proposal_ack_digest().unwrap(),
+            realm_id: ack.realm_id.clone(),
+            proposal_digest: ack.proposal_digest.clone(),
+            proposal_ack_digest: ack.proposal_ack_digest().unwrap(),
             decided_at,
-            decision_due_at: receipt.decision_due_at,
-            absolute_due_at: receipt.absolute_due_at,
+            decision_due_at: ack.decision_due_at,
+            absolute_due_at: ack.absolute_due_at,
             defer_count: 0,
             reason_code: arkret_wire::ControlProposalRejectReason::PolicyDenied,
-            authority_set_ref: receipt.authority_set_ref.clone(),
+            authority_set_ref: ack.authority_set_ref.clone(),
             proofs: vec![PayloadSignature {
                 extra: Default::default(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
@@ -1229,14 +1228,14 @@ mod tests {
         let store = MemoryControlEventStore::default();
         let event = control_move(1);
         let event_digest = control_event_digest(&event).unwrap();
-        let receipt = control_proposal_ack(&event);
-        let decision = signed_reject(&receipt);
+        let ack = control_proposal_ack(&event);
+        let decision = signed_reject(&ack);
         let policy = arkret_wire::ControlProposalDecisionPolicy::default();
 
         assert!(
             decision
                 .validate_chain(
-                    &receipt,
+                    &ack,
                     &[],
                     arkret_wire::ControlProposalDecisionPolicy::protocol_maximum(),
                 )
@@ -1244,9 +1243,7 @@ mod tests {
             "the protocol ceiling must not substitute for the effective Realm policy"
         );
 
-        store
-            .put_pending_with_receipt(&event, Some(&receipt))
-            .unwrap();
+        store.put_pending_with_ack(&event, Some(&ack)).unwrap();
         store
             .record_proposal_decision(&event_digest, &decision, policy)
             .unwrap();
@@ -1263,17 +1260,54 @@ mod tests {
     }
 
     #[test]
+    fn ack_leaves_the_proposal_pending_and_only_an_accepted_seal_finalizes_it() {
+        // `event-auth-state-resolution.md` §7.2: a Control Proposal Ack proves
+        // the authority set signed for the exact proposal digest and took on a
+        // bounded decision obligation. It is not an acceptance. Control-plane
+        // finality arrives only when an accepted Seal covers the digest.
+        let store = MemoryControlEventStore::default();
+        let event = control_move(1);
+        let digest = control_event_digest(&event).unwrap();
+        let ack = control_proposal_ack(&event);
+
+        store.put_pending_with_ack(&event, Some(&ack)).unwrap();
+
+        let pending = store.list_pending_records(&realm(), 10).unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(
+            pending[0].control_proposal_ack.as_ref(),
+            Some(&ack),
+            "the Ack is retained as pending evidence"
+        );
+        assert!(
+            pending[0].decisions.is_empty(),
+            "an Ack on its own decides nothing"
+        );
+        assert!(
+            store.list_sealed(&realm(), None, 10).unwrap().is_empty(),
+            "an Ack must not produce control-plane finality"
+        );
+
+        let seal = dummy_seal(seal_id(0xaa), Vec::new(), vec![digest.clone()]);
+        store.mark_sealed(&digest, &seal).unwrap();
+
+        assert!(
+            store.list_pending_records(&realm(), 10).unwrap().is_empty(),
+            "the accepted Seal is what retires the pending proposal"
+        );
+        let sealed = store.list_sealed(&realm(), None, 10).unwrap();
+        assert_eq!(sealed.len(), 1);
+        assert_eq!(sealed[0].seal, seal.id);
+    }
+
+    #[test]
     fn control_event_store_put_and_seal_idempotent() {
         let store = MemoryControlEventStore::default();
         let first = control_move(1);
         let digest = control_event_digest(&first).unwrap();
-        let receipt = control_proposal_ack(&first);
-        store
-            .put_pending_with_receipt(&first, Some(&receipt))
-            .unwrap();
-        store
-            .put_pending_with_receipt(&first, Some(&receipt))
-            .unwrap(); // idempotent
+        let ack = control_proposal_ack(&first);
+        store.put_pending_with_ack(&first, Some(&ack)).unwrap();
+        store.put_pending_with_ack(&first, Some(&ack)).unwrap(); // idempotent
         assert_eq!(
             store.get(&digest).unwrap().unwrap().event_id,
             first.event_id
@@ -1317,7 +1351,7 @@ mod tests {
         let first = control_move(1);
         let second = control_move(2);
         store
-            .put_pending_with_receipt(&first, Some(&control_proposal_ack(&first)))
+            .put_pending_with_ack(&first, Some(&control_proposal_ack(&first)))
             .unwrap();
         store.put_pending(&second).unwrap();
 

@@ -1,4 +1,4 @@
-//! Bounded decisions for receipted CBA Control Move proposals.
+//! Bounded decisions for acknowledged CBA Control Move proposals.
 //!
 //! A Control Proposal Ack commits the first decision deadline and an immutable
 //! absolute deadline. Signed reject and signed defer are verifiable authority
@@ -497,7 +497,7 @@ impl ControlProposalAck {
             .map(|member| member.absolute_due_at)
             .min()
             .expect("non-empty authority Acks");
-        let receipt = Self {
+        let ack = Self {
             kind: ControlProposalAckKind::SignedAck,
             realm_id,
             proposal_digest,
@@ -509,11 +509,11 @@ impl ControlProposalAck {
             authority_acks,
         };
         if let Some(policy) = policy {
-            receipt.validate_structural(policy)?;
+            ack.validate_structural(policy)?;
         } else {
-            receipt.validate_protocol_bounds()?;
+            ack.validate_protocol_bounds()?;
         }
-        Ok(receipt)
+        Ok(ack)
     }
 
     /// Assemble the unique canonical member set and require that it satisfies
@@ -524,9 +524,9 @@ impl ControlProposalAck {
         notary: &NotaryValue,
     ) -> Result<Self> {
         notary.validate()?;
-        let receipt = Self::from_authority_acks(authority_acks, policy)?;
+        let ack = Self::from_authority_acks(authority_acks, policy)?;
         let mut signers = BTreeSet::new();
-        for member in &receipt.authority_acks {
+        for member in &ack.authority_acks {
             let (did, fragment) = member
                 .signature
                 .verification_method
@@ -557,7 +557,7 @@ impl ControlProposalAck {
                 "Control Proposal Ack authority quorum is unreachable".to_owned(),
             ));
         }
-        Ok(receipt)
+        Ok(ack)
     }
 
     pub fn proposal_ack_digest(&self) -> Result<Hash> {
@@ -635,7 +635,8 @@ impl ControlProposalAck {
                 || member.authority_set_ref != self.authority_set_ref
             {
                 return Err(Error::Protocol(
-                    "proposal authority Ack does not preserve the aggregate receipt binding"
+                    "proposal authority Ack does not preserve the aggregate Control Proposal Ack \
+                     binding"
                         .to_owned(),
                 ));
             }
@@ -711,7 +712,7 @@ impl ControlProposalDecision {
     }
 
     /// Require the canonical proof set to satisfy the exact notary profile
-    /// that governed the bound receipt.
+    /// that governed the bound Control Proposal Ack.
     pub fn validate_notary_quorum(&self, notary: &NotaryValue) -> Result<()> {
         notary.validate()?;
         let proofs = match self {
@@ -731,15 +732,15 @@ impl ControlProposalDecision {
     }
 
     /// Validate the full defer/reject chain and every canonical decision proof
-    /// set against the same receipt authority profile.
+    /// set against the same Control Proposal Ack authority profile.
     pub fn validate_chain_for_notary(
         &self,
-        receipt: &ControlProposalAck,
+        ack: &ControlProposalAck,
         previous_defers: &[ControlProposalDecision],
         policy: ControlProposalDecisionPolicy,
         notary: &NotaryValue,
     ) -> Result<()> {
-        self.validate_chain(receipt, previous_defers, policy)?;
+        self.validate_chain(ack, previous_defers, policy)?;
         for decision in previous_defers {
             decision.validate_notary_quorum(notary)?;
         }
@@ -748,36 +749,36 @@ impl ControlProposalDecision {
 
     pub fn validate_chain(
         &self,
-        receipt: &ControlProposalAck,
+        ack: &ControlProposalAck,
         previous_defers: &[ControlProposalDecision],
         policy: ControlProposalDecisionPolicy,
     ) -> Result<()> {
-        self.validate_chain_common(receipt, previous_defers, Some(policy))
+        self.validate_chain_common(ack, previous_defers, Some(policy))
     }
 
     /// Validate a decision chain when the receiver has not resolved the
-    /// proposal's frozen Realm policy. This preserves every receipt binding,
+    /// proposal's frozen Realm policy. This preserves every Control Proposal Ack binding,
     /// chain transition, proof, and protocol hard ceiling without pretending
     /// that the hard ceilings are the Realm's exact effective policy.
     pub fn validate_chain_protocol_bounds(
         &self,
-        receipt: &ControlProposalAck,
+        ack: &ControlProposalAck,
         previous_defers: &[ControlProposalDecision],
     ) -> Result<()> {
-        self.validate_chain_common(receipt, previous_defers, None)
+        self.validate_chain_common(ack, previous_defers, None)
     }
 
     fn validate_chain_common(
         &self,
-        receipt: &ControlProposalAck,
+        ack: &ControlProposalAck,
         previous_defers: &[ControlProposalDecision],
         policy: Option<ControlProposalDecisionPolicy>,
     ) -> Result<()> {
         let max_defers = if let Some(policy) = policy {
-            receipt.validate_structural(policy)?;
+            ack.validate_structural(policy)?;
             policy.max_defers
         } else {
-            receipt.validate_protocol_bounds()?;
+            ack.validate_protocol_bounds()?;
             MAX_PROPOSAL_DEFERS
         };
         if previous_defers.len() > usize::from(max_defers) {
@@ -785,13 +786,13 @@ impl ControlProposalDecision {
                 "proposal decision chain exceeds max_defers".to_owned(),
             ));
         }
-        let proposal_ack_digest = receipt.proposal_ack_digest()?;
+        let proposal_ack_digest = ack.proposal_ack_digest()?;
         let expected_count = u8::try_from(previous_defers.len())
             .map_err(|_| Error::Protocol("proposal defer count overflow".to_owned()))?;
         let previous_due_at = previous_defers
             .last()
             .map(Self::decision_due_at)
-            .unwrap_or(receipt.decision_due_at);
+            .unwrap_or(ack.decision_due_at);
 
         for (index, decision) in previous_defers.iter().enumerate() {
             if !matches!(decision, Self::SignedDefer { .. }) {
@@ -799,7 +800,7 @@ impl ControlProposalDecision {
                     "only signed_defer may precede another proposal decision".to_owned(),
                 ));
             }
-            decision.validate_chain_common(receipt, &previous_defers[..index], policy)?;
+            decision.validate_chain_common(ack, &previous_defers[..index], policy)?;
         }
 
         let (
@@ -836,14 +837,14 @@ impl ControlProposalDecision {
                 proofs,
             ),
         };
-        if realm_id != &receipt.realm_id
-            || proposal_digest != &receipt.proposal_digest
+        if realm_id != &ack.realm_id
+            || proposal_digest != &ack.proposal_digest
             || bound_proposal_ack_digest != &proposal_ack_digest
-            || absolute_due_at != &receipt.absolute_due_at
-            || authority_set_ref != &receipt.authority_set_ref
+            || absolute_due_at != &ack.absolute_due_at
+            || authority_set_ref != &ack.authority_set_ref
         {
             return Err(Error::Protocol(
-                "proposal decision does not preserve its receipt binding".to_owned(),
+                "proposal decision does not preserve its Control Proposal Ack binding".to_owned(),
             ));
         }
 
@@ -869,8 +870,7 @@ impl ControlProposalDecision {
                         "signed_defer exceeds max_defers or skips defer_count".to_owned(),
                     ));
                 }
-                if *decision_due_at <= previous_due_at || *decision_due_at > receipt.absolute_due_at
-                {
+                if *decision_due_at <= previous_due_at || *decision_due_at > ack.absolute_due_at {
                     return Err(Error::Protocol(
                         "signed_defer must strictly advance within absolute_due_at".to_owned(),
                     ));
@@ -936,7 +936,7 @@ mod tests {
         }
     }
 
-    fn receipt() -> ControlProposalAck {
+    fn ack() -> ControlProposalAck {
         let mut member = ControlProposalAuthorityAck {
             realm_id: RealmId::new("ak:realm:018f6b1d-8a20-8abc-8def-0123456789ab").unwrap(),
             proposal_digest: hash('a'),
@@ -990,21 +990,21 @@ mod tests {
     }
 
     fn defer(
-        receipt: &ControlProposalAck,
+        ack: &ControlProposalAck,
         count: u8,
         decided_at: DateTime<Utc>,
         due_at: DateTime<Utc>,
     ) -> ControlProposalDecision {
         let mut decision = ControlProposalDecision::SignedDefer {
-            realm_id: receipt.realm_id.clone(),
-            proposal_digest: receipt.proposal_digest.clone(),
-            proposal_ack_digest: receipt.proposal_ack_digest().unwrap(),
+            realm_id: ack.realm_id.clone(),
+            proposal_digest: ack.proposal_digest.clone(),
+            proposal_ack_digest: ack.proposal_ack_digest().unwrap(),
             decided_at,
             decision_due_at: due_at,
-            absolute_due_at: receipt.absolute_due_at,
+            absolute_due_at: ack.absolute_due_at,
             defer_count: count,
             reason_code: ControlProposalDeferReason::QuorumUnreachable,
-            authority_set_ref: receipt.authority_set_ref.clone(),
+            authority_set_ref: ack.authority_set_ref.clone(),
             proofs: vec![signature(hash('0'), decided_at)],
         };
         let digest = decision.decision_digest().unwrap();
@@ -1015,11 +1015,11 @@ mod tests {
     }
 
     #[test]
-    fn receipt_enforces_effective_and_protocol_deadlines() {
-        receipt()
+    fn ack_enforces_effective_and_protocol_deadlines() {
+        ack()
             .validate_structural(ControlProposalDecisionPolicy::default())
             .unwrap();
-        let mut invalid = receipt();
+        let mut invalid = ack();
         invalid.absolute_due_at = at(91);
         invalid.authority_acks[0].absolute_due_at = at(91);
         invalid.authority_acks[0].signature.payload_digest =
@@ -1073,8 +1073,8 @@ mod tests {
     }
 
     #[test]
-    fn canonical_receipt_assembly_requires_current_threshold_quorum() {
-        let first = receipt().authority_acks.remove(0);
+    fn canonical_ack_assembly_requires_current_threshold_quorum() {
+        let first = ack().authority_acks.remove(0);
         let mut second = first.clone();
         second.signature.verification_method =
             DidUrl::new("did:webvh:z6mkfixture:authority-b.example#notary-1").unwrap();
@@ -1117,25 +1117,25 @@ mod tests {
 
     #[test]
     fn defer_chain_is_sequential_and_cannot_extend_absolute_deadline() {
-        let receipt = receipt();
-        let first = defer(&receipt, 1, at(20), at(60));
+        let ack = ack();
+        let first = defer(&ack, 1, at(20), at(60));
         first
-            .validate_chain(&receipt, &[], ControlProposalDecisionPolicy::default())
+            .validate_chain(&ack, &[], ControlProposalDecisionPolicy::default())
             .unwrap();
-        let second = defer(&receipt, 2, at(50), at(90));
+        let second = defer(&ack, 2, at(50), at(90));
         second
             .validate_chain(
-                &receipt,
+                &ack,
                 std::slice::from_ref(&first),
                 ControlProposalDecisionPolicy::default(),
             )
             .unwrap();
 
-        let third = defer(&receipt, 3, at(80), at(90));
+        let third = defer(&ack, 3, at(80), at(90));
         assert!(
             third
                 .validate_chain(
-                    &receipt,
+                    &ack,
                     &[first, second],
                     ControlProposalDecisionPolicy::default(),
                 )
@@ -1145,45 +1145,41 @@ mod tests {
 
     #[test]
     fn decision_chain_protocol_bounds_do_not_invent_an_exact_realm_policy() {
-        let receipt = receipt();
-        let first = defer(&receipt, 1, at(20), at(60));
+        let ack = ack();
+        let first = defer(&ack, 1, at(20), at(60));
 
         first
-            .validate_chain_protocol_bounds(&receipt, &[])
-            .expect("30s/90s receipt and its defer are within protocol ceilings");
+            .validate_chain_protocol_bounds(&ack, &[])
+            .expect("30s/90s Ack and its defer are within protocol ceilings");
         assert!(
             first
-                .validate_chain(
-                    &receipt,
-                    &[],
-                    ControlProposalDecisionPolicy::protocol_maximum(),
-                )
+                .validate_chain(&ack, &[], ControlProposalDecisionPolicy::protocol_maximum(),)
                 .is_err(),
-            "the protocol ceiling is not the receipt's exact effective policy"
+            "the protocol ceiling is not the Ack's exact effective policy"
         );
     }
 
     #[test]
     fn late_decision_is_valid_evidence_but_does_not_satisfy_the_deadline() {
-        let receipt = receipt();
-        let late = defer(&receipt, 1, at(31), at(60));
-        late.validate_chain(&receipt, &[], ControlProposalDecisionPolicy::default())
+        let ack = ack();
+        let late = defer(&ack, 1, at(31), at(60));
+        late.validate_chain(&ack, &[], ControlProposalDecisionPolicy::default())
             .unwrap();
-        assert!(!late.satisfied_current_deadline(receipt.decision_due_at));
+        assert!(!late.satisfied_current_deadline(ack.decision_due_at));
     }
 
     #[test]
     fn decision_chain_revalidates_every_signed_prefix() {
-        let receipt = receipt();
-        let mut first = defer(&receipt, 1, at(20), at(60));
-        let second = defer(&receipt, 2, at(50), at(90));
+        let ack = ack();
+        let mut first = defer(&ack, 1, at(20), at(60));
+        let second = defer(&ack, 2, at(50), at(90));
         if let ControlProposalDecision::SignedDefer { proofs, .. } = &mut first {
             proofs[0].payload_digest = hash('f');
         }
         assert!(
             second
                 .validate_chain(
-                    &receipt,
+                    &ack,
                     std::slice::from_ref(&first),
                     ControlProposalDecisionPolicy::default(),
                 )

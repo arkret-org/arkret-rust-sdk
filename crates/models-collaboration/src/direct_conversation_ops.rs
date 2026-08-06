@@ -63,9 +63,9 @@ pub enum DirectConversationSendBlocker {
 /// Closed tagged outcome of `ak.self.direct_conversation.query.resolve`.
 ///
 /// Evaluation order is fixed: `TemporarilyUnavailable` when the current basis or founder cannot be
-/// verified; then `CreationBlocked`/`CreationRequired`/`AwaitingFounder` while no Realm exists; then
-/// `Suspended` for identity, materialization, terminal or gate conflicts; then `Provisional` while
-/// no binding endorsement exists; `Found` last.
+/// verified; then `CreationBlocked`/`CreationRequired`/`AwaitingFounder` while no Realm exists;
+/// then `Suspended` for identity, materialization, terminal or gate conflicts; then `Provisional`
+/// while no binding endorsement exists; `Found` last.
 ///
 /// `retry_after_ms` is a scheduling hint only. Waiting never grants create authority to the
 /// non-founder: there is no timeout fallback or takeover in base v1.
@@ -149,8 +149,9 @@ pub enum DirectConversationFoundingAuthorizationCore {
 /// one founding unit and closed its local unique slot.
 ///
 /// It creates no Realm, authorizes no Message and is not a global slot. A second receipt for the
-/// same pair and founder but a different unit is `direct_conversation_pair_materialization_conflict`
-/// evidence: implementations MUST NOT pick a winner by UUID or arrival order.
+/// same pair and founder but a different unit is
+/// `direct_conversation_pair_materialization_conflict` evidence: implementations MUST NOT pick a
+/// winner by UUID or arrival order.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -176,7 +177,8 @@ impl DirectConversationFoundingAcceptanceReceipt {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
         if !self.slot_committed {
             return Err(arkret_wire::Error::Protocol(
-                "direct conversation founding acceptance receipt must set slot_committed".to_owned(),
+                "direct conversation founding acceptance receipt must set slot_committed"
+                    .to_owned(),
             ));
         }
         Ok(())

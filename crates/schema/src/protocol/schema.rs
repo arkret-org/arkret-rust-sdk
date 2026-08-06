@@ -2,7 +2,6 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
-use web_time::Instant;
 
 use arkret_wire::{
     SchemaId, validate_canonical_acct_uri, validate_canonical_agent_slug,
@@ -11,6 +10,7 @@ use arkret_wire::{
 };
 use jsonschema::{Draft, Retrieve, Uri, Validator};
 use serde_json::{Value, json};
+use web_time::Instant;
 
 use super::super::*;
 use super::validators::is_security_sensitive_extension;

@@ -111,7 +111,6 @@ pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
 pub use arkret_models_collaboration::agent_signer_evidence::*;
 pub use arkret_models_collaboration::call_signal::*;
-pub use arkret_models_collaboration::contact_operations;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
 pub use arkret_models_collaboration::events_payloads::agent::*;
@@ -121,7 +120,6 @@ pub use arkret_models_collaboration::events_payloads::device_identity::*;
 pub use arkret_models_collaboration::events_payloads::event_wire::*;
 pub use arkret_models_collaboration::events_payloads::mention::*;
 pub use arkret_models_collaboration::events_payloads::*;
-pub use arkret_models_collaboration::federation;
 pub use arkret_models_collaboration::federation::wire_dtos::*;
 pub use arkret_models_collaboration::governance::accountability::{
     ACCOUNTABILITY_SCOPE_SET_CONTEXT, AccountabilityGrantPayload, AccountabilityGrantStatus,
@@ -158,7 +156,6 @@ pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::resource_selector::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::governance_payloads::*;
-pub use arkret_models_collaboration::history_operations;
 pub use arkret_models_collaboration::http_bodies::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
@@ -187,11 +184,9 @@ pub use arkret_models_collaboration::objects::relation::*;
 pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
-pub use arkret_models_collaboration::direct_conversation_ops;
 pub use arkret_models_collaboration::runtime_identity::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
-pub use arkret_models_collaboration::sidecar_operations;
 pub use arkret_models_collaboration::signal_message_stream::*;
 pub use arkret_models_collaboration::signal_plaintext::*;
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
@@ -212,6 +207,9 @@ pub use arkret_models_collaboration::sync_frames::snapshot::*;
 pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
     StreamTraceValidator,
+};
+pub use arkret_models_collaboration::{
+    contact_operations, direct_conversation_ops, federation, history_operations, sidecar_operations,
 };
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::encrypted_envelope::{

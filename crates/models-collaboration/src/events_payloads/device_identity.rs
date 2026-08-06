@@ -237,7 +237,6 @@ impl DeviceAuthorizePayload {
         })?;
         binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)
     }
-
 }
 
 /// Canonical digest of an `ak.device.authorize` payload as it appears on the
