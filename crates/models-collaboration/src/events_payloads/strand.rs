@@ -308,6 +308,28 @@ impl StrandWatchSetPayload {
         self
     }
 
+    /// Canonical `cas_register` cell this write targets: family
+    /// `ak.component.strand.watch.v1` with the tuple subject
+    /// `(strand_id, watcher_actor_id)` from the event-kind registry
+    /// `cell_writes` contract.
+    ///
+    /// It lives on the payload because two sides need the same id from the
+    /// same place: whoever authors the `ak.audit.accessed` partner of a
+    /// `.others` write fills `target_cell_id` with it, and whoever admits the
+    /// pair matches against it. `watch_cell_ref_matches_the_registered_contract`
+    /// pins the derivation to [`arkret_schema::project_registered_cell_writes`],
+    /// so this cannot quietly fork from the registry.
+    pub fn cell_ref(&self) -> Result<CellRef> {
+        let subject = composite_subject(&[
+            self.strand_id.as_str(),
+            self.watcher_actor_id.as_str(),
+        ])?;
+        Ok(CellRef::new(format!(
+            "ak:cell:{}:{subject}",
+            CellFamilyId::STRAND_WATCH_V1
+        ))?)
+    }
+
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("strand watch set payload serialize: {err}")))
@@ -357,6 +379,41 @@ mod presence_tests {
                 .get("expected_default_strand_id")
                 .is_none()
         );
+    }
+
+    /// `StrandWatchSetPayload::cell_ref` exists so the audit partner of a
+    /// `.others` write and the admission path that matches it agree on
+    /// `target_cell_id`. It is only worth having if it stays equal to what the
+    /// registered cell contract derives, so assert that directly rather than
+    /// restating the tuple-subject recipe.
+    #[test]
+    fn watch_cell_ref_matches_the_registered_contract() {
+        let payload = StrandWatchSetPayload::set(
+            strand_id("000000000001"),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            StrandWatchLevel::Participating,
+            None,
+        );
+        let event = Event::new(
+            "ak.strand.watch.set",
+            ScopeRef::Realm {
+                realm_id: realm_id(),
+            },
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            1,
+            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
+            serde_json::to_value(&payload).unwrap(),
+        )
+        .unwrap();
+
+        let writes = arkret_schema::project_registered_cell_writes(
+            &event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+
+        assert_eq!(writes.len(), 1);
+        assert_eq!(writes[0].cell, payload.cell_ref().unwrap());
     }
 
     #[test]

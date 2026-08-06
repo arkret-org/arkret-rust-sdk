@@ -939,9 +939,7 @@ fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
 #[test]
 fn reducer_convergence_is_order_independent() {
     let events: Vec<Event> = (0..5)
-        .map(|i| {
-            morph_event(i + 1, &format!("Task {i}"))
-        })
+        .map(|i| morph_event(i + 1, &format!("Task {i}")))
         .collect();
 
     let mut state_a = RealmState::new(realm_id());
