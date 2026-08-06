@@ -605,8 +605,7 @@ impl Client {
         request: &KeysBackupsDeleteRequestBody,
     ) -> Result<KeysBackupsDeleteOutcome> {
         let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
-        let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
-        self.send_json(builder).await
+        self.delete_with_body(&path, request).await
     }
 
     pub async fn erase_backup_series(

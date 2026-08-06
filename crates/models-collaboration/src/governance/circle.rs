@@ -22,7 +22,7 @@ pub use arkret_wire::CircleId;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
     Did, EncryptionProfile, EventId, EventInitialSubmission, HistoryVisibility, RealmId,
-    ReasonCode, SchemaId,
+    SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
