@@ -5,9 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_collaboration::events_payloads::ObjectCreatePayload;
 use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
-use arkret_wire::{
-    ActorKind, ActorProfileId, AppletId, BlobRef, Did, Event, Hlc, RealmId, SchemaId, ScopeRef,
-};
+use arkret_wire::{ActorKind, AppletId, BlobRef, Did, Event, Hlc, RealmId, SchemaId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -172,7 +170,7 @@ impl GhostActorProfileRequest {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ActorKind, EventKind};
+    use arkret_wire::{ActorKind, ActorProfileId, EventKind};
 
     use super::*;
 

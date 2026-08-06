@@ -61,7 +61,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     "arkret-canonical": set(),
     "arkret-identifiers": {"arkret-canonical"},
     "arkret-wire": _BASE,
-    "arkret-models-identity": _WIRE,
+    # arkret-locale owns the single UI-locale vocabulary and is a leaf (no
+    # arkret deps), so the account-profile `preferred_locale` field can take it
+    # directly without giving the model layer a runtime dependency.
+    "arkret-locale": set(),
+    "arkret-models-identity": _WIRE | {"arkret-locale"},
     "arkret-models-crypto": _WIRE | {"arkret-models-identity"},
     "arkret-models-collaboration": _WIRE
     | {"arkret-models-identity", "arkret-models-crypto"},
@@ -88,8 +92,13 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-collaboration",
         "arkret-models-integration",
     },
+    # The reducer-profile id registry is generated into arkret-policy
+    # (`generated::profiles`), and the state resolver must reject an event whose
+    # declared reducer profile is unregistered or a non-upgradable target. The
+    # frozen R2 rule forbids the policy -> state direction, which still holds:
+    # arkret-policy has no state edge, so this stays acyclic.
     "arkret-state": _WIRE
-    | {"arkret-models-crypto", "arkret-models-collaboration"},
+    | {"arkret-models-crypto", "arkret-models-collaboration", "arkret-policy"},
     "arkret-lattice-registry": _WIRE
     | {"arkret-models-collaboration", "arkret-schema", "arkret-state"},
     "arkret-bootstrap": {
@@ -104,13 +113,17 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # crates ("behavior depends on data"): models-identity (service-identity /
     # webvh inception contracts), models-collaboration (realm-organization
     # statement family + ephemeral proof envelope), models-discovery (DID
-    # service-entry registry constants).
+    # service-entry registry constants). The optional `collaboration` feature
+    # also takes arkret-state, because portable Agent signer evidence is only
+    # valid if the witnessed cell value recomputes to the committed state leaf
+    # digest and its inclusion proof verifies; both are owned by arkret-state.
     "arkret-signatures": _WIRE
     | {
         "arkret-models-identity",
         "arkret-models-crypto",
         "arkret-models-collaboration",
         "arkret-models-discovery",
+        "arkret-state",
     },
     # Phase 5-e: the issuing-service `Cursor` mint/validate surface (a wire
     # sync token) moved to arkret-wire; arkret-hlc keeps a thin re-export
@@ -167,6 +180,10 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     "arkret-egress-policy": set(),
     "arkret-push-policy": {"arkret-models-integration"},
     "arkret-rate-limit": set(),
+    # arkret-egress-policy: the did:web / did:webvh resolver in this crate is one
+    # of the outbound fetchers the SSRF deny-list exists for.
+    # arkret-schema: the events endpoint submits a `PreparedStandardEvent`, the
+    # prepared-event contract owned by the schema crate.
     "arkret-http-client": _WIRE
     | {
         "arkret-models-identity",
@@ -174,7 +191,9 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-collaboration",
         "arkret-models-discovery",
         "arkret-models-integration",
+        "arkret-egress-policy",
         "arkret-identity",
+        "arkret-schema",
         "arkret-signatures",
         "arkret-state",
     },

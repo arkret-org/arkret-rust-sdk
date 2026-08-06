@@ -167,6 +167,7 @@ pub struct DirectConversationFoundingAcceptanceReceipt {
     pub slot_committed: bool,
     pub issuer_service_id: Did,
     pub issuer_service_binding_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub proof: ProtocolSignature,
 }

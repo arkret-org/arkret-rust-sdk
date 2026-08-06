@@ -2561,7 +2561,7 @@ mod tests {
             "role": "agent_provision",
             "critical": true
         });
-        let event = realm_create_event(json!([provision_ref.clone()]));
+        let event = realm_create_event(json!([provision_ref]));
         let writes = project(&event);
         assert_eq!(writes.len(), 7);
         assert_eq!(
@@ -2778,7 +2778,7 @@ mod tests {
 
         // The RRK branch derives from a different target field, so the same
         // recipient and scope MUST NOT collapse onto one delivery cell.
-        let mut rrk = event.clone();
+        let mut rrk = event;
         rrk.payload.remove("recipient_device_id");
         rrk.payload
             .insert("share_kind".to_owned(), json!("realm_recovery_key"));

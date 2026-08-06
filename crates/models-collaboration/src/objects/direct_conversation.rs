@@ -405,8 +405,6 @@ pub fn direct_conversation_may_found(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::MlsGroupId;
-
     use super::*;
 
     fn did(value: &str) -> Did {

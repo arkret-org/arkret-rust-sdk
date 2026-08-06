@@ -450,15 +450,16 @@ fn validate_authority_chain(
                 )));
             };
             let child_max_depth = grant.authority_control_policy().and_then(|policy| policy.0);
-            let child_depth_for_parent = if parent_allows_further {
-                child_max_depth
-            } else {
-                Some(child_max_depth.unwrap_or(0))
-            };
+            // An undeclared child depth is 0, not unbounded: a grant with no
+            // authority_control constraint is non-delegable
+            // (`models/governance-objects.md` grant `constraints` row, restated
+            // in `authz/capabilities.md` §9 risk tiering). The "未声明视为无限"
+            // note in §10.1 is about a *ref* that declares no depth, so that it
+            // imposes no ceiling on the child.
+            let child_depth_for_parent = child_max_depth.unwrap_or(0);
             if let Some(parent_max_depth) = parent_max_depth
                 && (parent_max_depth == 0
-                    || child_depth_for_parent
-                        .is_none_or(|depth| depth > parent_max_depth.saturating_sub(1)))
+                    || child_depth_for_parent > parent_max_depth.saturating_sub(1))
             {
                 return Err(Error::Protocol(format!(
                     "capability grant '{}' exceeds parent '{}' max_authority_depth",

@@ -411,6 +411,11 @@ mod tests {
                 schemas: vec!["ak.schema.join_policy_operations.v1".to_owned()],
                 fixtures: vec!["websocket-binding-fixture.json".to_owned()],
                 capability_actions: vec!["ak.realm.join.review".to_owned()],
+                features: vec![
+                    "candidate_join_policy_reviewer".to_owned(),
+                    "candidate_member_application_intake".to_owned(),
+                    "profile_private_http_receipt_v1".to_owned(),
+                ],
                 ..ProfileSemanticSurface::default()
             },
         )

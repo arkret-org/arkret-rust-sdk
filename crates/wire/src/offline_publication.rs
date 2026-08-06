@@ -418,13 +418,12 @@ impl AuthorizationLease {
             // A lease over a Realm genesis anchor unit carries the genesis
             // scope, which names no Realm — the unit's own realm_id is the
             // resolved one. Compare only when the scope names a Realm.
-            if let Some(scope_realm_id) = self.scope_ref.realm_id_opt() {
-                if scope_realm_id != &reference.anchor_unit.realm_id {
-                    return Err(Error::Protocol(
-                        "anchor-unit lease basis realm_id does not match lease scope_ref"
-                            .to_owned(),
-                    ));
-                }
+            if let Some(scope_realm_id) = self.scope_ref.realm_id_opt()
+                && scope_realm_id != &reference.anchor_unit.realm_id
+            {
+                return Err(Error::Protocol(
+                    "anchor-unit lease basis realm_id does not match lease scope_ref".to_owned(),
+                ));
             }
         }
         if self.expires_at <= self.issued_at {

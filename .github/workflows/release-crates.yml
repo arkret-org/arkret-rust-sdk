@@ -18,6 +18,7 @@ jobs:
         arkret-egress-policy
         arkret-identifiers
         arkret-keystore
+        arkret-locale
         arkret-wire
         arkret-hlc
         arkret-models-identity
