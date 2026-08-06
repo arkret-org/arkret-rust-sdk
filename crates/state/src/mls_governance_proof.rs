@@ -17,7 +17,9 @@ pub use arkret_models_crypto::mls_governance_proof::*;
 use arkret_models_crypto::mls_payloads::MlsGovernanceBindingPayload;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, ScopeRef};
-use arkret_wire::{CellRef, Error, Hash, NotarySig, Result, Seal, SealId, canonical};
+use arkret_wire::{
+    CellRef, Error, EventId, Hash, NotarySig, RealmId, Result, Seal, SealId, canonical,
+};
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
@@ -415,6 +417,79 @@ where
         return stale("security_frontier_digest does not match the accepted key-access state");
     }
     Ok(verified)
+}
+
+/// Admit a candidate Seal as the local MLS governance trust anchor for an
+/// event-derived Realm — rule T1 of `encryption-and-audit.md` section 2.5.4.
+///
+/// The point of the rule is that nobody's word is taken for which Seal is
+/// genesis. `realm_id` retypes to the create Event's `event_id`, and that id is
+/// itself a function of the Event's signed content, so a caller holding only
+/// `realm_id` can recognise the real `ak.realm.create` and the Seal that first
+/// covered it. A service may hand over candidates; it cannot make one true.
+///
+/// `verify_notary_signature` receives the Seal together with the `notary` value
+/// taken from the create payload the caller just authenticated, so the genesis
+/// exception in `event-auth-state-resolution.md` section 6.3 is evaluated
+/// against the creator's own designation rather than against anything the
+/// service asserts.
+///
+/// Returns the admitted anchor id. Callers persist it; this crate does not own
+/// the trust store.
+pub fn admit_event_derived_genesis_anchor<E, VerifyNotary>(
+    realm_id: &RealmId,
+    create_event: &Event,
+    candidate: &Seal,
+    verify_notary_signature: VerifyNotary,
+) -> std::result::Result<SealId, E>
+where
+    E: From<Error>,
+    VerifyNotary: Fn(&Seal, &Value) -> std::result::Result<(), E>,
+{
+    let expected_create_id = EventId::from_uuid(realm_id.uuid());
+    if create_event.event_id != expected_create_id {
+        return Err(anchor_rejected(
+            "candidate create Event is not the one realm_id retypes to",
+        ));
+    }
+    if create_event.kind.as_str() != "ak.realm.create" {
+        return Err(anchor_rejected(
+            "realm anchor must derive from ak.realm.create",
+        ));
+    }
+    // The id is only worth comparing if it is the one this content produces.
+    let recomputed = create_event.derive_event_id().map_err(Error::from)?;
+    if recomputed != expected_create_id {
+        return Err(anchor_rejected(
+            "create Event content does not reproduce its content-bound event_id",
+        ));
+    }
+    if &candidate.realm_id != realm_id {
+        return Err(anchor_rejected("candidate anchor belongs to another Realm"));
+    }
+    if !candidate.predecessor_refs.is_empty() {
+        return Err(anchor_rejected("candidate anchor is not a genesis Seal"));
+    }
+    let create_digest =
+        Hash::new(create_event.event_digest().map_err(Error::from)?).map_err(Error::from)?;
+    if !candidate.delta.contains(&create_digest) {
+        return Err(anchor_rejected(
+            "candidate genesis Seal does not cover the Realm create Event",
+        ));
+    }
+    let notary = create_event
+        .payload
+        .get("object")
+        .and_then(|object| object.get("notary"))
+        .ok_or_else(|| anchor_rejected::<E>("create payload carries no notary designation"))?;
+    verify_notary_signature(candidate, notary)?;
+    Ok(candidate.id.clone())
+}
+
+fn anchor_rejected<E: From<Error>>(message: &str) -> E {
+    E::from(Error::Protocol(format!(
+        "MLS governance anchor rejected (state_mismatch): {message}"
+    )))
 }
 
 /// Verify one complete proof materialization and derive its unique security
@@ -883,6 +958,104 @@ mod tests {
             jws: "AAAA.BBBB.CCCC".to_owned(),
         });
         event
+    }
+
+    /// A create Event whose content-bound id retypes to the Realm it creates,
+    /// i.e. what `realm-and-space.md` section 2.5.0 makes the only admissible shape.
+    fn self_certifying_create() -> (RealmId, Event) {
+        let mut event = frontier_event(ScopeRef::Realm { realm_id: realm() });
+        event.kind = "ak.realm.create".into();
+        event.payload = BTreeMap::from([(
+            "object".to_owned(),
+            json!({"notary": {"kind": "single_did", "did": "did:webvh:z6mkfixture:notary.example"}}),
+        )]);
+        event.proofs.clear();
+        let derived = event.derive_event_id().unwrap();
+        event.event_id = derived.clone();
+        (RealmId::from_event_id(&derived), event)
+    }
+
+    fn genesis_seal_for(realm_id: &RealmId, create: &Event) -> Seal {
+        let mut seal = seal(hash(0x11), Vec::new(), hash(0x12));
+        seal.realm_id = realm_id.clone();
+        seal.predecessor_refs = Vec::new();
+        seal.delta = vec![Hash::new(create.event_digest().unwrap()).unwrap()];
+        seal
+    }
+
+    fn admit(
+        realm_id: &RealmId,
+        create: &Event,
+        candidate: &Seal,
+    ) -> std::result::Result<SealId, Error> {
+        admit_event_derived_genesis_anchor(realm_id, create, candidate, |_, notary| {
+            assert_eq!(
+                notary.get("did").and_then(serde_json::Value::as_str),
+                Some("did:webvh:z6mkfixture:notary.example"),
+                "the notary handed to the callback is the one the creator designated"
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn genesis_anchor_is_admitted_from_the_realm_id_alone() {
+        let (realm_id, create) = self_certifying_create();
+        let candidate = genesis_seal_for(&realm_id, &create);
+        assert_eq!(admit(&realm_id, &create, &candidate).unwrap(), candidate.id);
+    }
+
+    #[test]
+    fn a_seal_that_does_not_cover_the_derived_create_is_not_an_anchor() {
+        let (realm_id, create) = self_certifying_create();
+        let mut candidate = genesis_seal_for(&realm_id, &create);
+        candidate.delta = vec![hash(0x99)];
+        admit(&realm_id, &create, &candidate)
+            .expect_err("a genesis Seal covering something else proves nothing about this Realm");
+    }
+
+    #[test]
+    fn a_later_seal_is_never_an_anchor_even_when_it_covers_the_create() {
+        let (realm_id, create) = self_certifying_create();
+        let mut candidate = genesis_seal_for(&realm_id, &create);
+        candidate.predecessor_refs =
+            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()];
+        admit(&realm_id, &create, &candidate)
+            .expect_err("only the genesis Seal bootstraps trust; successors go through T3");
+    }
+
+    #[test]
+    fn a_create_event_for_another_realm_is_rejected() {
+        let (realm_id, create) = self_certifying_create();
+        let candidate = genesis_seal_for(&realm_id, &create);
+        let other = RealmId::new("ak:realm:0196419b-0000-8000-8000-0000000009ff").unwrap();
+        admit(&other, &create, &candidate)
+            .expect_err("the create Event must be the one the caller's realm_id retypes to");
+    }
+
+    #[test]
+    fn a_create_event_whose_content_was_altered_is_rejected() {
+        let (realm_id, mut create) = self_certifying_create();
+        let candidate = genesis_seal_for(&realm_id, &create);
+        // Keep the id, change the content: exactly the substitution content-bound
+        // ids exist to make detectable.
+        create.payload = BTreeMap::from([(
+            "object".to_owned(),
+            json!({"notary": {"kind": "single_did", "did": "did:webvh:z6mkfixture:attacker.example"}}),
+        )]);
+        admit(&realm_id, &create, &candidate)
+            .expect_err("content must reproduce the content-bound event_id");
+    }
+
+    #[test]
+    fn a_rejected_notary_signature_blocks_admission() {
+        let (realm_id, create) = self_certifying_create();
+        let candidate = genesis_seal_for(&realm_id, &create);
+        let result: std::result::Result<SealId, Error> =
+            admit_event_derived_genesis_anchor(&realm_id, &create, &candidate, |_, _| {
+                Err(Error::Protocol("notary signature invalid".to_owned()))
+            });
+        result.expect_err("the genesis notary is the creator's designation, not the service's");
     }
 
     fn seal(
