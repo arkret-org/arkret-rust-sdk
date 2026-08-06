@@ -1,0 +1,161 @@
+{
+  "note": "The audit for tools/lint-event-derived-id-minting.py. One entry per file that mints an id for a kind whose id MUST come from its create Event (zh/models/common-fields.md section 6.0). `verdict` is what the site should be, not permission to stay: `event_derived` and `local_ref` entries are open defects. Cross-repo: `repo` is the checkout directory name.",
+  "entries": [
+    {
+      "repo": "soland",
+      "path": "crates/http/src/ids.rs",
+      "verdict": "event_derived",
+      "reason": "The five retained generators for event-derived kinds (realm, space, event, relation, circle) plus `generate_view_id`, and the unit tests that exercise them. The file documents them as known defects with `Do not add callers`; the SDK debug_assert panics on each, which is what the remaining ids.rs test failures report. Removing them is the outcome of the soland local-projection decision in arkret-work/work/active/2026-08-06-event-derived-id-handover.md section 3."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/admin/collection.rs",
+      "verdict": "event_derived",
+      "reason": "Mints a Realm id on the admin collection surface. Handover section 3 site 1 of 5."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/extensions/sovereign.rs",
+      "verdict": "event_derived",
+      "reason": "`body.realm_id.unwrap_or_else(ids::generate_realm_id)` — a sovereign Realm create falls back to a minted id when the caller omits one. Handover section 3 site 2 of 5. Found only after the scanner learned the bare function-reference form: with `--root` alone it is invisible to a `generate_realm_id(` grep."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/circles.rs",
+      "verdict": "event_derived",
+      "reason": "Mints a Circle id. Handover section 3 site 3 of 5."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/extensions/applet_bridge/install.rs",
+      "verdict": "event_derived",
+      "reason": "Mints an Event id during Applet install. Handover section 3 site 4 of 5."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/identity/agents/sidecar.rs",
+      "verdict": "event_derived",
+      "reason": "Mints circle + strand + relation + two Event ids for one object graph. Handover section 3 site 5 of 5, and the one that additionally needs the attach Event's prev_refs reordered into build-then-derive."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/identity/auth/device_pair.rs",
+      "verdict": "event_derived",
+      "reason": "`authorized_event_ref` names a device-authorization Event that was never authored; the in-file comment already states the fix is to author it. Not in the handover's list of five."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/identity/consent.rs",
+      "verdict": "event_derived",
+      "reason": "A contact-managed consent grant mints the `ak:event:` value its cell dot is built from; the in-file comment already states the fix is to author the Event. Not in the handover's list of five."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/interop/mimi/binding.rs",
+      "verdict": "event_derived",
+      "reason": "MIMI room-binding emits a projection row keyed by a minted `ak:event:`; the in-file comment already states the fix is to author the Event. Not in the handover's list of five."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/interop/mimi/handlers.rs",
+      "verdict": "local_ref",
+      "reason": "The MIMI facade notify record is broadcast and deliberately not persisted into durable history, so it stands behind no Event at all: it wants `ak:local_ref:`, not a fabricated Event id. Not in the handover's list of five."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/http/src/routing/organizations.rs",
+      "verdict": "local_ref",
+      "reason": "`OrganizationRecord.source_refs` on a locally synthesized record points at a minted Event id. The record is server-local provenance, so the reference belongs to `ak:local_ref:` (or should be absent) rather than claiming an Event."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/services/src/events.rs",
+      "verdict": "local_ref",
+      "reason": "Same shape as organizations.rs for a synthesized Realm record's `source_refs` (line ~157, production). The same file's `accepted_event_command_is_committed_through_one_port` test also mints ids, which is fixture use."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/server/tests/consent_cells.rs",
+      "verdict": "test_fixture",
+      "reason": "Synthetic Event and Realm ids for Events that exist only in this test's store."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/server/tests/realm_join_policy.rs",
+      "verdict": "test_fixture",
+      "reason": "Synthetic Event id for a fixture Event."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/storage-postgres/tests/store_contracts.rs",
+      "verdict": "test_fixture",
+      "reason": "Store-contract fixtures need distinct ids per row; no Event is authored."
+    },
+    {
+      "repo": "soland",
+      "path": "crates/storage/src/contract_tests.rs",
+      "verdict": "test_fixture",
+      "reason": "Storage contract tests mint Realm and Event ids for rows they insert directly."
+    },
+    {
+      "repo": "inkson",
+      "path": "src/views/chat/mod.rs",
+      "verdict": "event_derived",
+      "reason": "The create-channel surface picks the `ak:strand:` id client-side and passes it to `discussion_strand_create`, so the object's identity is producer-chosen. The strand id must be `retype(create.event_id)`."
+    },
+    {
+      "repo": "inkson",
+      "path": "src/views/kanban/mod.rs",
+      "verdict": "event_derived",
+      "reason": "Board Space, list Space and strand ids are all minted client-side before the create Events are built. Same fix as chat/mod.rs."
+    },
+    {
+      "repo": "inkson",
+      "path": "src/views/chat/model/operations.rs",
+      "verdict": "local_ref",
+      "reason": "`new_chat_message_id` mints an optimistic-UI id and it is also stored as `ChatMessage.protocol_message_id`, so a local placeholder is presented as a protocol id. The local handle needs its own local kind; the protocol id may only be filled in once the create Event exists."
+    },
+    {
+      "repo": "inkson",
+      "path": "src/event_submit.rs",
+      "verdict": "test_fixture",
+      "reason": "Inside `live_owner_kanban_writes_against_dev_soland`, a dev-only probe against a local soland."
+    },
+    {
+      "repo": "coauth",
+      "path": "crates/backend/src/handlers/admin/v1/collaboration_capabilities.rs",
+      "verdict": "event_derived",
+      "reason": "The grant / revoke fanout payloads carry a minted `ak:event:` for an Event coauth never authors. Either the Event is authored (and its id derived) or the field must name a local reference."
+    },
+    {
+      "repo": "coauth",
+      "path": "crates/storage-postgres/src/account_handoff.rs",
+      "verdict": "test_fixture",
+      "reason": "Test row builder for an `authorized_event` payload."
+    },
+    {
+      "repo": "bridges",
+      "path": "crates/messaging/src/ghost.rs",
+      "verdict": "event_derived",
+      "reason": "`create_portal_strand` mints the portal `ak:strand:` id before building `StrandCreateObject`, so the bridge names the strand instead of deriving it from the create Event it is about to submit."
+    },
+    {
+      "repo": "cotest",
+      "path": "src/bin/cotest-wire.rs",
+      "verdict": "test_fixture",
+      "reason": "Wire-probe CLI: prints a synthetic bootstrap create Event id for manual inspection."
+    },
+    {
+      "repo": "cotest",
+      "path": "tests/agent_provision_e2e.rs",
+      "verdict": "test_fixture",
+      "reason": "Synthetic authorize Event id in an e2e fixture."
+    },
+    {
+      "repo": "cotest",
+      "path": "tests/device_enroll_rollout_e2e.rs",
+      "verdict": "test_fixture",
+      "reason": "Synthetic Event ids in a device-enrolment rollout fixture."
+    }
+  ]
+}
