@@ -110,9 +110,7 @@ pub struct ReadCursorPosition {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorAdvanceRequestBody {
-    pub realm_id: RealmId,
-    pub read_scope: ReadCursorScope,
-    pub position: ReadCursorPosition,
+    pub advance_event: arkret_wire::EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

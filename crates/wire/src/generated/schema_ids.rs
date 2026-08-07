@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-08.7;
-//! sha256=8a5bfeadcb153b9dc5eb0185ed793164e004a2282b504d490f7a205f0e05c9d6 Entries: schema_ids=181,
+//! Input: registry/schema-registry.json; version=2026-08-08.8;
+//! sha256=7f1433d6dc6e041a23a7688820e2824c4423d75374767faeb3609b944beee922 Entries: schema_ids=181,
 //! active=181
 
 use serde::{Deserialize, Serialize};
@@ -594,7 +594,7 @@ impl SchemaId {
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
         "ak.schema.agent_requested_scope_disclosure.v1";
     /// Signed controller-scoped native personal agent selector claim for
-    /// @<controller-handle>/<agent_slug> resolution.
+    /// @&lt;controller-handle&gt;/&lt;agent_slug&gt; resolution.
     pub const AGENT_SELECTOR_CLAIM_V1: &'static str = "ak.schema.agent_selector_claim.v1";
     /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
     /// access. It is not a Circle profile and has no backing Circle or editable membership. See
@@ -976,7 +976,7 @@ impl SchemaId {
     /// operations: base service metadata plus claim-level partitions (supported_operations /
     /// implemented_features / claimed_profiles / verified_profiles / experimental_features /
     /// compat_surfaces) and the registered directory_service overlay fields used by
-    /// ak.find.directory.read.describe. Enforces development_mode=true => verified_profiles=[].
+    /// ak.find.directory.read.describe. Enforces development_mode=true =&gt; verified_profiles=[].
     /// compat_surfaces is limited to external interop surfaces. See service-surface.md §3.0 and
     /// discovery-directory.md §8.9.
     pub const SERVICE_DESCRIBE_V1: &'static str = "ak.schema.service_describe.v1";

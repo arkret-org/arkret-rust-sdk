@@ -236,6 +236,40 @@ impl ErasureReceipt {
                 "erasure_receipt_stub_digest_mismatch".to_owned(),
             ));
         }
+        if retained_stub.stub_schema != SchemaId::ERASURE_VERIFICATION_STUB_V1
+            || retained_stub.receipt_id != self.receipt_id
+            || retained_stub.completed_at != self.completed_at
+            || retained_stub.subject.kind
+                != serde_json::to_value(self.subject.kind)?
+                    .as_str()
+                    .unwrap_or_default()
+            || retained_stub.subject.subject_ref != self.subject.subject_ref
+            || retained_stub.scope.storage_boundary
+                != serde_json::to_value(self.scope.storage_boundary)?
+                    .as_str()
+                    .unwrap_or_default()
+            || retained_stub.scope.realm_id != self.scope.realm_id
+            || retained_stub
+                .scope
+                .target_refs
+                .as_deref()
+                .unwrap_or_default()
+                != self.scope.target_refs.as_slice()
+            || retained_stub.scope.retention_policy_id != self.scope.retention_policy_id
+            || retained_stub.scope.service_scope != self.scope.service_scope
+            || retained_stub
+                .legal_hold_ref
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()?
+                .as_ref()
+                .and_then(Value::as_str)
+                != self.legal_hold_ref.as_deref()
+        {
+            return Err(Error::Protocol(
+                "erasure_receipt_stub_binding_mismatch".to_owned(),
+            ));
+        }
         self.validate_proof_payload_digests()?;
         Ok(())
     }
@@ -276,7 +310,7 @@ mod erasure_receipt_tests {
             retained_stub_digest: Hash::new(canonical::canonical_sha256(stub).unwrap()).unwrap(),
             retained_stub: Some(stub.clone()),
             legal_hold_ref: None,
-            completed_at: Utc::now(),
+            completed_at: stub.completed_at,
             issued_at: None,
             proofs: vec![ErasureReceiptProof {
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:erasure.example#key-1")
@@ -322,5 +356,38 @@ mod erasure_receipt_tests {
         tampered.subject.subject_ref =
             "ak:event:AQ2tx4VdnpdE6WOuPQftPsY5gYkzM7Y7qadp81nkk9K4".to_owned();
         assert!(receipt.validate_with_retained_stub(&tampered).is_err());
+    }
+
+    #[test]
+    fn self_consistent_stub_for_another_receipt_fails_closed() {
+        let stub = VerificationStub {
+            stub_schema: "ak.schema.erasure_verification_stub.v1".to_owned(),
+            subject: VerificationStubSubject {
+                kind: "event".to_owned(),
+                subject_ref: "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),
+            },
+            scope: VerificationStubScope {
+                storage_boundary: "canonical_log_minimization".to_owned(),
+                realm_id: None,
+                target_refs: None,
+                retention_policy_id: None,
+                service_scope: None,
+            },
+            event_digest: None,
+            retained_digests: None,
+            seal_inclusion: None,
+            redaction_authorization_ref: None,
+            legal_hold_ref: None,
+            receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000099".to_owned(),
+            completed_at: Utc::now(),
+        };
+        let mut receipt = receipt(&stub);
+        receipt.receipt_id = "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned();
+        receipt.proofs[0].payload_digest = receipt.canonical_payload_digest().unwrap();
+
+        let error = receipt
+            .validate_with_retained_stub(&stub)
+            .expect_err("digest-valid stub for another receipt must fail closed");
+        assert!(error.to_string().contains("stub_binding_mismatch"));
     }
 }

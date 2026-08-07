@@ -45,6 +45,11 @@ def rust_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def rustdoc_text(value: str) -> str:
+    """Render registry prose as inert rustdoc text, never as an HTML tag."""
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def rust_option(value: Any) -> str:
     return "None" if value is None else f"Some({rust_string(str(value))})"
 
@@ -1366,7 +1371,7 @@ def generate_schema_ids(artifacts: Path) -> str:
         name = associated_name(row["schema_id"], SCHEMA_ID_PREFIXES)
         description = row.get("description")
         if description:
-            lines.append(f"    /// {description}")
+            lines.append(f"    /// {rustdoc_text(description)}")
         lines.append(
             f"    pub const {name}: &'static str = {rust_string(row['schema_id'])};"
         )
@@ -1748,7 +1753,7 @@ def generate_account_data_keys(artifacts: Path) -> str:
     for row, source in zip(namespaces, rows):
         description = source.get("description")
         if description:
-            lines.append(f"    /// {description}")
+            lines.append(f"    /// {rustdoc_text(description)}")
         lines.append(f"    /// Key pattern: `{source['key_pattern']}`.")
         lines.append(
             f"    pub const {associated_name(row['namespace'], ('ak.',))}: &'static str = "

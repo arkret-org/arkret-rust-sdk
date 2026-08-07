@@ -82,11 +82,12 @@ impl AccountDataKey {
     /// `ak.agent.draft.v1:<agent_id>:<draft_id>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
     /// Account-Authority-owned versioned per-scope Agent participation selection. scope_key is
-    /// realm:<realm_uuid> | circle:<realm_uuid>:<circle_uuid> | strand:<realm_uuid>:<strand_uuid>.
-    /// The record stores only target_scope, the required five-bit selection, and its CAS version.
-    /// It grants no capability and copies no ceiling/effective value; target enforcement intersects
-    /// current selection with current local governance/deployment ceilings, ordinary capability and
-    /// lifecycle. See zh/models/private-objects.md §4.1. Key pattern:
+    /// realm:&lt;realm_uuid&gt; | circle:&lt;realm_uuid&gt;:&lt;circle_uuid&gt; |
+    /// strand:&lt;realm_uuid&gt;:&lt;strand_uuid&gt;. The record stores only target_scope, the
+    /// required five-bit selection, and its CAS version. It grants no capability and copies no
+    /// ceiling/effective value; target enforcement intersects current selection with current local
+    /// governance/deployment ceilings, ordinary capability and lifecycle. See
+    /// zh/models/private-objects.md §4.1. Key pattern:
     /// `ak.agent.participation.v1:<agent_id>:<scope_key>`.
     pub const AGENT_PARTICIPATION_V1: &'static str = "ak.agent.participation.v1";
     /// Controller-private per-context Sidecar hosted-view state. Synchronizes display_mode
