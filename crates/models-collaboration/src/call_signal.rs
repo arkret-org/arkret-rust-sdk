@@ -90,7 +90,7 @@ mod tests {
     use super::*;
 
     fn call_id() -> CallId {
-        CallId::new("ak:call:01904100-0000-7000-8000-000000000001").unwrap()
+        CallId::new("ak:call:01904100-0000-8000-8000-000000000001").unwrap()
     }
 
     #[test]

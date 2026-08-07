@@ -270,7 +270,7 @@ fn install_commit_uses_only_caller_signed_formal_events() {
         did("admin"),
         2,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
-        json!({"grant_id": "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"}),
+        json!({"grant_id": "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa"}),
     )
     .unwrap();
     let request = AppletInstallRequestBody {

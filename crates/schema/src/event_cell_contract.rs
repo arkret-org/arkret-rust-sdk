@@ -1797,7 +1797,7 @@ mod tests {
             },
             "refs": [
                 {"role": "recovery_capability", "critical": true,
-                 "id": "ak:grant:019641d2-2000-7000-8000-000000000000"},
+                 "id": "ak:grant:019641d2-2000-8000-8000-000000000000"},
                 {"role": "state_witness", "critical": true,
                  "id": "ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
             ],
@@ -2717,7 +2717,7 @@ mod tests {
 
     #[test]
     fn conditional_call_axis_targets_are_exact() {
-        let call_id = "ak:call:019f9000-0000-7000-8000-000000000022";
+        let call_id = "ak:call:019f9000-0000-8000-8000-000000000022";
         let participant = json!({
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "device_id": "ak:device:019f9000-0000-7000-8000-000000000023"
@@ -2763,7 +2763,7 @@ mod tests {
         let event = call_event(
             EventKind::CALL_STATE,
             json!({
-                "call_id": "ak:call:019f9000-0000-7000-8000-000000000022",
+                "call_id": "ak:call:019f9000-0000-8000-8000-000000000022",
                 "roster_delta": {"op": "kick", "observed_dot": "ak:event:019f9000:0"}
             }),
         );
@@ -2777,7 +2777,7 @@ mod tests {
 
     #[test]
     fn capture_kind_selects_exactly_one_capture_family() {
-        let call_id = "ak:call:019f9000-0000-7000-8000-000000000031";
+        let call_id = "ak:call:019f9000-0000-8000-8000-000000000031";
         let recording_id = "capture-019f9000";
         let subject = arkret_wire::composite_subject(&[call_id, recording_id]).unwrap();
         let recording_result = json!({
@@ -2840,15 +2840,10 @@ mod tests {
     #[test]
     fn projects_capability_grant_add_dot() {
         // Was `materializes_capability_grant_add_dot`.
-        let grant_id = "ak:grant:019f9000-0000-7000-8000-000000000006";
-        let grant = json!({
-            "grant_id": grant_id,
-            "issuer": "did:webvh:z6mkfixture:alice.example",
-            "subject": "did:webvh:z6mkfixture:alice.example",
-            "actions": ["ak.realm.admin"]
-        });
+        let event_id = "ak:event:019f9000-0000-8000-8000-000000000001";
+        let grant_id = "ak:grant:019f9000-0000-8000-8000-000000000001";
         let event: Event = serde_json::from_value(json!({
-            "event_id": "ak:event:019f9000-0000-8000-8000-000000000001",
+            "event_id": event_id,
             "kind": EventKind::CAPABILITY_GRANT,
             "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"},
@@ -2858,15 +2853,17 @@ mod tests {
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
             "payload": {
-                "grant_id": grant_id,
-                "grant": grant
+                "issuer": "did:webvh:z6mkfixture:alice.example",
+                "subject": "did:webvh:z6mkfixture:alice.example",
+                "actions": ["ak.realm.admin"]
             },
             "proofs": []
         }))
         .unwrap();
 
-        // The or_set tag is the registry dot `<event_id>:<write_index>`, and the
-        // element is the whole signed payload.
+        // The cell subject retypes the accepted Event ID. The or_set tag is
+        // `<event_id>:<write_index>`, and the element is the ID-free signed
+        // genesis payload; the materialized Grant gains its ID in the reducer.
         assert_eq!(
             project(&event),
             vec![write(

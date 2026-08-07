@@ -1001,7 +1001,7 @@ mod tests {
 
     #[test]
     fn authorized_by_ref_resolves_capability_grant_cell() {
-        let grant_id = "ak:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ak:grant:0196419b-0000-8000-8000-000000000111";
         let event = control_move(vec![], vec![authorized_ref(grant_id)]);
         let mut pre_state = BTreeMap::new();
         pre_state.insert(
@@ -1022,7 +1022,7 @@ mod tests {
 
     #[test]
     fn missing_authorized_by_grant_rejects() {
-        let grant_id = "ak:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ak:grant:0196419b-0000-8000-8000-000000000111";
         let event = control_move(vec![], vec![authorized_ref(grant_id)]);
         let err = verify_control_move(
             &event,
@@ -1042,7 +1042,7 @@ mod tests {
 
     #[test]
     fn authorized_by_subject_mismatch_rejects() {
-        let grant_id = "ak:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ak:grant:0196419b-0000-8000-8000-000000000111";
         let event = control_move(vec![], vec![authorized_ref(grant_id)]);
         let mut pre_state = BTreeMap::new();
         pre_state.insert(
@@ -1319,7 +1319,7 @@ mod tests {
     fn recovery_refs() -> Vec<EventRef> {
         vec![
             EventRef::new(
-                "ak:grant:019641d2-2000-7000-8000-000000000000",
+                "ak:grant:019641d2-2000-8000-8000-000000000000",
                 "recovery_capability",
             ),
             EventRef::new(
@@ -1352,7 +1352,7 @@ mod tests {
         let event = control_move(
             vec![],
             vec![EventRef::new(
-                "ak:grant:019641d2-2000-7000-8000-000000000000",
+                "ak:grant:019641d2-2000-8000-8000-000000000000",
                 "recovery_capability",
             )],
         );

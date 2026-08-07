@@ -239,7 +239,7 @@ mod tests {
     }
 
     fn call() -> CallId {
-        CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap()
+        CallId::new("ak:call:0196441c-0000-8000-8000-000000000000").unwrap()
     }
 
     fn device() -> DeviceId {
@@ -389,7 +389,7 @@ mod tests {
         let text = String::from_utf8(bytes).unwrap();
         assert_eq!(
             text,
-            "{\"call_id\":\"ak:call:0196441c-0000-7000-8000-000000000000\",\
+            "{\"call_id\":\"ak:call:0196441c-0000-8000-8000-000000000000\",\
              \"focus_id\":\"fra-1\",\
              \"media_service_id\":\"did:webvh:z6mkfixture:media.example\",\
              \"realm_id\":\"ak:realm:01904100-0000-8000-8000-9b64700c6ee8\",\
@@ -406,7 +406,7 @@ mod tests {
         let text = String::from_utf8(bytes).unwrap();
         assert_eq!(
             text,
-            "{\"call_id\":\"ak:call:0196441c-0000-7000-8000-000000000000\",\
+            "{\"call_id\":\"ak:call:0196441c-0000-8000-8000-000000000000\",\
              \"device_id\":\"ak:device:01904100-0000-7000-8000-000000000005\",\
              \"epoch_id\":7,\
              \"focus_id\":\"fra-1\",\

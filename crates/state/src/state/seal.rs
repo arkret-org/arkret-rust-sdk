@@ -1098,7 +1098,7 @@ mod tests {
 
     fn capability_cell() -> CellRef {
         CellRef::new(
-            "ak:cell:ak.component.capability.grant.v1:ak:grant:0196410c-0000-7000-8000-000000000000"
+            "ak:cell:ak.component.capability.grant.v1:ak:grant:0196410c-0000-8000-8000-000000000000"
                 .to_owned(),
         )
         .unwrap()
@@ -1987,7 +1987,7 @@ mod tests {
             "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
         )
         .unwrap();
-        let grant_id = "ak:grant:0196410c-0000-7000-8000-000000000000";
+        let grant_id = "ak:grant:0196410c-0000-8000-8000-000000000000";
         let target_move = move_id(0x41);
         let grant_move = move_id(0x42);
         let conflict_a_move = move_id(0x51);

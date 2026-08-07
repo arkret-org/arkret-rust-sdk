@@ -469,7 +469,7 @@ mod tests {
         // out-of-order unit rather than being recognised as an authority root.
         let legacy = event(
             EventKind::CAPABILITY_GRANT,
-            json!({"grant_id": "ak:grant:01964120-0000-7000-8000-000000000001"}),
+            json!({"grant_id": "ak:grant:01964120-0000-8000-8000-000000000001"}),
         );
         assert_eq!(
             validate_realm_bootstrap_unit(&[create(), legacy]),

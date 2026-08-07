@@ -870,7 +870,7 @@ mod tests {
     #[test]
     fn promotion_request_digest_excludes_digest_and_proof_jwt() {
         let mut request = PromoteRecoverySessionGrantRequest {
-            old_grant_id: GrantId::new("ak:grant:019a7360-0000-7000-8000-000000000001".to_owned())
+            old_grant_id: GrantId::new("ak:grant:019a7360-0000-8000-8000-000000000001".to_owned())
                 .unwrap(),
             transaction_id: TransactionId::new(
                 "ak:transaction:019a7360-0000-7000-8000-000000000002".to_owned(),

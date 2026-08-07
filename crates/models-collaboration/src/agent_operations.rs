@@ -946,8 +946,7 @@ impl AgentGrantAttachRequestBody {
                 ));
             }
         };
-        if payload.grant_id != grant.id
-            || grant.issuer != event.actor_id
+        if grant.issuer != event.actor_id
             || grant.realm_id.as_ref() != Some(&event.realm_id)
             || event.scope_ref.realm_id() != &event.realm_id
             || self.requested_scope_disclosure.agent_id != *subject

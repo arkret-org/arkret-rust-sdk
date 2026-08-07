@@ -1,13 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-07.7;
-//! sha256=59af4e808c0f4e6c8e4618b50c242b7f3b06f26f31c02b40d2c753f0cfe42a99 Input: registry/
-//! capability-action-registry.json; version=2026-08-07.7;
-//! sha256=66206a3b9b905c320efb34ad1538d90034fb68378f40a65b5a37deff8b20beaa Input: registry/
-//! schema-registry.json; version=2026-08-07.7;
-//! sha256=51920cca7466314d74a6f460f6b5b00dc840ac7e4ef75740d4981a606ffe7aac Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-07.8;
+//! sha256=4935134537f8ca71278315414182395a92e78ac1506b2031e1eb09d672b9c705 Input: registry/
+//! capability-action-registry.json; version=2026-08-07.8;
+//! sha256=8147a736ad6c12bb363ec9f72aa54521d195d0d78c60a919c37419bf0cd063b4 Input: registry/
+//! schema-registry.json; version=2026-08-07.8;
+//! sha256=35388054dbbbc5a1381469cda27c0d1f832af774cc889cdc7c35d1414b7c6d1d Input: registry/
 //! account-data-key-registry.json; version=2026-08-03;
-//! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=54,
+//! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=55,
 //! special_forms=10, actions=168, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
@@ -313,6 +313,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:rtc_participant:<uuid>",
     },
     IdKindDescriptor {
+        kind: "session_grant",
+        category: "authz",
+        wire_form: "ak:session_grant:<uuid>",
+    },
+    IdKindDescriptor {
         kind: "sidecar",
         category: "core_object",
         wire_form: "ak:sidecar:<uuid>",
@@ -567,13 +572,16 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
-        target_event_kinds: &[EventKind::AUDIT_APPLET_BINDING],
+        target_event_kinds: &[
+            EventKind::AUDIT_APPLET_BINDING_CREATE,
+            EventKind::AUDIT_APPLET_BINDING_STATE,
+        ],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
-        event_mapping_kind: "same_name",
+        event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AuditExport,
@@ -671,7 +679,11 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
-        target_event_kinds: &[EventKind::CALL_STATE, EventKind::CALL_SUMMARY],
+        target_event_kinds: &[
+            EventKind::CALL_CREATE,
+            EventKind::CALL_STATE,
+            EventKind::CALL_SUMMARY,
+        ],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
@@ -1890,12 +1902,14 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             EventKind::AGENT_KEY_REVOKE,
             EventKind::APPLET_REGISTRATION,
             EventKind::AUDIT_ACCESSED,
-            EventKind::AUDIT_APPLET_BINDING,
+            EventKind::AUDIT_APPLET_BINDING_CREATE,
+            EventKind::AUDIT_APPLET_BINDING_STATE,
             EventKind::AUDIT_RELEASE,
             EventKind::AUDIT_SESSION_AUTHORIZE,
             EventKind::AUDIT_SESSION_CLOSE,
             EventKind::AUDIT_SESSION_NOTICE,
             EventKind::AUDIT_SESSION_REQUEST,
+            EventKind::CALL_CREATE,
             EventKind::CALL_RECORDING_START,
             EventKind::CALL_STATE,
             EventKind::CALL_SUMMARY,

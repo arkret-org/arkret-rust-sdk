@@ -1528,7 +1528,7 @@ mod engine_wire_tests {
         >,
     ) -> arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
         arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa").unwrap(),
             schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),

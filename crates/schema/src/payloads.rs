@@ -1036,7 +1036,7 @@ mod tests {
             "enrollment_authority_binding": {
                 "kind": "service_attested",
                 "authority_did": "did:webvh:z6mkfixture:authority.example",
-                "authorization_ref": "ak:grant:0196419b-0000-7000-8000-000000000002"
+                "authorization_ref": "ak:grant:0196419b-0000-8000-8000-000000000002"
             }
         })
     }

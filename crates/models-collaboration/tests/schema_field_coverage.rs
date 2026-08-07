@@ -259,7 +259,7 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
         serde_json::from_value(json!({
             "kind": "ak.call.signal",
             "payload_sequence": 4,
-            "call_id": "ak:call:01904100-0000-7000-8000-000000000003",
+            "call_id": "ak:call:01904100-0000-8000-8000-000000000003",
             "signal_kind": "candidate",
             "seq": 1,
             "data": {"candidate": "opaque"}

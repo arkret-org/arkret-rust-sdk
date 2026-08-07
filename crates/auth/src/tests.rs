@@ -40,7 +40,8 @@ fn session_grant_notification(
             arkret_device_scope(&device_id),
         ],
         session_id: "browser-session-1".to_owned(),
-        grant_jti: "grant-1".to_owned(),
+        grant_jti: SessionGrantId::new("ak:session_grant:01904100-0000-8000-8000-000000000001")
+            .unwrap(),
         issued_at: now,
         expires_at: now + Duration::minutes(10),
         cnf: Some(SessionGrantConfirmation {
@@ -412,7 +413,8 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
             arkret_device_scope(&device_id),
         ],
         session_id: "browser-session-1".to_owned(),
-        grant_jti: "grant-1".to_owned(),
+        grant_jti: SessionGrantId::new("ak:session_grant:01904100-0000-8000-8000-000000000001")
+            .unwrap(),
         issued_at: now,
         expires_at: now + Duration::minutes(10),
         cnf: Some(SessionGrantConfirmation {

@@ -779,7 +779,7 @@ mod tests {
     #[test]
     fn capability_grant_accepts_omitted_optional_constraints() {
         let grant: CapabilityGrant = serde_json::from_value(json!({
-            "id": "ak:grant:01904100-0000-7000-8000-000000000001",
+            "id": "ak:grant:01904100-0000-8000-8000-000000000001",
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "issuer": "did:web:issuer.example",
@@ -803,7 +803,7 @@ mod tests {
     #[test]
     fn capability_grant_rejects_missing_issuer_authority_refs() {
         let error = serde_json::from_value::<CapabilityGrant>(json!({
-            "id": "ak:grant:01904100-0000-7000-8000-000000000001",
+            "id": "ak:grant:01904100-0000-8000-8000-000000000001",
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:01904100-0000-8000-8000-000000000001",
             "issuer": "did:web:issuer.example",
@@ -840,7 +840,7 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let grant = CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000001").unwrap(),
             schema: "ak.schema.capability.v1".to_owned(),
             realm_id: Some(RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap()),
             issuer: Did::new("did:web:issuer.example").unwrap(),

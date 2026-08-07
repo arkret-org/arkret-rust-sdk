@@ -89,7 +89,7 @@ pub struct AuditAppletBindingPayloadReleaseWindowPolicy {
     pub allowed_target_kinds: Option<Vec<NonEmptyString>>,
 }
 
-/// Closed state set for `ak.component.audit.binding.v1`.
+/// Closed state set for `ak.component.audit.binding_state.v1`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditBindingStatus {
@@ -110,16 +110,14 @@ impl AuditBindingStatus {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_applet_binding_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_applet_binding_create_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AuditAppletBindingPayload {
-    pub binding_id: AuditBindingId,
+pub struct AuditAppletBindingCreatePayload {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub applet_id: AppletIdentifier,
     pub service_id: Did,
-    pub status: AuditBindingStatus,
     pub purpose_kinds: Vec<NonEmptyString>,
     pub allowed_release_modes: Vec<AuditReleaseMode>,
     pub audit_assurance_class: AuditAssurance,
@@ -135,8 +133,25 @@ pub struct AuditAppletBindingPayload {
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<NullableTimestamp>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
+}
+
+/// Lifecycle-only counterpart for
+/// `event-payload.schema.json#/$defs/audit_applet_binding_state_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAppletBindingStatePayload {
+    pub binding_id: AuditBindingId,
+    pub from: AuditBindingStatus,
+    pub to: AuditBindingStatus,
+}
+
+impl AuditAppletBindingStatePayload {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.from == AuditBindingStatus::Revoked || !self.from.allows_transition_to(self.to) {
+            return Err("audit_binding_transition_invalid");
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_payload`.
@@ -309,7 +324,7 @@ mod tests {
     fn audit_session_authorize_fields_are_preserved() {
         let value = serde_json::json!({
             "session_id": "ak:audit_session:018f0f51-7b44-8a2e-8c2f-9b1d6e3a4c5d",
-            "binding_id": "ak:audit_binding:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5e",
+            "binding_id": "ak:audit_binding:018f0f51-7b44-8a2e-8c2f-9b1d6e3a4c5e",
             "realm_id": "ak:realm:018f0f51-8b44-8a2e-8c2f-9b1d6e3a4c5f",
             "effective_scope": {
                 "kind": "realm",

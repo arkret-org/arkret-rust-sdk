@@ -511,21 +511,19 @@ impl SpecArtifactBundle {
                 ))
             })?;
         let criticality = Criticality::Required;
-        // Alias owner is the first registry entry with the same cell identity.
-        let component_slot_alias_of = cell_subject.and_then(|cell_subject| {
+        // Alias owner is the first registry entry for the same component
+        // family. Genesis and mutation events intentionally resolve the same
+        // typed subject through different signed sources (for example,
+        // envelope.event_id vs payload.grant_id), so the source path is not
+        // part of the component-slot identity.
+        let component_slot_alias_of = cell_subject.and_then(|_| {
             let canonical_owner = self.event_kind_registry["event_kinds"]
                 .as_array()
                 .and_then(|entries| {
                     entries.iter().find_map(|other| {
                         let other_kind = other.get("event_kind").and_then(Value::as_str)?;
-                        let (other_family, other_subject) = component_cell_identity(other)?;
-                        if other_family != component_type {
-                            return None;
-                        }
-                        if other_subject != Some(cell_subject) {
-                            return None;
-                        }
-                        Some(other_kind.to_owned())
+                        let (other_family, _) = component_cell_identity(other)?;
+                        (other_family == component_type).then(|| other_kind.to_owned())
                     })
                 })?;
             if canonical_owner == event_kind {
@@ -673,7 +671,7 @@ pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
     ProfileId::DISCLOSED_AUDIT_E2EE_V1,
 ];
 
-/// Typed `ak:<kind>:<uuidv7>` id kinds the SDK ships a Rust type for.
+/// Typed `ak:<kind>:<uuid>` id kinds the SDK ships a Rust type for.
 ///
 /// This list is not free-form: `crates/schema/tests/id_kind_coverage.rs`
 /// pins it to [`arkret_identifiers::DECLARED_UUID_ID_KIND_PREFIXES`] in both
@@ -718,6 +716,7 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "realm",
     "moderation_queue_item",
     "request",
+    "session_grant",
     "snapshot",
     "space",
     "subscription",

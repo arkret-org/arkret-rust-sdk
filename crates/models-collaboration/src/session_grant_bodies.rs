@@ -9,8 +9,8 @@ use arkret_models_identity::{
     SessionGrantRecoveryBinding,
 };
 use arkret_wire::{
-    DeviceId, Did, DidUrl, Error, FreshnessState, GrantId, Hash, NonEmptyString, RealmId, Result,
-    ScopeRef, StrandId, canonical,
+    DeviceId, Did, DidUrl, Error, FreshnessState, Hash, NonEmptyString, RealmId, Result, ScopeRef,
+    SessionGrantId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -147,7 +147,7 @@ pub struct SessionGrantOutcome {
     /// Stable id of the issued session grant. Returned for every grant (human
     /// and agent). Mirrors `SessionGrantRefreshOutcome.grant_id`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant_id: Option<GrantId>,
+    pub grant_id: Option<SessionGrantId>,
     /// JWK of the holder/session key the grant is bound to. The client needs
     /// this for RFC 9421 PoP / DPoP `cnf.jkt` derivation on `/_arkret/self/*`
     /// requests, returned at issue time to avoid a mandatory introspect
@@ -374,7 +374,7 @@ pub fn session_grant_refresh_proof_signing_bytes(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantRefreshOutcome {
-    pub grant_id: GrantId,
+    pub grant_id: SessionGrantId,
     pub grant_jwt: String,
     /// JWK the rotated grant is bound to (the device holder key); the server
     /// does not mint a fresh session private key on rotation.
@@ -387,7 +387,7 @@ pub struct SessionGrantRefreshOutcome {
     /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
     pub dpop_jkt: String,
     /// The prior grant, single-use revoked on success.
-    pub previous_grant_id: GrantId,
+    pub previous_grant_id: SessionGrantId,
 }
 
 /// `ak.gate.account.command.logout_auth_session` request.
@@ -434,7 +434,7 @@ pub enum SessionGrantIntrospectStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantIntrospectGrant {
-    pub id: GrantId,
+    pub id: SessionGrantId,
     pub issuer: String,
     pub subject: String,
     pub service_account_id: String,
@@ -479,7 +479,7 @@ pub struct SessionGrantIntrospectGrant {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantIntrospectRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<GrantId>,
+    pub id: Option<SessionGrantId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_jwt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

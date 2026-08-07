@@ -634,7 +634,7 @@ mod tests {
         }
         if authz {
             builder = builder.with_authz_ref(
-                GrantId::new("ak:grant:01904100-0000-7000-8000-e78463d5d984").unwrap(),
+                GrantId::new("ak:grant:01904100-0000-8000-8000-e78463d5d984").unwrap(),
             );
         }
         builder.build(&EventDraftKindRegistry::default()).unwrap()

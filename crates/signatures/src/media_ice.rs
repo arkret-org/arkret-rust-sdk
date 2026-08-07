@@ -251,7 +251,7 @@ mod tests {
     fn ice_outcome(kid: &str) -> MediaIceConfigOutcome {
         MediaIceConfigOutcome {
             realm_id: realm(),
-            call_id: "ak:call:0196441c-0000-7000-8000-000000000000".to_owned(),
+            call_id: "ak:call:0196441c-0000-8000-8000-000000000000".to_owned(),
             actor_id: did("alice"),
             device_id: arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
                 .unwrap(),

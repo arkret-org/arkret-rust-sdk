@@ -1668,7 +1668,7 @@ mod event_wire_surface_tests {
         event.applet_id =
             Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
         event.authorization_ref =
-            Some(AuthorizationRef::new("ak:grant:01904100-0000-7000-8000-cccccccccccc").unwrap());
+            Some(AuthorizationRef::new("ak:grant:01904100-0000-8000-8000-cccccccccccc").unwrap());
         event.external_ref = Some(BTreeMap::from([
             ("protocol".to_owned(), json!("slack")),
             ("external_id".to_owned(), json!("1234567890.0001")),

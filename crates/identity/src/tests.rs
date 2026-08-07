@@ -967,7 +967,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     .unwrap();
     event.executed_by = Some(bridge);
     event.authorization_ref = Some(
-        arkret_wire::AuthorizationRef::new("ak:grant:01904100-0000-7000-8000-cccccccccccc")
+        arkret_wire::AuthorizationRef::new("ak:grant:01904100-0000-8000-8000-cccccccccccc")
             .unwrap(),
     );
     let builder = arkret_signatures::EventProofBuilder::new();

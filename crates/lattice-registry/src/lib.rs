@@ -669,7 +669,7 @@ mod tests {
     #[test]
     fn orthogonal_call_cells_have_canonical_lattices_subjects_and_bottom_modes() {
         let registry = default_lattice_registry();
-        let call_id = "ak:call:01904100-0000-7000-8000-000000000011";
+        let call_id = "ak:call:01904100-0000-8000-8000-000000000011";
         let recording_id = "ak:recording:01904100-0000-7000-8000-000000000022";
         let expected_capture_subject = composite_subject(&[call_id, recording_id]).unwrap();
 

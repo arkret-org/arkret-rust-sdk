@@ -13,7 +13,9 @@ pub struct SessionGrantPayload {
     pub audience: Did,
     pub scopes: Vec<String>,
     pub session_id: String,
-    pub grant_jti: String,
+    /// JWT `jti`, equal to the `ak:session_grant:` UUIDv8 derived from the
+    /// accepted `ak.session.grant` EventId.
+    pub grant_jti: SessionGrantId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -39,11 +41,6 @@ impl SessionGrantPayload {
         if self.session_id.trim().is_empty() {
             return Err(Error::Protocol(
                 "session grant session_id must not be empty".to_owned(),
-            ));
-        }
-        if self.grant_jti.trim().is_empty() {
-            return Err(Error::Protocol(
-                "session grant grant_jti must not be empty".to_owned(),
             ));
         }
         if let Some(cnf) = &self.cnf

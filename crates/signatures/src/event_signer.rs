@@ -345,7 +345,7 @@ mod tests {
         let mut without = make_event();
         let mut with = make_event();
         with.authorization_ref = Some(
-            arkret_wire::AuthorizationRef::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa")
+            arkret_wire::AuthorizationRef::new("ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa")
                 .unwrap(),
         );
 

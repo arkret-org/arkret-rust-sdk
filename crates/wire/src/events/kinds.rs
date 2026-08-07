@@ -125,7 +125,8 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AppletRegistration => EventProductClass::Applet,
         EventKind::AttestationRangeCompleteness
         | EventKind::AuditAccessed
-        | EventKind::AuditAppletBinding
+        | EventKind::AuditAppletBindingCreate
+        | EventKind::AuditAppletBindingState
         | EventKind::AuditErasureReceipt
         | EventKind::AuditRelease
         | EventKind::AuditRywReceipt
@@ -141,9 +142,10 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmAuthorityReset
         | EventKind::RealmOwnerTransfer
         | EventKind::SessionGrant => EventProductClass::Authz,
-        EventKind::CallRecordingStart | EventKind::CallState | EventKind::CallSummary => {
-            EventProductClass::Call
-        }
+        EventKind::CallCreate
+        | EventKind::CallRecordingStart
+        | EventKind::CallState
+        | EventKind::CallSummary => EventProductClass::Call,
         EventKind::CircleCreate
         | EventKind::CircleUpdate
         | EventKind::CircleArchive

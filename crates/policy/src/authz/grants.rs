@@ -1671,7 +1671,7 @@ mod capability_grant_builder_tests {
 
     fn base_grant() -> arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
         arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa").unwrap(),
             schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),
@@ -1707,12 +1707,12 @@ mod capability_grant_builder_tests {
         // Canonical capability_grant_payload wrapper: {grant_id, grant}.
         assert_eq!(
             event.payload["grant_id"],
-            "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa"
         );
         let artifact = &event.payload["grant"];
         assert_eq!(
             artifact["id"],
-            "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa"
         );
         assert_eq!(artifact["schema"], SchemaId::CAPABILITY_V1);
         assert_eq!(artifact["issuer"], "did:webvh:z6mkfixture:alice.example");
@@ -1730,7 +1730,7 @@ mod capability_grant_builder_tests {
         // Wrapper round-trips back into the core authority form.
         let event_view = arkret_models_collaboration::ResolvedStateEvent {
             kind: event.kind.to_string(),
-            subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            subject: "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa".to_owned(),
             source_event_id: arkret_wire::EventId::new(
                 "ak:event:01904100-0000-8000-8000-bbbbbbbbbbbb",
             )
@@ -1743,7 +1743,7 @@ mod capability_grant_builder_tests {
         let grant = capability_grant_from_resolved_event(&event_view, None).unwrap();
         assert_eq!(
             grant.id.as_str(),
-            "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa"
         );
     }
 
@@ -1888,13 +1888,13 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_chain_verifier_accepts_narrowing_child() {
         let parent = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000001").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
             constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
             ..base_grant()
         };
         let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000002").unwrap(),
             issuer_authority_refs: vec![
                 arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
                     grant_id: parent.id.clone(),
@@ -1915,12 +1915,12 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_chain_verifier_rejects_parent_without_authority_control() {
         let parent = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000001").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
             ..base_grant()
         };
         let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000002").unwrap(),
             issuer_authority_refs: vec![
                 arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
                     grant_id: parent.id.clone(),
@@ -1939,19 +1939,19 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_chain_verifier_accepts_multi_parent_union_and_derives_depth() {
         let parent_create = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000011").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000011").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
             constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
             ..base_grant()
         };
         let parent_update = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000012").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000012").unwrap(),
             actions: vec!["ak.message.revise".to_owned()],
             constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
             ..base_grant()
         };
         let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000013").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-8000-8000-000000000013").unwrap(),
             issuer_authority_refs: vec![
                 arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
                     grant_id: parent_create.id.clone(),
@@ -1979,12 +1979,12 @@ mod capability_grant_builder_tests {
         let mut artifact = serde_json::to_value(base_grant()).unwrap();
         artifact["delegable"] = json!(true);
         let content = json!({
-            "grant_id": "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "grant_id": "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa",
             "grant": artifact,
         });
         let event = arkret_models_collaboration::ResolvedStateEvent {
             kind: "ak.capability.grant".to_owned(),
-            subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            subject: "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa".to_owned(),
             source_event_id: arkret_wire::EventId::new(
                 "ak:event:01904100-0000-8000-8000-bbbbbbbbbbbb",
             )
@@ -2211,7 +2211,7 @@ mod capability_grant_builder_tests {
     #[test]
     fn relinquish_builder_is_subject_only_and_carries_no_authorization_ref() {
         let payload = arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload {
-            grant_id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            grant_id: GrantId::new("ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa").unwrap(),
             reason: Some("no longer needed".to_owned()),
         };
         let event = build_capability_relinquish_event(scope(), bob(), 7, hlc(), payload).unwrap();

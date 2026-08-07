@@ -556,10 +556,13 @@ pub fn subject_derived_uuid(domain: &[u8], subject: &str) -> uuid::Uuid {
 pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:actor_profile:",
     "ak:appeal:",
+    "ak:audit_binding:",
     "ak:audit_release:",
     "ak:audit_session:",
+    "ak:call:",
     "ak:circle:",
     "ak:event:",
+    "ak:grant:",
     "ak:invite:",
     "ak:message:",
     "ak:moderation_queue_item:",
@@ -568,6 +571,7 @@ pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:relation:",
     "ak:report:",
     "ak:sidecar:",
+    "ak:session_grant:",
     "ak:space:",
     "ak:strand:",
     "ak:view:",
@@ -670,7 +674,7 @@ declare_uuid_id_kinds! {
     // Audit release-session + attestation typed ids (id-kind-registry kinds
     // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
     AttestationId, "ak:attestation:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AuditBindingId, "ak:audit_binding:", UUID_VERSION_PRODUCER_ALLOCATED;
+    AuditBindingId, "ak:audit_binding:", UUID_VERSION_EVENT_DERIVED;
     AuditReleaseId, "ak:audit_release:", UUID_VERSION_EVENT_DERIVED;
     AuditSessionId, "ak:audit_session:", UUID_VERSION_EVENT_DERIVED;
     // RTC call participant id (id-kind-registry kind `rtc_participant`).
@@ -687,7 +691,7 @@ declare_uuid_id_kinds! {
     BatchId, "ak:batch:", UUID_VERSION_PRODUCER_ALLOCATED;
     BlobId, "ak:blob:", UUID_VERSION_PRODUCER_ALLOCATED;
     BlockId, "ak:block:", UUID_VERSION_PRODUCER_ALLOCATED;
-    CallId, "ak:call:", UUID_VERSION_PRODUCER_ALLOCATED;
+    CallId, "ak:call:", UUID_VERSION_EVENT_DERIVED;
     ConsentId, "ak:consent:", UUID_VERSION_PRODUCER_ALLOCATED;
     CapabilityId, "ak:capability:", UUID_VERSION_PRODUCER_ALLOCATED;
     ChunkId, "ak:chunk:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -713,7 +717,8 @@ declare_uuid_id_kinds! {
     MessageStreamId, "ak:message_stream:", UUID_VERSION_PRODUCER_ALLOCATED;
     RelationId, "ak:relation:", UUID_VERSION_EVENT_DERIVED;
     EventId, "ak:event:", UUID_VERSION_EVENT_DERIVED;
-    GrantId, "ak:grant:", UUID_VERSION_PRODUCER_ALLOCATED;
+    GrantId, "ak:grant:", UUID_VERSION_EVENT_DERIVED;
+    SessionGrantId, "ak:session_grant:", UUID_VERSION_EVENT_DERIVED;
     InviteId, "ak:invite:", UUID_VERSION_EVENT_DERIVED;
     InviteLocatorId, "ak:invite_locator:", UUID_VERSION_PRODUCER_ALLOCATED;
     KeyEventId, "ak:key_event:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1169,6 +1174,7 @@ mod tests {
         assert_id!(FrameId, "ak:frame:");
         assert_id!(FrankingProofId, "ak:franking_proof:");
         assert_id!(GrantId, "ak:grant:");
+        assert_id!(SessionGrantId, "ak:session_grant:");
         assert_id!(InviteId, "ak:invite:");
         assert_id!(KeyEventId, "ak:key_event:");
         assert_id!(MessageId, "ak:message:");

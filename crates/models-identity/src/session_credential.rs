@@ -1,6 +1,6 @@
 use arkret_wire::{
-    DeviceId, Did, Error, EventId, EventKind, GrantId, PolicyId, RecoveryModelGenerationRef,
-    RecoverySessionId, Result,
+    DeviceId, Did, Error, EventId, EventKind, PolicyId, RecoveryModelGenerationRef,
+    RecoverySessionId, Result, SessionGrantId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -66,7 +66,7 @@ pub struct SessionGrantDeviceBinding {
 #[serde(deny_unknown_fields)]
 pub struct SignedSessionGrantClaims {
     pub kind: String,
-    pub grant_id: GrantId,
+    pub grant_id: SessionGrantId,
     pub subject: Did,
     pub audience: String,
     pub scopes: Vec<String>,
@@ -161,7 +161,8 @@ mod tests {
     fn claims() -> SignedSessionGrantClaims {
         SignedSessionGrantClaims {
             kind: EventKind::SESSION_GRANT.to_owned(),
-            grant_id: GrantId::new("ak:grant:01964198-0000-7000-8000-000000000000").unwrap(),
+            grant_id: SessionGrantId::new("ak:session_grant:01964198-0000-8000-8000-000000000000")
+                .unwrap(),
             subject: Did::new("did:web:alice.example").unwrap(),
             audience: "https://app.example.com".to_owned(),
             scopes: vec!["ak.self.events.command.submit".to_owned()],

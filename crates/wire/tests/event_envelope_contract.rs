@@ -161,7 +161,7 @@ fn auth_context_rejects_a_producer_selected_capability_list() {
         .expect("the closed member set must still parse");
 
     let mut smuggled = base;
-    smuggled["capability_refs"] = json!(["ak:grant:01904100-0000-7000-8000-65c7feb295d9"]);
+    smuggled["capability_refs"] = json!(["ak:grant:01904100-0000-8000-8000-65c7feb295d9"]);
     let error = serde_json::from_value::<arkret_wire::AuthContext>(smuggled)
         .expect_err("a producer-selected capability list must not deserialize");
     assert!(

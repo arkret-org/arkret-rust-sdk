@@ -22,7 +22,7 @@ use std::fmt;
 
 pub use admin_key::AdminKeyStore;
 use arkret_models_identity::DidDocument;
-use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof};
+use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof, SessionGrantId};
 use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
 use error::AuthError as Error;
