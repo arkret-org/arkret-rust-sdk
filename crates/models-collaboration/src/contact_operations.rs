@@ -86,7 +86,7 @@ pub enum SiblingAllowedOperation {
     CancelDeviceBootstrap,
     #[serde(rename = "ak.self.device_messages.command.send")]
     DeviceMessagesSend,
-    #[serde(rename = "ak.self.device_messages.query.list")]
+    #[serde(rename = "ak.self.device_messages.read.list")]
     DeviceMessagesList,
     #[serde(rename = "ak.self.device_messages.command.ack")]
     DeviceMessagesAck,
@@ -969,7 +969,7 @@ mod tests {
         let sibling = json!([
             "ak.gate.account.command.cancel_device_bootstrap",
             "ak.self.device_messages.command.send",
-            "ak.self.device_messages.query.list",
+            "ak.self.device_messages.read.list",
             "ak.self.device_messages.command.ack"
         ]);
         serde_json::from_value::<SiblingAllowedOperations>(sibling.clone()).unwrap();

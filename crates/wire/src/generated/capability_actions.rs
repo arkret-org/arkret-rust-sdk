@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-06.16;
-//! sha256=343a72ac2e21c0eeb6ced3f3b9b9de88aa683e54c85293a4a48eae0719edc4c9 Entries: registered=169
+//! Input: registry/capability-action-registry.json; version=2026-08-07;
+//! sha256=817cd9f8372d10cc219e3d6141fdc787e9e2db949d5fdae0123448f131a399c7 Entries: registered=169
 
 use serde::{Deserialize, Serialize};
 
@@ -135,7 +135,7 @@ pub enum CapabilityActionId {
     RsvpSet,
     SchemaDefine,
     SchemaUpdate,
-    SelfAccountQueryDescribe,
+    SelfAccountReadDescribe,
     SelfAccountStreamSubscribe,
     SelfAgentCommandDeactivate,
     SelfAgentCommandPause,
@@ -152,7 +152,7 @@ pub enum CapabilityActionId {
     SelfBlobUploadCreate,
     SelfEventsReadScan,
     SelfEventsStreamSubscribe,
-    SelfSnapshotQueryManifestHead,
+    SelfSnapshotReadManifestHead,
     SidecarAccessReplace,
     SpaceArchive,
     SpaceCreate,
@@ -308,7 +308,7 @@ impl CapabilityActionId {
         Self::RsvpSet,
         Self::SchemaDefine,
         Self::SchemaUpdate,
-        Self::SelfAccountQueryDescribe,
+        Self::SelfAccountReadDescribe,
         Self::SelfAccountStreamSubscribe,
         Self::SelfAgentCommandDeactivate,
         Self::SelfAgentCommandPause,
@@ -325,7 +325,7 @@ impl CapabilityActionId {
         Self::SelfBlobUploadCreate,
         Self::SelfEventsReadScan,
         Self::SelfEventsStreamSubscribe,
-        Self::SelfSnapshotQueryManifestHead,
+        Self::SelfSnapshotReadManifestHead,
         Self::SidecarAccessReplace,
         Self::SpaceArchive,
         Self::SpaceCreate,
@@ -480,7 +480,7 @@ impl CapabilityActionId {
     pub const RSVP_SET: &'static str = "ak.rsvp.set";
     pub const SCHEMA_DEFINE: &'static str = "ak.schema.define";
     pub const SCHEMA_UPDATE: &'static str = "ak.schema.update";
-    pub const SELF_ACCOUNT_QUERY_DESCRIBE: &'static str = "ak.self.account.query.describe";
+    pub const SELF_ACCOUNT_READ_DESCRIBE: &'static str = "ak.self.account.read.describe";
     pub const SELF_ACCOUNT_STREAM_SUBSCRIBE: &'static str = "ak.self.account.stream.subscribe";
     pub const SELF_AGENT_COMMAND_DEACTIVATE: &'static str = "ak.self.agent.command.deactivate";
     pub const SELF_AGENT_COMMAND_PAUSE: &'static str = "ak.self.agent.command.pause";
@@ -501,8 +501,8 @@ impl CapabilityActionId {
     pub const SELF_BLOB_UPLOAD_CREATE: &'static str = "ak.self.blob.upload.create";
     pub const SELF_EVENTS_READ_SCAN: &'static str = "ak.self.events.read.scan";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
-    pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
-        "ak.self.snapshot.query.manifest_head";
+    pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD: &'static str =
+        "ak.self.snapshot.read.manifest_head";
     pub const SIDECAR_ACCESS_REPLACE: &'static str = "ak.sidecar.access.replace";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
     pub const SPACE_CREATE: &'static str = "ak.space.create";
@@ -657,7 +657,7 @@ impl CapabilityActionId {
             Self::RsvpSet => Self::RSVP_SET,
             Self::SchemaDefine => Self::SCHEMA_DEFINE,
             Self::SchemaUpdate => Self::SCHEMA_UPDATE,
-            Self::SelfAccountQueryDescribe => Self::SELF_ACCOUNT_QUERY_DESCRIBE,
+            Self::SelfAccountReadDescribe => Self::SELF_ACCOUNT_READ_DESCRIBE,
             Self::SelfAccountStreamSubscribe => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE,
             Self::SelfAgentCommandDeactivate => Self::SELF_AGENT_COMMAND_DEACTIVATE,
             Self::SelfAgentCommandPause => Self::SELF_AGENT_COMMAND_PAUSE,
@@ -676,7 +676,7 @@ impl CapabilityActionId {
             Self::SelfBlobUploadCreate => Self::SELF_BLOB_UPLOAD_CREATE,
             Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
-            Self::SelfSnapshotQueryManifestHead => Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD,
+            Self::SelfSnapshotReadManifestHead => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD,
             Self::SidecarAccessReplace => Self::SIDECAR_ACCESS_REPLACE,
             Self::SpaceArchive => Self::SPACE_ARCHIVE,
             Self::SpaceCreate => Self::SPACE_CREATE,
@@ -833,7 +833,7 @@ impl CapabilityActionId {
             Self::RSVP_SET => Some(Self::RsvpSet),
             Self::SCHEMA_DEFINE => Some(Self::SchemaDefine),
             Self::SCHEMA_UPDATE => Some(Self::SchemaUpdate),
-            Self::SELF_ACCOUNT_QUERY_DESCRIBE => Some(Self::SelfAccountQueryDescribe),
+            Self::SELF_ACCOUNT_READ_DESCRIBE => Some(Self::SelfAccountReadDescribe),
             Self::SELF_ACCOUNT_STREAM_SUBSCRIBE => Some(Self::SelfAccountStreamSubscribe),
             Self::SELF_AGENT_COMMAND_DEACTIVATE => Some(Self::SelfAgentCommandDeactivate),
             Self::SELF_AGENT_COMMAND_PAUSE => Some(Self::SelfAgentCommandPause),
@@ -852,7 +852,7 @@ impl CapabilityActionId {
             Self::SELF_BLOB_UPLOAD_CREATE => Some(Self::SelfBlobUploadCreate),
             Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
-            Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::SelfSnapshotQueryManifestHead),
+            Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::SelfSnapshotReadManifestHead),
             Self::SIDECAR_ACCESS_REPLACE => Some(Self::SidecarAccessReplace),
             Self::SPACE_ARCHIVE => Some(Self::SpaceArchive),
             Self::SPACE_CREATE => Some(Self::SpaceCreate),

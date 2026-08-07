@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-06.16;
-//! sha256=37eb16281843577d9d13bafbd2e280fa6deeb7c12cf93c44d1e9379582400439 Entries: schema_ids=181,
+//! Input: registry/schema-registry.json; version=2026-08-07;
+//! sha256=8b9f526e9b10cb99bbc6f1f6d083083a4b0b2370694939c2643e4568edfdfdb5 Entries: schema_ids=181,
 //! active=181
 
 use serde::{Deserialize, Serialize};
@@ -757,7 +757,7 @@ impl SchemaId {
     /// Arkret-layer record that a named did:webvh witness was observed attesting a specific log
     /// versionId. Separate object family from ak.schema.identity_receipt.v1, whose witness_role
     /// describes a DID registry consensus role rather than a method-native witness; both are
-    /// returned by ak.root.identity.receipts.query.list as a tagged union discriminated on schema.
+    /// returned by ak.root.identity.receipts.read.list as a tagged union discriminated on schema.
     /// Never substitutes for verifying the standard did-witness.json proofs.
     pub const DID_WEBVH_WITNESS_RECEIPT_V1: &'static str = "ak.schema.did_webvh_witness_receipt.v1";
     /// Closed carriers for the Direct Conversation resolver and single-sided founding: the
@@ -971,11 +971,11 @@ impl SchemaId {
         "ak.schema.security_rotation_local_commit.v1";
     /// Closed RecoveryTransaction and SecurityRotationTransaction resource.
     pub const SECURITY_TRANSACTION_V1: &'static str = "ak.schema.security_transaction.v1";
-    /// Canonical ServiceDescribe response for ak.server.query.describe and per-surface describe
+    /// Canonical ServiceDescribe response for ak.server.read.describe and per-surface describe
     /// operations: base service metadata plus claim-level partitions (supported_operations /
     /// implemented_features / claimed_profiles / verified_profiles / experimental_features /
     /// compat_surfaces) and the registered directory_service overlay fields used by
-    /// ak.find.directory.query.describe. Enforces development_mode=true => verified_profiles=[].
+    /// ak.find.directory.read.describe. Enforces development_mode=true => verified_profiles=[].
     /// compat_surfaces is limited to external interop surfaces. See service-surface.md §3.0 and
     /// discovery-directory.md §8.9.
     pub const SERVICE_DESCRIBE_V1: &'static str = "ak.schema.service_describe.v1";

@@ -12,7 +12,7 @@
 //! `ak.member.state{join}.delivery_binding`.
 //!
 //! Two legal provenance paths:
-//!   1. `ak.find.directory.query.resolve_handle(intent="member_add" | "invite")` packed into a
+//!   1. `ak.find.directory.read.resolve_handle(intent="member_add" | "invite")` packed into a
 //!      candidate by the Directory.
 //!   2. Trusted issuer (Organization / Principal Server / service DID) signs a candidate directly —
 //!      e.g. invite token payload, organization member roster push.

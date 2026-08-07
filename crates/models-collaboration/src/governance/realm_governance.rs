@@ -895,7 +895,7 @@ pub struct CapabilityDerived {
 }
 
 /// One projected `ak.realm.organization` relationship row surfaced by
-/// `ak.self.realm_organization.query.list`. Mirrors the canonical
+/// `ak.self.realm_organization.read.list`. Mirrors the canonical
 /// `realm_organization_payload` field order; `lifecycle_phase` is
 /// reducer-derived. A row here is a projection only: an organization
 /// relationship is only verified when `lifecycle_phase=verified_active`.
@@ -931,7 +931,7 @@ pub struct RealmOrganizationRelationshipRow {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// Response DTO for `ak.self.realm_organization.query.list`
+/// Response DTO for `ak.self.realm_organization.read.list`
 /// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

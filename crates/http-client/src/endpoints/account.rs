@@ -283,7 +283,7 @@ impl Client {
     }
 
     /// `POST /_arkret/open/device-pairing/resolve`
-    /// (`ak.open.device_pairing.query.resolve`). Unauthenticated, body-only: an
+    /// (`ak.open.device_pairing.read.resolve`). Unauthenticated, body-only: an
     /// already-authorized device exchanges a scanned/pasted pairing token for the
     /// staged `DevicePairingBootstrap`, then drives `account_device_pair`.
     pub async fn device_pairing_resolve(
@@ -295,7 +295,7 @@ impl Client {
     }
 
     /// `POST /_arkret/open/device-pairing/requests/status`
-    /// (`ak.open.device_pairing.query.status`). Unauthenticated, body-only: the
+    /// (`ak.open.device_pairing.read.status`). Unauthenticated, body-only: the
     /// new device polls whether a sibling has authorized its staged request.
     pub async fn device_pairing_status(
         &self,

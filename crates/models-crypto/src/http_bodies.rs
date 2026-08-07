@@ -1017,7 +1017,7 @@ pub struct KeyPackagesRevokeOutcome {
 #[serde(transparent)]
 pub struct KeysBackupsPutRequestBody(pub KeyBackup);
 
-/// Transparent wrapper over `KeyBackup` for the `ak.self.keys.query.get_backup`
+/// Transparent wrapper over `KeyBackup` for the `ak.self.keys.read.get_backup`
 /// outcome Salvo OpenAPI bindings.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

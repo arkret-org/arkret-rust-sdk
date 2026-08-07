@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-06.3;
-//! sha256=cddc1cd1bd84e047fbab4160000d29af290825b42c7a0beb09373fa6f77f471b
+//! Input: registry/error-code-registry.json; version=2026-08-07;
+//! sha256=c275ccaeb3fb3abc6324a3a7908ed1b719c00be3c3a40cd6e43dbed75a4941d8
 //! Entries: reason_codes=464
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2654,7 +2654,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_EXPIRED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A Policy Server challenge obligation was not satisfied within `max_proof_age`, or a challenge_proof was submitted whose issuance is older than `max_proof_age`. The reducer / Policy Server MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must re-run ak.self.policy.query.check to obtain a fresh challenge_id. See zh/governance/join-policy.md §11.",
+        description: "A Policy Server challenge obligation was not satisfied within `max_proof_age`, or a challenge_proof was submitted whose issuance is older than `max_proof_age`. The reducer / Policy Server MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must re-run ak.self.policy.read.check to obtain a fresh challenge_id. See zh/governance/join-policy.md §11.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_FAILED,

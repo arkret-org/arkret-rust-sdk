@@ -99,7 +99,7 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
     ServiceOperationId::SELF_AGENT_COMMAND_PROVISION,
     ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING,
-    ServiceOperationId::SELF_AGENT_QUERY_LIST,
+    ServiceOperationId::SELF_AGENT_READ_LIST,
     ServiceOperationId::SELF_AGENT_RESOURCE_GET,
     ServiceOperationId::SELF_AGENT_COMMAND_PAUSE,
     ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
@@ -107,7 +107,7 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
     ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
     ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
-    ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
+    ServiceOperationId::SELF_AGENT_SIDECAR_READ_LIST,
     ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
 ];
 

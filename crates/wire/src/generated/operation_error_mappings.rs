@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.16;
-//! sha256=caa49c1d0f3f977f0ce7d8eff90cc7003c9eaab6a430bd8bc7ed01bd17095ea1 Input: registry/
-//! operations-error-mapping.json; version=2026-08-06.2;
-//! sha256=2f2e732e00796254f88316860242c34e57510bb67c47997136cdc1fd4fe62c06 Input: registry/
-//! error-code-registry.json; version=2026-08-06.3;
-//! sha256=cddc1cd1bd84e047fbab4160000d29af290825b42c7a0beb09373fa6f77f471b Entries: operations=222
+//! Input: registry/operation-registry.json; version=2026-08-07;
+//! sha256=36261cc7bd034960ddc6a2d97b0fdfdf9124a335252c8bbff27359b71512c1e0 Input: registry/
+//! operations-error-mapping.json; version=2026-08-07;
+//! sha256=36940c3b37953fe80182b4f109e6266a96dad5f95ded92be9c3fef792bb7d70b Input: registry/
+//! error-code-registry.json; version=2026-08-07;
+//! sha256=c275ccaeb3fb3abc6324a3a7908ed1b719c00be3c3a40cd6e43dbed75a4941d8 Entries: operations=222
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -32,7 +32,7 @@ pub struct OperationErrorMappingDescriptor {
 
 pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::EdgeAppletActorQueryResolve,
+        operation: ServiceOperationId::EdgeAppletActorReadResolve,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -47,27 +47,27 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::EdgeAppletQueryDescribe,
+        operation: ServiceOperationId::EdgeAppletReadDescribe,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::EdgeAppletQueryPing,
+        operation: ServiceOperationId::EdgeAppletReadPing,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::EdgeAppletQueryProtocolMetadata,
+        operation: ServiceOperationId::EdgeAppletReadProtocolMetadata,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::EdgeAppletRealmQueryResolve,
+        operation: ServiceOperationId::EdgeAppletRealmReadResolve,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::EdgeAppletThirdPartyLocationsQueryList,
+        operation: ServiceOperationId::EdgeAppletThirdPartyLocationsReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::EdgeAppletThirdPartyUsersQueryList,
+        operation: ServiceOperationId::EdgeAppletThirdPartyUsersReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -133,15 +133,15 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryDescribe,
+        operation: ServiceOperationId::FindDirectoryReadDescribe,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryListHandlesForSubject,
+        operation: ServiceOperationId::FindDirectoryReadListHandlesForSubject,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryPrivateContactDiscovery,
+        operation: ServiceOperationId::FindDirectoryReadPrivateContactDiscovery,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::PsiQuotaExhausted),
             OperationSpecificError::ErrorCode(ErrorCode::PsiBatchUnavailable),
@@ -150,42 +150,42 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryResolveAgentSelector,
+        operation: ServiceOperationId::FindDirectoryReadResolveAgentSelector,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryResolveHandle,
+        operation: ServiceOperationId::FindDirectoryReadResolveHandle,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::NotFound),
             OperationSpecificError::ErrorCode(ErrorCode::HandleUnverified),
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryResolveOrganization,
+        operation: ServiceOperationId::FindDirectoryReadResolveOrganization,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryResolveRealm,
+        operation: ServiceOperationId::FindDirectoryReadResolveRealm,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQueryResolveTarget,
+        operation: ServiceOperationId::FindDirectoryReadResolveTarget,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQuerySearchActors,
+        operation: ServiceOperationId::FindDirectoryReadSearchActors,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQuerySearchOrganizations,
+        operation: ServiceOperationId::FindDirectoryReadSearchOrganizations,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQuerySearchRealms,
+        operation: ServiceOperationId::FindDirectoryReadSearchRealms,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::FindDirectoryQuerySearchUsers,
+        operation: ServiceOperationId::FindDirectoryReadSearchUsers,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -323,11 +323,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenAgentPairingQueryResolve,
+        operation: ServiceOperationId::OpenAgentPairingReadResolve,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenAgentPairingQueryRuntimeKeyRequestStatus,
+        operation: ServiceOperationId::OpenAgentPairingReadRuntimeKeyRequestStatus,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -335,15 +335,15 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenDevicePairingQueryResolve,
+        operation: ServiceOperationId::OpenDevicePairingReadResolve,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenDevicePairingQueryStatus,
+        operation: ServiceOperationId::OpenDevicePairingReadStatus,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenInviteLocatorQueryResolve,
+        operation: ServiceOperationId::OpenInviteLocatorReadResolve,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -379,15 +379,15 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenMimiQueryGroupInfo,
+        operation: ServiceOperationId::OpenMimiReadGroupInfo,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenMimiQueryIdentifiers,
+        operation: ServiceOperationId::OpenMimiReadIdentifiers,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::OpenMimiQueryProviderDirectory,
+        operation: ServiceOperationId::OpenMimiReadProviderDirectory,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -401,7 +401,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerAccountStatusQueryAuthoringBasis,
+        operation: ServiceOperationId::PeerAccountStatusReadAuthoringBasis,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
@@ -475,14 +475,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerKeysKeypackagesQueryClaim,
+        operation: ServiceOperationId::PeerKeysKeypackagesReadClaim,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::ClaimFailed),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerMlsQueryGroupStateMaterial,
+        operation: ServiceOperationId::PeerMlsReadGroupStateMaterial,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
             OperationSpecificError::ErrorCode(ErrorCode::DigestMismatch),
@@ -496,7 +496,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerSnapshotQueryManifestHead,
+        operation: ServiceOperationId::PeerSnapshotReadManifestHead,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -516,7 +516,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::RootIdentityLogQueryList,
+        operation: ServiceOperationId::RootIdentityLogReadList,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::UnsupportedDidMethod),
             OperationSpecificError::ErrorCode(ErrorCode::DidNotFound),
@@ -563,7 +563,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::DidNotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::RootIdentityQueryResolve,
+        operation: ServiceOperationId::RootIdentityReadResolve,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::UnsupportedDidMethod),
             OperationSpecificError::ErrorCode(ErrorCode::DidNotFound),
@@ -571,7 +571,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::RootIdentityReceiptsQueryList,
+        operation: ServiceOperationId::RootIdentityReceiptsReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -611,7 +611,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::RootIdentityRegistryQueryDescribe,
+        operation: ServiceOperationId::RootIdentityRegistryReadDescribe,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -642,11 +642,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAccountQueryDescribe,
+        operation: ServiceOperationId::SelfAccountReadDescribe,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAccountQueryViewer,
+        operation: ServiceOperationId::SelfAccountReadViewer,
         operation_specific: &[OperationSpecificError::ErrorCode(
             ErrorCode::SourceRefsUnverifiable,
         )],
@@ -661,7 +661,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAccountDataQueryList,
+        operation: ServiceOperationId::SelfAccountDataReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -746,7 +746,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::CasConflict)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAgentQueryList,
+        operation: ServiceOperationId::SelfAgentReadList,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid)],
     },
     OperationErrorMappingDescriptor {
@@ -763,7 +763,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAgentSidecarQueryList,
+        operation: ServiceOperationId::SelfAgentSidecarReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -771,7 +771,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAgentSignerEvidenceQueryResolve,
+        operation: ServiceOperationId::SelfAgentSignerEvidenceReadResolve,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::AgentSignerEvidenceMissing),
             OperationSpecificError::ErrorCode(ErrorCode::AgentSignerEvidenceStale),
@@ -819,15 +819,15 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAuthzGrantsQueryEffective,
+        operation: ServiceOperationId::SelfAuthzGrantsReadEffective,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAuthzInvitesQueryList,
+        operation: ServiceOperationId::SelfAuthzInvitesReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAuthzQueryCheck,
+        operation: ServiceOperationId::SelfAuthzReadCheck,
         operation_specific: &[OperationSpecificError::ErrorCode(
             ErrorCode::PolicyUnavailable,
         )],
@@ -916,7 +916,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfCircleQueryList,
+        operation: ServiceOperationId::SelfCircleReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -936,7 +936,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfConsentQueryList,
+        operation: ServiceOperationId::SelfConsentReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -986,7 +986,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfContactQueryList,
+        operation: ServiceOperationId::SelfContactReadList,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::CursorRevoked),
@@ -1013,11 +1013,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfDeviceMessagesQueryList,
+        operation: ServiceOperationId::SelfDeviceMessagesReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfDirectConversationQueryResolve,
+        operation: ServiceOperationId::SelfDirectConversationReadResolve,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),
@@ -1140,7 +1140,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfKeysBackupsQueryList,
+        operation: ServiceOperationId::SelfKeysBackupsReadList,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid)],
     },
     OperationErrorMappingDescriptor {
@@ -1194,7 +1194,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfKeysQueryLookup,
+        operation: ServiceOperationId::SelfKeysReadLookup,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1205,7 +1205,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfMediaQueryIceConfig,
+        operation: ServiceOperationId::SelfMediaReadIceConfig,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::IceConfigDenied),
             OperationSpecificError::ErrorCode(ErrorCode::TurnCredentialExpired),
@@ -1217,7 +1217,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfMorphQueryList,
+        operation: ServiceOperationId::SelfMorphReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1225,7 +1225,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfPolicyQueryCheck,
+        operation: ServiceOperationId::SelfPolicyReadCheck,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::PolicyUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::PolicyStale),
@@ -1236,7 +1236,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfReadCursorQueryList,
+        operation: ServiceOperationId::SelfReadCursorReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1264,7 +1264,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRealmJoinApplicationAuditQueryList,
+        operation: ServiceOperationId::SelfRealmJoinApplicationAuditReadList,
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
@@ -1295,7 +1295,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRealmJoinApplicationQueryList,
+        operation: ServiceOperationId::SelfRealmJoinApplicationReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1303,7 +1303,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRealmModerationPolicyQueryEffective,
+        operation: ServiceOperationId::SelfRealmModerationPolicyReadEffective,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1313,7 +1313,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRealmQueryExport,
+        operation: ServiceOperationId::SelfRealmReadExport,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1325,11 +1325,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRealmLinkQueryEffectivePolicy,
+        operation: ServiceOperationId::SelfRealmLinkReadEffectivePolicy,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRealmLinkQueryList,
+        operation: ServiceOperationId::SelfRealmLinkReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1337,7 +1337,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRealmOrganizationQueryList,
+        operation: ServiceOperationId::SelfRealmOrganizationReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1398,18 +1398,18 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfSnapshotQueryManifestHead,
+        operation: ServiceOperationId::SelfSnapshotReadManifestHead,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::SnapshotUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::SnapshotAuthorityUnverified),
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfSpaceQueryList,
+        operation: ServiceOperationId::SelfSpaceReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfStrandQueryList,
+        operation: ServiceOperationId::SelfStrandReadList,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
@@ -1417,7 +1417,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::ServerQueryDescribe,
+        operation: ServiceOperationId::ServerReadDescribe,
         operation_specific: &[],
     },
 ];

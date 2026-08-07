@@ -40,12 +40,12 @@ const SERVICE_ROUTES: [ServiceRoute; 6] = [
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/ping",
-        operation_id: "ak.edge.applet.query.ping",
+        operation_id: "ak.edge.applet.read.ping",
     },
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/describe",
-        operation_id: "ak.edge.applet.query.describe",
+        operation_id: "ak.edge.applet.read.describe",
     },
     ServiceRoute {
         method: "POST",
@@ -55,17 +55,17 @@ const SERVICE_ROUTES: [ServiceRoute; 6] = [
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/actors/{actor_id}",
-        operation_id: "ak.edge.applet.actor.query.resolve",
+        operation_id: "ak.edge.applet.actor.read.resolve",
     },
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/realms/{realm_id_or_alias}",
-        operation_id: "ak.edge.applet.realm.query.resolve",
+        operation_id: "ak.edge.applet.realm.read.resolve",
     },
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/protocols/{protocol}",
-        operation_id: "ak.edge.applet.query.protocol_metadata",
+        operation_id: "ak.edge.applet.read.protocol_metadata",
     },
 ];
 
@@ -290,7 +290,7 @@ mod tests {
                 arkret_wire::ServiceKind::AppletService,
             );
             description.supported_profiles = vec!["ak.profile.applet.v1".to_owned()];
-            description.supported_operations = vec!["ak.edge.applet.query.describe".to_owned()];
+            description.supported_operations = vec!["ak.edge.applet.read.describe".to_owned()];
             Ok(description)
         }
         fn handle_transaction(

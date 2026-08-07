@@ -627,7 +627,7 @@ pub struct SyncUpdates {
     pub to_device_ack_token: Option<String>,
     /// Whether the account-subscribe to-device batch was truncated.
     pub to_device_limited: bool,
-    /// Continuation cursor for `ak.self.device_messages.query.list` when the
+    /// Continuation cursor for `ak.self.device_messages.read.list` when the
     /// account-subscribe to-device batch is limited.
     pub to_device_next_cursor: Option<String>,
     /// Whether the server reports an unacknowledged to-device queue gap.

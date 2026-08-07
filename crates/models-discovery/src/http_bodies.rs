@@ -8,21 +8,21 @@ use serde::{Deserialize, Serialize};
 use crate::service_description::ServiceDescribe;
 
 /// Transparent wrapper over `ServiceDescribe` for
-/// `ak.gate.service.query.describe` (Principal Server) Salvo OpenAPI bindings.
+/// `ak.gate.service.read.describe` (Principal Server) Salvo OpenAPI bindings.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ServerDescribeOutcome(pub ServiceDescribe);
 
 /// Transparent wrapper over `ServiceDescribe` for
-/// `ak.find.directory.query.describe` (directory service) Salvo OpenAPI bindings.
+/// `ak.find.directory.read.describe` (directory service) Salvo OpenAPI bindings.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct DirectoryDescribeOutcome(pub ServiceDescribe);
 
 /// Two-round RFC 9497 VOPRF request for
-/// `ak.find.directory.query.private_contact_discovery`.
+/// `ak.find.directory.read.private_contact_discovery`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "phase", rename_all = "snake_case", deny_unknown_fields)]

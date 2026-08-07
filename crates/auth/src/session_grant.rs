@@ -389,7 +389,7 @@ mod tests {
         let request = holder_proof_session_grant_request(
             did(),
             Some(device_id()),
-            vec!["ak.self.account.query.viewer".to_owned()],
+            vec!["ak.self.account.read.viewer".to_owned()],
             Some(SessionGrantDpopBindingProof {
                 proof_jwt: "holder-dpop-proof".to_owned(),
             }),

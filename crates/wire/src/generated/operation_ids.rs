@@ -1,21 +1,21 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-06.16;
-//! sha256=caa49c1d0f3f977f0ce7d8eff90cc7003c9eaab6a430bd8bc7ed01bd17095ea1 Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-07;
+//! sha256=36261cc7bd034960ddc6a2d97b0fdfdf9124a335252c8bbff27359b71512c1e0 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum ServiceOperationId {
-    EdgeAppletActorQueryResolve,
+    EdgeAppletActorReadResolve,
     EdgeAppletCommandTransaction,
-    EdgeAppletQueryDescribe,
-    EdgeAppletQueryPing,
-    EdgeAppletQueryProtocolMetadata,
-    EdgeAppletRealmQueryResolve,
-    EdgeAppletThirdPartyLocationsQueryList,
-    EdgeAppletThirdPartyUsersQueryList,
+    EdgeAppletReadDescribe,
+    EdgeAppletReadPing,
+    EdgeAppletReadProtocolMetadata,
+    EdgeAppletRealmReadResolve,
+    EdgeAppletThirdPartyLocationsReadList,
+    EdgeAppletThirdPartyUsersReadList,
     EdgePushCommandNotify,
     EdgePushCommandRegisterDevice,
     EdgePushCommandUnregisterDevice,
@@ -23,18 +23,18 @@ pub enum ServiceOperationId {
     FindDirectoryCommandTakedownAppeal,
     FindDirectoryCommandWithdraw,
     FindDirectoryPushCommandRegister,
-    FindDirectoryQueryDescribe,
-    FindDirectoryQueryListHandlesForSubject,
-    FindDirectoryQueryPrivateContactDiscovery,
-    FindDirectoryQueryResolveAgentSelector,
-    FindDirectoryQueryResolveHandle,
-    FindDirectoryQueryResolveOrganization,
-    FindDirectoryQueryResolveRealm,
-    FindDirectoryQueryResolveTarget,
-    FindDirectoryQuerySearchActors,
-    FindDirectoryQuerySearchOrganizations,
-    FindDirectoryQuerySearchRealms,
-    FindDirectoryQuerySearchUsers,
+    FindDirectoryReadDescribe,
+    FindDirectoryReadListHandlesForSubject,
+    FindDirectoryReadPrivateContactDiscovery,
+    FindDirectoryReadResolveAgentSelector,
+    FindDirectoryReadResolveHandle,
+    FindDirectoryReadResolveOrganization,
+    FindDirectoryReadResolveRealm,
+    FindDirectoryReadResolveTarget,
+    FindDirectoryReadSearchActors,
+    FindDirectoryReadSearchOrganizations,
+    FindDirectoryReadSearchRealms,
+    FindDirectoryReadSearchUsers,
     GateAccountCommandAuthorizeRecoveryDevice,
     GateAccountCommandCancelDeviceBootstrap,
     GateAccountCommandEnrollDevice,
@@ -52,12 +52,12 @@ pub enum ServiceOperationId {
     GateAccountExchangeCompleteOidc,
     GateAccountExchangeCreateHandoff,
     OpenAgentPairingCommandSubmitRuntimeKeyRequest,
-    OpenAgentPairingQueryResolve,
-    OpenAgentPairingQueryRuntimeKeyRequestStatus,
+    OpenAgentPairingReadResolve,
+    OpenAgentPairingReadRuntimeKeyRequestStatus,
     OpenDevicePairingCommandStage,
-    OpenDevicePairingQueryResolve,
-    OpenDevicePairingQueryStatus,
-    OpenInviteLocatorQueryResolve,
+    OpenDevicePairingReadResolve,
+    OpenDevicePairingReadStatus,
+    OpenInviteLocatorReadResolve,
     OpenMimiCommandNotify,
     OpenMimiCommandProxyDownload,
     OpenMimiCommandReportAbuse,
@@ -66,11 +66,11 @@ pub enum ServiceOperationId {
     OpenMimiCommandUpdateConsent,
     OpenMimiCommandUpdateRoom,
     OpenMimiExchangeRequestKeyMaterial,
-    OpenMimiQueryGroupInfo,
-    OpenMimiQueryIdentifiers,
-    OpenMimiQueryProviderDirectory,
+    OpenMimiReadGroupInfo,
+    OpenMimiReadIdentifiers,
+    OpenMimiReadProviderDirectory,
     PeerAccountStatusCommandSubmit,
-    PeerAccountStatusQueryAuthoringBasis,
+    PeerAccountStatusReadAuthoringBasis,
     PeerContactsCommandSubmit,
     PeerEventsCommandSubmit,
     PeerEventsReadDescribe,
@@ -79,34 +79,34 @@ pub enum ServiceOperationId {
     PeerEventsReadScan,
     PeerInvitesCommandSubmit,
     PeerKeysKeypackagesCommandClaim,
-    PeerKeysKeypackagesQueryClaim,
-    PeerMlsQueryGroupStateMaterial,
+    PeerKeysKeypackagesReadClaim,
+    PeerMlsReadGroupStateMaterial,
     PeerSignalCommandRelay,
-    PeerSnapshotQueryManifestHead,
+    PeerSnapshotReadManifestHead,
     RootIdentityCommandSubmitDidOperation,
     RootIdentityDocumentResourceGet,
-    RootIdentityLogQueryList,
+    RootIdentityLogReadList,
     RootIdentityOrganizationRegistrationCommandEnsure,
     RootIdentityOrganizationRegistrationCommandPrepare,
     RootIdentityOrganizationRegistrationCommandRefresh,
     RootIdentityOrganizationRegistrationCommandRevoke,
     RootIdentityOrganizationRegistrationResourceGet,
-    RootIdentityQueryResolve,
-    RootIdentityReceiptsQueryList,
+    RootIdentityReadResolve,
+    RootIdentityReceiptsReadList,
     RootIdentityRecoveryPolicyCommandPublish,
     RootIdentityRecoveryPolicyResourceGet,
     RootIdentityRecoverySessionCommandCreate,
     RootIdentityRecoverySessionCommandSubmitProof,
     RootIdentityRecoverySessionResourceGet,
-    RootIdentityRegistryQueryDescribe,
+    RootIdentityRegistryReadDescribe,
     RootIdentityServiceRegistrationCommandEnsure,
     RootIdentityServiceRegistrationResourceGet,
     SelfAccountCommandRevokeCursor,
     SelfAccountCommandUpdateProfile,
-    SelfAccountQueryDescribe,
-    SelfAccountQueryViewer,
+    SelfAccountReadDescribe,
+    SelfAccountReadViewer,
     SelfAccountStreamSubscribe,
-    SelfAccountDataQueryList,
+    SelfAccountDataReadList,
     SelfAccountDataResourceDelete,
     SelfAccountDataResourceGet,
     SelfAccountDataResourceReplace,
@@ -119,20 +119,20 @@ pub enum ServiceOperationId {
     SelfAgentGrantResourceDelete,
     SelfAgentParticipationResourceGet,
     SelfAgentParticipationResourceReplace,
-    SelfAgentQueryList,
+    SelfAgentReadList,
     SelfAgentResourceGet,
     SelfAgentSidecarCommandEnsure,
-    SelfAgentSidecarQueryList,
+    SelfAgentSidecarReadList,
     SelfAgentSidecarResourceGet,
-    SelfAgentSignerEvidenceQueryResolve,
+    SelfAgentSignerEvidenceReadResolve,
     SelfAppletCommandInstall,
     SelfAppletCommandRevoke,
     SelfAppletGhostCommandProvision,
     SelfAppletInstallCommandPreview,
     SelfAuthorizationLeasesCommandIssue,
-    SelfAuthzGrantsQueryEffective,
-    SelfAuthzInvitesQueryList,
-    SelfAuthzQueryCheck,
+    SelfAuthzGrantsReadEffective,
+    SelfAuthzInvitesReadList,
+    SelfAuthzReadCheck,
     SelfBlobCommandPresign,
     SelfBlobResourceGet,
     SelfBlobResourceHead,
@@ -145,24 +145,24 @@ pub enum ServiceOperationId {
     SelfCircleCommandTombstone,
     SelfCircleMemberCommandAdd,
     SelfCircleMemberResourceDelete,
-    SelfCircleQueryList,
+    SelfCircleReadList,
     SelfCircleResourceGet,
     SelfConsentCommandGrant,
     SelfConsentCommandRequest,
     SelfConsentCommandRevoke,
-    SelfConsentQueryList,
+    SelfConsentReadList,
     SelfConsentResourceGet,
     SelfContactCommandReject,
     SelfContactCommandRequest,
     SelfContactCommandRespond,
     SelfContactCommandScopeUpdate,
     SelfContactCommandTombstone,
-    SelfContactQueryList,
+    SelfContactReadList,
     SelfControlProposalAcksCommandIssue,
     SelfDeviceMessagesCommandAck,
     SelfDeviceMessagesCommandSend,
-    SelfDeviceMessagesQueryList,
-    SelfDirectConversationQueryResolve,
+    SelfDeviceMessagesReadList,
+    SelfDirectConversationReadResolve,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
     SelfEventsReadDescribe,
@@ -180,7 +180,7 @@ pub enum ServiceOperationId {
     SelfKeysBackupSeriesCommandErase,
     SelfKeysBackupsCommandIssueDeleteChallenge,
     SelfKeysBackupsCommandUnlock,
-    SelfKeysBackupsQueryList,
+    SelfKeysBackupsReadList,
     SelfKeysBackupsResourceDelete,
     SelfKeysBackupsResourceReplace,
     SelfKeysCommandClaim,
@@ -188,34 +188,34 @@ pub enum ServiceOperationId {
     SelfKeysKeypackagesCommandConsume,
     SelfKeysKeypackagesCommandRevoke,
     SelfKeysKeypackagesUploadCreate,
-    SelfKeysQueryLookup,
+    SelfKeysReadLookup,
     SelfKeysUploadCreate,
-    SelfMediaQueryIceConfig,
+    SelfMediaReadIceConfig,
     SelfModerationCommandReport,
-    SelfMorphQueryList,
+    SelfMorphReadList,
     SelfMorphResourceGet,
-    SelfPolicyQueryCheck,
+    SelfPolicyReadCheck,
     SelfReadCursorCommandAdvance,
-    SelfReadCursorQueryList,
+    SelfReadCursorReadList,
     SelfRealmCommandArchive,
     SelfRealmCommandDestroy,
     SelfRealmCommandFreeze,
     SelfRealmCommandTombstone,
-    SelfRealmJoinApplicationAuditQueryList,
+    SelfRealmJoinApplicationAuditReadList,
     SelfRealmJoinApplicationCommandCancel,
     SelfRealmJoinApplicationCommandReview,
     SelfRealmJoinApplicationCommandSubmit,
-    SelfRealmJoinApplicationQueryList,
+    SelfRealmJoinApplicationReadList,
     SelfRealmJoinApplicationResourceGet,
-    SelfRealmModerationPolicyQueryEffective,
+    SelfRealmModerationPolicyReadEffective,
     SelfRealmModerationPolicyResourceReplace,
-    SelfRealmQueryExport,
+    SelfRealmReadExport,
     SelfRealmResourceGet,
     SelfRealmLinkCommandCreate,
-    SelfRealmLinkQueryEffectivePolicy,
-    SelfRealmLinkQueryList,
+    SelfRealmLinkReadEffectivePolicy,
+    SelfRealmLinkReadList,
     SelfRealmLinkResourceDelete,
-    SelfRealmOrganizationQueryList,
+    SelfRealmOrganizationReadList,
     SelfRealmPolicyServerResourceDelete,
     SelfRealmPolicyServerResourceGet,
     SelfRealmPolicyServerResourceReplace,
@@ -225,22 +225,22 @@ pub enum ServiceOperationId {
     SelfSecurityTransactionResourceGet,
     SelfSignalCommandSend,
     SelfSignalStreamSubscribe,
-    SelfSnapshotQueryManifestHead,
-    SelfSpaceQueryList,
-    SelfStrandQueryList,
+    SelfSnapshotReadManifestHead,
+    SelfSpaceReadList,
+    SelfStrandReadList,
     SelfViewsCollectionProjectionCommandMaterialize,
-    ServerQueryDescribe,
+    ServerReadDescribe,
 }
 
 pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
-    ServiceOperationId::EDGE_APPLET_ACTOR_QUERY_RESOLVE,
+    ServiceOperationId::EDGE_APPLET_ACTOR_READ_RESOLVE,
     ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
-    ServiceOperationId::EDGE_APPLET_QUERY_DESCRIBE,
-    ServiceOperationId::EDGE_APPLET_QUERY_PING,
-    ServiceOperationId::EDGE_APPLET_QUERY_PROTOCOL_METADATA,
-    ServiceOperationId::EDGE_APPLET_REALM_QUERY_RESOLVE,
-    ServiceOperationId::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST,
-    ServiceOperationId::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST,
+    ServiceOperationId::EDGE_APPLET_READ_DESCRIBE,
+    ServiceOperationId::EDGE_APPLET_READ_PING,
+    ServiceOperationId::EDGE_APPLET_READ_PROTOCOL_METADATA,
+    ServiceOperationId::EDGE_APPLET_REALM_READ_RESOLVE,
+    ServiceOperationId::EDGE_APPLET_THIRD_PARTY_LOCATIONS_READ_LIST,
+    ServiceOperationId::EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST,
     ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY,
     ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
     ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
@@ -248,18 +248,18 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL,
     ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
     ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_REALM,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ACTORS,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS,
-    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS,
+    ServiceOperationId::FIND_DIRECTORY_READ_DESCRIBE,
+    ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT,
+    ServiceOperationId::FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY,
+    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR,
+    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE,
+    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION,
+    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_REALM,
+    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET,
+    ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_ACTORS,
+    ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS,
+    ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_REALMS,
+    ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_USERS,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE,
@@ -277,12 +277,12 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
     ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST,
-    ServiceOperationId::OPEN_AGENT_PAIRING_QUERY_RESOLVE,
-    ServiceOperationId::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS,
+    ServiceOperationId::OPEN_AGENT_PAIRING_READ_RESOLVE,
+    ServiceOperationId::OPEN_AGENT_PAIRING_READ_RUNTIME_KEY_REQUEST_STATUS,
     ServiceOperationId::OPEN_DEVICE_PAIRING_COMMAND_STAGE,
-    ServiceOperationId::OPEN_DEVICE_PAIRING_QUERY_RESOLVE,
-    ServiceOperationId::OPEN_DEVICE_PAIRING_QUERY_STATUS,
-    ServiceOperationId::OPEN_INVITE_LOCATOR_QUERY_RESOLVE,
+    ServiceOperationId::OPEN_DEVICE_PAIRING_READ_RESOLVE,
+    ServiceOperationId::OPEN_DEVICE_PAIRING_READ_STATUS,
+    ServiceOperationId::OPEN_INVITE_LOCATOR_READ_RESOLVE,
     ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY,
     ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD,
     ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE,
@@ -291,11 +291,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT,
     ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM,
     ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL,
-    ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO,
-    ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS,
-    ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
+    ServiceOperationId::OPEN_MIMI_READ_GROUP_INFO,
+    ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS,
+    ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS,
+    ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_READ_DESCRIBE,
@@ -304,34 +304,34 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_EVENTS_READ_SCAN,
     ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
-    ServiceOperationId::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
-    ServiceOperationId::PEER_MLS_QUERY_GROUP_STATE_MATERIAL,
+    ServiceOperationId::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
+    ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY,
-    ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD,
+    ServiceOperationId::PEER_SNAPSHOT_READ_MANIFEST_HEAD,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION,
     ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET,
-    ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST,
+    ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST,
     ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE,
     ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_PREPARE,
     ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REFRESH,
     ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REVOKE,
     ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET,
-    ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE,
-    ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST,
+    ServiceOperationId::ROOT_IDENTITY_READ_RESOLVE,
+    ServiceOperationId::ROOT_IDENTITY_RECEIPTS_READ_LIST,
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH,
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET,
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE,
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF,
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET,
-    ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE,
+    ServiceOperationId::ROOT_IDENTITY_REGISTRY_READ_DESCRIBE,
     ServiceOperationId::ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE,
     ServiceOperationId::ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET,
     ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR,
     ServiceOperationId::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE,
-    ServiceOperationId::SELF_ACCOUNT_QUERY_DESCRIBE,
-    ServiceOperationId::SELF_ACCOUNT_QUERY_VIEWER,
+    ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE,
+    ServiceOperationId::SELF_ACCOUNT_READ_VIEWER,
     ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE,
-    ServiceOperationId::SELF_ACCOUNT_DATA_QUERY_LIST,
+    ServiceOperationId::SELF_ACCOUNT_DATA_READ_LIST,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_GET,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
@@ -344,20 +344,20 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_GET,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE,
-    ServiceOperationId::SELF_AGENT_QUERY_LIST,
+    ServiceOperationId::SELF_AGENT_READ_LIST,
     ServiceOperationId::SELF_AGENT_RESOURCE_GET,
     ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
-    ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
+    ServiceOperationId::SELF_AGENT_SIDECAR_READ_LIST,
     ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
-    ServiceOperationId::SELF_AGENT_SIGNER_EVIDENCE_QUERY_RESOLVE,
+    ServiceOperationId::SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE,
     ServiceOperationId::SELF_APPLET_COMMAND_INSTALL,
     ServiceOperationId::SELF_APPLET_COMMAND_REVOKE,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION,
     ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW,
     ServiceOperationId::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE,
-    ServiceOperationId::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE,
-    ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST,
-    ServiceOperationId::SELF_AUTHZ_QUERY_CHECK,
+    ServiceOperationId::SELF_AUTHZ_GRANTS_READ_EFFECTIVE,
+    ServiceOperationId::SELF_AUTHZ_INVITES_READ_LIST,
+    ServiceOperationId::SELF_AUTHZ_READ_CHECK,
     ServiceOperationId::SELF_BLOB_COMMAND_PRESIGN,
     ServiceOperationId::SELF_BLOB_RESOURCE_GET,
     ServiceOperationId::SELF_BLOB_RESOURCE_HEAD,
@@ -370,24 +370,24 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CIRCLE_COMMAND_TOMBSTONE,
     ServiceOperationId::SELF_CIRCLE_MEMBER_COMMAND_ADD,
     ServiceOperationId::SELF_CIRCLE_MEMBER_RESOURCE_DELETE,
-    ServiceOperationId::SELF_CIRCLE_QUERY_LIST,
+    ServiceOperationId::SELF_CIRCLE_READ_LIST,
     ServiceOperationId::SELF_CIRCLE_RESOURCE_GET,
     ServiceOperationId::SELF_CONSENT_COMMAND_GRANT,
     ServiceOperationId::SELF_CONSENT_COMMAND_REQUEST,
     ServiceOperationId::SELF_CONSENT_COMMAND_REVOKE,
-    ServiceOperationId::SELF_CONSENT_QUERY_LIST,
+    ServiceOperationId::SELF_CONSENT_READ_LIST,
     ServiceOperationId::SELF_CONSENT_RESOURCE_GET,
     ServiceOperationId::SELF_CONTACT_COMMAND_REJECT,
     ServiceOperationId::SELF_CONTACT_COMMAND_REQUEST,
     ServiceOperationId::SELF_CONTACT_COMMAND_RESPOND,
     ServiceOperationId::SELF_CONTACT_COMMAND_SCOPE_UPDATE,
     ServiceOperationId::SELF_CONTACT_COMMAND_TOMBSTONE,
-    ServiceOperationId::SELF_CONTACT_QUERY_LIST,
+    ServiceOperationId::SELF_CONTACT_READ_LIST,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
-    ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST,
-    ServiceOperationId::SELF_DIRECT_CONVERSATION_QUERY_RESOLVE,
+    ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST,
+    ServiceOperationId::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
     ServiceOperationId::SELF_EVENTS_READ_DESCRIBE,
@@ -405,7 +405,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
-    ServiceOperationId::SELF_KEYS_BACKUPS_QUERY_LIST,
+    ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST,
     ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE,
     ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE,
     ServiceOperationId::SELF_KEYS_COMMAND_CLAIM,
@@ -413,34 +413,34 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME,
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE,
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE,
-    ServiceOperationId::SELF_KEYS_QUERY_LOOKUP,
+    ServiceOperationId::SELF_KEYS_READ_LOOKUP,
     ServiceOperationId::SELF_KEYS_UPLOAD_CREATE,
-    ServiceOperationId::SELF_MEDIA_QUERY_ICE_CONFIG,
+    ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG,
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT,
-    ServiceOperationId::SELF_MORPH_QUERY_LIST,
+    ServiceOperationId::SELF_MORPH_READ_LIST,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET,
-    ServiceOperationId::SELF_POLICY_QUERY_CHECK,
+    ServiceOperationId::SELF_POLICY_READ_CHECK,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE,
-    ServiceOperationId::SELF_READ_CURSOR_QUERY_LIST,
+    ServiceOperationId::SELF_READ_CURSOR_READ_LIST,
     ServiceOperationId::SELF_REALM_COMMAND_ARCHIVE,
     ServiceOperationId::SELF_REALM_COMMAND_DESTROY,
     ServiceOperationId::SELF_REALM_COMMAND_FREEZE,
     ServiceOperationId::SELF_REALM_COMMAND_TOMBSTONE,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
-    ServiceOperationId::SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE,
+    ServiceOperationId::SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE,
     ServiceOperationId::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE,
-    ServiceOperationId::SELF_REALM_QUERY_EXPORT,
+    ServiceOperationId::SELF_REALM_READ_EXPORT,
     ServiceOperationId::SELF_REALM_RESOURCE_GET,
     ServiceOperationId::SELF_REALM_LINK_COMMAND_CREATE,
-    ServiceOperationId::SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY,
-    ServiceOperationId::SELF_REALM_LINK_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_LINK_READ_EFFECTIVE_POLICY,
+    ServiceOperationId::SELF_REALM_LINK_READ_LIST,
     ServiceOperationId::SELF_REALM_LINK_RESOURCE_DELETE,
-    ServiceOperationId::SELF_REALM_ORGANIZATION_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_GET,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE,
@@ -450,11 +450,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET,
     ServiceOperationId::SELF_SIGNAL_COMMAND_SEND,
     ServiceOperationId::SELF_SIGNAL_STREAM_SUBSCRIBE,
-    ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD,
-    ServiceOperationId::SELF_SPACE_QUERY_LIST,
-    ServiceOperationId::SELF_STRAND_QUERY_LIST,
+    ServiceOperationId::SELF_SNAPSHOT_READ_MANIFEST_HEAD,
+    ServiceOperationId::SELF_SPACE_READ_LIST,
+    ServiceOperationId::SELF_STRAND_READ_LIST,
     ServiceOperationId::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE,
-    ServiceOperationId::SERVER_QUERY_DESCRIBE,
+    ServiceOperationId::SERVER_READ_DESCRIBE,
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -498,14 +498,14 @@ pub struct ServiceOperationDescriptor {
 
 impl ServiceOperationId {
     pub const ALL: &'static [Self] = &[
-        Self::EdgeAppletActorQueryResolve,
+        Self::EdgeAppletActorReadResolve,
         Self::EdgeAppletCommandTransaction,
-        Self::EdgeAppletQueryDescribe,
-        Self::EdgeAppletQueryPing,
-        Self::EdgeAppletQueryProtocolMetadata,
-        Self::EdgeAppletRealmQueryResolve,
-        Self::EdgeAppletThirdPartyLocationsQueryList,
-        Self::EdgeAppletThirdPartyUsersQueryList,
+        Self::EdgeAppletReadDescribe,
+        Self::EdgeAppletReadPing,
+        Self::EdgeAppletReadProtocolMetadata,
+        Self::EdgeAppletRealmReadResolve,
+        Self::EdgeAppletThirdPartyLocationsReadList,
+        Self::EdgeAppletThirdPartyUsersReadList,
         Self::EdgePushCommandNotify,
         Self::EdgePushCommandRegisterDevice,
         Self::EdgePushCommandUnregisterDevice,
@@ -513,18 +513,18 @@ impl ServiceOperationId {
         Self::FindDirectoryCommandTakedownAppeal,
         Self::FindDirectoryCommandWithdraw,
         Self::FindDirectoryPushCommandRegister,
-        Self::FindDirectoryQueryDescribe,
-        Self::FindDirectoryQueryListHandlesForSubject,
-        Self::FindDirectoryQueryPrivateContactDiscovery,
-        Self::FindDirectoryQueryResolveAgentSelector,
-        Self::FindDirectoryQueryResolveHandle,
-        Self::FindDirectoryQueryResolveOrganization,
-        Self::FindDirectoryQueryResolveRealm,
-        Self::FindDirectoryQueryResolveTarget,
-        Self::FindDirectoryQuerySearchActors,
-        Self::FindDirectoryQuerySearchOrganizations,
-        Self::FindDirectoryQuerySearchRealms,
-        Self::FindDirectoryQuerySearchUsers,
+        Self::FindDirectoryReadDescribe,
+        Self::FindDirectoryReadListHandlesForSubject,
+        Self::FindDirectoryReadPrivateContactDiscovery,
+        Self::FindDirectoryReadResolveAgentSelector,
+        Self::FindDirectoryReadResolveHandle,
+        Self::FindDirectoryReadResolveOrganization,
+        Self::FindDirectoryReadResolveRealm,
+        Self::FindDirectoryReadResolveTarget,
+        Self::FindDirectoryReadSearchActors,
+        Self::FindDirectoryReadSearchOrganizations,
+        Self::FindDirectoryReadSearchRealms,
+        Self::FindDirectoryReadSearchUsers,
         Self::GateAccountCommandAuthorizeRecoveryDevice,
         Self::GateAccountCommandCancelDeviceBootstrap,
         Self::GateAccountCommandEnrollDevice,
@@ -542,12 +542,12 @@ impl ServiceOperationId {
         Self::GateAccountExchangeCompleteOidc,
         Self::GateAccountExchangeCreateHandoff,
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest,
-        Self::OpenAgentPairingQueryResolve,
-        Self::OpenAgentPairingQueryRuntimeKeyRequestStatus,
+        Self::OpenAgentPairingReadResolve,
+        Self::OpenAgentPairingReadRuntimeKeyRequestStatus,
         Self::OpenDevicePairingCommandStage,
-        Self::OpenDevicePairingQueryResolve,
-        Self::OpenDevicePairingQueryStatus,
-        Self::OpenInviteLocatorQueryResolve,
+        Self::OpenDevicePairingReadResolve,
+        Self::OpenDevicePairingReadStatus,
+        Self::OpenInviteLocatorReadResolve,
         Self::OpenMimiCommandNotify,
         Self::OpenMimiCommandProxyDownload,
         Self::OpenMimiCommandReportAbuse,
@@ -556,11 +556,11 @@ impl ServiceOperationId {
         Self::OpenMimiCommandUpdateConsent,
         Self::OpenMimiCommandUpdateRoom,
         Self::OpenMimiExchangeRequestKeyMaterial,
-        Self::OpenMimiQueryGroupInfo,
-        Self::OpenMimiQueryIdentifiers,
-        Self::OpenMimiQueryProviderDirectory,
+        Self::OpenMimiReadGroupInfo,
+        Self::OpenMimiReadIdentifiers,
+        Self::OpenMimiReadProviderDirectory,
         Self::PeerAccountStatusCommandSubmit,
-        Self::PeerAccountStatusQueryAuthoringBasis,
+        Self::PeerAccountStatusReadAuthoringBasis,
         Self::PeerContactsCommandSubmit,
         Self::PeerEventsCommandSubmit,
         Self::PeerEventsReadDescribe,
@@ -569,34 +569,34 @@ impl ServiceOperationId {
         Self::PeerEventsReadScan,
         Self::PeerInvitesCommandSubmit,
         Self::PeerKeysKeypackagesCommandClaim,
-        Self::PeerKeysKeypackagesQueryClaim,
-        Self::PeerMlsQueryGroupStateMaterial,
+        Self::PeerKeysKeypackagesReadClaim,
+        Self::PeerMlsReadGroupStateMaterial,
         Self::PeerSignalCommandRelay,
-        Self::PeerSnapshotQueryManifestHead,
+        Self::PeerSnapshotReadManifestHead,
         Self::RootIdentityCommandSubmitDidOperation,
         Self::RootIdentityDocumentResourceGet,
-        Self::RootIdentityLogQueryList,
+        Self::RootIdentityLogReadList,
         Self::RootIdentityOrganizationRegistrationCommandEnsure,
         Self::RootIdentityOrganizationRegistrationCommandPrepare,
         Self::RootIdentityOrganizationRegistrationCommandRefresh,
         Self::RootIdentityOrganizationRegistrationCommandRevoke,
         Self::RootIdentityOrganizationRegistrationResourceGet,
-        Self::RootIdentityQueryResolve,
-        Self::RootIdentityReceiptsQueryList,
+        Self::RootIdentityReadResolve,
+        Self::RootIdentityReceiptsReadList,
         Self::RootIdentityRecoveryPolicyCommandPublish,
         Self::RootIdentityRecoveryPolicyResourceGet,
         Self::RootIdentityRecoverySessionCommandCreate,
         Self::RootIdentityRecoverySessionCommandSubmitProof,
         Self::RootIdentityRecoverySessionResourceGet,
-        Self::RootIdentityRegistryQueryDescribe,
+        Self::RootIdentityRegistryReadDescribe,
         Self::RootIdentityServiceRegistrationCommandEnsure,
         Self::RootIdentityServiceRegistrationResourceGet,
         Self::SelfAccountCommandRevokeCursor,
         Self::SelfAccountCommandUpdateProfile,
-        Self::SelfAccountQueryDescribe,
-        Self::SelfAccountQueryViewer,
+        Self::SelfAccountReadDescribe,
+        Self::SelfAccountReadViewer,
         Self::SelfAccountStreamSubscribe,
-        Self::SelfAccountDataQueryList,
+        Self::SelfAccountDataReadList,
         Self::SelfAccountDataResourceDelete,
         Self::SelfAccountDataResourceGet,
         Self::SelfAccountDataResourceReplace,
@@ -609,20 +609,20 @@ impl ServiceOperationId {
         Self::SelfAgentGrantResourceDelete,
         Self::SelfAgentParticipationResourceGet,
         Self::SelfAgentParticipationResourceReplace,
-        Self::SelfAgentQueryList,
+        Self::SelfAgentReadList,
         Self::SelfAgentResourceGet,
         Self::SelfAgentSidecarCommandEnsure,
-        Self::SelfAgentSidecarQueryList,
+        Self::SelfAgentSidecarReadList,
         Self::SelfAgentSidecarResourceGet,
-        Self::SelfAgentSignerEvidenceQueryResolve,
+        Self::SelfAgentSignerEvidenceReadResolve,
         Self::SelfAppletCommandInstall,
         Self::SelfAppletCommandRevoke,
         Self::SelfAppletGhostCommandProvision,
         Self::SelfAppletInstallCommandPreview,
         Self::SelfAuthorizationLeasesCommandIssue,
-        Self::SelfAuthzGrantsQueryEffective,
-        Self::SelfAuthzInvitesQueryList,
-        Self::SelfAuthzQueryCheck,
+        Self::SelfAuthzGrantsReadEffective,
+        Self::SelfAuthzInvitesReadList,
+        Self::SelfAuthzReadCheck,
         Self::SelfBlobCommandPresign,
         Self::SelfBlobResourceGet,
         Self::SelfBlobResourceHead,
@@ -635,24 +635,24 @@ impl ServiceOperationId {
         Self::SelfCircleCommandTombstone,
         Self::SelfCircleMemberCommandAdd,
         Self::SelfCircleMemberResourceDelete,
-        Self::SelfCircleQueryList,
+        Self::SelfCircleReadList,
         Self::SelfCircleResourceGet,
         Self::SelfConsentCommandGrant,
         Self::SelfConsentCommandRequest,
         Self::SelfConsentCommandRevoke,
-        Self::SelfConsentQueryList,
+        Self::SelfConsentReadList,
         Self::SelfConsentResourceGet,
         Self::SelfContactCommandReject,
         Self::SelfContactCommandRequest,
         Self::SelfContactCommandRespond,
         Self::SelfContactCommandScopeUpdate,
         Self::SelfContactCommandTombstone,
-        Self::SelfContactQueryList,
+        Self::SelfContactReadList,
         Self::SelfControlProposalAcksCommandIssue,
         Self::SelfDeviceMessagesCommandAck,
         Self::SelfDeviceMessagesCommandSend,
-        Self::SelfDeviceMessagesQueryList,
-        Self::SelfDirectConversationQueryResolve,
+        Self::SelfDeviceMessagesReadList,
+        Self::SelfDirectConversationReadResolve,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
         Self::SelfEventsReadDescribe,
@@ -670,7 +670,7 @@ impl ServiceOperationId {
         Self::SelfKeysBackupSeriesCommandErase,
         Self::SelfKeysBackupsCommandIssueDeleteChallenge,
         Self::SelfKeysBackupsCommandUnlock,
-        Self::SelfKeysBackupsQueryList,
+        Self::SelfKeysBackupsReadList,
         Self::SelfKeysBackupsResourceDelete,
         Self::SelfKeysBackupsResourceReplace,
         Self::SelfKeysCommandClaim,
@@ -678,34 +678,34 @@ impl ServiceOperationId {
         Self::SelfKeysKeypackagesCommandConsume,
         Self::SelfKeysKeypackagesCommandRevoke,
         Self::SelfKeysKeypackagesUploadCreate,
-        Self::SelfKeysQueryLookup,
+        Self::SelfKeysReadLookup,
         Self::SelfKeysUploadCreate,
-        Self::SelfMediaQueryIceConfig,
+        Self::SelfMediaReadIceConfig,
         Self::SelfModerationCommandReport,
-        Self::SelfMorphQueryList,
+        Self::SelfMorphReadList,
         Self::SelfMorphResourceGet,
-        Self::SelfPolicyQueryCheck,
+        Self::SelfPolicyReadCheck,
         Self::SelfReadCursorCommandAdvance,
-        Self::SelfReadCursorQueryList,
+        Self::SelfReadCursorReadList,
         Self::SelfRealmCommandArchive,
         Self::SelfRealmCommandDestroy,
         Self::SelfRealmCommandFreeze,
         Self::SelfRealmCommandTombstone,
-        Self::SelfRealmJoinApplicationAuditQueryList,
+        Self::SelfRealmJoinApplicationAuditReadList,
         Self::SelfRealmJoinApplicationCommandCancel,
         Self::SelfRealmJoinApplicationCommandReview,
         Self::SelfRealmJoinApplicationCommandSubmit,
-        Self::SelfRealmJoinApplicationQueryList,
+        Self::SelfRealmJoinApplicationReadList,
         Self::SelfRealmJoinApplicationResourceGet,
-        Self::SelfRealmModerationPolicyQueryEffective,
+        Self::SelfRealmModerationPolicyReadEffective,
         Self::SelfRealmModerationPolicyResourceReplace,
-        Self::SelfRealmQueryExport,
+        Self::SelfRealmReadExport,
         Self::SelfRealmResourceGet,
         Self::SelfRealmLinkCommandCreate,
-        Self::SelfRealmLinkQueryEffectivePolicy,
-        Self::SelfRealmLinkQueryList,
+        Self::SelfRealmLinkReadEffectivePolicy,
+        Self::SelfRealmLinkReadList,
         Self::SelfRealmLinkResourceDelete,
-        Self::SelfRealmOrganizationQueryList,
+        Self::SelfRealmOrganizationReadList,
         Self::SelfRealmPolicyServerResourceDelete,
         Self::SelfRealmPolicyServerResourceGet,
         Self::SelfRealmPolicyServerResourceReplace,
@@ -715,24 +715,24 @@ impl ServiceOperationId {
         Self::SelfSecurityTransactionResourceGet,
         Self::SelfSignalCommandSend,
         Self::SelfSignalStreamSubscribe,
-        Self::SelfSnapshotQueryManifestHead,
-        Self::SelfSpaceQueryList,
-        Self::SelfStrandQueryList,
+        Self::SelfSnapshotReadManifestHead,
+        Self::SelfSpaceReadList,
+        Self::SelfStrandReadList,
         Self::SelfViewsCollectionProjectionCommandMaterialize,
-        Self::ServerQueryDescribe,
+        Self::ServerReadDescribe,
     ];
 
-    pub const EDGE_APPLET_ACTOR_QUERY_RESOLVE: &'static str = "ak.edge.applet.actor.query.resolve";
+    pub const EDGE_APPLET_ACTOR_READ_RESOLVE: &'static str = "ak.edge.applet.actor.read.resolve";
     pub const EDGE_APPLET_COMMAND_TRANSACTION: &'static str = "ak.edge.applet.command.transaction";
-    pub const EDGE_APPLET_QUERY_DESCRIBE: &'static str = "ak.edge.applet.query.describe";
-    pub const EDGE_APPLET_QUERY_PING: &'static str = "ak.edge.applet.query.ping";
-    pub const EDGE_APPLET_QUERY_PROTOCOL_METADATA: &'static str =
-        "ak.edge.applet.query.protocol_metadata";
-    pub const EDGE_APPLET_REALM_QUERY_RESOLVE: &'static str = "ak.edge.applet.realm.query.resolve";
-    pub const EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST: &'static str =
-        "ak.edge.applet.third_party_locations.query.list";
-    pub const EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST: &'static str =
-        "ak.edge.applet.third_party_users.query.list";
+    pub const EDGE_APPLET_READ_DESCRIBE: &'static str = "ak.edge.applet.read.describe";
+    pub const EDGE_APPLET_READ_PING: &'static str = "ak.edge.applet.read.ping";
+    pub const EDGE_APPLET_READ_PROTOCOL_METADATA: &'static str =
+        "ak.edge.applet.read.protocol_metadata";
+    pub const EDGE_APPLET_REALM_READ_RESOLVE: &'static str = "ak.edge.applet.realm.read.resolve";
+    pub const EDGE_APPLET_THIRD_PARTY_LOCATIONS_READ_LIST: &'static str =
+        "ak.edge.applet.third_party_locations.read.list";
+    pub const EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST: &'static str =
+        "ak.edge.applet.third_party_users.read.list";
     pub const EDGE_PUSH_COMMAND_NOTIFY: &'static str = "ak.edge.push.command.notify";
     pub const EDGE_PUSH_COMMAND_REGISTER_DEVICE: &'static str =
         "ak.edge.push.command.register_device";
@@ -744,29 +744,29 @@ impl ServiceOperationId {
     pub const FIND_DIRECTORY_COMMAND_WITHDRAW: &'static str = "ak.find.directory.command.withdraw";
     pub const FIND_DIRECTORY_PUSH_COMMAND_REGISTER: &'static str =
         "ak.find.directory.push.command.register";
-    pub const FIND_DIRECTORY_QUERY_DESCRIBE: &'static str = "ak.find.directory.query.describe";
-    pub const FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT: &'static str =
-        "ak.find.directory.query.list_handles_for_subject";
-    pub const FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY: &'static str =
-        "ak.find.directory.query.private_contact_discovery";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR: &'static str =
-        "ak.find.directory.query.resolve_agent_selector";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_HANDLE: &'static str =
-        "ak.find.directory.query.resolve_handle";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION: &'static str =
-        "ak.find.directory.query.resolve_organization";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_REALM: &'static str =
-        "ak.find.directory.query.resolve_realm";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_TARGET: &'static str =
-        "ak.find.directory.query.resolve_target";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_ACTORS: &'static str =
-        "ak.find.directory.query.search_actors";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS: &'static str =
-        "ak.find.directory.query.search_organizations";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_REALMS: &'static str =
-        "ak.find.directory.query.search_realms";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_USERS: &'static str =
-        "ak.find.directory.query.search_users";
+    pub const FIND_DIRECTORY_READ_DESCRIBE: &'static str = "ak.find.directory.read.describe";
+    pub const FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT: &'static str =
+        "ak.find.directory.read.list_handles_for_subject";
+    pub const FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY: &'static str =
+        "ak.find.directory.read.private_contact_discovery";
+    pub const FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR: &'static str =
+        "ak.find.directory.read.resolve_agent_selector";
+    pub const FIND_DIRECTORY_READ_RESOLVE_HANDLE: &'static str =
+        "ak.find.directory.read.resolve_handle";
+    pub const FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION: &'static str =
+        "ak.find.directory.read.resolve_organization";
+    pub const FIND_DIRECTORY_READ_RESOLVE_REALM: &'static str =
+        "ak.find.directory.read.resolve_realm";
+    pub const FIND_DIRECTORY_READ_RESOLVE_TARGET: &'static str =
+        "ak.find.directory.read.resolve_target";
+    pub const FIND_DIRECTORY_READ_SEARCH_ACTORS: &'static str =
+        "ak.find.directory.read.search_actors";
+    pub const FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS: &'static str =
+        "ak.find.directory.read.search_organizations";
+    pub const FIND_DIRECTORY_READ_SEARCH_REALMS: &'static str =
+        "ak.find.directory.read.search_realms";
+    pub const FIND_DIRECTORY_READ_SEARCH_USERS: &'static str =
+        "ak.find.directory.read.search_users";
     pub const GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE: &'static str =
         "ak.gate.account.command.authorize_recovery_device";
     pub const GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP: &'static str =
@@ -799,18 +799,16 @@ impl ServiceOperationId {
         "ak.gate.account.exchange.create_handoff";
     pub const OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST: &'static str =
         "ak.open.agent_pairing.command.submit_runtime_key_request";
-    pub const OPEN_AGENT_PAIRING_QUERY_RESOLVE: &'static str =
-        "ak.open.agent_pairing.query.resolve";
-    pub const OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS: &'static str =
-        "ak.open.agent_pairing.query.runtime_key_request_status";
+    pub const OPEN_AGENT_PAIRING_READ_RESOLVE: &'static str = "ak.open.agent_pairing.read.resolve";
+    pub const OPEN_AGENT_PAIRING_READ_RUNTIME_KEY_REQUEST_STATUS: &'static str =
+        "ak.open.agent_pairing.read.runtime_key_request_status";
     pub const OPEN_DEVICE_PAIRING_COMMAND_STAGE: &'static str =
         "ak.open.device_pairing.command.stage";
-    pub const OPEN_DEVICE_PAIRING_QUERY_RESOLVE: &'static str =
-        "ak.open.device_pairing.query.resolve";
-    pub const OPEN_DEVICE_PAIRING_QUERY_STATUS: &'static str =
-        "ak.open.device_pairing.query.status";
-    pub const OPEN_INVITE_LOCATOR_QUERY_RESOLVE: &'static str =
-        "ak.open.invite_locator.query.resolve";
+    pub const OPEN_DEVICE_PAIRING_READ_RESOLVE: &'static str =
+        "ak.open.device_pairing.read.resolve";
+    pub const OPEN_DEVICE_PAIRING_READ_STATUS: &'static str = "ak.open.device_pairing.read.status";
+    pub const OPEN_INVITE_LOCATOR_READ_RESOLVE: &'static str =
+        "ak.open.invite_locator.read.resolve";
     pub const OPEN_MIMI_COMMAND_NOTIFY: &'static str = "ak.open.mimi.command.notify";
     pub const OPEN_MIMI_COMMAND_PROXY_DOWNLOAD: &'static str =
         "ak.open.mimi.command.proxy_download";
@@ -824,14 +822,14 @@ impl ServiceOperationId {
     pub const OPEN_MIMI_COMMAND_UPDATE_ROOM: &'static str = "ak.open.mimi.command.update_room";
     pub const OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL: &'static str =
         "ak.open.mimi.exchange.request_key_material";
-    pub const OPEN_MIMI_QUERY_GROUP_INFO: &'static str = "ak.open.mimi.query.group_info";
-    pub const OPEN_MIMI_QUERY_IDENTIFIERS: &'static str = "ak.open.mimi.query.identifiers";
-    pub const OPEN_MIMI_QUERY_PROVIDER_DIRECTORY: &'static str =
-        "ak.open.mimi.query.provider_directory";
+    pub const OPEN_MIMI_READ_GROUP_INFO: &'static str = "ak.open.mimi.read.group_info";
+    pub const OPEN_MIMI_READ_IDENTIFIERS: &'static str = "ak.open.mimi.read.identifiers";
+    pub const OPEN_MIMI_READ_PROVIDER_DIRECTORY: &'static str =
+        "ak.open.mimi.read.provider_directory";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT: &'static str =
         "ak.peer.account_status.command.submit";
-    pub const PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS: &'static str =
-        "ak.peer.account_status.query.authoring_basis";
+    pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS: &'static str =
+        "ak.peer.account_status.read.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
     pub const PEER_EVENTS_READ_DESCRIBE: &'static str = "ak.peer.events.read.describe";
@@ -841,18 +839,18 @@ impl ServiceOperationId {
     pub const PEER_INVITES_COMMAND_SUBMIT: &'static str = "ak.peer.invites.command.submit";
     pub const PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str =
         "ak.peer.keys.keypackages.command.claim";
-    pub const PEER_KEYS_KEYPACKAGES_QUERY_CLAIM: &'static str =
-        "ak.peer.keys.keypackages.query.claim";
-    pub const PEER_MLS_QUERY_GROUP_STATE_MATERIAL: &'static str =
-        "ak.peer.mls.query.group_state_material";
+    pub const PEER_KEYS_KEYPACKAGES_READ_CLAIM: &'static str =
+        "ak.peer.keys.keypackages.read.claim";
+    pub const PEER_MLS_READ_GROUP_STATE_MATERIAL: &'static str =
+        "ak.peer.mls.read.group_state_material";
     pub const PEER_SIGNAL_COMMAND_RELAY: &'static str = "ak.peer.signal.command.relay";
-    pub const PEER_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
-        "ak.peer.snapshot.query.manifest_head";
+    pub const PEER_SNAPSHOT_READ_MANIFEST_HEAD: &'static str =
+        "ak.peer.snapshot.read.manifest_head";
     pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION: &'static str =
         "ak.root.identity.command.submit_did_operation";
     pub const ROOT_IDENTITY_DOCUMENT_RESOURCE_GET: &'static str =
         "ak.root.identity.document.resource.get";
-    pub const ROOT_IDENTITY_LOG_QUERY_LIST: &'static str = "ak.root.identity.log.query.list";
+    pub const ROOT_IDENTITY_LOG_READ_LIST: &'static str = "ak.root.identity.log.read.list";
     pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE: &'static str =
         "ak.root.identity.organization_registration.command.ensure";
     pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_PREPARE: &'static str =
@@ -863,9 +861,9 @@ impl ServiceOperationId {
         "ak.root.identity.organization_registration.command.revoke";
     pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET: &'static str =
         "ak.root.identity.organization_registration.resource.get";
-    pub const ROOT_IDENTITY_QUERY_RESOLVE: &'static str = "ak.root.identity.query.resolve";
-    pub const ROOT_IDENTITY_RECEIPTS_QUERY_LIST: &'static str =
-        "ak.root.identity.receipts.query.list";
+    pub const ROOT_IDENTITY_READ_RESOLVE: &'static str = "ak.root.identity.read.resolve";
+    pub const ROOT_IDENTITY_RECEIPTS_READ_LIST: &'static str =
+        "ak.root.identity.receipts.read.list";
     pub const ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH: &'static str =
         "ak.root.identity.recovery_policy.command.publish";
     pub const ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET: &'static str =
@@ -876,8 +874,8 @@ impl ServiceOperationId {
         "ak.root.identity.recovery_session.command.submit_proof";
     pub const ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET: &'static str =
         "ak.root.identity.recovery_session.resource.get";
-    pub const ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE: &'static str =
-        "ak.root.identity.registry.query.describe";
+    pub const ROOT_IDENTITY_REGISTRY_READ_DESCRIBE: &'static str =
+        "ak.root.identity.registry.read.describe";
     pub const ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE: &'static str =
         "ak.root.identity.service_registration.command.ensure";
     pub const ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET: &'static str =
@@ -886,10 +884,10 @@ impl ServiceOperationId {
         "ak.self.account.command.revoke_cursor";
     pub const SELF_ACCOUNT_COMMAND_UPDATE_PROFILE: &'static str =
         "ak.self.account.command.update_profile";
-    pub const SELF_ACCOUNT_QUERY_DESCRIBE: &'static str = "ak.self.account.query.describe";
-    pub const SELF_ACCOUNT_QUERY_VIEWER: &'static str = "ak.self.account.query.viewer";
+    pub const SELF_ACCOUNT_READ_DESCRIBE: &'static str = "ak.self.account.read.describe";
+    pub const SELF_ACCOUNT_READ_VIEWER: &'static str = "ak.self.account.read.viewer";
     pub const SELF_ACCOUNT_STREAM_SUBSCRIBE: &'static str = "ak.self.account.stream.subscribe";
-    pub const SELF_ACCOUNT_DATA_QUERY_LIST: &'static str = "ak.self.account_data.query.list";
+    pub const SELF_ACCOUNT_DATA_READ_LIST: &'static str = "ak.self.account_data.read.list";
     pub const SELF_ACCOUNT_DATA_RESOURCE_DELETE: &'static str =
         "ak.self.account_data.resource.delete";
     pub const SELF_ACCOUNT_DATA_RESOURCE_GET: &'static str = "ak.self.account_data.resource.get";
@@ -908,14 +906,14 @@ impl ServiceOperationId {
         "ak.self.agent.participation.resource.get";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str =
         "ak.self.agent.participation.resource.replace";
-    pub const SELF_AGENT_QUERY_LIST: &'static str = "ak.self.agent.query.list";
+    pub const SELF_AGENT_READ_LIST: &'static str = "ak.self.agent.read.list";
     pub const SELF_AGENT_RESOURCE_GET: &'static str = "ak.self.agent.resource.get";
     pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE: &'static str =
         "ak.self.agent.sidecar.command.ensure";
-    pub const SELF_AGENT_SIDECAR_QUERY_LIST: &'static str = "ak.self.agent.sidecar.query.list";
+    pub const SELF_AGENT_SIDECAR_READ_LIST: &'static str = "ak.self.agent.sidecar.read.list";
     pub const SELF_AGENT_SIDECAR_RESOURCE_GET: &'static str = "ak.self.agent.sidecar.resource.get";
-    pub const SELF_AGENT_SIGNER_EVIDENCE_QUERY_RESOLVE: &'static str =
-        "ak.self.agent_signer_evidence.query.resolve";
+    pub const SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE: &'static str =
+        "ak.self.agent_signer_evidence.read.resolve";
     pub const SELF_APPLET_COMMAND_INSTALL: &'static str = "ak.self.applet.command.install";
     pub const SELF_APPLET_COMMAND_REVOKE: &'static str = "ak.self.applet.command.revoke";
     pub const SELF_APPLET_GHOST_COMMAND_PROVISION: &'static str =
@@ -924,10 +922,10 @@ impl ServiceOperationId {
         "ak.self.applet.install.command.preview";
     pub const SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE: &'static str =
         "ak.self.authorization_leases.command.issue";
-    pub const SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE: &'static str =
-        "ak.self.authz.grants.query.effective";
-    pub const SELF_AUTHZ_INVITES_QUERY_LIST: &'static str = "ak.self.authz.invites.query.list";
-    pub const SELF_AUTHZ_QUERY_CHECK: &'static str = "ak.self.authz.query.check";
+    pub const SELF_AUTHZ_GRANTS_READ_EFFECTIVE: &'static str =
+        "ak.self.authz.grants.read.effective";
+    pub const SELF_AUTHZ_INVITES_READ_LIST: &'static str = "ak.self.authz.invites.read.list";
+    pub const SELF_AUTHZ_READ_CHECK: &'static str = "ak.self.authz.read.check";
     pub const SELF_BLOB_COMMAND_PRESIGN: &'static str = "ak.self.blob.command.presign";
     pub const SELF_BLOB_RESOURCE_GET: &'static str = "ak.self.blob.resource.get";
     pub const SELF_BLOB_RESOURCE_HEAD: &'static str = "ak.self.blob.resource.head";
@@ -943,12 +941,12 @@ impl ServiceOperationId {
     pub const SELF_CIRCLE_MEMBER_COMMAND_ADD: &'static str = "ak.self.circle.member.command.add";
     pub const SELF_CIRCLE_MEMBER_RESOURCE_DELETE: &'static str =
         "ak.self.circle.member.resource.delete";
-    pub const SELF_CIRCLE_QUERY_LIST: &'static str = "ak.self.circle.query.list";
+    pub const SELF_CIRCLE_READ_LIST: &'static str = "ak.self.circle.read.list";
     pub const SELF_CIRCLE_RESOURCE_GET: &'static str = "ak.self.circle.resource.get";
     pub const SELF_CONSENT_COMMAND_GRANT: &'static str = "ak.self.consent.command.grant";
     pub const SELF_CONSENT_COMMAND_REQUEST: &'static str = "ak.self.consent.command.request";
     pub const SELF_CONSENT_COMMAND_REVOKE: &'static str = "ak.self.consent.command.revoke";
-    pub const SELF_CONSENT_QUERY_LIST: &'static str = "ak.self.consent.query.list";
+    pub const SELF_CONSENT_READ_LIST: &'static str = "ak.self.consent.read.list";
     pub const SELF_CONSENT_RESOURCE_GET: &'static str = "ak.self.consent.resource.get";
     pub const SELF_CONTACT_COMMAND_REJECT: &'static str = "ak.self.contact.command.reject";
     pub const SELF_CONTACT_COMMAND_REQUEST: &'static str = "ak.self.contact.command.request";
@@ -956,16 +954,16 @@ impl ServiceOperationId {
     pub const SELF_CONTACT_COMMAND_SCOPE_UPDATE: &'static str =
         "ak.self.contact.command.scope_update";
     pub const SELF_CONTACT_COMMAND_TOMBSTONE: &'static str = "ak.self.contact.command.tombstone";
-    pub const SELF_CONTACT_QUERY_LIST: &'static str = "ak.self.contact.query.list";
+    pub const SELF_CONTACT_READ_LIST: &'static str = "ak.self.contact.read.list";
     pub const SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE: &'static str =
         "ak.self.control_proposal_acks.command.issue";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK: &'static str =
         "ak.self.device_messages.command.ack";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
         "ak.self.device_messages.command.send";
-    pub const SELF_DEVICE_MESSAGES_QUERY_LIST: &'static str = "ak.self.device_messages.query.list";
-    pub const SELF_DIRECT_CONVERSATION_QUERY_RESOLVE: &'static str =
-        "ak.self.direct_conversation.query.resolve";
+    pub const SELF_DEVICE_MESSAGES_READ_LIST: &'static str = "ak.self.device_messages.read.list";
+    pub const SELF_DIRECT_CONVERSATION_READ_RESOLVE: &'static str =
+        "ak.self.direct_conversation.read.resolve";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_READ_DESCRIBE: &'static str = "ak.self.events.read.describe";
@@ -992,7 +990,7 @@ impl ServiceOperationId {
         "ak.self.keys.backups.command.issue_delete_challenge";
     pub const SELF_KEYS_BACKUPS_COMMAND_UNLOCK: &'static str =
         "ak.self.keys.backups.command.unlock";
-    pub const SELF_KEYS_BACKUPS_QUERY_LIST: &'static str = "ak.self.keys.backups.query.list";
+    pub const SELF_KEYS_BACKUPS_READ_LIST: &'static str = "ak.self.keys.backups.read.list";
     pub const SELF_KEYS_BACKUPS_RESOURCE_DELETE: &'static str =
         "ak.self.keys.backups.resource.delete";
     pub const SELF_KEYS_BACKUPS_RESOURCE_REPLACE: &'static str =
@@ -1006,45 +1004,45 @@ impl ServiceOperationId {
         "ak.self.keys.keypackages.command.revoke";
     pub const SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE: &'static str =
         "ak.self.keys.keypackages.upload.create";
-    pub const SELF_KEYS_QUERY_LOOKUP: &'static str = "ak.self.keys.query.lookup";
+    pub const SELF_KEYS_READ_LOOKUP: &'static str = "ak.self.keys.read.lookup";
     pub const SELF_KEYS_UPLOAD_CREATE: &'static str = "ak.self.keys.upload.create";
-    pub const SELF_MEDIA_QUERY_ICE_CONFIG: &'static str = "ak.self.media.query.ice_config";
+    pub const SELF_MEDIA_READ_ICE_CONFIG: &'static str = "ak.self.media.read.ice_config";
     pub const SELF_MODERATION_COMMAND_REPORT: &'static str = "ak.self.moderation.command.report";
-    pub const SELF_MORPH_QUERY_LIST: &'static str = "ak.self.morph.query.list";
+    pub const SELF_MORPH_READ_LIST: &'static str = "ak.self.morph.read.list";
     pub const SELF_MORPH_RESOURCE_GET: &'static str = "ak.self.morph.resource.get";
-    pub const SELF_POLICY_QUERY_CHECK: &'static str = "ak.self.policy.query.check";
+    pub const SELF_POLICY_READ_CHECK: &'static str = "ak.self.policy.read.check";
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE: &'static str =
         "ak.self.read_cursor.command.advance";
-    pub const SELF_READ_CURSOR_QUERY_LIST: &'static str = "ak.self.read_cursor.query.list";
+    pub const SELF_READ_CURSOR_READ_LIST: &'static str = "ak.self.read_cursor.read.list";
     pub const SELF_REALM_COMMAND_ARCHIVE: &'static str = "ak.self.realm.command.archive";
     pub const SELF_REALM_COMMAND_DESTROY: &'static str = "ak.self.realm.command.destroy";
     pub const SELF_REALM_COMMAND_FREEZE: &'static str = "ak.self.realm.command.freeze";
     pub const SELF_REALM_COMMAND_TOMBSTONE: &'static str = "ak.self.realm.command.tombstone";
-    pub const SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST: &'static str =
-        "ak.self.realm.join_application.audit.query.list";
+    pub const SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST: &'static str =
+        "ak.self.realm.join_application.audit.read.list";
     pub const SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL: &'static str =
         "ak.self.realm.join_application.command.cancel";
     pub const SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW: &'static str =
         "ak.self.realm.join_application.command.review";
     pub const SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT: &'static str =
         "ak.self.realm.join_application.command.submit";
-    pub const SELF_REALM_JOIN_APPLICATION_QUERY_LIST: &'static str =
-        "ak.self.realm.join_application.query.list";
+    pub const SELF_REALM_JOIN_APPLICATION_READ_LIST: &'static str =
+        "ak.self.realm.join_application.read.list";
     pub const SELF_REALM_JOIN_APPLICATION_RESOURCE_GET: &'static str =
         "ak.self.realm.join_application.resource.get";
-    pub const SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE: &'static str =
-        "ak.self.realm.moderation_policy.query.effective";
+    pub const SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE: &'static str =
+        "ak.self.realm.moderation_policy.read.effective";
     pub const SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE: &'static str =
         "ak.self.realm.moderation_policy.resource.replace";
-    pub const SELF_REALM_QUERY_EXPORT: &'static str = "ak.self.realm.query.export";
+    pub const SELF_REALM_READ_EXPORT: &'static str = "ak.self.realm.read.export";
     pub const SELF_REALM_RESOURCE_GET: &'static str = "ak.self.realm.resource.get";
     pub const SELF_REALM_LINK_COMMAND_CREATE: &'static str = "ak.self.realm_link.command.create";
-    pub const SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY: &'static str =
-        "ak.self.realm_link.query.effective_policy";
-    pub const SELF_REALM_LINK_QUERY_LIST: &'static str = "ak.self.realm_link.query.list";
+    pub const SELF_REALM_LINK_READ_EFFECTIVE_POLICY: &'static str =
+        "ak.self.realm_link.read.effective_policy";
+    pub const SELF_REALM_LINK_READ_LIST: &'static str = "ak.self.realm_link.read.list";
     pub const SELF_REALM_LINK_RESOURCE_DELETE: &'static str = "ak.self.realm_link.resource.delete";
-    pub const SELF_REALM_ORGANIZATION_QUERY_LIST: &'static str =
-        "ak.self.realm_organization.query.list";
+    pub const SELF_REALM_ORGANIZATION_READ_LIST: &'static str =
+        "ak.self.realm_organization.read.list";
     pub const SELF_REALM_POLICY_SERVER_RESOURCE_DELETE: &'static str =
         "ak.self.realm_policy_server.resource.delete";
     pub const SELF_REALM_POLICY_SERVER_RESOURCE_GET: &'static str =
@@ -1061,27 +1059,27 @@ impl ServiceOperationId {
         "ak.self.security_transaction.resource.get";
     pub const SELF_SIGNAL_COMMAND_SEND: &'static str = "ak.self.signal.command.send";
     pub const SELF_SIGNAL_STREAM_SUBSCRIBE: &'static str = "ak.self.signal.stream.subscribe";
-    pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
-        "ak.self.snapshot.query.manifest_head";
-    pub const SELF_SPACE_QUERY_LIST: &'static str = "ak.self.space.query.list";
-    pub const SELF_STRAND_QUERY_LIST: &'static str = "ak.self.strand.query.list";
+    pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD: &'static str =
+        "ak.self.snapshot.read.manifest_head";
+    pub const SELF_SPACE_READ_LIST: &'static str = "ak.self.space.read.list";
+    pub const SELF_STRAND_READ_LIST: &'static str = "ak.self.strand.read.list";
     pub const SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE: &'static str =
         "ak.self.views.collection_projection.command.materialize";
-    pub const SERVER_QUERY_DESCRIBE: &'static str = "ak.server.query.describe";
+    pub const SERVER_READ_DESCRIBE: &'static str = "ak.server.read.describe";
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::EdgeAppletActorQueryResolve => Self::EDGE_APPLET_ACTOR_QUERY_RESOLVE,
+            Self::EdgeAppletActorReadResolve => Self::EDGE_APPLET_ACTOR_READ_RESOLVE,
             Self::EdgeAppletCommandTransaction => Self::EDGE_APPLET_COMMAND_TRANSACTION,
-            Self::EdgeAppletQueryDescribe => Self::EDGE_APPLET_QUERY_DESCRIBE,
-            Self::EdgeAppletQueryPing => Self::EDGE_APPLET_QUERY_PING,
-            Self::EdgeAppletQueryProtocolMetadata => Self::EDGE_APPLET_QUERY_PROTOCOL_METADATA,
-            Self::EdgeAppletRealmQueryResolve => Self::EDGE_APPLET_REALM_QUERY_RESOLVE,
-            Self::EdgeAppletThirdPartyLocationsQueryList => {
-                Self::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST
+            Self::EdgeAppletReadDescribe => Self::EDGE_APPLET_READ_DESCRIBE,
+            Self::EdgeAppletReadPing => Self::EDGE_APPLET_READ_PING,
+            Self::EdgeAppletReadProtocolMetadata => Self::EDGE_APPLET_READ_PROTOCOL_METADATA,
+            Self::EdgeAppletRealmReadResolve => Self::EDGE_APPLET_REALM_READ_RESOLVE,
+            Self::EdgeAppletThirdPartyLocationsReadList => {
+                Self::EDGE_APPLET_THIRD_PARTY_LOCATIONS_READ_LIST
             }
-            Self::EdgeAppletThirdPartyUsersQueryList => {
-                Self::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST
+            Self::EdgeAppletThirdPartyUsersReadList => {
+                Self::EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST
             }
             Self::EdgePushCommandNotify => Self::EDGE_PUSH_COMMAND_NOTIFY,
             Self::EdgePushCommandRegisterDevice => Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
@@ -1092,28 +1090,28 @@ impl ServiceOperationId {
             }
             Self::FindDirectoryCommandWithdraw => Self::FIND_DIRECTORY_COMMAND_WITHDRAW,
             Self::FindDirectoryPushCommandRegister => Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER,
-            Self::FindDirectoryQueryDescribe => Self::FIND_DIRECTORY_QUERY_DESCRIBE,
-            Self::FindDirectoryQueryListHandlesForSubject => {
-                Self::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT
+            Self::FindDirectoryReadDescribe => Self::FIND_DIRECTORY_READ_DESCRIBE,
+            Self::FindDirectoryReadListHandlesForSubject => {
+                Self::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT
             }
-            Self::FindDirectoryQueryPrivateContactDiscovery => {
-                Self::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY
+            Self::FindDirectoryReadPrivateContactDiscovery => {
+                Self::FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY
             }
-            Self::FindDirectoryQueryResolveAgentSelector => {
-                Self::FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR
+            Self::FindDirectoryReadResolveAgentSelector => {
+                Self::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR
             }
-            Self::FindDirectoryQueryResolveHandle => Self::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE,
-            Self::FindDirectoryQueryResolveOrganization => {
-                Self::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION
+            Self::FindDirectoryReadResolveHandle => Self::FIND_DIRECTORY_READ_RESOLVE_HANDLE,
+            Self::FindDirectoryReadResolveOrganization => {
+                Self::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION
             }
-            Self::FindDirectoryQueryResolveRealm => Self::FIND_DIRECTORY_QUERY_RESOLVE_REALM,
-            Self::FindDirectoryQueryResolveTarget => Self::FIND_DIRECTORY_QUERY_RESOLVE_TARGET,
-            Self::FindDirectoryQuerySearchActors => Self::FIND_DIRECTORY_QUERY_SEARCH_ACTORS,
-            Self::FindDirectoryQuerySearchOrganizations => {
-                Self::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS
+            Self::FindDirectoryReadResolveRealm => Self::FIND_DIRECTORY_READ_RESOLVE_REALM,
+            Self::FindDirectoryReadResolveTarget => Self::FIND_DIRECTORY_READ_RESOLVE_TARGET,
+            Self::FindDirectoryReadSearchActors => Self::FIND_DIRECTORY_READ_SEARCH_ACTORS,
+            Self::FindDirectoryReadSearchOrganizations => {
+                Self::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS
             }
-            Self::FindDirectoryQuerySearchRealms => Self::FIND_DIRECTORY_QUERY_SEARCH_REALMS,
-            Self::FindDirectoryQuerySearchUsers => Self::FIND_DIRECTORY_QUERY_SEARCH_USERS,
+            Self::FindDirectoryReadSearchRealms => Self::FIND_DIRECTORY_READ_SEARCH_REALMS,
+            Self::FindDirectoryReadSearchUsers => Self::FIND_DIRECTORY_READ_SEARCH_USERS,
             Self::GateAccountCommandAuthorizeRecoveryDevice => {
                 Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE
             }
@@ -1149,14 +1147,14 @@ impl ServiceOperationId {
             Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest => {
                 Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST
             }
-            Self::OpenAgentPairingQueryResolve => Self::OPEN_AGENT_PAIRING_QUERY_RESOLVE,
-            Self::OpenAgentPairingQueryRuntimeKeyRequestStatus => {
-                Self::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS
+            Self::OpenAgentPairingReadResolve => Self::OPEN_AGENT_PAIRING_READ_RESOLVE,
+            Self::OpenAgentPairingReadRuntimeKeyRequestStatus => {
+                Self::OPEN_AGENT_PAIRING_READ_RUNTIME_KEY_REQUEST_STATUS
             }
             Self::OpenDevicePairingCommandStage => Self::OPEN_DEVICE_PAIRING_COMMAND_STAGE,
-            Self::OpenDevicePairingQueryResolve => Self::OPEN_DEVICE_PAIRING_QUERY_RESOLVE,
-            Self::OpenDevicePairingQueryStatus => Self::OPEN_DEVICE_PAIRING_QUERY_STATUS,
-            Self::OpenInviteLocatorQueryResolve => Self::OPEN_INVITE_LOCATOR_QUERY_RESOLVE,
+            Self::OpenDevicePairingReadResolve => Self::OPEN_DEVICE_PAIRING_READ_RESOLVE,
+            Self::OpenDevicePairingReadStatus => Self::OPEN_DEVICE_PAIRING_READ_STATUS,
+            Self::OpenInviteLocatorReadResolve => Self::OPEN_INVITE_LOCATOR_READ_RESOLVE,
             Self::OpenMimiCommandNotify => Self::OPEN_MIMI_COMMAND_NOTIFY,
             Self::OpenMimiCommandProxyDownload => Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD,
             Self::OpenMimiCommandReportAbuse => Self::OPEN_MIMI_COMMAND_REPORT_ABUSE,
@@ -1167,12 +1165,12 @@ impl ServiceOperationId {
             Self::OpenMimiExchangeRequestKeyMaterial => {
                 Self::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL
             }
-            Self::OpenMimiQueryGroupInfo => Self::OPEN_MIMI_QUERY_GROUP_INFO,
-            Self::OpenMimiQueryIdentifiers => Self::OPEN_MIMI_QUERY_IDENTIFIERS,
-            Self::OpenMimiQueryProviderDirectory => Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
+            Self::OpenMimiReadGroupInfo => Self::OPEN_MIMI_READ_GROUP_INFO,
+            Self::OpenMimiReadIdentifiers => Self::OPEN_MIMI_READ_IDENTIFIERS,
+            Self::OpenMimiReadProviderDirectory => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
             Self::PeerAccountStatusCommandSubmit => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-            Self::PeerAccountStatusQueryAuthoringBasis => {
-                Self::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS
+            Self::PeerAccountStatusReadAuthoringBasis => {
+                Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
@@ -1182,15 +1180,15 @@ impl ServiceOperationId {
             Self::PeerEventsReadScan => Self::PEER_EVENTS_READ_SCAN,
             Self::PeerInvitesCommandSubmit => Self::PEER_INVITES_COMMAND_SUBMIT,
             Self::PeerKeysKeypackagesCommandClaim => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
-            Self::PeerKeysKeypackagesQueryClaim => Self::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
-            Self::PeerMlsQueryGroupStateMaterial => Self::PEER_MLS_QUERY_GROUP_STATE_MATERIAL,
+            Self::PeerKeysKeypackagesReadClaim => Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
+            Self::PeerMlsReadGroupStateMaterial => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL,
             Self::PeerSignalCommandRelay => Self::PEER_SIGNAL_COMMAND_RELAY,
-            Self::PeerSnapshotQueryManifestHead => Self::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD,
+            Self::PeerSnapshotReadManifestHead => Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD,
             Self::RootIdentityCommandSubmitDidOperation => {
                 Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION
             }
             Self::RootIdentityDocumentResourceGet => Self::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET,
-            Self::RootIdentityLogQueryList => Self::ROOT_IDENTITY_LOG_QUERY_LIST,
+            Self::RootIdentityLogReadList => Self::ROOT_IDENTITY_LOG_READ_LIST,
             Self::RootIdentityOrganizationRegistrationCommandEnsure => {
                 Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE
             }
@@ -1206,8 +1204,8 @@ impl ServiceOperationId {
             Self::RootIdentityOrganizationRegistrationResourceGet => {
                 Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET
             }
-            Self::RootIdentityQueryResolve => Self::ROOT_IDENTITY_QUERY_RESOLVE,
-            Self::RootIdentityReceiptsQueryList => Self::ROOT_IDENTITY_RECEIPTS_QUERY_LIST,
+            Self::RootIdentityReadResolve => Self::ROOT_IDENTITY_READ_RESOLVE,
+            Self::RootIdentityReceiptsReadList => Self::ROOT_IDENTITY_RECEIPTS_READ_LIST,
             Self::RootIdentityRecoveryPolicyCommandPublish => {
                 Self::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH
             }
@@ -1223,7 +1221,7 @@ impl ServiceOperationId {
             Self::RootIdentityRecoverySessionResourceGet => {
                 Self::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET
             }
-            Self::RootIdentityRegistryQueryDescribe => Self::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE,
+            Self::RootIdentityRegistryReadDescribe => Self::ROOT_IDENTITY_REGISTRY_READ_DESCRIBE,
             Self::RootIdentityServiceRegistrationCommandEnsure => {
                 Self::ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE
             }
@@ -1232,10 +1230,10 @@ impl ServiceOperationId {
             }
             Self::SelfAccountCommandRevokeCursor => Self::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR,
             Self::SelfAccountCommandUpdateProfile => Self::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE,
-            Self::SelfAccountQueryDescribe => Self::SELF_ACCOUNT_QUERY_DESCRIBE,
-            Self::SelfAccountQueryViewer => Self::SELF_ACCOUNT_QUERY_VIEWER,
+            Self::SelfAccountReadDescribe => Self::SELF_ACCOUNT_READ_DESCRIBE,
+            Self::SelfAccountReadViewer => Self::SELF_ACCOUNT_READ_VIEWER,
             Self::SelfAccountStreamSubscribe => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE,
-            Self::SelfAccountDataQueryList => Self::SELF_ACCOUNT_DATA_QUERY_LIST,
+            Self::SelfAccountDataReadList => Self::SELF_ACCOUNT_DATA_READ_LIST,
             Self::SelfAccountDataResourceDelete => Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
             Self::SelfAccountDataResourceGet => Self::SELF_ACCOUNT_DATA_RESOURCE_GET,
             Self::SelfAccountDataResourceReplace => Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
@@ -1250,13 +1248,13 @@ impl ServiceOperationId {
             Self::SelfAgentParticipationResourceReplace => {
                 Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE
             }
-            Self::SelfAgentQueryList => Self::SELF_AGENT_QUERY_LIST,
+            Self::SelfAgentReadList => Self::SELF_AGENT_READ_LIST,
             Self::SelfAgentResourceGet => Self::SELF_AGENT_RESOURCE_GET,
             Self::SelfAgentSidecarCommandEnsure => Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
-            Self::SelfAgentSidecarQueryList => Self::SELF_AGENT_SIDECAR_QUERY_LIST,
+            Self::SelfAgentSidecarReadList => Self::SELF_AGENT_SIDECAR_READ_LIST,
             Self::SelfAgentSidecarResourceGet => Self::SELF_AGENT_SIDECAR_RESOURCE_GET,
-            Self::SelfAgentSignerEvidenceQueryResolve => {
-                Self::SELF_AGENT_SIGNER_EVIDENCE_QUERY_RESOLVE
+            Self::SelfAgentSignerEvidenceReadResolve => {
+                Self::SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE
             }
             Self::SelfAppletCommandInstall => Self::SELF_APPLET_COMMAND_INSTALL,
             Self::SelfAppletCommandRevoke => Self::SELF_APPLET_COMMAND_REVOKE,
@@ -1265,9 +1263,9 @@ impl ServiceOperationId {
             Self::SelfAuthorizationLeasesCommandIssue => {
                 Self::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE
             }
-            Self::SelfAuthzGrantsQueryEffective => Self::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE,
-            Self::SelfAuthzInvitesQueryList => Self::SELF_AUTHZ_INVITES_QUERY_LIST,
-            Self::SelfAuthzQueryCheck => Self::SELF_AUTHZ_QUERY_CHECK,
+            Self::SelfAuthzGrantsReadEffective => Self::SELF_AUTHZ_GRANTS_READ_EFFECTIVE,
+            Self::SelfAuthzInvitesReadList => Self::SELF_AUTHZ_INVITES_READ_LIST,
+            Self::SelfAuthzReadCheck => Self::SELF_AUTHZ_READ_CHECK,
             Self::SelfBlobCommandPresign => Self::SELF_BLOB_COMMAND_PRESIGN,
             Self::SelfBlobResourceGet => Self::SELF_BLOB_RESOURCE_GET,
             Self::SelfBlobResourceHead => Self::SELF_BLOB_RESOURCE_HEAD,
@@ -1280,28 +1278,26 @@ impl ServiceOperationId {
             Self::SelfCircleCommandTombstone => Self::SELF_CIRCLE_COMMAND_TOMBSTONE,
             Self::SelfCircleMemberCommandAdd => Self::SELF_CIRCLE_MEMBER_COMMAND_ADD,
             Self::SelfCircleMemberResourceDelete => Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE,
-            Self::SelfCircleQueryList => Self::SELF_CIRCLE_QUERY_LIST,
+            Self::SelfCircleReadList => Self::SELF_CIRCLE_READ_LIST,
             Self::SelfCircleResourceGet => Self::SELF_CIRCLE_RESOURCE_GET,
             Self::SelfConsentCommandGrant => Self::SELF_CONSENT_COMMAND_GRANT,
             Self::SelfConsentCommandRequest => Self::SELF_CONSENT_COMMAND_REQUEST,
             Self::SelfConsentCommandRevoke => Self::SELF_CONSENT_COMMAND_REVOKE,
-            Self::SelfConsentQueryList => Self::SELF_CONSENT_QUERY_LIST,
+            Self::SelfConsentReadList => Self::SELF_CONSENT_READ_LIST,
             Self::SelfConsentResourceGet => Self::SELF_CONSENT_RESOURCE_GET,
             Self::SelfContactCommandReject => Self::SELF_CONTACT_COMMAND_REJECT,
             Self::SelfContactCommandRequest => Self::SELF_CONTACT_COMMAND_REQUEST,
             Self::SelfContactCommandRespond => Self::SELF_CONTACT_COMMAND_RESPOND,
             Self::SelfContactCommandScopeUpdate => Self::SELF_CONTACT_COMMAND_SCOPE_UPDATE,
             Self::SelfContactCommandTombstone => Self::SELF_CONTACT_COMMAND_TOMBSTONE,
-            Self::SelfContactQueryList => Self::SELF_CONTACT_QUERY_LIST,
+            Self::SelfContactReadList => Self::SELF_CONTACT_READ_LIST,
             Self::SelfControlProposalAcksCommandIssue => {
                 Self::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE
             }
             Self::SelfDeviceMessagesCommandAck => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK,
             Self::SelfDeviceMessagesCommandSend => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND,
-            Self::SelfDeviceMessagesQueryList => Self::SELF_DEVICE_MESSAGES_QUERY_LIST,
-            Self::SelfDirectConversationQueryResolve => {
-                Self::SELF_DIRECT_CONVERSATION_QUERY_RESOLVE
-            }
+            Self::SelfDeviceMessagesReadList => Self::SELF_DEVICE_MESSAGES_READ_LIST,
+            Self::SelfDirectConversationReadResolve => Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
             Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
             Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
             Self::SelfEventsReadDescribe => Self::SELF_EVENTS_READ_DESCRIBE,
@@ -1325,7 +1321,7 @@ impl ServiceOperationId {
                 Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE
             }
             Self::SelfKeysBackupsCommandUnlock => Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
-            Self::SelfKeysBackupsQueryList => Self::SELF_KEYS_BACKUPS_QUERY_LIST,
+            Self::SelfKeysBackupsReadList => Self::SELF_KEYS_BACKUPS_READ_LIST,
             Self::SelfKeysBackupsResourceDelete => Self::SELF_KEYS_BACKUPS_RESOURCE_DELETE,
             Self::SelfKeysBackupsResourceReplace => Self::SELF_KEYS_BACKUPS_RESOURCE_REPLACE,
             Self::SelfKeysCommandClaim => Self::SELF_KEYS_COMMAND_CLAIM,
@@ -1333,21 +1329,21 @@ impl ServiceOperationId {
             Self::SelfKeysKeypackagesCommandConsume => Self::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME,
             Self::SelfKeysKeypackagesCommandRevoke => Self::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE,
             Self::SelfKeysKeypackagesUploadCreate => Self::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE,
-            Self::SelfKeysQueryLookup => Self::SELF_KEYS_QUERY_LOOKUP,
+            Self::SelfKeysReadLookup => Self::SELF_KEYS_READ_LOOKUP,
             Self::SelfKeysUploadCreate => Self::SELF_KEYS_UPLOAD_CREATE,
-            Self::SelfMediaQueryIceConfig => Self::SELF_MEDIA_QUERY_ICE_CONFIG,
+            Self::SelfMediaReadIceConfig => Self::SELF_MEDIA_READ_ICE_CONFIG,
             Self::SelfModerationCommandReport => Self::SELF_MODERATION_COMMAND_REPORT,
-            Self::SelfMorphQueryList => Self::SELF_MORPH_QUERY_LIST,
+            Self::SelfMorphReadList => Self::SELF_MORPH_READ_LIST,
             Self::SelfMorphResourceGet => Self::SELF_MORPH_RESOURCE_GET,
-            Self::SelfPolicyQueryCheck => Self::SELF_POLICY_QUERY_CHECK,
+            Self::SelfPolicyReadCheck => Self::SELF_POLICY_READ_CHECK,
             Self::SelfReadCursorCommandAdvance => Self::SELF_READ_CURSOR_COMMAND_ADVANCE,
-            Self::SelfReadCursorQueryList => Self::SELF_READ_CURSOR_QUERY_LIST,
+            Self::SelfReadCursorReadList => Self::SELF_READ_CURSOR_READ_LIST,
             Self::SelfRealmCommandArchive => Self::SELF_REALM_COMMAND_ARCHIVE,
             Self::SelfRealmCommandDestroy => Self::SELF_REALM_COMMAND_DESTROY,
             Self::SelfRealmCommandFreeze => Self::SELF_REALM_COMMAND_FREEZE,
             Self::SelfRealmCommandTombstone => Self::SELF_REALM_COMMAND_TOMBSTONE,
-            Self::SelfRealmJoinApplicationAuditQueryList => {
-                Self::SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST
+            Self::SelfRealmJoinApplicationAuditReadList => {
+                Self::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST
             }
             Self::SelfRealmJoinApplicationCommandCancel => {
                 Self::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL
@@ -1358,23 +1354,23 @@ impl ServiceOperationId {
             Self::SelfRealmJoinApplicationCommandSubmit => {
                 Self::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT
             }
-            Self::SelfRealmJoinApplicationQueryList => Self::SELF_REALM_JOIN_APPLICATION_QUERY_LIST,
+            Self::SelfRealmJoinApplicationReadList => Self::SELF_REALM_JOIN_APPLICATION_READ_LIST,
             Self::SelfRealmJoinApplicationResourceGet => {
                 Self::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET
             }
-            Self::SelfRealmModerationPolicyQueryEffective => {
-                Self::SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE
+            Self::SelfRealmModerationPolicyReadEffective => {
+                Self::SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE
             }
             Self::SelfRealmModerationPolicyResourceReplace => {
                 Self::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE
             }
-            Self::SelfRealmQueryExport => Self::SELF_REALM_QUERY_EXPORT,
+            Self::SelfRealmReadExport => Self::SELF_REALM_READ_EXPORT,
             Self::SelfRealmResourceGet => Self::SELF_REALM_RESOURCE_GET,
             Self::SelfRealmLinkCommandCreate => Self::SELF_REALM_LINK_COMMAND_CREATE,
-            Self::SelfRealmLinkQueryEffectivePolicy => Self::SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY,
-            Self::SelfRealmLinkQueryList => Self::SELF_REALM_LINK_QUERY_LIST,
+            Self::SelfRealmLinkReadEffectivePolicy => Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY,
+            Self::SelfRealmLinkReadList => Self::SELF_REALM_LINK_READ_LIST,
             Self::SelfRealmLinkResourceDelete => Self::SELF_REALM_LINK_RESOURCE_DELETE,
-            Self::SelfRealmOrganizationQueryList => Self::SELF_REALM_ORGANIZATION_QUERY_LIST,
+            Self::SelfRealmOrganizationReadList => Self::SELF_REALM_ORGANIZATION_READ_LIST,
             Self::SelfRealmPolicyServerResourceDelete => {
                 Self::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE
             }
@@ -1396,31 +1392,29 @@ impl ServiceOperationId {
             }
             Self::SelfSignalCommandSend => Self::SELF_SIGNAL_COMMAND_SEND,
             Self::SelfSignalStreamSubscribe => Self::SELF_SIGNAL_STREAM_SUBSCRIBE,
-            Self::SelfSnapshotQueryManifestHead => Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD,
-            Self::SelfSpaceQueryList => Self::SELF_SPACE_QUERY_LIST,
-            Self::SelfStrandQueryList => Self::SELF_STRAND_QUERY_LIST,
+            Self::SelfSnapshotReadManifestHead => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD,
+            Self::SelfSpaceReadList => Self::SELF_SPACE_READ_LIST,
+            Self::SelfStrandReadList => Self::SELF_STRAND_READ_LIST,
             Self::SelfViewsCollectionProjectionCommandMaterialize => {
                 Self::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE
             }
-            Self::ServerQueryDescribe => Self::SERVER_QUERY_DESCRIBE,
+            Self::ServerReadDescribe => Self::SERVER_READ_DESCRIBE,
         }
     }
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            Self::EDGE_APPLET_ACTOR_QUERY_RESOLVE => Some(Self::EdgeAppletActorQueryResolve),
+            Self::EDGE_APPLET_ACTOR_READ_RESOLVE => Some(Self::EdgeAppletActorReadResolve),
             Self::EDGE_APPLET_COMMAND_TRANSACTION => Some(Self::EdgeAppletCommandTransaction),
-            Self::EDGE_APPLET_QUERY_DESCRIBE => Some(Self::EdgeAppletQueryDescribe),
-            Self::EDGE_APPLET_QUERY_PING => Some(Self::EdgeAppletQueryPing),
-            Self::EDGE_APPLET_QUERY_PROTOCOL_METADATA => {
-                Some(Self::EdgeAppletQueryProtocolMetadata)
+            Self::EDGE_APPLET_READ_DESCRIBE => Some(Self::EdgeAppletReadDescribe),
+            Self::EDGE_APPLET_READ_PING => Some(Self::EdgeAppletReadPing),
+            Self::EDGE_APPLET_READ_PROTOCOL_METADATA => Some(Self::EdgeAppletReadProtocolMetadata),
+            Self::EDGE_APPLET_REALM_READ_RESOLVE => Some(Self::EdgeAppletRealmReadResolve),
+            Self::EDGE_APPLET_THIRD_PARTY_LOCATIONS_READ_LIST => {
+                Some(Self::EdgeAppletThirdPartyLocationsReadList)
             }
-            Self::EDGE_APPLET_REALM_QUERY_RESOLVE => Some(Self::EdgeAppletRealmQueryResolve),
-            Self::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST => {
-                Some(Self::EdgeAppletThirdPartyLocationsQueryList)
-            }
-            Self::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST => {
-                Some(Self::EdgeAppletThirdPartyUsersQueryList)
+            Self::EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST => {
+                Some(Self::EdgeAppletThirdPartyUsersReadList)
             }
             Self::EDGE_PUSH_COMMAND_NOTIFY => Some(Self::EdgePushCommandNotify),
             Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE => Some(Self::EdgePushCommandRegisterDevice),
@@ -1435,32 +1429,28 @@ impl ServiceOperationId {
             Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER => {
                 Some(Self::FindDirectoryPushCommandRegister)
             }
-            Self::FIND_DIRECTORY_QUERY_DESCRIBE => Some(Self::FindDirectoryQueryDescribe),
-            Self::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT => {
-                Some(Self::FindDirectoryQueryListHandlesForSubject)
+            Self::FIND_DIRECTORY_READ_DESCRIBE => Some(Self::FindDirectoryReadDescribe),
+            Self::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT => {
+                Some(Self::FindDirectoryReadListHandlesForSubject)
             }
-            Self::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY => {
-                Some(Self::FindDirectoryQueryPrivateContactDiscovery)
+            Self::FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY => {
+                Some(Self::FindDirectoryReadPrivateContactDiscovery)
             }
-            Self::FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR => {
-                Some(Self::FindDirectoryQueryResolveAgentSelector)
+            Self::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR => {
+                Some(Self::FindDirectoryReadResolveAgentSelector)
             }
-            Self::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE => {
-                Some(Self::FindDirectoryQueryResolveHandle)
+            Self::FIND_DIRECTORY_READ_RESOLVE_HANDLE => Some(Self::FindDirectoryReadResolveHandle),
+            Self::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION => {
+                Some(Self::FindDirectoryReadResolveOrganization)
             }
-            Self::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION => {
-                Some(Self::FindDirectoryQueryResolveOrganization)
+            Self::FIND_DIRECTORY_READ_RESOLVE_REALM => Some(Self::FindDirectoryReadResolveRealm),
+            Self::FIND_DIRECTORY_READ_RESOLVE_TARGET => Some(Self::FindDirectoryReadResolveTarget),
+            Self::FIND_DIRECTORY_READ_SEARCH_ACTORS => Some(Self::FindDirectoryReadSearchActors),
+            Self::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS => {
+                Some(Self::FindDirectoryReadSearchOrganizations)
             }
-            Self::FIND_DIRECTORY_QUERY_RESOLVE_REALM => Some(Self::FindDirectoryQueryResolveRealm),
-            Self::FIND_DIRECTORY_QUERY_RESOLVE_TARGET => {
-                Some(Self::FindDirectoryQueryResolveTarget)
-            }
-            Self::FIND_DIRECTORY_QUERY_SEARCH_ACTORS => Some(Self::FindDirectoryQuerySearchActors),
-            Self::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS => {
-                Some(Self::FindDirectoryQuerySearchOrganizations)
-            }
-            Self::FIND_DIRECTORY_QUERY_SEARCH_REALMS => Some(Self::FindDirectoryQuerySearchRealms),
-            Self::FIND_DIRECTORY_QUERY_SEARCH_USERS => Some(Self::FindDirectoryQuerySearchUsers),
+            Self::FIND_DIRECTORY_READ_SEARCH_REALMS => Some(Self::FindDirectoryReadSearchRealms),
+            Self::FIND_DIRECTORY_READ_SEARCH_USERS => Some(Self::FindDirectoryReadSearchUsers),
             Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE => {
                 Some(Self::GateAccountCommandAuthorizeRecoveryDevice)
             }
@@ -1502,14 +1492,14 @@ impl ServiceOperationId {
             Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST => {
                 Some(Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest)
             }
-            Self::OPEN_AGENT_PAIRING_QUERY_RESOLVE => Some(Self::OpenAgentPairingQueryResolve),
-            Self::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS => {
-                Some(Self::OpenAgentPairingQueryRuntimeKeyRequestStatus)
+            Self::OPEN_AGENT_PAIRING_READ_RESOLVE => Some(Self::OpenAgentPairingReadResolve),
+            Self::OPEN_AGENT_PAIRING_READ_RUNTIME_KEY_REQUEST_STATUS => {
+                Some(Self::OpenAgentPairingReadRuntimeKeyRequestStatus)
             }
             Self::OPEN_DEVICE_PAIRING_COMMAND_STAGE => Some(Self::OpenDevicePairingCommandStage),
-            Self::OPEN_DEVICE_PAIRING_QUERY_RESOLVE => Some(Self::OpenDevicePairingQueryResolve),
-            Self::OPEN_DEVICE_PAIRING_QUERY_STATUS => Some(Self::OpenDevicePairingQueryStatus),
-            Self::OPEN_INVITE_LOCATOR_QUERY_RESOLVE => Some(Self::OpenInviteLocatorQueryResolve),
+            Self::OPEN_DEVICE_PAIRING_READ_RESOLVE => Some(Self::OpenDevicePairingReadResolve),
+            Self::OPEN_DEVICE_PAIRING_READ_STATUS => Some(Self::OpenDevicePairingReadStatus),
+            Self::OPEN_INVITE_LOCATOR_READ_RESOLVE => Some(Self::OpenInviteLocatorReadResolve),
             Self::OPEN_MIMI_COMMAND_NOTIFY => Some(Self::OpenMimiCommandNotify),
             Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD => Some(Self::OpenMimiCommandProxyDownload),
             Self::OPEN_MIMI_COMMAND_REPORT_ABUSE => Some(Self::OpenMimiCommandReportAbuse),
@@ -1520,12 +1510,12 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL => {
                 Some(Self::OpenMimiExchangeRequestKeyMaterial)
             }
-            Self::OPEN_MIMI_QUERY_GROUP_INFO => Some(Self::OpenMimiQueryGroupInfo),
-            Self::OPEN_MIMI_QUERY_IDENTIFIERS => Some(Self::OpenMimiQueryIdentifiers),
-            Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY => Some(Self::OpenMimiQueryProviderDirectory),
+            Self::OPEN_MIMI_READ_GROUP_INFO => Some(Self::OpenMimiReadGroupInfo),
+            Self::OPEN_MIMI_READ_IDENTIFIERS => Some(Self::OpenMimiReadIdentifiers),
+            Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY => Some(Self::OpenMimiReadProviderDirectory),
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT => Some(Self::PeerAccountStatusCommandSubmit),
-            Self::PEER_ACCOUNT_STATUS_QUERY_AUTHORING_BASIS => {
-                Some(Self::PeerAccountStatusQueryAuthoringBasis)
+            Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS => {
+                Some(Self::PeerAccountStatusReadAuthoringBasis)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
@@ -1537,17 +1527,17 @@ impl ServiceOperationId {
             Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM => {
                 Some(Self::PeerKeysKeypackagesCommandClaim)
             }
-            Self::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM => Some(Self::PeerKeysKeypackagesQueryClaim),
-            Self::PEER_MLS_QUERY_GROUP_STATE_MATERIAL => Some(Self::PeerMlsQueryGroupStateMaterial),
+            Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM => Some(Self::PeerKeysKeypackagesReadClaim),
+            Self::PEER_MLS_READ_GROUP_STATE_MATERIAL => Some(Self::PeerMlsReadGroupStateMaterial),
             Self::PEER_SIGNAL_COMMAND_RELAY => Some(Self::PeerSignalCommandRelay),
-            Self::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::PeerSnapshotQueryManifestHead),
+            Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::PeerSnapshotReadManifestHead),
             Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION => {
                 Some(Self::RootIdentityCommandSubmitDidOperation)
             }
             Self::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET => {
                 Some(Self::RootIdentityDocumentResourceGet)
             }
-            Self::ROOT_IDENTITY_LOG_QUERY_LIST => Some(Self::RootIdentityLogQueryList),
+            Self::ROOT_IDENTITY_LOG_READ_LIST => Some(Self::RootIdentityLogReadList),
             Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE => {
                 Some(Self::RootIdentityOrganizationRegistrationCommandEnsure)
             }
@@ -1563,8 +1553,8 @@ impl ServiceOperationId {
             Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET => {
                 Some(Self::RootIdentityOrganizationRegistrationResourceGet)
             }
-            Self::ROOT_IDENTITY_QUERY_RESOLVE => Some(Self::RootIdentityQueryResolve),
-            Self::ROOT_IDENTITY_RECEIPTS_QUERY_LIST => Some(Self::RootIdentityReceiptsQueryList),
+            Self::ROOT_IDENTITY_READ_RESOLVE => Some(Self::RootIdentityReadResolve),
+            Self::ROOT_IDENTITY_RECEIPTS_READ_LIST => Some(Self::RootIdentityReceiptsReadList),
             Self::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH => {
                 Some(Self::RootIdentityRecoveryPolicyCommandPublish)
             }
@@ -1580,8 +1570,8 @@ impl ServiceOperationId {
             Self::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET => {
                 Some(Self::RootIdentityRecoverySessionResourceGet)
             }
-            Self::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE => {
-                Some(Self::RootIdentityRegistryQueryDescribe)
+            Self::ROOT_IDENTITY_REGISTRY_READ_DESCRIBE => {
+                Some(Self::RootIdentityRegistryReadDescribe)
             }
             Self::ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE => {
                 Some(Self::RootIdentityServiceRegistrationCommandEnsure)
@@ -1593,10 +1583,10 @@ impl ServiceOperationId {
             Self::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE => {
                 Some(Self::SelfAccountCommandUpdateProfile)
             }
-            Self::SELF_ACCOUNT_QUERY_DESCRIBE => Some(Self::SelfAccountQueryDescribe),
-            Self::SELF_ACCOUNT_QUERY_VIEWER => Some(Self::SelfAccountQueryViewer),
+            Self::SELF_ACCOUNT_READ_DESCRIBE => Some(Self::SelfAccountReadDescribe),
+            Self::SELF_ACCOUNT_READ_VIEWER => Some(Self::SelfAccountReadViewer),
             Self::SELF_ACCOUNT_STREAM_SUBSCRIBE => Some(Self::SelfAccountStreamSubscribe),
-            Self::SELF_ACCOUNT_DATA_QUERY_LIST => Some(Self::SelfAccountDataQueryList),
+            Self::SELF_ACCOUNT_DATA_READ_LIST => Some(Self::SelfAccountDataReadList),
             Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE => Some(Self::SelfAccountDataResourceDelete),
             Self::SELF_ACCOUNT_DATA_RESOURCE_GET => Some(Self::SelfAccountDataResourceGet),
             Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE => Some(Self::SelfAccountDataResourceReplace),
@@ -1613,13 +1603,13 @@ impl ServiceOperationId {
             Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE => {
                 Some(Self::SelfAgentParticipationResourceReplace)
             }
-            Self::SELF_AGENT_QUERY_LIST => Some(Self::SelfAgentQueryList),
+            Self::SELF_AGENT_READ_LIST => Some(Self::SelfAgentReadList),
             Self::SELF_AGENT_RESOURCE_GET => Some(Self::SelfAgentResourceGet),
             Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE => Some(Self::SelfAgentSidecarCommandEnsure),
-            Self::SELF_AGENT_SIDECAR_QUERY_LIST => Some(Self::SelfAgentSidecarQueryList),
+            Self::SELF_AGENT_SIDECAR_READ_LIST => Some(Self::SelfAgentSidecarReadList),
             Self::SELF_AGENT_SIDECAR_RESOURCE_GET => Some(Self::SelfAgentSidecarResourceGet),
-            Self::SELF_AGENT_SIGNER_EVIDENCE_QUERY_RESOLVE => {
-                Some(Self::SelfAgentSignerEvidenceQueryResolve)
+            Self::SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE => {
+                Some(Self::SelfAgentSignerEvidenceReadResolve)
             }
             Self::SELF_APPLET_COMMAND_INSTALL => Some(Self::SelfAppletCommandInstall),
             Self::SELF_APPLET_COMMAND_REVOKE => Some(Self::SelfAppletCommandRevoke),
@@ -1632,9 +1622,9 @@ impl ServiceOperationId {
             Self::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE => {
                 Some(Self::SelfAuthorizationLeasesCommandIssue)
             }
-            Self::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE => Some(Self::SelfAuthzGrantsQueryEffective),
-            Self::SELF_AUTHZ_INVITES_QUERY_LIST => Some(Self::SelfAuthzInvitesQueryList),
-            Self::SELF_AUTHZ_QUERY_CHECK => Some(Self::SelfAuthzQueryCheck),
+            Self::SELF_AUTHZ_GRANTS_READ_EFFECTIVE => Some(Self::SelfAuthzGrantsReadEffective),
+            Self::SELF_AUTHZ_INVITES_READ_LIST => Some(Self::SelfAuthzInvitesReadList),
+            Self::SELF_AUTHZ_READ_CHECK => Some(Self::SelfAuthzReadCheck),
             Self::SELF_BLOB_COMMAND_PRESIGN => Some(Self::SelfBlobCommandPresign),
             Self::SELF_BLOB_RESOURCE_GET => Some(Self::SelfBlobResourceGet),
             Self::SELF_BLOB_RESOURCE_HEAD => Some(Self::SelfBlobResourceHead),
@@ -1649,27 +1639,27 @@ impl ServiceOperationId {
             Self::SELF_CIRCLE_COMMAND_TOMBSTONE => Some(Self::SelfCircleCommandTombstone),
             Self::SELF_CIRCLE_MEMBER_COMMAND_ADD => Some(Self::SelfCircleMemberCommandAdd),
             Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE => Some(Self::SelfCircleMemberResourceDelete),
-            Self::SELF_CIRCLE_QUERY_LIST => Some(Self::SelfCircleQueryList),
+            Self::SELF_CIRCLE_READ_LIST => Some(Self::SelfCircleReadList),
             Self::SELF_CIRCLE_RESOURCE_GET => Some(Self::SelfCircleResourceGet),
             Self::SELF_CONSENT_COMMAND_GRANT => Some(Self::SelfConsentCommandGrant),
             Self::SELF_CONSENT_COMMAND_REQUEST => Some(Self::SelfConsentCommandRequest),
             Self::SELF_CONSENT_COMMAND_REVOKE => Some(Self::SelfConsentCommandRevoke),
-            Self::SELF_CONSENT_QUERY_LIST => Some(Self::SelfConsentQueryList),
+            Self::SELF_CONSENT_READ_LIST => Some(Self::SelfConsentReadList),
             Self::SELF_CONSENT_RESOURCE_GET => Some(Self::SelfConsentResourceGet),
             Self::SELF_CONTACT_COMMAND_REJECT => Some(Self::SelfContactCommandReject),
             Self::SELF_CONTACT_COMMAND_REQUEST => Some(Self::SelfContactCommandRequest),
             Self::SELF_CONTACT_COMMAND_RESPOND => Some(Self::SelfContactCommandRespond),
             Self::SELF_CONTACT_COMMAND_SCOPE_UPDATE => Some(Self::SelfContactCommandScopeUpdate),
             Self::SELF_CONTACT_COMMAND_TOMBSTONE => Some(Self::SelfContactCommandTombstone),
-            Self::SELF_CONTACT_QUERY_LIST => Some(Self::SelfContactQueryList),
+            Self::SELF_CONTACT_READ_LIST => Some(Self::SelfContactReadList),
             Self::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE => {
                 Some(Self::SelfControlProposalAcksCommandIssue)
             }
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK => Some(Self::SelfDeviceMessagesCommandAck),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND => Some(Self::SelfDeviceMessagesCommandSend),
-            Self::SELF_DEVICE_MESSAGES_QUERY_LIST => Some(Self::SelfDeviceMessagesQueryList),
-            Self::SELF_DIRECT_CONVERSATION_QUERY_RESOLVE => {
-                Some(Self::SelfDirectConversationQueryResolve)
+            Self::SELF_DEVICE_MESSAGES_READ_LIST => Some(Self::SelfDeviceMessagesReadList),
+            Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE => {
+                Some(Self::SelfDirectConversationReadResolve)
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT => Some(Self::SelfEventsCommandSubmit),
             Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL => Some(Self::SelfEventsCommandSubmitSeal),
@@ -1698,7 +1688,7 @@ impl ServiceOperationId {
                 Some(Self::SelfKeysBackupsCommandIssueDeleteChallenge)
             }
             Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK => Some(Self::SelfKeysBackupsCommandUnlock),
-            Self::SELF_KEYS_BACKUPS_QUERY_LIST => Some(Self::SelfKeysBackupsQueryList),
+            Self::SELF_KEYS_BACKUPS_READ_LIST => Some(Self::SelfKeysBackupsReadList),
             Self::SELF_KEYS_BACKUPS_RESOURCE_DELETE => Some(Self::SelfKeysBackupsResourceDelete),
             Self::SELF_KEYS_BACKUPS_RESOURCE_REPLACE => Some(Self::SelfKeysBackupsResourceReplace),
             Self::SELF_KEYS_COMMAND_CLAIM => Some(Self::SelfKeysCommandClaim),
@@ -1714,21 +1704,21 @@ impl ServiceOperationId {
             Self::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE => {
                 Some(Self::SelfKeysKeypackagesUploadCreate)
             }
-            Self::SELF_KEYS_QUERY_LOOKUP => Some(Self::SelfKeysQueryLookup),
+            Self::SELF_KEYS_READ_LOOKUP => Some(Self::SelfKeysReadLookup),
             Self::SELF_KEYS_UPLOAD_CREATE => Some(Self::SelfKeysUploadCreate),
-            Self::SELF_MEDIA_QUERY_ICE_CONFIG => Some(Self::SelfMediaQueryIceConfig),
+            Self::SELF_MEDIA_READ_ICE_CONFIG => Some(Self::SelfMediaReadIceConfig),
             Self::SELF_MODERATION_COMMAND_REPORT => Some(Self::SelfModerationCommandReport),
-            Self::SELF_MORPH_QUERY_LIST => Some(Self::SelfMorphQueryList),
+            Self::SELF_MORPH_READ_LIST => Some(Self::SelfMorphReadList),
             Self::SELF_MORPH_RESOURCE_GET => Some(Self::SelfMorphResourceGet),
-            Self::SELF_POLICY_QUERY_CHECK => Some(Self::SelfPolicyQueryCheck),
+            Self::SELF_POLICY_READ_CHECK => Some(Self::SelfPolicyReadCheck),
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE => Some(Self::SelfReadCursorCommandAdvance),
-            Self::SELF_READ_CURSOR_QUERY_LIST => Some(Self::SelfReadCursorQueryList),
+            Self::SELF_READ_CURSOR_READ_LIST => Some(Self::SelfReadCursorReadList),
             Self::SELF_REALM_COMMAND_ARCHIVE => Some(Self::SelfRealmCommandArchive),
             Self::SELF_REALM_COMMAND_DESTROY => Some(Self::SelfRealmCommandDestroy),
             Self::SELF_REALM_COMMAND_FREEZE => Some(Self::SelfRealmCommandFreeze),
             Self::SELF_REALM_COMMAND_TOMBSTONE => Some(Self::SelfRealmCommandTombstone),
-            Self::SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST => {
-                Some(Self::SelfRealmJoinApplicationAuditQueryList)
+            Self::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST => {
+                Some(Self::SelfRealmJoinApplicationAuditReadList)
             }
             Self::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL => {
                 Some(Self::SelfRealmJoinApplicationCommandCancel)
@@ -1739,27 +1729,27 @@ impl ServiceOperationId {
             Self::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT => {
                 Some(Self::SelfRealmJoinApplicationCommandSubmit)
             }
-            Self::SELF_REALM_JOIN_APPLICATION_QUERY_LIST => {
-                Some(Self::SelfRealmJoinApplicationQueryList)
+            Self::SELF_REALM_JOIN_APPLICATION_READ_LIST => {
+                Some(Self::SelfRealmJoinApplicationReadList)
             }
             Self::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET => {
                 Some(Self::SelfRealmJoinApplicationResourceGet)
             }
-            Self::SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE => {
-                Some(Self::SelfRealmModerationPolicyQueryEffective)
+            Self::SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE => {
+                Some(Self::SelfRealmModerationPolicyReadEffective)
             }
             Self::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE => {
                 Some(Self::SelfRealmModerationPolicyResourceReplace)
             }
-            Self::SELF_REALM_QUERY_EXPORT => Some(Self::SelfRealmQueryExport),
+            Self::SELF_REALM_READ_EXPORT => Some(Self::SelfRealmReadExport),
             Self::SELF_REALM_RESOURCE_GET => Some(Self::SelfRealmResourceGet),
             Self::SELF_REALM_LINK_COMMAND_CREATE => Some(Self::SelfRealmLinkCommandCreate),
-            Self::SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY => {
-                Some(Self::SelfRealmLinkQueryEffectivePolicy)
+            Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY => {
+                Some(Self::SelfRealmLinkReadEffectivePolicy)
             }
-            Self::SELF_REALM_LINK_QUERY_LIST => Some(Self::SelfRealmLinkQueryList),
+            Self::SELF_REALM_LINK_READ_LIST => Some(Self::SelfRealmLinkReadList),
             Self::SELF_REALM_LINK_RESOURCE_DELETE => Some(Self::SelfRealmLinkResourceDelete),
-            Self::SELF_REALM_ORGANIZATION_QUERY_LIST => Some(Self::SelfRealmOrganizationQueryList),
+            Self::SELF_REALM_ORGANIZATION_READ_LIST => Some(Self::SelfRealmOrganizationReadList),
             Self::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE => {
                 Some(Self::SelfRealmPolicyServerResourceDelete)
             }
@@ -1783,13 +1773,13 @@ impl ServiceOperationId {
             }
             Self::SELF_SIGNAL_COMMAND_SEND => Some(Self::SelfSignalCommandSend),
             Self::SELF_SIGNAL_STREAM_SUBSCRIBE => Some(Self::SelfSignalStreamSubscribe),
-            Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::SelfSnapshotQueryManifestHead),
-            Self::SELF_SPACE_QUERY_LIST => Some(Self::SelfSpaceQueryList),
-            Self::SELF_STRAND_QUERY_LIST => Some(Self::SelfStrandQueryList),
+            Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::SelfSnapshotReadManifestHead),
+            Self::SELF_SPACE_READ_LIST => Some(Self::SelfSpaceReadList),
+            Self::SELF_STRAND_READ_LIST => Some(Self::SelfStrandReadList),
             Self::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE => {
                 Some(Self::SelfViewsCollectionProjectionCommandMaterialize)
             }
-            Self::SERVER_QUERY_DESCRIBE => Some(Self::ServerQueryDescribe),
+            Self::SERVER_READ_DESCRIBE => Some(Self::ServerReadDescribe),
             _ => None,
         }
     }
@@ -1821,7 +1811,7 @@ impl<'de> Deserialize<'de> for ServiceOperationId {
 
 pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletActorQueryResolve,
+        id: ServiceOperationId::EdgeAppletActorReadResolve,
         http_method: "GET",
         http_path: "/_arkret/edge/applet/actors/{actor_id}",
         grpc: Some("EdgeApplet/ResolveActor"),
@@ -1863,7 +1853,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletQueryDescribe,
+        id: ServiceOperationId::EdgeAppletReadDescribe,
         http_method: "GET",
         http_path: "/_arkret/edge/applet/describe",
         grpc: Some("EdgeApplet/Describe"),
@@ -1879,7 +1869,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletQueryPing,
+        id: ServiceOperationId::EdgeAppletReadPing,
         http_method: "GET",
         http_path: "/_arkret/edge/applet/ping",
         grpc: Some("EdgeApplet/Ping"),
@@ -1897,7 +1887,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletQueryProtocolMetadata,
+        id: ServiceOperationId::EdgeAppletReadProtocolMetadata,
         http_method: "GET",
         http_path: "/_arkret/edge/applet/protocols/{protocol}",
         grpc: Some("EdgeApplet/ProtocolMetadata"),
@@ -1915,7 +1905,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletRealmQueryResolve,
+        id: ServiceOperationId::EdgeAppletRealmReadResolve,
         http_method: "GET",
         http_path: "/_arkret/edge/applet/realms/{realm_id_or_alias}",
         grpc: Some("EdgeApplet/ResolveRealm"),
@@ -1933,7 +1923,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletThirdPartyLocationsQueryList,
+        id: ServiceOperationId::EdgeAppletThirdPartyLocationsReadList,
         http_method: "GET",
         http_path: "/_arkret/edge/applet/third_party/locations",
         grpc: Some("EdgeApplet/ThirdPartyLocations"),
@@ -1951,7 +1941,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletThirdPartyUsersQueryList,
+        id: ServiceOperationId::EdgeAppletThirdPartyUsersReadList,
         http_method: "GET",
         http_path: "/_arkret/edge/applet/third_party/users",
         grpc: Some("EdgeApplet/ThirdPartyUsers"),
@@ -2056,7 +2046,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.find.directory.query.resolve_target\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.find.directory.read.resolve_target\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2137,7 +2127,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryDescribe,
+        id: ServiceOperationId::FindDirectoryReadDescribe,
         http_method: "GET",
         http_path: "/_arkret/find/directory/describe",
         grpc: Some("FindDirectory/Describe"),
@@ -2153,7 +2143,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryListHandlesForSubject,
+        id: ServiceOperationId::FindDirectoryReadListHandlesForSubject,
         http_method: "POST",
         http_path: "/_arkret/find/directory/list-handles-for-subject",
         grpc: Some("FindDirectory/ListHandlesForSubject"),
@@ -2171,7 +2161,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryPrivateContactDiscovery,
+        id: ServiceOperationId::FindDirectoryReadPrivateContactDiscovery,
         http_method: "POST",
         http_path: "/_arkret/find/directory/private-contact-discovery",
         grpc: Some("FindDirectory/PrivateContactDiscovery"),
@@ -2191,7 +2181,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryResolveAgentSelector,
+        id: ServiceOperationId::FindDirectoryReadResolveAgentSelector,
         http_method: "POST",
         http_path: "/_arkret/find/directory/resolve-agent-selector",
         grpc: Some("FindDirectory/ResolveAgentSelector"),
@@ -2211,7 +2201,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryResolveHandle,
+        id: ServiceOperationId::FindDirectoryReadResolveHandle,
         http_method: "POST",
         http_path: "/_arkret/find/directory/resolve-handle",
         grpc: Some("FindDirectory/ResolveHandle"),
@@ -2231,7 +2221,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryResolveOrganization,
+        id: ServiceOperationId::FindDirectoryReadResolveOrganization,
         http_method: "POST",
         http_path: "/_arkret/find/directory/resolve-organization",
         grpc: Some("FindDirectory/ResolveOrganization"),
@@ -2251,7 +2241,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryResolveRealm,
+        id: ServiceOperationId::FindDirectoryReadResolveRealm,
         http_method: "POST",
         http_path: "/_arkret/find/directory/resolve-realm",
         grpc: Some("FindDirectory/ResolveRealm"),
@@ -2271,7 +2261,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQueryResolveTarget,
+        id: ServiceOperationId::FindDirectoryReadResolveTarget,
         http_method: "POST",
         http_path: "/_arkret/find/directory/resolve-target",
         grpc: Some("FindDirectory/ResolveTarget"),
@@ -2291,7 +2281,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQuerySearchActors,
+        id: ServiceOperationId::FindDirectoryReadSearchActors,
         http_method: "POST",
         http_path: "/_arkret/find/directory/search-actors",
         grpc: Some("FindDirectory/SearchActors"),
@@ -2311,7 +2301,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQuerySearchOrganizations,
+        id: ServiceOperationId::FindDirectoryReadSearchOrganizations,
         http_method: "POST",
         http_path: "/_arkret/find/directory/search-organizations",
         grpc: Some("FindDirectory/SearchOrganizations"),
@@ -2331,7 +2321,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQuerySearchRealms,
+        id: ServiceOperationId::FindDirectoryReadSearchRealms,
         http_method: "POST",
         http_path: "/_arkret/find/directory/search-realms",
         grpc: Some("FindDirectory/SearchRealms"),
@@ -2351,7 +2341,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryQuerySearchUsers,
+        id: ServiceOperationId::FindDirectoryReadSearchUsers,
         http_method: "POST",
         http_path: "/_arkret/find/directory/search-users",
         grpc: Some("FindDirectory/SearchUsers"),
@@ -2612,7 +2602,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/account_device_pair_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.account.read.viewer\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2793,7 +2783,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenAgentPairingQueryResolve,
+        id: ServiceOperationId::OpenAgentPairingReadResolve,
         http_method: "POST",
         http_path: "/_arkret/open/agent-pairing/resolve",
         grpc: Some("OpenAgentPairing/Resolve"),
@@ -2813,7 +2803,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenAgentPairingQueryRuntimeKeyRequestStatus,
+        id: ServiceOperationId::OpenAgentPairingReadRuntimeKeyRequestStatus,
         http_method: "POST",
         http_path: "/_arkret/open/agent-pairing/runtime-key-requests/status",
         grpc: Some("OpenAgentPairing/RuntimeKeyRequestStatus"),
@@ -2859,7 +2849,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenDevicePairingQueryResolve,
+        id: ServiceOperationId::OpenDevicePairingReadResolve,
         http_method: "POST",
         http_path: "/_arkret/open/device-pairing/resolve",
         grpc: Some("OpenDevicePairing/Resolve"),
@@ -2879,7 +2869,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenDevicePairingQueryStatus,
+        id: ServiceOperationId::OpenDevicePairingReadStatus,
         http_method: "POST",
         http_path: "/_arkret/open/device-pairing/requests/status",
         grpc: Some("OpenDevicePairing/Status"),
@@ -2899,7 +2889,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenInviteLocatorQueryResolve,
+        id: ServiceOperationId::OpenInviteLocatorReadResolve,
         http_method: "POST",
         http_path: "/_arkret/open/invite-locators/resolve",
         grpc: Some("OpenInviteLocator/Resolve"),
@@ -3006,7 +2996,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.consent.read.list\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3032,7 +3022,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.open.mimi.read.group_info\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3058,7 +3048,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.consent.read.list\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3084,7 +3074,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_room_update_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.open.mimi.read.group_info\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3110,7 +3100,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.open.mimi.read.group_info\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3119,7 +3109,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenMimiQueryGroupInfo,
+        id: ServiceOperationId::OpenMimiReadGroupInfo,
         http_method: "GET",
         http_path: "/_arkret/open/mimi/strands/{strand_id}/group-info",
         grpc: Some("OpenMimi/GroupInfo"),
@@ -3137,7 +3127,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenMimiQueryIdentifiers,
+        id: ServiceOperationId::OpenMimiReadIdentifiers,
         http_method: "POST",
         http_path: "/_arkret/open/mimi/identifiers/query",
         grpc: Some("OpenMimi/IdentifierQuery"),
@@ -3157,7 +3147,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenMimiQueryProviderDirectory,
+        id: ServiceOperationId::OpenMimiReadProviderDirectory,
         http_method: "GET",
         http_path: "/_arkret/open/mimi/provider-directory",
         grpc: Some("OpenMimi/ProviderDirectory"),
@@ -3197,7 +3187,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerAccountStatusQueryAuthoringBasis,
+        id: ServiceOperationId::PeerAccountStatusReadAuthoringBasis,
         http_method: "POST",
         http_path: "/_arkret/peer/account-status/authoring-basis",
         grpc: Some("PeerAccountStatus/AuthoringBasis"),
@@ -3382,7 +3372,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.peer.keys.keypackages.query.claim\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.peer.keys.keypackages.read.claim\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3391,7 +3381,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerKeysKeypackagesQueryClaim,
+        id: ServiceOperationId::PeerKeysKeypackagesReadClaim,
         http_method: "POST",
         http_path: "/_arkret/peer/keys/keypackages/claims/query",
         grpc: Some("PeerKeys/KeyPackagesClaimQuery"),
@@ -3411,7 +3401,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerMlsQueryGroupStateMaterial,
+        id: ServiceOperationId::PeerMlsReadGroupStateMaterial,
         http_method: "POST",
         http_path: "/_arkret/peer/mls/group-state-material",
         grpc: Some("PeerMls/GroupStateMaterial"),
@@ -3451,7 +3441,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerSnapshotQueryManifestHead,
+        id: ServiceOperationId::PeerSnapshotReadManifestHead,
         http_method: "GET",
         http_path: "/_arkret/peer/snapshot/head",
         grpc: Some("PeerSnapshot/Head"),
@@ -3509,7 +3499,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::RootIdentityLogQueryList,
+        id: ServiceOperationId::RootIdentityLogReadList,
         http_method: "GET",
         http_path: "/_arkret/root/identity/log",
         grpc: Some("RootIdentity/GetLog"),
@@ -3643,7 +3633,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::RootIdentityQueryResolve,
+        id: ServiceOperationId::RootIdentityReadResolve,
         http_method: "POST",
         http_path: "/_arkret/root/identity/resolve",
         grpc: Some("RootIdentity/Resolve"),
@@ -3663,7 +3653,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::RootIdentityReceiptsQueryList,
+        id: ServiceOperationId::RootIdentityReceiptsReadList,
         http_method: "GET",
         http_path: "/_arkret/root/identity/receipts",
         grpc: Some("RootIdentity/GetReceipts"),
@@ -3793,7 +3783,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::RootIdentityRegistryQueryDescribe,
+        id: ServiceOperationId::RootIdentityRegistryReadDescribe,
         http_method: "GET",
         http_path: "/_arkret/root/identity/describe",
         grpc: Some("RootIdentity/DescribeRegistry"),
@@ -3892,7 +3882,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_update_profile_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.account.read.viewer\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
@@ -3901,7 +3891,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAccountQueryDescribe,
+        id: ServiceOperationId::SelfAccountReadDescribe,
         http_method: "GET",
         http_path: "/_arkret/self/account/describe",
         grpc: Some("SelfAccount/Describe"),
@@ -3917,7 +3907,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAccountQueryViewer,
+        id: ServiceOperationId::SelfAccountReadViewer,
         http_method: "GET",
         http_path: "/_arkret/self/account/viewer",
         grpc: Some("SelfAccount/Viewer"),
@@ -3949,7 +3939,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAccountDataQueryList,
+        id: ServiceOperationId::SelfAccountDataReadList,
         http_method: "GET",
         http_path: "/_arkret/self/account_data",
         grpc: Some("SelfAccountData/List"),
@@ -4178,7 +4168,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_grant_attach_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.authz.grants.query.effective\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.authz.grants.read.effective\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
@@ -4251,7 +4241,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentQueryList,
+        id: ServiceOperationId::SelfAgentReadList,
         http_method: "GET",
         http_path: "/_arkret/self/agents",
         grpc: Some("SelfAgent/List"),
@@ -4310,7 +4300,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentSidecarQueryList,
+        id: ServiceOperationId::SelfAgentSidecarReadList,
         http_method: "GET",
         http_path: "/_arkret/self/agent-sidecars",
         grpc: Some("SelfAgent/SidecarList"),
@@ -4342,7 +4332,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentSignerEvidenceQueryResolve,
+        id: ServiceOperationId::SelfAgentSignerEvidenceReadResolve,
         http_method: "POST",
         http_path: "/_arkret/self/agent-signer-evidence/query",
         grpc: Some("SelfAgentSignerEvidence/Resolve"),
@@ -4489,7 +4479,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAuthzGrantsQueryEffective,
+        id: ServiceOperationId::SelfAuthzGrantsReadEffective,
         http_method: "GET",
         http_path: "/_arkret/self/authz/effective-grants",
         grpc: Some("SelfAuthz/GetEffectiveGrants"),
@@ -4505,7 +4495,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAuthzInvitesQueryList,
+        id: ServiceOperationId::SelfAuthzInvitesReadList,
         http_method: "GET",
         http_path: "/_arkret/self/authz/invites",
         grpc: Some("SelfAuthz/GetInvites"),
@@ -4521,7 +4511,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAuthzQueryCheck,
+        id: ServiceOperationId::SelfAuthzReadCheck,
         http_method: "POST",
         http_path: "/_arkret/self/authz/check",
         grpc: Some("SelfAuthz/Check"),
@@ -4686,7 +4676,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.query.list\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.circle.read.list\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
@@ -4817,7 +4807,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleQueryList,
+        id: ServiceOperationId::SelfCircleReadList,
         http_method: "GET",
         http_path: "/_arkret/self/circles",
         grpc: Some("SelfCircle/List"),
@@ -4866,7 +4856,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.consent.read.list\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
@@ -4892,7 +4882,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_request_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.consent.read.list\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -4918,7 +4908,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.consent.read.list\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
@@ -4927,7 +4917,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfConsentQueryList,
+        id: ServiceOperationId::SelfConsentReadList,
         http_method: "GET",
         http_path: "/_arkret/self/consent/cells",
         grpc: Some("SelfConsent/List"),
@@ -5083,7 +5073,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfContactQueryList,
+        id: ServiceOperationId::SelfContactReadList,
         http_method: "GET",
         http_path: "/_arkret/self/contacts",
         grpc: Some("SelfContact/List"),
@@ -5171,7 +5161,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfDeviceMessagesQueryList,
+        id: ServiceOperationId::SelfDeviceMessagesReadList,
         http_method: "GET",
         http_path: "/_arkret/self/device_messages",
         grpc: Some("SelfDeviceMessages/Get"),
@@ -5189,7 +5179,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfDirectConversationQueryResolve,
+        id: ServiceOperationId::SelfDirectConversationReadResolve,
         http_method: "POST",
         http_path: "/_arkret/self/direct-conversations/resolve",
         grpc: Some("SelfDirectConversation/Resolve"),
@@ -5570,7 +5560,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfKeysBackupsQueryList,
+        id: ServiceOperationId::SelfKeysBackupsReadList,
         http_method: "GET",
         http_path: "/_arkret/self/keys/backups",
         grpc: Some("SelfKeys/BackupsList"),
@@ -5647,7 +5637,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_claim_outcome"),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.keys.read.lookup\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -5697,7 +5687,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/key_packages_consume_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.keys.read.lookup\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -5723,7 +5713,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/key_packages_revoke_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.keys.read.lookup\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -5758,7 +5748,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfKeysQueryLookup,
+        id: ServiceOperationId::SelfKeysReadLookup,
         http_method: "POST",
         http_path: "/_arkret/self/keys/query",
         grpc: Some("SelfKeys/Query"),
@@ -5791,7 +5781,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_upload_outcome"),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.keys.read.lookup\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -5800,7 +5790,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfMediaQueryIceConfig,
+        id: ServiceOperationId::SelfMediaReadIceConfig,
         http_method: "POST",
         http_path: "/_arkret/self/rtc/ice-config",
         grpc: Some("SelfMedia/IceConfig"),
@@ -5840,7 +5830,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfMorphQueryList,
+        id: ServiceOperationId::SelfMorphReadList,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/morphs",
         grpc: Some("SelfMorph/List"),
@@ -5876,7 +5866,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfPolicyQueryCheck,
+        id: ServiceOperationId::SelfPolicyReadCheck,
         http_method: "POST",
         http_path: "/_arkret/self/policy/check",
         grpc: Some("SelfPolicy/Check"),
@@ -5920,7 +5910,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfReadCursorQueryList,
+        id: ServiceOperationId::SelfReadCursorReadList,
         http_method: "GET",
         http_path: "/_arkret/self/read-cursors",
         grpc: Some("SelfReadCursor/List"),
@@ -6042,7 +6032,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationAuditQueryList,
+        id: ServiceOperationId::SelfRealmJoinApplicationAuditReadList,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/audit",
         grpc: Some("SelfRealmJoinApplication/ListAudit"),
@@ -6132,7 +6122,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationQueryList,
+        id: ServiceOperationId::SelfRealmJoinApplicationReadList,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/join-applications",
         grpc: Some("SelfRealmJoinApplication/List"),
@@ -6168,7 +6158,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmModerationPolicyQueryEffective,
+        id: ServiceOperationId::SelfRealmModerationPolicyReadEffective,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/moderation-policy/effective",
         grpc: Some("SelfRealm/ModerationPolicyEffective"),
@@ -6210,7 +6200,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmQueryExport,
+        id: ServiceOperationId::SelfRealmReadExport,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/export",
         grpc: Some("SelfRealm/Export"),
@@ -6261,7 +6251,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm_link.query.list\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.realm_link.read.list\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
@@ -6270,7 +6260,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmLinkQueryEffectivePolicy,
+        id: ServiceOperationId::SelfRealmLinkReadEffectivePolicy,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/effective-policy",
         grpc: Some("SelfRealmLink/EffectivePolicy"),
@@ -6288,7 +6278,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmLinkQueryList,
+        id: ServiceOperationId::SelfRealmLinkReadList,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/links",
         grpc: Some("SelfRealmLink/List"),
@@ -6330,7 +6320,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmOrganizationQueryList,
+        id: ServiceOperationId::SelfRealmOrganizationReadList,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/organizations",
         grpc: Some("SelfRealmOrganization/List"),
@@ -6530,7 +6520,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfSnapshotQueryManifestHead,
+        id: ServiceOperationId::SelfSnapshotReadManifestHead,
         http_method: "GET",
         http_path: "/_arkret/self/snapshot/head",
         grpc: Some("SelfSnapshot/Head"),
@@ -6546,7 +6536,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfSpaceQueryList,
+        id: ServiceOperationId::SelfSpaceReadList,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/spaces",
         grpc: Some("SelfSpace/List"),
@@ -6564,7 +6554,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfStrandQueryList,
+        id: ServiceOperationId::SelfStrandReadList,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/strands",
         grpc: Some("SelfStrand/List"),
@@ -6602,7 +6592,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::ServerQueryDescribe,
+        id: ServiceOperationId::ServerReadDescribe,
         http_method: "GET",
         http_path: "/_arkret/describe",
         grpc: Some("Server/Describe"),

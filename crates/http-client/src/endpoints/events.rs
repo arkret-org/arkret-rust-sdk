@@ -41,73 +41,8 @@ use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 const MAX_EVENTS_QUERY_PAGES: usize = 100;
 
-/// Controls the legacy GET/POST binding chosen when canonical HTTP QUERY is
-/// known to be unavailable or returns 405/501.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EventsReadOptions {
-    /// `Some(false)` is an explicit service-capability declaration that QUERY
-    /// is unavailable. `None` and `Some(true)` both try QUERY first.
-    pub query_supported: Option<bool>,
-    /// Service-advertised `limits.max_get_query_selectors` (default: 8).
-    pub max_get_query_selectors: usize,
-    /// GET is allowed only when the caller has established that URI query
-    /// logging is acceptable for this request.
-    pub query_string_logging_safe: bool,
-    /// Sensitive selectors must use the POST compatibility binding.
-    pub selectors_sensitive: bool,
-}
-
-impl Default for EventsReadOptions {
-    fn default() -> Self {
-        Self {
-            query_supported: None,
-            max_get_query_selectors: 8,
-            query_string_logging_safe: false,
-            selectors_sensitive: true,
-        }
-    }
-}
-
-impl EventsReadOptions {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    #[must_use]
-    pub const fn query_supported(mut self, query_supported: bool) -> Self {
-        self.query_supported = Some(query_supported);
-        self
-    }
-
-    #[must_use]
-    pub const fn max_get_query_selectors(mut self, limit: usize) -> Self {
-        self.max_get_query_selectors = limit;
-        self
-    }
-
-    /// Declare that this individual selector is non-sensitive and URI query
-    /// logging is acceptable, making the GET compatibility binding eligible.
-    #[must_use]
-    pub const fn allow_non_sensitive_get(mut self) -> Self {
-        self.query_string_logging_safe = true;
-        self.selectors_sensitive = false;
-        self
-    }
-}
-
 fn query_method() -> Method {
     Method::from_bytes(b"QUERY").expect("QUERY is a valid registered HTTP method")
-}
-
-fn query_method_unavailable(error: &Error) -> bool {
-    matches!(
-        error,
-        Error::Api {
-            status: 405 | 501,
-            ..
-        }
-    )
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -211,26 +146,13 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
-    async fn events_read_query_with_fallback<T, B, F>(
-        &self,
-        path: &str,
-        body: &B,
-        query_supported: Option<bool>,
-        fallback: F,
-    ) -> Result<T>
+    async fn events_read_query<T, B>(&self, path: &str, body: &B) -> Result<T>
     where
         T: DeserializeOwned,
         B: Serialize + ?Sized,
-        F: FnOnce(&Self) -> Result<RequestBuilder>,
     {
-        if query_supported != Some(false) {
-            let query = self.canonical_json_body(self.request(query_method(), path)?, body)?;
-            match self.send_json(query).await {
-                Err(error) if query_method_unavailable(&error) => {}
-                result => return result,
-            }
-        }
-        self.send_json(fallback(self)?).await
+        let query = self.canonical_json_body(self.request(query_method(), path)?, body)?;
+        self.send_json(query).await
     }
 
     /// Fetch a selector-bound Event frontier and fail closed when the service
@@ -239,7 +161,6 @@ impl Client {
         &self,
         selector: &EventsFrontierSelector,
     ) -> Result<EventsFrontierAccountClientState> {
-        let query_pairs = selector.query_pairs();
         let body = match selector {
             EventsFrontierSelector::RealmActor { realm_id, actor_id } => {
                 EventsFrontierRequestBody {
@@ -257,16 +178,7 @@ impl Client {
             },
         };
         let state: EventsFrontierAccountClientState = self
-            .events_read_query_with_fallback(
-                "/_arkret/self/events/frontier",
-                &body,
-                None,
-                |client| {
-                    Ok(client
-                        .request(Method::GET, "/_arkret/self/events/frontier")?
-                        .query(&query_pairs))
-                },
-            )
+            .events_read_query("/_arkret/self/events/frontier", &body)
             .await?;
         selector.validate_response(&state.frontier)?;
         Ok(state)
@@ -528,8 +440,7 @@ impl Client {
 
     /// Describe the Event service via `ak.self.events.read.describe`.
     ///
-    /// HTTP QUERY with an empty JSON object is canonical. GET is retried only
-    /// when the server rejects QUERY with 405/501.
+    /// HTTP QUERY with an empty JSON object is the sole binding.
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {
         self.events_describe_with_request(&EventsDescribeRequestBody::default())
             .await
@@ -540,13 +451,8 @@ impl Client {
         &self,
         request: &EventsDescribeRequestBody,
     ) -> Result<ServiceDescribe> {
-        self.events_read_query_with_fallback(
-            "/_arkret/self/events/describe",
-            request,
-            None,
-            |client| client.request(Method::GET, "/_arkret/self/events/describe"),
-        )
-        .await
+        self.events_read_query("/_arkret/self/events/describe", request)
+            .await
     }
 
     /// Fetch one accepted Event together with its server-visible receipt
@@ -663,35 +569,14 @@ impl Client {
         request: &EventsResolveRequestBody,
     ) -> Result<EventsResolveOutcome> {
         request.validate()?;
-        self.events_read_query_with_fallback(
-            "/_arkret/self/events/resolve",
-            request,
-            None,
-            |client| {
-                client.canonical_json_body(
-                    client.request(Method::POST, "/_arkret/self/events/resolve")?,
-                    request,
-                )
-            },
-        )
-        .await
+        self.events_read_query("/_arkret/self/events/resolve", request)
+            .await
     }
 
     /// Range-read Events via canonical `ak.self.events.read.scan` HTTP QUERY.
     pub async fn events_read(
         &self,
         request: &EventsQueryPostRequestBody,
-    ) -> Result<EventsQueryOutcome> {
-        self.events_read_with_options(request, &EventsReadOptions::default())
-            .await
-    }
-
-    /// Range-read Events with explicit service-capability and compatibility
-    /// binding information.
-    pub async fn events_read_with_options(
-        &self,
-        request: &EventsQueryPostRequestBody,
-        options: &EventsReadOptions,
     ) -> Result<EventsQueryOutcome> {
         if request.realms.is_empty() && request.actors.is_empty() {
             return Err(Error::Protocol(
@@ -704,48 +589,8 @@ impl Client {
             ));
         }
 
-        let selector_count = request.realms.len().saturating_add(request.actors.len());
-        let get_eligible = request.filters.is_none()
-            && selector_count <= options.max_get_query_selectors
-            && options.query_string_logging_safe
-            && !options.selectors_sensitive;
-        self.events_read_query_with_fallback(
-            "/_arkret/self/events",
-            request,
-            options.query_supported,
-            |client| {
-                if !get_eligible {
-                    return client.canonical_json_body(
-                        client.request(Method::POST, "/_arkret/self/events/query")?,
-                        request,
-                    );
-                }
-                let mut builder = client.request(Method::GET, "/_arkret/self/events")?;
-                for realm_id in &request.realms {
-                    builder = builder.query(&[("realms", realm_id.as_str())]);
-                }
-                for actor_id in &request.actors {
-                    builder = builder.query(&[("actors", actor_id.as_str())]);
-                }
-                if let Some(before) = request.before.as_ref() {
-                    builder = builder.query(&[("before", before.as_str())]);
-                }
-                if let Some(after) = request.after.as_ref() {
-                    builder = builder.query(&[("after", after.as_str())]);
-                }
-                if let Some(order) = request.order.as_deref() {
-                    builder = builder.query(&[("order", order)]);
-                }
-                if let Some(limit) = request.limit {
-                    builder = builder.query(&[("limit", limit)]);
-                }
-                if let Some(include_completeness) = request.include_completeness {
-                    builder = builder.query(&[("include_completeness", include_completeness)]);
-                }
-                Ok(builder)
-            },
-        )
-        .await
+        self.events_read_query("/_arkret/self/events", request)
+            .await
     }
 
     /// Convenience wrapper for one Realm using the standard outcome shape.
@@ -858,18 +703,8 @@ impl Client {
         request: &MlsGovernanceProofRequestBodyBody,
     ) -> Result<MlsGovernanceProofBundle> {
         request.validate()?;
-        self.events_read_query_with_fallback(
-            "/_arkret/self/events/mls-governance-proof",
-            request,
-            None,
-            |client| {
-                client.canonical_json_body(
-                    client.request(Method::POST, "/_arkret/self/events/mls-governance-proof")?,
-                    request,
-                )
-            },
-        )
-        .await
+        self.events_read_query("/_arkret/self/events/mls-governance-proof", request)
+            .await
     }
 
     /// Fetch and authenticate every chunk of one logical MLS governance proof.

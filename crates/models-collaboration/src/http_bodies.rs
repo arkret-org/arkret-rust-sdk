@@ -1489,7 +1489,7 @@ pub struct AccountDevicePairRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_metadata: Option<DeviceMetadata>,
     /// When the approving device recovered this pairing via the server-mediated
-    /// short-link (`ak.open.device_pairing.query.resolve`), it echoes the staged
+    /// short-link (`ak.open.device_pairing.read.resolve`), it echoes the staged
     /// `device_pairing_request_id` here so the server can flip that staged row to
     /// `authorized` (carrying `device_id` + `authorized_event_ref`) for the new
     /// device's status poll to observe. Omitted for direct QR/paste pairing that
@@ -1558,7 +1558,7 @@ pub struct DevicePairingStageOutcome {
 
 /// Body of the unauthenticated resolve call
 /// (`POST /_arkret/open/device-pairing/resolve`,
-/// `ak.open.device_pairing.query.resolve`). The token is the compact
+/// `ak.open.device_pairing.read.resolve`). The token is the compact
 /// `base64url({"r":device_pairing_request_id,"c":pairing_code})` envelope; it
 /// MUST be carried in the body, never in the URL.
 ///
@@ -1612,7 +1612,7 @@ pub enum DevicePairingState {
 
 /// Body of the unauthenticated status poll
 /// (`POST /_arkret/open/device-pairing/requests/status`,
-/// `ak.open.device_pairing.query.status`) the new device calls while waiting
+/// `ak.open.device_pairing.read.status`) the new device calls while waiting
 /// for a sibling to approve.
 ///
 /// Mirrors `device-pairing.schema.json#/$defs/device_pairing_status_request_body`.

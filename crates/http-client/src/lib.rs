@@ -56,10 +56,10 @@ pub(crate) use client_internals::reject_path_segment;
 pub(crate) use client_internals::validate_request_builder;
 pub use endpoints::{
     AccountSubscribeFrameStream, AgentRuntimeApprovalStatusResponse, BlobDownloadOptions,
-    BlobResumableUploadOptions, EventsReadOptions, EventsSubscribeFrameStream,
-    EventsSubscribeOptions, JoinApplicationListOptions, RESUMABLE_UPLOAD_FEATURE,
-    RESUMABLE_UPLOAD_THRESHOLD_BYTES, SignalSubscribeFrameStream, SignedAppletTransactionOptions,
-    blob_resumable_upload_base_url, login_did_proof,
+    BlobResumableUploadOptions, EventsSubscribeFrameStream, EventsSubscribeOptions,
+    JoinApplicationListOptions, RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES,
+    SignalSubscribeFrameStream, SignedAppletTransactionOptions, blob_resumable_upload_base_url,
+    login_did_proof,
 };
 pub use error::{Error, Result};
 
@@ -659,7 +659,7 @@ mod tests {
 
         let client = Client::new(Url::parse("https://alice.example/arkret/").unwrap()).unwrap();
         let builder = client
-            .request(Method::GET, "/_arkret/self/events")
+            .request(Method::GET, "/_arkret/self/account/describe")
             .unwrap()
             .query(&[("access_token", "secret")]);
 
@@ -837,7 +837,6 @@ mod tests {
         use arkret_models_collaboration::direct_conversation_ops::{
             DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
         };
-        use arkret_models_collaboration::event_query::EventsQueryPostRequestBody;
         use arkret_models_collaboration::http_bodies::MimiReportAbuseRequestBody;
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
@@ -1058,93 +1057,6 @@ mod tests {
                 .build()
                 .unwrap();
             (client, rx)
-        }
-
-        async fn spawn_capture_sequence_server<F>(
-            responses: Vec<(u16, &'static str)>,
-            configure: F,
-        ) -> (Client, tokio::sync::oneshot::Receiver<Vec<Vec<u8>>>)
-        where
-            F: FnOnce(ClientBuilder) -> ClientBuilder,
-        {
-            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let addr = listener.local_addr().unwrap();
-            let (tx, rx) = tokio::sync::oneshot::channel();
-
-            tokio::spawn(async move {
-                let mut requests = Vec::with_capacity(responses.len());
-                for (status, body_response) in responses {
-                    let (mut socket, _) = listener.accept().await.unwrap();
-                    let mut buf = Vec::new();
-                    let mut tmp = [0u8; 4096];
-                    let mut headers_end = None;
-                    let mut content_length: Option<usize> = None;
-                    loop {
-                        let n = socket.read(&mut tmp).await.unwrap();
-                        if n == 0 {
-                            break;
-                        }
-                        buf.extend_from_slice(&tmp[..n]);
-                        if headers_end.is_none()
-                            && let Some(idx) =
-                                buf.windows(4).position(|window| window == b"\r\n\r\n")
-                        {
-                            headers_end = Some(idx + 4);
-                            let header_str = std::str::from_utf8(&buf[..idx]).unwrap_or("");
-                            for line in header_str.split("\r\n") {
-                                if let Some(value) = line
-                                    .strip_prefix("Content-Length: ")
-                                    .or_else(|| line.strip_prefix("content-length: "))
-                                {
-                                    content_length = value.trim().parse().ok();
-                                }
-                            }
-                        }
-                        if let Some(hdr_end) = headers_end
-                            && buf.len() >= hdr_end + content_length.unwrap_or(0)
-                        {
-                            break;
-                        }
-                    }
-                    let reason = match status {
-                        200 => "OK",
-                        400 => "Bad Request",
-                        405 => "Method Not Allowed",
-                        501 => "Not Implemented",
-                        _ => "Test Status",
-                    };
-                    let response = format!(
-                        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                        body_response.len(),
-                        body_response
-                    );
-                    socket.write_all(response.as_bytes()).await.unwrap();
-                    socket.shutdown().await.ok();
-                    requests.push(buf);
-                }
-                let _ = tx.send(requests);
-            });
-
-            let base = Url::parse(&format!("http://{addr}/")).unwrap();
-            let client = configure(Client::builder(base).allow_insecure_localhost())
-                .build()
-                .unwrap();
-            (client, rx)
-        }
-
-        fn events_read_request() -> EventsQueryPostRequestBody {
-            EventsQueryPostRequestBody {
-                realms: vec![
-                    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap(),
-                ],
-                actors: Vec::new(),
-                before: None,
-                after: None,
-                order: Some("descending".to_owned()),
-                limit: Some(20),
-                filters: None,
-                include_completeness: Some(true),
-            }
         }
 
         /// Split a raw HTTP/1.1 request capture into (request-line, headers, body).
@@ -1657,123 +1569,6 @@ mod tests {
             assert_eq!(parsed["order"], "ascending");
             assert_eq!(parsed["limit"], 50);
             assert_eq!(parsed["include_completeness"], true);
-        }
-
-        #[tokio::test]
-        async fn events_read_405_falls_back_to_safe_get_and_resigns() {
-            let outcome = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false}"#;
-            let signer =
-                HttpMessageSigner::new("read-key", Ed25519SigningKey::from_bytes(&[9u8; 32]));
-            let (client, captures) =
-                spawn_capture_sequence_server(vec![(405, "{}"), (200, outcome)], |builder| {
-                    builder.http_message_signer(signer)
-                })
-                .await;
-
-            let options = EventsReadOptions::new().allow_non_sensitive_get();
-            let response = client
-                .events_read_with_options(&events_read_request(), &options)
-                .await
-                .unwrap();
-            assert!(response.events.is_empty());
-
-            let captures = captures.await.unwrap();
-            assert_eq!(captures.len(), 2);
-            let (query_line, query_headers, query_body) = split_request(&captures[0]);
-            let (get_line, get_headers, get_body) = split_request(&captures[1]);
-            assert!(query_line.starts_with("QUERY /_arkret/self/events "));
-            assert!(get_line.starts_with("GET /_arkret/self/events?"));
-            assert!(!query_body.is_empty());
-            assert!(get_body.is_empty());
-            assert!(
-                query_headers
-                    .to_ascii_lowercase()
-                    .contains("content-digest:")
-            );
-            assert!(!get_headers.to_ascii_lowercase().contains("content-digest:"));
-            let signature = |headers: &str| {
-                headers
-                    .lines()
-                    .find(|line| line.to_ascii_lowercase().starts_with("signature:"))
-                    .unwrap()
-                    .to_owned()
-            };
-            assert_ne!(signature(&query_headers), signature(&get_headers));
-        }
-
-        #[tokio::test]
-        async fn events_read_501_uses_post_for_complex_selector_and_resigns() {
-            let outcome = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false}"#;
-            let signer =
-                HttpMessageSigner::new("read-key", Ed25519SigningKey::from_bytes(&[10u8; 32]));
-            let (client, captures) =
-                spawn_capture_sequence_server(vec![(501, "{}"), (200, outcome)], |builder| {
-                    builder.http_message_signer(signer)
-                })
-                .await;
-            let mut request = events_read_request();
-            request.filters = Some(BTreeMap::from([(
-                "kind".to_owned(),
-                json!("ak.message.create"),
-            )]));
-
-            client.events_read(&request).await.unwrap();
-
-            let captures = captures.await.unwrap();
-            let (query_line, query_headers, query_body) = split_request(&captures[0]);
-            let (post_line, post_headers, post_body) = split_request(&captures[1]);
-            assert!(query_line.starts_with("QUERY /_arkret/self/events "));
-            assert!(post_line.starts_with("POST /_arkret/self/events/query "));
-            assert_eq!(
-                query_body, post_body,
-                "compat POST must preserve selector semantics"
-            );
-            assert!(
-                post_headers
-                    .to_ascii_lowercase()
-                    .contains("content-digest:")
-            );
-            let signature = |headers: &str| {
-                headers
-                    .lines()
-                    .find(|line| line.to_ascii_lowercase().starts_with("signature:"))
-                    .unwrap()
-                    .to_owned()
-            };
-            assert_ne!(signature(&query_headers), signature(&post_headers));
-        }
-
-        #[tokio::test]
-        async fn events_read_capability_can_skip_query_but_business_400_cannot() {
-            let outcome = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false}"#;
-            let (client, captures) =
-                spawn_capture_sequence_server(vec![(200, outcome)], |builder| builder).await;
-            let options = EventsReadOptions::new()
-                .query_supported(false)
-                .allow_non_sensitive_get();
-            client
-                .events_read_with_options(&events_read_request(), &options)
-                .await
-                .unwrap();
-            let captures = captures.await.unwrap();
-            let (request_line, ..) = split_request(&captures[0]);
-            assert!(request_line.starts_with("GET /_arkret/self/events?"));
-
-            let (client, captures) =
-                spawn_capture_sequence_server(vec![(400, "{}")], |builder| builder).await;
-            let error = client
-                .events_read(&events_read_request())
-                .await
-                .unwrap_err();
-            assert!(matches!(error, Error::Api { status: 400, .. }));
-            let captures = captures.await.unwrap();
-            assert_eq!(
-                captures.len(),
-                1,
-                "ordinary business 4xx must not switch method"
-            );
-            let (request_line, ..) = split_request(&captures[0]);
-            assert!(request_line.starts_with("QUERY /_arkret/self/events "));
         }
 
         #[tokio::test]

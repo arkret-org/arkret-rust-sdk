@@ -318,7 +318,7 @@ impl Client {
             .await
     }
 
-    /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.query.resolve_target`.
+    /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.read.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Strand /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`arkret_wire::parse_address`]; invite and preview tokens
@@ -393,7 +393,7 @@ impl Client {
         Ok(body)
     }
 
-    /// R3.2 (arkret-spec @ b56cab1) — `ak.find.directory.query.list_handles_for_subject`.
+    /// R3.2 (arkret-spec @ b56cab1) — `ak.find.directory.read.list_handles_for_subject`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
     /// [`DirectorySubjectHandleList::validate`] before returning.

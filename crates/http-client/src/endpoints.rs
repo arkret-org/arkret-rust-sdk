@@ -24,6 +24,6 @@ pub use data::{
     BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
 };
-pub use events::{EventsReadOptions, EventsSubscribeFrameStream, EventsSubscribeOptions};
+pub use events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
 pub use join_policy::JoinApplicationListOptions;
 pub use signal::SignalSubscribeFrameStream;

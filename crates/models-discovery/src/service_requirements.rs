@@ -316,7 +316,7 @@ mod tests {
             profile_bindings: Default::default(),
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
-            supported_operations: vec!["ak.find.directory.query.search_realms".to_owned()],
+            supported_operations: vec!["ak.find.directory.read.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: ServerLimits::default(),
@@ -372,7 +372,7 @@ mod tests {
             .profile(ProfileId::DIRECTORY_SERVICE_V1)
             .reducer_profile(arkret_wire::CORE_REDUCER_PROFILE)
             .schema_profile("ak.schema.core.v1")
-            .operation("ak.find.directory.query.search_realms")
+            .operation("ak.find.directory.read.search_realms")
             .verify(&description)
             .unwrap();
     }
@@ -384,7 +384,7 @@ mod tests {
             service_id: service_id.clone(),
             service_kind: ServiceKind::DirectoryService,
             endpoint: "https://svc.example/_arkret/find/directory".to_owned(),
-            operations: vec!["ak.find.directory.query.search_realms".to_owned()],
+            operations: vec!["ak.find.directory.read.search_realms".to_owned()],
         });
         let description = ServiceDescribe {
             service_id,
@@ -395,7 +395,7 @@ mod tests {
             profile_bindings: Default::default(),
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
-            supported_operations: vec!["ak.find.directory.query.search_realms".to_owned()],
+            supported_operations: vec!["ak.find.directory.read.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: ServerLimits::default(),

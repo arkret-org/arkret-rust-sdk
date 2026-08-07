@@ -328,7 +328,7 @@ impl DidWebvhWitnessReceipt {
     }
 }
 
-/// Closed discriminator for `ak.root.identity.receipts.query.list`.
+/// Closed discriminator for `ak.root.identity.receipts.read.list`.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum IdentityReceiptEvidence {

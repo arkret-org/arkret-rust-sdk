@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::contact_operations::ContactPeer;
 
-/// Closed query body for `ak.self.direct_conversation.query.resolve`.
+/// Closed query body for `ak.self.direct_conversation.read.resolve`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -60,7 +60,7 @@ pub enum DirectConversationSendBlocker {
     ProfileUnsupported,
 }
 
-/// Closed tagged outcome of `ak.self.direct_conversation.query.resolve`.
+/// Closed tagged outcome of `ak.self.direct_conversation.read.resolve`.
 ///
 /// Evaluation order is fixed: `TemporarilyUnavailable` when the current basis or founder cannot be
 /// verified; then `CreationBlocked`/`CreationRequired`/`AwaitingFounder` while no Realm exists;

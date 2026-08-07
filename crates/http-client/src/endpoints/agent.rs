@@ -52,7 +52,7 @@ impl Deref for AgentRuntimeApprovalStatusResponse {
 
 impl Client {
     /// `POST /_arkret/self/agent-signer-evidence/query`
-    /// (`ak.self.agent_signer_evidence.query.resolve`).
+    /// (`ak.self.agent_signer_evidence.read.resolve`).
     pub async fn agent_signer_evidence_query(
         &self,
         request: &AgentSignerEvidenceQueryRequestBodyBody,
@@ -85,7 +85,7 @@ impl Client {
     }
 
     /// `POST /_arkret/open/agent-pairing/runtime-key-requests/status`
-    /// (`ak.open.agent_pairing.query.runtime_key_request_status`).
+    /// (`ak.open.agent_pairing.read.runtime_key_request_status`).
     pub async fn agent_runtime_approval_status(
         &self,
         request: &AgentRuntimeApprovalStatusRequestBody,
@@ -124,7 +124,7 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// `GET /_arkret/self/agents` (`ak.self.agent.query.list`).
+    /// `GET /_arkret/self/agents` (`ak.self.agent.read.list`).
     pub async fn agent_list(&self) -> Result<AgentList> {
         self.get(AGENTS_PATH).await
     }
@@ -246,7 +246,7 @@ impl Client {
     }
 
     /// `GET /_arkret/self/agent-sidecars`
-    /// (`ak.self.agent.sidecar.query.list`).
+    /// (`ak.self.agent.sidecar.read.list`).
     pub async fn agent_sidecar_list(
         &self,
         realm_id: Option<&RealmId>,

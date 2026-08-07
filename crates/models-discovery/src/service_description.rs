@@ -20,9 +20,6 @@ pub enum DirectoryResourceKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ServerLimits {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
-    pub max_get_query_selectors: Option<std::num::NonZeroU64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
@@ -177,7 +174,7 @@ pub struct ServiceDescribe {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub egress_network_policy: Option<EgressNetworkPolicy>,
     /// Directory-service overlay: resource classes indexed by
-    /// `ak.find.directory.query.describe`. Required when
+    /// `ak.find.directory.read.describe`. Required when
     /// `service_kind == "directory_service"`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resource_kinds: Vec<DirectoryResourceKind>,
@@ -401,9 +398,9 @@ impl ServiceDescribe {
             "ak.self.realm.join_application.command.submit",
             "ak.self.realm.join_application.command.review",
             "ak.self.realm.join_application.command.cancel",
-            "ak.self.realm.join_application.query.list",
+            "ak.self.realm.join_application.read.list",
             "ak.self.realm.join_application.resource.get",
-            "ak.self.realm.join_application.audit.query.list",
+            "ak.self.realm.join_application.audit.read.list",
         ];
         const JOIN_FEATURES: &[&str] = &[
             "candidate_join_policy_reviewer",
@@ -586,7 +583,7 @@ mod tests {
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             profile_bindings: BTreeMap::new(),
-            supported_operations: vec!["ak.find.directory.query.describe".to_owned()],
+            supported_operations: vec!["ak.find.directory.read.describe".to_owned()],
             supported_bindings: vec![],
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
@@ -665,9 +662,9 @@ mod tests {
                 "ak.self.realm.join_application.command.submit",
                 "ak.self.realm.join_application.command.review",
                 "ak.self.realm.join_application.command.cancel",
-                "ak.self.realm.join_application.query.list",
+                "ak.self.realm.join_application.read.list",
                 "ak.self.realm.join_application.resource.get",
-                "ak.self.realm.join_application.audit.query.list",
+                "ak.self.realm.join_application.audit.read.list",
             ]
             .map(ToOwned::to_owned),
         );

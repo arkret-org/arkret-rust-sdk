@@ -270,7 +270,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (AKP-0011) — request body for `ak.find.directory.query.resolve_target`.
+/// R3.3 (AKP-0011) — request body for `ak.find.directory.read.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+arkret:` URI form or the HTTPS-landing fragment form (see
@@ -297,7 +297,7 @@ pub struct DirectoryResolveTargetRequestBody {
     pub token: Option<String>,
 }
 
-/// R3.3 (AKP-0011) — response body for `ak.find.directory.query.resolve_target`.
+/// R3.3 (AKP-0011) — response body for `ak.find.directory.read.resolve_target`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
@@ -564,7 +564,7 @@ pub struct DirectoryResolveHandleRequestBody {
     pub proofs: Vec<String>,
 }
 
-/// Request body for `ak.find.directory.query.resolve_agent_selector`.
+/// Request body for `ak.find.directory.read.resolve_agent_selector`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveAgentSelectorRequestBody {
@@ -583,7 +583,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub proofs: Vec<Proof>,
 }
 
-/// Response body for `ak.find.directory.query.resolve_agent_selector`.
+/// Response body for `ak.find.directory.read.resolve_agent_selector`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
@@ -631,7 +631,7 @@ impl DirectoryAgentSelectorResolutionOutcome {
 }
 
 /// R3.2 (arkret-spec @ b56cab1) — request body for
-/// `ak.find.directory.query.list_handles_for_subject`. Known holder/principal DID +
+/// `ak.find.directory.read.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -797,7 +797,7 @@ pub struct DirectoryTakedownAppealOutcome {
     pub decision_receipt: BTreeMap<String, Value>,
 }
 
-/// A single `ak.find.directory.query.search_users` result row.
+/// A single `ak.find.directory.read.search_users` result row.
 ///
 /// Embeds the collaboration `DeliveryBindingHint` (now owned by
 /// `arkret-models-identity`) and the discovery-local [`UserSearchMembership`];
@@ -882,7 +882,7 @@ pub struct DirectoryHandleResolutionOutcome {
     pub via_services: Vec<String>,
 }
 
-/// R3.2 — response body for `ak.find.directory.query.list_handles_for_subject`.
+/// R3.2 — response body for `ak.find.directory.read.list_handles_for_subject`.
 /// Schema `ak.schema.list_handles_for_subject_response.v1`. Every
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.

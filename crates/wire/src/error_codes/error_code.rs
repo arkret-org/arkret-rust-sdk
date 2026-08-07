@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-06.3;
-//! sha256=cddc1cd1bd84e047fbab4160000d29af290825b42c7a0beb09373fa6f77f471b Entries: error_codes=272
+//! Input: registry/error-code-registry.json; version=2026-08-07;
+//! sha256=c275ccaeb3fb3abc6324a3a7908ed1b719c00be3c3a40cd6e43dbed75a4941d8 Entries: error_codes=272
 
 use serde::{Deserialize, Serialize};
 
@@ -3654,7 +3654,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.query.describe / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md §4.3.",
+        description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.read.describe / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md §4.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedLatticeType,

@@ -12,13 +12,13 @@ mod tests {
     #[test]
     fn paths_match_generated_operation_registry() {
         assert_eq!(
-            ServiceOperationId::PeerAccountStatusQueryAuthoringBasis
+            ServiceOperationId::PeerAccountStatusReadAuthoringBasis
                 .descriptor()
                 .http_path,
             PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS
         );
         assert_eq!(
-            ServiceOperationId::PeerMlsQueryGroupStateMaterial
+            ServiceOperationId::PeerMlsReadGroupStateMaterial
                 .descriptor()
                 .http_path,
             PATH_PEER_MLS_GROUP_STATE_MATERIAL

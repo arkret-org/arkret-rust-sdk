@@ -12,7 +12,7 @@ use crate::{Client, Result};
 
 impl Client {
     /// `POST /_arkret/peer/account-status/authoring-basis`
-    /// (`ak.peer.account_status.query.authoring_basis`).
+    /// (`ak.peer.account_status.read.authoring_basis`).
     pub async fn peer_account_status_authoring_basis(
         &self,
         request: &AccountStatusAuthoringBasisRequestBody,
@@ -26,7 +26,7 @@ impl Client {
     }
 
     /// `POST /_arkret/peer/mls/group-state-material`
-    /// (`ak.peer.mls.query.group_state_material`). This validates selectors,
+    /// (`ak.peer.mls.read.group_state_material`). This validates selectors,
     /// content-addressed refs, raw-byte digests, and response bounds. Callers
     /// then pass the decoded bytes to `arkret_mls::validate_public_group_state`.
     pub async fn peer_mls_group_state_material(
