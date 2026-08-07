@@ -29,7 +29,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId,
+    AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId, SidecarId,
 };
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
@@ -487,7 +487,8 @@ impl FederatedDeviceSigningKeyEvidence {
 /// way:
 ///
 /// - **Principal Control Realm** (`payload.object.fields.purpose == "principal_control"`) —
-///   subject-derived from the principal DID, so the address remains computable from the DID alone.
+///   subject-derived UUIDv8 from the principal DID, so the address remains computable from the DID
+///   alone.
 /// - **Collaboration Realm** — event-derived: `retype(event_id)`.
 pub fn derive_genesis_realm_id(
     event_id: &EventId,
@@ -754,7 +755,7 @@ impl TryFrom<EventWire> for Event {
     }
 }
 
-/// Security scope binding used by the protocol wherever a Realm-or-Circle
+/// Security scope binding used by the protocol wherever a Realm, Circle or Sidecar
 /// scope is named (`schemas/event-envelope.schema.json` `$defs.scope_ref` and
 /// the byte-identical `effective_scope` definitions of the object schemas).
 ///
@@ -766,6 +767,7 @@ impl TryFrom<EventWire> for Event {
 /// The wire form is an internally-tagged JSON object on `kind`:
 /// - `{ "kind": "realm", "realm_id": "ak:realm:..." }`
 /// - `{ "kind": "circle", "realm_id": "ak:realm:...", "circle_id": "ak:circle:..." }`
+/// - `{ "kind": "sidecar", "realm_id": "ak:realm:...", "sidecar_id": "ak:sidecar:..." }`
 ///
 /// `#[non_exhaustive]`: a future spec revision may register additional scope
 /// kinds. Downstream `match` expressions MUST carry a `_` arm with
@@ -784,9 +786,10 @@ impl TryFrom<EventWire> for Event {
 pub enum ScopeRef {
     /// Genesis scope for `ak.realm.create` only.
     ///
-    /// It carries no `realm_id` because the Realm's own id is derived from
-    /// this Event (`zh/models/realm-and-space.md` section 2.5.0). Embedding it
-    /// would put a function of the digest inside the digest preimage.
+    /// It carries no `realm_id` because the receiver derives the Realm id from
+    /// this Event (collaboration) or the signed actor DID (PCR), per
+    /// `zh/models/realm-and-space.md` section 2.5.0. The uniform omission also
+    /// prevents the collaboration digest cycle.
     RealmGenesis,
     /// Realm-default security scope.
     Realm { realm_id: RealmId },
@@ -795,17 +798,24 @@ pub enum ScopeRef {
         realm_id: RealmId,
         circle_id: CircleId,
     },
+    /// The named native Agent Sidecar scope inside `realm_id`.
+    Sidecar {
+        realm_id: RealmId,
+        sidecar_id: SidecarId,
+    },
 }
 
 impl ScopeRef {
     /// The parent Realm of this scope when the scope names one.
     ///
-    /// `RealmGenesis` returns `None`: the Realm id is derived from the Event,
-    /// not carried by the scope. Use [`Event::realm_id`], which resolves both.
+    /// `RealmGenesis` returns `None`: the Realm id is receiver-derived, not
+    /// carried by the scope. Use [`Event::realm_id`], which resolves both.
     pub fn realm_id_opt(&self) -> Option<&RealmId> {
         match self {
             Self::RealmGenesis => None,
-            Self::Realm { realm_id } | Self::Circle { realm_id, .. } => Some(realm_id),
+            Self::Realm { realm_id }
+            | Self::Circle { realm_id, .. }
+            | Self::Sidecar { realm_id, .. } => Some(realm_id),
         }
     }
 
@@ -822,8 +832,16 @@ impl ScopeRef {
     /// The Circle id when this scope is a Circle, otherwise `None`.
     pub fn circle_id(&self) -> Option<&CircleId> {
         match self {
-            Self::RealmGenesis | Self::Realm { .. } => None,
+            Self::RealmGenesis | Self::Realm { .. } | Self::Sidecar { .. } => None,
             Self::Circle { circle_id, .. } => Some(circle_id),
+        }
+    }
+
+    /// The Sidecar id when this scope is a native Sidecar, otherwise `None`.
+    pub fn sidecar_id(&self) -> Option<&SidecarId> {
+        match self {
+            Self::Sidecar { sidecar_id, .. } => Some(sidecar_id),
+            Self::RealmGenesis | Self::Realm { .. } | Self::Circle { .. } => None,
         }
     }
 }

@@ -1109,42 +1109,53 @@ pub enum AgentSidecarState {
     Tombstoned,
 }
 
-pub const AGENT_SIDECAR_DESIRED_ACCESS_DOMAIN: &str = "ak.sidecar.desired_access.v1";
+pub const AGENT_SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN: &str = "ak.sidecar.participant_authority.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentSidecarDesiredAccessTranscript {
+pub struct AgentSidecarParticipantAuthorityTranscript {
     pub domain: &'static str,
     pub sidecar_id: SidecarId,
     pub realm_id: RealmId,
     pub controller_id: Did,
-    pub principal_ids: Vec<Did>,
+    pub owned_agent_ids: Vec<Did>,
+    pub effective_agent_ids: Vec<Did>,
 }
 
-impl AgentSidecarDesiredAccessTranscript {
+impl AgentSidecarParticipantAuthorityTranscript {
     pub fn new(
         sidecar_id: SidecarId,
         realm_id: RealmId,
         controller_id: Did,
-        desired_agent_ids: &[Did],
+        owned_agent_ids: &[Did],
+        effective_agent_ids: &[Did],
     ) -> Result<Self> {
-        let mut principal_ids = desired_agent_ids.to_vec();
-        principal_ids.push(controller_id.clone());
-        principal_ids
-            .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
-        if principal_ids.windows(2).any(|pair| pair[0] == pair[1]) {
+        let sorted_unique = |ids: &[Did]| {
+            ids.windows(2)
+                .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes())
+        };
+        let owned = owned_agent_ids.iter().collect::<BTreeSet<_>>();
+        if !sorted_unique(owned_agent_ids)
+            || !sorted_unique(effective_agent_ids)
+            || owned_agent_ids
+                .iter()
+                .any(|agent_id| agent_id == &controller_id)
+            || effective_agent_ids
+                .iter()
+                .any(|agent_id| !owned.contains(agent_id))
+        {
             return Err(Error::Protocol(
-                "Sidecar desired access principals must be unique and desired_agent_ids must exclude the controller"
-                    .to_owned(),
+                "Sidecar participant authority requires sorted unique owned/effective Agent ids, effective subset of owned, and controller excluded from both arrays".to_owned(),
             ));
         }
         Ok(Self {
-            domain: AGENT_SIDECAR_DESIRED_ACCESS_DOMAIN,
+            domain: AGENT_SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN,
             sidecar_id,
             realm_id,
             controller_id,
-            principal_ids,
+            owned_agent_ids: owned_agent_ids.to_vec(),
+            effective_agent_ids: effective_agent_ids.to_vec(),
         })
     }
 
@@ -1153,17 +1164,19 @@ impl AgentSidecarDesiredAccessTranscript {
     }
 }
 
-pub fn agent_sidecar_desired_access_digest(
+pub fn agent_sidecar_participant_authority_digest(
     sidecar_id: SidecarId,
     realm_id: RealmId,
     controller_id: Did,
-    desired_agent_ids: &[Did],
+    owned_agent_ids: &[Did],
+    effective_agent_ids: &[Did],
 ) -> Result<Hash> {
-    AgentSidecarDesiredAccessTranscript::new(
+    AgentSidecarParticipantAuthorityTranscript::new(
         sidecar_id,
         realm_id,
         controller_id,
-        desired_agent_ids,
+        owned_agent_ids,
+        effective_agent_ids,
     )?
     .digest()
 }
@@ -1172,7 +1185,7 @@ pub fn agent_sidecar_desired_access_digest(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarMlsContext {
-    pub desired_access_digest: Hash,
+    pub participant_authority_digest: Hash,
     pub control_frontier: Vec<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<MlsGroupId>,
@@ -1219,7 +1232,6 @@ pub struct AgentSidecar {
     pub schema: AgentSidecarSchema,
     pub realm_id: RealmId,
     pub controller_id: Did,
-    pub backing_circle_id: CircleId,
     pub encryption_profile: AgentSidecarEncryptionProfile,
     pub state: AgentSidecarState,
     #[serde(
@@ -1254,7 +1266,7 @@ impl AgentSidecar {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarView {
     pub sidecar: AgentSidecar,
-    pub desired_agent_ids: Vec<Did>,
+    pub owned_agent_ids: Vec<Did>,
     pub effective_agent_ids: Vec<Did>,
     pub mls_context: AgentSidecarMlsContext,
     pub access_readiness: AgentSidecarAccessReadiness,
@@ -1268,8 +1280,8 @@ impl AgentSidecarView {
         for pending in &self.pending_access_reconciliations {
             pending.validate()?;
         }
-        let desired = self.desired_agent_ids.iter().collect::<BTreeSet<_>>();
-        if desired.len() != self.desired_agent_ids.len()
+        let owned = self.owned_agent_ids.iter().collect::<BTreeSet<_>>();
+        if owned.len() != self.owned_agent_ids.len()
             || self
                 .effective_agent_ids
                 .iter()
@@ -1279,31 +1291,32 @@ impl AgentSidecarView {
             || self
                 .effective_agent_ids
                 .iter()
-                .any(|agent_id| !desired.contains(agent_id))
+                .any(|agent_id| !owned.contains(agent_id))
         {
             return Err(Error::Protocol(
-                "sidecar effective access must be a unique subset of desired access".to_owned(),
+                "sidecar effective access must be a unique subset of owned Agents".to_owned(),
             ));
         }
-        let expected_digest = agent_sidecar_desired_access_digest(
+        let expected_digest = agent_sidecar_participant_authority_digest(
             self.sidecar.id.clone(),
             self.sidecar.realm_id.clone(),
             self.sidecar.controller_id.clone(),
-            &self.desired_agent_ids,
+            &self.owned_agent_ids,
+            &self.effective_agent_ids,
         )?;
-        if self.mls_context.desired_access_digest != expected_digest {
+        if self.mls_context.participant_authority_digest != expected_digest {
             return Err(Error::Protocol(
-                "Sidecar MLS desired_access_digest does not match the canonical desired access transcript"
+                "Sidecar MLS participant_authority_digest does not match the canonical ownership/effective-access transcript"
                     .to_owned(),
             ));
         }
         if self.access_readiness == AgentSidecarAccessReadiness::Ready
             && (!self.mls_context.current_controller_device_ready
-                || self.effective_agent_ids.len() != self.desired_agent_ids.len()
+                || self.effective_agent_ids.len() != self.owned_agent_ids.len()
                 || self.mls_context.mls_group_id.is_none())
         {
             return Err(Error::Protocol(
-                "ready Sidecar requires a ready controller device, an accepted MLS group, and every desired Agent effective"
+                "ready Sidecar requires a ready controller device, an accepted MLS group, and every owned Agent effective"
                     .to_owned(),
             ));
         }
@@ -1469,7 +1482,7 @@ pub enum AgentSidecarExchangeOrigin {
 
 /// Deterministic fold status of one source-routed exchange. `pending` is a
 /// client-local pre-submission intent and never enters the projection: an
-/// accepted request folds to `delivered` (see `zh/models/sidecar.md` §7.2.4).
+/// accepted request folds to `delivered` (see `zh/models/sidecar.md` §8).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1621,8 +1634,8 @@ impl AgentSidecarExchangeRequestContext {
 
 /// Counterpart for `agent-sidecar-event-exchange-binding.schema.json`. Legal
 /// only inside `encrypted_metadata` plaintext (`message_metadata.
-/// sidecar_exchange_binding`) of an Event whose effective scope is the Sidecar
-/// backing Circle. Any Event without a valid binding is non-echo by default.
+/// sidecar_exchange_binding`) of an Event whose effective scope is the native
+/// Sidecar. Any Event without a valid binding is non-echo by default.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1796,7 +1809,7 @@ impl AgentSidecarExchangeControlAction {
 /// Counterpart for `agent-sidecar-exchange-control.schema.json`: the closed
 /// plaintext encrypted inside `ak.agent.sidecar.exchange.control`. Only the
 /// Sidecar controller may author it; it is the sole source of coordinator
-/// reassignment and terminal exchange state (`zh/models/sidecar.md` §7.2.3).
+/// reassignment and terminal exchange state (`zh/models/sidecar.md` §8).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1880,7 +1893,7 @@ impl AgentSidecarExchangeControl {
         Ok(())
     }
 
-    /// §7.2.3 terminal mapping. Returns `None` for `reassign_coordinator`.
+    /// Sidecar exchange terminal mapping. Returns `None` for `reassign_coordinator`.
     /// A delivered response set is never a failure: any terminal action with
     /// responses folds to `complete`; empty-response terminals fold to
     /// `failed` with the action-derived failure code.
@@ -1932,20 +1945,21 @@ pub struct AgentSidecarExchangeTerminalOutcome {
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/
 /// $defs/agent_sidecar_exchange_control_payload` — the outer payload of
-/// `ak.agent.sidecar.exchange.control`. The service only sees private-Strand
+/// `ak.agent.sidecar.exchange.control`. The service only sees native Sidecar
 /// routing plus ciphertext; admission MUST require the effective scope to be
-/// the matching Sidecar backing Circle and the actor to be its controller.
+/// the matching Sidecar and the actor to be its controller.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeControlPayload {
-    pub strand_id: StrandId,
+    pub sidecar_id: SidecarId,
+    pub source_context_ref: crate::sidecar_operations::SidecarContextRef,
     pub encrypted_payload: EncryptedEnvelope,
 }
 
 /// Compute `event_set_digest = sha256(canonical_json(sorted unique ids))`
 /// over the complete contributing Event-id set (`zh/models/sidecar.md`
-/// §7.2.4).
+/// §8).
 pub fn agent_sidecar_exchange_event_set_digest(event_ids: &[EventId]) -> Result<Hash> {
     let mut ids: Vec<&str> = event_ids.iter().map(EventId::as_str).collect();
     ids.sort_unstable();
@@ -1983,8 +1997,7 @@ pub enum AgentSidecarExchangeProjectionSchema {
 /// disposable controller-device-local Event-fold cache for one source-routed
 /// exchange. It is not wire truth, is not Account Data, is never uploaded,
 /// merged across devices, or streamed to Agent runtimes, and may always be
-/// deleted and rebuilt from the accepted private-Strand Event history
-/// (`zh/models/sidecar.md` §7.2.4).
+/// deleted and rebuilt from accepted native Sidecar Event history.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1992,7 +2005,6 @@ pub struct AgentSidecarExchangeProjection {
     pub schema: AgentSidecarExchangeProjectionSchema,
     pub controller_id: Did,
     pub sidecar_id: SidecarId,
-    pub private_strand_id: StrandId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub exchange_id: AgentSidecarExchangeId,
     pub origin: AgentSidecarExchangeOrigin,
@@ -2013,7 +2025,7 @@ pub struct AgentSidecarExchangeProjection {
     pub private_request_event_id: EventId,
     /// Validated user-facing response Event ids in `(response HLC, Event id)`
     /// byte order. Appended only through the controller-device validation of
-    /// `zh/models/sidecar.md` §7.2.2 — never inferred from reply_to, arrival
+    /// `zh/models/sidecar.md` §8 — never inferred from reply_to, arrival
     /// order, actor kind, or content shape.
     pub user_facing_response_event_ids: Vec<EventId>,
     pub status: AgentSidecarExchangeStatus,
@@ -2328,29 +2340,32 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_desired_access_digest_matches_normative_fixture() {
-        let digest = agent_sidecar_desired_access_digest(
-            SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000020").unwrap(),
+    fn sidecar_participant_authority_digest_is_stable() {
+        let agent = Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap();
+        let digest = agent_sidecar_participant_authority_digest(
+            SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000020").unwrap(),
             RealmId::new("ak:realm:01964137-0000-8000-8000-000000000000").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            &[Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap()],
+            std::slice::from_ref(&agent),
+            std::slice::from_ref(&agent),
         )
         .unwrap();
         assert_eq!(
             digest.as_str(),
-            "sha256:38abbaede2dded3e0318b26fd6ae5996cabc49d3f1a24e0760ba6c970b35533e"
+            "sha256:0669f4b4a21989ad51ebd11aec1947244c0994e4275be95fa3b4f5e449e6debc"
         );
     }
 
     #[test]
-    fn sidecar_desired_access_digest_rejects_controller_in_agent_set() {
+    fn sidecar_participant_authority_rejects_controller_in_agent_set() {
         let controller = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         assert!(
-            agent_sidecar_desired_access_digest(
-                SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000020").unwrap(),
+            agent_sidecar_participant_authority_digest(
+                SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000020").unwrap(),
                 RealmId::new("ak:realm:01964137-0000-8000-8000-000000000000").unwrap(),
                 controller.clone(),
                 &[controller],
+                &[],
             )
             .is_err()
         );
@@ -2390,12 +2405,10 @@ mod tests {
             .with_nanosecond(987_654_321)
             .unwrap();
         let sidecar = AgentSidecar {
-            id: SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000021").unwrap(),
+            id: SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000021").unwrap(),
             schema: AgentSidecarSchema::V1,
             realm_id: RealmId::new("ak:realm:01964137-0000-8000-8000-000000000020").unwrap(),
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
-            backing_circle_id: CircleId::new("ak:circle:01964137-0000-8000-8000-000000000022")
-                .unwrap(),
             encryption_profile: AgentSidecarEncryptionProfile::MlsRfc9420,
             state: AgentSidecarState::Active,
             state_changed_at: Some(timestamp),
@@ -2442,9 +2455,7 @@ mod tests {
         AgentSidecarExchangeProjection {
             schema: AgentSidecarExchangeProjectionSchema::V1,
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
-            sidecar_id: SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000032").unwrap(),
-            private_strand_id: StrandId::new("ak:strand:01964137-0000-8000-8000-000000000033")
-                .unwrap(),
+            sidecar_id: SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000032").unwrap(),
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
             origin: AgentSidecarExchangeOrigin::SourceTrackRouted,
             source_track_ref: AgentSidecarSourceTrackRef {

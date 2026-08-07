@@ -924,9 +924,10 @@ fn effect_source_value(
     if let Some(field) = source.get("envelope_field").and_then(Value::as_str) {
         // `realm_id` is the one envelope field whose wire form and in-memory
         // form differ: `ak.realm.create` omits it on the wire because the Realm
-        // id is derived from that Event (zh/models/realm-and-space.md section
-        // 2.5.0), while `Event` keeps it resolved. Reducer projections want the
-        // resolved value — the genesis create log is keyed by it.
+        // id is receiver-derived (from the Event for collaboration, or from the
+        // signed actor DID for PCR; zh/models/realm-and-space.md section 2.5.0),
+        // while `Event` keeps it resolved. Reducer projections want the resolved
+        // value — the genesis create log is keyed by it.
         if field == "realm_id" {
             return Ok(Value::String(event.realm_id.to_string()));
         }
@@ -1296,15 +1297,34 @@ fn derive_subject_value(
 /// than a field: this Event's own object id.
 const EVENT_ID_SUBJECT_SOURCE: &str = "envelope.event_id";
 
-/// The object id this Event derives, when its registered contract locates the
-/// cell by `envelope.event_id` — i.e. when it is the create of an
-/// `id_source: event_derived` object.
+/// The sole object id this Event derives, when its registry row declares
+/// exactly one `id_source: event_derived` target.
 ///
-/// Returns `None` for every other kind. Clients use this to name the object
-/// they just created without inventing an id the receiver would never agree
-/// with (spec `zh/models/common-fields.md` section 6.0).
+/// Returns `None` for every other kind and for a multi-output Event.  Use
+/// [`derived_object_ids`] when an Event may derive several different typed ID
+/// kinds (spec `zh/models/common-fields.md` section 6.0).
 pub fn derived_object_id(event: &Event) -> Option<String> {
-    derived_object_id_for_kind(event.kind.as_str(), &event.event_id)
+    let mut ids = derived_object_ids(event);
+    (ids.len() == 1).then(|| ids.pop().expect("length checked"))
+}
+
+/// Every object id this Event derives, in the registry-declared order.
+///
+/// A multi-output Event retypes the same event UUID into distinct prefixes;
+/// the full typed IDs are therefore distinct.  Registry lint guarantees that
+/// the target kinds are non-empty, unique and event-derived.
+pub fn derived_object_ids(event: &Event) -> Vec<String> {
+    if event.kind.as_str() == "ak.realm.create" {
+        return vec![
+            arkret_wire::derive_genesis_realm_id(
+                &event.event_id,
+                &event.actor_id,
+                event.payload.get("object"),
+            )
+            .to_string(),
+        ];
+    }
+    derived_object_ids_for_kind(event.kind.as_str(), &event.event_id)
 }
 
 /// [`derived_object_id`] for a receiver that has the envelope's `kind` and
@@ -1312,24 +1332,53 @@ pub fn derived_object_id(event: &Event) -> Option<String> {
 /// example.
 ///
 /// Same registry row, same retype, so a surface reading events off the wire can
-/// never disagree with one holding the typed envelope.
+/// never disagree with one holding the typed envelope. Returns `None` for
+/// `ak.realm.create`: the kind alone cannot select its event-derived versus
+/// subject-derived branch; callers must parse the signed payload and use
+/// [`derived_object_id`].
 pub fn derived_object_id_for_kind(kind: &str, event_id: &EventId) -> Option<String> {
-    let registry = event_kind_registry().ok()?;
-    let row = registry
+    let mut ids = derived_object_ids_for_kind(kind, event_id);
+    (ids.len() == 1).then(|| ids.pop().expect("length checked"))
+}
+
+/// [`derived_object_ids`] for a receiver that has only the envelope kind and
+/// event ID.  Returns an empty vector for non-derived kinds and for
+/// `ak.realm.create`, whose branch requires the signed payload.
+pub fn derived_object_ids_for_kind(kind: &str, event_id: &EventId) -> Vec<String> {
+    let Some(registry) = event_kind_registry().ok() else {
+        return Vec::new();
+    };
+    let Some(row) = registry
         .get("event_kinds")
-        .and_then(Value::as_array)?
-        .iter()
-        .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind))?;
+        .and_then(Value::as_array)
+        .and_then(|rows| {
+            rows.iter()
+                .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind))
+        })
+    else {
+        return Vec::new();
+    };
     if row.get("id_source").and_then(Value::as_str) != Some("event_derived") {
-        return None;
+        return Vec::new();
     }
     // The target id kind is declared, never inferred: `ak.profile.create`
     // makes an `ak:actor_profile:`, and `ak.circle.create` appends to a
     // Realm-level ordered log whose subject says nothing about the object it
     // creates. Guessing from the event kind's middle segment would be wrong for
     // both.
-    let id_kind = row.get("id_kind").and_then(Value::as_str)?;
-    retype_event_id(event_id, &format!("id:{id_kind}"), kind).ok()
+    let target_kinds: Vec<&str> = if let Some(id_kind) = row.get("id_kind").and_then(Value::as_str)
+    {
+        vec![id_kind]
+    } else {
+        row.get("id_kinds")
+            .and_then(Value::as_array)
+            .map(|targets| targets.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default()
+    };
+    target_kinds
+        .into_iter()
+        .filter_map(|id_kind| retype_event_id(event_id, &format!("id:{id_kind}"), kind).ok())
+        .collect()
 }
 
 /// Retype this create Event's `event_id` into the object-id kind the rule
@@ -1605,6 +1654,58 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn one_event_can_derive_multiple_distinct_typed_ids() {
+        let event_id = EventId::new("ak:event:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea")
+            .expect("fixture event id");
+        assert_eq!(
+            derived_object_ids_for_kind("ak.self.moderation.report", &event_id),
+            vec![
+                "ak:report:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea",
+                "ak:moderation_queue_item:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea",
+            ]
+        );
+        assert_eq!(
+            derived_object_id_for_kind("ak.self.moderation.report", &event_id),
+            None,
+            "the singular helper must fail closed for a multi-output Event"
+        );
+    }
+
+    #[test]
+    fn newly_closed_genesis_kinds_derive_their_typed_ids() {
+        let event_id = EventId::new("ak:event:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea")
+            .expect("fixture event id");
+        for (event_kind, expected) in [
+            (
+                "ak.moderation.appeal.submit",
+                "ak:appeal:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea",
+            ),
+            (
+                "ak.audit.session.request",
+                "ak:audit_session:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea",
+            ),
+            (
+                "ak.audit.release",
+                "ak:audit_release:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea",
+            ),
+            (
+                "ak.invite.create",
+                "ak:invite:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea",
+            ),
+            (
+                "ak.invite.third_party",
+                "ak:invite:1a9cf3a0-1243-8bf9-b5d7-a3e5a4ff17ea",
+            ),
+        ] {
+            assert_eq!(
+                derived_object_id_for_kind(event_kind, &event_id).as_deref(),
+                Some(expected),
+                "{event_kind}"
+            );
+        }
+    }
 
     /// Every registered cell write a receiver derives for `event`.
     ///
@@ -2210,9 +2311,7 @@ mod tests {
     }
 
     fn invite_create_event(invitee: Option<&str>) -> Event {
-        let mut payload = json!({
-            "invite_id": "ak:invite:019f9000-0000-7000-8000-000000000010"
-        });
+        let mut payload = json!({});
         if let Some(invitee) = invitee {
             payload["invitee"] = json!(invitee);
         }
@@ -2233,14 +2332,15 @@ mod tests {
     }
 
     const INVITE_LIFECYCLE_CELL: &str =
-        "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:019f9000-0000-7000-8000-000000000010";
+        "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:019f9000-0000-8000-8000-000000000011";
     const BOB_MEMBER_CELL: &str =
         "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:bob.example";
 
     #[test]
     fn conditional_invite_member_target_is_exact() {
-        // The producer picks neither the member cell nor the transition, so the
-        // assertion is the exact projected set rather than a rejected mutation.
+        // The producer picks neither the Invite ID, member cell nor transition,
+        // so the assertion is the exact projected set rather than a rejected
+        // mutation. The lifecycle subject is retyped from event_id.
         // The lifecycle cell enters from null: `leave` is a member.state state,
         // and this Event's second write is the one that touches it.
         let directed = invite_create_event(Some("did:webvh:z6mkfixture:bob.example"));
@@ -2285,7 +2385,7 @@ mod tests {
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
             "payload": {
-                "invite_id": "ak:invite:019f9000-0000-7000-8000-000000000010"
+                "invite_id": "ak:invite:019f9000-0000-8000-8000-000000000011"
             },
             "proofs": []
         }))
@@ -2322,7 +2422,7 @@ mod tests {
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
             "payload": {
-                "invite_id": "ak:invite:019f9000-0000-7000-8000-000000000010",
+                "invite_id": "ak:invite:019f9000-0000-8000-8000-000000000011",
                 "invitee": "did:webvh:z6mkfixture:bob.example",
                 "target_state": "revoked"
             },

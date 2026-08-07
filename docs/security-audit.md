@@ -141,18 +141,20 @@ receipts cannot be replayed against a rotated frontier. The
 first-backup gate (below) ensures recovery cannot land before the controller
 has staged at least one chain envelope.
 
-### Sidecar backing-scope boundary
+### Native Sidecar scope boundary
 
 *Threat model.* A Sidecar is a controller-owned private AI object. The risk is
 that its events or private locators leak into the source Strand, or that a
-caller fabricates or enumerates the reducer-managed backing Circle.
+caller fabricates a Sidecar identity or participation list.
 
 *Mitigations.* `ak.profile.agent_sidecar.v1` exposes only the self-scoped
 `ak.self.agent.sidecar.command.ensure` aggregate and dedicated get/list reads.
-The reducer derives the Sidecar singleton, backing Circle and independent MLS
-group; callers cannot supply or manage the Circle. Source echoes are encrypted
+The reducer derives the Sidecar singleton from the create Event and binds an
+independent MLS group directly to the native Sidecar scope. Participants are
+the controller plus ownership-derived Agents and cannot be edited through a
+Sidecar membership surface. Source echoes are encrypted
 controller-private projections, never source-Strand events. Closed SDK types
-separate desired/effective access, view state, routed exchanges and explicit
+separate owned/effective access, view state, routed exchanges and explicit
 user-facing responses, while shared publish rejects every private locator.
 
 ### First-backup gate

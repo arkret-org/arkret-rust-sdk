@@ -1,13 +1,12 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/relation-kind-registry.json; version=2026-06-10;
-//! sha256=6028b9c3d17223544bc219d1225df03d358162538b671a9621bf054c568c6cbe Entries: standard=16
+//! Input: registry/relation-kind-registry.json; version=2026-08-07;
+//! sha256=0579fc3f067ebf019c2307a69bd0fc953e9dae1b9e727e0aaa748eeb26d83d1b Entries: standard=15
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RelationKind {
-    AgentSidecarOf,
     AssignedTo,
     AttachedTo,
     BelongsTo,
@@ -43,7 +42,6 @@ pub struct RelationKindDescriptor {
 
 impl RelationKind {
     pub const STANDARD: &'static [Self] = &[
-        Self::AgentSidecarOf,
         Self::AssignedTo,
         Self::AttachedTo,
         Self::BelongsTo,
@@ -63,7 +61,6 @@ impl RelationKind {
 
     pub fn as_str(&self) -> &str {
         match self {
-            Self::AgentSidecarOf => "agent_sidecar_of",
             Self::AssignedTo => "assigned_to",
             Self::AttachedTo => "attached_to",
             Self::BelongsTo => "belongs_to",
@@ -85,7 +82,6 @@ impl RelationKind {
 
     pub fn from_wire(value: &str) -> Self {
         match value {
-            "agent_sidecar_of" => Self::AgentSidecarOf,
             "assigned_to" => Self::AssignedTo,
             "attached_to" => Self::AttachedTo,
             "belongs_to" => Self::BelongsTo,
@@ -133,12 +129,6 @@ impl<'de> Deserialize<'de> for RelationKind {
 }
 
 pub const RELATION_KIND_DESCRIPTORS: &[RelationKindDescriptor] = &[
-    RelationKindDescriptor {
-        canonical_id: "agent_sidecar_of",
-        default_cardinality: "many_to_one",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
     RelationKindDescriptor {
         canonical_id: "assigned_to",
         default_cardinality: "many_to_many",

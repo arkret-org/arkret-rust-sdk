@@ -239,7 +239,6 @@ fn invite_create_payload_shape_is_enforced() {
         return;
     };
     let payload = json!({
-        "invite_id": "ak:invite:01904100-0000-7000-8000-000000000001",
         "invitee": "did:webvh:z6mkfixture:bob.example",
         "invite_delivery_target": {
             "recipient_service_id": "did:webvh:z6mkfixture:server.example",
@@ -253,7 +252,7 @@ fn invite_create_payload_shape_is_enforced() {
     assert_eq!(
         catalog.rules[EventKind::INVITE_CREATE].payload_schema_id,
         format!(
-            "{schemaid_event_payload_v1}#/$defs/invite_payload",
+            "{schemaid_event_payload_v1}#/$defs/invite_create_payload",
             schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
         )
     );
@@ -261,23 +260,21 @@ fn invite_create_payload_shape_is_enforced() {
         catalog.rules[EventKind::INVITE_CREATE]
             .required_fields
             .iter()
-            .any(|field| field == "invite_id"),
-        "ak.invite.create must require invite_id"
+            .any(|field| field == "invitee"),
+        "ak.invite.create must require invitee"
     );
     catalog
         .validate_payload(EventKind::INVITE_CREATE, &payload)
         .unwrap_or_else(|err| panic!("ak.invite.create should accept directed invite: {err}"));
 
-    let mut missing_invite_id = payload.clone();
-    missing_invite_id
-        .as_object_mut()
-        .unwrap()
-        .remove("invite_id");
+    let mut producer_selected_invite_id = payload.clone();
+    producer_selected_invite_id["invite_id"] =
+        json!("ak:invite:01904100-0000-8000-8000-000000000001");
     assert!(
         catalog
-            .validate_payload(EventKind::INVITE_CREATE, &missing_invite_id)
+            .validate_payload(EventKind::INVITE_CREATE, &producer_selected_invite_id)
             .is_err(),
-        "ak.invite.create must reject directed invite payloads without invite_id"
+        "ak.invite.create must reject producer-selected invite_id"
     );
 
     let mut missing_expires_at = payload;

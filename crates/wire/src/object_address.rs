@@ -13,7 +13,7 @@
 //! ## Normative grammar rules
 //! * PATH carries identity: keyword + bare uuid (the `ak:<kind>:` sigil is stripped). Hierarchy is
 //!   fixed `realm/<r>` ⊃ `strand/<f>` ⊃ `m/<msg>`. The message seal keyword is exactly `m/`.
-//! * The `<realm>` segment: a UUIDv7 textual form is a `realm_id`; otherwise it is an ALIAS
+//! * The `<realm>` segment: a registered UUIDv7/v8 textual form is a `realm_id`; otherwise it is an ALIAS
 //!   (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare uuid.
 //! * Strand/Message addresses MUST carry `realm/<r>`. A global strand_id is never guessed. Retired
 //!   `via` query hints are ignored.
@@ -106,13 +106,13 @@ impl AddressAction {
     }
 }
 
-/// The realm path segment: a UUIDv7 textual form resolves to a `realm_id`;
+/// The realm path segment: a registered UUIDv7/v8 textual form resolves to a `realm_id`;
 /// anything else (domain-style / contains `.`) is an opaque ALIAS that a
 /// server must resolve to a canonical `realm_id`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmRef {
-    /// Bare lowercase UUIDv7 (sigil-stripped `ak:realm:` identity).
+    /// Bare lowercase UUIDv7/v8 (sigil-stripped `ak:realm:` identity).
     RealmId(String),
     /// Domain-style alias requiring server-side resolution.
     Alias(String),
@@ -121,11 +121,11 @@ pub enum RealmRef {
 impl RealmRef {
     /// Classify a `<realm>` path segment per the uuid-vs-alias rule.
     ///
-    /// A Realm id is dual-form (spec `zh/models/realm-and-space.md` section
-    /// 2.5.0): a collaboration Realm is event-derived (UUIDv8) and a Principal
-    /// Control Realm is subject-derived from its principal DID in the UUIDv7
-    /// layout. Accepting only one of them would route half of all Realm links
-    /// to the alias branch.
+    /// A Realm id has two registered layouts (spec
+    /// `zh/models/realm-and-space.md` section 2.5.0): collaboration is
+    /// event-derived UUIDv8 and Principal Control Realm is subject-derived
+    /// UUIDv7 from its principal DID. Address parsing checks the shared wire
+    /// shape; genesis validation selects and recomputes the exact derivation.
     pub fn parse(segment: &str) -> Self {
         if is_lowercase_typed_uuid(segment, UUID_VERSION_REALM_EITHER) {
             RealmRef::RealmId(segment.to_owned())

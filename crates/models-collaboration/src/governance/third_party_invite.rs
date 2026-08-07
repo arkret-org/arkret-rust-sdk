@@ -30,8 +30,12 @@ pub enum ThirdPartyInviteOobKind {
 /// guard against `pepper_id` reuse) is handled by verifier/reducer layers;
 /// the SDK model carries the wire shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ThirdPartyInvite {
     pub oob_code_kind: ThirdPartyInviteOobKind,
+    /// Optional non-identifying UI hint; never a plaintext email or phone number.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name_hint: Option<String>,
     /// `offline_token` mode — SHA-256 of `token | salt[salt_id]`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_commitment: Option<Hash>,
@@ -50,6 +54,7 @@ pub struct ThirdPartyInvite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pepper_id: Option<String>,
     /// Maximum claim attempts before terminal `invalidated_by_rate_limit`.
+    #[serde(default = "single_claim")]
     pub max_claims: u32,
     /// DID of the auth server expected to verify the OOB code.
     pub verification_service_id: Did,
@@ -61,6 +66,18 @@ impl ThirdPartyInvite {
     /// Reject envelopes whose `oob_code_kind` is incompatible with the
     /// populated fields. Round 4 (spec a77b995 §third_party_invite).
     pub fn validate_minimal(&self) -> Result<()> {
+        if self.max_claims != 1
+            || self
+                .display_name_hint
+                .as_ref()
+                .is_some_and(|hint| hint.len() > 128)
+            || self.verification_public_key.is_empty()
+        {
+            return Err(Error::Protocol(
+                "third_party_invite requires max_claims=1, a non-empty verification key, and display_name_hint<=128 bytes"
+                    .to_owned(),
+            ));
+        }
         match self.oob_code_kind {
             ThirdPartyInviteOobKind::OfflineToken => {
                 if self.token_commitment.is_none()
@@ -110,6 +127,10 @@ impl ThirdPartyInvite {
 
         Ok(())
     }
+}
+
+const fn single_claim() -> u32 {
+    1
 }
 /// Round 4 — terminal states for a 3PID invite (auth server side).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

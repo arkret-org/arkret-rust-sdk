@@ -25,7 +25,7 @@ pub const MLS_GOVERNANCE_BINDING_EXTENSION_NAME: &str = "mls_governance_binding"
 #[serde(deny_unknown_fields)]
 pub struct SidecarMlsBinding {
     pub sidecar_id: SidecarId,
-    pub desired_access_digest: Hash,
+    pub participant_authority_digest: Hash,
     pub control_frontier: Vec<NonEmptyString>,
 }
 
@@ -48,8 +48,8 @@ impl SidecarMlsBinding {
             ));
         }
         hash_digest_bytes(
-            "sidecar_binding.desired_access_digest",
-            &self.desired_access_digest,
+            "sidecar_binding.participant_authority_digest",
+            &self.participant_authority_digest,
         )?;
         Ok(())
     }
@@ -64,6 +64,8 @@ pub struct MlsGovernanceBindingPayload {
     realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     circle_id: Option<CircleId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sidecar_id: Option<SidecarId>,
     effective_scope: ScopeRef,
     mls_group_id: MlsGroupId,
     previous_epoch: u64,
@@ -91,6 +93,7 @@ impl MlsGovernanceBindingPayload {
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
             realm_id: realm_id.clone(),
             circle_id: None,
+            sidecar_id: None,
             effective_scope: ScopeRef::Realm { realm_id },
             mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
                 Error::Protocol(format!(
@@ -124,6 +127,7 @@ impl MlsGovernanceBindingPayload {
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
             realm_id: realm_id.clone(),
             circle_id: Some(circle_id.clone()),
+            sidecar_id: None,
             effective_scope: ScopeRef::Circle {
                 realm_id,
                 circle_id,
@@ -144,15 +148,42 @@ impl MlsGovernanceBindingPayload {
         Ok(payload)
     }
 
-    pub fn with_sidecar_binding(mut self, binding: SidecarMlsBinding) -> Result<Self> {
-        self.sidecar_binding = Some(binding);
-        self.validate()?;
-        Ok(self)
-    }
-
-    pub fn without_sidecar_binding(mut self) -> Self {
-        self.sidecar_binding = None;
-        self
+    #[allow(clippy::too_many_arguments)]
+    pub fn sidecar(
+        realm_id: RealmId,
+        sidecar_id: SidecarId,
+        mls_group_id: impl Into<String>,
+        previous_epoch: u64,
+        next_epoch: u64,
+        security_frontier_digest: Hash,
+        sidecar_binding: SidecarMlsBinding,
+        binding_profile: impl Into<String>,
+        reducer_profile: impl Into<String>,
+    ) -> Result<Self> {
+        let payload = Self {
+            binding_version: MLS_GOVERNANCE_BINDING_VERSION,
+            encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
+            realm_id: realm_id.clone(),
+            circle_id: None,
+            sidecar_id: Some(sidecar_id.clone()),
+            effective_scope: ScopeRef::Sidecar {
+                realm_id,
+                sidecar_id,
+            },
+            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
+                Error::Protocol(format!(
+                    "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
+                ))
+            })?,
+            previous_epoch,
+            next_epoch,
+            security_frontier_digest,
+            sidecar_binding: Some(sidecar_binding),
+            binding_profile: binding_profile.into(),
+            reducer_profile: reducer_profile.into(),
+        };
+        payload.validate()?;
+        Ok(payload)
     }
 
     pub fn with_binding_profile(mut self, profile: impl Into<String>) -> Result<Self> {
@@ -192,6 +223,7 @@ impl MlsGovernanceBindingPayload {
             ScopeRef::Realm { realm_id } => {
                 if realm_id != &self.realm_id
                     || self.circle_id.is_some()
+                    || self.sidecar_id.is_some()
                     || self.sidecar_binding.is_some()
                 {
                     return Err(Error::Protocol(
@@ -204,15 +236,36 @@ impl MlsGovernanceBindingPayload {
                 realm_id,
                 circle_id,
             } => {
-                if realm_id != &self.realm_id || self.circle_id.as_ref() != Some(circle_id) {
+                if realm_id != &self.realm_id
+                    || self.circle_id.as_ref() != Some(circle_id)
+                    || self.sidecar_id.is_some()
+                    || self.sidecar_binding.is_some()
+                {
                     return Err(Error::Protocol(
                         "mls_governance_binding circle effective_scope mismatch (schema_violation)"
                             .to_owned(),
                     ));
                 }
-                if let Some(binding) = &self.sidecar_binding {
-                    binding.validate()?;
+            }
+            ScopeRef::Sidecar {
+                realm_id,
+                sidecar_id,
+            } => {
+                let Some(binding) = &self.sidecar_binding else {
+                    return Err(Error::Protocol(
+                        "mls_governance_binding Sidecar scope requires sidecar_binding (schema_violation)".to_owned(),
+                    ));
+                };
+                if realm_id != &self.realm_id
+                    || self.circle_id.is_some()
+                    || self.sidecar_id.as_ref() != Some(sidecar_id)
+                    || &binding.sidecar_id != sidecar_id
+                {
+                    return Err(Error::Protocol(
+                        "mls_governance_binding Sidecar effective_scope mismatch (schema_violation)".to_owned(),
+                    ));
                 }
+                binding.validate()?;
             }
             // Fail closed on scope kinds this crate does not know about.
             _ => {
@@ -296,6 +349,10 @@ impl MlsGovernanceBindingPayload {
         }
         cbor_put_tstr(&mut out, "next_epoch");
         cbor_put_uint(&mut out, self.next_epoch);
+        if let Some(sidecar_id) = &self.sidecar_id {
+            cbor_put_tstr(&mut out, "sidecar_id");
+            cbor_put_tstr(&mut out, sidecar_id.as_str());
+        }
         cbor_put_tstr(&mut out, "mls_group_id");
         cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
             Error::Protocol(format!(
@@ -355,6 +412,10 @@ impl MlsGovernanceBindingPayload {
         self.circle_id.as_ref()
     }
 
+    pub fn sidecar_id(&self) -> Option<&SidecarId> {
+        self.sidecar_id.as_ref()
+    }
+
     pub fn effective_scope(&self) -> &ScopeRef {
         &self.effective_scope
     }
@@ -388,7 +449,9 @@ impl MlsGovernanceBindingPayload {
     }
 
     fn cbor_field_count(&self) -> u64 {
-        10 + self.circle_id.is_some() as u64 + self.sidecar_binding.is_some() as u64
+        10 + self.circle_id.is_some() as u64
+            + self.sidecar_id.is_some() as u64
+            + self.sidecar_binding.is_some() as u64
     }
 
     fn from_cbor_fields(mut fields: BTreeMap<String, CborValue>) -> Result<Self> {
@@ -413,6 +476,10 @@ impl MlsGovernanceBindingPayload {
         let reducer_profile = take_tstr(&mut fields, "reducer_profile")?;
         let security_frontier_digest = take_hash(&mut fields, "security_frontier_digest")?;
         let sidecar_binding = take_optional_sidecar_binding(&mut fields)?;
+        let sidecar_id = take_optional_tstr(&mut fields, "sidecar_id")?
+            .map(SidecarId::new)
+            .transpose()
+            .map_err(|err| cbor_error_message(format!("sidecar_id is invalid: {err}")))?;
         if let Some(extra) = fields.keys().next() {
             return Err(cbor_error_message(format!(
                 "unexpected mls_governance_binding CBOR key `{extra}`"
@@ -423,6 +490,7 @@ impl MlsGovernanceBindingPayload {
             encoding_profile,
             realm_id,
             circle_id,
+            sidecar_id,
             effective_scope,
             mls_group_id,
             previous_epoch,
@@ -445,6 +513,8 @@ struct MlsGovernanceBindingPayloadWire {
     realm_id: RealmId,
     #[serde(default)]
     circle_id: Option<CircleId>,
+    #[serde(default)]
+    sidecar_id: Option<SidecarId>,
     effective_scope: ScopeRef,
     mls_group_id: MlsGroupId,
     previous_epoch: u64,
@@ -465,6 +535,7 @@ impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
             encoding_profile: wire.encoding_profile,
             realm_id: wire.realm_id,
             circle_id: wire.circle_id,
+            sidecar_id: wire.sidecar_id,
             effective_scope: wire.effective_scope,
             mls_group_id: wire.mls_group_id,
             previous_epoch: wire.previous_epoch,
@@ -1041,6 +1112,18 @@ fn encode_effective_scope(out: &mut Vec<u8>, scope: &ScopeRef) -> Result<()> {
             cbor_put_tstr(out, "circle_id");
             cbor_put_tstr(out, circle_id.as_str());
         }
+        ScopeRef::Sidecar {
+            realm_id,
+            sidecar_id,
+        } => {
+            cbor_put_map_len(out, 3);
+            cbor_put_tstr(out, "kind");
+            cbor_put_tstr(out, "sidecar");
+            cbor_put_tstr(out, "realm_id");
+            cbor_put_tstr(out, realm_id.as_str());
+            cbor_put_tstr(out, "sidecar_id");
+            cbor_put_tstr(out, sidecar_id.as_str());
+        }
         // Fail closed on scope kinds this crate does not know about.
         _ => {
             return Err(Error::Protocol(
@@ -1062,12 +1145,12 @@ fn encode_sidecar_binding(out: &mut Vec<u8>, binding: &SidecarMlsBinding) -> Res
     for control_ref in &binding.control_frontier {
         cbor_put_tstr(out, control_ref.as_str());
     }
-    cbor_put_tstr(out, "desired_access_digest");
+    cbor_put_tstr(out, "participant_authority_digest");
     cbor_put_bstr(
         out,
         &hash_digest_bytes(
-            "sidecar_binding.desired_access_digest",
-            &binding.desired_access_digest,
+            "sidecar_binding.participant_authority_digest",
+            &binding.participant_authority_digest,
         )?,
     );
     Ok(())
@@ -1160,7 +1243,23 @@ fn take_effective_scope(fields: &mut BTreeMap<String, CborValue>) -> Result<Scop
                 circle_id,
             })
         }
-        _ => Err(cbor_error("effective_scope.kind must be realm or circle")),
+        "sidecar" => {
+            let sidecar_id = SidecarId::new(take_tstr(&mut map, "sidecar_id")?).map_err(|err| {
+                cbor_error_message(format!("effective_scope.sidecar_id is invalid: {err}"))
+            })?;
+            if let Some(extra) = map.keys().next() {
+                return Err(cbor_error_message(format!(
+                    "unexpected effective_scope sidecar key `{extra}`"
+                )));
+            }
+            Ok(ScopeRef::Sidecar {
+                realm_id,
+                sidecar_id,
+            })
+        }
+        _ => Err(cbor_error(
+            "effective_scope.kind must be realm, circle or sidecar",
+        )),
     }
 }
 
@@ -1182,7 +1281,7 @@ fn take_optional_sidecar_binding(
                 "sidecar_binding.control_frontier is invalid: {err}"
             ))
         })?;
-    let desired_access_digest = take_hash(&mut map, "desired_access_digest")?;
+    let participant_authority_digest = take_hash(&mut map, "participant_authority_digest")?;
     let sidecar_id = SidecarId::new(take_tstr(&mut map, "sidecar_id")?).map_err(|err| {
         cbor_error_message(format!("sidecar_binding.sidecar_id is invalid: {err}"))
     })?;
@@ -1193,7 +1292,7 @@ fn take_optional_sidecar_binding(
     }
     let binding = SidecarMlsBinding {
         sidecar_id,
-        desired_access_digest,
+        participant_authority_digest,
         control_frontier,
     };
     binding.validate()?;
@@ -1460,34 +1559,33 @@ mod tests {
 
     #[test]
     fn sidecar_mls_binding_round_trips_and_is_validated_exactly() {
-        let circle_id = CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000009").unwrap();
+        let sidecar_id = SidecarId::new("ak:sidecar:0196419b-0000-8000-8000-000000000010").unwrap();
         let sidecar_binding = SidecarMlsBinding {
-            sidecar_id: SidecarId::new("ak:sidecar:0196419b-0000-7000-8000-000000000010").unwrap(),
-            desired_access_digest: hash('8'),
+            sidecar_id: sidecar_id.clone(),
+            participant_authority_digest: hash('8'),
             control_frontier: vec![
                 NonEmptyString::new(event(2).to_string()).unwrap(),
                 NonEmptyString::new(event(3).to_string()).unwrap(),
             ],
         };
-        let binding = MlsGovernanceBindingPayload::circle(
+        let binding = MlsGovernanceBindingPayload::sidecar(
             realm(),
-            circle_id,
+            sidecar_id,
             group_id(),
             7,
             8,
             hash('5'),
+            sidecar_binding.clone(),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
-        .unwrap()
-        .with_sidecar_binding(sidecar_binding.clone())
         .unwrap();
 
         let bytes = binding.to_deterministic_cbor().unwrap();
         assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:c03b01dc2e51438d55ed27fe1e3ee1e44dc2d7aba7efd3ce6d430f1f0dd121c7"
+            "sha256:56ef27d32d442f720bb440015e3b5b7a8bdf7c20cfa54f46f68ca148defa2539"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));
@@ -1502,7 +1600,7 @@ mod tests {
         decoded.validate_against(&expected).unwrap();
 
         let mut stale = sidecar_binding.clone();
-        stale.desired_access_digest = hash('9');
+        stale.participant_authority_digest = hash('9');
         let stale_expected = MlsGovernanceBindingValidationContext::for_commit(
             binding.mls_group_id(),
             binding.previous_epoch(),
@@ -1531,8 +1629,8 @@ mod tests {
     #[test]
     fn sidecar_mls_binding_rejects_realm_scope_and_unsorted_frontier() {
         let sidecar_binding = SidecarMlsBinding {
-            sidecar_id: SidecarId::new("ak:sidecar:0196419b-0000-7000-8000-000000000010").unwrap(),
-            desired_access_digest: hash('8'),
+            sidecar_id: SidecarId::new("ak:sidecar:0196419b-0000-8000-8000-000000000010").unwrap(),
+            participant_authority_digest: hash('8'),
             control_frontier: vec![
                 NonEmptyString::new(event(3).to_string()).unwrap(),
                 NonEmptyString::new(event(2).to_string()).unwrap(),
@@ -1540,9 +1638,18 @@ mod tests {
         };
         assert!(sidecar_binding.validate().is_err());
         assert!(
-            full_binding()
-                .with_sidecar_binding(sidecar_binding)
-                .is_err()
+            MlsGovernanceBindingPayload::sidecar(
+                realm(),
+                sidecar_binding.sidecar_id.clone(),
+                group_id(),
+                7,
+                8,
+                hash('5'),
+                sidecar_binding,
+                ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+                reducer_profile(),
+            )
+            .is_err()
         );
     }
 

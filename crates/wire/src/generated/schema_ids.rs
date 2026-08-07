@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-07;
-//! sha256=8b9f526e9b10cb99bbc6f1f6d083083a4b0b2370694939c2643e4568edfdfdb5 Entries: schema_ids=181,
+//! Input: registry/schema-registry.json; version=2026-08-07.7;
+//! sha256=51920cca7466314d74a6f460f6b5b00dc840ac7e4ef75740d4981a606ffe7aac Entries: schema_ids=181,
 //! active=181
 
 use serde::{Deserialize, Serialize};
@@ -596,8 +596,9 @@ impl SchemaId {
     /// Signed controller-scoped native personal agent selector claim for
     /// @<controller-handle>/<agent_slug> resolution.
     pub const AGENT_SELECTOR_CLAIM_V1: &'static str = "ak.schema.agent_selector_claim.v1";
-    /// Controller-owned private AI workspace with derived Agent access and a reducer-managed
-    /// backing Circle/MLS scope. It is not a Circle profile. See zh/models/sidecar.md.
+    /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
+    /// access. It is not a Circle profile and has no backing Circle or editable membership. See
+    /// zh/models/sidecar.md.
     pub const AGENT_SIDECAR_V1: &'static str = "ak.schema.agent_sidecar.v1";
     /// Closed exchange binding inside the encrypted metadata plaintext of Sidecar-scoped Message
     /// events. Sole normative declaration of explicit user-facing/internal response disposition.

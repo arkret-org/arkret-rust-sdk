@@ -159,7 +159,7 @@ fn applet_transaction_signal_lane_rejects_a_plaintext_ephemeral_envelope() {
 #[test]
 fn moderation_appeal_decision_modify_requires_ref() {
     let payload = ModerationAppealPayload::Decision(AppealDecisionPayload {
-        appeal_id: TypedAppealId::new("ak:appeal:01904100-0000-7000-8000-000000000001").unwrap(),
+        appeal_id: TypedAppealId::new("ak:appeal:01904100-0000-8000-8000-000000000001").unwrap(),
         realm_id: realm(),
         reviewer: did(),
         verdict: AppealVerdict::Modify,
@@ -173,7 +173,7 @@ fn moderation_appeal_decision_modify_requires_ref() {
 #[test]
 fn moderation_appeal_decision_uphold_rejects_modify_ref() {
     let payload = ModerationAppealPayload::Decision(AppealDecisionPayload {
-        appeal_id: TypedAppealId::new("ak:appeal:01904100-0000-7000-8000-000000000001").unwrap(),
+        appeal_id: TypedAppealId::new("ak:appeal:01904100-0000-8000-8000-000000000001").unwrap(),
         realm_id: realm(),
         reviewer: did(),
         verdict: AppealVerdict::Uphold,
@@ -207,12 +207,13 @@ fn audit_policy_version_digest_is_deterministic_and_domain_separates() {
 fn third_party_invite_rejects_mode_mismatch() {
     let mut invite = ThirdPartyInvite {
         oob_code_kind: ThirdPartyInviteOobKind::OfflineToken,
+        display_name_hint: None,
         token_commitment: None,
         token_salt_id: None,
         token_entropy_bits: Some(64),
         lookup_table_ref: None,
         pepper_id: None,
-        max_claims: 3,
+        max_claims: 1,
         verification_service_id: Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
         verification_public_key: "z6MkVK".to_owned(),
     };
@@ -227,6 +228,7 @@ fn third_party_invite_rejects_mode_mismatch() {
 
     let lookup_bad = ThirdPartyInvite {
         oob_code_kind: ThirdPartyInviteOobKind::Lookup,
+        display_name_hint: None,
         token_commitment: invite.token_commitment.clone(),
         ..invite
     };

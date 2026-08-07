@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-07;
-//! sha256=6d3b9d3341297455e5d74626d8fb2923113ffcdc6e3522a38f420243732f405d Input: registry/
-//! capability-action-registry.json; version=2026-08-07;
-//! sha256=817cd9f8372d10cc219e3d6141fdc787e9e2db949d5fdae0123448f131a399c7 Input: registry/
-//! schema-registry.json; version=2026-08-07;
-//! sha256=8b9f526e9b10cb99bbc6f1f6d083083a4b0b2370694939c2643e4568edfdfdb5 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-07.7;
+//! sha256=59af4e808c0f4e6c8e4618b50c242b7f3b06f26f31c02b40d2c753f0cfe42a99 Input: registry/
+//! capability-action-registry.json; version=2026-08-07.7;
+//! sha256=66206a3b9b905c320efb34ad1538d90034fb68378f40a65b5a37deff8b20beaa Input: registry/
+//! schema-registry.json; version=2026-08-07.7;
+//! sha256=51920cca7466314d74a6f460f6b5b00dc840ac7e4ef75740d4981a606ffe7aac Input: registry/
 //! account-data-key-registry.json; version=2026-08-03;
 //! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=54,
-//! special_forms=10, actions=169, schemas=181, account_data_patterns=24
+//! special_forms=10, actions=168, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -2562,19 +2562,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "non_event_surface",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::SidecarAccessReplace,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[EventKind::SIDECAR_ACCESS_REPLACE],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.agent_sidecar.v1"),
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceArchive,

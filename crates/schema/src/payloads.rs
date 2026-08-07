@@ -1,6 +1,8 @@
 use std::sync::OnceLock;
 
-use arkret_wire::{EventKind, SchemaId};
+#[cfg(test)]
+use arkret_wire::EventKind;
+use arkret_wire::SchemaId;
 
 use super::*;
 
@@ -408,7 +410,14 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["moderation", "report"] => candidates.push("moderation_report_payload".to_owned()),
         ["audit", "accessed" | "ryw_receipt"] => candidates.push("audit_payload".to_owned()),
         ["call", "signal"] => candidates.push("call_payload".to_owned()),
-        ["invite", ..] => candidates.push("invite_payload".to_owned()),
+        ["invite", "create"] => candidates.push("invite_create_payload".to_owned()),
+        ["invite", "third_party"] => {
+            candidates.push("invite_third_party_create_payload".to_owned());
+        }
+        ["invite", "accept"] => candidates.push("invite_accept_payload".to_owned()),
+        ["invite", "cancel"] => candidates.push("invite_cancel_payload".to_owned()),
+        ["invite", "revoke"] => candidates.push("invite_revoke_payload".to_owned()),
+        ["invite", "claim"] => candidates.push("invite_claim_payload".to_owned()),
         ["profile", "create"] => candidates.push("actor_profile_create_payload".to_owned()),
         ["profile", "update" | "realm_override"] => {
             candidates.push("object_patch_payload".to_owned());
@@ -449,26 +458,11 @@ fn required_fields_for_schema_ref(
 }
 
 fn required_fields_for_event_kind(
-    event_kind: &str,
+    _event_kind: &str,
     registry: &ProtocolSchemaRegistry,
     schema_ref: &str,
 ) -> Vec<String> {
-    let mut required_fields =
-        required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default();
-    if event_kind == EventKind::INVITE_CREATE {
-        for field in [
-            "invite_id",
-            "invitee",
-            "invite_delivery_target",
-            "introduction_evidence_digest",
-            "expires_at",
-        ] {
-            if !required_fields.iter().any(|existing| existing == field) {
-                required_fields.push(field.to_owned());
-            }
-        }
-    }
-    required_fields
+    required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

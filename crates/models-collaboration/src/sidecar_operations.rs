@@ -1,8 +1,6 @@
-use std::collections::BTreeSet;
-
 use arkret_wire::{
-    Base64UrlString, CircleId, Did, Event, EventId, Hash, IdempotencyKey, ProtocolOperationId,
-    ProtocolSignature, RealmId, RelationId, ReservationHandle, SidecarId, StrandId,
+    Base64UrlString, Did, Event, EventId, Hash, IdempotencyKey, ProtocolOperationId, RealmId,
+    RelationId, ReservationHandle, SidecarId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -18,6 +16,28 @@ use crate::string_marker;
 pub enum SidecarContextRef {
     Relation { relation_id: RelationId },
     Strand { strand_id: StrandId },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct SidecarContextAttachPayload {
+    pub sidecar_id: SidecarId,
+    pub source_context_ref: SidecarContextRef,
+    pub version: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub predecessor_event_ref: Option<EventId>,
+}
+
+impl SidecarContextAttachPayload {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.version == 0 || (self.version == 1) == self.predecessor_event_ref.is_some() {
+            return Err(arkret_wire::Error::Protocol(
+                "Sidecar context attachment requires version>=1, no predecessor at version 1, and a predecessor after version 1".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 string_marker!(SidecarPreparePhase, Prepare, "prepare");
@@ -132,9 +152,6 @@ pub enum SidecarPreparedOutcome {
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         sidecar_id: SidecarId,
-        backing_circle_id: CircleId,
-        private_strand_id: StrandId,
-        private_relation_id: RelationId,
         create_event_id: EventId,
         context_attach_event_id: EventId,
         create_event_draft: SidecarPreparedEventDraft,
@@ -146,9 +163,6 @@ pub enum SidecarPreparedOutcome {
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         sidecar_id: SidecarId,
-        backing_circle_id: CircleId,
-        private_strand_id: StrandId,
-        private_relation_id: RelationId,
         context_attach_event_id: EventId,
         context_attach_event_draft: SidecarPreparedEventDraft,
     },
@@ -174,8 +188,7 @@ pub enum SidecarEnsureOutcome {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
         ok: SidecarAcceptedOk,
         sidecar_id: SidecarId,
-        private_strand_id: StrandId,
-        private_relation_id: RelationId,
+        source_context_ref: SidecarContextRef,
         access_readiness: AgentSidecarAccessReadiness,
         pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
     },
@@ -188,8 +201,7 @@ struct SidecarAcceptedOutcomePayload {
     accepted_phase: SidecarAcceptedPhase,
     ok: SidecarAcceptedOk,
     sidecar_id: SidecarId,
-    private_strand_id: StrandId,
-    private_relation_id: RelationId,
+    source_context_ref: SidecarContextRef,
     access_readiness: AgentSidecarAccessReadiness,
     pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
 }
@@ -229,8 +241,7 @@ impl<'de> Deserialize<'de> for SidecarEnsureOutcome {
                     accepted_phase: accepted.accepted_phase,
                     ok: accepted.ok,
                     sidecar_id: accepted.sidecar_id,
-                    private_strand_id: accepted.private_strand_id,
-                    private_relation_id: accepted.private_relation_id,
+                    source_context_ref: accepted.source_context_ref,
                     access_readiness: accepted.access_readiness,
                     pending_access_reconciliations: accepted.pending_access_reconciliations,
                 })
@@ -267,7 +278,7 @@ impl SidecarEnsureOutcome {
     }
 }
 
-string_marker!(SidecarScopeKind, Circle, "circle");
+string_marker!(SidecarScopeKind, Sidecar, "sidecar");
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -275,68 +286,7 @@ string_marker!(SidecarScopeKind, Circle, "circle");
 pub struct SidecarScopeRef {
     pub kind: SidecarScopeKind,
     pub realm_id: RealmId,
-    pub circle_id: CircleId,
-}
-
-string_marker!(
-    SidecarAccessReplaceKind,
-    Replace,
-    "ak.sidecar.access.replace"
-);
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarAccessReplace {
-    pub kind: SidecarAccessReplaceKind,
-    pub realm_id: RealmId,
-    pub scope_ref: SidecarScopeRef,
     pub sidecar_id: SidecarId,
-    pub selected_agent_ids: Vec<Did>,
-    pub version: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub predecessor_event_ref: Option<EventId>,
-    pub controller_signature: ProtocolSignature,
-}
-
-impl SidecarAccessReplace {
-    pub fn validate(&self) -> arkret_wire::Result<()> {
-        if self.version == 0
-            || (self.version == 1) == self.predecessor_event_ref.is_some()
-            || self.scope_ref.realm_id != self.realm_id
-            || self
-                .selected_agent_ids
-                .iter()
-                .collect::<BTreeSet<_>>()
-                .len()
-                != self.selected_agent_ids.len()
-            || !self
-                .selected_agent_ids
-                .windows(2)
-                .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes())
-        {
-            return Err(arkret_wire::Error::Protocol(
-                "invalid Sidecar access replacement".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SidecarMembershipPolarity {
-    Positive,
-    Negative,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarMembershipRef {
-    pub polarity: SidecarMembershipPolarity,
-    pub event_ref: EventId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -344,19 +294,18 @@ pub struct SidecarMembershipRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct SidecarControlFrontier {
     pub create_event_ref: EventId,
-    pub access_event_ref: EventId,
-    pub membership_refs: Vec<SidecarMembershipRef>,
+    pub authority_refs: Vec<EventId>,
 }
 
 impl SidecarControlFrontier {
     pub fn validate(&self) -> arkret_wire::Result<()> {
-        if self.membership_refs.is_empty()
-            || !self.membership_refs.windows(2).all(|pair| {
-                pair[0].event_ref.as_str().as_bytes() < pair[1].event_ref.as_str().as_bytes()
-            })
+        if !self
+            .authority_refs
+            .windows(2)
+            .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes())
         {
             return Err(arkret_wire::Error::Protocol(
-                "Sidecar membership frontier must be non-empty, UTF-8 sorted and unique".to_owned(),
+                "Sidecar authority frontier must be UTF-8 sorted and unique".to_owned(),
             ));
         }
         Ok(())
@@ -384,10 +333,7 @@ mod tests {
             "operation_id": "ak:operation:sidecar.prepare",
             "reservation_handle": "reservation-1",
             "expires_at": "2026-08-03T00:00:00.000Z",
-            "sidecar_id": "ak:sidecar:01999999-0000-7000-8000-000000000001",
-            "backing_circle_id": "ak:circle:01999999-0000-8000-8000-000000000002",
-            "private_strand_id": "ak:strand:01999999-0000-8000-8000-000000000003",
-            "private_relation_id": "ak:relation:01999999-0000-8000-8000-000000000004",
+            "sidecar_id": "ak:sidecar:01999999-0000-8000-8000-000000000001",
             "context_attach_event_id": "ak:event:01999999-0000-8000-8000-000000000005",
             "context_attach_event_draft": {
                 "event_id": "ak:event:01999999-0000-8000-8000-000000000005",
@@ -411,26 +357,16 @@ mod tests {
     }
 
     #[test]
-    fn control_frontier_rejects_empty_and_unsorted_membership_refs() {
+    fn control_frontier_accepts_empty_and_rejects_unsorted_authority_refs() {
         let event = |suffix: &str| {
             EventId::new(format!("ak:event:01964137-0000-8000-8000-{suffix}")).unwrap()
         };
         let mut frontier = SidecarControlFrontier {
             create_event_ref: event("000000000001"),
-            access_event_ref: event("000000000002"),
-            membership_refs: Vec::new(),
+            authority_refs: Vec::new(),
         };
-        assert!(frontier.validate().is_err());
-        frontier.membership_refs = vec![
-            SidecarMembershipRef {
-                polarity: SidecarMembershipPolarity::Positive,
-                event_ref: event("000000000004"),
-            },
-            SidecarMembershipRef {
-                polarity: SidecarMembershipPolarity::Negative,
-                event_ref: event("000000000003"),
-            },
-        ];
+        frontier.validate().unwrap();
+        frontier.authority_refs = vec![event("000000000004"), event("000000000003")];
         assert!(frontier.validate().is_err());
     }
 }

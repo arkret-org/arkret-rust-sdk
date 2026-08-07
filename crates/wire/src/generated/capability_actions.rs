@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-07;
-//! sha256=817cd9f8372d10cc219e3d6141fdc787e9e2db949d5fdae0123448f131a399c7 Entries: registered=169
+//! Input: registry/capability-action-registry.json; version=2026-08-07.7;
+//! sha256=66206a3b9b905c320efb34ad1538d90034fb68378f40a65b5a37deff8b20beaa Entries: registered=168
 
 use serde::{Deserialize, Serialize};
 
@@ -153,7 +153,6 @@ pub enum CapabilityActionId {
     SelfEventsReadScan,
     SelfEventsStreamSubscribe,
     SelfSnapshotReadManifestHead,
-    SidecarAccessReplace,
     SpaceArchive,
     SpaceCreate,
     SpaceParent,
@@ -326,7 +325,6 @@ impl CapabilityActionId {
         Self::SelfEventsReadScan,
         Self::SelfEventsStreamSubscribe,
         Self::SelfSnapshotReadManifestHead,
-        Self::SidecarAccessReplace,
         Self::SpaceArchive,
         Self::SpaceCreate,
         Self::SpaceParent,
@@ -503,7 +501,6 @@ impl CapabilityActionId {
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
     pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD: &'static str =
         "ak.self.snapshot.read.manifest_head";
-    pub const SIDECAR_ACCESS_REPLACE: &'static str = "ak.sidecar.access.replace";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
     pub const SPACE_CREATE: &'static str = "ak.space.create";
     pub const SPACE_PARENT: &'static str = "ak.space.parent";
@@ -677,7 +674,6 @@ impl CapabilityActionId {
             Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
             Self::SelfSnapshotReadManifestHead => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD,
-            Self::SidecarAccessReplace => Self::SIDECAR_ACCESS_REPLACE,
             Self::SpaceArchive => Self::SPACE_ARCHIVE,
             Self::SpaceCreate => Self::SPACE_CREATE,
             Self::SpaceParent => Self::SPACE_PARENT,
@@ -853,7 +849,6 @@ impl CapabilityActionId {
             Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
             Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::SelfSnapshotReadManifestHead),
-            Self::SIDECAR_ACCESS_REPLACE => Some(Self::SidecarAccessReplace),
             Self::SPACE_ARCHIVE => Some(Self::SpaceArchive),
             Self::SPACE_CREATE => Some(Self::SpaceCreate),
             Self::SPACE_PARENT => Some(Self::SpaceParent),

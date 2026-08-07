@@ -110,15 +110,15 @@ macro_rules! id_type {
 /// Hash-bearing kinds (`BlobRef`, `SealId`, `Hash`), `OperationId`, DIDs,
 /// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
 /// bare-uuid form.
-/// `ak:realm:` accepts two content-bound forms and MUST validate both.
+/// `ak:realm:` accepts two deterministic derivation layouts and MUST validate
+/// the selected layout against the genesis branch.
 ///
 /// - **Collaboration Realm** — event-derived (UUIDv8, `encoding.md` §4.0): `realm_id =
 ///   retype(genesis event_id)`, so the id self-certifies against the genesis Event.
 /// - **Principal Control Realm** — subject-derived (UUIDv7 layout):
-///   `H("ak:realm:principal-control:v1:" || principal_did)`. It carries no timestamp because it
-///   MUST stay computable from the DID alone; that addressability is the point. A PCR's identity
-///   anchor is its `did_inception` root, not its genesis Event, so it does not need — and cannot
-///   have — the event-derived form.
+///   `H("ak:realm:principal-control:v1:" || principal_did)`. It carries no producer-chosen
+///   timestamp or randomness and stays computable from the DID alone; a PCR's identity anchor is
+///   its `did_inception` root, not its genesis Event.
 ///
 /// Neither form is producer-chosen. The branch is fixed by the create's
 /// `purpose`, never by the call site.
@@ -535,11 +535,9 @@ pub fn principal_control_realm_uuid(principal_did: &str) -> uuid::Uuid {
 
 /// Derive a stable id from a subject under a domain separator.
 ///
-/// The UUIDv7 layout is deliberate: a subject-derived id is *not* content-bound,
-/// and stamping it v8 would claim a derivation from an Event that does not
-/// exist. What it is instead is reproducible from the subject alone by anyone,
-/// which is the property the callers need — the same id must come back on every
-/// request, and no Event is involved.
+/// The UUIDv7 layout is deliberate: a subject-derived id is not event-derived.
+/// Every usable bit comes from the domain-separated subject hash, so there are
+/// no producer-selected timestamp or randomness bits.
 ///
 /// `domain` MUST be a distinct, versioned separator per id family, or two
 /// families would collide on the same subject.
@@ -557,12 +555,19 @@ pub fn subject_derived_uuid(domain: &[u8], subject: &str) -> uuid::Uuid {
 /// minted, per the spec `id-kind-registry.json` `id_form` column.
 pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:actor_profile:",
+    "ak:appeal:",
+    "ak:audit_release:",
+    "ak:audit_session:",
     "ak:circle:",
     "ak:event:",
+    "ak:invite:",
     "ak:message:",
+    "ak:moderation_queue_item:",
     "ak:morph:",
     "ak:realm:",
     "ak:relation:",
+    "ak:report:",
+    "ak:sidecar:",
     "ak:space:",
     "ak:strand:",
     "ak:view:",
@@ -631,8 +636,9 @@ pub fn is_lowercase_typed_uuid(value: &str, version_nibble: u8) -> bool {
         }
     }
     // Version nibble at byte position 14 (third group: Vxxx).
-    // `0` means "either content-bound form" — currently only `ak:realm:`,
-    // which spans event-derived (v8) and subject-derived PCR (v7) ids.
+    // `0` means either registered Realm form: event-derived v8 or
+    // subject-derived PCR v7. Genesis validation selects and recomputes the
+    // exact branch; this helper validates only the shared wire shape.
     if version_nibble == 0 {
         if !matches!(bytes[14], b'7' | b'8') {
             return false;
@@ -665,8 +671,8 @@ declare_uuid_id_kinds! {
     // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
     AttestationId, "ak:attestation:", UUID_VERSION_PRODUCER_ALLOCATED;
     AuditBindingId, "ak:audit_binding:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AuditReleaseId, "ak:audit_release:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AuditSessionId, "ak:audit_session:", UUID_VERSION_PRODUCER_ALLOCATED;
+    AuditReleaseId, "ak:audit_release:", UUID_VERSION_EVENT_DERIVED;
+    AuditSessionId, "ak:audit_session:", UUID_VERSION_EVENT_DERIVED;
     // RTC call participant id (id-kind-registry kind `rtc_participant`).
     RtcParticipantId, "ak:rtc_participant:", UUID_VERSION_PRODUCER_ALLOCATED;
     // Key-backup hardening (B-C) typed ids.
@@ -689,7 +695,7 @@ declare_uuid_id_kinds! {
     // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
     // zh/models/circle.md.
     CircleId, "ak:circle:", UUID_VERSION_EVENT_DERIVED;
-    SidecarId, "ak:sidecar:", UUID_VERSION_PRODUCER_ALLOCATED;
+    SidecarId, "ak:sidecar:", UUID_VERSION_EVENT_DERIVED;
     ClaimId, "ak:claim:", UUID_VERSION_PRODUCER_ALLOCATED;
     DeviceMessageId, "ak:device_message:", UUID_VERSION_PRODUCER_ALLOCATED;
     StrandId, "ak:strand:", UUID_VERSION_EVENT_DERIVED;
@@ -698,17 +704,17 @@ declare_uuid_id_kinds! {
     FrankingProofId, "ak:franking_proof:", UUID_VERSION_PRODUCER_ALLOCATED;
     MorphId, "ak:morph:", UUID_VERSION_EVENT_DERIVED;
     // Round R2/R3 (2026-05-20) — moderation appeal cell key
-    // (`ak:appeal:<uuidv7>`). id-kind-registry kind=appeal; see
+    // (`ak:appeal:<uuidv8>`). id-kind-registry kind=appeal; see
     // schemas/moderation-appeal.schema.json. Named `TypedAppealId` because
     // `AppealId` is already the plain-string payload alias in
     // `arkret-models-collaboration`.
-    TypedAppealId, "ak:appeal:", UUID_VERSION_PRODUCER_ALLOCATED;
+    TypedAppealId, "ak:appeal:", UUID_VERSION_EVENT_DERIVED;
     MessageId, "ak:message:", UUID_VERSION_EVENT_DERIVED;
     MessageStreamId, "ak:message_stream:", UUID_VERSION_PRODUCER_ALLOCATED;
     RelationId, "ak:relation:", UUID_VERSION_EVENT_DERIVED;
     EventId, "ak:event:", UUID_VERSION_EVENT_DERIVED;
     GrantId, "ak:grant:", UUID_VERSION_PRODUCER_ALLOCATED;
-    InviteId, "ak:invite:", UUID_VERSION_PRODUCER_ALLOCATED;
+    InviteId, "ak:invite:", UUID_VERSION_EVENT_DERIVED;
     InviteLocatorId, "ak:invite_locator:", UUID_VERSION_PRODUCER_ALLOCATED;
     KeyEventId, "ak:key_event:", UUID_VERSION_PRODUCER_ALLOCATED;
     AuthorizationLeaseId, "ak:authorization_lease:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -717,9 +723,9 @@ declare_uuid_id_kinds! {
     PolicyId, "ak:policy:", UUID_VERSION_PRODUCER_ALLOCATED;
     PresentationId, "ak:presentation:", UUID_VERSION_PRODUCER_ALLOCATED;
     ReceiptId, "ak:receipt:", UUID_VERSION_PRODUCER_ALLOCATED;
-    ReportId, "ak:report:", UUID_VERSION_PRODUCER_ALLOCATED;
+    ReportId, "ak:report:", UUID_VERSION_EVENT_DERIVED;
     ReadCursorId, "ak:read_cursor:", UUID_VERSION_PRODUCER_ALLOCATED;
-    ModerationQueueItemId, "ak:moderation_queue_item:", UUID_VERSION_PRODUCER_ALLOCATED;
+    ModerationQueueItemId, "ak:moderation_queue_item:", UUID_VERSION_EVENT_DERIVED;
     RequestId, "ak:request:", UUID_VERSION_PRODUCER_ALLOCATED;
     SnapshotId, "ak:snapshot:", UUID_VERSION_PRODUCER_ALLOCATED;
     SubscriptionId, "ak:subscription:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1259,13 +1265,31 @@ mod tests {
     }
 
     #[test]
+    fn principal_control_realm_uuidv7_known_answer() {
+        let did = "did:webvh:z6mkfixture:alice.example";
+        let uuid = principal_control_realm_uuid(did);
+        assert_eq!(uuid.to_string(), "984ba56e-2ecf-786c-bbe0-cab2c7a30677");
+        assert_eq!(uuid.get_version_num(), 7);
+        assert!(RealmId::new(format!("ak:realm:{uuid}")).is_ok());
+        assert_ne!(
+            uuid,
+            principal_control_realm_uuid("did:webvh:z6mkfixture:bob.example")
+        );
+
+        // Wire shape alone admits the PCR v7 branch. Genesis validation must
+        // recompute the DID transcript so an arbitrary producer-chosen v7
+        // value cannot become a PCR identity.
+        assert!(RealmId::new("ak:realm:019a6aa0-0000-7000-8000-000000000001").is_ok());
+    }
+
+    #[test]
     fn typed_uuidv7_generation_preserves_kind_time_and_monotonicity() {
         let unix_ms = 1_725_000_123_456;
-        let first = RealmId::new_v7_at(unix_ms);
-        let second = RealmId::new_v7_at(unix_ms);
+        let first = ReceiptId::new_v7_at(unix_ms);
+        let second = ReceiptId::new_v7_at(unix_ms);
 
-        assert!(first.as_str().starts_with(RealmId::KIND_PREFIX));
-        assert!(second.as_str().starts_with(RealmId::KIND_PREFIX));
+        assert!(first.as_str().starts_with(ReceiptId::KIND_PREFIX));
+        assert!(second.as_str().starts_with(ReceiptId::KIND_PREFIX));
         assert!(first < second, "same-millisecond ids must remain ordered");
 
         let timestamp = first.uuid().get_timestamp().expect("UUIDv7 timestamp");

@@ -65,7 +65,7 @@ fn identity_link_proof(verification_method: &str) -> Value {
 
 #[test]
 fn invite_claim_binding_proof_rejects_fragments_wider_than_did_url() {
-    // `event-payload.schema.json#/$defs/invite_payload/.../binding_proof`
+    // `event-payload.schema.json#/$defs/invite_claim_payload/.../binding_proof`
     // fragment class: `[^\s#]+`.
     let accepted = invite_claim_binding_proof(CANONICAL);
     let parsed: InviteClaimBindingProof = serde_json::from_value(accepted.clone()).unwrap();
@@ -83,7 +83,7 @@ fn invite_claim_binding_proof_rejects_fragments_wider_than_did_url() {
 
 #[test]
 fn invite_subject_proof_rejects_fragments_wider_than_did_url() {
-    // `event-payload.schema.json#/$defs/invite_payload/.../subject_proof`
+    // `event-payload.schema.json#/$defs/invite_claim_payload/.../subject_proof`
     // fragment class: `[^\s#]+`.
     let accepted = invite_subject_proof(CANONICAL);
     let parsed: InviteSubjectProof = serde_json::from_value(accepted.clone()).unwrap();

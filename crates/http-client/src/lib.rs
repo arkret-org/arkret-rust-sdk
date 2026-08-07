@@ -1776,7 +1776,7 @@ mod tests {
         #[tokio::test]
         async fn mimi_report_abuse_posts_canonical_path() {
             let (client, capture) = spawn_capture_server(
-                r#"{"report_id":"ak:report:01904100-0000-7000-8000-a0086f45c575","status":"queued","routed_to":[]}"#,
+                r#"{"report_id":"ak:report:01904100-0000-8000-8000-a0086f45c575","status":"queued","routed_to":[]}"#,
             )
             .await;
             let request = MimiReportAbuseRequestBody {

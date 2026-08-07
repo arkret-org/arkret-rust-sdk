@@ -611,6 +611,52 @@ impl DirectConversationBoundPayload {
         }
         Ok(())
     }
+
+    /// Receiver-derived semantic digest from
+    /// `contact-and-direct-conversation.md` §8.3.
+    ///
+    /// The digest is not a wire field. It normalizes the two unordered sets,
+    /// excludes `created_at` and Event envelope context, then hashes the
+    /// closed binding object under the registered v1 domain separator.
+    pub fn binding_digest(&self) -> Result<Hash> {
+        self.authorization_basis.validate_shape()?;
+        if self.participants_unordered.len() != 2 {
+            return Err(Error::Protocol(
+                "direct conversation requires two participants".to_owned(),
+            ));
+        }
+
+        let mut participants = self
+            .participants_unordered
+            .iter()
+            .map(Did::as_str)
+            .collect::<Vec<_>>();
+        participants.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+        let mut event_refs = self
+            .authorization_basis
+            .event_refs
+            .iter()
+            .map(EventId::as_str)
+            .collect::<Vec<_>>();
+        event_refs.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+
+        let binding_object = serde_json::json!({
+            "pair_key": self.pair_key.as_str(),
+            "participants_unordered": participants,
+            "realm_id": self.realm_id.as_str(),
+            "main_strand_id": self.main_strand_id.as_str(),
+            "founding_unit_digest": self.founding_unit_digest.as_str(),
+            "authorization_basis": {
+                "kind": self.authorization_basis.kind,
+                "event_refs": event_refs,
+            },
+            "initial_exact_pair_generation_ref": self.initial_exact_pair_generation_ref.as_str(),
+        });
+        let canonical = arkret_canonical::canonical_json_bytes(&binding_object)?;
+        let mut preimage = b"ak.direct-conversation.binding-digest.v1\n".to_vec();
+        preimage.extend_from_slice(&canonical);
+        Ok(Hash::new(arkret_canonical::sha256_digest(&preimage))?)
+    }
 }
 
 #[cfg(test)]
@@ -1048,5 +1094,38 @@ mod tests {
             format!("ak:seal:sha256:{}", "a".repeat(64)),
         ]);
         assert!(serde_json::from_value::<DeviceReanchorPayload>(unsorted).is_err());
+    }
+
+    #[test]
+    fn direct_conversation_binding_digest_matches_registered_kat_and_normalizes_sets() {
+        let payload = json!({
+            "pair_key": "sha256:e8c24c1badc48eefa472a1700e87a6597a95aedfab8cbe3173f1622b9ad427b5",
+            "participants_unordered": [
+                "did:webvh:z6mkfixture:bob.example",
+                "did:webvh:z6mkfixture:alice.example"
+            ],
+            "realm_id": "ak:realm:0196419b-0000-8000-8000-000000000101",
+            "main_strand_id": "ak:strand:0196419b-0000-8000-8000-000000000201",
+            "founding_unit_digest": format!("sha256:{}", "b".repeat(64)),
+            "authorization_basis": {
+                "kind": "accepted_contact",
+                "event_refs": [
+                    "ak:event:0196419b-0000-8000-8000-000000000308",
+                    "ak:event:0196419b-0000-8000-8000-000000000301"
+                ]
+            },
+            "initial_exact_pair_generation_ref": "ak:event:0196419b-0000-8000-8000-00000000030a",
+            "created_at": "2026-08-07T12:34:56.000Z"
+        });
+        let mut parsed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
+        let expected = "sha256:bda6045ed2af5f51dc19296b3c1f906f415a329c9d65c3da40b1d063b68773a8";
+        assert_eq!(parsed.binding_digest().unwrap().as_str(), expected);
+
+        parsed.participants_unordered.reverse();
+        parsed.authorization_basis.event_refs.reverse();
+        parsed.created_at = DateTime::parse_from_rfc3339("2027-01-01T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(parsed.binding_digest().unwrap().as_str(), expected);
     }
 }

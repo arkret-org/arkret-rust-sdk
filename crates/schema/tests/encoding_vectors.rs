@@ -884,6 +884,144 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     }
                 }
             }
+            "domain_separated_canonical_json_digest" => {
+                let domain = vector["domain_separator_utf8"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{vector_id}: missing domain separator"));
+                let input = vector
+                    .get("input")
+                    .unwrap_or_else(|| panic!("{vector_id}: missing input"));
+                let canonical = arkret_canonical::canonical_json_bytes(input)
+                    .unwrap_or_else(|error| panic!("{vector_id}: canonicalize failed: {error}"));
+                assert_eq!(
+                    canonical,
+                    vector["expected_canonical_bytes_utf8"]
+                        .as_str()
+                        .unwrap()
+                        .as_bytes(),
+                    "{vector_id}: canonical bytes drifted"
+                );
+                let mut digest_input = domain.as_bytes().to_vec();
+                digest_input.extend_from_slice(&canonical);
+                assert_eq!(
+                    hex::encode(&digest_input),
+                    vector["digest_input_hex"].as_str().unwrap(),
+                    "{vector_id}: domain-separated digest input drifted"
+                );
+                let valid_digest = arkret_canonical::sha256_digest(&digest_input);
+                assert_eq!(
+                    valid_digest,
+                    vector["expected_digest"].as_str().unwrap(),
+                    "{vector_id}: digest drifted"
+                );
+
+                for case in vector
+                    .get("normalization_cases")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    let name = case["name"].as_str().unwrap();
+                    let mut normalized = case["payload"].clone();
+                    let object = normalized
+                        .as_object_mut()
+                        .unwrap_or_else(|| panic!("{vector_id}/{name}: payload must be an object"));
+                    object.remove("created_at");
+                    object.remove("binding_digest");
+                    if let Some(participants) = object
+                        .get_mut("participants_unordered")
+                        .and_then(Value::as_array_mut)
+                    {
+                        participants.sort_by(|left, right| {
+                            left.as_str()
+                                .unwrap()
+                                .as_bytes()
+                                .cmp(right.as_str().unwrap().as_bytes())
+                        });
+                    }
+                    if let Some(event_refs) = object
+                        .get_mut("authorization_basis")
+                        .and_then(Value::as_object_mut)
+                        .and_then(|basis| basis.get_mut("event_refs"))
+                        .and_then(Value::as_array_mut)
+                    {
+                        event_refs.sort_by(|left, right| {
+                            left.as_str()
+                                .unwrap()
+                                .as_bytes()
+                                .cmp(right.as_str().unwrap().as_bytes())
+                        });
+                    }
+                    let bytes = arkret_canonical::canonical_json_bytes(&normalized)
+                        .unwrap_or_else(|error| panic!("{vector_id}/{name}: {error}"));
+                    let mut preimage = domain.as_bytes().to_vec();
+                    preimage.extend_from_slice(&bytes);
+                    assert_eq!(
+                        arkret_canonical::sha256_digest(&preimage),
+                        case["expected_digest"].as_str().unwrap(),
+                        "{vector_id}/{name}: normalized digest drifted"
+                    );
+                    assert!(
+                        case.get("event_context").is_some(),
+                        "{vector_id}/{name}: normalization case must prove Event context exclusion"
+                    );
+                }
+
+                for case in vector
+                    .get("mutation_cases")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    let name = case["name"].as_str().unwrap();
+                    let mutation_input =
+                        if let Some(hex) = case.get("digest_input_hex").and_then(Value::as_str) {
+                            hex_decode(hex).unwrap_or_else(|| {
+                                panic!("{vector_id}/{name}: invalid digest_input_hex")
+                            })
+                        } else {
+                            let mutation_canonical = arkret_canonical::canonical_json_bytes(
+                                case.get("input").unwrap_or_else(|| {
+                                    panic!("{vector_id}/{name}: missing mutation input")
+                                }),
+                            )
+                            .unwrap_or_else(|error| panic!("{vector_id}/{name}: {error}"));
+                            if let Some(expected) = case
+                                .get("expected_canonical_bytes_utf8")
+                                .and_then(Value::as_str)
+                            {
+                                assert_eq!(
+                                    mutation_canonical,
+                                    expected.as_bytes(),
+                                    "{vector_id}/{name}: mutation canonical bytes drifted"
+                                );
+                            }
+                            let mutation_domain = case
+                                .get("domain_separator_utf8")
+                                .and_then(Value::as_str)
+                                .unwrap_or(domain);
+                            let mut bytes = mutation_domain.as_bytes().to_vec();
+                            bytes.extend_from_slice(&mutation_canonical);
+                            bytes
+                        };
+                    let mutation_digest = arkret_canonical::sha256_digest(&mutation_input);
+                    assert_eq!(
+                        mutation_digest,
+                        case["expected_digest"].as_str().unwrap(),
+                        "{vector_id}/{name}: mutation digest drifted"
+                    );
+                    if case
+                        .get("must_not_equal_valid")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        assert_ne!(
+                            mutation_digest, valid_digest,
+                            "{vector_id}/{name}: semantic mutation did not change digest"
+                        );
+                    }
+                }
+            }
             other => {
                 panic!("encoding vector {vector_id} has unknown kind {other}; extend this driver")
             }

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-07;
-//! sha256=c275ccaeb3fb3abc6324a3a7908ed1b719c00be3c3a40cd6e43dbed75a4941d8
-//! Entries: reason_codes=464
+//! Input: registry/error-code-registry.json; version=2026-08-07.2;
+//! sha256=f6f8fc9a1bb982bed528cbc2d8b9639f1efe47a7d93e0770dc7b9b24aa3e19a5
+//! Entries: reason_codes=463
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -382,7 +382,6 @@ pub enum ReasonCode {
     RelationScopeUnresolved,
     RelaxedWindowExceedsCeiling,
     RequiresOrganizationApproval,
-    ReservedCircleShortName,
     RevocationFreshnessUnknown,
     RevokeOrderUnknownRequiresBackfillOrReview,
     RevokeUndoInvalidSignature,
@@ -946,7 +945,6 @@ impl ReasonCode {
     pub const RELATION_SCOPE_UNRESOLVED: &'static str = "relation_scope_unresolved";
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
     pub const REQUIRES_ORGANIZATION_APPROVAL: &'static str = "requires_organization_approval";
-    pub const RESERVED_CIRCLE_SHORT_NAME: &'static str = "reserved_circle_short_name";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
     pub const REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW: &'static str =
         "revoke_order_unknown_requires_backfill_or_review";
@@ -1523,7 +1521,6 @@ impl ReasonCode {
             Self::RelationScopeUnresolved => Self::RELATION_SCOPE_UNRESOLVED,
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
             Self::RequiresOrganizationApproval => Self::REQUIRES_ORGANIZATION_APPROVAL,
-            Self::ReservedCircleShortName => Self::RESERVED_CIRCLE_SHORT_NAME,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
             Self::RevokeOrderUnknownRequiresBackfillOrReview => {
                 Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW
@@ -2107,7 +2104,6 @@ impl ReasonCode {
             Self::RELATION_SCOPE_UNRESOLVED => Self::RelationScopeUnresolved,
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
             Self::REQUIRES_ORGANIZATION_APPROVAL => Self::RequiresOrganizationApproval,
-            Self::RESERVED_CIRCLE_SHORT_NAME => Self::ReservedCircleShortName,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
             Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW => {
                 Self::RevokeOrderUnknownRequiresBackfillOrReview
@@ -2704,7 +2700,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_SHORT_NAME_TAKEN,
         applies_to: &["schema_validation", "state_resolution", "service_call"],
-        description: "Ordinary Circle creation or display update failed the reducer-enforced case-insensitive uniqueness of display.short_name within (realm_id, short_name). Sidecar backing Circle names are reducer-derived and any collision is hidden behind sidecar_create_denied. See zh/models/circle.md §4.",
+        description: "Circle creation or display update failed the reducer-enforced case-insensitive uniqueness of display.short_name within (realm_id, short_name). See zh/models/circle.md §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_GENERATION_MISMATCH,
@@ -4155,11 +4151,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason for failed_precondition when a Realm moderation-policy override would relax an action forbidden by inherited organization policy without embedding a valid organization approval. See zh/sync/service-http-binding.md §2.3.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::RESERVED_CIRCLE_SHORT_NAME,
-        applies_to: &["schema_validation", "state_resolution", "service_call"],
-        description: "Ordinary Circle create/update attempted to use the SC- short-name prefix reserved for reducer-managed Agent Sidecar backing Circles. The write is rejected as schema_violation. See zh/models/circle.md §4 and zh/models/sidecar.md §5.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::REVOCATION_FRESHNESS_UNKNOWN,
         applies_to: &[
             "auth_decision",
@@ -4326,12 +4317,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SIDECAR_CREATE_DENIED,
         applies_to: &["auth_decision", "state_resolution", "service_call"],
-        description: "Agent Sidecar ensure was denied without revealing whether the Sidecar, backing scope, context-private Strand, or a derived internal name already exists. Returned as a generic failed_precondition sub-reason to avoid existence side channels. See zh/models/sidecar.md §3 and §7.",
+        description: "Agent Sidecar ensure was denied without revealing whether the controller's native Sidecar or requested source-context mapping already exists. Returned as a generic failed_precondition sub-reason to avoid existence side channels. See zh/models/sidecar.md §3 and §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SIDECAR_EXPOSURE_ACK_REQUIRED,
         applies_to: &["auth_decision", "state_resolution", "service_call"],
-        description: "ak.self.agent.command.resume was rejected because the Agent entered the desired-exposure set of one or more Agent Sidecar objects while paused, and the controller has not supplied the matching sidecar_exposure_ack re-disclosure. The controller MUST re-read the disclosure and resubmit; effective access still waits for backing-scope and MLS reconciliation. See zh/identity/key-management.md §3.6.1.",
+        description: "ak.self.agent.command.resume was rejected because the Agent became an ownership-derived participant of one or more Agent Sidecar objects while paused, and the controller has not supplied the matching sidecar_exposure_ack re-disclosure. The controller MUST re-read the disclosure and resubmit; effective access still waits for native Sidecar MLS reconciliation. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SIGNAL_PLAINTEXT_FORBIDDEN,

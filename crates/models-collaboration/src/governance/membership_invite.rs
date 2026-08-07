@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::ObjectRef;
 use crate::governance::delivery_binding::{DeliveryStatus, MemberDeliveryBinding};
 use crate::governance::invite_addressing::InviteDeliveryTarget;
+use crate::governance::third_party_invite::ThirdPartyInvite;
 
 /// Evaluate a third-party invite claim against the only canonical admission
 /// time available before acceptance: the signed claim Event's `created_at`.
@@ -181,10 +182,8 @@ impl MembershipPayload {
     }
 }
 
-/// Directed-create form of `invite_payload`
-/// (`event-payload.schema.json#/$defs/invite_payload`, anyOf branch that
-/// requires `invitee + invite_delivery_target + introduction_evidence_digest
-/// + expires_at`). Carried by `ak.invite.create`.
+/// Directed-create form of `invite_create_payload`. The Invite id is derived
+/// from the create Event and therefore cannot be represented in this payload.
 ///
 /// The schema allows `x_*` extension properties (patternProperties
 /// `^x_[a-z][a-z0-9_]{0,63}$`) but is otherwise `additionalProperties:false`;
@@ -192,15 +191,11 @@ impl MembershipPayload {
 /// and re-prefixed on serialize.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteCreatePayload {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite_id: Option<InviteId>,
     pub invitee: Did,
     pub invite_delivery_target: InviteDeliveryTarget,
     pub introduction_evidence_digest: Hash,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
     /// `x_*` extension properties.
     #[serde(flatten, default)]
     pub extensions: XExtensionMap,
@@ -208,19 +203,16 @@ pub struct InviteCreatePayload {
 
 impl InviteCreatePayload {
     pub fn new(
-        invite_id: InviteId,
         invitee: Did,
         invite_delivery_target: InviteDeliveryTarget,
         introduction_evidence_digest: Hash,
         expires_at: chrono::DateTime<chrono::Utc>,
     ) -> Self {
         Self {
-            invite_id: Some(invite_id),
             invitee,
             invite_delivery_target,
             introduction_evidence_digest,
             expires_at,
-            reason: None,
             extensions: XExtensionMap::default(),
         }
     }
@@ -245,7 +237,7 @@ impl InviteCreatePayload {
     }
 }
 
-/// Enforce the `invite_payload` closed-key set (typed fields + `x_*`
+/// Enforce the `invite_create_payload` closed-key set (typed fields + `x_*`
 /// extensions) before deserializing an inbound payload. Callers that also
 /// require schema-catalog validation run the `arkret-schema` payload gate at
 /// their ingress boundary before decoding this model.
@@ -258,12 +250,7 @@ pub fn validate_invite_create_wire_keys(value: &Value) -> Result<()> {
     for key in object.keys() {
         if matches!(
             key.as_str(),
-            "invite_id"
-                | "invitee"
-                | "invite_delivery_target"
-                | "introduction_evidence_digest"
-                | "expires_at"
-                | "reason"
+            "invitee" | "invite_delivery_target" | "introduction_evidence_digest" | "expires_at"
         ) || valid_invite_create_extension_key(key)
         {
             continue;
@@ -290,21 +277,31 @@ fn valid_invite_create_extension_key(key: &str) -> bool {
         && chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
 }
 
-/// Reference-by-id form of `invite_payload` (anyOf branch requiring
-/// `invite_id`). Carried by `ak.invite.accept` / `ak.invite.cancel` /
-/// `ak.invite.revoke`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InviteCancelTargetState {
+    Rejected,
+    Revoked,
+}
+
+/// Directed-invite cancel/reject payload. It deliberately carries the stored
+/// invitee so the Invite lifecycle and member-state transitions are atomic.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct InviteRefPayload {
+pub struct InviteCancelPayload {
     pub invite_id: InviteId,
+    pub invitee: Did,
+    pub target_state: InviteCancelTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
 
-impl InviteRefPayload {
-    pub fn new(invite_id: InviteId) -> Self {
+impl InviteCancelPayload {
+    pub fn new(invite_id: InviteId, invitee: Did, target_state: InviteCancelTargetState) -> Self {
         Self {
             invite_id,
+            invitee,
+            target_state,
             reason: None,
         }
     }
@@ -316,7 +313,67 @@ impl InviteRefPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("invite ref payload serialize: {err}")))
+            .map_err(|err| Error::Protocol(format!("invite cancel payload serialize: {err}")))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InviteRevokeTargetState {
+    Revoked,
+    Expired,
+    RevokedByCapabilityLoss,
+    RevokedByInviterLeft,
+    InvalidatedByRateLimit,
+}
+
+/// High-risk/direct-or-third-party revocation payload.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InviteRevokePayload {
+    pub invite_id: InviteId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invitee: Option<Did>,
+    pub target_state: InviteRevokeTargetState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// `ak.invite.accept` payload. The accepting subject is the Event actor.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InviteAcceptPayload {
+    pub invite_id: InviteId,
+    pub delivery_status: DeliveryStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delivery_binding: Option<MemberDeliveryBinding>,
+    #[serde(flatten, default)]
+    pub extensions: XExtensionMap,
+}
+
+impl InviteAcceptPayload {
+    pub fn validate(&self) -> Result<()> {
+        if (self.delivery_status == DeliveryStatus::Routable) != self.delivery_binding.is_some() {
+            return Err(Error::Protocol(
+                "invite accept requires delivery_binding exactly when delivery_status=routable"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InviteThirdPartyCreatePayload {
+    pub third_party_id: ThirdPartyInvite,
+    #[serde(with = "canonical_timestamp")]
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    #[serde(flatten, default)]
+    pub extensions: XExtensionMap,
+}
+
+impl InviteThirdPartyCreatePayload {
+    pub fn validate(&self) -> Result<()> {
+        self.third_party_id.validate_minimal()
     }
 }
 
@@ -550,9 +607,9 @@ impl InviteSubjectProof {
                 "invite subject proof verification_method must not be empty".to_owned(),
             ));
         }
-        if self.signature_algorithm != INVITE_SUBJECT_PROOF_ALG {
+        if !matches!(self.signature_algorithm.as_str(), "Ed25519" | "ML-DSA-65") {
             return Err(Error::Protocol(
-                "invite subject proof alg must be Ed25519".to_owned(),
+                "invite subject proof alg must be Ed25519 or ML-DSA-65".to_owned(),
             ));
         }
         if !self.transcript_digest.as_str().starts_with("sha256:") {
@@ -563,6 +620,38 @@ impl InviteSubjectProof {
         if self.signature.trim().is_empty() {
             return Err(Error::Protocol(
                 "invite subject proof signature must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Complete `ak.invite.claim` payload. Claim evidence is kept distinct from
+/// every create/cancel/revoke payload shape.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InviteClaimPayload {
+    pub invite_id: InviteId,
+    pub subject_id: Did,
+    pub token_commitment: Hash,
+    pub claim_nonce: String,
+    pub binding_proof: InviteClaimBindingProof,
+    pub subject_proof: InviteSubjectProof,
+    #[serde(flatten, default)]
+    pub extensions: XExtensionMap,
+}
+
+impl InviteClaimPayload {
+    pub fn validate(&self) -> Result<()> {
+        self.binding_proof.validate()?;
+        self.subject_proof.validate()?;
+        if self.claim_nonce.len() < 16
+            || self.claim_nonce.len() > 128
+            || self.subject_id != self.binding_proof.subject_id
+            || self.claim_nonce != self.binding_proof.claim_nonce
+            || !self.token_commitment.as_str().starts_with("sha256:")
+        {
+            return Err(Error::Protocol(
+                "invite claim payload does not match its binding evidence".to_owned(),
             ));
         }
         Ok(())
@@ -795,7 +884,7 @@ mod tests {
     }
 
     const SUBJECT: &str = "did:web:bob.example";
-    const INVITE: &str = "ak:invite:0196419b-0000-7000-8000-000000000101";
+    const INVITE: &str = "ak:invite:0196419b-0000-8000-8000-000000000101";
     const REALM: &str = "ak:realm:0196419b-0000-8000-8000-000000000001";
     const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const SERVICE: &str = "did:web:verify.example";
@@ -866,7 +955,7 @@ mod tests {
                 "{\"audience\":\"arkret.invite.claim\",",
                 "\"binding_proof_digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",
-                "\"invite_id\":\"ak:invite:0196419b-0000-7000-8000-000000000101\",",
+                "\"invite_id\":\"ak:invite:0196419b-0000-8000-8000-000000000101\",",
                 "\"realm_id\":\"ak:realm:0196419b-0000-8000-8000-000000000001\",",
                 "\"subject_id\":\"did:web:bob.example\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",

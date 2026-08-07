@@ -444,17 +444,17 @@ mod tests {
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(
             kind.subject_for_effect(&json!({
-                "invite": {"id": "ak:invite:01904100-0000-7000-8000-000000000012"}
+                "invite": {"id": "ak:invite:01904100-0000-8000-8000-000000000012"}
             }))
             .unwrap()
             .as_deref(),
-            Some("ak:invite:01904100-0000-7000-8000-000000000012")
+            Some("ak:invite:01904100-0000-8000-8000-000000000012")
         );
 
         let sdk_registry = build_sdk_cell_registry();
         let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011").unwrap();
         let cell = CellRef::new(
-            "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:01904100-0000-7000-8000-000000000012"
+            "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:01904100-0000-8000-8000-000000000012"
                 .to_owned(),
         )
         .unwrap();

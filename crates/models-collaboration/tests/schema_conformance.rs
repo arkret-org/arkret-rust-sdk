@@ -15,8 +15,9 @@ mod models {
     };
     pub use arkret_models_collaboration::governance::invite_addressing::InviteDeliveryTarget;
     pub use arkret_models_collaboration::governance::membership_invite::{
-        InviteCreatePayload, InviteRefPayload, MembershipInviteRef, MembershipPayload,
-        MembershipPayloadState, RelationCreatePayload, validate_invite_create_wire_keys,
+        InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload, InviteRevokePayload,
+        InviteRevokeTargetState, MembershipInviteRef, MembershipPayload, MembershipPayloadState,
+        RelationCreatePayload, validate_invite_create_wire_keys,
     };
     pub use arkret_models_collaboration::governance::plaintext_visibility::{
         PlaintextServiceVisibility, PlaintextVisibleService, PlaintextVisibleServicesPayload,
@@ -105,16 +106,16 @@ fn membership_payload_strong_type_passes_spec_validator() {
 }
 
 #[test]
-fn invite_payload_strong_types_pass_spec_validator() {
+fn split_invite_payload_strong_types_pass_spec_validator() {
     use crate::models::{
-        Did, Hash, InviteCreatePayload, InviteDeliveryTarget, InviteId, InviteRefPayload,
+        Did, Hash, InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload,
+        InviteDeliveryTarget, InviteId, InviteRevokePayload, InviteRevokeTargetState,
     };
     let catalog = event_payload_validator_catalog().unwrap();
 
     // Directed-create (anyOf branch: invitee + invite_delivery_target +
     // introduction_evidence_digest + expires_at), with an `x_role` extension.
     let create = InviteCreatePayload::new(
-        InviteId::new("ak:invite:01904100-0000-7000-8000-111111111111").unwrap(),
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         InviteDeliveryTarget::principal_server(
             Did::new("did:webvh:z6mkfixture:ps.example").unwrap(),
@@ -136,17 +137,26 @@ fn invite_payload_strong_types_pass_spec_validator() {
     leaky_create["hlc"] = json!("2026-06-14T10:00:00.000Z/node/1");
     assert!(validate_invite_create_wire_keys(&leaky_create).is_err());
 
-    // invite_id ref form (accept / cancel / revoke).
-    let cancel = InviteRefPayload::new(
-        InviteId::new("ak:invite:01904100-0000-7000-8000-222222222222").unwrap(),
+    let invite_id = InviteId::new("ak:invite:01904100-0000-8000-8000-222222222222").unwrap();
+    let invitee = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+    let cancel = InviteCancelPayload::new(
+        invite_id.clone(),
+        invitee.clone(),
+        InviteCancelTargetState::Revoked,
     )
     .with_reason("withdrawn");
     let cancel_value = cancel.to_value().unwrap();
     catalog
         .validate_payload("ak.invite.cancel", &cancel_value)
         .unwrap();
+    let revoke = InviteRevokePayload {
+        invite_id,
+        invitee: Some(invitee),
+        target_state: InviteRevokeTargetState::RevokedByInviterLeft,
+        reason: Some("inviter_left".to_owned()),
+    };
     catalog
-        .validate_payload("ak.invite.revoke", &cancel_value)
+        .validate_payload("ak.invite.revoke", &serde_json::to_value(revoke).unwrap())
         .unwrap();
 }
 

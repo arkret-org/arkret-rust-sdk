@@ -1010,7 +1010,7 @@ mod tests {
     fn a_pcr_realm_is_not_admitted_through_the_event_derived_rule() {
         let (_, create) = self_certifying_create();
         let candidate = seal(hash(0x11), Vec::new(), hash(0x12));
-        // A PCR id carries a v7 uuid: retyping it would name an Event that does
+        // A PCR id carries a subject-derived v7 uuid: retyping it would name an Event that does
         // not exist. The caller must take T2, not silently get a bad request.
         let pcr = RealmId::new("ak:realm:0196419b-0000-7000-8000-0000000004d2").unwrap();
         admit(&pcr, &create, &candidate)

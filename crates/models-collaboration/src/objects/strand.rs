@@ -65,7 +65,7 @@ pub struct MessageMetadata {
 
 /// `message.schema.json#/$defs/message_metadata` key of the Agent Sidecar
 /// exchange binding. Legal only inside `encrypted_metadata` plaintext of an
-/// Event whose effective scope is the Sidecar backing Circle; forbidden in
+/// Event whose effective scope is the native Sidecar; forbidden in
 /// plaintext metadata and shared Realm/Circle events (forbidden-wire-fields
 /// `sidecar_exchange_binding`).
 pub const MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY: &str = "sidecar_exchange_binding";
@@ -75,7 +75,7 @@ impl MessageMetadata {
     /// key, schema mismatch, unknown role, or field-validation failure yields
     /// `None` — the Event is then non-echo by default, while the carrying
     /// message still renders as an ordinary private message
-    /// (`zh/models/sidecar.md` §7.2.1).
+    /// (`zh/models/sidecar.md` §8).
     pub fn sidecar_exchange_binding(
         &self,
     ) -> Option<crate::agent_operations::AgentSidecarEventExchangeBinding> {

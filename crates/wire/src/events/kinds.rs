@@ -118,7 +118,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::SelfAgentResume
         | EventKind::AgentSelectorClaim => EventProductClass::Agent,
         EventKind::SidecarCreate
-        | EventKind::SidecarAccessReplace
         | EventKind::SidecarContextAttach
         | EventKind::AgentSidecarExchangeControl => EventProductClass::Sidecar,
         EventKind::AppletBridgeError
