@@ -1281,7 +1281,7 @@ fn derive_subject_value(
             // every later update of the same object, which locates it by
             // `payload.<kind>_id`.
             if path == EVENT_ID_SUBJECT_SOURCE {
-                return derived_object_id_subject(event, rule_kind, &kind);
+                return retype_event_id(&event.event_id, rule_kind, &kind);
             }
             if let Some(value) = field_value(event, path) {
                 return scalar_subject(value).map_err(|message| subject_error(&kind, &message));
@@ -1304,7 +1304,16 @@ const EVENT_ID_SUBJECT_SOURCE: &str = "envelope.event_id";
 /// they just created without inventing an id the receiver would never agree
 /// with (spec `zh/models/common-fields.md` section 6.0).
 pub fn derived_object_id(event: &Event) -> Option<String> {
-    let kind = event.kind.as_str();
+    derived_object_id_for_kind(event.kind.as_str(), &event.event_id)
+}
+
+/// [`derived_object_id`] for a receiver that has the envelope's `kind` and
+/// `event_id` but no parsed [`Event`] — a projection folding raw sync JSON, for
+/// example.
+///
+/// Same registry row, same retype, so a surface reading events off the wire can
+/// never disagree with one holding the typed envelope.
+pub fn derived_object_id_for_kind(kind: &str, event_id: &EventId) -> Option<String> {
     let registry = event_kind_registry().ok()?;
     let row = registry
         .get("event_kinds")
@@ -1320,7 +1329,7 @@ pub fn derived_object_id(event: &Event) -> Option<String> {
     // creates. Guessing from the event kind's middle segment would be wrong for
     // both.
     let id_kind = row.get("id_kind").and_then(Value::as_str)?;
-    derived_object_id_subject(event, &format!("id:{id_kind}"), kind).ok()
+    retype_event_id(event_id, &format!("id:{id_kind}"), kind).ok()
 }
 
 /// Retype this create Event's `event_id` into the object-id kind the rule
@@ -1330,8 +1339,8 @@ pub fn derived_object_id(event: &Event) -> Option<String> {
 /// target kind MUST be one whose registry `id_source` is `event_derived` — a
 /// producer-allocated kind can never be named this way, and accepting one would
 /// silently mint an id nobody can re-derive.
-fn derived_object_id_subject(
-    event: &Event,
+fn retype_event_id(
+    event_id: &EventId,
     rule_kind: &str,
     kind: &str,
 ) -> Result<String, EventCellContractError> {
@@ -1348,7 +1357,7 @@ fn derived_object_id_subject(
             &format!("{prefix} is not an event-derived id kind"),
         ));
     }
-    Ok(format!("{prefix}{}", event.event_id.uuid()))
+    Ok(format!("{prefix}{}", event_id.uuid()))
 }
 
 fn derive_composite(

@@ -123,6 +123,45 @@ impl Space {
         }
     }
 
+    /// Build the Space body of an `ak.space.create` payload.
+    ///
+    /// [`Space::new`] takes an id because it also describes a projected Space.
+    /// A create payload carries none: `ak.space.create` is
+    /// `id_source: event_derived`, so the id is `retype(create.event_id)` and a
+    /// payload copy would be a second, forgeable truth (spec
+    /// `zh/models/common-fields.md` section 6.0). Use this constructor to author
+    /// one instead of minting a placeholder id and clearing it afterwards.
+    pub fn create_object(
+        realm_id: RealmId,
+        kind: impl Into<String>,
+        title: impl Into<String>,
+        created_by: Did,
+    ) -> Self {
+        Self {
+            id: None,
+            schema: SchemaId::SPACE_V1.to_owned(),
+            realm_id,
+            default_realm_id: None,
+            parent_space_id: None,
+            kind: kind.into(),
+            rank: None,
+            schema_refs: Vec::new(),
+            title: title.into(),
+            summary: None,
+            fields: BTreeMap::new(),
+            labels: Vec::new(),
+            avatar_blob_ref: None,
+            state: Some(SpaceState::Active),
+            state_changed_at: None,
+            scope_circle_id: None,
+            child_scope_policy: None,
+            created_by,
+            created_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
+            updated_by: None,
+            updated_at: None,
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.kind.trim().is_empty() {
             return Err(Error::Protocol("space kind must not be empty".to_owned()));

@@ -19,7 +19,7 @@ pub use arkret_wire::{CORE_SCHEMA_PROFILE, events};
 pub use error::{Error, Result, SchemaError, SchemaValidationIssue, SchemaValidationReason};
 pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, FrozenPreState, batch_add_tag,
-    derived_object_id, or_set_dot, project_registered_cell_writes,
+    derived_object_id, derived_object_id_for_kind, or_set_dot, project_registered_cell_writes,
     project_registered_cell_writes_with_pre_state, validate_registered_cell_plane_in_context,
     validate_registered_cell_writes, validate_registered_cell_writes_in_context,
 };
