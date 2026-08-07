@@ -14,9 +14,9 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::{
     AuthoritySetPolicy, AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, DidUrl,
-    Event, EventId, EventSubmitContext, GrantId, Hash, LeaseBasisRef, PolicyId,
+    Event, EventId, EventSubmitContext, Hash, LeaseBasisRef, PolicyId,
     RECOVERY_ACCOUNT_AUTHORITY_SET_ID, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
-    RiskTier, ScopeRef, TransactionId, TypedTrustDomainId,
+    RiskTier, ScopeRef, SessionGrantId, TransactionId, TypedTrustDomainId,
 };
 
 const MAX_RECOVERY_PUBLICATION_CBA_BUNDLES: usize = 64;
@@ -737,7 +737,7 @@ impl RecoveryCompletionAttestation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PromoteRecoverySessionGrantRequest {
-    pub old_grant_id: GrantId,
+    pub old_grant_id: SessionGrantId,
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub terminal_receipt: Value,
@@ -782,7 +782,7 @@ impl PromoteRecoverySessionGrantRequest {
 #[serde(deny_unknown_fields)]
 pub struct PromoteRecoverySessionGrantOutcome {
     pub transaction_id: TransactionId,
-    pub consumed_grant_id: GrantId,
+    pub consumed_grant_id: SessionGrantId,
     pub new_grant: Value,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub consumed_at: DateTime<Utc>,
@@ -870,8 +870,10 @@ mod tests {
     #[test]
     fn promotion_request_digest_excludes_digest_and_proof_jwt() {
         let mut request = PromoteRecoverySessionGrantRequest {
-            old_grant_id: GrantId::new("ak:grant:019a7360-0000-8000-8000-000000000001".to_owned())
-                .unwrap(),
+            old_grant_id: SessionGrantId::new(
+                "ak:session_grant:019a7360-0000-8000-8000-000000000001".to_owned(),
+            )
+            .unwrap(),
             transaction_id: TransactionId::new(
                 "ak:transaction:019a7360-0000-7000-8000-000000000002".to_owned(),
             )

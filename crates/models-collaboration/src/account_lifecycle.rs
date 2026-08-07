@@ -18,8 +18,8 @@ use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
     AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId, Did, DidUrl, Event,
-    EventId, EventInitialSubmission, GrantId, Hash, NonEmptyString, PayloadProof, RealmId,
-    ReasonCode, ReceiptId, Result, ScopeRef, ServiceOperationId, canonical,
+    EventId, EventInitialSubmission, Hash, NonEmptyString, PayloadProof, RealmId, ReasonCode,
+    ReceiptId, Result, ScopeRef, ServiceOperationId, SessionGrantId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -159,7 +159,7 @@ impl AccountLifecycleProof {
         actor_id: &Did,
         service_id: &Did,
         session_device_id: &DeviceId,
-        target_grant_id: Option<&GrantId>,
+        target_grant_id: Option<&SessionGrantId>,
         target_device_id: Option<&DeviceId>,
         all_sessions: bool,
         applet_selector: Option<&SessionGrantAppletSelector>,
@@ -607,7 +607,7 @@ pub struct AccountUpdateProfileRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_grant_id: Option<GrantId>,
+    pub target_grant_id: Option<SessionGrantId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -631,7 +631,7 @@ pub struct SessionRevokeRequestBody {
 pub struct SessionRevokeOutcome {
     pub revoked_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub revoked_grant_ids: Vec<GrantId>,
+    pub revoked_grant_ids: Vec<SessionGrantId>,
 }
 
 /// `ak.self.applet.command.revoke` request body. Binds the account-lifecycle

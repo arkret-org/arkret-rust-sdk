@@ -1,5 +1,5 @@
 use arkret_wire::{
-    DeviceId, Did, Error, EventId, EventKind, PolicyId, RecoveryModelGenerationRef,
+    DeviceId, Did, Error, Event, EventId, EventKind, PolicyId, RecoveryModelGenerationRef,
     RecoverySessionId, Result, SessionGrantId,
 };
 use chrono::{DateTime, Utc};
@@ -66,8 +66,11 @@ pub struct SessionGrantDeviceBinding {
 #[serde(deny_unknown_fields)]
 pub struct SignedSessionGrantClaims {
     pub kind: String,
+    #[serde(rename = "jti")]
     pub grant_id: SessionGrantId,
+    pub issuer: Did,
     pub subject: Did,
+    pub session_public_key: String,
     pub audience: String,
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -85,6 +88,178 @@ pub struct SignedSessionGrantClaims {
     pub proof_kind: Option<SessionGrantProofKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_details: Option<Value>,
+}
+
+/// Immutable payload of the durable `ak.session.grant` genesis Event.
+///
+/// The payload deliberately has no grant id. The only valid SessionGrantId is
+/// obtained by retyping the accepted EventId.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantGenesisPayload {
+    pub issuer: Did,
+    pub subject: Did,
+    pub session_public_key: String,
+    pub audience: String,
+    pub scopes: Vec<String>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub not_before: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub session_id: String,
+    pub cnf: SessionGrantCnf,
+    pub credential_class: SessionGrantCredentialClass,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_binding: Option<SessionGrantRecoveryBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_binding: Option<SessionGrantDeviceBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_kind: Option<SessionGrantProofKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_details: Option<Value>,
+}
+
+/// Marker proving that the exact genesis Event was named in a durable submit
+/// outcome. JWT authoring APIs consume this marker instead of a producer-chosen
+/// id, preventing pre-acceptance or UUIDv7 fallback issuance.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AcceptedSessionGrantGenesis {
+    event_id: EventId,
+    payload: SessionGrantGenesisPayload,
+}
+
+impl AcceptedSessionGrantGenesis {
+    pub fn from_submit_outcome(event: &Event, accepted_event_ids: &[EventId]) -> Result<Self> {
+        if event.kind.as_str() != EventKind::SESSION_GRANT {
+            return Err(Error::Protocol(
+                "accepted session grant marker requires ak.session.grant".to_owned(),
+            ));
+        }
+        if !accepted_event_ids.iter().any(|id| id == &event.event_id) {
+            return Err(Error::Protocol(
+                "session grant event is not present in accepted[]".to_owned(),
+            ));
+        }
+        let payload: SessionGrantGenesisPayload =
+            serde_json::from_value(serde_json::to_value(&event.payload).map_err(|error| {
+                Error::Protocol(format!("invalid session grant genesis: {error}"))
+            })?)
+            .map_err(|error| Error::Protocol(format!("invalid session grant genesis: {error}")))?;
+        payload.validate()?;
+        if event.actor_id != payload.issuer {
+            return Err(Error::Protocol(
+                "session grant event actor_id must equal payload issuer".to_owned(),
+            ));
+        }
+        Ok(Self {
+            event_id: event.event_id.clone(),
+            payload,
+        })
+    }
+
+    #[must_use]
+    pub fn session_grant_id(&self) -> SessionGrantId {
+        SessionGrantId::from_event_id(&self.event_id)
+    }
+
+    #[must_use]
+    pub fn into_signed_claims(self) -> SignedSessionGrantClaims {
+        SignedSessionGrantClaims {
+            kind: EventKind::SESSION_GRANT.to_owned(),
+            grant_id: SessionGrantId::from_event_id(&self.event_id),
+            issuer: self.payload.issuer,
+            subject: self.payload.subject,
+            session_public_key: self.payload.session_public_key,
+            audience: self.payload.audience,
+            scopes: self.payload.scopes,
+            not_before: self.payload.not_before,
+            expires_at: self.payload.expires_at,
+            session_id: self.payload.session_id,
+            cnf: self.payload.cnf,
+            credential_class: self.payload.credential_class,
+            recovery_binding: self.payload.recovery_binding,
+            device_binding: self.payload.device_binding,
+            proof_kind: self.payload.proof_kind,
+            scope_details: self.payload.scope_details,
+        }
+    }
+}
+
+impl SessionGrantGenesisPayload {
+    pub fn validate(&self) -> Result<()> {
+        SignedSessionGrantClaims {
+            kind: EventKind::SESSION_GRANT.to_owned(),
+            grant_id: SessionGrantId::new("ak:session_grant:00000000-0000-8000-8000-000000000000")?,
+            issuer: self.issuer.clone(),
+            subject: self.subject.clone(),
+            session_public_key: self.session_public_key.clone(),
+            audience: self.audience.clone(),
+            scopes: self.scopes.clone(),
+            not_before: self.not_before,
+            expires_at: self.expires_at,
+            session_id: self.session_id.clone(),
+            cnf: self.cnf.clone(),
+            credential_class: self.credential_class,
+            recovery_binding: self.recovery_binding.clone(),
+            device_binding: self.device_binding.clone(),
+            proof_kind: self.proof_kind,
+            scope_details: self.scope_details.clone(),
+        }
+        .validate()?;
+        if self.session_public_key.trim().is_empty() {
+            return Err(Error::Protocol(
+                "session grant session_public_key must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantTerminalState {
+    Revoked,
+    Superseded,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantStatePayload {
+    pub session_grant_id: SessionGrantId,
+    pub from: SessionGrantActiveState,
+    pub to: SessionGrantTerminalState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub successor_session_grant_id: Option<SessionGrantId>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantActiveState {
+    Active,
+}
+
+impl SessionGrantStatePayload {
+    pub fn validate(&self) -> Result<()> {
+        if matches!(self.to, SessionGrantTerminalState::Superseded)
+            != self.successor_session_grant_id.is_some()
+        {
+            return Err(Error::Protocol(
+                "successor_session_grant_id is required exactly for superseded".to_owned(),
+            ));
+        }
+        if self
+            .reason_code
+            .as_ref()
+            .is_some_and(|reason| reason.trim().is_empty())
+        {
+            return Err(Error::Protocol(
+                "session grant reason_code must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// RFC 7800 confirmation claim binding a grant to a DPoP holder key.
@@ -105,6 +280,11 @@ impl SignedSessionGrantClaims {
         if self.audience.trim().is_empty() {
             return Err(Error::Protocol(
                 "session grant audience must not be empty".to_owned(),
+            ));
+        }
+        if self.session_public_key.trim().is_empty() {
+            return Err(Error::Protocol(
+                "session grant session_public_key must not be empty".to_owned(),
             ));
         }
         if self.scopes.is_empty() || self.scopes.iter().any(|scope| scope.trim().is_empty()) {
@@ -163,7 +343,9 @@ mod tests {
             kind: EventKind::SESSION_GRANT.to_owned(),
             grant_id: SessionGrantId::new("ak:session_grant:01964198-0000-8000-8000-000000000000")
                 .unwrap(),
+            issuer: Did::new("did:web:issuer.example").unwrap(),
             subject: Did::new("did:web:alice.example").unwrap(),
+            session_public_key: "{\"kty\":\"OKP\"}".to_owned(),
             audience: "https://app.example.com".to_owned(),
             scopes: vec!["ak.self.events.command.submit".to_owned()],
             not_before: "2026-07-18T00:00:00.000Z".parse().unwrap(),
@@ -183,12 +365,18 @@ mod tests {
     #[test]
     fn validates_normative_shape() {
         claims().validate().unwrap();
+        let value = serde_json::to_value(claims()).unwrap();
+        assert_eq!(
+            value["jti"],
+            "ak:session_grant:01964198-0000-8000-8000-000000000000"
+        );
+        assert!(value.get("grant_id").is_none());
     }
 
     #[test]
     fn rejects_unknown_claims() {
         let mut value = serde_json::to_value(claims()).unwrap();
-        value["issuer"] = Value::String("did:web:issuer.example".to_owned());
+        value["unexpected"] = Value::String("nope".to_owned());
         assert!(serde_json::from_value::<SignedSessionGrantClaims>(value).is_err());
     }
 
