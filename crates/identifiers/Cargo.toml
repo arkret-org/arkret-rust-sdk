@@ -38,7 +38,6 @@ diesel = {workspace = true,features = [
     "postgres_backend",
     "uuid",
 ],optional = true}
-getrandom = {workspace = true}
 salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
 thiserror = {workspace = true}

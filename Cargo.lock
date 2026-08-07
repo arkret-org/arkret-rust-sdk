@@ -294,7 +294,6 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
- "tokio-util",
  "tracing",
  "url",
 ]
@@ -545,7 +544,6 @@ name = "arkret-server"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
- "arkret-event-draft",
  "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-models-discovery",

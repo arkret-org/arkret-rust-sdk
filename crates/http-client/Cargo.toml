@@ -46,7 +46,6 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 thiserror = {workspace = true}
 tokio = {workspace = true,features = ["time"]}
-tokio-util = {workspace = true,default-features = false,features = ["codec"]}
 tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"]}
 
