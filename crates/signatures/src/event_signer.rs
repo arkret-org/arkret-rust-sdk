@@ -114,6 +114,11 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
     digest_suite: arkret_canonical::DigestSuite,
     options: SignEventOptions,
 ) -> Result<()> {
+    // Signing is the last authoring boundary. Actor-chain, HLC, CBA and other
+    // signed fields may have been attached since the Event was constructed, so
+    // refresh the content-bound identity before computing the proof digest.
+    event.refresh_content_bound_identity_with_digest_suite(digest_suite)?;
+
     // Refuse to mix proofs from different signers — caller mistake.
     if let Some(existing) = event.proofs.iter().find(|proof| {
         &proof.verification_method != verification_method && proof.kind == proof_kind::DETACHED_JWS
@@ -281,6 +286,24 @@ mod tests {
         assert_eq!(event.proofs[0].kind, proof_kind::DETACHED_JWS);
         assert!(!event.proofs[0].jws.is_empty());
         // validate_proof_bindings (production) round-trips.
+        event.validate_proof_bindings().unwrap();
+    }
+
+    #[test]
+    fn sign_event_refreshes_content_bound_identity_after_authoring_mutations() {
+        let mut event = make_event();
+        let draft_event_id = event.event_id.clone();
+        event.actor_seq = 42;
+        event.prev_refs = vec![
+            EventId::new("ak:event:01904100-0000-8000-8000-000000000042").unwrap(),
+        ];
+        event.hlc = Some(Hlc::new("01970e589d21-0042-a13f9c2e").unwrap());
+
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
+        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+
+        assert_ne!(event.event_id, draft_event_id);
+        event.verify_event_id_matches_content().unwrap();
         event.validate_proof_bindings().unwrap();
     }
 

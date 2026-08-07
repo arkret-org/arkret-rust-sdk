@@ -948,6 +948,31 @@ impl Event {
         self.derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
     }
 
+    /// Refresh the content-bound Event id after authoring has finished.
+    ///
+    /// Producers commonly have to attach actor-chain, HLC, CBA and requirement
+    /// fields after constructing the initial typed payload. All of those fields
+    /// are in the Event digest preimage, so the id must be derived only after
+    /// they are final. A Realm genesis additionally keeps its in-memory derived
+    /// Realm id in sync with the refreshed Event id.
+    pub fn refresh_content_bound_identity(&mut self) -> Result<()> {
+        self.refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+    }
+
+    /// [`Self::refresh_content_bound_identity`] under an explicit Realm digest
+    /// suite.
+    pub fn refresh_content_bound_identity_with_digest_suite(
+        &mut self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.event_id = self.derive_event_id_with_digest_suite(digest_suite)?;
+        if self.scope_ref == ScopeRef::RealmGenesis {
+            self.realm_id =
+                derive_genesis_realm_id(&self.event_id, &self.actor_id, self.payload.get("object"));
+        }
+        Ok(())
+    }
+
     /// [`Event::derive_event_id`] under the Realm's declared digest suite.
     pub fn derive_event_id_with_digest_suite(
         &self,
