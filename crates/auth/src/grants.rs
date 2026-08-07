@@ -13,8 +13,8 @@ pub struct SessionGrantPayload {
     pub audience: Did,
     pub scopes: Vec<String>,
     pub session_id: String,
-    /// JWT `jti`, equal to the `ak:session_grant:` UUIDv8 derived from the
-    /// accepted `ak.session.grant` EventId.
+    /// JWT `jti`, equal to the `ak:session_grant:` typed ID obtained by
+    /// retyping the accepted `ak.session.grant` EventId's full 44-character token.
     pub grant_jti: SessionGrantId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
