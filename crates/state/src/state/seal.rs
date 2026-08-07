@@ -1686,8 +1686,8 @@ mod tests {
         let genesis = signed_seal(
             Vec::new(),
             vec![anchor.clone()],
-            control_root.clone(),
-            empty_state_root.clone(),
+            control_root,
+            empty_state_root,
             0,
         );
         let basis = SealBasis {

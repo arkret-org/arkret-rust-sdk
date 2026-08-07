@@ -170,16 +170,12 @@ impl GhostActorProfileRequest {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ActorKind, ActorProfileId, EventKind};
+    use arkret_wire::{ActorKind, EventKind};
 
     use super::*;
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
-    }
-
-    fn profile_id() -> ActorProfileId {
-        ActorProfileId::new("ak:actor_profile:01904100-0000-8000-8000-aaaaaaaaaaaa").unwrap()
     }
 
     fn applet_id() -> AppletId {

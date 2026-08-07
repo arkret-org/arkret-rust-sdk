@@ -2159,6 +2159,12 @@ pub fn agent_requested_scope_digest(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum AgentOperations {
     AccountDevicePairRequestBody(AccountDevicePairRequestBody),
     AccountDevicePairOutcome(AccountDevicePairOutcome),
@@ -2728,7 +2734,7 @@ mod tests {
             agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope,).unwrap()
         );
 
-        let mut narrower_scope = requested_scope.clone();
+        let mut narrower_scope = requested_scope;
         narrower_scope.actions.pop();
         let tightened =
             agent_requested_scope_digest(&agent_id, &controller_id, &narrower_scope).unwrap();

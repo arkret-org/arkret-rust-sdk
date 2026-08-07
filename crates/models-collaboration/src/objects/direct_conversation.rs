@@ -662,7 +662,7 @@ mod tests {
 
         assert!(direct_conversation_may_found(&bob, [alice.clone(), bob.clone()], &basis).unwrap());
         assert!(
-            !direct_conversation_may_found(&alice, [alice.clone(), bob.clone()], &basis).unwrap(),
+            !direct_conversation_may_found(&alice, [alice.clone(), bob], &basis).unwrap(),
             "the non-founder may never author the founding unit"
         );
     }
@@ -675,7 +675,7 @@ mod tests {
             first_request_issuer: alice.clone(),
         };
         assert_eq!(
-            direct_conversation_founder([alice.clone(), bob.clone()], &basis).unwrap(),
+            direct_conversation_founder([alice.clone(), bob], &basis).unwrap(),
             alice
         );
     }
@@ -706,7 +706,7 @@ mod tests {
         // Issuer outside the pair: never guess the complement.
         assert!(
             direct_conversation_founder(
-                [alice.clone(), bob.clone()],
+                [alice.clone(), bob],
                 &DirectConversationFounderBasis::Normal {
                     request_issuer: carol,
                 },

@@ -123,7 +123,7 @@ fn bootstrap_unit() -> (Event, Event) {
         EventKind::DEVICE_AUTHORIZE,
         // The genesis scope belongs to the create alone; the first authorize is
         // an ordinary Control Move inside the Realm the create just named.
-        arkret_wire::ScopeRef::Realm {
+        ScopeRef::Realm {
             realm_id: create.realm_id.clone(),
         },
         create.actor_id.clone(),
@@ -178,7 +178,7 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
     assert_eq!(event.refs[0].role, DID_INCEPTION_REF_ROLE);
     // A genesis envelope carries no realm_id and uses the closed genesis
     // scope; the Realm id is derived (subject-derived for a PCR).
-    assert_eq!(event.scope_ref, arkret_wire::ScopeRef::RealmGenesis);
+    assert_eq!(event.scope_ref, ScopeRef::RealmGenesis);
     assert!(event.scope_ref.circle_id().is_none());
     // Nothing on the wire says what this Event writes; the registry
     // contract does, and it must land on exactly the genesis leaf set.

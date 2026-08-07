@@ -17,35 +17,22 @@
 //! callers can map DID-resolution failures, malformed shapes and signature
 //! mismatches to distinct wire `schema_violation` / `invalid_signature` 4xx
 //! responses without string sniffing.
-//!
-//! # Ordinary paths do not belong here
-//!
-//! [`verify_jws_ed25519`] is resolver-driven and therefore an authority-path
-//! API. Ordinary per-signature verification MUST go through
-//! [`crate::verifier`], whose `verify_jws_with_binding` /
-//! `verify_jws_with_document` take no resolver at all.
 
-use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
+use arkret_signatures::PublicKeyMaterial;
 use arkret_wire::{CellId, Hlc, ProjectedCellWrite};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::VerifyingKey;
 
 use crate::{Did, DidDocument, DidResolver};
 
-/// Typed failure reasons for the detached-JWS verify pipeline
-/// ([`verify_jws_ed25519`] / [`resolve_ed25519_pubkey`]).
+/// Typed failure reasons for the DID-resolution half of the detached-JWS
+/// verify pipeline ([`resolve_ed25519_pubkey`]).
 ///
 /// Distinguishes input-shape violations, DID-resolution failures, key-material
 /// problems and the signature check itself, so callers can map each family to
 /// the right wire error code instead of sniffing message strings.
 #[derive(Debug, thiserror::Error)]
 pub enum JwsVerifyError {
-    #[error("empty verification_method")]
-    EmptyVerificationMethod,
-    #[error("empty issuer")]
-    EmptyIssuer,
-    #[error("empty canonical bytes")]
-    EmptyCanonicalBytes,
     /// The `verification_method` DID failed SDK validation.
     #[error("invalid DID `{did}`: {reason}")]
     InvalidDid { did: String, reason: String },
@@ -116,49 +103,6 @@ pub enum ReplayWindowError {
         ahead_seconds: i64,
         window_seconds: u64,
     },
-}
-
-/// Verify a detached Ed25519 JWS against `canonical_bytes`.
-///
-/// Returns `Ok(())` when the shape is valid, the DID resolves, and the
-/// signature checks against `canonical_bytes`; otherwise returns a typed
-/// [`JwsVerifyError`].
-///
-/// All error paths are uniform — any deviation from spec rejects with a
-/// typed reason (callers map to `schema_violation` 4xx, never 5xx).
-#[deprecated(note = "resolver-driven per-signature verification violates \
-did-usage-and-verification.md §3/§6. Ordinary paths MUST use \
-`arkret_identity::verify_jws_with_binding` (or `verify_jws_with_document` \
-for a pinned historical document), which take no resolver. Only a spec §4 \
-authority trigger may call `arkret_identity::resolve_and_verify_binding`. \
-NOTE: this function's `issuer` argument is accepted and never compared — \
-the replacement API does compare it.")]
-pub fn verify_jws_ed25519(
-    canonical_bytes: &[u8],
-    jws: &str,
-    verification_method: &str,
-    issuer: &str,
-    resolver: &dyn DidResolver,
-) -> Result<(), JwsVerifyError> {
-    if verification_method.is_empty() {
-        return Err(JwsVerifyError::EmptyVerificationMethod);
-    }
-    if issuer.is_empty() {
-        return Err(JwsVerifyError::EmptyIssuer);
-    }
-    if canonical_bytes.is_empty() {
-        return Err(JwsVerifyError::EmptyCanonicalBytes);
-    }
-
-    // Resolve verification_method via the supplied resolver chain. All JWS
-    // shape/header/signature checks are delegated to arkret-signatures.
-    let public_key = resolve_ed25519_pubkey(resolver, verification_method)?;
-    let material = PublicKeyMaterial::Ed25519Raw {
-        bytes: public_key.to_bytes().to_vec(),
-    };
-    Ed25519DetachedJwsVerifier::new()
-        .verify_detached_jws(jws, canonical_bytes, &material)
-        .map_err(|source| JwsVerifyError::Proof { source })
 }
 
 /// Resolve a DID URL (`<did>#<key_id>` or just a fragment-less DID) to
@@ -433,21 +377,18 @@ pub fn verify_replay_window_at(
 }
 
 #[cfg(test)]
-// These tests exercise the deprecated resolver-driven verifier itself.
-#[allow(deprecated)]
 mod tests {
     use std::collections::BTreeMap;
 
     use arkret_canonical::base64url_encode;
-    use arkret_signatures::jws::sign_jws_ed25519;
     use ed25519_dalek::SigningKey;
 
     use super::*;
     use crate::{DidDocument, Error as SdkError};
 
-    /// Minimal in-memory resolver used by the sign-then-verify round-trip
-    /// tests. Holds a single `(did, public_key_material)` pair and surfaces it as
-    /// a one-key DID Document under the id `{did}#k1`.
+    /// Minimal in-memory resolver used by the key-resolution tests. Holds a
+    /// single `(did, public_key_material)` pair and surfaces it as a one-key
+    /// DID Document under the id `{did}#k1`.
     struct StubResolver {
         did: Did,
         material: String,
@@ -667,30 +608,6 @@ mod tests {
         verify_replay_window_for_projection_at(&hlc, &w, 300, &overrides, now).unwrap();
     }
 
-    // -- Sign / sign+verify round-trip tests --
-
-    #[test]
-    fn verify_jws_ed25519_rejects_duplicate_protected_header_key() {
-        let signing = SigningKey::from_bytes(&[2u8; 32]);
-        let did = Did::new("did:webvh:z6mkfixture:duplicate-header.example".to_owned()).unwrap();
-        let resolver = StubResolver {
-            did: did.clone(),
-            material: encode_ed25519_multibase(&signing.verifying_key()),
-        };
-        let header = base64url_encode(br#"{"alg":"Ed25519","alg":"Ed25519"}"#);
-        let signature = base64url_encode([1u8; 64]);
-        let jws = format!("{header}..{signature}");
-
-        let err = verify_jws_ed25519(b"{}", &jws, &format!("{did}#k1"), did.as_str(), &resolver)
-            .unwrap_err();
-        assert!(matches!(err, JwsVerifyError::Proof { .. }), "got `{err}`");
-        let rendered = err.to_string();
-        assert!(
-            rendered.contains("duplicate key") || rendered.contains("canonical JSON"),
-            "got `{rendered}`"
-        );
-    }
-
     #[test]
     fn single_key_fallback_rejected_for_did_webvh_wrong_fragment() {
         // SEC-02: for a `did:webvh` document with exactly one key, a JWS that
@@ -726,60 +643,6 @@ mod tests {
         let resolved = resolve_ed25519_pubkey(&resolver, &format!("{did}#anything"))
             .expect("did:key fallback");
         assert_eq!(resolved.as_bytes(), signing.verifying_key().as_bytes());
-    }
-
-    #[test]
-    fn sign_then_verify_jws_ed25519_round_trips() {
-        let signing = SigningKey::from_bytes(&[4u8; 32]);
-        let verifying = signing.verifying_key();
-        let multibase = encode_ed25519_multibase(&verifying);
-        let did = Did::new("did:webvh:z6mkfixture:roundtrip.example".to_owned()).unwrap();
-        let resolver = StubResolver {
-            did: did.clone(),
-            material: multibase,
-        };
-
-        let canonical = br#"{"hello":"world","n":42}"#;
-        let jws = sign_jws_ed25519(canonical, &signing).expect("sign");
-        verify_jws_ed25519(
-            canonical,
-            &jws,
-            &format!("{did}#k1"),
-            did.as_str(),
-            &resolver,
-        )
-        .expect("verify");
-    }
-
-    #[test]
-    fn verify_rejects_tampered_payload_after_sign() {
-        let signing = SigningKey::from_bytes(&[5u8; 32]);
-        let verifying = signing.verifying_key();
-        let multibase = encode_ed25519_multibase(&verifying);
-        let did = Did::new("did:webvh:z6mkfixture:tamper.example".to_owned()).unwrap();
-        let resolver = StubResolver {
-            did: did.clone(),
-            material: multibase,
-        };
-
-        let canonical = b"original-bytes";
-        let jws = sign_jws_ed25519(canonical, &signing).expect("sign");
-        // Flip a byte in the canonical input the verifier reconstructs the
-        // signing string from — signature MUST fail.
-        let tampered = b"tampered-bytes";
-        let err = verify_jws_ed25519(
-            tampered,
-            &jws,
-            &format!("{did}#k1"),
-            did.as_str(),
-            &resolver,
-        )
-        .unwrap_err();
-        assert!(matches!(err, JwsVerifyError::Proof { .. }), "got `{err}`");
-        assert!(
-            err.to_string().contains("signature verification failed"),
-            "got `{err}`"
-        );
     }
 
     #[test]

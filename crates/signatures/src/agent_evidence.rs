@@ -1076,7 +1076,7 @@ pub fn agent_signing_public_key_digest(
     if arkret_canonical::base64url_encode(raw) != public_key.key.as_str() {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
-    Hash::new(canonical::sha256_digest(&raw))
+    Hash::new(canonical::sha256_digest(raw))
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 

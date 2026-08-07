@@ -415,6 +415,12 @@ pub struct ContactPrepareRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ContactOperationRequestBody {
     Prepare(ContactPrepareRequestBody),
     Commit(ContactCommitRequestBody),
@@ -437,6 +443,12 @@ pub struct ContactScopeUpdatePrepareRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ContactScopeUpdateRequestBody {
     Prepare(ContactScopeUpdatePrepareRequestBody),
     Commit(ContactCommitRequestBody),
@@ -469,6 +481,12 @@ pub struct ContactAcceptPrepareRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ContactAcceptRequestBody {
     Prepare(ContactAcceptPrepareRequestBody),
     Commit(ContactCommitRequestBody),
@@ -488,6 +506,12 @@ pub struct ContactRejectPrepareRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ContactRejectRequestBody {
     Prepare(ContactRejectPrepareRequestBody),
     Commit(ContactCommitRequestBody),
@@ -509,6 +533,12 @@ pub struct ContactTombstonePrepareRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ContactTombstoneRequestBody {
     Prepare(ContactTombstonePrepareRequestBody),
     Commit(ContactCommitRequestBody),
@@ -627,6 +657,12 @@ pub enum ContactPreparedOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ContactAcceptedOutcome {
     Request {
         operation_id: ProtocolOperationId,
@@ -666,6 +702,12 @@ pub struct ContactFailedOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ContactOperationOutcome {
     Prepared {
         #[serde(flatten)]
@@ -844,6 +886,12 @@ pub struct PeerContactEventSubmitOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum PeerContactControlSubmitOutcome {
     ProofRefresh {
         status: PeerContactDisposition,

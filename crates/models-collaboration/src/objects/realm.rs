@@ -369,6 +369,11 @@ impl Realm {
     /// ceiling to for the rest of its life, so the caller states it instead of
     /// inheriting whatever registry its build happens to carry. Authors
     /// normally pass `arkret_policy::current_capability_action_registry_digest()`.
+    ///
+    /// Every argument is a value `ak.realm.create` validates against the full
+    /// Realm object schema, so none of them can be defaulted away into a
+    /// smaller constructor.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: RealmId,
         title: impl Into<String>,

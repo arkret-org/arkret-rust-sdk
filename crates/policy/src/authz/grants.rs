@@ -1969,12 +1969,8 @@ mod capability_grant_builder_tests {
             ..base_grant()
         };
 
-        let validation = validate_capability_frontier(&[
-            parent_create.clone(),
-            parent_update.clone(),
-            child.clone(),
-        ])
-        .unwrap();
+        let validation =
+            validate_capability_frontier(&[parent_create, parent_update, child]).unwrap();
         assert_eq!(validation.max_authority_depth, 1);
     }
 

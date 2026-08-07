@@ -748,22 +748,6 @@ impl Client {
         .await
     }
 
-    /// Deprecated source-level alias retained for SDK compatibility. It
-    /// forwards immediately to canonical `events_read_outcome` and never
-    /// emits an `*.events.query.*` wire operation ID.
-    #[deprecated(note = "use events_read_outcome; removal planned for the next major SDK release")]
-    pub async fn events_query(
-        &self,
-        realm_id: &str,
-        before: Option<&str>,
-        after: Option<&str>,
-        order: Option<&str>,
-        limit: Option<u32>,
-    ) -> Result<EventsQueryOutcome> {
-        self.events_read_outcome(realm_id, before, after, order, limit, None)
-            .await
-    }
-
     /// Convenience wrapper for one Realm using the standard outcome shape.
     pub async fn events_read_outcome(
         &self,
@@ -785,20 +769,6 @@ impl Client {
             include_completeness,
         };
         self.events_read(&request).await
-    }
-
-    #[deprecated(note = "use events_read_outcome; removal planned for the next major SDK release")]
-    pub async fn events_query_outcome(
-        &self,
-        realm_id: &str,
-        before: Option<&str>,
-        after: Option<&str>,
-        order: Option<&str>,
-        limit: Option<u32>,
-        include_completeness: Option<bool>,
-    ) -> Result<EventsQueryOutcome> {
-        self.events_read_outcome(realm_id, before, after, order, limit, include_completeness)
-            .await
     }
 
     /// Walk every page of `ak.self.events.read.scan` for a Realm using
@@ -879,23 +849,6 @@ impl Client {
         }
         combined.range_completeness = completeness;
         Ok(combined)
-    }
-
-    #[deprecated(
-        note = "use events_read_all_pages; removal planned for the next major SDK release"
-    )]
-    pub async fn events_query_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
-        self.events_read_all_pages(realm_id).await
-    }
-
-    #[deprecated(
-        note = "use events_read_all_pages_with_completeness; removal planned for the next major SDK release"
-    )]
-    pub async fn events_query_all_pages_with_completeness(
-        &self,
-        realm_id: &str,
-    ) -> Result<EventsQueryOutcome> {
-        self.events_read_all_pages_with_completeness(realm_id).await
     }
 
     /// Fetch a complete accepted-Seal proof for a full-profile MLS

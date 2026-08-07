@@ -21,8 +21,7 @@ pub use arkret_wire::CircleId;
 /// types from this module.
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    Did, EncryptionProfile, EventId, EventInitialSubmission, HistoryVisibility, RealmId,
-    SchemaId,
+    Did, EncryptionProfile, EventId, EventInitialSubmission, HistoryVisibility, RealmId, SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

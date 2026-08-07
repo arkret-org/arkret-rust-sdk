@@ -91,7 +91,7 @@ pub enum BindingVerifyError {
     EmptyCanonicalBytes,
     /// The pinned document is not the issuer's document.
     ///
-    /// The legacy [`crate::jws::verify_jws_ed25519`] accepted an `issuer`
+    /// The removed resolver-driven verifier accepted an `issuer`
     /// argument and never compared it; this path compares it.
     #[error("DID document id `{document_id}` does not match issuer `{issuer}`")]
     DocumentIssuerMismatch { document_id: Did, issuer: Did },
@@ -192,8 +192,8 @@ impl DidVerificationRelationship {
 ///
 /// 1. `canonical_bytes` is non-empty;
 /// 2. `verification_method`'s DID part equals `issuer`;
-/// 3. `document.id == issuer` — the argument the legacy `verify_jws_ed25519` accepted and silently
-///    ignored;
+/// 3. `document.id == issuer` — the argument the removed resolver-driven verifier accepted and
+///    silently ignored;
 /// 4. `verification_method` resolves inside `document` (full DID URL, then fragment-only id, then
 ///    the `did:key` single-key shortcut — the exact lookup order of
 ///    [`crate::resolve_verification_method_key_from_document`], because DID Document
@@ -932,7 +932,7 @@ mod tests {
 
     #[test]
     fn verify_with_document_enforces_the_issuer_argument() {
-        // The legacy `jws::verify_jws_ed25519` took `issuer` and never used it.
+        // The removed resolver-driven verifier took `issuer` and never used it.
         let canonical = br#"{"hello":"world"}"#;
         let jws = sign_jws_ed25519(canonical, &signing_key()).expect("sign");
         let other = Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
@@ -963,6 +963,28 @@ mod tests {
             error,
             BindingVerifyError::DocumentIssuerMismatch { .. }
         ));
+    }
+
+    #[test]
+    fn verify_with_document_rejects_a_duplicate_protected_header_key() {
+        // A protected header that repeats a member is not canonical JSON, so
+        // the detached-JWS verifier refuses it before any signature check.
+        let header = arkret_canonical::base64url_encode(br#"{"alg":"Ed25519","alg":"Ed25519"}"#);
+        let signature = arkret_canonical::base64url_encode([1u8; 64]);
+        let jws = format!("{header}..{signature}");
+        let error = verify_jws_with_document(
+            br#"{}"#,
+            &jws,
+            &verification_method(),
+            &did(),
+            &document(&format!("{}#key-1", did())),
+        )
+        .expect_err("a duplicate protected-header key must be rejected");
+        let rendered = error.to_string();
+        assert!(
+            rendered.contains("duplicate key") || rendered.contains("canonical JSON"),
+            "got `{rendered}`"
+        );
     }
 
     #[test]

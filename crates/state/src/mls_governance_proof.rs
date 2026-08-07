@@ -467,7 +467,7 @@ where
         ));
     }
     // The id is only worth comparing if it is the one this content produces.
-    let recomputed = create_event.derive_event_id().map_err(Error::from)?;
+    let recomputed = create_event.derive_event_id()?;
     if recomputed != expected_create_id {
         return Err(anchor_rejected(
             "create Event content does not reproduce its content-bound event_id",
@@ -479,8 +479,7 @@ where
     if !candidate.predecessor_refs.is_empty() {
         return Err(anchor_rejected("candidate anchor is not a genesis Seal"));
     }
-    let create_digest =
-        Hash::new(create_event.event_digest().map_err(Error::from)?).map_err(Error::from)?;
+    let create_digest = Hash::new(create_event.event_digest()?).map_err(Error::from)?;
     if !candidate.delta.contains(&create_digest) {
         return Err(anchor_rejected(
             "candidate genesis Seal does not cover the Realm create Event",
@@ -999,7 +998,7 @@ mod tests {
     ) -> std::result::Result<SealId, Error> {
         admit_event_derived_genesis_anchor(realm_id, create, candidate, |_, notary| {
             assert_eq!(
-                notary.get("did").and_then(serde_json::Value::as_str),
+                notary.get("did").and_then(Value::as_str),
                 Some("did:webvh:z6mkfixture:notary.example"),
                 "the notary handed to the callback is the one the creator designated"
             );

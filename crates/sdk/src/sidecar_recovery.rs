@@ -79,7 +79,7 @@ pub fn recover_agent_sidecar_context_locators(
             .push(PrivateStrandCandidate {
                 event_id: event.event_id.clone(),
                 // The create payload carries no id: derive it from the Event.
-                private_strand_id: arkret_wire::StrandId::from_event_id(&event.event_id),
+                private_strand_id: StrandId::from_event_id(&event.event_id),
             });
     }
 

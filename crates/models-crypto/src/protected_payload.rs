@@ -84,6 +84,12 @@ impl<T: MlsPayloadType> TryFrom<EncryptedEnvelope> for MlsEncryptedPayload<T> {
 /// Closed protection choice for one typed payload. This axis is independent
 /// from the outer Event's Data / Control / non-reducer submission plane.
 #[derive(Clone, Debug, PartialEq, Eq)]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum ProtectedPayload<T> {
     Plain(PlainPayload<T>),
     Mls(MlsEncryptedPayload<T>),

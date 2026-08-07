@@ -35,7 +35,7 @@ use crate::proof::sign_ed25519_detached_jws;
 /// `BASE64URL(PROTECTED_HEADER) || "." || BASE64URL(canonical_bytes)`.
 ///
 /// The protected header is the SDK-canonical `{"alg":"Ed25519"}` — the same byte
-/// string `arkret_identity::jws::verify_jws_ed25519` accepts. This function is
+/// string `arkret_identity::verify_jws_with_document` accepts. This function is
 /// the symmetric counterpart of that verifier: a verify after a sign over the
 /// same `canonical_bytes` and a resolver that returns the matching public key
 /// always round-trips.

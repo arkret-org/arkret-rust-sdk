@@ -65,6 +65,12 @@ pub struct SidecarEnsureAttachRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum SidecarEnsureRequestBody {
     Prepare(SidecarEnsurePrepareRequestBody),
     Commit(SidecarEnsureCommitRequestBody),
@@ -151,6 +157,12 @@ pub enum SidecarPreparedOutcome {
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// A one-shot HTTP body/aggregate: it is built once per request, moved a
+// handful of times, then dropped. Boxing the large variant would trade a
+// free stack move for a heap allocation on every request and break the
+// constructor/pattern shape in every downstream repository, so the size
+// skew is accepted deliberately.
+#[allow(clippy::large_enum_variant)]
 pub enum SidecarEnsureOutcome {
     Prepared {
         #[serde(flatten)]

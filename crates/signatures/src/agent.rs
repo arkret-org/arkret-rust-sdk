@@ -356,7 +356,7 @@ fn parse_agent_runtime_public_key(
     let runtime_request_digest =
         Hash::new(canonical::canonical_sha256(&public_key)?).map_err(Error::from)?;
     let authorization_digest =
-        Hash::new(canonical::sha256_digest(&raw_public_key)).map_err(Error::from)?;
+        Hash::new(canonical::sha256_digest(raw_public_key)).map_err(Error::from)?;
     Ok(ValidatedAgentRuntimePublicKey {
         public_key: key,
         raw_public_key,
