@@ -673,7 +673,10 @@ mod tests {
     }
 
     fn fake_event_ref(suffix: &str) -> EventId {
-        EventId::new(format!("ak:event:01904100-0000-8000-8000-{:0>12}", suffix)).unwrap()
+        EventId::from_event_digest(
+            &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
+        )
+        .unwrap()
     }
 
     #[test]

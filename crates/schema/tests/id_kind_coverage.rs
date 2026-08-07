@@ -16,12 +16,17 @@
 
 use std::collections::BTreeSet;
 
-use arkret_identifiers::{DECLARED_SPECIAL_FORM_ID_KINDS, DECLARED_UUID_ID_KIND_PREFIXES};
+use arkret_identifiers::{
+    DECLARED_EVENT_TOKEN_ID_KIND_PREFIXES, DECLARED_SPECIAL_FORM_ID_KINDS,
+    DECLARED_UUID_ID_KIND_PREFIXES,
+};
 use arkret_schema::{SUPPORTED_ID_KINDS, SUPPORTED_SPECIAL_FORM_ID_KINDS};
 
 fn declared_kinds() -> BTreeSet<&'static str> {
     DECLARED_UUID_ID_KIND_PREFIXES
         .iter()
+        .chain(DECLARED_EVENT_TOKEN_ID_KIND_PREFIXES)
+        .chain(std::iter::once(&"ak:realm:"))
         .map(|prefix| {
             prefix
                 .strip_prefix("ak:")
@@ -112,7 +117,7 @@ fn both_sides_of_the_comparison_are_populated() {
     );
     assert_eq!(
         declared.len(),
-        DECLARED_UUID_ID_KIND_PREFIXES.len(),
+        DECLARED_UUID_ID_KIND_PREFIXES.len() + DECLARED_EVENT_TOKEN_ID_KIND_PREFIXES.len() + 1,
         "two typed ids share an `ak:<kind>:` prefix; each prefix must belong to exactly one type"
     );
 

@@ -168,14 +168,17 @@ mod tests {
     fn request_for(bytes: &[u8]) -> MlsGroupStateMaterialRequestBody {
         let digest = arkret_canonical::canonical::sha256_digest(bytes);
         let hex = digest.strip_prefix("sha256:").unwrap();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
         MlsGroupStateMaterialRequestBody {
             realm_id: realm_id.clone(),
             effective_scope: ScopeRef::Realm { realm_id },
             mls_group_id: MlsGroupId::new("Z3JvdXAtMA").unwrap(),
             epoch: crate::events_payloads::mls::MlsGenesisEpoch,
-            group_state_event_id: EventId::new("ak:event:01904100-0000-8000-8000-000000000002")
-                .unwrap(),
+            group_state_event_id: EventId::new(
+                "ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
+            )
+            .unwrap(),
             group_info_ref: BlobRef::new(format!("ak:blob:sha256:{hex}")).unwrap(),
             group_info_digest: Hash::new(digest.clone()).unwrap(),
             ratchet_tree_ref: BlobRef::new(format!("ak:blob:sha256:{hex}")).unwrap(),
@@ -223,7 +226,7 @@ mod tests {
 
         let mut mismatched = outcome;
         mismatched.group_state_event_id =
-            EventId::new("ak:event:01904100-0000-8000-8000-000000000003").unwrap();
+            EventId::new("ak:event:AcsFZ3o2tOdN3EFpNceeLV-aI3jZkB9S34_4YIwJ5DLy").unwrap();
         assert!(mismatched.validate_for_request(&request).is_err());
     }
 }

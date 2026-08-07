@@ -316,13 +316,13 @@ mod tests {
     #[test]
     fn composite_subject_is_deterministic() {
         let a = composite_subject(&[
-            "ak:strand:7fd5ae82-44e2-8a8a-9a4b-8857991142f9",
+            "ak:strand:ASVmv_EqnFQR2CH9hi8puYlg1qolDsgTIxqerMVv-1oN",
             "main",
             "did:webvh:z6mkfixture:alice.example",
         ])
         .unwrap();
         let b = composite_subject(&[
-            "ak:strand:7fd5ae82-44e2-8a8a-9a4b-8857991142f9",
+            "ak:strand:ASVmv_EqnFQR2CH9hi8puYlg1qolDsgTIxqerMVv-1oN",
             "main",
             "did:webvh:z6mkfixture:alice.example",
         ])
@@ -345,13 +345,13 @@ mod tests {
     #[test]
     fn composite_subject_preserves_typed_json_null() {
         let components = vec![
-            serde_json::json!("ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182"),
+            serde_json::json!("ak:strand:AQVC6IqFkbYCve-UUUa0ciJb36fBVkZWvlnEwgTs3Q15"),
             serde_json::Value::Null,
             serde_json::json!("did:webvh:z6mkfixture:alice.example"),
         ];
         assert_eq!(
             composite_subject(&components).unwrap(),
-            "LjvpAsw7qCPnXbATwtWyUYHAncyxVuNfGaCjpuF0968"
+            "3wA08l3OH-6eUtki8S-UaZQf7eeWzjGrsfBrgW4F50s"
         );
     }
 

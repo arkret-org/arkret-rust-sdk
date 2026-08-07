@@ -4,8 +4,8 @@
 //! sha256=295155b12cd025c068875e0566355623180545bdf233c9f264058a6295176d26 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=8ac4e357f9c8759ad0ee46582a045c1501665ac3c49b34262fecbbca8c7c28d9 Input: registry/
-//! digest-suite-registry.json; version=2026-08-06.1;
-//! sha256=e7b324ad5a0db3e4623235578854269e784243a6a6e0ac9af7e8848b843f9827 Input: registry/
+//! digest-suite-registry.json; version=2026-08-07.2;
+//! sha256=ba6982254e3dd2b2ca837fac6e41b80832a9be7c51ea9a6980010195bbd7534f Input: registry/
 //! signature-alg-registry.json; version=2026-08-04.2;
 //! sha256=e381cf8a9c28a76f3c891897895d1e7188d648c7ab68f5888b6c75c67ed31d55 Input: registry/
 //! hpke-suite-registry.json; version=2026-07-13;

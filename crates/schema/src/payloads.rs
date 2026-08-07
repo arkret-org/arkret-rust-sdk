@@ -539,7 +539,7 @@ mod tests {
             .validate_payload(
                 "ak.rsvp.set",
                 &json!({
-                    "event_ref": "ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182",
+                    "event_ref": "ak:strand:AQVC6IqFkbYCve-UUUa0ciJb36fBVkZWvlnEwgTs3Q15",
                     "occurrence": null,
                     "entry": entry
                 }),
@@ -564,7 +564,7 @@ mod tests {
                 .validate_payload(
                     "ak.rsvp.set",
                     &json!({
-                        "event_ref": "ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182",
+                        "event_ref": "ak:strand:AQVC6IqFkbYCve-UUUa0ciJb36fBVkZWvlnEwgTs3Q15",
                         "occurrence": null,
                         "status": "accepted"
                     }),
@@ -577,7 +577,7 @@ mod tests {
                 .validate_payload(
                     "ak.rsvp.set",
                     &json!({
-                        "event_ref": "ak:strand:019f9e50-d787-84e0-8731-c9ad5eaa9182",
+                        "event_ref": "ak:strand:AQVC6IqFkbYCve-UUUa0ciJb36fBVkZWvlnEwgTs3Q15",
                         "occurrence": null,
                         "entry": {"schedule_basis_refs": [
                             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -595,9 +595,9 @@ mod tests {
             .validate_payload(
                 "ak.strand.move",
                 &json!({
-                    "board_space_id": "ak:space:01904100-0000-8000-8000-111111111111",
-                    "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
+                    "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
+                    "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
+                    "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
                     "rank": "U"
                 }),
             )
@@ -606,8 +606,8 @@ mod tests {
             catalog.validate_payload(
                 "ak.strand.move",
                 &json!({
-                    "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
+                    "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
+                    "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
                     "rank": "U"
                 })
             ),
@@ -625,9 +625,9 @@ mod tests {
             .validate_payload(
                 EventKind::STRAND_MOVE,
                 &json!({
-                    "board_space_id": "ak:space:01904100-0000-8000-8000-111111111111",
-                    "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
+                    "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
+                    "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
+                    "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
                     "rank": "U"
                 }),
             )
@@ -638,8 +638,8 @@ mod tests {
                     EventKind::STRAND_MOVE,
                     &json!({
                         "board_space_id": "not-a-space-id",
-                        "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
-                        "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
+                        "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
+                        "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
                         "rank": "U"
                     }),
                 )
@@ -650,9 +650,9 @@ mod tests {
                 .validate_payload(
                     EventKind::STRAND_MOVE,
                     &json!({
-                        "board_space_id": "ak:space:01904100-0000-8000-8000-111111111111",
-                        "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
-                        "target_space_id": "ak:space:01904100-0000-8000-8000-222222222222",
+                        "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
+                        "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
+                        "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
                         "rank": "U",
                         "unexpected": true
                     }),
@@ -1036,7 +1036,7 @@ mod tests {
             "enrollment_authority_binding": {
                 "kind": "service_attested",
                 "authority_did": "did:webvh:z6mkfixture:authority.example",
-                "authorization_ref": "ak:grant:0196419b-0000-8000-8000-000000000002"
+                "authorization_ref": "ak:grant:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL"
             }
         })
     }
@@ -1062,7 +1062,7 @@ mod tests {
     fn realm_organization_active_payload() -> Value {
         json!({
             "statement_id": "org-stmt-1",
-            "realm_id": "ak:realm:0196419b-0000-8000-8000-000000000010",
+            "realm_id": "ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo",
             "organization_id": "did:webvh:example.test:orgs:org1",
             "relationship": "owner",
             "status": "active",

@@ -148,10 +148,12 @@ mod read_cursor_merge_tests {
             "schema": "ak.schema.read_cursor.v1",
             "actor_id": "did:webvh:z6mkalice:alice.example",
             "device_id": format!("ak:device:01964137-0000-7000-8000-{device_suffix:012x}"),
-            "realm_id": "ak:realm:01964137-0000-8000-8000-000000000001",
+            "realm_id": "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5",
             "read_scope": {"kind": "realm"},
             "position": {
-                "event_id": format!("ak:event:01964137-0000-8000-8000-{event_suffix:012x}"),
+                "event_id": EventId::from_event_digest(
+                    &arkret_wire::Hash::new(arkret_canonical::sha256_digest(event_suffix.to_be_bytes())).unwrap()
+                ).unwrap(),
                 "hlc": hlc
             },
             "updated_at": "2026-07-29T00:00:00.000Z"
@@ -812,10 +814,10 @@ mod notification_tests {
             "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
             "schema": "ak.schema.notification.v1",
             "actor_id": "did:web:alice.example",
-            "realm_id": "ak:realm:019fa233-5ab8-85c0-8497-375d732be737",
-            "source_event_id": "ak:event:019fa233-5ab8-85c0-8497-376bafe172a5",
-            "source_ref": "ak:message:019fa233-5ab8-85c0-8497-376bafe172a7",
-            "strand_id": "ak:strand:019fa233-5ab8-85c0-8497-376bafe172a6",
+            "realm_id": "ak:realm:AdF_8ICakbYdEH0Cnl-w5o1WFlnh5rXGWqY_-_G6yM7N",
+            "source_event_id": "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq",
+            "source_ref": "ak:message:AaLsOkxXROnYl8TvAT974cXPfsWutmUVadkvWwvRVy05",
+            "strand_id": "ak:strand:AZHbeeJHFJPK6twXV6VIcj3HRv0mbwDW2W_NA941ekT1",
             "track_name": "discussion",
             "notification_kind": "message",
             "priority": "normal",
@@ -840,7 +842,7 @@ mod notification_tests {
                 "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
                 "schema": "ak.schema.notification.v1",
                 "actor_id": "did:web:alice.example",
-                "source_event_id": "ak:event:019fa233-5ab8-85c0-8497-376bafe172a5",
+                "source_event_id": "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq",
                 "source_ref": "message-42",
                 "notification_kind": "message",
                 "priority": "normal",
@@ -858,7 +860,7 @@ mod notification_tests {
                 "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
                 "schema": "ak.schema.notification.v1",
                 "actor_id": "did:web:alice.example",
-                "source_event_id": "ak:event:019fa233-5ab8-85c0-8497-376bafe172a5",
+                "source_event_id": "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq",
                 "source_ref": format!("sha256:{}", "ab".repeat(32)),
                 "notification_kind": "message",
                 "priority": "normal",

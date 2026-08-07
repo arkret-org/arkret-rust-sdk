@@ -970,10 +970,11 @@ mod tests {
 
     #[test]
     fn circle_round_trips_json() {
-        let id =
-            CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000001".to_owned()).unwrap();
+        let id = CircleId::new("ak:circle:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned())
+            .unwrap();
         let realm_id =
-            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000002".to_owned()).unwrap();
+            RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL".to_owned())
+                .unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
@@ -986,10 +987,11 @@ mod tests {
 
     #[test]
     fn circle_agent_participation_round_trips_complete_ceiling() {
-        let id =
-            CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000011".to_owned()).unwrap();
+        let id = CircleId::new("ak:circle:AeWYNl1hiGDuy4WCQ03g5lgs2NZzf_SFYgjsfhG-t9cg".to_owned())
+            .unwrap();
         let realm_id =
-            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000012".to_owned()).unwrap();
+            RealmId::new("ak:realm:AZiQUXWgexBvj0pdmSuNERtMTAFCjqds5-eP8K9OsgEo".to_owned())
+                .unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationPolicy {
@@ -1024,7 +1026,7 @@ mod tests {
         let value = serde_json::json!({
             "principal_id": "did:webvh:z6mkfixture:bob.example",
             "membership_frontier": [
-                "ak:event:0196419b-0000-8000-8000-000000000001"
+                "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
             ]
         });
         let parsed: CirclePendingMlsRemoval = serde_json::from_value(value).unwrap();
@@ -1035,7 +1037,7 @@ mod tests {
         );
         assert_eq!(
             parsed.membership_frontier()[0].as_str(),
-            "ak:event:0196419b-0000-8000-8000-000000000001"
+            "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
         );
     }
 
@@ -1051,10 +1053,11 @@ mod tests {
 
     #[test]
     fn circle_agent_participation_validates_tighten_only() {
-        let id =
-            CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000021".to_owned()).unwrap();
+        let id = CircleId::new("ak:circle:AYdzR-cxE5CaMt7Xeab7lJ6oTMVcXRDFIfPqcXOahgQ4".to_owned())
+            .unwrap();
         let realm_id =
-            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000022".to_owned()).unwrap();
+            RealmId::new("ak:realm:AYkxMogpjqRFcRiejZN897KN1bjKnAjkbNCCRbsgxeHR".to_owned())
+                .unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let parent = ParticipationBits {
@@ -1186,10 +1189,10 @@ mod tests {
     // ── validate_no_scope_rebind ───────────────────────────────────────────
 
     fn circle_a() -> CircleId {
-        CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000a01".to_owned()).unwrap()
+        CircleId::new("ak:circle:AfbuccJDrS3BsS8P0aU9BrlGUaJIhhDcLOcyloeyFzvK".to_owned()).unwrap()
     }
     fn circle_b() -> CircleId {
-        CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000a02".to_owned()).unwrap()
+        CircleId::new("ak:circle:AQGn4ahivUviiVFvRY8dK3cbp__YLN2_Kbe8Ibm8t1ay".to_owned()).unwrap()
     }
 
     #[test]
@@ -1405,10 +1408,10 @@ mod child_scope_tests {
     use super::*;
 
     fn circle_a() -> CircleId {
-        CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000a01".to_owned()).unwrap()
+        CircleId::new("ak:circle:AfbuccJDrS3BsS8P0aU9BrlGUaJIhhDcLOcyloeyFzvK".to_owned()).unwrap()
     }
     fn circle_b() -> CircleId {
-        CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000a02".to_owned()).unwrap()
+        CircleId::new("ak:circle:AQGn4ahivUviiVFvRY8dK3cbp__YLN2_Kbe8Ibm8t1ay".to_owned()).unwrap()
     }
 
     // ── enforce_child_scope_policy ─────────────────────────────────────────

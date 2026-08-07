@@ -196,11 +196,11 @@ mod tests {
     #[test]
     fn registry_scoped_account_data_keys_round_trip() {
         let view_id =
-            ViewId::new("ak:view:0196419b-0000-8000-8000-000000000001".to_owned()).unwrap();
+            ViewId::new("ak:view:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned()).unwrap();
         let key = private_view_account_data_key(&view_id);
         assert_eq!(
             key,
-            "ak.views.private.ak:view:0196419b-0000-8000-8000-000000000001"
+            "ak.views.private.ak:view:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
         );
         assert_eq!(private_view_account_data_key_view_id(&key), Some(view_id));
 
@@ -223,16 +223,16 @@ mod tests {
         for key in [
             "ak.views.private",
             "ak.views.private.",
-            "ak.views.private.ak:realm:0196419b-0000-8000-8000-000000000001",
+            "ak.views.private.ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
             "ak.views.private.not-a-typed-id",
-            "ak.notifications.inbox.ak:view:0196419b-0000-8000-8000-000000000001",
+            "ak.notifications.inbox.ak:view:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
         ] {
             assert_eq!(private_view_account_data_key_view_id(key), None, "{key}");
         }
         for key in [
             "ak.notifications.inbox",
             "ak.notifications.inbox.",
-            "ak.notifications.inbox.ak:view:0196419b-0000-8000-8000-000000000001",
+            "ak.notifications.inbox.ak:view:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
             "ak.views.private.ak:notification:0196419b-0000-7000-8000-000000000001",
         ] {
             assert_eq!(

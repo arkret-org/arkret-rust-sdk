@@ -674,7 +674,7 @@ pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
 /// Typed `ak:<kind>:<uuid>` id kinds the SDK ships a Rust type for.
 ///
 /// This list is not free-form: `crates/schema/tests/id_kind_coverage.rs`
-/// pins it to [`arkret_identifiers::DECLARED_UUID_ID_KIND_PREFIXES`] in both
+/// pins it to the identifiers crate's UUID and Event-token declarations in both
 /// directions, so an entry here means a real newtype exists and a missing
 /// entry fails the build rather than silently narrowing spec coverage.
 /// `drift_report` then checks the same set against the live
@@ -717,6 +717,7 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "moderation_queue_item",
     "request",
     "session_grant",
+    "scheduled_send",
     "snapshot",
     "space",
     "subscription",

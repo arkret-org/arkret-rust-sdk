@@ -8,6 +8,8 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
+use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use thiserror::Error;
 
@@ -110,11 +112,11 @@ macro_rules! id_type {
 /// Hash-bearing kinds (`BlobRef`, `SealId`, `Hash`), `OperationId`, DIDs,
 /// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
 /// bare-uuid form.
-/// `ak:realm:` accepts two deterministic derivation layouts and MUST validate
-/// the selected layout against the genesis branch.
+/// `ak:realm:` is not declared here because it accepts both an Event-derived
+/// token and the independently subject-derived PCR UUID form.
 ///
-/// - **Collaboration Realm** — event-derived (UUIDv8, `encoding.md` §4.0): `realm_id =
-///   retype(genesis event_id)`, so the id self-certifies against the genesis Event.
+/// - **Collaboration Realm** — event-derived: `realm_id = retype(genesis event_id)`, so the id
+///   self-certifies against the genesis Event.
 /// - **Principal Control Realm** — subject-derived (UUIDv7 layout):
 ///   `H("ak:realm:principal-control:v1:" || principal_did)`. It carries no producer-chosen
 ///   timestamp or randomness and stays computable from the DID alone; a PCR's identity anchor is
@@ -122,40 +124,8 @@ macro_rules! id_type {
 ///
 /// Neither form is producer-chosen. The branch is fixed by the create's
 /// `purpose`, never by the call site.
-pub const UUID_VERSION_REALM_EITHER: u8 = 0;
-
 /// RFC 9562 version nibble for producer-allocated typed ids (UUIDv7).
 pub const UUID_VERSION_PRODUCER_ALLOCATED: u8 = b'7';
-/// RFC 9562 version nibble for content-bound, event-derived typed ids (UUIDv8).
-///
-/// See the spec `zh/conformance/encoding.md` section 4.0: a 34-bit `created_at`
-/// second segment plus 88 bits taken from the leftmost 11 octets of the
-/// Event's own `event_digest`. No bit of such an id is producer-chosen.
-pub const UUID_VERSION_EVENT_DERIVED: u8 = b'8';
-
-/// Build the content-bound UUIDv8 of `zh/conformance/encoding.md` section 4.0.
-///
-/// `created_at_unix_seconds` is truncated to 34 bits; `event_digest_octets` is
-/// the *decoded* digest — never the `<suite>:<hex>` wire string — and MUST be
-/// at least 11 octets long, which every active digest suite guarantees.
-pub fn content_bound_uuid(created_at_unix_seconds: u64, event_digest_octets: &[u8]) -> uuid::Uuid {
-    assert!(
-        event_digest_octets.len() >= 11,
-        "content-bound ids need 11 digest octets; a shorter suite must fail closed upstream"
-    );
-    let mut material: u128 = 0;
-    for &octet in &event_digest_octets[..11] {
-        material = (material << 8) | u128::from(octet);
-    }
-    let stamp = u128::from(created_at_unix_seconds & ((1u64 << 34) - 1));
-    let mut value: u128 = stamp << 94;
-    value |= ((material >> 74) & 0x3FFF) << 80;
-    value |= 0x8u128 << 76;
-    value |= ((material >> 62) & 0xFFF) << 64;
-    value |= 0b10u128 << 62;
-    value |= material & ((1u128 << 62) - 1);
-    uuid::Uuid::from_u128(value)
-}
 
 macro_rules! uuid_id_type {
     ($name:ident, $prefix:literal, $version:expr) => {
@@ -169,17 +139,6 @@ macro_rules! uuid_id_type {
             /// decided by the spec `id-kind-registry.json` `id_form` column,
             /// never per call site.
             pub const KIND_VERSION_NIBBLE: u8 = $version;
-
-            /// Retype a create Event's `event_id` into this object-id kind.
-            ///
-            /// The UUID payload is shared verbatim; only the typed prefix
-            /// changes. This is the only legal way to name a create-once
-            /// object whose registry `id_source` is `event_derived` — the
-            /// create payload MUST omit the id (spec
-            /// `zh/models/common-fields.md` section 6.0).
-            pub fn from_event_id(event_id: &EventId) -> Self {
-                Self::from_uuid(event_id.uuid())
-            }
 
             /// Mint a canonical typed UUIDv7 identifier from an explicit
             /// observed Unix millisecond timestamp.
@@ -236,6 +195,156 @@ macro_rules! uuid_id_type {
                 Ok(Self::from_uuid(value))
             }
         }
+    };
+}
+
+/// Numeric digest-suite code carried in byte zero of every Event-derived id.
+/// Codes are immutable registry values, not enum ordinals inferred at runtime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
+pub enum EventDigestSuiteCode {
+    Sha256 = 0x01,
+    Blake3 = 0x02,
+}
+
+impl EventDigestSuiteCode {
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Sha256 => "sha256",
+            Self::Blake3 => "blake3",
+        }
+    }
+
+    pub const fn from_digest_suite(suite: arkret_canonical::DigestSuite) -> Self {
+        match suite {
+            arkret_canonical::DigestSuite::Sha256 => Self::Sha256,
+            arkret_canonical::DigestSuite::Blake3 => Self::Blake3,
+        }
+    }
+
+    pub const fn digest_suite(self) -> arkret_canonical::DigestSuite {
+        match self {
+            Self::Sha256 => arkret_canonical::DigestSuite::Sha256,
+            Self::Blake3 => arkret_canonical::DigestSuite::Blake3,
+        }
+    }
+}
+
+impl TryFrom<u8> for EventDigestSuiteCode {
+    type Error = IdentifierError;
+
+    fn try_from(value: u8) -> Result<Self> {
+        match value {
+            0x01 => Ok(Self::Sha256),
+            0x02 => Ok(Self::Blake3),
+            _ => Err(IdentifierError::InvalidId(format!(
+                "unsupported Event digest suite code: 0x{value:02x}"
+            ))),
+        }
+    }
+}
+
+/// Parsed form of an [`EventId`]'s complete cryptographic identity.
+///
+/// This is a database/codec helper only: it maps one-to-one with `EventId`
+/// and does not define a stronger identity tier.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EventIdentityKey {
+    suite: EventDigestSuiteCode,
+    digest: [u8; 32],
+}
+
+impl EventIdentityKey {
+    pub fn from_event_id(value: &EventId) -> Self {
+        Self::new(value.digest_suite_code(), value.digest_bytes())
+    }
+
+    pub const fn new(suite: EventDigestSuiteCode, digest: [u8; 32]) -> Self {
+        Self { suite, digest }
+    }
+
+    pub const fn suite(self) -> EventDigestSuiteCode {
+        self.suite
+    }
+
+    pub const fn digest(self) -> [u8; 32] {
+        self.digest
+    }
+
+    pub fn event_id(self) -> EventId {
+        EventId::from_identity(self)
+    }
+}
+
+fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
+    format!("{prefix}{}", URL_SAFE_NO_PAD.encode(bytes))
+}
+
+fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
+    let payload = value.strip_prefix(prefix)?;
+    if payload.len() != 44
+        || !payload
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return None;
+    }
+    let decoded = URL_SAFE_NO_PAD.decode(payload).ok()?;
+    let bytes: [u8; 33] = decoded.try_into().ok()?;
+    // Require the unique canonical Base64URL-no-pad spelling.
+    if URL_SAFE_NO_PAD.encode(bytes) != payload {
+        return None;
+    }
+    EventDigestSuiteCode::try_from(bytes[0]).ok()?;
+    Some(bytes)
+}
+
+fn is_event_token_id(value: &str, prefix: &str) -> bool {
+    decode_event_token(value, prefix).is_some()
+}
+
+macro_rules! event_token_id_type {
+    ($name:ident, $prefix:literal) => {
+        id_type!($name, |value: &str| is_event_token_id(value, $prefix));
+
+        impl $name {
+            pub const KIND_PREFIX: &'static str = $prefix;
+
+            /// Retype a create Event identity without changing its 33-byte token.
+            pub fn from_event_id(event_id: &EventId) -> Self {
+                Self(encode_event_token($prefix, event_id.token_bytes()))
+            }
+
+            pub fn token_bytes(&self) -> [u8; 33] {
+                decode_event_token(&self.0, $prefix)
+                    .expect("validated Event-derived id carries a canonical token")
+            }
+
+            pub fn digest_suite_code(&self) -> EventDigestSuiteCode {
+                EventDigestSuiteCode::try_from(self.token_bytes()[0])
+                    .expect("validated Event-derived id carries an active suite code")
+            }
+
+            pub fn digest_bytes(&self) -> [u8; 32] {
+                let bytes = self.token_bytes();
+                let mut digest = [0_u8; 32];
+                digest.copy_from_slice(&bytes[1..]);
+                digest
+            }
+        }
+    };
+}
+
+macro_rules! declare_event_token_id_kinds {
+    ($($name:ident, $prefix:literal;)*) => {
+        $(event_token_id_type!($name, $prefix);)*
+
+        /// Every typed id whose payload is the create Event's 33-byte token.
+        pub const DECLARED_EVENT_TOKEN_ID_KIND_PREFIXES: &[&str] = &[$($prefix),*];
     };
 }
 
@@ -514,7 +623,7 @@ pub fn is_strict_typed_id(value: &str, prefix: &str, version_nibble: u8) -> bool
 pub fn new_prefixed_uuid7(prefix: &str) -> String {
     debug_assert!(
         !EVENT_DERIVED_ID_KIND_PREFIXES.contains(&prefix),
-        "{prefix} is an event-derived kind: its id MUST come from          <Kind>Id::from_event_id, never from a freshly minted random uuid"
+        "{prefix} is an event-derived kind: its id MUST come from          <Kind>Id::from_event_id, never from a freshly minted identifier"
     );
     format!("{prefix}{}", uuid_v7_at(platform_unix_ms()))
 }
@@ -526,9 +635,8 @@ pub fn new_prefixed_uuid7(prefix: &str) -> String {
 /// alone by anyone — that addressability is the point, and a PCR's identity
 /// anchor is its `did_inception` root rather than its genesis Event.
 ///
-/// This lives beside [`content_bound_uuid`] because a Realm genesis has to pick
-/// between the two by branch, and both callers (`arkret-wire` envelope
-/// construction and `arkret-models-identity`) must agree bit for bit.
+/// Realm genesis construction has to pick between the subject-derived PCR
+/// UUID and the Event-derived collaboration token by schema branch.
 pub fn principal_control_realm_uuid(principal_did: &str) -> uuid::Uuid {
     subject_derived_uuid(b"ak:realm:principal-control:v1:", principal_did)
 }
@@ -555,23 +663,12 @@ pub fn subject_derived_uuid(domain: &[u8], subject: &str) -> uuid::Uuid {
 /// minted, per the spec `id-kind-registry.json` `id_form` column.
 pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:actor_profile:",
-    "ak:appeal:",
-    "ak:audit_binding:",
-    "ak:audit_release:",
-    "ak:audit_session:",
-    "ak:call:",
     "ak:circle:",
     "ak:event:",
-    "ak:grant:",
-    "ak:invite:",
     "ak:message:",
-    "ak:moderation_queue_item:",
     "ak:morph:",
     "ak:realm:",
     "ak:relation:",
-    "ak:report:",
-    "ak:sidecar:",
-    "ak:session_grant:",
     "ak:space:",
     "ak:strand:",
     "ak:view:",
@@ -668,15 +765,11 @@ id_type!(Did, is_did);
 // `registry/id-kind-registry.json`; `arkret-schema` fails closed in both
 // directions.
 declare_uuid_id_kinds! {
-    ActorProfileId, "ak:actor_profile:", UUID_VERSION_EVENT_DERIVED;
     // AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
     // `agent_id` is a DID scalar, represented by `Did`.
     // Audit release-session + attestation typed ids (id-kind-registry kinds
     // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
     AttestationId, "ak:attestation:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AuditBindingId, "ak:audit_binding:", UUID_VERSION_EVENT_DERIVED;
-    AuditReleaseId, "ak:audit_release:", UUID_VERSION_EVENT_DERIVED;
-    AuditSessionId, "ak:audit_session:", UUID_VERSION_EVENT_DERIVED;
     // RTC call participant id (id-kind-registry kind `rtc_participant`).
     RtcParticipantId, "ak:rtc_participant:", UUID_VERSION_PRODUCER_ALLOCATED;
     // Key-backup hardening (B-C) typed ids.
@@ -685,41 +778,22 @@ declare_uuid_id_kinds! {
     RecoveryAuthorityTicketId, "ak:recovery_authority_ticket:", UUID_VERSION_PRODUCER_ALLOCATED;
     AnnounceId, "ak:announce:", UUID_VERSION_PRODUCER_ALLOCATED;
     AppletId, "ak:applet:", UUID_VERSION_PRODUCER_ALLOCATED;
-    RealmId, "ak:realm:", UUID_VERSION_REALM_EITHER;
-    SpaceId, "ak:space:", UUID_VERSION_EVENT_DERIVED;
     BackupId, "ak:backup:", UUID_VERSION_PRODUCER_ALLOCATED;
     BatchId, "ak:batch:", UUID_VERSION_PRODUCER_ALLOCATED;
     BlobId, "ak:blob:", UUID_VERSION_PRODUCER_ALLOCATED;
     BlockId, "ak:block:", UUID_VERSION_PRODUCER_ALLOCATED;
-    CallId, "ak:call:", UUID_VERSION_EVENT_DERIVED;
     ConsentId, "ak:consent:", UUID_VERSION_PRODUCER_ALLOCATED;
     CapabilityId, "ak:capability:", UUID_VERSION_PRODUCER_ALLOCATED;
     ChunkId, "ak:chunk:", UUID_VERSION_PRODUCER_ALLOCATED;
     // AKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
     // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
     // zh/models/circle.md.
-    CircleId, "ak:circle:", UUID_VERSION_EVENT_DERIVED;
-    SidecarId, "ak:sidecar:", UUID_VERSION_EVENT_DERIVED;
     ClaimId, "ak:claim:", UUID_VERSION_PRODUCER_ALLOCATED;
     DeviceMessageId, "ak:device_message:", UUID_VERSION_PRODUCER_ALLOCATED;
-    StrandId, "ak:strand:", UUID_VERSION_EVENT_DERIVED;
     FilterId, "ak:filter:", UUID_VERSION_PRODUCER_ALLOCATED;
     FrameId, "ak:frame:", UUID_VERSION_PRODUCER_ALLOCATED;
     FrankingProofId, "ak:franking_proof:", UUID_VERSION_PRODUCER_ALLOCATED;
-    MorphId, "ak:morph:", UUID_VERSION_EVENT_DERIVED;
-    // Round R2/R3 (2026-05-20) — moderation appeal cell key
-    // (`ak:appeal:<uuidv8>`). id-kind-registry kind=appeal; see
-    // schemas/moderation-appeal.schema.json. Named `TypedAppealId` because
-    // `AppealId` is already the plain-string payload alias in
-    // `arkret-models-collaboration`.
-    TypedAppealId, "ak:appeal:", UUID_VERSION_EVENT_DERIVED;
-    MessageId, "ak:message:", UUID_VERSION_EVENT_DERIVED;
     MessageStreamId, "ak:message_stream:", UUID_VERSION_PRODUCER_ALLOCATED;
-    RelationId, "ak:relation:", UUID_VERSION_EVENT_DERIVED;
-    EventId, "ak:event:", UUID_VERSION_EVENT_DERIVED;
-    GrantId, "ak:grant:", UUID_VERSION_EVENT_DERIVED;
-    SessionGrantId, "ak:session_grant:", UUID_VERSION_EVENT_DERIVED;
-    InviteId, "ak:invite:", UUID_VERSION_EVENT_DERIVED;
     InviteLocatorId, "ak:invite_locator:", UUID_VERSION_PRODUCER_ALLOCATED;
     KeyEventId, "ak:key_event:", UUID_VERSION_PRODUCER_ALLOCATED;
     AuthorizationLeaseId, "ak:authorization_lease:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -728,14 +802,73 @@ declare_uuid_id_kinds! {
     PolicyId, "ak:policy:", UUID_VERSION_PRODUCER_ALLOCATED;
     PresentationId, "ak:presentation:", UUID_VERSION_PRODUCER_ALLOCATED;
     ReceiptId, "ak:receipt:", UUID_VERSION_PRODUCER_ALLOCATED;
-    ReportId, "ak:report:", UUID_VERSION_EVENT_DERIVED;
     ReadCursorId, "ak:read_cursor:", UUID_VERSION_PRODUCER_ALLOCATED;
-    ModerationQueueItemId, "ak:moderation_queue_item:", UUID_VERSION_EVENT_DERIVED;
     RequestId, "ak:request:", UUID_VERSION_PRODUCER_ALLOCATED;
+    ScheduledSendId, "ak:scheduled_send:", UUID_VERSION_PRODUCER_ALLOCATED;
     SnapshotId, "ak:snapshot:", UUID_VERSION_PRODUCER_ALLOCATED;
     SubscriptionId, "ak:subscription:", UUID_VERSION_PRODUCER_ALLOCATED;
     TransactionId, "ak:transaction:", UUID_VERSION_PRODUCER_ALLOCATED;
-    ViewId, "ak:view:", UUID_VERSION_EVENT_DERIVED;
+}
+
+declare_event_token_id_kinds! {
+    ActorProfileId, "ak:actor_profile:";
+    TypedAppealId, "ak:appeal:";
+    AuditBindingId, "ak:audit_binding:";
+    AuditReleaseId, "ak:audit_release:";
+    AuditSessionId, "ak:audit_session:";
+    CallId, "ak:call:";
+    CircleId, "ak:circle:";
+    EventId, "ak:event:";
+    GrantId, "ak:grant:";
+    InviteId, "ak:invite:";
+    MessageId, "ak:message:";
+    ModerationQueueItemId, "ak:moderation_queue_item:";
+    MorphId, "ak:morph:";
+    RelationId, "ak:relation:";
+    ReportId, "ak:report:";
+    SessionGrantId, "ak:session_grant:";
+    SidecarId, "ak:sidecar:";
+    SpaceId, "ak:space:";
+    StrandId, "ak:strand:";
+    ViewId, "ak:view:";
+}
+
+fn is_realm_id(value: &str) -> bool {
+    is_event_token_id(value, "ak:realm:")
+        || is_strict_typed_id(value, "ak:realm:", UUID_VERSION_PRODUCER_ALLOCATED)
+}
+
+id_type!(RealmId, is_realm_id);
+
+impl RealmId {
+    pub const KIND_PREFIX: &'static str = "ak:realm:";
+
+    pub fn from_event_id(event_id: &EventId) -> Self {
+        Self(encode_event_token(
+            Self::KIND_PREFIX,
+            event_id.token_bytes(),
+        ))
+    }
+
+    pub fn from_subject_uuid(value: uuid::Uuid) -> Self {
+        Self(format!("{}{}", Self::KIND_PREFIX, value))
+    }
+
+    pub fn subject_uuid(&self) -> Option<uuid::Uuid> {
+        let payload = self.0.strip_prefix(Self::KIND_PREFIX)?;
+        uuid::Uuid::parse_str(payload).ok()
+    }
+
+    pub fn event_token_bytes(&self) -> Option<[u8; 33]> {
+        decode_event_token(&self.0, Self::KIND_PREFIX)
+    }
+
+    /// Retype a collaboration Realm back to its genesis Event identity.
+    /// Principal Control Realms are subject-derived and therefore return `None`.
+    pub fn event_id(&self) -> Option<EventId> {
+        self.event_token_bytes()
+            .and_then(|token| EventId::from_token_bytes(token).ok())
+    }
 }
 
 // Special-form id kinds (`special_forms` in the spec id-kind-registry). Every
@@ -802,12 +935,46 @@ impl OperationId {
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
 
 impl MessageId {
-    // `from_event_id` is now generated for every event-derived kind by
-    // `uuid_id_type!`; Message is no longer a special case.
-
-    /// Retype this Message UUID as its durable create Event identity.
+    /// Retype this Message token as its durable create Event identity.
     pub fn event_id(&self) -> EventId {
-        EventId::from_uuid(self.uuid())
+        EventId(encode_event_token("ak:event:", self.token_bytes()))
+    }
+}
+
+impl EventId {
+    /// Construct from the canonical binary token used by database/wire codecs.
+    pub fn from_token_bytes(token: [u8; 33]) -> Result<Self> {
+        EventDigestSuiteCode::try_from(token[0])?;
+        Ok(Self(encode_event_token(Self::KIND_PREFIX, token)))
+    }
+
+    /// Encode the complete cryptographic identity as suite byte plus digest.
+    pub fn from_identity(identity: EventIdentityKey) -> Self {
+        let mut token = [0_u8; 33];
+        token[0] = identity.suite.as_u8();
+        token[1..].copy_from_slice(&identity.digest);
+        Self::from_token_bytes(token).expect("EventIdentityKey has an active suite code")
+    }
+
+    pub fn from_digest(suite: arkret_canonical::DigestSuite, digest: [u8; 32]) -> Self {
+        Self::from_identity(EventIdentityKey::new(
+            EventDigestSuiteCode::from_digest_suite(suite),
+            digest,
+        ))
+    }
+
+    /// Construct the Event identity represented by a validated full wire digest.
+    pub fn from_event_digest(value: &Hash) -> Result<Self> {
+        Ok(EventIdentityKey::from_event_digest(value)?.event_id())
+    }
+
+    pub fn identity_key(&self) -> EventIdentityKey {
+        EventIdentityKey::from_event_id(self)
+    }
+
+    /// Check the suite code and all 256 digest bits.
+    pub fn matches_identity(&self, identity: EventIdentityKey) -> bool {
+        self == &Self::from_identity(identity)
     }
 }
 
@@ -845,6 +1012,35 @@ fn is_device_message_transaction_id(value: &str) -> bool {
 // content-addressed Seal identifier itself, which is a special form and is
 // declared with the other `special_forms` kinds.
 id_type!(Hash, is_hash);
+
+impl EventIdentityKey {
+    pub fn from_event_digest(value: &Hash) -> Result<Self> {
+        let (suite, hex) = value
+            .as_str()
+            .split_once(':')
+            .ok_or_else(|| IdentifierError::InvalidId(value.as_str().to_owned()))?;
+        let suite = match suite {
+            "sha256" => EventDigestSuiteCode::Sha256,
+            "blake3" => EventDigestSuiteCode::Blake3,
+            _ => return Err(IdentifierError::InvalidId(value.as_str().to_owned())),
+        };
+        let mut digest = [0_u8; 32];
+        for (index, octet) in digest.iter_mut().enumerate() {
+            *octet = u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
+                .map_err(|_| IdentifierError::InvalidId(value.as_str().to_owned()))?;
+        }
+        Ok(Self::new(suite, digest))
+    }
+
+    pub fn event_digest(self) -> Hash {
+        let mut hex = String::with_capacity(64);
+        for byte in self.digest {
+            use std::fmt::Write as _;
+            write!(&mut hex, "{byte:02x}").expect("writing to String cannot fail");
+        }
+        Hash(format!("{}:{hex}", self.suite.as_str()))
+    }
+}
 
 impl BlobRef {
     /// Create a content-addressed `sha256:...` blob reference from raw bytes.
@@ -1131,17 +1327,20 @@ mod tests {
     }
 
     #[test]
-    fn active_id_kind_wrappers_accept_uuidv7_wire_forms() {
+    fn active_id_kind_wrappers_accept_their_registered_wire_forms() {
         macro_rules! assert_id {
             ($ty:ty, $prefix:literal) => {{
-                // Pick the version nibble the kind is actually fixed to: the
-                // spec `id_form` column decides it, not the call site.
-                let nibble = if EVENT_DERIVED_ID_KIND_PREFIXES.contains(&$prefix) {
-                    '8'
+                let value = if EVENT_DERIVED_ID_KIND_PREFIXES.contains(&$prefix) {
+                    let event =
+                        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x11; 32]);
+                    format!(
+                        "{}{}",
+                        $prefix,
+                        &event.as_str()[EventId::KIND_PREFIX.len()..]
+                    )
                 } else {
-                    '7'
+                    format!("{}01904100-0000-7000-8000-000000000001", $prefix)
                 };
-                let value = format!("{}01904100-0000-{nibble}000-8000-000000000001", $prefix);
                 assert!(<$ty>::new(value).is_ok(), "{}", stringify!($ty));
             }};
         }
@@ -1193,20 +1392,18 @@ mod tests {
         assert_id!(ReportId, "ak:report:");
         assert_id!(ReadCursorId, "ak:read_cursor:");
         assert_id!(RequestId, "ak:request:");
+        assert_id!(ScheduledSendId, "ak:scheduled_send:");
         assert_id!(SnapshotId, "ak:snapshot:");
         assert_id!(TransactionId, "ak:transaction:");
         assert_id!(ViewId, "ak:view:");
     }
 
     #[test]
-    fn message_and_create_event_ids_retype_the_same_uuid() {
-        let event_id = EventId::new("ak:event:01904100-0000-8000-8000-000000000001").unwrap();
+    fn message_and_create_event_ids_retype_the_same_token() {
+        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x42; 32]);
         let message_id = MessageId::from_event_id(&event_id);
 
-        assert_eq!(
-            message_id.as_str(),
-            "ak:message:01904100-0000-8000-8000-000000000001"
-        );
+        assert_eq!(message_id.token_bytes(), event_id.token_bytes());
         assert_eq!(message_id.event_id(), event_id);
     }
 
@@ -1243,10 +1440,11 @@ mod tests {
 
     #[test]
     fn strand_id_accepts_active_strand_prefix() {
-        assert!(StrandId::new("ak:strand:01904100-0000-8000-8000-000000000001").is_ok());
-        assert!(StrandId::new("ak:space:01904100-0000-8000-8000-000000000001").is_err());
-        // Mixed-case ULID-form rejected by the strict UUIDv7 validator.
-        // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
+        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x23; 32]);
+        let strand_id = StrandId::from_event_id(&event_id);
+        assert_eq!(strand_id.digest_suite_code(), EventDigestSuiteCode::Blake3);
+        assert!(StrandId::new(strand_id.as_str()).is_ok());
+        assert!(StrandId::new(format!("ak:space:{}", &strand_id.as_str()[10..])).is_err());
         assert!(StrandId::new("ak:strand:01js0ke000000000000000000").is_err());
     }
 
@@ -1348,38 +1546,47 @@ mod tests {
     }
 
     #[test]
-    fn is_strict_typed_id_rejects_ulid_and_bad_uuid_payloads() {
-        // C19 wire-break: typed wire ids MUST be canonical lowercase UUIDv7.
-        // Mixed-case ULID-form is rejected (intentionally non-UUIDv7).
-        assert!(!is_strict_typed_id(
-            "ak:space:01js0ke000000000000000000",
-            "ak:space:",
-            UUID_VERSION_EVENT_DERIVED
-        ));
-        // Uppercase hex forbidden.
-        assert!(!is_strict_typed_id(
-            "ak:space:0196419B-0000-7000-8000-000000000000",
-            "ak:space:",
-            UUID_VERSION_EVENT_DERIVED
-        ));
-        // Wrong UUID version (4 instead of 7).
-        assert!(!is_strict_typed_id(
-            "ak:space:0196419b-0000-4000-8000-000000000000",
-            "ak:space:",
-            UUID_VERSION_EVENT_DERIVED
-        ));
-        // Wrong variant nibble (c not in {8,9,a,b}).
-        assert!(!is_strict_typed_id(
-            "ak:space:0196419b-0000-8000-c000-000000000000",
-            "ak:space:",
-            UUID_VERSION_EVENT_DERIVED
-        ));
-        // Canonical UUIDv7 accepted.
-        assert!(is_strict_typed_id(
-            "ak:space:0196419b-0000-8000-8000-000000000000",
-            "ak:space:",
-            UUID_VERSION_EVENT_DERIVED
-        ));
+    fn event_token_rejects_noncanonical_and_unsupported_values() {
+        let valid = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0; 32]);
+        assert_eq!(valid.as_str().len(), 53);
+        assert_eq!(valid.token_bytes().len(), 33);
+        assert!(EventId::new(valid.as_str()).is_ok());
+        assert!(EventId::new("ak:event:not-a-token").is_err());
+        assert!(EventId::new(format!("{}=", valid.as_str())).is_err());
+
+        let mut unknown_suite = valid.token_bytes();
+        unknown_suite[0] = 0x03;
+        assert!(EventId::new(encode_event_token("ak:event:", unknown_suite)).is_err());
+
+        let mut invalid_alphabet = valid.as_str().to_owned();
+        invalid_alphabet.pop();
+        invalid_alphabet.push('+');
+        assert!(EventId::new(invalid_alphabet).is_err());
+    }
+
+    #[test]
+    fn event_id_binary_layout_kat_and_strong_reference_validation() {
+        let mut digest = [0_u8; 32];
+        for (index, byte) in digest.iter_mut().enumerate() {
+            *byte = index as u8;
+        }
+        let sha = EventIdentityKey::new(EventDigestSuiteCode::Sha256, digest);
+        let blake = EventIdentityKey::new(EventDigestSuiteCode::Blake3, digest);
+        assert_eq!(
+            sha.event_id().as_str(),
+            "ak:event:AQABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f"
+        );
+        assert_eq!(
+            blake.event_id().as_str(),
+            "ak:event:AgABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f"
+        );
+        assert_eq!(sha.event_id().digest_bytes(), digest);
+        assert_eq!(sha.event_id().identity_key(), sha);
+        assert_ne!(blake.event_id(), sha.event_id());
+        assert_eq!(
+            EventIdentityKey::from_event_digest(&sha.event_digest()).unwrap(),
+            sha
+        );
     }
 
     #[test]
@@ -1390,15 +1597,16 @@ mod tests {
             hlc: Hlc,
         }
 
+        let space_id = SpaceId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x55; 32],
+        ));
         let valid: Envelope = serde_json::from_value(serde_json::json!({
-            "space_id": "ak:space:01904100-0000-8000-8000-000000000001",
+            "space_id": space_id,
             "hlc": "01970e589d21-0004-a13f9c2e",
         }))
         .unwrap();
-        assert_eq!(
-            valid.space_id.as_str(),
-            "ak:space:01904100-0000-8000-8000-000000000001"
-        );
+        assert_eq!(valid.space_id, space_id);
         assert_eq!(valid.hlc.as_str(), "01970e589d21-0004-a13f9c2e");
 
         let invalid_id = serde_json::from_value::<Envelope>(serde_json::json!({
@@ -1408,7 +1616,7 @@ mod tests {
         assert!(invalid_id.is_err());
 
         let invalid_hlc = serde_json::from_value::<Envelope>(serde_json::json!({
-            "space_id": "ak:space:01904100-0000-8000-8000-000000000001",
+            "space_id": space_id,
             "hlc": "1970",
         }));
         assert!(invalid_hlc.is_err());

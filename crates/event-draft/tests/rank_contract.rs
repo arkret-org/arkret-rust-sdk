@@ -10,9 +10,9 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
     assert!(rank_exhausted(None, Some("0")).unwrap());
 
     let assignments = container_rebalance_assignments(&[
-        "ak:morph:01904100-0000-8000-8000-8b4aa2ca29ef".to_owned(),
-        "ak:morph:01904100-0000-8000-8000-d5864c129df4".to_owned(),
-        "ak:morph:01904100-0000-8000-8000-6057e4215f24".to_owned(),
+        "ak:morph:AcRp8AmaNRAqSq4CvFtzDkuXfxw3v4PB0rlS-l_n-GX0".to_owned(),
+        "ak:morph:AeR2rlO-50fCroo1gGAX8G-gwf2Dzu8cZ_rlauOIPMlw".to_owned(),
+        "ak:morph:AUyvkgYc0QHSVhrplS2jCafDjCkDg7uxB2iSZ9VPjajc".to_owned(),
     ])
     .unwrap();
     assert_eq!(assignments.len(), 3);

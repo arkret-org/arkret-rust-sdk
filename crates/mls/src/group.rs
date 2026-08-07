@@ -1727,7 +1727,7 @@ mod content_scheme_anchor_tests {
         bytes.iter().map(|b| format!("{b:02x}")).collect()
     }
 
-    const REALM: &str = "ak:realm:01904100-0000-8000-8000-000000000042";
+    const REALM: &str = "ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0";
     const DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000007";
 
     fn founder() -> ArkretMlsGroup {
@@ -1852,7 +1852,7 @@ mod content_scheme_anchor_tests {
 
         let key_ref = KeyRefObject {
             algorithm: "MLS-EXPORTER-AEAD".to_owned(),
-            group_state_ref: "ak:event:01964148-0000-8000-8000-000000000000".to_owned(),
+            group_state_ref: "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB".to_owned(),
         };
         let envelope_aad = EncryptedEnvelopeAad::hidden(
             arkret_wire::RealmId::new(REALM).unwrap(),
@@ -1861,7 +1861,7 @@ mod content_scheme_anchor_tests {
         let aad = content_aead_aad(&key_ref, 42, &nonce, profile, &envelope_aad).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":{\"event_kind\":\"ak.message.create\",\"realm_id\":\"ak:realm:01904100-0000-8000-8000-000000000042\"},\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",\"epoch\":42,\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",\"group_state_ref\":\"ak:event:01964148-0000-8000-8000-000000000000\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\",\"scheme\":\"mls_exporter_aead_v1\"}",
+            "{\"aad\":{\"event_kind\":\"ak.message.create\",\"realm_id\":\"ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0\"},\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",\"epoch\":42,\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",\"group_state_ref\":\"ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\",\"scheme\":\"mls_exporter_aead_v1\"}",
             "canonical content AAD drifted"
         );
 
@@ -1869,7 +1869,7 @@ mod content_scheme_anchor_tests {
         let ciphertext = suite.seal(&content_key, &nonce, &aad, plaintext).unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa1707ab9014cfad44fcf2803521107ae3c0",
+            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa172ec35effff53537ea9d100647aa4f700",
             "exporter-aead ciphertext drifted"
         );
 

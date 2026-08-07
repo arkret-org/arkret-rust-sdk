@@ -110,8 +110,8 @@ mod container_order_tests {
     #[test]
     fn move_item_rejects_retired_shape_and_invalid_rank() {
         let current = json!({
-            "item_ref": "ak:strand:01904100-0000-8000-8000-000000000001",
-            "container_ref": "ak:space:01904100-0000-8000-8000-000000000002",
+            "item_ref": "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "container_ref": "ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
             "relation_kind": "contains",
             "rank": "A0"
         });
@@ -119,9 +119,9 @@ mod container_order_tests {
         payload.validate().unwrap();
 
         let retired = json!({
-            "source_ref": "ak:space:01904100-0000-8000-8000-000000000002",
-            "target_ref": "ak:strand:01904100-0000-8000-8000-000000000001",
-            "container_ref": "ak:space:01904100-0000-8000-8000-000000000002",
+            "source_ref": "ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
+            "target_ref": "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "container_ref": "ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
             "rank": "A0"
         });
         assert!(serde_json::from_value::<ContainerMoveItemPayload>(retired).is_err());
@@ -134,15 +134,15 @@ mod container_order_tests {
     #[test]
     fn rebalance_rejects_duplicate_items_and_ranks() {
         let mut payload = ContainerRebalancePayload {
-            container_ref: "ak:space:01904100-0000-8000-8000-000000000002".to_owned(),
+            container_ref: "ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned(),
             relation_kind: "contains".to_owned(),
             positions: vec![
                 ContainerRebalancePosition {
-                    item_ref: "ak:strand:01904100-0000-8000-8000-000000000001".to_owned(),
+                    item_ref: "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned(),
                     rank: "A0".to_owned(),
                 },
                 ContainerRebalancePosition {
-                    item_ref: "ak:strand:01904100-0000-8000-8000-000000000003".to_owned(),
+                    item_ref: "ak:strand:AcsFZ3o2tOdN3EFpNceeLV-aI3jZkB9S34_4YIwJ5DLy".to_owned(),
                     rank: "B0".to_owned(),
                 },
             ],
@@ -152,7 +152,8 @@ mod container_order_tests {
 
         payload.positions[1].item_ref = payload.positions[0].item_ref.clone();
         assert!(payload.validate().is_err());
-        payload.positions[1].item_ref = "ak:strand:01904100-0000-8000-8000-000000000003".to_owned();
+        payload.positions[1].item_ref =
+            "ak:strand:AcsFZ3o2tOdN3EFpNceeLV-aI3jZkB9S34_4YIwJ5DLy".to_owned();
         payload.positions[1].rank = payload.positions[0].rank.clone();
         assert!(payload.validate().is_err());
     }

@@ -37,7 +37,7 @@ fn invite_claim_binding_proof(verification_method: &str) -> Value {
         "verification_service_id": "did:web:verify.example",
         "verification_method": verification_method,
         "subject_id": "did:web:bob.example",
-        "realm_id": "ak:realm:0196419b-0000-8000-8000-00000000014a",
+        "realm_id": "ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN",
         "audience": "did:web:realm.example",
         "claim_nonce": "nonce-claim-proof-1",
         "expires_at": "2099-01-01T00:00:00.000Z",

@@ -368,7 +368,7 @@ mod tests {
     use super::*;
 
     fn fake_realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
     }
 
     fn fake_actor(label: &str) -> Did {
@@ -399,7 +399,10 @@ mod tests {
     }
 
     fn fake_event_ref(suffix: &str) -> EventId {
-        EventId::new(format!("ak:event:01904100-0000-8000-8000-{:0>12}", suffix)).unwrap()
+        EventId::from_event_digest(
+            &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
+        )
+        .unwrap()
     }
 
     #[test]

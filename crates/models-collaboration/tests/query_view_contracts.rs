@@ -17,12 +17,14 @@ use serde_json::json;
 fn relation_requires_exact_wire_endpoints() {
     let relation = Relation {
         schema: SchemaId::RELATION_V1.to_owned(),
-        id: Some(RelationId::new("ak:relation:01904100-0000-8000-8000-7b3bf7d6e46b").unwrap()),
-        realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap(),
+        id: Some(
+            RelationId::new("ak:relation:AbihRHGq5MW5AMbxaGJlHnvF9zxJ0Hli4rDPiSQtjjLp").unwrap(),
+        ),
+        realm_id: RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
         scope_circle_id: None,
         effective_scope: None,
         relation_kind: RelationKind::Mentions,
-        from_ref: "ak:morph:01904100-0000-8000-8000-c12dc98b2948".to_owned(),
+        from_ref: "ak:morph:AdDdo41xqpK3J2_u26PQlGHCNJzU-Sym3p-LwW-bZmbb".to_owned(),
         to_ref: "did:webvh:z6mkfixture:alice.example".to_owned(),
         rank: None,
         fields: BTreeMap::new(),
@@ -39,7 +41,9 @@ fn relation_requires_exact_wire_endpoints() {
 #[test]
 fn query_request_uses_protocol_filters_array() {
     let request = ViewQuery {
-        realm_ids: vec![RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![
+            RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
+        ],
         object_kinds: vec!["morph".to_owned()],
         morph_kinds: vec!["task".to_owned()],
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -88,8 +92,8 @@ fn facets_accept_name_lists_and_config_maps() {
 fn collection_view() -> View {
     View {
         schema: SchemaId::VIEW_V1.to_owned(),
-        id: ViewId::new("ak:view:01904100-0000-8000-8000-848727f328fe").unwrap(),
-        realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap(),
+        id: ViewId::new("ak:view:AaiFHUI8GObKlPqeNvnl4E37L9moM-J0DjA4_UN9FvhR").unwrap(),
+        realm_id: RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
         state: ViewState::Active,
@@ -97,7 +101,9 @@ fn collection_view() -> View {
         renderer: Some(ViewRenderer::Board),
         title: Some("Board".to_owned()),
         query: ViewQuery {
-            realm_ids: vec![RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap()],
+            realm_ids: vec![
+                RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
+            ],
             object_kinds: Vec::new(),
             morph_kinds: Vec::new(),
             facets: Vec::new(),
@@ -167,7 +173,7 @@ fn private_account_data_view_binds_visibility_state_and_key() {
 
     // Another View's key would let a client silently re-home a definition.
     let foreign_key = private_view_account_data_key(
-        &ViewId::new("ak:view:01904100-0000-8000-8000-848727f328ff").unwrap(),
+        &ViewId::new("ak:view:ATmtapZXfxsLwiLRxOBYnVvhLCkfPsu9iZzgt9b60vhK").unwrap(),
     );
     assert!(view.validate_private_account_data(&foreign_key).is_err());
 
@@ -181,7 +187,9 @@ fn private_account_data_view_binds_visibility_state_and_key() {
 #[test]
 fn view_supports_renderer_and_facet_config_facades() {
     let request = ViewQuery {
-        realm_ids: vec![RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![
+            RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
+        ],
         object_kinds: Vec::new(),
         morph_kinds: Vec::new(),
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -197,8 +205,8 @@ fn view_supports_renderer_and_facet_config_facades() {
     };
     let mut view = View {
         schema: SchemaId::VIEW_V1.to_owned(),
-        id: ViewId::new("ak:view:01904100-0000-8000-8000-848727f328fe").unwrap(),
-        realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap(),
+        id: ViewId::new("ak:view:AaiFHUI8GObKlPqeNvnl4E37L9moM-J0DjA4_UN9FvhR").unwrap(),
+        realm_id: RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
         state: ViewState::Active,

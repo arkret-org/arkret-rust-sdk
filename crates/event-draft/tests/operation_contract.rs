@@ -7,7 +7,7 @@ use chrono::Utc;
 use serde_json::json;
 
 fn test_realm_id() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap()
 }
 
 fn test_scope() -> ScopeRef {
@@ -20,11 +20,11 @@ fn test_scope() -> ScopeRef {
 fn operation_serializes_protocol_field_names() {
     let mut operation = Operation::create(
         OperationId::new("ak:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap(),
+        RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
         "morph",
-        json!({"id":"ak:morph:01904100-0000-8000-8000-c12dc98b2948"}),
+        json!({"id":"ak:morph:AdDdo41xqpK3J2_u26PQlGHCNJzU-Sym3p-LwW-bZmbb"}),
     );
-    operation.object_id = Some("ak:morph:01904100-0000-8000-8000-c12dc98b2948".to_owned());
+    operation.object_id = Some("ak:morph:AdDdo41xqpK3J2_u26PQlGHCNJzU-Sym3p-LwW-bZmbb".to_owned());
 
     let value = serde_json::to_value(operation).unwrap();
 
@@ -33,7 +33,7 @@ fn operation_serializes_protocol_field_names() {
     assert_eq!(value["operation_kind"], "create");
     assert_eq!(
         value["object_id"],
-        "ak:morph:01904100-0000-8000-8000-c12dc98b2948"
+        "ak:morph:AdDdo41xqpK3J2_u26PQlGHCNJzU-Sym3p-LwW-bZmbb"
     );
     assert_eq!(value["object_kind"], "morph");
     assert!(value.get("target_object_id").is_none());
@@ -51,7 +51,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
     .with_payload(json!({
-        "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+        "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
         "track_name": "discussion",
         "content": {"kind": "ak.content.text", "body": "hello"}
     }))
@@ -97,7 +97,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
     .with_payload(json!({
-        "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+        "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
         "track_name": "discussion",
         "content": {"kind": "ak.content.text", "body": "hello"}
     }))
@@ -112,7 +112,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     assert_eq!(
         serde_json::to_value(&event.payload).unwrap(),
         json!({
-            "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+            "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
             "track_name": "discussion",
             "content": {"kind": "ak.content.text", "body": "hello"}
         })

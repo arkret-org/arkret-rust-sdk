@@ -596,7 +596,8 @@ mod tests {
 
     fn scope() -> ScopeRef {
         ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap(),
+            realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
+                .unwrap(),
         }
     }
 
@@ -608,7 +609,7 @@ mod tests {
             scope_ref: scope(),
             source: AuthoritySetPolicySource {
                 source_kind: AuthoritySetSourceKind::RealmControl,
-                source_ref: "ak:event:01904100-0000-8000-8000-111111111111".to_owned(),
+                source_ref: "ak:event:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD".to_owned(),
                 source_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
                 generation_ref: "1".to_owned(),
             },

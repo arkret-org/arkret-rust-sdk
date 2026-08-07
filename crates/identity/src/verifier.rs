@@ -1091,12 +1091,13 @@ mod tests {
         use super::*;
 
         fn realm() -> RealmId {
-            RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").expect("valid realm")
+            RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
+                .expect("valid realm")
         }
 
         fn event() -> Event {
             Event {
-                event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575")
+                event_id: EventId::new("ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6")
                     .expect("valid event id"),
                 kind: "ak.message.create".into(),
                 realm_id: realm(),

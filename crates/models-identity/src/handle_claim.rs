@@ -285,9 +285,11 @@ mod tests {
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),
                 service_acceptance_ref: Some(
-                    "ak:event:01890000-0000-8000-8000-000000000001".to_owned(),
+                    "ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A".to_owned(),
                 ),
-                policy_event_ref: Some("ak:event:01890000-0000-8000-8000-000000000002".to_owned()),
+                policy_event_ref: Some(
+                    "ak:event:Afza12DxrQRj8YMTUh0SADCCuAoyT3X9PH_MYKQ12khk".to_owned(),
+                ),
             }),
             ..Default::default()
         };
@@ -300,7 +302,7 @@ mod tests {
         assert!(value["created_at"].is_string());
         assert_eq!(
             value["member_delivery_binding"]["policy_event_ref"],
-            "ak:event:01890000-0000-8000-8000-000000000002"
+            "ak:event:Afza12DxrQRj8YMTUh0SADCCuAoyT3X9PH_MYKQ12khk"
         );
         assert!(value["member_delivery_binding"].get("policy_ref").is_none());
     }
@@ -330,7 +332,7 @@ mod tests {
 
     #[test]
     fn remote_resolution_requires_proof_audience_and_delivery_binding() {
-        let audience = "ak:realm:01904100-0000-8000-8000-000000000001";
+        let audience = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
         let recipient = Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap();
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),

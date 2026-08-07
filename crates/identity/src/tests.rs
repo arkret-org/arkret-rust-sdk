@@ -18,7 +18,7 @@ fn pairwise_did(name: &str) -> Did {
 }
 
 fn realm() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap()
+    RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap()
 }
 
 fn hlc() -> Hlc {
@@ -967,7 +967,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     .unwrap();
     event.executed_by = Some(bridge);
     event.authorization_ref = Some(
-        arkret_wire::AuthorizationRef::new("ak:grant:01904100-0000-8000-8000-cccccccccccc")
+        arkret_wire::AuthorizationRef::new("ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM")
             .unwrap(),
     );
     let builder = arkret_signatures::EventProofBuilder::new();

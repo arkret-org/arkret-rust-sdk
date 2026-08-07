@@ -1035,13 +1035,13 @@ mod tests {
             "claim_request_id": "AAAAAAAAAAAAAAAAAAAAAA",
             "target_principal_id": "did:webvh:z6mkfixture:bob.example",
             "requester": "did:webvh:z6mkfixture:alice.example",
-            "intended_realm_id": "ak:realm:0196419b-0000-8000-8000-000000000010",
+            "intended_realm_id": "ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo",
             "mls_group_id": "dm-group-1",
             "claim_purpose": "direct_conversation",
             "required_capabilities": ["ak.feature.mls_rfc9420.v1"],
             "claim_nonce": "BBBBBBBBBBBBBBBBBBBBBB",
             "expires_at": "2026-07-21T00:05:00.000Z",
-            "strand_id": "ak:strand:0196419b-0000-8000-8000-000000000011",
+            "strand_id": "ak:strand:AeWYNl1hiGDuy4WCQ03g5lgs2NZzf_SFYgjsfhG-t9cg",
             "pair_key": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
             "last_resort_allowed": false,
             "requester_authorization": {
@@ -1166,7 +1166,7 @@ mod tests {
                 "recipient_principal_id": "did:webvh:z6mkfixture:owner.example",
                 "recipient_device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
                 "recipient_service_id": "did:webvh:z6mkfixture:receiver.example",
-                "realm_id": "ak:realm:01964137-0000-8000-8000-00000000000f",
+                "realm_id": "ak:realm:AQm8-GxHDA39B0LFejfDiju4m_f8zeD-8ax0TgXneIXl",
                 "mls_group_id": "mls-fixture-group",
                 "mls_epoch": 1,
                 "welcome_ref": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
@@ -1179,8 +1179,8 @@ mod tests {
                     "sig": "AA"
                 }
             },
-            "realm_id": "ak:realm:01964137-0000-8000-8000-00000000000f",
-            "strand_id": "ak:strand:01964137-0000-8000-8000-00000000000e",
+            "realm_id": "ak:realm:AQm8-GxHDA39B0LFejfDiju4m_f8zeD-8ax0TgXneIXl",
+            "strand_id": "ak:strand:AdXop97dpwykWhErZSRBqPSgpraXCDzBKY29MCttgY7G",
             "mls_group_id": "mls-fixture-group",
             "epoch": 1
         }))

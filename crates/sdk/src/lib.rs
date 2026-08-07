@@ -20,7 +20,7 @@
 //! let draft = OperationEnvelopeBuilder::new(
 //!     OperationId::new("ak:operation:01904100-0000-7000-8000-57d7d85564c5")?,
 //!     ScopeRef::Realm {
-//!         realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-668e2181b41d")?,
+//!         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?,
 //!     },
 //!     Did::new("did:webvh:z6mkfixture:alice.example")?,
 //!     EventKind::MESSAGE_CREATE,
@@ -28,7 +28,7 @@
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
 //! .with_payload(json!({
-//!     "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+//!     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
 //!     "track_name": "main",
 //!     "content": {"kind": "ak.content.text", "body": "hello"}
 //! }))
@@ -528,7 +528,7 @@ pub mod calendar {
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
     use arkret_schema::project_registered_cell_writes;
     use arkret_wire::generated::event_kinds::EventKind;
-    use arkret_wire::{Did, Error, Event, EventId, Hash, Hlc, Result, ScopeRef};
+    use arkret_wire::{Did, Error, Event, Hash, Hlc, Result, ScopeRef};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
     ///
@@ -540,7 +540,6 @@ pub mod calendar {
         authoring: RsvpAuthoring,
         calendar: &CalendarEventFields,
         schedule: &crate::CalendarScheduleProjection,
-        event_id: EventId,
         scope_ref: ScopeRef,
         actor_id: Did,
         actor_seq: u64,
@@ -567,8 +566,8 @@ pub mod calendar {
             hlc,
             serde_json::to_value(&payload)?,
         )?;
-        event.event_id = event_id;
         event.causal_refs = causal_refs;
+        event.refresh_content_bound_identity()?;
         // No materialization step: v1 has no producer-written effect array, so
         // there is nothing for the builder to stamp. The check below is the
         // producer running the same registry projection a receiver will run,

@@ -651,15 +651,15 @@ mod tests {
     use super::*;
 
     fn strand_id() -> StrandId {
-        StrandId::new("ak:strand:01904100-0000-8000-8000-000000000001").unwrap()
+        StrandId::new("ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
     }
 
     fn message_id() -> MessageId {
-        MessageId::new("ak:message:01904100-0000-8000-8000-000000000002").unwrap()
+        MessageId::new("ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap()
     }
 
     fn event_id() -> EventId {
-        EventId::new("ak:event:01904100-0000-8000-8000-000000000002").unwrap()
+        EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap()
     }
 
     fn stream_id() -> MessageStreamId {
@@ -851,8 +851,11 @@ mod tests {
     fn registry_enforces_eight_active_streams() {
         let mut registry = MessageStreamProducerRegistry::default();
         for index in 0..MAX_MESSAGE_STREAMS_PER_DEVICE {
-            let event_id =
-                EventId::new(format!("ak:event:01904100-0000-8000-8000-{index:012}")).unwrap();
+            let event_id = EventId::from_event_digest(
+                &arkret_wire::Hash::new(arkret_canonical::sha256_digest(index.to_be_bytes()))
+                    .unwrap(),
+            )
+            .unwrap();
             let stream_id = MessageStreamId::new(format!(
                 "ak:message_stream:01904100-0000-7000-8000-{index:012}"
             ))
@@ -873,7 +876,7 @@ mod tests {
 
         let (overflow, _) = MessageStreamProducer::start(
             99,
-            EventId::new("ak:event:01904100-0000-8000-8000-000000000099").unwrap(),
+            EventId::new("ak:event:AXBcp13trH3bPXvj0eHppCpGqJZWL9yqE3cf2Tl43vyk").unwrap(),
             strand_id(),
             0,
             MessageStreamId::new("ak:message_stream:01904100-0000-7000-8000-000000000099").unwrap(),

@@ -193,17 +193,11 @@ pub fn validate_authority_control_depth(depth: u32) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_event_prev_refs<I, S>(prev_refs: I) -> Result<()>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
+pub fn validate_event_prev_refs(prev_refs: &[EventId]) -> Result<()> {
     let mut seen = BTreeSet::new();
-    let mut count = 0usize;
     for prev_ref in prev_refs {
-        count += 1;
-        validate_event_prev_ref_count(count)?;
-        if !seen.insert(prev_ref.as_ref().to_owned()) {
+        validate_event_prev_ref_count(seen.len() + 1)?;
+        if !seen.insert(prev_ref) {
             return Err(Error::Protocol(
                 "prev_refs MUST NOT contain duplicate entries".to_owned(),
             ));
@@ -212,19 +206,15 @@ where
     Ok(())
 }
 
-pub fn prev_frontier_digest<I, S>(prev_refs: I) -> Result<String>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let mut sorted = prev_refs
-        .into_iter()
-        .map(|prev_ref| prev_ref.as_ref().to_owned())
-        .collect::<Vec<_>>();
+pub fn prev_frontier_digest(prev_refs: &[EventId]) -> Result<String> {
+    let mut sorted = prev_refs.to_vec();
     sorted.sort();
     sorted.dedup();
     Ok(canonical::canonical_sha256(&Value::Array(
-        sorted.into_iter().map(Value::String).collect(),
+        sorted
+            .into_iter()
+            .map(|id| Value::String(id.into_string()))
+            .collect(),
     ))?)
 }
 
@@ -501,7 +491,7 @@ pub fn derive_genesis_realm_id(
         .and_then(Value::as_str)
         == Some("principal_control");
     if is_principal_control {
-        RealmId::from_uuid(crate::principal_control_realm_uuid(actor_id.as_str()))
+        RealmId::from_subject_uuid(crate::principal_control_realm_uuid(actor_id.as_str()))
     } else {
         RealmId::from_event_id(event_id)
     }
@@ -862,7 +852,7 @@ pub enum EventSubmitContext {
 /// A canonical-shaped `event_id` that stands in while the real one is being
 /// derived. It never enters a digest preimage, so its value is arbitrary — it
 /// only has to parse.
-const PLACEHOLDER_EVENT_ID: &str = "ak:event:00000000-0000-8000-8000-000000000000";
+const PLACEHOLDER_EVENT_ID: &str = "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 impl Event {
     pub const SCHEMA: &'static str = SchemaId::EVENT_V1;
@@ -959,9 +949,8 @@ impl Event {
 
     /// Derive this Event's `event_id` from its own canonical content.
     ///
-    /// `encoding.md` §4.0: a 34-bit `created_at` second segment plus 88 bits
-    /// from the leftmost 11 octets of the Event's `event_digest`. Callers
-    /// never choose the value; there is exactly one legal id per Event.
+    /// The id is one immutable suite-code byte plus all 256 bits of this
+    /// Event's digest. It contains no explicit timestamp segment.
     pub fn derive_event_id(&self) -> Result<EventId> {
         self.derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
     }
@@ -1001,30 +990,28 @@ impl Event {
             .split_once(':')
             .map(|(_, rest)| rest)
             .ok_or_else(|| Error::Protocol("event digest must carry a suite prefix".to_owned()))?;
-        let octets = (0..hex.len().min(22))
+        if hex.len() != 64 {
+            return Err(Error::Protocol(
+                "Event ID format requires a 32-octet event digest".to_owned(),
+            ));
+        }
+        let octets = (0..hex.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
             .collect::<std::result::Result<Vec<u8>, _>>()
             .map_err(|_| Error::Protocol("event digest is not lowercase hex".to_owned()))?;
-        if octets.len() < 11 {
-            return Err(Error::Protocol(
-                "content-bound event ids need at least 11 digest octets".to_owned(),
-            ));
-        }
-        let seconds = u64::try_from(self.created_at.timestamp()).map_err(|_| {
-            Error::Protocol("event created_at must not precede the Unix epoch".to_owned())
+        let digest_bytes: [u8; 32] = octets.try_into().map_err(|_| {
+            Error::Protocol("Event ID format requires a 32-octet event digest".to_owned())
         })?;
-        Ok(EventId::from_uuid(arkret_identifiers::content_bound_uuid(
-            seconds, &octets,
-        )))
+        Ok(EventId::from_digest(digest_suite, digest_bytes))
     }
 
     /// Re-derive the id and compare it with the carried value.
     ///
     /// `encoding.md` §6 makes the *order* a security property: a receiver MUST
     /// run this before using `event_id` for deduplication, indexing, routing,
-    /// idempotency or authorization. Skipping it lets a forged id enter those
-    /// paths and be mistaken for a second variant of an existing Event.
+    /// idempotency or authorization. Skipping it lets a caller-chosen identity
+    /// enter those paths without proving its complete digest binding.
     pub fn verify_event_id_matches_content(&self) -> Result<()> {
         self.verify_event_id_matches_content_with_digest_suite(
             arkret_canonical::DigestSuite::Sha256,
@@ -1313,10 +1300,6 @@ impl Event {
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
-        let event_unix_ms = u64::try_from(created_at.timestamp_millis()).map_err(|_| {
-            Error::Protocol("event created_at must not precede the Unix epoch".to_owned())
-        })?;
-        let _ = event_unix_ms;
         Self::new_with_derived_id_at(
             kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
         )
@@ -1342,7 +1325,7 @@ impl Event {
         // works here; it is overwritten before the Event is observable.
         let placeholder = EventId::new(PLACEHOLDER_EVENT_ID)
             .expect("placeholder id is a canonical content-bound shape");
-        let mut event = Self::new_with_id_at(
+        let mut event = Self::new_unstamped_at(
             placeholder,
             kind,
             scope_ref,
@@ -1365,13 +1348,10 @@ impl Event {
         Ok(event)
     }
 
-    /// Construct an Event with a caller-supplied identifier and instant.
-    ///
-    /// This deterministic variant supports protocol flows that allocate an
-    /// Event identifier before authoring the envelope. It shares all envelope
-    /// defaults and timestamp normalization with [`Self::new_at`].
+    /// Internal first pass used only while deriving the content-bound id.
+    /// No public API may expose an Event with this placeholder identity.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_with_id_at(
+    fn new_unstamped_at(
         event_id: EventId,
         kind: impl Into<String>,
         scope_ref: ScopeRef,
@@ -1431,7 +1411,10 @@ mod event_wire_surface_tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
+        RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x65; 32],
+        ))
     }
 
     fn realm_scope() -> ScopeRef {
@@ -1443,8 +1426,10 @@ mod event_wire_surface_tests {
     }
 
     fn base_event() -> Event {
+        let seed_event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0xa0; 32]);
+        let strand_id = arkret_identifiers::StrandId::from_event_id(&seed_event);
         Event {
-            event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
+            event_id: seed_event,
             kind: "ak.message.create".into(),
             realm_id: realm(),
             scope_ref: realm_scope(),
@@ -1462,7 +1447,7 @@ mod event_wire_surface_tests {
             requirements: EventRequirements::default(),
             redacts: None,
             payload: serde_json::from_value(json!({
-                "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+                "strand_id": strand_id,
                 "track_name": "discussion",
                 "content": {"kind": "ak.content.text", "body": "hello"}
             }))
@@ -1597,10 +1582,8 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn event_new_with_id_at_preserves_the_allocated_identifier() {
-        let event_id = EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c576").unwrap();
-        let event = Event::new_with_id_at(
-            event_id.clone(),
+    fn event_new_at_derives_and_verifies_the_identifier() {
+        let event = Event::new_at(
             "ak.message.create",
             realm_scope(),
             alice(),
@@ -1611,7 +1594,7 @@ mod event_wire_surface_tests {
         )
         .unwrap();
 
-        assert_eq!(event.event_id, event_id);
+        event.verify_event_id_matches_content().unwrap();
         assert_eq!(
             serde_json::to_value(event).unwrap()["created_at"],
             json!("2026-06-03T12:34:56.000Z")
@@ -1667,8 +1650,9 @@ mod event_wire_surface_tests {
         let mut event = base_event();
         event.applet_id =
             Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
-        event.authorization_ref =
-            Some(AuthorizationRef::new("ak:grant:01904100-0000-8000-8000-cccccccccccc").unwrap());
+        event.authorization_ref = Some(
+            AuthorizationRef::new("ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM").unwrap(),
+        );
         event.external_ref = Some(BTreeMap::from([
             ("protocol".to_owned(), json!("slack")),
             ("external_id".to_owned(), json!("1234567890.0001")),
@@ -1730,7 +1714,10 @@ mod event_wire_surface_tests {
         let mut rescoped = event;
         rescoped.scope_ref = ScopeRef::Circle {
             realm_id: realm(),
-            circle_id: CircleId::new("ak:circle:01904100-0000-8000-8000-1c1c1c1c1c1c").unwrap(),
+            circle_id: CircleId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x1c; 32],
+            )),
         };
 
         assert_ne!(baseline, rescoped.event_digest().unwrap());
@@ -1808,7 +1795,10 @@ mod event_wire_surface_tests {
     fn submit_rejects_a_scope_ref_that_disagrees_with_the_envelope_realm() {
         let mut event = base_event();
         event.scope_ref = ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000ff").unwrap(),
+            realm_id: RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0xff; 32],
+            )),
         };
 
         let err = event.validate_for_submit_structural().unwrap_err();

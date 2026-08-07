@@ -29,6 +29,7 @@ openapi = ["dep:salvo-oapi"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
+base64 = {workspace = true}
 
 # wasm32 randomness for this crate: the workspace getrandom 0.4 line needs
 # `wasm_js`, the legacy getrandom 0.2 line needs `js`, and uuid needs its own

@@ -192,13 +192,14 @@ mod tests {
         let mut event = Event::new(
             "ak.message.create",
             ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
+                    .unwrap(),
             },
             actor.clone(),
             0,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             json!({
-                "strand_id": "ak:strand:01904100-0000-8000-8000-000000000001",
+                "strand_id": "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
                 "track_name": "discussion",
                 "content": {"kind": "ak.content.text", "body": "hello"}
             }),

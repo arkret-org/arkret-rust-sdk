@@ -157,7 +157,11 @@ mod tests {
     use super::*;
 
     fn event_id(suffix: &str) -> String {
-        format!("ak:event:01964137-0000-8000-8000-{suffix}")
+        EventId::from_event_digest(
+            &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
+        )
+        .unwrap()
+        .to_string()
     }
 
     #[test]

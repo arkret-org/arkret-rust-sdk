@@ -19,8 +19,8 @@ fn single_did_notary(did: &str) -> arkret_wire::NotaryValue {
 #[test]
 fn strand_constructor_sets_protocol_shape() {
     let mut subject = Strand::new(
-        StrandId::new("ak:strand:01904100-0000-8000-8000-6c663fa0205f").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8361f").unwrap(),
+        StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
+        RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
         "Payment refactor",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -45,8 +45,8 @@ fn strand_constructor_sets_protocol_shape() {
 #[test]
 fn strand_stage_is_optional_on_wire() {
     let strand = Strand::new(
-        StrandId::new("ak:strand:01904100-0000-8000-8000-6c663fa0206f").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-fd3637e8362f").unwrap(),
+        StrandId::new("ak:strand:AcKSRJZPkByig1GflJEt_bZDB7P97ojqBwYH1b1ueEW4").unwrap(),
+        RealmId::new("ak:realm:AZ6K8FZoZ5exQI95ZRAfS7jlgIdfNkV6QLYAofxG2SGm").unwrap(),
         "Payment refactor",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -68,8 +68,8 @@ fn strand_stage_is_optional_on_wire() {
 #[test]
 fn strand_discussion_constructor_sets_room_shape() {
     let strand = Strand::discussion(
-        StrandId::new("ak:strand:01904100-0000-8000-8000-58754cf88c25").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-2007b59d0dc4").unwrap(),
+        StrandId::new("ak:strand:AT_TSQZlyY7Fu85J33nzo3fSau9RjJOeu21RspghP1gC").unwrap(),
+        RealmId::new("ak:realm:Ae45Cr1AeIit-Zrz1lJhczoDtaA38mI5e6z8nYtMnMW7").unwrap(),
         "Launch board discussion",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -94,8 +94,8 @@ fn strand_discussion_constructor_sets_room_shape() {
 #[test]
 fn synthesis_strand_is_not_conversational() {
     let strand = Strand::new(
-        StrandId::new("ak:strand:01904100-0000-8000-8000-58754cf88c25").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-2007b59d0dc4").unwrap(),
+        StrandId::new("ak:strand:AT_TSQZlyY7Fu85J33nzo3fSau9RjJOeu21RspghP1gC").unwrap(),
+        RealmId::new("ak:realm:Ae45Cr1AeIit-Zrz1lJhczoDtaA38mI5e6z8nYtMnMW7").unwrap(),
         "Launch board synthesis",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -132,7 +132,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     use arkret_wire::NotaryValue;
 
     let mut realm = Realm::new(
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000001").unwrap(),
+        RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
         "Seal Test",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -263,7 +263,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
 #[test]
 fn realm_anchor_fields_include_required_notary() {
     let realm = Realm::new(
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000002").unwrap(),
+        RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
         "No Seal Hint",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -293,7 +293,7 @@ fn realm_anchor_fields_include_required_notary() {
 #[test]
 fn realm_notary_profile_must_match_notary_kind() {
     let realm = Realm::new(
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000005").unwrap(),
+        RealmId::new("ak:realm:AdIeygO8cj8jUpcxH6i4a15i1zh2wq8eNKz5RgGEItdA").unwrap(),
         "Mismatched Notary",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -310,7 +310,7 @@ fn realm_notary_profile_must_match_notary_kind() {
 #[test]
 fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
     let realm = Realm::new(
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000004").unwrap(),
+        RealmId::new("ak:realm:ASc_XP_IqOBAY6GgbPMLFCeZmi0uBNaWvHazHgmn-B8K").unwrap(),
         "Digest Defaults",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -445,8 +445,8 @@ fn assert_field_order(object: &str, keys: &[String]) {
 #[test]
 fn morph_schema_refs_are_required_non_empty_and_unique() {
     let morph = Morph::new(
-        MorphId::new("ak:morph:01904100-0000-8000-8000-0000000000b0").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000b1").unwrap(),
+        MorphId::new("ak:morph:AdF-OpLT-7la09L28Pgl41aEHXK3MEZNnwMNhc02Uz19").unwrap(),
+        RealmId::new("ak:realm:AZaaHAEvC1DejakImwHCcJHb0F1pgE-Jd-3_9BGirbuW").unwrap(),
         "ak.demo.morph",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -474,8 +474,8 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
 
     // Strand — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
     let mut strand = Strand::new(
-        StrandId::new("ak:strand:01904100-0000-8000-8000-0000000000f0").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000f1").unwrap(),
+        StrandId::new("ak:strand:AfIJFv2OZq7YFmfcgrysn4iCCeZnltKXmDNUzrSqwI4W").unwrap(),
+        RealmId::new("ak:realm:AUAf2-oZl31wupPqnQLO-zloaqgMoX5xk2tpVSbi8zjD").unwrap(),
         "Order guard strand",
         created_by.clone(),
     );
@@ -489,7 +489,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     );
 
     let mut realm = Realm::new(
-        RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000f2").unwrap(),
+        RealmId::new("ak:realm:ATz4yMg8D3eSMJ7kiPNr0BF70hg3o_DBZklFZd5GZSuJ").unwrap(),
         "Order guard realm",
         created_by.clone(),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -539,8 +539,8 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
 
     // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.
     let mut morph = Morph::new(
-        MorphId::new("ak:morph:01904100-0000-8000-8000-0000000000a0").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-8000-8000-0000000000a1").unwrap(),
+        MorphId::new("ak:morph:AXHnkT-tdDqCMpsoD_x6N087pBWlUx40WhTdBqPJatRN").unwrap(),
+        RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap(),
         "ak.demo.morph",
         created_by,
     )

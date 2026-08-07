@@ -36,7 +36,8 @@ fn morph_transformation_fixture_executes_all_registered_rules() {
         let input = &vector["input"];
         let payload = &input["payload"];
         let migrate = MorphSchemaMigratePayload {
-            morph_id: MorphId::new("ak:morph:0196419b-0000-8000-8000-000000000001").unwrap(),
+            morph_id: MorphId::new("ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
+                .unwrap(),
             from_schema_refs: serde_json::from_value(payload["from_schema_refs"].clone()).unwrap(),
             to_schema_refs: serde_json::from_value(payload["to_schema_refs"].clone()).unwrap(),
             compatibility_class: payload["compatibility_class"].as_str().unwrap().to_owned(),

@@ -16,7 +16,7 @@ let actor_id = Did::new("did:webvh:z6mkexample:alice.example")?;
 let device_id =
     DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")?;
 let realm_id =
-    RealmId::new("ak:realm:01904100-0000-8000-8000-668e2181b41d")?;
+    RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?;
 
 assert_eq!(actor_id.as_str(), "did:webvh:z6mkexample:alice.example");
 assert!(device_id.as_str().starts_with("ak:device:"));

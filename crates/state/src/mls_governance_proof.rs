@@ -447,15 +447,14 @@ where
     VerifyNotary: Fn(&Seal, &Value) -> std::result::Result<(), E>,
 {
     // A Principal Control Realm's id derives from the principal DID, not from a
-    // create Event (realm-and-space.md 2.5.0 exception), so its uuid is a v7 and
-    // retyping it would fabricate an `ak:event:` id that names nothing. Retype is
-    // only sound between kinds fixed to the same id_form. T2 covers those Realms.
-    if realm_id.uuid().get_version_num() != 8 {
+    // create Event. Only the collaboration branch carries the Event token.
+    let Some(token) = realm_id.event_token_bytes() else {
         return Err(anchor_rejected(
             "realm_id is not event-derived; a Principal Control Realm anchors on its              did_inception root (encryption-and-audit.md 2.5.4 T2), not on a create Event",
         ));
-    }
-    let expected_create_id = EventId::from_uuid(realm_id.uuid());
+    };
+    let expected_create_id = EventId::from_token_bytes(token)
+        .map_err(|_| anchor_rejected("realm_id carries an unsupported Event digest suite code"))?;
     if create_event.event_id != expected_create_id {
         return Err(anchor_rejected(
             "candidate create Event is not the one realm_id retypes to",
@@ -844,11 +843,11 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a").unwrap()
+        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN").unwrap()
     }
 
     fn event_id() -> EventId {
-        EventId::new("ak:event:0196419b-0000-8000-8000-000000000002").unwrap()
+        EventId::new("ak:event:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap()
     }
 
     fn hash(byte: u8) -> Hash {
@@ -1047,7 +1046,7 @@ mod tests {
     fn a_create_event_for_another_realm_is_rejected() {
         let (realm_id, create) = self_certifying_create();
         let candidate = genesis_seal_for(&realm_id, &create);
-        let other = RealmId::new("ak:realm:0196419b-0000-8000-8000-0000000009ff").unwrap();
+        let other = RealmId::new("ak:realm:AQXp4pHYSzCuf4Qdvv-SQoRbsWgrAoCKUajKY99W5pUs").unwrap();
         admit(&other, &create, &candidate)
             .expect_err("the create Event must be the one the caller's realm_id retypes to");
     }
@@ -1455,7 +1454,8 @@ mod tests {
     fn bundle_scope_tampering_is_rejected() {
         let mut fixture = fixture();
         fixture.bundle.effective_scope = ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014b").unwrap(),
+            realm_id: RealmId::new("ak:realm:AWMIkS0YG4Aa_FPagJUV3kxCx0Mm-tYOZIKCbrgr6Sld")
+                .unwrap(),
         };
         let error = verify(&fixture).unwrap_err();
         assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
@@ -1498,8 +1498,10 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.frontier_events[0].scope_ref = ScopeRef::Circle {
             realm_id: realm(),
-            circle_id: arkret_wire::CircleId::new("ak:circle:0196419b-0000-8000-8000-0000000000c1")
-                .unwrap(),
+            circle_id: arkret_wire::CircleId::new(
+                "ak:circle:ATOTi3sw4NO_6LjlHGedSYTeT3Leu2J3Tb49M1gn9cFN",
+            )
+            .unwrap(),
         };
         let error = verify(&fixture).unwrap_err();
         assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));

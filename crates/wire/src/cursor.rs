@@ -539,9 +539,11 @@ mod tests {
     fn sync_positions_are_server_side_for_core_cursor() {
         let positions = SyncPositions {
             realms: BTreeMap::from([(
-                "ak:realm:0196419b-0000-8000-8000-000000000000".to_owned(),
+                "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
                 RealmSyncPosition {
-                    frontier: vec!["ak:event:0196419b-0000-8000-8000-000000000001".to_owned()],
+                    frontier: vec![
+                        "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
+                    ],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_digest:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

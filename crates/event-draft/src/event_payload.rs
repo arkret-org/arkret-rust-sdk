@@ -76,13 +76,19 @@ event_payload_accessors! {
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_wire::{Did, EventId, EventRequirements, Hlc, RealmId, ScopeRef};
+    use arkret_wire::{
+        Did, EventId, EventRequirements, Hlc, MessageId, RealmId, ScopeRef, StrandId,
+    };
     use serde_json::json;
 
     use super::*;
 
+    fn event_id(seed: u8) -> EventId {
+        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [seed; 32])
+    }
+
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
+        RealmId::from_event_id(&event_id(0x65))
     }
 
     fn scope() -> ScopeRef {
@@ -94,8 +100,9 @@ mod tests {
     }
 
     fn base_event() -> Event {
+        let strand_id = StrandId::from_event_id(&event_id(0x6c));
         Event {
-            event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
+            event_id: event_id(0xa0),
             kind: EventKind::MESSAGE_CREATE.into(),
             realm_id: realm(),
             scope_ref: scope(),
@@ -112,7 +119,7 @@ mod tests {
             requirements: EventRequirements::default(),
             redacts: None,
             payload: serde_json::from_value(json!({
-                "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+                "strand_id": strand_id,
                 "track_name": "discussion",
                 "content": {"kind": "ak.content.text", "body": "hello"}
             }))
@@ -133,10 +140,7 @@ mod tests {
         let event = base_event();
         let payload = event.as_message_create().unwrap();
 
-        assert_eq!(
-            payload.strand_id.as_str(),
-            "ak:strand:01904100-0000-8000-8000-6c663fa0205f"
-        );
+        assert_eq!(payload.strand_id, StrandId::from_event_id(&event_id(0x6c)));
         assert_eq!(payload.track_name, "discussion");
         assert_eq!(
             payload
@@ -152,8 +156,9 @@ mod tests {
     fn message_event_payload_classifies_message_and_reaction_kinds() {
         let mut revise = base_event();
         revise.kind = EventKind::MESSAGE_REVISE.into();
+        let message_id = MessageId::from_event_id(&event_id(1));
         revise.payload = serde_json::from_value(json!({
-            "message_id": "ak:message:01904100-0000-8000-8000-000000000001",
+            "message_id": message_id,
             "content": {"kind": "ak.content.text", "body": "hello revised"},
             "reason": "typo"
         }))
@@ -165,8 +170,9 @@ mod tests {
 
         let mut reaction = base_event();
         reaction.kind = EventKind::REACTION_ADD.into();
+        let target_ref = event_id(0x99);
         reaction.payload = serde_json::from_value(json!({
-            "target_ref": "ak:event:01904100-0000-8000-8000-000000000099",
+            "target_ref": target_ref,
             "key": "+1"
         }))
         .unwrap();
@@ -180,8 +186,11 @@ mod tests {
     #[test]
     fn payload_accessor_parses_encrypted_message_payload() {
         let mut event = base_event();
+        let strand_id = StrandId::from_event_id(&event_id(0x6c));
+        let realm_id = realm();
+        let group_state_ref = event_id(4);
         event.payload = serde_json::from_value(json!({
-            "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+            "strand_id": strand_id,
             "track_name": "discussion",
             "encrypted_content": {
                 "scheme": "mls_rfc9420",
@@ -192,12 +201,12 @@ mod tests {
                 "ciphertext": "b3BhcXVl",
                 "aad_visibility_event_id": "hidden",
                 "aad": {
-                    "realm_id": "ak:realm:01904100-0000-8000-8000-6c663fa0205f",
+                    "realm_id": realm_id,
                     "event_kind": "ak.message.create"
                 },
                 "key_ref": {
                     "algorithm": "MLS",
-                    "group_state_ref": "ak:event:01904100-0000-8000-8000-000000000004"
+                    "group_state_ref": group_state_ref
                 },
                 "payload_digest": format!("sha256:{}", "a".repeat(64)),
                 "aad_digest": format!("sha256:{}", "b".repeat(64))
@@ -228,8 +237,9 @@ mod tests {
     #[test]
     fn payload_accessor_rejects_missing_required_field() {
         let mut event = base_event();
+        let strand_id = StrandId::from_event_id(&event_id(0x6c));
         event.payload = serde_json::from_value(json!({
-            "strand_id": "ak:strand:01904100-0000-8000-8000-6c663fa0205f",
+            "strand_id": strand_id,
             "content": {"kind": "ak.content.text", "body": "hello"}
         }))
         .unwrap();

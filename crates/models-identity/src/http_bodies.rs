@@ -153,7 +153,7 @@ mod tests {
             "hpke_key": "z6LExampleHpkeKey",
             "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1"],
             "actor_seq": 1,
-            "bootstrap_create_event_id": "ak:event:01964137-0000-8000-8000-000000000002"
+            "bootstrap_create_event_id": "ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N"
         })
     }
 

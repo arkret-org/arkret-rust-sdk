@@ -104,7 +104,8 @@ mod tests {
         assert_eq!(registered, expected_families);
 
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
         for family in actual.keys() {
             let cell = CellRef::new(format!("ak:cell:{family}:coverage")).unwrap();
             registry
@@ -384,7 +385,7 @@ mod tests {
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
         let subject = kind
             .subject_for_effect(&json!({
-                "target_realm_id": "ak:realm:01904100-0000-8000-8000-000000000022",
+                "target_realm_id": "ak:realm:Ab0jbIKlPZ-M3WbarZlCPLYtkCWggYwWZeRDlW-ShdQ9",
                 "link_kind": "governed_by",
             }))
             .unwrap()
@@ -392,7 +393,7 @@ mod tests {
         assert_eq!(
             subject,
             composite_subject(&[
-                "ak:realm:01904100-0000-8000-8000-000000000022",
+                "ak:realm:Ab0jbIKlPZ-M3WbarZlCPLYtkCWggYwWZeRDlW-ShdQ9",
                 "governed_by",
             ])
             .unwrap()
@@ -401,7 +402,8 @@ mod tests {
 
         let sdk_registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
         let cell = CellRef::new(format!("ak:cell:ak.component.realm.link.v1:{subject}")).unwrap();
         let binding = sdk_registry.resolve(&realm_id, &cell).unwrap();
         assert_eq!(binding.lattice.kind(), SdkLatticeKind::Fsm);
@@ -411,7 +413,8 @@ mod tests {
     #[test]
     fn realm_member_fsm_uses_leave_as_the_normative_initial_state() {
         let registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934").unwrap();
         let cell =
             CellRef::new("ak:cell:ak.component.member.state.v1:did:web:bob.example".to_owned())
                 .unwrap();
@@ -444,17 +447,18 @@ mod tests {
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(
             kind.subject_for_effect(&json!({
-                "invite": {"id": "ak:invite:01904100-0000-8000-8000-000000000012"}
+                "invite": {"id": "ak:invite:AUg3kgXpMvW4kMuGtTepFkRVooX03jTSKInIfDj4dDvu"}
             }))
             .unwrap()
             .as_deref(),
-            Some("ak:invite:01904100-0000-8000-8000-000000000012")
+            Some("ak:invite:AUg3kgXpMvW4kMuGtTepFkRVooX03jTSKInIfDj4dDvu")
         );
 
         let sdk_registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934").unwrap();
         let cell = CellRef::new(
-            "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:01904100-0000-8000-8000-000000000012"
+            "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:AUg3kgXpMvW4kMuGtTepFkRVooX03jTSKInIfDj4dDvu"
                 .to_owned(),
         )
         .unwrap();
@@ -493,7 +497,8 @@ mod tests {
     fn fsm_initial_states_are_explicit_null_transitions() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
         for (family, initial) in [
             (arkret_wire::CellFamilyId::AUDIT_BINDING_V1, "active"),
             (arkret_wire::CellFamilyId::AUDIT_SESSION_V1, "request"),
@@ -520,7 +525,8 @@ mod tests {
     fn agent_status_starts_uninitialized_and_accepts_provision_then_pause() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
         let cell = CellRef::new("ak:cell:ak.component.agent.status.v1:agent".to_owned()).unwrap();
         let binding = registry.resolve(&realm_id, &cell).unwrap();
         // Spec zh/models/realm-and-space.md section 2.5 step 7: the reducer
@@ -559,7 +565,8 @@ mod tests {
     fn membership_delivery_rebind_is_realm_only() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
         let circle_cell =
             CellRef::new("ak:cell:ak.component.circle.member.v1:membership".to_owned()).unwrap();
         let op = LatticeOp {
@@ -584,7 +591,8 @@ mod tests {
     fn last_resort_keypackage_preservation_does_not_invent_a_self_transition() {
         let registry = build_sdk_cell_registry();
         let realm_id =
-            RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011".to_owned()).unwrap();
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
         let cell =
             CellRef::new("ak:cell:ak.component.mls.keypackage.v1:last-resort".to_owned()).unwrap();
         let binding = registry.resolve(&realm_id, &cell).unwrap();
@@ -627,7 +635,8 @@ mod tests {
         );
 
         let sdk_registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000011").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934").unwrap();
         for family in [
             arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1,
             arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1,
@@ -669,7 +678,7 @@ mod tests {
     #[test]
     fn orthogonal_call_cells_have_canonical_lattices_subjects_and_bottom_modes() {
         let registry = default_lattice_registry();
-        let call_id = "ak:call:01904100-0000-8000-8000-000000000011";
+        let call_id = "ak:call:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934";
         let recording_id = "ak:recording:01904100-0000-7000-8000-000000000022";
         let expected_capture_subject = composite_subject(&[call_id, recording_id]).unwrap();
 
@@ -775,7 +784,8 @@ mod tests {
         );
 
         let sdk_registry = build_sdk_cell_registry();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-8000-8000-000000000033").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:ARO6sshXyY_8aIrsd0F5-zoAcfxTRnG5n7zA6tFwGX2l").unwrap();
         for family in [
             arkret_wire::CellFamilyId::CALL_MODERATION_V1,
             arkret_wire::CellFamilyId::CALL_ROSTER_V1,

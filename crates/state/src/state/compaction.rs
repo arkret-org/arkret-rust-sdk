@@ -168,8 +168,10 @@ mod tests {
         };
         Seal {
             id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32))).unwrap(),
-            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned())
-                .unwrap(),
+            realm_id: RealmId::new(
+                "ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned(),
+            )
+            .unwrap(),
             predecessor_refs: vec![],
             delta: vec![Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()],
             control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),

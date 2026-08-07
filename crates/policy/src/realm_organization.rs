@@ -244,7 +244,7 @@ mod realm_organization_verifier_tests {
     use super::*;
 
     fn realm_id() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000010").unwrap()
+        RealmId::new("ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo").unwrap()
     }
 
     fn org_did() -> Did {
@@ -336,7 +336,7 @@ mod realm_organization_verifier_tests {
 
     #[test]
     fn realm_id_mismatch_fails() {
-        let other = RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000099").unwrap();
+        let other = RealmId::new("ak:realm:AVtcXI0sfnw9Pex-qynbBUykPtV8niszMj0Ko75SINJ2").unwrap();
         assert!(
             verify_realm_organization_statement(
                 &active_payload(),
@@ -363,7 +363,7 @@ mod realm_organization_verifier_tests {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::AccountAuthority;
         p.authorization.delegation_ref =
-            Some("ak:grant:01904100-0000-8000-8000-000000000001".to_owned());
+            Some("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned());
         assert!(
             verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver)
                 .is_err()
@@ -375,7 +375,7 @@ mod realm_organization_verifier_tests {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::GovernanceService;
         p.authorization.delegation_ref =
-            Some("ak:grant:01904100-0000-8000-8000-000000000001".to_owned());
+            Some("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned());
         verify_realm_organization_statement(
             &p,
             &realm_id(),
@@ -390,7 +390,7 @@ mod realm_organization_verifier_tests {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::GovernanceService;
         p.authorization.delegation_ref =
-            Some("ak:grant:01904100-0000-8000-8000-000000000001".to_owned());
+            Some("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned());
 
         let error = verify_realm_organization_statement(&p, &realm_id(), now(), &FailingResolver)
             .unwrap_err();
@@ -406,7 +406,7 @@ mod realm_organization_verifier_tests {
     fn non_delegated_role_with_delegation_ref_fails() {
         let mut p = active_payload();
         p.authorization.delegation_ref =
-            Some("ak:grant:01904100-0000-8000-8000-000000000001".to_owned());
+            Some("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned());
         assert!(
             verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver)
                 .is_err()
@@ -418,7 +418,7 @@ mod realm_organization_verifier_tests {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::GovernanceService;
         p.authorization.delegation_ref =
-            Some("ak:grant:01904100-0000-8000-8000-000000000001".to_owned());
+            Some("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned());
         let mut delegation = live_delegation();
         delegation.covered_control_scopes = vec![RealmOrganizationControlScope::OfficialBadge];
         assert!(

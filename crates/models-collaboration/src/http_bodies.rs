@@ -1654,11 +1654,14 @@ mod federation_dependency_tests {
     use super::*;
 
     fn event_id(suffix: &str) -> EventId {
-        EventId::new(format!("ak:event:01964137-0000-8000-8000-{suffix:0>12}")).unwrap()
+        EventId::from_event_digest(
+            &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
+        )
+        .unwrap()
     }
 
     fn realm_id() -> RealmId {
-        RealmId::new("ak:realm:01964137-0000-8000-8000-000000000001".to_owned()).unwrap()
+        RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5".to_owned()).unwrap()
     }
 
     #[test]

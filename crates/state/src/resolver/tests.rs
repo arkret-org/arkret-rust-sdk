@@ -19,18 +19,30 @@ fn actor_id() -> Did {
     Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap()
 }
 
+fn test_event_id(seq: u64) -> EventId {
+    EventId::from_event_digest(&arkret_wire::Hash::new(sha256_digest(seq.to_be_bytes())).unwrap())
+        .unwrap()
+}
+
 /// The object id a create Event derives, for the fixed `event()` id shape.
 ///
 /// Create payloads carry no id (spec `zh/models/common-fields.md` section 6.0):
 /// the reducer retypes the create Event's own `event_id`, so a test that wants
 /// to name the object afterwards has to derive it the same way.
 fn derived_object_id(prefix: &str, seq: u64) -> String {
-    format!("{prefix}01904100-0000-8000-8000-{seq:012x}")
+    let event_id = test_event_id(seq);
+    format!(
+        "{prefix}{}",
+        event_id
+            .as_str()
+            .strip_prefix(EventId::KIND_PREFIX)
+            .expect("test EventId uses the Event prefix")
+    )
 }
 
 fn event(kind: &str, seq: u64, content: Value) -> Event {
     Event {
-        event_id: EventId::new(format!("ak:event:01904100-0000-8000-8000-{seq:012x}")).unwrap(),
+        event_id: test_event_id(seq),
         kind: kind.into(),
         realm_id: realm_id(),
         scope_ref: scope_ref(),
@@ -118,7 +130,7 @@ fn realm_upgrade_rejects_an_unregistered_edge_without_mutating_profile() {
 fn space_events_create_update_parent_and_tombstone() {
     let space_id_owned = derived_object_id("ak:space:", 1);
     let space_id = space_id_owned.as_str();
-    let parent_space_id = "ak:space:01904100-0000-8000-8000-1fb50799ad40";
+    let parent_space_id = "ak:space:AZ7DNT9vCENKLtcPIF0C8XeSO8NfAhWfKokXMXi127n4";
     let create = event(
         EventKind::SPACE_CREATE,
         1,
@@ -639,7 +651,7 @@ fn morph_update_rejected_when_archived() {
 
 #[test]
 fn strand_events_create_update_and_default_view_relation() {
-    let view_ref = "ak:view:01904100-0000-8000-8000-08ca7b733afd";
+    let view_ref = "ak:view:AZFOTfHDWaNQpQFbd0YLjIJoV68u4p8EclMLP4vbnVS4";
 
     let create = Event::new(
         EventKind::STRAND_CREATE,
@@ -745,7 +757,7 @@ fn realm_state_sorts_events_by_hlc() {
 
     assert_eq!(
         state.frontier.first().unwrap().as_str(),
-        "ak:event:01904100-0000-8000-8000-000000000001"
+        test_event_id(2).as_str()
     );
 }
 
@@ -762,7 +774,7 @@ fn member_state_conflict_prefers_ban_semantics() {
         json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "ban" }),
     );
     ban.hlc = leave.hlc.clone();
-    ban.event_id = EventId::new("ak:event:01904100-0000-8000-8000-c9d398595fe8").unwrap();
+    ban.event_id = EventId::new("ak:event:AQYnSzOsjpbQwvhkPUY84qJbId-khcnM8adAPbU2oIa4").unwrap();
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[leave, ban]).unwrap();
@@ -810,7 +822,7 @@ fn message_revision_redaction_and_reaction_converge() {
         "ak.message.create",
         1,
         json!({
-            "strand_id": "ak:strand:01904100-0000-8000-8000-1fb50799ad50",
+            "strand_id": "ak:strand:ARkwFWDTPrObvpqVAL9kBsWkK8GrMr5FDO--3PcMFEwU",
             "track_name": "discussion",
             "content": { "kind": "ak.content.text", "body": "hello" }
         }),
@@ -970,19 +982,13 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
         "ak.redaction",
         seq,
         json!({
-            "target_event_id": format!("ak:event:01904100-0000-8000-8000-{:012x}", 0xdeadbeef + seq),
+            "target_event_id": test_event_id(0xdeadbeef + seq),
             "object_ref": object_ref,
         }),
     );
     // `ak.redaction` dispatch path uses `event.redacts`; populate it so
     // the dispatcher invokes redact_event AND redact_object_for_event.
-    ev.redacts = Some(
-        EventId::new(format!(
-            "ak:event:01904100-0000-8000-8000-{:012x}",
-            0xdeadbeef + seq
-        ))
-        .unwrap(),
-    );
+    ev.redacts = Some(test_event_id(0xdeadbeef + seq));
     ev
 }
 

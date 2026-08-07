@@ -1006,13 +1006,14 @@ mod tests {
         Event::new(
             "ak.message.create",
             arkret_wire::ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
+                    .unwrap(),
             },
             arkret_wire::Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
             0,
             arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             serde_json::json!({
-                "strand_id": "ak:strand:01904100-0000-8000-8000-000000000001",
+                "strand_id": "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
                 "track_name": "discussion",
                 "content": {"kind": "ak.content.text", "body": "hello"}
             }),
@@ -1027,7 +1028,7 @@ mod tests {
     #[test]
     fn events_subscribe_request_serializes_stream_options() {
         let options = EventsSubscribeOptions::new()
-            .realm("ak:realm:01904100-0000-8000-8000-000000000001")
+            .realm("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
             .actor("did:webvh:z6mkfixture:alice.example")
             .after("ak:cursor:stored")
             .catchup(true)
@@ -1042,7 +1043,7 @@ mod tests {
         let query = built.url().query().unwrap().to_owned();
 
         assert!(
-            query.contains("realms=ak%3Arealm%3A01904100-0000-8000-8000-000000000001"),
+            query.contains("realms=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"),
             "query: {query}"
         );
         assert!(
@@ -1126,7 +1127,7 @@ mod tests {
             .await
             .events_subscribe_frames(
                 &EventsSubscribeOptions::new()
-                    .realm("ak:realm:01904100-0000-8000-8000-000000000001")
+                    .realm("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .catchup(true),
             )
             .await

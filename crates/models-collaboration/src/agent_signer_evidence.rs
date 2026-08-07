@@ -34,17 +34,21 @@ pub struct AgentControllerProof {
     pub jws: NonEmptyString,
 }
 
+/// Digest-covered public core of an Agent signing-key binding.
+///
+/// The authorizing Event commits only this value. The Event identity and the
+/// controller proof are appended after the Event has been finalized, so they
+/// cannot create an Event-digest fixed-point.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AgentSigningKeyBinding {
+pub struct AgentSigningKeyBindingCore {
     pub schema: NonEmptyString,
     pub agent_id: Did,
     pub agent_key_id: NonEmptyString,
     pub verification_method: DidUrl,
     pub public_key: AgentSigningPublicKey,
     pub public_key_digest: Hash,
-    pub agent_key_authorize_event_id: EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(
@@ -54,7 +58,24 @@ pub struct AgentSigningKeyBinding {
     )]
     pub expires_at: Option<DateTime<Utc>>,
     pub controller_id: Did,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSigningKeyBinding {
+    #[serde(flatten)]
+    pub core: AgentSigningKeyBindingCore,
+    pub agent_key_authorize_event_id: EventId,
     pub controller_proof: AgentControllerProof,
+}
+
+impl core::ops::Deref for AgentSigningKeyBinding {
+    type Target = AgentSigningKeyBindingCore;
+
+    fn deref(&self) -> &Self::Target {
+        &self.core
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

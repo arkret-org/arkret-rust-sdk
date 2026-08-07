@@ -1351,7 +1351,7 @@ mod tests {
     fn fact_chain_echo_validates_server_proof_binding() {
         let mut echo = FactChainEcho {
             echo_id: "echo1".to_owned(),
-            subject_ref: "ak:event:01904100-0000-8000-8000-834e21b98552".to_owned(),
+            subject_ref: "ak:event:AUqXOT9Lj7xeL7HUnhfi7zyJzW1Z59QIVz7exmpHN2N6".to_owned(),
             server_did: Did::new("did:webvh:z6mkfixture:server.example").unwrap(),
             operation_hash: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             commit_digest: Some(Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap()),

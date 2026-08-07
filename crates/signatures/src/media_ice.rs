@@ -213,7 +213,7 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap()
+        RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap()
     }
 
     const MEDIA_KID: &str = "did:webvh:z6mkfixture:media.example#notary-key";
@@ -251,7 +251,7 @@ mod tests {
     fn ice_outcome(kid: &str) -> MediaIceConfigOutcome {
         MediaIceConfigOutcome {
             realm_id: realm(),
-            call_id: "ak:call:0196441c-0000-8000-8000-000000000000".to_owned(),
+            call_id: "ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1".to_owned(),
             actor_id: did("alice"),
             device_id: arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
                 .unwrap(),

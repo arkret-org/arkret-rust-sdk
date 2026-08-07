@@ -19,7 +19,7 @@ fn did(name: &str) -> Did {
 }
 
 fn realm() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap()
 }
 
 fn sample_epoch() -> Hash {
@@ -270,7 +270,7 @@ fn install_commit_uses_only_caller_signed_formal_events() {
         did("admin"),
         2,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
-        json!({"grant_id": "ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa"}),
+        json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
     )
     .unwrap();
     let request = AppletInstallRequestBody {

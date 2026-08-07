@@ -365,7 +365,8 @@ mod realm_key_request_tests {
     fn request_scope() -> RealmKeyRequestScope {
         RealmKeyRequestScope {
             effective_scope: ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
+                realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
+                    .unwrap(),
             },
             policy_digest: None,
             membership_frontier_digest: None,
@@ -429,12 +430,12 @@ mod realm_key_share_tests {
             "share_kind": share_kind,
             "recipient_principal_id": "did:webvh:z6mkfixture:bob.example",
             "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
-            "source_authorization_ref": "ak:event:019f9000-0000-8000-8000-000000000005",
+            "source_authorization_ref": "ak:event:Adl8EVE0XuYmtOeRAa0WJVGy5DWansCGrXuwPONweuzs",
             "sender_device_signature": {"kid": "k", "signature_algorithm": "Ed25519", "sig": "AAAA"},
             "key_scope": {
                 "effective_scope": {
                     "kind": "realm",
-                    "realm_id": "ak:realm:019f9000-0000-8000-8000-000000000002"
+                    "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"
                 },
                 "policy_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             },

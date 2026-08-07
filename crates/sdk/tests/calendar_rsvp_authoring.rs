@@ -30,7 +30,10 @@ fn calendar() -> CalendarEventFields {
 
 fn authoring(basis: Vec<Hash>) -> RsvpAuthoring {
     RsvpAuthoring {
-        event_ref: StrandId::new("ak:strand:0196419b-0000-8000-8000-000000000201").unwrap(),
+        event_ref: StrandId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x20; 32],
+        )),
         occurrence: None,
         schedule_basis_refs: basis,
         response: RsvpResponseBranch::Plaintext(RsvpResponse {
@@ -55,9 +58,11 @@ fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret
         authoring(basis),
         &calendar(),
         &projection,
-        EventId::new("ak:event:0196419b-0000-8000-8000-000000000301").unwrap(),
         arkret::ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101").unwrap(),
+            realm_id: RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x10; 32],
+            )),
         },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
@@ -70,6 +75,7 @@ fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret
 fn authored_rsvp_projects_onto_the_registered_cell() {
     let basis = Hash::new(BASIS_A).unwrap();
     let event = build(vec![basis.clone()], vec![basis]).unwrap();
+    event.verify_event_id_matches_content().unwrap();
 
     // The Event states no writes; they are derived from kind + payload through
     // the registry, so this asserts the projection a receiver computes rather

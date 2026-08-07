@@ -11,7 +11,9 @@ use arkret_models_collaboration::agent_operations::{
     agent_runtime_key_binding_digest as model_agent_runtime_key_binding_digest,
 };
 use arkret_models_collaboration::agent_signer_evidence::AgentSigningKeyBinding;
-use arkret_models_collaboration::events_payloads::agent::AgentKeyAuthorizePayloadRuntimeAttestation;
+use arkret_models_collaboration::events_payloads::agent::{
+    AgentKeyAuthorizePayload, AgentKeyAuthorizePayloadRuntimeAttestation,
+};
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_wire::{
     Base64UrlString, DeviceId, Did, DidUrl, Event, EventInitialSubmission, EventKind, Hash,
@@ -155,6 +157,23 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             ));
         }
         validate_pairing_authorize_event(&authorize_event.event, &self.bootstrap.agent_id)?;
+        let authorize_event_id = authorize_event.event.event_id.clone();
+        if signing_key_binding.agent_key_authorize_event_id != authorize_event_id {
+            return Err(Error::Protocol(
+                "agent signing-key binding must reference the exact authorize Event identity"
+                    .to_owned(),
+            ));
+        }
+        let authorize_payload = AgentKeyAuthorizePayload::try_from(&authorize_event.event)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let binding_core_digest =
+            crate::agent_evidence::agent_signing_key_binding_digest(&signing_key_binding)
+                .map_err(|reason| Error::Protocol(reason.as_str().to_owned()))?;
+        if authorize_payload.signing_key_binding_digest != binding_core_digest {
+            return Err(Error::Protocol(
+                "authorize Event signing_key_binding_digest must match the binding core".to_owned(),
+            ));
+        }
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
             body: AgentKeyPairRequestBody {
@@ -680,7 +699,10 @@ mod tests {
         let authorize_event = Event::new(
             EventKind::AGENT_KEY_AUTHORIZE,
             arkret_wire::ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap(),
+                realm_id: RealmId::from_event_id(&EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [0x41; 32],
+                )),
             },
             agent_id.clone(),
             1,
@@ -688,6 +710,7 @@ mod tests {
             json!({}),
         )
         .unwrap();
+        let authorize_event_id = authorize_event.event_id.clone();
         let bootstrap = AgentPairingBootstrap {
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id,
@@ -712,7 +735,7 @@ mod tests {
                     NonEmptyString::new(verification_method.to_string()).unwrap(),
                     verification_method.clone(),
                     signing_key.verifying_key().to_bytes(),
-                    EventId::new("ak:event:01970000-0000-8000-8000-000000000099").unwrap(),
+                    authorize_event_id,
                     issued_at,
                     None,
                     controller_id.clone(),

@@ -362,7 +362,7 @@ mod tests {
 
     use super::*;
 
-    const REALM: &str = "ak:realm:01964120-0000-8000-8000-000000000000";
+    const REALM: &str = "ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR";
     const ACTOR: &str = "did:web:founder.example";
     const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 
@@ -469,7 +469,7 @@ mod tests {
         // out-of-order unit rather than being recognised as an authority root.
         let legacy = event(
             EventKind::CAPABILITY_GRANT,
-            json!({"grant_id": "ak:grant:01964120-0000-8000-8000-000000000001"}),
+            json!({"grant_id": "ak:grant:Afem1axK6Ho0B34c6nJmfQQSdTdBuUP71SImgXFgosPC"}),
         );
         assert_eq!(
             validate_realm_bootstrap_unit(&[create(), legacy]),

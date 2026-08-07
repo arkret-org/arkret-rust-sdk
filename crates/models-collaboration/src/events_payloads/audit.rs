@@ -110,7 +110,8 @@ impl AuditBindingStatus {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_applet_binding_create_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
+/// audit_applet_binding_create_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditAppletBindingCreatePayload {
@@ -323,12 +324,12 @@ mod tests {
     #[test]
     fn audit_session_authorize_fields_are_preserved() {
         let value = serde_json::json!({
-            "session_id": "ak:audit_session:018f0f51-7b44-8a2e-8c2f-9b1d6e3a4c5d",
-            "binding_id": "ak:audit_binding:018f0f51-7b44-8a2e-8c2f-9b1d6e3a4c5e",
-            "realm_id": "ak:realm:018f0f51-8b44-8a2e-8c2f-9b1d6e3a4c5f",
+            "session_id": "ak:audit_session:AfJaI7rJa8SJLrm9TWhgM_CvGCjR771X43I1tyFxcETk",
+            "binding_id": "ak:audit_binding:ASOyrOY2dZ3005mHWyCAFuDmQ-2p9Rp8X7dYxWTmMRAg",
+            "realm_id": "ak:realm:Af5xbAMRUJoaDWcTzj2s9sJIxCGFCD2cO1gheRFGhJSi",
             "effective_scope": {
                 "kind": "realm",
-                "realm_id": "ak:realm:018f0f51-8b44-8a2e-8c2f-9b1d6e3a4c5f"
+                "realm_id": "ak:realm:Af5xbAMRUJoaDWcTzj2s9sJIxCGFCD2cO1gheRFGhJSi"
             },
             "session_state": "authorize",
             "approved_recipient_audit_actor_id": "did:webvh:z6mkfixture:auditor.example",

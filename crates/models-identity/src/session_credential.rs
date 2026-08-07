@@ -189,7 +189,9 @@ impl SessionGrantGenesisPayload {
     pub fn validate(&self) -> Result<()> {
         SignedSessionGrantClaims {
             kind: EventKind::SESSION_GRANT.to_owned(),
-            grant_id: SessionGrantId::new("ak:session_grant:00000000-0000-8000-8000-000000000000")?,
+            grant_id: SessionGrantId::new(
+                "ak:session_grant:ASyOHakrqmsRPkLKvhTD20V-YWCl-X7zYrlca5tdQLaR",
+            )?,
             issuer: self.issuer.clone(),
             subject: self.subject.clone(),
             session_public_key: self.session_public_key.clone(),
@@ -341,8 +343,10 @@ mod tests {
     fn claims() -> SignedSessionGrantClaims {
         SignedSessionGrantClaims {
             kind: EventKind::SESSION_GRANT.to_owned(),
-            grant_id: SessionGrantId::new("ak:session_grant:01964198-0000-8000-8000-000000000000")
-                .unwrap(),
+            grant_id: SessionGrantId::new(
+                "ak:session_grant:AUGAImJ4SNwk8MhBY2VUl3BpTzz9ZXxWvytGG9qTt_KR",
+            )
+            .unwrap(),
             issuer: Did::new("did:web:issuer.example").unwrap(),
             subject: Did::new("did:web:alice.example").unwrap(),
             session_public_key: "{\"kty\":\"OKP\"}".to_owned(),
@@ -368,7 +372,7 @@ mod tests {
         let value = serde_json::to_value(claims()).unwrap();
         assert_eq!(
             value["jti"],
-            "ak:session_grant:01964198-0000-8000-8000-000000000000"
+            "ak:session_grant:AUGAImJ4SNwk8MhBY2VUl3BpTzz9ZXxWvytGG9qTt_KR"
         );
         assert!(value.get("grant_id").is_none());
     }

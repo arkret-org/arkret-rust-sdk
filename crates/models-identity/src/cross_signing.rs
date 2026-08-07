@@ -387,7 +387,7 @@ mod tests {
         // name the enclosing Event. The retired reset_event_id field must now be rejected.
         let mut retired_self_reference = principal_reset();
         retired_self_reference["reset_event_id"] =
-            json!("ak:event:01964137-0000-8000-8000-0000000000aa");
+            json!("ak:event:AUcBRFsmohshSMdKvO69-VO9suBAr6pliIG4CAiIOyAe");
         assert!(
             serde_json::from_value::<CrossSigningResetPayload>(retired_self_reference).is_err()
         );

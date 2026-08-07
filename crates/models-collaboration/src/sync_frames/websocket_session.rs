@@ -900,7 +900,8 @@ mod tests {
             &WebSocketOpenParameters::Events(
                 crate::sync_frames::websocket_binding::WebSocketEventsOpenParameters {
                     realms: Some(vec![
-                        RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000001").unwrap(),
+                        RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
+                            .unwrap(),
                     ]),
                     ..Default::default()
                 },

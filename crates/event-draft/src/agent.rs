@@ -5,7 +5,7 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload, AgentSidecarExposureAck,
 };
-use arkret_wire::{Did, DidUrl, Event, EventId, EventKind, Hlc, ScopeRef};
+use arkret_wire::{Did, DidUrl, Event, EventKind, Hlc, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -18,7 +18,6 @@ use crate::Result;
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_key_authorize_event(
     payload: &AgentKeyAuthorizePayload,
-    event_id: EventId,
     scope_ref: ScopeRef,
     agent_actor_id: Did,
     controller_id: Did,
@@ -34,9 +33,9 @@ pub fn build_agent_key_authorize_event(
         hlc,
         serde_json::to_value(payload)?,
     )?;
-    event.event_id = event_id;
     event.executed_by = Some(controller_id);
     event.authorization_ref = Some(controller_authorization_ref.into());
+    event.refresh_content_bound_identity()?;
     Ok(event)
 }
 
@@ -44,7 +43,6 @@ pub fn build_agent_key_authorize_event(
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_key_revoke_event(
     payload: &AgentKeyRevokePayload,
-    event_id: EventId,
     scope_ref: ScopeRef,
     agent_actor_id: Did,
     controller_id: Did,
@@ -60,9 +58,9 @@ pub fn build_agent_key_revoke_event(
         hlc,
         serde_json::to_value(payload)?,
     )?;
-    event.event_id = event_id;
     event.executed_by = Some(controller_id);
     event.authorization_ref = Some(controller_authorization_ref.into());
+    event.refresh_content_bound_identity()?;
     Ok(event)
 }
 
@@ -90,6 +88,7 @@ fn build_agent_lifecycle_event(input: AgentLifecycleEventInput) -> Result<Event>
     )?;
     event.executed_by = Some(input.controller_id);
     event.authorization_ref = Some(input.controller_authorization_ref.into());
+    event.refresh_content_bound_identity()?;
     Ok(event)
 }
 
@@ -212,7 +211,7 @@ mod tests {
     use arkret_schema::{or_set_dot, project_registered_cell_writes};
     use arkret_wire::cell::composite_subject;
     use arkret_wire::{
-        CellRef, Hash, LatticeOp, LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
+        CellRef, EventId, Hash, LatticeOp, LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -224,7 +223,10 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-8000-8000-000000000001").unwrap()
+        RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x41; 32],
+        ))
     }
 
     fn scope() -> ScopeRef {
@@ -283,7 +285,9 @@ mod tests {
             expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                evidence_ref: Some("ak:event:01970000-0000-8000-8000-000000000021".to_owned()),
+                evidence_ref: Some(
+                    "ak:event:AV97PI2Y6Qum1pZ62jB1P6M_I7KjPy5KVQxs3bDBUkws".to_owned(),
+                ),
                 request_canonical_digest: None,
                 pairing_request_id: None,
                 approved_by: Some(controller_id),
@@ -300,7 +304,6 @@ mod tests {
         let controller_id = did("controller");
         let event = build_agent_key_authorize_event(
             &key_authorize_payload(agent_id.clone(), controller_id.clone()),
-            EventId::new("ak:event:01970000-0000-8000-8000-000000000022".to_owned()).unwrap(),
             scope(),
             agent_id.clone(),
             controller_id.clone(),
@@ -328,7 +331,6 @@ mod tests {
         let controller_id = did("controller");
         let event = build_agent_key_authorize_event(
             &key_authorize_payload(agent_id.clone(), controller_id.clone()),
-            EventId::new("ak:event:01970000-0000-8000-8000-000000000022".to_owned()).unwrap(),
             scope(),
             agent_id.clone(),
             controller_id,
@@ -366,8 +368,6 @@ mod tests {
     fn key_revoke_projects_remove_and_revocation_fact() {
         let agent_id = did("agent");
         let controller_id = did("controller");
-        let revoke_event_id =
-            EventId::new("ak:event:01970000-0000-8000-8000-000000000023".to_owned()).unwrap();
         let event = build_agent_key_revoke_event(
             &AgentKeyRevokePayload {
                 agent_id: agent_id.clone(),
@@ -376,7 +376,6 @@ mod tests {
                 revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
                 reason: Some("controller_deactivated".to_owned()),
             },
-            revoke_event_id,
             scope(),
             agent_id.clone(),
             controller_id,

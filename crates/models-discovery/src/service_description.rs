@@ -398,9 +398,9 @@ impl ServiceDescribe {
             "ak.self.realm.join_application.command.submit",
             "ak.self.realm.join_application.command.review",
             "ak.self.realm.join_application.command.cancel",
-            "ak.self.realm.join_application.read.list",
+            "ak.self.realm.join_application.query.list",
             "ak.self.realm.join_application.resource.get",
-            "ak.self.realm.join_application.audit.read.list",
+            "ak.self.realm.join_application.audit.query.list",
         ];
         const JOIN_FEATURES: &[&str] = &[
             "candidate_join_policy_reviewer",
@@ -662,9 +662,9 @@ mod tests {
                 "ak.self.realm.join_application.command.submit",
                 "ak.self.realm.join_application.command.review",
                 "ak.self.realm.join_application.command.cancel",
-                "ak.self.realm.join_application.read.list",
+                "ak.self.realm.join_application.query.list",
                 "ak.self.realm.join_application.resource.get",
-                "ak.self.realm.join_application.audit.read.list",
+                "ak.self.realm.join_application.audit.query.list",
             ]
             .map(ToOwned::to_owned),
         );

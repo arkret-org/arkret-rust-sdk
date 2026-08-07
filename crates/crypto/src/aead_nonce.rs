@@ -329,7 +329,7 @@ mod tests {
         AeadNonceContext {
             key_ref: json!({
                 "algorithm": "MLS",
-                "group_state_ref": "ak:event:01964148-0000-8000-8000-000000000000"
+                "group_state_ref": "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB"
             }),
             epoch: 42,
             device_id: device_id.to_owned(),
@@ -443,12 +443,15 @@ mod tests {
     #[test]
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
-            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs")
+                .unwrap(),
             event_kind: "ak.message.create".to_owned(),
-            event_id: Some(EventId::new("ak:event:01904100-0000-8000-8000-51495aba0a08").unwrap()),
+            event_id: Some(
+                EventId::new("ak:event:ARVUUS5MsgtJTHxDUnT_24cP4k86XFFUI-95GFfyLv6j").unwrap(),
+            ),
             event_ref_digest: None,
             causal_refs: Some(vec![
-                EventId::new("ak:event:01904100-0000-8000-8000-2b39e7197b88").unwrap(),
+                EventId::new("ak:event:AYoviZ1XjwFy7zH14Su8a_9FmsyO_vGq1qCW6mLmLP10").unwrap(),
             ]),
             causal_ref_digests: None,
         };

@@ -884,8 +884,8 @@ mod tests {
     }
 
     const SUBJECT: &str = "did:web:bob.example";
-    const INVITE: &str = "ak:invite:0196419b-0000-8000-8000-000000000101";
-    const REALM: &str = "ak:realm:0196419b-0000-8000-8000-000000000001";
+    const INVITE: &str = "ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz";
+    const REALM: &str = "ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-";
     const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const SERVICE: &str = "did:web:verify.example";
     const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -955,8 +955,8 @@ mod tests {
                 "{\"audience\":\"arkret.invite.claim\",",
                 "\"binding_proof_digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",
-                "\"invite_id\":\"ak:invite:0196419b-0000-8000-8000-000000000101\",",
-                "\"realm_id\":\"ak:realm:0196419b-0000-8000-8000-000000000001\",",
+                "\"invite_id\":\"ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz\",",
+                "\"realm_id\":\"ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\",",
                 "\"subject_id\":\"did:web:bob.example\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
                 "\"verification_service_id\":\"did:web:verify.example\"}"

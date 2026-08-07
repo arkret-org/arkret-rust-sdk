@@ -190,7 +190,10 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
+        RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x65; 32],
+        ))
     }
 
     fn alice() -> Did {
@@ -207,7 +210,7 @@ mod tests {
 
     fn make_event() -> Event {
         Event {
-            event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
+            event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0xa0; 32]),
             kind: "ak.message.create".into(),
             realm_id: realm(),
             scope_ref: arkret_wire::ScopeRef::Realm { realm_id: realm() },
@@ -294,8 +297,10 @@ mod tests {
         let mut event = make_event();
         let draft_event_id = event.event_id.clone();
         event.actor_seq = 42;
-        event.prev_refs =
-            vec![EventId::new("ak:event:01904100-0000-8000-8000-000000000042").unwrap()];
+        event.prev_refs = vec![EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x42; 32],
+        )];
         event.hlc = Some(Hlc::new("01970e589d21-0042-a13f9c2e").unwrap());
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
@@ -345,8 +350,10 @@ mod tests {
         let mut without = make_event();
         let mut with = make_event();
         with.authorization_ref = Some(
-            arkret_wire::AuthorizationRef::new("ak:grant:01904100-0000-8000-8000-aaaaaaaaaaaa")
-                .unwrap(),
+            arkret_wire::AuthorizationRef::new(
+                "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",
+            )
+            .unwrap(),
         );
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());

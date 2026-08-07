@@ -43,8 +43,8 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
     // No relation id: it is derived from the create Event's event_id.
     let payload = RelationCreatePayload::new(
         "ak.relation.parent_of",
-        "ak:strand:01904100-0000-8000-8000-111111111111",
-        "ak:strand:01904100-0000-8000-8000-222222222222",
+        "ak:strand:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
+        "ak:strand:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
     )
     .with_rank("U");
     catalog
@@ -79,13 +79,13 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // join transition (unroutable): realm_id + actor_id + delivery_status
     // required, but delivery_binding only when routable.
     let join = MembershipPayload::join(
-        RealmId::new("ak:realm:01904100-0000-8000-8000-111111111111").unwrap(),
+        RealmId::new("ak:realm:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
     .with_invite_ref(MembershipInviteRef::Event(
-        EventId::new("ak:event:01904100-0000-8000-8000-222222222222").unwrap(),
+        EventId::new("ak:event:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap(),
     ));
     catalog
         .validate_payload("ak.member.state", &join.to_value().unwrap())
@@ -137,7 +137,8 @@ fn split_invite_payload_strong_types_pass_spec_validator() {
     leaky_create["hlc"] = json!("2026-06-14T10:00:00.000Z/node/1");
     assert!(validate_invite_create_wire_keys(&leaky_create).is_err());
 
-    let invite_id = InviteId::new("ak:invite:01904100-0000-8000-8000-222222222222").unwrap();
+    let invite_id =
+        InviteId::new("ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
     let invitee = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
     let cancel = InviteCancelPayload::new(
         invite_id.clone(),
@@ -194,7 +195,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ak.realm.tombstone: reason + successor_realm_id both required by spec.
     let tombstone = RealmTombstonePayload::new(
-        RealmId::new("ak:realm:01904100-0000-8000-8000-333333333333").unwrap(),
+        RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K").unwrap(),
         "migrated to successor",
     );
     catalog
@@ -210,7 +211,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // Closed payload schemas reject unknown additive keys.
     let mut leaky = archive.to_value().unwrap();
-    leaky["successor_realm_id"] = json!("ak:realm:01904100-0000-8000-8000-444444444444");
+    leaky["successor_realm_id"] = json!("ak:realm:AVhs1OILt1ULQUp4a0L9nz73K8MGcMB1ZFIHsJoNmNYW");
     assert!(
         catalog
             .validate_payload("ak.realm.archive", &leaky)
@@ -226,9 +227,10 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         StrandWatchLevel, StrandWatchSetPayload,
     };
     let catalog = event_payload_validator_catalog().unwrap();
-    let board = || SpaceId::new("ak:space:01904100-0000-8000-8000-111111111111").unwrap();
-    let target = || SpaceId::new("ak:space:01904100-0000-8000-8000-222222222222").unwrap();
-    let strand = || StrandId::new("ak:strand:01904100-0000-8000-8000-6c663fa0205f").unwrap();
+    let board = || SpaceId::new("ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap();
+    let target = || SpaceId::new("ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
+    let strand =
+        || StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap();
     let actor = || Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
 
     // ak.strand.move — board/target Space ids + rank; from_space_id +
@@ -288,16 +290,17 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ak.strand.archive / ak.strand.restore — object_lifecycle_payload, single
     // truth source `target_ref`.
-    let archive = ObjectLifecyclePayload::new("ak:strand:01904100-0000-8000-8000-6c663fa0205f")
-        .with_target_state("archived")
-        .with_reason("season closed");
+    let archive =
+        ObjectLifecyclePayload::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9")
+            .with_target_state("archived")
+            .with_reason("season closed");
     catalog
         .validate_payload("ak.strand.archive", &archive.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
             "ak.strand.restore",
-            &ObjectLifecyclePayload::new("ak:strand:01904100-0000-8000-8000-6c663fa0205f")
+            &ObjectLifecyclePayload::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9")
                 .to_value()
                 .unwrap(),
         )
@@ -305,7 +308,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // Closed payload schemas reject unknown additive keys.
     let mut leaky = mv.to_value().unwrap();
-    leaky["list_space_id"] = json!("ak:space:01904100-0000-8000-8000-222222222222");
+    leaky["list_space_id"] = json!("ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G");
     assert!(catalog.validate_payload("ak.strand.move", &leaky).is_err());
 }
 
@@ -446,11 +449,13 @@ fn object_patch_payload_matches_registered_event_payload_schema() {
 
     let mut patch = Patch::new();
     patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
-    let payload =
-        ObjectPatchPayload::for_target("ak:morph:0196419b-0000-8000-8000-000000000002", patch)
-            .unwrap()
-            .to_value()
-            .unwrap();
+    let payload = ObjectPatchPayload::for_target(
+        "ak:morph:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL",
+        patch,
+    )
+    .unwrap()
+    .to_value()
+    .unwrap();
 
     event_payload_validator_catalog()
         .unwrap()

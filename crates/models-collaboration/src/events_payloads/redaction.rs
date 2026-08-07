@@ -105,14 +105,14 @@ mod tests {
     fn tombstone_preserves_audit_metadata_and_strips_body() {
         let mut event = json!({
             "kind": "ak.message.create",
-            "event_id": "ak:event:01970e58-0004-8000-8000-0000000005a1",
-            "message_id": "ak:message:01970e58-0004-8000-8000-0000000005a1",
-            "realm_id": "ak:realm:01970e58-0004-8000-8000-000000000001",
+            "event_id": "ak:event:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9",
+            "message_id": "ak:message:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9",
+            "realm_id": "ak:realm:AUo-Spu0bMe1QZUbtl4TQxDDY-pgtp3r5Yd32rTlf34J",
             "sender": "did:webvh:z6mkfixture:bob.example",
             "created_at": "2026-04-26T00:00:00.000Z",
             "content": {"kind": "ak.content.text", "body": "secret"},
             "reactions": [{"actor": "did:webvh:z6mkfixture:alice.example", "key": "+1"}],
-            "reply_to": "ak:event:01970e58-0004-8000-8000-0000000005a0",
+            "reply_to": "ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p",
             "mentions": [{"actor_id": "did:webvh:z6mkfixture:alice.example"}],
         });
         let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00.000Z")
@@ -122,19 +122,19 @@ mod tests {
         redaction_tombstone_message_value(
             &mut event,
             redacted_at,
-            Some("ak:event:01970e58-0004-8000-8000-0000000005a2"),
+            Some("ak:event:AeojYODi-q-Pib0QZd6GX9-UONWRPLFTqHX_59FN6ali"),
         );
 
         assert_eq!(event["kind"], json!("ak.message.create"));
         assert_eq!(
             event["event_id"],
-            json!("ak:event:01970e58-0004-8000-8000-0000000005a1")
+            json!("ak:event:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9")
         );
         assert_eq!(event["redacted"], json!(true));
         assert_eq!(event["state"], json!("redacted"));
         assert_eq!(
             event["redaction_ref"],
-            json!("ak:event:01970e58-0004-8000-8000-0000000005a2")
+            json!("ak:event:AeojYODi-q-Pib0QZd6GX9-UONWRPLFTqHX_59FN6ali")
         );
         assert_eq!(
             event["content"]["body"],

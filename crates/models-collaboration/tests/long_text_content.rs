@@ -37,7 +37,7 @@ fn e2ee_block() -> ContentBlock {
                 "encryption_algorithm": "mls_exporter_aead_xchacha20poly1305_stream",
                 "key_ref": {
                     "algorithm": "MLS",
-                    "group_state_ref": "ak:event:01900000-0000-8000-8000-000000000000"
+                    "group_state_ref": "ak:event:AUifxzFz9FHjEtSVQXh_FAew1XOfIvIEHovpdd_Bp5HO"
                 },
                 "epoch": 42,
                 "ciphertext_digest": format!("sha256:{}", "b".repeat(64)),

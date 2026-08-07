@@ -82,8 +82,8 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
 
 fn event_value() -> serde_json::Value {
     json!({
-        "event_id": "ak:event:01904100-0000-8000-8000-d408d6a2241c",
-        "space_id": "ak:space:01904100-0000-8000-8000-fd3637e8361f",
+        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg",
+        "space_id": "ak:space:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ak.message.create",
         "actor_seq": 1,

@@ -1,13 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-07.9;
-//! sha256=de6530cc2148828aa4af216872dc7b69aae3b3cea90362506d3ee944c0c20c6c Input: registry/
-//! capability-action-registry.json; version=2026-08-07.9;
-//! sha256=7480a093cdce8edf81b05090d549dfb88f8e45f94ea23de9fc06ef1a0e371898 Input: registry/
-//! schema-registry.json; version=2026-08-07.9;
-//! sha256=d0cd54a9520701126f68709334e946e4b1b998c8807e6b4aab1ed61a0a0f7e35 Input: registry/
-//! account-data-key-registry.json; version=2026-08-03;
-//! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a Entries: id_kinds=55,
+//! Input: registry/id-kind-registry.json; version=2026-08-07.11;
+//! sha256=a476c897b5858f8637a183a0893e68d1182a6447400090648d00362055a56fce Input: registry/
+//! capability-action-registry.json; version=2026-08-07.11;
+//! sha256=05208ee5f93d03dfc3431dbd0e4dcbba35d0bf5afe810db6e9d1caa9f4ca9d66 Input: registry/
+//! schema-registry.json; version=2026-08-07.11;
+//! sha256=fd067dcabbb9dd0a5bb2c1a6eadc661b54d2847b9b95a836acc0b9f2cac4dff9 Input: registry/
+//! account-data-key-registry.json; version=2026-08-07;
+//! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=56,
 //! special_forms=10, actions=168, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
@@ -80,7 +80,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "actor_profile",
         category: "core_object",
-        wire_form: "ak:actor_profile:<uuid>",
+        wire_form: "ak:actor_profile:<event-token>",
     },
     IdKindDescriptor {
         kind: "announce",
@@ -165,7 +165,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "circle",
         category: "core_object",
-        wire_form: "ak:circle:<uuid>",
+        wire_form: "ak:circle:<event-token>",
     },
     IdKindDescriptor {
         kind: "claim",
@@ -190,7 +190,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "event",
         category: "event_history",
-        wire_form: "ak:event:<uuid>",
+        wire_form: "ak:event:<event-token>",
     },
     IdKindDescriptor {
         kind: "filter",
@@ -230,7 +230,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "message",
         category: "core_object",
-        wire_form: "ak:message:<uuid>",
+        wire_form: "ak:message:<event-token>",
     },
     IdKindDescriptor {
         kind: "message_stream",
@@ -245,7 +245,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "morph",
         category: "core_object",
-        wire_form: "ak:morph:<uuid>",
+        wire_form: "ak:morph:<event-token>",
     },
     IdKindDescriptor {
         kind: "notification",
@@ -295,7 +295,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "relation",
         category: "core_object",
-        wire_form: "ak:relation:<uuid>",
+        wire_form: "ak:relation:<event-token>",
     },
     IdKindDescriptor {
         kind: "report",
@@ -311,6 +311,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "rtc_participant",
         category: "media",
         wire_form: "ak:rtc_participant:<uuid>",
+    },
+    IdKindDescriptor {
+        kind: "scheduled_send",
+        category: "account_private",
+        wire_form: "ak:scheduled_send:<uuid>",
     },
     IdKindDescriptor {
         kind: "session_grant",
@@ -330,12 +335,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "space",
         category: "core_object",
-        wire_form: "ak:space:<uuid>",
+        wire_form: "ak:space:<event-token>",
     },
     IdKindDescriptor {
         kind: "strand",
         category: "core_object",
-        wire_form: "ak:strand:<uuid>",
+        wire_form: "ak:strand:<event-token>",
     },
     IdKindDescriptor {
         kind: "subscription",
@@ -350,7 +355,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "view",
         category: "core_object",
-        wire_form: "ak:view:<uuid>",
+        wire_form: "ak:view:<event-token>",
     },
 ];
 
@@ -3778,7 +3783,7 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
-        key_pattern: "ak.scheduled_send.v1:<planned_message_id>",
+        key_pattern: "ak.scheduled_send.v1:<scheduled_send_id>",
         scope: "principal_private_productivity_state",
         storage: "encrypted_account_data",
         plaintext_schema: None,

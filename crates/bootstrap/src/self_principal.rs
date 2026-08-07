@@ -14,10 +14,10 @@ use arkret_models_collaboration::http_bodies::{
 use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
 use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_wire::{
-    CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventId,
-    EventInitialSubmission, EventKind, EventRef, EventRequirements, Hash, HistoryVisibility, Hlc,
-    JoinRule, NotaryValue, ProfileId, RealmId, Result, SchemaId, ScopeRef, SecurityClass,
-    TypedTrustDomainId, composite_subject, proof_kind,
+    CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventInitialSubmission,
+    EventKind, EventRef, EventRequirements, Hash, HistoryVisibility, Hlc, JoinRule, NotaryValue,
+    ProfileId, RealmId, Result, SchemaId, ScopeRef, SecurityClass, TypedTrustDomainId,
+    composite_subject, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -36,7 +36,6 @@ pub struct SelfPrincipalPcrCreateInput {
     /// Genesis capability-action registry basis copied into the Realm's
     /// authority-root cell (`models/realm-and-space.md` section 2.5).
     pub capability_action_registry_digest: Hash,
-    pub event_id: EventId,
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
 }
@@ -96,8 +95,7 @@ pub fn build_self_principal_pcr_create(
         object: realm,
         initial_relations: None,
     })?;
-    let mut event = Event::new_with_id_at(
-        input.event_id,
+    let mut event = Event::new_at(
         EventKind::REALM_CREATE,
         // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
         // carries no realm_id. For a PCR the id is subject-derived from the

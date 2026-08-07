@@ -368,7 +368,7 @@ mod device_generation_tests {
         let mut b_model: QueryDeviceRecord = serde_json::from_value(json!({
             "device_status": "active",
             "enrollment_authority_binding": enrollment_authority_binding,
-            "device_authorize_event_id": "ak:event:01904100-0000-8000-8000-a11ce0000001",
+            "device_authorize_event_id": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
             "authorized_generation_ref": "did-version-7"
         }))
         .unwrap();
@@ -377,7 +377,7 @@ mod device_generation_tests {
         b_model.device_authorize_event_id = None;
         assert!(!b_model.is_usable_in_generation(Some(&generation)));
         b_model.device_authorize_event_id =
-            Some(EventId::new("ak:event:01904100-0000-8000-8000-a11ce0000001").unwrap());
+            Some(EventId::new("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap());
         b_model.cross_signing_binding = a_model.cross_signing_binding;
         assert!(!b_model.is_usable_in_generation(Some(&generation)));
     }

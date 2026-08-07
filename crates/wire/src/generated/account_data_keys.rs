@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-03;
-//! sha256=efbeea785bd7d4859264e8c401d7684cae4b26c233eb65f35f6355b57832c64a
+//! Input: registry/account-data-key-registry.json; version=2026-08-07;
+//! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -143,10 +143,10 @@ impl AccountDataKey {
     /// Principal-private saved item in an HMAC-derived collection; each item is an independent
     /// account-data value. Key pattern: `ak.saved.v1:<collection_key>:<target_key>`.
     pub const SAVED_V1: &'static str = "ak.saved.v1";
-    /// Principal-private scheduled-send plan. The UUIDv7 in planned_message_id is retyped as the
-    /// eventual ak.message.create Event.event_id; message_payload omits message_id and the reducer
-    /// retypes the Event UUID back into Message.id. Key pattern:
-    /// `ak.scheduled_send.v1:<planned_message_id>`.
+    /// Principal-private scheduled-send plan keyed by an independent producer-allocated
+    /// ScheduledSendId. The plan carries no future EventId or MessageId. Dispatch derives the final
+    /// EventId only after the complete canonical Event preimage exists, then retypes that Event
+    /// token into MessageId. Key pattern: `ak.scheduled_send.v1:<scheduled_send_id>`.
     pub const SCHEDULED_SEND_V1: &'static str = "ak.scheduled_send.v1";
     /// Encrypted client search-index manifest keyed by an HMAC-derived realm_key.
     /// Key pattern: `ak.search.index_manifest.v1:<realm_key>`.

@@ -938,7 +938,8 @@ mod tests {
 
     fn ack() -> ControlProposalAck {
         let mut member = ControlProposalAuthorityAck {
-            realm_id: RealmId::new("ak:realm:018f6b1d-8a20-8abc-8def-0123456789ab").unwrap(),
+            realm_id: RealmId::new("ak:realm:AeDdsjEvUHSY0isE04bQVgIHbwILn5uepI2iuvvak-25")
+                .unwrap(),
             proposal_digest: hash('a'),
             received_at: at(0),
             decision_due_at: at(30),
@@ -968,7 +969,7 @@ mod tests {
                 .unwrap(),
         };
         let member = ControlProposalAuthorityAck::issue_with_signer(
-            RealmId::new("ak:realm:018f6b1d-8a20-8abc-8def-0123456789ab").unwrap(),
+            RealmId::new("ak:realm:AeDdsjEvUHSY0isE04bQVgIHbwILn5uepI2iuvvak-25").unwrap(),
             hash('a'),
             hash('b'),
             at(0),

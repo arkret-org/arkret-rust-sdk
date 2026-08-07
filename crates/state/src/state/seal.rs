@@ -1018,12 +1018,12 @@ mod tests {
         BottomMode, CellStore, ControlEventStore, SealStore, control_event_digest,
     };
     use crate::{
-        Did, Event, EventId, EventRequirements, Hlc, LatticeOp, LatticeOpType, NotarySig,
-        PayloadSignature, Precondition, Predicate, PredicateOp, ProjectedOp, SealBasis, SealKind,
+        Did, Event, EventId, Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature,
+        Precondition, Predicate, PredicateOp, ProjectedOp, SealBasis, SealKind,
     };
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
@@ -1051,39 +1051,26 @@ mod tests {
         prev_refs: Vec<EventId>,
         refs: Vec<EventRef>,
     ) -> Event {
-        let mut event = Event {
-            event_id: EventId::new(format!("ak:event:0196419b-0000-8000-8000-{actor_seq:012}"))
-                .unwrap(),
-            kind: "ak.member.state".into(),
-            realm_id: realm(),
-            scope_ref: ScopeRef::Realm { realm_id: realm() },
-            actor_id: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
-            executed_by: None,
-            authorization_ref: None,
-            applet_id: None,
-            external_ref: None,
-            actor_kind: None,
+        let created_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
+        let mut event = Event::new_with_derived_id_at(
+            "ak.member.state",
+            ScopeRef::Realm { realm_id: realm() },
+            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
             actor_seq,
-            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
-            hlc: Some(Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()),
-            prev_refs,
-            refs,
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            seal_ref: None,
-            auth_context: None,
-            seal_basis: Some(basis),
-            payload: BTreeMap::from([("state".to_owned(), json!("join"))]),
-            redacts: None,
-            unsigned: BTreeMap::new(),
-            proofs: Vec::new(),
-            requirements: EventRequirements::default(),
-        };
+            Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
+            json!({"state": "join"}),
+            created_at,
+        )
+        .unwrap();
+        event.prev_refs = prev_refs;
+        event.refs = refs;
+        event.seal_basis = Some(basis);
+        event.refresh_content_bound_identity().unwrap();
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
-            created_at: event.created_at,
+            created_at,
             domain: None,
             audience: None,
             proof_purpose: None,
@@ -1098,7 +1085,7 @@ mod tests {
 
     fn capability_cell() -> CellRef {
         CellRef::new(
-            "ak:cell:ak.component.capability.grant.v1:ak:grant:0196410c-0000-8000-8000-000000000000"
+            "ak:cell:ak.component.capability.grant.v1:ak:grant:Aam-wkD4GZDuqJ92ccjIGHTOT3JazvV5Z0uaBH7S5eFX"
                 .to_owned(),
         )
         .unwrap()
@@ -1200,12 +1187,12 @@ mod tests {
     #[test]
     fn completeness_root_is_actor_sequence_enveloped_and_requires_exact_coverage() {
         let alice = completeness_event(
-            "ak:event:019f0000-0000-8000-8000-000000000001",
+            "ak:event:AR-4MwpAcHt7pmjO-Cab9s-33ymPZefvcpl666_jGxiY",
             "did:web:alice.example",
             7,
         );
         let bob = completeness_event(
-            "ak:event:019f0000-0000-8000-8000-000000000002",
+            "ak:event:AUqzNZlfuL-7z087TbZhKOdYyKUNPAa2o_neyoFRh3o2",
             "did:web:bob.example",
             3,
         );
@@ -1987,7 +1974,7 @@ mod tests {
             "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
         )
         .unwrap();
-        let grant_id = "ak:grant:0196410c-0000-8000-8000-000000000000";
+        let grant_id = "ak:grant:Aam-wkD4GZDuqJ92ccjIGHTOT3JazvV5Z0uaBH7S5eFX";
         let target_move = move_id(0x41);
         let grant_move = move_id(0x42);
         let conflict_a_move = move_id(0x51);

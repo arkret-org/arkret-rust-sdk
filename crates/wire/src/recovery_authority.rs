@@ -803,7 +803,7 @@ mod tests {
     fn publication_intent() -> AuthorizeEventPublicationIntent {
         let scope_ref = ScopeRef::Realm {
             realm_id: crate::RealmId::new(
-                "ak:realm:019a7360-0000-8000-8000-000000000018".to_owned(),
+                "ak:realm:AXoNJURG2tT7MN7y9GB8x1CNmOPIQ1To1hZegQTE0P98".to_owned(),
             )
             .unwrap(),
         };
@@ -832,8 +832,10 @@ mod tests {
             }],
         };
         AuthorizeEventPublicationIntent {
-            event_id: EventId::new("ak:event:019a7360-0000-8000-8000-000000000017".to_owned())
-                .unwrap(),
+            event_id: EventId::new(
+                "ak:event:ATIajVoqct2yVO3wHUsPfUv2fRFgPGSLLOe-rVme-J44".to_owned(),
+            )
+            .unwrap(),
             event_preimage_digest: hash('1'),
             actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             device_id: DeviceId::new("ak:device:019a7360-0000-7000-8000-000000000015".to_owned())
@@ -871,7 +873,7 @@ mod tests {
     fn promotion_request_digest_excludes_digest_and_proof_jwt() {
         let mut request = PromoteRecoverySessionGrantRequest {
             old_grant_id: SessionGrantId::new(
-                "ak:session_grant:019a7360-0000-8000-8000-000000000001".to_owned(),
+                "ak:session_grant:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7".to_owned(),
             )
             .unwrap(),
             transaction_id: TransactionId::new(
@@ -905,7 +907,7 @@ mod tests {
                 )
                 .unwrap(),
                 device_authorization_event_id: EventId::new(
-                    "ak:event:019a7360-0000-8000-8000-000000000004".to_owned(),
+                    "ak:event:AYbxu8Nvq5iXaOAxeF0nxqK9DGr1zw4e0amiWr9EPY5F".to_owned(),
                 )
                 .unwrap(),
                 device_authorization_event_digest: hash('4'),
@@ -925,7 +927,7 @@ mod tests {
                 },
             },
             device_authorization_event_id: EventId::new(
-                "ak:event:019a7360-0000-8000-8000-000000000004".to_owned(),
+                "ak:event:AYbxu8Nvq5iXaOAxeF0nxqK9DGr1zw4e0amiWr9EPY5F".to_owned(),
             )
             .unwrap(),
             result_model_generation_ref: RecoveryModelGenerationRef::CrossSigning(7),
@@ -978,8 +980,8 @@ mod tests {
             "registry_previous_head": "did:webvh:z6mkfixture:alice.example?versionId=1-genesis",
             "did_entry_ref": "did:webvh:z6mkfixture:alice.example?versionId=2-recovery",
             "did_entry_digest": hash('3'),
-            "reanchor_event_id": "ak:event:019a7360-0000-8000-8000-000000000016",
-            "authorize_event_id": "ak:event:019a7360-0000-8000-8000-000000000017",
+            "reanchor_event_id": "ak:event:AVI4OTNAnL8w-AANBVs2jMzXpkGxDRyiPTetBLuGwOKy",
+            "authorize_event_id": "ak:event:ATIajVoqct2yVO3wHUsPfUv2fRFgPGSLLOe-rVme-J44",
             "authorization_preimage_digest": hash('4'),
             "possession_proof_digest": hash('5'),
             "issued_at": "2026-07-28T00:00:00.000Z",

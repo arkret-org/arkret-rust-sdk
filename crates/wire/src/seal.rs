@@ -325,7 +325,7 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {

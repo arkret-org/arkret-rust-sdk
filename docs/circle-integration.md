@@ -51,10 +51,10 @@ use arkret::{
 // 1. Create the Circle (typically via a dedicated ak.circle.create
 //    event; the example below shows the local in-memory struct).
 let circle_id = CircleId::new(
-    "ak:circle:0196419b-0000-8000-8000-000000000001".to_owned(),
+    "ak:circle:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
 )?;
 let realm_id = RealmId::new(
-    "ak:realm:0196419b-0000-8000-8000-000000000002".to_owned(),
+    "ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL".to_owned(),
 )?;
 let alice: Did = "did:webvh:z6mkexample:alice.example".parse()?;
 let display = CircleDisplay {

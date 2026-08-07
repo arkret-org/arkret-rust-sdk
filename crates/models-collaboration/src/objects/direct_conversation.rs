@@ -482,7 +482,7 @@ mod tests {
     fn builder_emits_closed_profiled_e2ee_realm() {
         let creator = did("did:webvh:z6mkfixture:alice.example");
         let payload = direct_conversation_realm_create_payload(
-            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101").unwrap(),
+            RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap(),
             creator.clone(),
             trust_domain(),
             NotaryProfile::SingleDid,
@@ -501,7 +501,10 @@ mod tests {
     }
 
     fn event_id(suffix: &str) -> EventId {
-        EventId::new(format!("ak:event:0196419b-0000-8000-8000-{suffix:0>12}")).unwrap()
+        EventId::from_event_digest(
+            &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -557,10 +560,12 @@ mod tests {
             )
             .unwrap(),
             participants_unordered: vec![alice, bob],
-            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101".to_owned())
-                .unwrap(),
+            realm_id: RealmId::new(
+                "ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz".to_owned(),
+            )
+            .unwrap(),
             main_strand_id: StrandId::new(
-                "ak:strand:0196419b-0000-8000-8000-000000000201".to_owned(),
+                "ak:strand:AVBgYTmzSkzTSd1dlFH4ZADaQRkVcx_iTAvXdxlTfxrg".to_owned(),
             )
             .unwrap(),
             founding_unit_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
@@ -579,7 +584,7 @@ mod tests {
     fn validator_rejects_third_member_and_circle_scoped_main_strand() {
         let creator = did("did:webvh:z6mkfixture:alice.example");
         let realm = direct_conversation_realm_create_payload(
-            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000101").unwrap(),
+            RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap(),
             creator.clone(),
             trust_domain(),
             NotaryProfile::SingleDid,
@@ -589,7 +594,7 @@ mod tests {
         )
         .object;
         let mut strand = direct_conversation_main_strand_create_payload(
-            StrandId::new("ak:strand:0196419b-0000-8000-8000-000000000201").unwrap(),
+            StrandId::new("ak:strand:AVBgYTmzSkzTSd1dlFH4ZADaQRkVcx_iTAvXdxlTfxrg").unwrap(),
             realm
                 .id
                 .clone()
@@ -624,8 +629,10 @@ mod tests {
         );
         members.remove(&did("did:webvh:z6mkfixture:carol.example"));
         strand.scope_circle_id = Some(
-            arkret_wire::CircleId::new("ak:circle:0196419b-0000-8000-8000-000000000401".to_owned())
-                .unwrap(),
+            arkret_wire::CircleId::new(
+                "ak:circle:AQaY-AgUKie8pbyjuUgx-yC0rr0hNo4pI80rr9GC6eAd".to_owned(),
+            )
+            .unwrap(),
         );
         assert!(
             validate_direct_conversation_binding(

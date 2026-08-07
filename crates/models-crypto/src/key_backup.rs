@@ -2820,8 +2820,8 @@ mod encryption_validate_tests {
             "identity_model": "cross_signing",
             "previous_model_generation_ref": 1,
             "result_model_generation_ref": 1,
-            "authorization_event_id": "ak:event:01964137-0000-8000-8000-00000000a111",
-            "device_list_update_event_id": "ak:event:01964137-0000-8000-8000-00000000a222",
+            "authorization_event_id": "ak:event:ATyV5XR6BcRjzlrvTfk1r6sWwIdO63K42L1e3vfblrp2",
+            "device_list_update_event_id": "ak:event:AWUihVghLvB7EYCQO7BxXzmD4am86y2k-ml1QZW00wHW",
             "proof_summary": {
                 "kind": "principal_signing",
                 "proof_digest": format!("sha256:{}", "a".repeat(64))

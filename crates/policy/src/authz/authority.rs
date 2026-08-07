@@ -1280,14 +1280,15 @@ mod tests {
 
     #[test]
     fn allowed_circle_ids_constraint_round_trips_through_serde() {
-        let circle = CircleId::new("ak:circle:01904100-0000-8000-8000-000000000000".to_owned())
-            .expect("valid CircleId");
+        let circle =
+            CircleId::new("ak:circle:ARuquux-GRSwGPPZ0lJor6JUmVSERFPzPWlj1mjx8JCX".to_owned())
+                .expect("valid CircleId");
         let constraint = GrantConstraint::AllowedCircleIds {
             allowed_circle_ids: BTreeSet::from([circle]),
         };
         let json = serde_json::to_string(&constraint).expect("serde round trip");
         assert!(json.contains("allowed_circle_ids"));
-        assert!(json.contains("ak:circle:01904100-0000-8000-8000-000000000000"));
+        assert!(json.contains("ak:circle:ARuquux-GRSwGPPZ0lJor6JUmVSERFPzPWlj1mjx8JCX"));
         let round_tripped: GrantConstraint =
             serde_json::from_str(&json).expect("deserialize typed");
         assert_eq!(constraint, round_tripped);

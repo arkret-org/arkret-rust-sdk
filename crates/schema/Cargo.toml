@@ -33,3 +33,7 @@ hex = {workspace = true}
 
 [lints]
 workspace = true
+
+[[test]]
+name = "encoding_vectors"
+required-features = ["embedded-artifacts"]

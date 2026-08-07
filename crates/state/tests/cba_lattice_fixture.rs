@@ -24,7 +24,7 @@ use arkret_state::lattice::{
 };
 use arkret_state::state::join_cell_seal_batches;
 use arkret_wire::{
-    CellRef, Did, Hash, LatticeOp, LatticeOpType, ProjectionEffect, RealmId, ReasonCode,
+    CellRef, Did, EventId, Hash, LatticeOp, LatticeOpType, ProjectionEffect, RealmId, ReasonCode,
 };
 use serde_json::{Value, json};
 
@@ -131,7 +131,12 @@ fn realm_link_payload(status: RealmLinkStatus, target_realm_id: RealmId) -> Real
 }
 
 fn realm_id(suffix: &str) -> RealmId {
-    RealmId::new(format!("ak:realm:01904100-0000-8000-8000-{suffix:0>12}")).unwrap()
+    RealmId::from_event_id(
+        &EventId::from_event_digest(
+            &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
+        )
+        .unwrap(),
+    )
 }
 
 /// Dispatch table: executes every assertion string the fixture's

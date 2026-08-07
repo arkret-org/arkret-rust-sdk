@@ -7,7 +7,7 @@ use serde_json::json;
 #[test]
 fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
     let value = json!({
-        "id": "ak:actor_profile:01904100-0000-8000-8000-aaaaaaaaaaaa",
+        "id": "ak:actor_profile:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",
         "schema": SchemaId::ACTOR_PROFILE_V1,
         "principal_id": "did:webvh:z6mkfixture:ghost.example",
         "actor_kind": "integration",
@@ -26,7 +26,7 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
     assert_eq!(profile.actor_kind, ActorKind::Integration);
 
     let bad = json!({
-        "id": "ak:actor_profile:01904100-0000-8000-8000-aaaaaaaaaaaa",
+        "id": "ak:actor_profile:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",
         "schema": SchemaId::ACTOR_PROFILE_V1,
         "principal_id": "did:webvh:z6mkfixture:ghost.example",
         "actor_kind": "integration",

@@ -217,8 +217,8 @@ mod tests {
 
     fn space(kind: &str) -> Space {
         Space::new(
-            SpaceId::new("ak:space:0196419b-0000-8000-8000-000000000001").unwrap(),
-            RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000002").unwrap(),
+            SpaceId::new("ak:space:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
+            RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
             kind,
             "Work",
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
@@ -235,7 +235,8 @@ mod tests {
             .is_err()
         );
         let mut value = serde_json::to_value(space("board")).unwrap();
-        value["default_scope_circle_id"] = json!("ak:circle:0196419b-0000-8000-8000-000000000003");
+        value["default_scope_circle_id"] =
+            json!("ak:circle:AV624IkuHj3HmxAYE6uyYmBa4Est3gGGdnOsjn71z5L2");
         assert!(serde_json::from_value::<Space>(value).is_err());
     }
 

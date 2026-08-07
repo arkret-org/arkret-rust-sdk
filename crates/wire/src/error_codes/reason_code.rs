@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-07.2;
-//! sha256=f6f8fc9a1bb982bed528cbc2d8b9639f1efe47a7d93e0770dc7b9b24aa3e19a5
+//! Input: registry/error-code-registry.json; version=2026-08-07.3;
+//! sha256=f493fb655ba96b845485d1747fedfb9256051ef101196de8fc828e4422f7dc07
 //! Entries: reason_codes=463
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3497,8 +3497,8 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MESSAGE_ID_CONFLICT,
-        applies_to: &["event_envelope", "scheduled_send", "client_sync"],
-        description: "A scheduled-send plan reused the same planned_message_id with different canonical plan content, or a to-device retry reused the same message_id with different canonical target content. The plan store or queue service MUST return duplicate_conflict with this reason_code and MUST NOT emit or enqueue a replacement message. Durable ak.message.create identity conflicts are keyed only by Event.event_id.",
+        applies_to: &["event_envelope", "client_sync"],
+        description: "A to-device retry reused the same message_id with different canonical target content. The queue service MUST return duplicate_conflict with this reason_code and MUST NOT enqueue a replacement message. Scheduled-send plan convergence is keyed independently by scheduled_send_id and account-data CAS; durable ak.message.create identity conflicts are keyed only by the content-bound Event.event_id.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::METADATA_ENCRYPTION_FLOOR_DOWNGRADE,
@@ -4597,6 +4597,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::WITNESS_DISAGREEMENT,
         applies_to: &["state_resolution", "federation_transaction"],
-        description: "Confirmed fork/witness evidence: the same event_id resolves to different event_digest values; a validated per-actor sibling set exceeds the registered single-bucket or per-position limit; a profile declares the observed sibling combination non-joinable; or witnesses required to sign the same complete (realm_id, from_frontier, to_frontier, actor_seq_ranges, root, count) attestation payload return inconsistent values. Different event_id/hash values at the same (realm_id, actor_id, actor_seq) are not by themselves disagreement: event-and-patch.md §2.6 permits a bounded legal sibling set, which peers MUST reconcile by validated set union. Raw frontier_root / heads / range-root differences across different replication, disclosure, or attestation scopes also are not disagreement. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay, an aligned same-scope quorum, or operator-approved fork resolution. See zh/sync/operations-sync.md §6.4.2 / §6.4.4 step 7 and zh/sync/federation.md §4.5.1.",
+        description: "Confirmed fork/witness evidence: two distinct canonical Event preimages independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); a validated per-actor sibling set exceeds the registered single-bucket or per-position limit; a profile declares the observed sibling combination non-joinable; or witnesses required to sign the same complete (realm_id, from_frontier, to_frontier, actor_seq_ranges, root, count) attestation payload return inconsistent values. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Different valid event_id values at the same (realm_id, actor_id, actor_seq) are not by themselves disagreement: event-and-patch.md §2.6 permits a bounded legal sibling set, which peers MUST reconcile by validated set union. Raw frontier_root / heads / range-root differences across different replication, disclosure, or attestation scopes also are not disagreement. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay, an aligned same-scope quorum, or operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
     },
 ];

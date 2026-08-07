@@ -419,8 +419,8 @@ mod tests {
 
     fn token_request() -> CallMediaTokenExchangeRequestBody {
         call_media_token_exchange(
-            RealmId::new("ak:realm:01904100-0000-8000-8000-9b64700c6ee8").unwrap(),
-            CallId::new("ak:call:0196441c-0000-8000-8000-000000000000").unwrap(),
+            RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap(),
+            CallId::new("ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1").unwrap(),
             did("alice"),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
             "fra-1",

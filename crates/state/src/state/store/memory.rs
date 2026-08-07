@@ -1066,13 +1066,10 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::*;
-    use crate::{
-        Did, EventId, EventRequirements, Hlc, LatticeOp, LatticeOpType, NotarySig,
-        PayloadSignature, SealBasis,
-    };
+    use crate::{Did, Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis};
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
@@ -1096,41 +1093,26 @@ mod tests {
     /// its siblings by `actor_seq` so each one hashes to a different
     /// `event_digest` (the store key).
     fn control_move(actor_seq: u64) -> Event {
-        let mut event = Event {
-            event_id: EventId::new(format!("ak:event:0196419b-0000-8000-8000-{actor_seq:012}"))
-                .unwrap(),
-            kind: "ak.member.state".into(),
-            realm_id: realm(),
-            scope_ref: ScopeRef::Realm { realm_id: realm() },
-            actor_id: Did::new("did:webvh:z6mkfixture:admin.example".to_owned()).unwrap(),
-            executed_by: None,
-            authorization_ref: None,
-            applet_id: None,
-            external_ref: None,
-            actor_kind: None,
+        let created_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
+        let mut event = Event::new_with_derived_id_at(
+            "ak.member.state",
+            ScopeRef::Realm { realm_id: realm() },
+            Did::new("did:webvh:z6mkfixture:admin.example".to_owned()).unwrap(),
             actor_seq,
-            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
-            hlc: Some(Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()),
-            prev_refs: Vec::new(),
-            refs: Vec::new(),
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            seal_ref: None,
-            auth_context: None,
-            seal_basis: Some(SealBasis {
-                leaves: vec![seal_id(0xaa)],
-            }),
-            payload: BTreeMap::from([("state".to_owned(), Value::String("join".to_owned()))]),
-            redacts: None,
-            unsigned: BTreeMap::new(),
-            proofs: Vec::new(),
-            requirements: EventRequirements::default(),
-        };
+            Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
+            serde_json::json!({"state": "join"}),
+            created_at,
+        )
+        .unwrap();
+        event.seal_basis = Some(SealBasis {
+            leaves: vec![seal_id(0xaa)],
+        });
+        event.refresh_content_bound_identity().unwrap();
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
-            created_at: event.created_at,
+            created_at,
             domain: None,
             audience: None,
             proof_purpose: None,

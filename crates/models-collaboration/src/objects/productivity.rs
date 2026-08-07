@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    AccountDataKey, BlobId, CallId, CircleId, DeviceId, Did, Error, EventId,
-    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, MessageId, ProfileId, RealmId, Result,
+    AccountDataKey, BlobId, CallId, CircleId, DeviceId, Did, Error,
+    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, ProfileId, RealmId, Result, ScheduledSendId,
     SchemaId, ScopeRef, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
@@ -58,7 +58,7 @@ pub struct ReminderValue {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduledSendValue {
-    pub planned_message_id: MessageId,
+    pub scheduled_send_id: ScheduledSendId,
     pub send_at: String,
     pub message_payload: MessageCreatePayload,
     pub message_payload_digest: String,
@@ -66,10 +66,6 @@ pub struct ScheduledSendValue {
 }
 
 impl ScheduledSendValue {
-    pub fn planned_event_id(&self) -> EventId {
-        self.planned_message_id.event_id()
-    }
-
     pub fn validate_digest(&self) -> Result<()> {
         let digest = scheduled_send_message_payload_digest(&self.message_payload)?;
         if digest != self.message_payload_digest {
@@ -1971,9 +1967,9 @@ pub fn reminder_account_data_key(id: &str) -> Result<String> {
     ))
 }
 
-pub fn scheduled_send_account_data_key(planned_message_id: &MessageId) -> String {
+pub fn scheduled_send_account_data_key(scheduled_send_id: &ScheduledSendId) -> String {
     format!(
-        "{accountdatakey_scheduled_send_v1}:{planned_message_id}",
+        "{accountdatakey_scheduled_send_v1}:{scheduled_send_id}",
         accountdatakey_scheduled_send_v1 = AccountDataKey::SCHEDULED_SEND_V1
     )
 }
@@ -2215,11 +2211,11 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
             private_key_error()
         };
     }
-    if let Some(planned_message_id) = key.strip_prefix("ak.scheduled_send.v1:") {
-        return MessageId::new(planned_message_id.to_owned())
+    if let Some(scheduled_send_id) = key.strip_prefix("ak.scheduled_send.v1:") {
+        return ScheduledSendId::new(scheduled_send_id.to_owned())
             .map(|_| ())
             .map_err(|_| {
-                Error::Protocol("scheduled-send key must end with planned_message_id".to_owned())
+                Error::Protocol("scheduled-send key must end with scheduled_send_id".to_owned())
             });
     }
     if let Some(target_key) = key.strip_prefix("ak.snooze.v1:") {
@@ -2603,18 +2599,28 @@ fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ProfileId, SchemaId};
+    use arkret_wire::{EventId, ProfileId, SchemaId};
     use serde_json::json;
 
     use super::*;
     use crate::events_payloads::ContentBlock;
 
     fn test_realm_id(seed: &str) -> RealmId {
-        RealmId::new(format!("ak:realm:01904100-0000-8000-8000-{seed}")).unwrap()
+        RealmId::from_event_id(
+            &EventId::from_event_digest(
+                &Hash::new(arkret_canonical::sha256_digest(seed.as_bytes())).unwrap(),
+            )
+            .unwrap(),
+        )
     }
 
     fn test_circle_id(seed: &str) -> CircleId {
-        CircleId::new(format!("ak:circle:01904100-0000-8000-8000-{seed}")).unwrap()
+        CircleId::from_event_id(
+            &EventId::from_event_digest(
+                &Hash::new(arkret_canonical::sha256_digest(seed.as_bytes())).unwrap(),
+            )
+            .unwrap(),
+        )
     }
 
     fn test_blob_id(seed: &str) -> BlobId {
@@ -2712,21 +2718,36 @@ mod tests {
     }
 
     #[test]
-    fn scheduled_send_validates_payload_digest_without_second_message_identity() {
-        let message_id = MessageId::new("ak:message:01904100-0000-8000-8000-000000000001").unwrap();
+    fn scheduled_send_uses_an_independent_plan_id_and_validates_payload_digest() {
+        let scheduled_send_id = ScheduledSendId::new_v7_at(1_725_000_123_456);
         let payload = MessageCreatePayload::with_content(
-            StrandId::new("ak:strand:01904100-0000-8000-8000-000000000002").unwrap(),
+            StrandId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x22; 32],
+            )),
             "discussion",
             ContentBlock::text("hello"),
         );
         let value = ScheduledSendValue {
-            planned_message_id: message_id,
+            scheduled_send_id: scheduled_send_id.clone(),
             send_at: "2026-06-07T00:00:00.000Z".to_owned(),
             message_payload_digest: scheduled_send_message_payload_digest(&payload).unwrap(),
             message_payload: payload,
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
         };
         value.validate_digest().unwrap();
+        let wire = serde_json::to_value(&value).unwrap();
+        assert_eq!(wire["scheduled_send_id"], scheduled_send_id.as_str());
+        assert!(wire.get("planned_message_id").is_none());
+        assert!(wire.get("planned_event_id").is_none());
+        assert_eq!(
+            scheduled_send_account_data_key(&scheduled_send_id),
+            format!("ak.scheduled_send.v1:{scheduled_send_id}")
+        );
+        assert!(
+            validate_private_account_data_key(&format!("ak.scheduled_send.v1:{scheduled_send_id}"))
+                .is_ok()
+        );
     }
 
     #[test]
@@ -2909,7 +2930,7 @@ mod tests {
     #[test]
     fn private_key_builders_do_not_leak_raw_target_refs() {
         let ns = b"test namespace key";
-        let target_ref = "ak:message:01904100-0000-8000-8000-000000000001";
+        let target_ref = "ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
         let snooze = snooze_account_data_key(ns, target_ref).unwrap();
         assert!(snooze.starts_with("ak.snooze.v1:"));
         assert!(!snooze.contains(target_ref));
@@ -2930,9 +2951,10 @@ mod tests {
 
     #[test]
     fn private_key_validator_accepts_typed_id_tail_namespaces() {
-        let view_id =
-            arkret_wire::ViewId::new("ak:view:0196419b-0000-8000-8000-000000000001".to_owned())
-                .unwrap();
+        let view_id = arkret_wire::ViewId::new(
+            "ak:view:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
+        )
+        .unwrap();
         let notification_id = arkret_wire::NotificationId::new(
             "ak:notification:0196419b-0000-7000-8000-000000000002".to_owned(),
         )
@@ -2956,7 +2978,7 @@ mod tests {
             ("ak.views.private", "must not leak raw typed refs"),
             ("ak.views.private.", "ak.views.private.<view_id>"),
             (
-                "ak.views.private.ak:realm:0196419b-0000-8000-8000-000000000001",
+                "ak.views.private.ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "ak.views.private.<view_id>",
             ),
             ("ak.notifications.inbox", "must not leak raw typed refs"),
@@ -2965,7 +2987,7 @@ mod tests {
                 "ak.notifications.inbox.<notification_id>",
             ),
             (
-                "ak.notifications.inbox.ak:view:0196419b-0000-8000-8000-000000000001",
+                "ak.notifications.inbox.ak:view:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "ak.notifications.inbox.<notification_id>",
             ),
         ] {
@@ -2977,7 +2999,7 @@ mod tests {
     #[test]
     fn private_key_validator_rejects_raw_refs() {
         let err = validate_private_account_data_key(
-            "ak.draft.v1:message:ak:message:01904100-0000-8000-8000-000000000001:main",
+            "ak.draft.v1:message:ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19:main",
         )
         .unwrap_err();
         assert!(err.to_string().contains("must not leak raw typed refs"));
@@ -3204,7 +3226,7 @@ mod tests {
     #[test]
     fn wire_field_names_match_current_spec() {
         let draft = DraftSyncValue {
-            target_ref: "ak:message:01904100-0000-8000-8000-000000000001".to_owned(),
+            target_ref: "ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned(),
             kind: DraftKind::Message,
             draft_slot: "main".to_owned(),
             content: BTreeMap::from([("body".to_owned(), json!("draft"))]),

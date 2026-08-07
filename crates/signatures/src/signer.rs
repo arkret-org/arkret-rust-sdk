@@ -181,7 +181,7 @@ pub fn verify_ed25519_payload_signature(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Hash, Hlc, NotarySig, RealmId, Seal, SealId};
+    use arkret_wire::{EventId, Hash, Hlc, NotarySig, RealmId, Seal, SealId};
 
     use super::*;
 
@@ -190,7 +190,10 @@ mod tests {
     }
 
     fn space() -> RealmId {
-        RealmId::new("ak:realm:0196419b-0000-8000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x14; 32],
+        ))
     }
 
     fn seal_id(byte: u8) -> SealId {

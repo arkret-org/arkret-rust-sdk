@@ -96,11 +96,11 @@ mod tests {
     #[test]
     fn queue_item_round_trips() {
         let item = ModerationQueueItem {
-            id: "ak:moderation_queue_item:01970e58-9d21-8000-8000-aaaaaaaaaaaa".to_owned(),
+            id: "ak:moderation_queue_item:AeI4eUGRmaA9GYZ60CABKT42AUIqRSquqvnvBNywHzeG".to_owned(),
             report: ModerationReport::new(
-                "ak:report:01970e58-9d21-8000-8000-bbbbbbbbbbbb",
-                RealmId::new("ak:realm:01970e58-9d21-8000-8000-cccccccccccc").unwrap(),
-                "ak:message:01970e58-9d21-8000-8000-dddddddddddd",
+                "ak:report:AeaUpT-cu-NcupBk54pDQtlp7O3sqCQzjyexZxvQhXbc",
+                RealmId::new("ak:realm:AYXp4CiHLjKHg42IhFAbpOD0JiP1L-wLeEGGKcIuox_2").unwrap(),
+                "ak:message:AXB4Wy8AgJaUH7vqjxD-xwHRsqpfyTp-qM7_vrf4j7ol",
                 "spam",
                 Did::new("did:webvh:z6mkfixture:reporter.example").unwrap(),
             ),

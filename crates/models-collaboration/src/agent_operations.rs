@@ -2342,8 +2342,8 @@ mod tests {
     fn sidecar_participant_authority_digest_is_stable() {
         let agent = Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap();
         let digest = agent_sidecar_participant_authority_digest(
-            SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000020").unwrap(),
-            RealmId::new("ak:realm:01964137-0000-8000-8000-000000000000").unwrap(),
+            SidecarId::new("ak:sidecar:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr").unwrap(),
+            RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             std::slice::from_ref(&agent),
             std::slice::from_ref(&agent),
@@ -2360,8 +2360,8 @@ mod tests {
         let controller = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         assert!(
             agent_sidecar_participant_authority_digest(
-                SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000020").unwrap(),
-                RealmId::new("ak:realm:01964137-0000-8000-8000-000000000000").unwrap(),
+                SidecarId::new("ak:sidecar:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr").unwrap(),
+                RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
                 controller.clone(),
                 &[controller],
                 &[],
@@ -2373,13 +2373,17 @@ mod tests {
     #[test]
     fn sidecar_remove_reconciliation_requires_only_a_canonical_frontier() {
         let agent_id = Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap();
-        let event_a = EventId::new("ak:event:01964137-0000-8000-8000-000000000001").unwrap();
-        let event_b = EventId::new("ak:event:01964137-0000-8000-8000-000000000002").unwrap();
+        let event_a =
+            EventId::new("ak:event:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5").unwrap();
+        let event_b =
+            EventId::new("ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N").unwrap();
+        let mut membership_frontier = vec![event_a.clone(), event_b.clone()];
+        membership_frontier.sort();
         let valid = PendingSidecarAccessReconciliationItem {
             agent_id,
             provisioning_phase: PendingSidecarAccessReconciliationStage::MlsRemove,
             reason: NonEmptyString::new("mls_remove_obligation_pending").unwrap(),
-            membership_frontier: Some(vec![event_a.clone(), event_b.clone()]),
+            membership_frontier: Some(membership_frontier.clone()),
         };
         valid.validate().unwrap();
 
@@ -2388,7 +2392,8 @@ mod tests {
         assert!(missing.validate().is_err());
 
         let mut unsorted = valid.clone();
-        unsorted.membership_frontier = Some(vec![event_b, event_a]);
+        membership_frontier.reverse();
+        unsorted.membership_frontier = Some(membership_frontier);
         assert!(unsorted.validate().is_err());
 
         let mut wrong_stage = valid;
@@ -2404,9 +2409,10 @@ mod tests {
             .with_nanosecond(987_654_321)
             .unwrap();
         let sidecar = AgentSidecar {
-            id: SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000021").unwrap(),
+            id: SidecarId::new("ak:sidecar:AUJCoQiXEV11T2wYGgq5vjXcfFcLnKQHPCp3GyzHYTDe").unwrap(),
             schema: AgentSidecarSchema::V1,
-            realm_id: RealmId::new("ak:realm:01964137-0000-8000-8000-000000000020").unwrap(),
+            realm_id: RealmId::new("ak:realm:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr")
+                .unwrap(),
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
             encryption_profile: AgentSidecarEncryptionProfile::MlsRfc9420,
             state: AgentSidecarState::Active,
@@ -2427,7 +2433,10 @@ mod tests {
     }
 
     fn fixture_event_id(suffix: u32) -> EventId {
-        EventId::new(format!("ak:event:01964137-0000-8000-8000-{suffix:012x}")).unwrap()
+        EventId::from_event_digest(
+            &Hash::new(arkret_canonical::sha256_digest(suffix.to_be_bytes())).unwrap(),
+        )
+        .unwrap()
     }
 
     fn fixture_agent() -> Did {
@@ -2437,8 +2446,10 @@ mod tests {
     fn fixture_request_context() -> AgentSidecarExchangeRequestContext {
         AgentSidecarExchangeRequestContext {
             source_track_ref: AgentSidecarSourceTrackRef {
-                realm_id: RealmId::new("ak:realm:01964137-0000-8000-8000-000000000030").unwrap(),
-                strand_id: StrandId::new("ak:strand:01964137-0000-8000-8000-000000000031").unwrap(),
+                realm_id: RealmId::new("ak:realm:AVYxXzYx_KzaGx7X62doksaQR0ISkneyOwwF1k6ExHKy")
+                    .unwrap(),
+                strand_id: StrandId::new("ak:strand:AcweNVvZUYNuOdCMey9HT7PQHKPbHPJwOFTgn_cx7yjo")
+                    .unwrap(),
                 track_name: "discussion".to_owned(),
             },
             source_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
@@ -2454,12 +2465,15 @@ mod tests {
         AgentSidecarExchangeProjection {
             schema: AgentSidecarExchangeProjectionSchema::V1,
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
-            sidecar_id: SidecarId::new("ak:sidecar:01964137-0000-8000-8000-000000000032").unwrap(),
+            sidecar_id: SidecarId::new("ak:sidecar:ATxk9k3t-DqTNiiB9n8GoSjjar3vZJvO3Dtpd1SzdHZF")
+                .unwrap(),
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
             origin: AgentSidecarExchangeOrigin::SourceTrackRouted,
             source_track_ref: AgentSidecarSourceTrackRef {
-                realm_id: RealmId::new("ak:realm:01964137-0000-8000-8000-000000000030").unwrap(),
-                strand_id: StrandId::new("ak:strand:01964137-0000-8000-8000-000000000031").unwrap(),
+                realm_id: RealmId::new("ak:realm:AVYxXzYx_KzaGx7X62doksaQR0ISkneyOwwF1k6ExHKy")
+                    .unwrap(),
+                strand_id: StrandId::new("ak:strand:AcweNVvZUYNuOdCMey9HT7PQHKPbHPJwOFTgn_cx7yjo")
+                    .unwrap(),
                 track_name: "discussion".to_owned(),
             },
             source_frontier_anchor: None,
@@ -2525,7 +2539,7 @@ mod tests {
 
         let mut unknown = serde_json::to_value(&projection).unwrap();
         unknown["private_circle_id"] =
-            serde_json::json!("ak:circle:01964137-0000-8000-8000-000000000035");
+            serde_json::json!("ak:circle:ARIqxK3jWXYxpb544UphWaZm_ti9wclu9_0-eSuyZ2e_");
         assert!(serde_json::from_value::<AgentSidecarExchangeProjection>(unknown).is_err());
 
         let mut account_data_key = serde_json::to_value(&projection).unwrap();
@@ -2619,11 +2633,13 @@ mod tests {
 
     #[test]
     fn sidecar_exchange_control_terminal_mapping_matches_spec() {
+        let mut basis_event_ids = vec![fixture_event_id(0x34), fixture_event_id(0x35)];
+        basis_event_ids.sort();
         let base = AgentSidecarExchangeControl {
             schema: AgentSidecarExchangeControlSchema::V1,
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
             request_event_id: fixture_event_id(0x34),
-            basis_event_ids: vec![fixture_event_id(0x34), fixture_event_id(0x35)],
+            basis_event_ids,
             action: AgentSidecarExchangeControlAction::Cancel,
             response_event_ids: Some(vec![fixture_event_id(0x35)]),
             failure_reason_code: None,
@@ -2685,7 +2701,7 @@ mod tests {
         assert!(terminal_with_coordinator.validate().is_err());
 
         let mut unsorted_basis = base;
-        unsorted_basis.basis_event_ids = vec![fixture_event_id(0x35), fixture_event_id(0x34)];
+        unsorted_basis.basis_event_ids.reverse();
         assert!(unsorted_basis.validate().is_err());
     }
 
@@ -2704,8 +2720,11 @@ mod tests {
         .unwrap();
         assert_eq!(forward, reversed);
 
+        let mut unsorted_event_ids = vec![fixture_event_id(0x34), fixture_event_id(0x35)];
+        unsorted_event_ids.sort();
+        unsorted_event_ids.reverse();
         let frontier = AgentSidecarExchangeFoldedFrontier {
-            event_ids: vec![fixture_event_id(0x35), fixture_event_id(0x34)],
+            event_ids: unsorted_event_ids,
             event_set_digest: forward,
             max_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         };

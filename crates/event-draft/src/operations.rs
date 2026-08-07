@@ -605,7 +605,8 @@ mod tests {
 
     fn scope() -> ScopeRef {
         ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:01904100-0000-8000-8000-6b91994c774d").unwrap(),
+            realm_id: RealmId::new("ak:realm:ASxXqKzA8gY8UMsBCrWARDe7QKA_sGZB-Svsd6gyP4uA")
+                .unwrap(),
         }
     }
 
@@ -634,7 +635,7 @@ mod tests {
         }
         if authz {
             builder = builder.with_authz_ref(
-                GrantId::new("ak:grant:01904100-0000-8000-8000-e78463d5d984").unwrap(),
+                GrantId::new("ak:grant:AWVV4oAZjNs1EhSMEvPRRReMIYv-HGmxji_tuAJttf-q").unwrap(),
             );
         }
         builder.build(&EventDraftKindRegistry::default()).unwrap()
@@ -715,7 +716,7 @@ mod tests {
             EventKind::SPACE_CREATE,
             json!({
                 "object": {},
-                "space_id": "ak:space:01904100-0000-8000-8000-c89a39a907e5"
+                "space_id": "ak:space:AfPl7J7DavQ-qKMZkTOswmjwNqOKZKnaiz3DQ9jKrjtS"
             }),
             Vec::new(),
             true,
@@ -723,7 +724,7 @@ mod tests {
         let delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-bc16402a117e",
             EventKind::SPACE_TOMBSTONE,
-            json!({"space_id": "ak:space:01904100-0000-8000-8000-c89a39a907e5"}),
+            json!({"space_id": "ak:space:AfPl7J7DavQ-qKMZkTOswmjwNqOKZKnaiz3DQ9jKrjtS"}),
             vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
@@ -732,7 +733,7 @@ mod tests {
             EventKind::SPACE_CREATE,
             json!({
                 "object": {},
-                "space_id": "ak:space:01904100-0000-8000-8000-c89a39a907e5"
+                "space_id": "ak:space:AfPl7J7DavQ-qKMZkTOswmjwNqOKZKnaiz3DQ9jKrjtS"
             }),
             vec!["ak:operation:01904100-0000-7000-8000-bc16402a117e"],
             true,
@@ -746,7 +747,7 @@ mod tests {
             EventKind::SPACE_CREATE,
             json!({
                 "object": {},
-                "space_id": "ak:space:01904100-0000-8000-8000-9160607cbd81"
+                "space_id": "ak:space:AW-XLsAjCOHwpM6iXxRfj5JLnjmNine6PTpH3gGo7OJq"
             }),
             Vec::new(),
             false,

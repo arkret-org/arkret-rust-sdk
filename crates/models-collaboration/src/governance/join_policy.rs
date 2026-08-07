@@ -702,11 +702,15 @@ mod tests {
             .with_timezone(&Utc);
         let unsigned = JoinApplicationReceiptUnsigned {
             candidate_kind: MEMBER_APPLICATION_CANDIDATE_KIND.to_owned(),
-            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000000".to_owned())
-                .unwrap(),
+            realm_id: RealmId::new(
+                "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
+            )
+            .unwrap(),
             applicant_did: actor.clone(),
-            knock_ref: EventId::new("ak:event:0196419b-0000-8000-8000-000000000001".to_owned())
-                .unwrap(),
+            knock_ref: EventId::new(
+                "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
+            )
+            .unwrap(),
             policy_version_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             application_revision_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
             private_body_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
@@ -742,11 +746,15 @@ mod tests {
             .with_timezone(&Utc);
         let unsigned = JoinApplicationReceiptUnsigned {
             candidate_kind: MEMBER_APPLICATION_CANDIDATE_KIND.to_owned(),
-            realm_id: RealmId::new("ak:realm:0196419b-0000-8000-8000-000000000000".to_owned())
-                .unwrap(),
+            realm_id: RealmId::new(
+                "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
+            )
+            .unwrap(),
             applicant_did: actor.clone(),
-            knock_ref: EventId::new("ak:event:0196419b-0000-8000-8000-000000000001".to_owned())
-                .unwrap(),
+            knock_ref: EventId::new(
+                "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
+            )
+            .unwrap(),
             policy_version_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             application_revision_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
             private_body_digest: body.canonical_digest().unwrap(),

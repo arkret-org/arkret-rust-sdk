@@ -13,8 +13,8 @@
 //! ## Normative grammar rules
 //! * PATH carries identity: keyword + bare uuid (the `ak:<kind>:` sigil is stripped). Hierarchy is
 //!   fixed `realm/<r>` ⊃ `strand/<f>` ⊃ `m/<msg>`. The message seal keyword is exactly `m/`.
-//! * The `<realm>` segment: a registered UUIDv7/v8 textual form is a `realm_id`; otherwise it is an ALIAS
-//!   (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare uuid.
+//! * The `<realm>` segment: a registered UUIDv7/v8 textual form is a `realm_id`; otherwise it is an
+//!   ALIAS (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare uuid.
 //! * Strand/Message addresses MUST carry `realm/<r>`. A global strand_id is never guessed. Retired
 //!   `via` query hints are ignored.
 //! * Unknown path keyword, wrong order, or a missing intermediate level fails closed. v1 legal
@@ -34,9 +34,7 @@
 //! Strand/Message necessarily changes the digest, so a token cannot be replayed
 //! across objects (scope-confusion defence). See [`verify_token_target`].
 
-use arkret_identifiers::{
-    UUID_VERSION_EVENT_DERIVED, UUID_VERSION_REALM_EITHER, is_lowercase_typed_uuid,
-};
+use arkret_identifiers::{MessageId, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result, canonical};
@@ -106,13 +104,12 @@ impl AddressAction {
     }
 }
 
-/// The realm path segment: a registered UUIDv7/v8 textual form resolves to a `realm_id`;
-/// anything else (domain-style / contains `.`) is an opaque ALIAS that a
-/// server must resolve to a canonical `realm_id`.
+/// The realm path segment: a canonical Event token or subject-derived PCR UUID
+/// resolves to a `realm_id`; anything else is an opaque alias.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmRef {
-    /// Bare lowercase UUIDv7/v8 (sigil-stripped `ak:realm:` identity).
+    /// Sigil-stripped canonical `ak:realm:` identity.
     RealmId(String),
     /// Domain-style alias requiring server-side resolution.
     Alias(String),
@@ -121,13 +118,10 @@ pub enum RealmRef {
 impl RealmRef {
     /// Classify a `<realm>` path segment per the uuid-vs-alias rule.
     ///
-    /// A Realm id has two registered layouts (spec
-    /// `zh/models/realm-and-space.md` section 2.5.0): collaboration is
-    /// event-derived UUIDv8 and Principal Control Realm is subject-derived
-    /// UUIDv7 from its principal DID. Address parsing checks the shared wire
-    /// shape; genesis validation selects and recomputes the exact derivation.
+    /// Collaboration Realms carry an Event token; Principal Control Realms
+    /// retain their subject-derived UUID form.
     pub fn parse(segment: &str) -> Self {
-        if is_lowercase_typed_uuid(segment, UUID_VERSION_REALM_EITHER) {
+        if RealmId::new(format!("ak:realm:{segment}")).is_ok() {
             RealmRef::RealmId(segment.to_owned())
         } else {
             RealmRef::Alias(segment.to_owned())
@@ -244,9 +238,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
             let strand_seg = segments
                 .next()
                 .ok_or_else(|| protocol_err("missing strand identifier after 'strand/'"))?;
-            if !is_lowercase_typed_uuid(strand_seg, UUID_VERSION_EVENT_DERIVED) {
+            if StrandId::new(format!("ak:strand:{strand_seg}")).is_err() {
                 return Err(protocol_err(
-                    "strand segment must be a bare lowercase content-bound uuidv8",
+                    "strand segment must be a canonical 44-character Event-derived token",
                 ));
             }
             strand = Some(strand_seg.to_owned());
@@ -258,9 +252,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
                     let msg_seg = segments
                         .next()
                         .ok_or_else(|| protocol_err("missing message identifier after 'm/'"))?;
-                    if !is_lowercase_typed_uuid(msg_seg, UUID_VERSION_EVENT_DERIVED) {
+                    if MessageId::new(format!("ak:message:{msg_seg}")).is_err() {
                         return Err(protocol_err(
-                            "message segment must be a bare lowercase content-bound uuidv8",
+                            "message segment must be a canonical 44-character Event-derived token",
                         ));
                     }
                     message = Some(msg_seg.to_owned());
@@ -569,10 +563,10 @@ pub fn verify_token_target(
 mod tests {
     use super::*;
 
-    const R: &str = "01904100-0000-8000-8000-0000000000aa";
-    const F: &str = "01904100-0000-8000-8000-0000000000bb";
-    const F2: &str = "01904100-0000-8000-8000-0000000000cc";
-    const M: &str = "01904100-0000-8000-8000-0000000000dd";
+    const R: &str = "AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml";
+    const F: &str = "AQ5uuUVXlrGqR79MEUmEPOIMYQIdRhgBIsTAtH3mgNpC";
+    const F2: &str = "AeI0Z4D734iPt9RpF51PAg0CRjLSQmxPqv9NgUmBJiQi";
+    const M: &str = "Ae7X76GvvRfNzRJ816sY6MNBQbaRxwkzKMLbQPQsG5sq";
     const VIA: &str = "did:webvh:z6mkfixture:relay.example";
 
     fn realm_addr() -> ParsedAddress {

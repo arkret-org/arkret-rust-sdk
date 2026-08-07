@@ -559,12 +559,12 @@ mod agent_key_authorize_payload_tests {
             }
         }
         serde_json::from_value(json!({
-            "event_id": "ak:event:01999999-0000-8000-8000-000000000001",
+            "event_id": "ak:event:AaWlxNyGs0FzlOCJpyhjSRcmOcoYvk0qQ4X91NlGuKSZ",
             "kind": kind,
-            "realm_id": "ak:realm:01999999-0000-8000-8000-000000000010",
+            "realm_id": "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm",
             "scope_ref": {
                 "kind": "realm",
-                "realm_id": "ak:realm:01999999-0000-8000-8000-000000000010"
+                "realm_id": "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm"
             },
             "actor_id": "did:web:agent.example",
             "executed_by": "did:web:controller.example",

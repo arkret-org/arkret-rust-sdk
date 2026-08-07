@@ -292,7 +292,7 @@ mod tests {
             "did%3Aweb%3Aagent.example%2Fuser"
         );
         assert_eq!(
-            agent_path_component("ak:grant:01964137-0000-8000-8000-000000000a01").unwrap(),
+            agent_path_component("ak:grant:ARF6inGTAigpVRHdDKO3YiWYHn3tJycH9CnluHfVxh20").unwrap(),
             "ak%3Agrant%3A01964137-0000-7000-8000-000000000a01"
         );
     }

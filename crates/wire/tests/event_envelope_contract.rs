@@ -1,18 +1,24 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Did, Event, EventId, EventRequirements, Hlc, MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH,
-    MAX_AUTHORITY_CONTROL_DEPTH, MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES,
-    MAX_EVENT_PREV_REFS, MAX_EVENT_REFS, MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId,
-    ScopeRef, prev_frontier_digest, validate_actor_seq_sibling_count,
-    validate_authority_chain_depth, validate_authority_control_depth,
-    validate_authorized_by_ref_count, validate_event_envelope_byte_len, validate_event_prev_refs,
-    validate_event_ref_count, validate_event_submit_batch_count,
+    Did, Event, EventDigestSuiteCode, EventId, EventIdentityKey, EventRequirements, Hlc,
+    MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH, MAX_AUTHORITY_CONTROL_DEPTH,
+    MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES, MAX_EVENT_PREV_REFS, MAX_EVENT_REFS,
+    MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId, ScopeRef, prev_frontier_digest,
+    validate_actor_seq_sibling_count, validate_authority_chain_depth,
+    validate_authority_control_depth, validate_authorized_by_ref_count,
+    validate_event_envelope_byte_len, validate_event_prev_refs, validate_event_ref_count,
+    validate_event_submit_batch_count,
 };
 use serde_json::json;
 
 fn realm_id() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-8000-8000-65c7feb295d7").unwrap()
+    RealmId::from_event_id(&strong_ref(0x65))
+}
+
+fn strong_ref(seed: u8) -> EventId {
+    let identity = EventIdentityKey::new(EventDigestSuiteCode::Sha256, [seed; 32]);
+    identity.event_id()
 }
 
 #[test]
@@ -35,7 +41,7 @@ fn event_new_sets_required_event_id() {
 #[test]
 fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
-        event_id: EventId::new("ak:event:01904100-0000-8000-8000-a0086f45c575").unwrap(),
+        event_id: strong_ref(0xa0),
         kind: "ak.message.create".into(),
         realm_id: realm_id(),
         scope_ref: ScopeRef::Realm {
@@ -71,7 +77,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     // v1 Event digest changed; this value must only move again with the spec.
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:808e5292e5a9084ead79d4540162e1d6340ccc229ca8ea8059654f05fd179db6"
+        "sha256:79ed3ce319d2b144f82ba9ce2c4d31e8ad3d63bb7bb2652629372f8355a7c4fa"
     );
     let value = serde_json::to_value(&event).unwrap();
     assert_eq!(value["payload"]["body"], "hello");
@@ -80,25 +86,16 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 
 #[test]
 fn prev_frontier_digest_sorts_and_deduplicates_refs() {
-    let refs_a = [
-        "ak:event:01904100-0000-8000-8000-000000000003",
-        "ak:event:01904100-0000-8000-8000-000000000001",
-        "ak:event:01904100-0000-8000-8000-000000000003",
-        "ak:event:01904100-0000-8000-8000-000000000002",
-    ];
-    let refs_b = [
-        "ak:event:01904100-0000-8000-8000-000000000001",
-        "ak:event:01904100-0000-8000-8000-000000000002",
-        "ak:event:01904100-0000-8000-8000-000000000003",
-    ];
+    let refs_a = [strong_ref(3), strong_ref(1), strong_ref(3), strong_ref(2)];
+    let refs_b = [strong_ref(1), strong_ref(2), strong_ref(3)];
 
     assert_eq!(
-        prev_frontier_digest(refs_a).unwrap(),
-        prev_frontier_digest(refs_b).unwrap()
+        prev_frontier_digest(&refs_a).unwrap(),
+        prev_frontier_digest(&refs_b).unwrap()
     );
     assert_ne!(
-        prev_frontier_digest(std::iter::empty::<&str>()).unwrap(),
-        prev_frontier_digest(refs_b).unwrap()
+        prev_frontier_digest(&[]).unwrap(),
+        prev_frontier_digest(&refs_b).unwrap()
     );
     assert_eq!(MAX_ACTOR_SEQ_SIBLINGS, 16);
 }
@@ -133,12 +130,12 @@ fn event_scalability_helpers_reject_over_limits() {
     assert!(validate_authority_control_depth(MAX_AUTHORITY_CONTROL_DEPTH + 1).is_err());
 
     let prev_refs = (0..MAX_EVENT_PREV_REFS)
-        .map(|index| format!("ak:event:01904100-0000-8000-8000-{index:012x}"))
+        .map(|index| strong_ref(index as u8))
         .collect::<Vec<_>>();
-    validate_event_prev_refs(prev_refs.iter().map(String::as_str)).unwrap();
+    validate_event_prev_refs(&prev_refs).unwrap();
     let mut duplicate = prev_refs;
     duplicate.push(duplicate[0].clone());
-    assert!(validate_event_prev_refs(duplicate.iter().map(String::as_str)).is_err());
+    assert!(validate_event_prev_refs(&duplicate).is_err());
 }
 
 /// `event-and-patch.md` §75 names producer-selected `auth_context.capability_refs`
@@ -161,7 +158,7 @@ fn auth_context_rejects_a_producer_selected_capability_list() {
         .expect("the closed member set must still parse");
 
     let mut smuggled = base;
-    smuggled["capability_refs"] = json!(["ak:grant:01904100-0000-8000-8000-65c7feb295d9"]);
+    smuggled["capability_refs"] = json!(["ak:grant:AexFmdraZt6B8bFfhx2bo_5tSexCveR9J0cIyonQUfe_"]);
     let error = serde_json::from_value::<arkret_wire::AuthContext>(smuggled)
         .expect_err("a producer-selected capability list must not deserialize");
     assert!(
@@ -210,11 +207,11 @@ fn event_digest_preimage_agrees_with_typed_digest_payload() {
 #[test]
 fn event_digest_preimage_drops_exactly_the_excluded_fields() {
     let envelope = json!({
-        "event_id": "ak:event:01904100-0000-8000-8000-a0086f45c575",
+        "event_id": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
         "kind": "ak.message.create",
         "actor_kind": "person",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "scope_ref": {"realm_id": "ak:realm:01904100-0000-8000-8000-65c7feb295d7"},
+        "scope_ref": {"realm_id": "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
         "payload": {"body": "hello"},
         "proofs": [{"kind": "detached_jws"}],
         "unsigned": {"local_receive_time": "ignored"}

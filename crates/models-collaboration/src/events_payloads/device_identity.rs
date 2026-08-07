@@ -1017,7 +1017,7 @@ mod tests {
 
         let mut carries_event_id = valid.clone();
         carries_event_id["replacement_authorize_event_id"] =
-            json!("ak:event:01904100-0000-8000-8000-000000000001");
+            json!("ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19");
         assert!(serde_json::from_value::<DeviceReanchorPayload>(carries_event_id).is_err());
 
         let mut missing_required_nullable = valid.clone();
@@ -1104,17 +1104,17 @@ mod tests {
                 "did:webvh:z6mkfixture:bob.example",
                 "did:webvh:z6mkfixture:alice.example"
             ],
-            "realm_id": "ak:realm:0196419b-0000-8000-8000-000000000101",
-            "main_strand_id": "ak:strand:0196419b-0000-8000-8000-000000000201",
+            "realm_id": "ak:realm:AVYxXzYx_KzaGx7X62doksaQR0ISkneyOwwF1k6ExHKy",
+            "main_strand_id": "ak:strand:AcweNVvZUYNuOdCMey9HT7PQHKPbHPJwOFTgn_cx7yjo",
             "founding_unit_digest": format!("sha256:{}", "b".repeat(64)),
             "authorization_basis": {
                 "kind": "accepted_contact",
                 "event_refs": [
-                    "ak:event:0196419b-0000-8000-8000-000000000308",
-                    "ak:event:0196419b-0000-8000-8000-000000000301"
+                    "ak:event:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5",
+                    "ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N"
                 ]
             },
-            "initial_exact_pair_generation_ref": "ak:event:0196419b-0000-8000-8000-00000000030a",
+            "initial_exact_pair_generation_ref": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
             "created_at": "2026-08-07T12:34:56.000Z"
         });
         let mut parsed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
