@@ -11,9 +11,9 @@
 //! * The `#` share / mention sigil (`#general:acme.example`) is a display + input-routing
 //!   affordance only; it is stripped before the wire form, exactly as the handle `@` sigil is.
 //! * Realm alias and handle occupy DISJOINT namespaces — a realm alias resolves via `resolve_realm`
-//!   to a `ak:realm:<44-char-token>`, a handle resolves via `resolve_handle` to a holder/principal DID. The
-//!   same `<localpart>:<domain>` MAY therefore be both a handle and a realm alias; the protocol
-//!   does NOT require global uniqueness across the two namespaces.
+//!   to a `ak:realm:<44-char-token>`, a handle resolves via `resolve_handle` to a holder/principal
+//!   DID. The same `<localpart>:<domain>` MAY therefore be both a handle and a realm alias; the
+//!   protocol does NOT require global uniqueness across the two namespaces.
 //!
 //! A realm alias has no port form; exactly one `:` separates localpart and domain.
 

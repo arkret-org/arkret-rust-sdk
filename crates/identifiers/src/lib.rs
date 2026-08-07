@@ -280,11 +280,21 @@ impl EventIdentityKey {
     }
 }
 
-fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
+/// Render the 33-byte create-Event token under a typed `ak:<kind>:` prefix.
+///
+/// Every Event-derived id kind shares this one encoder so a storage or
+/// transport boundary that has to round-trip a raw token never grows a second
+/// spelling of the wire form.
+pub fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
     format!("{prefix}{}", URL_SAFE_NO_PAD.encode(bytes))
 }
 
-fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
+/// Recover the 33-byte token from a typed Event-derived id.
+///
+/// Returns `None` unless `value` carries `prefix`, decodes to exactly 33
+/// octets, re-encodes byte-for-byte to the same canonical unpadded Base64URL
+/// spelling, and leads with an active digest suite code.
+pub fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix(prefix)?;
     if payload.len() != 44
         || !payload
