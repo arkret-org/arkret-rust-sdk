@@ -77,7 +77,8 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(MimiRoomBinding);
 
     registry.register(RealmPolicy);
-    registry.register(RealmMetadata);
+    registry.register(RealmGenesis);
+    registry.register(RealmProfile);
     registry.register(RealmReadReceiptPolicy);
     registry.register(RealmHistoryVisibility);
     registry.register(RealmJoinRule);

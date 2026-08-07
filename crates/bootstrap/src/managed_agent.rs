@@ -3,27 +3,22 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_models_collaboration::events_payloads::RealmCreatePayload;
-use arkret_models_collaboration::governance::circle::EncryptionFloor;
-use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
+use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
+use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
     CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
     join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventId,
-    EventKind, EventRef, FederationPolicy, Hash, HistoryVisibility, Hlc, JoinRule, NotarySig,
-    NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal,
-    SealId, SealKind, SecurityClass, TypedTrustDomainId,
+    AuthorizationRef, CellRef, Did, EncryptionProfile, Error, Event, EventId, EventKind, EventRef,
+    Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result,
+    SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId,
 };
 use chrono::{DateTime, Utc};
-use serde_json::Value;
 
 use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
-use crate::{
-    AGENT_PROVISION_REF_ROLE, DID_INCEPTION_REF_ROLE, PRINCIPAL_CONTROL_PURPOSE, REALM_CREATE_CELL,
-};
+use crate::{AGENT_PROVISION_REF_ROLE, DID_INCEPTION_REF_ROLE, REALM_CREATE_CELL};
 
 /// Build the required critical semantic reference from a managed Agent PCR
 /// genesis Event to the accepted controller-authored provision Event.
@@ -52,37 +47,22 @@ pub fn build_managed_agent_pcr_create_payload(
         input.controller_id.clone(),
         vec![input.controller_id.clone()],
     );
-    let mut realm = Realm::new(
-        input.realm_id,
-        "Managed Agent Principal Control Realm",
-        input.agent_id,
+    let genesis = RealmGenesis::principal_control(
         input.trust_domain,
+        vec![
+            SchemaId::REALM_V1.to_owned(),
+            ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
+        ],
         arkret_wire::CORE_REDUCER_PROFILE,
+        arkret_canonical::DigestSuite::Sha256,
+        SecurityClass::HighAssurance,
+        EncryptionProfile::MlsRfc9420,
         NotaryProfile::SingleDid,
         notary,
         input.capability_action_registry_digest,
-    );
-    realm.summary =
-        Some("Controller-managed E2EE continuity for a Native Personal Agent".to_owned());
-    realm.security_class = Some(SecurityClass::HighAssurance);
-    realm.schema_refs = vec![
-        SchemaId::REALM_V1.to_owned(),
-        ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
-    ];
-    realm.fields.insert(
-        "purpose".to_owned(),
-        Value::String(PRINCIPAL_CONTROL_PURPOSE.to_owned()),
-    );
-    realm.default_discoverability = Discoverability::InviteOnly;
-    realm.default_join_rule = JoinRule::Invite;
-    realm.history_visibility = HistoryVisibility::Restricted;
-    realm.encryption_profile = EncryptionProfile::MlsRfc9420;
-    realm.content_encryption_floor = Some(EncryptionFloor::E2eeRequired);
-    realm.metadata_encryption_floor = Some(EncryptionFloor::E2eeRequired);
-    realm.federation_policy = Some(FederationPolicy::Restricted);
-    realm.created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
+    )?;
 
-    let payload = RealmCreatePayload::new(realm);
+    let payload = RealmCreatePayload::new(genesis);
     payload.to_value()?;
     Ok(payload)
 }
@@ -159,30 +139,17 @@ pub fn materialize_managed_agent_pcr_control(
     let authorization_ref = create.authorization_ref.clone().ok_or_else(|| {
         Error::Protocol("managed Agent PCR create Event omits authorization_ref".to_owned())
     })?;
-    let object = create
-        .payload
-        .get("object")
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            Error::Protocol("managed Agent PCR create payload omits object".to_owned())
-        })?;
-    if object.get("created_by").and_then(Value::as_str) != Some(create.actor_id.as_str())
-        || object
-            .get("fields")
-            .and_then(Value::as_object)
-            .and_then(|fields| fields.get("purpose"))
-            .and_then(Value::as_str)
-            != Some(PRINCIPAL_CONTROL_PURPOSE)
+    let payload: RealmCreatePayload = create.payload_as()?;
+    let object = payload.object;
+    if object.purpose
+        != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl
+        || object.genesis_salt.is_some()
     {
         return Err(Error::Protocol(
-            "managed Agent PCR create actor, created_by, or purpose is inconsistent".to_owned(),
+            "managed Agent PCR create purpose or genesis_salt is inconsistent".to_owned(),
         ));
     }
-    let notary = object
-        .get("notary")
-        .cloned()
-        .ok_or_else(|| Error::Protocol("managed Agent PCR create omits notary".to_owned()))?;
-    let notary_value: NotaryValue = serde_json::from_value(notary)?;
+    let notary_value = object.notary;
     notary_value.validate()?;
     if !notary_value.includes_signer_as_primary(&create.actor_id) {
         return Err(Error::Protocol(

@@ -146,7 +146,7 @@ impl RealmState {
             }
             // Realm lifecycle events use the realm_id as state key.
             "ak.realm.create"
-            | "ak.realm.update"
+            | "ak.realm.profile"
             | "ak.realm.link"
             | "ak.realm.inheritance_policy"
             | "ak.realm.join_rule"

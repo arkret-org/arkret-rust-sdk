@@ -28,13 +28,12 @@ use crate::projection::direct_projection;
 use crate::self_principal::validate_self_principal_pcr_create;
 use crate::{
     AgentProvisionEventDraftOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrCreatePayloadInput,
-    ManagedAgentPcrGenesisAuthority, PRINCIPAL_CONTROL_PURPOSE, REALM_AUTHORITY_ROOT_CELL,
-    REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL,
-    SelfPrincipalPcrCreateInput, build_agent_provision_event_draft,
-    build_managed_agent_pcr_create_payload, build_managed_agent_pcr_event_seal,
-    build_self_principal_bootstrap_seal, build_self_principal_pcr_create,
-    materialize_managed_agent_pcr_control, self_principal_bootstrap_submit_request,
-    validate_self_principal_bootstrap_unit,
+    ManagedAgentPcrGenesisAuthority, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
+    REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
+    build_agent_provision_event_draft, build_managed_agent_pcr_create_payload,
+    build_managed_agent_pcr_event_seal, build_self_principal_bootstrap_seal,
+    build_self_principal_pcr_create, materialize_managed_agent_pcr_control,
+    self_principal_bootstrap_submit_request, validate_self_principal_bootstrap_unit,
 };
 
 struct FixtureSigner {
@@ -198,11 +197,7 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
             .map(|effect| effect.cell.as_str().to_owned())
             .collect::<BTreeSet<_>>(),
         [
-            REALM_METADATA_CELL.to_owned(),
-            format!(
-                "ak:cell:ak.component.member.state.v1:{}",
-                event.actor_id.as_str()
-            ),
+            REALM_GENESIS_CELL.to_owned(),
             REALM_CREATE_CELL.to_owned(),
             REALM_NOTARY_CELL.to_owned(),
             REALM_REDUCER_PROFILE_CELL.to_owned(),
@@ -400,6 +395,16 @@ fn managed_agent_pcr_create() -> Event {
     let realm_id = RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
     let agent = Did::new("did:web:agent.example").unwrap();
     let controller = Did::new("did:web:controller.example").unwrap();
+    let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
+        agent_id: agent.clone(),
+        controller_id: controller.clone(),
+        realm_id: realm_id.clone(),
+        trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
+            .unwrap(),
+        created_at: Utc::now(),
+    })
+    .unwrap();
     let mut create = Event::new(
         EventKind::REALM_CREATE,
         ScopeRef::Realm {
@@ -408,16 +413,7 @@ fn managed_agent_pcr_create() -> Event {
         agent.clone(),
         0,
         Hlc::new("01970e589d21-0007-a13f9c2e").unwrap(),
-        serde_json::json!({
-            "object": {
-                "id": realm_id,
-                "created_by": agent,
-                "fields": {"purpose": "principal_control"},
-                "notary": {"kind": "single_did", "did": agent},
-                "reducer_profile": arkret_wire::CORE_REDUCER_PROFILE,
-                "capability_action_registry_digest": format!("sha256:{}", "9a".repeat(32)),
-            }
-        }),
+        payload.to_value().unwrap(),
     )
     .unwrap();
     create.event_id =
@@ -453,10 +449,8 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
         Some(arkret_wire::CORE_REDUCER_PROFILE)
     );
     assert_eq!(
-        value
-            .pointer("/object/fields/purpose")
-            .and_then(Value::as_str),
-        Some(PRINCIPAL_CONTROL_PURPOSE)
+        value.pointer("/object/purpose").and_then(Value::as_str),
+        Some("principal_control")
     );
 }
 
@@ -475,12 +469,10 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
             .map(CellRef::as_str)
             .collect::<Vec<_>>(),
         vec![
-            "ak:cell:ak.component.agent.status.v1:did:web:agent.example",
-            "ak:cell:ak.component.member.state.v1:did:web:agent.example",
             REALM_NOTARY_CELL,
             REALM_AUTHORITY_ROOT_CELL,
             REALM_CREATE_CELL,
-            REALM_METADATA_CELL,
+            REALM_GENESIS_CELL,
             REALM_REDUCER_PROFILE_CELL,
         ]
     );
@@ -616,70 +608,6 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         panic!("managed Agent PCR Seal must use one controller signature")
     };
     assert_eq!(signature.verification_method, signer.verification_method);
-}
-
-#[test]
-fn managed_agent_successor_resolves_registered_patch_from_frozen_predecessor() {
-    let create = managed_agent_pcr_create();
-    let controller = create.executed_by.clone().unwrap();
-    let signer = FixtureSigner {
-        did: controller.clone(),
-        verification_method: DidUrl::new(format!(
-            "{controller}#ak:device:01904100-0000-7000-8000-0000000000b1"
-        ))
-        .unwrap(),
-    };
-    let first = build_managed_agent_pcr_event_seal(
-        std::slice::from_ref(&create),
-        None,
-        Hlc::new("01970e589d21-000b-a13f9c2e").unwrap(),
-        &signer,
-        &registry_projection,
-    )
-    .unwrap();
-
-    let mut update = Event::new(
-        EventKind::REALM_UPDATE,
-        create.scope_ref.clone(),
-        create.actor_id.clone(),
-        1,
-        Hlc::new("01970e589d21-000c-a13f9c2e").unwrap(),
-        serde_json::json!({
-            "patch": {
-                "fields.name": "renamed managed Agent"
-            }
-        }),
-    )
-    .unwrap();
-    update.event_id =
-        EventId::new("ak:event:AUZVSPb9v-NuEN6dQgTA44vXJnQ1d-pxAvvfplV4zgOc").unwrap();
-    update.executed_by = Some(controller);
-    update.authorization_ref = create.authorization_ref.clone();
-    update.seal_basis = Some(first.seal_basis());
-
-    let material = materialize_managed_agent_pcr_control(
-        &[create.clone(), update.clone()],
-        &registry_projection,
-    )
-    .unwrap();
-    let metadata = CellRef::new(REALM_METADATA_CELL).unwrap();
-    let arkret_state::CellState::Value(patched) = material.joined.get(&metadata).unwrap() else {
-        panic!("managed Agent metadata must remain a live register")
-    };
-    assert_eq!(patched["fields"]["name"], "renamed managed Agent");
-    assert_eq!(patched["fields"]["purpose"], PRINCIPAL_CONTROL_PURPOSE);
-
-    let successor = build_managed_agent_pcr_event_seal(
-        &[create, update.clone()],
-        Some(&first),
-        Hlc::new("01970e589d21-000d-a13f9c2e").unwrap(),
-        &signer,
-        &registry_projection,
-    )
-    .unwrap();
-    assert_eq!(successor.delta.len(), 1);
-    assert_eq!(successor.delta[0].as_str(), update.event_digest().unwrap());
-    assert_ne!(successor.state_root, first.state_root);
 }
 
 #[test]

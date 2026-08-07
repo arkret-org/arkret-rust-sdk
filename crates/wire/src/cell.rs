@@ -57,9 +57,10 @@ pub fn null_subject_cell(component: &str) -> String {
 
 /// Canonical genesis-log cell of every `ak.realm.create` (`ordered_log`).
 pub const REALM_CREATE_CELL: &str = "ak:cell:ak.component.realm.create.v1:null";
-/// Canonical per-Realm metadata cell, seeded by `ak.realm.create` and written
-/// by every later `ak.realm.update` (`cas_register`).
-pub const REALM_METADATA_CELL: &str = "ak:cell:ak.component.realm.metadata.v1:null";
+/// Canonical minimal Realm identity/security root written by `ak.realm.create`.
+pub const REALM_GENESIS_CELL: &str = "ak:cell:ak.component.realm.genesis.v1:null";
+/// Canonical Realm display profile written only by `ak.realm.profile`.
+pub const REALM_PROFILE_CELL: &str = "ak:cell:ak.component.realm.profile.v1:null";
 /// Canonical per-Realm notary control cell; its genesis value is an explicit
 /// `ak.realm.create` effect and later values come from `ak.realm.notary`.
 pub const REALM_NOTARY_CELL: &str = "ak:cell:ak.component.notary.v1:null";
@@ -451,7 +452,8 @@ mod null_subject_tests {
     fn canonical_null_subject_cells_match_the_builder() {
         for (constant, family) in [
             (REALM_CREATE_CELL, crate::CellFamilyId::REALM_CREATE_V1),
-            (REALM_METADATA_CELL, crate::CellFamilyId::REALM_METADATA_V1),
+            (REALM_GENESIS_CELL, crate::CellFamilyId::REALM_GENESIS_V1),
+            (REALM_PROFILE_CELL, crate::CellFamilyId::REALM_PROFILE_V1),
             (REALM_NOTARY_CELL, crate::CellFamilyId::NOTARY_V1),
         ] {
             assert_eq!(constant, null_subject_cell(family));

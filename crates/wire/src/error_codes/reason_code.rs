@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.2;
-//! sha256=4d472e814bd1e159e43140bc35053d5fd34cd8c196245ec223f15f0ca856744f
+//! Input: registry/error-code-registry.json; version=2026-08-08.3;
+//! sha256=c3b1f928160579700b734e8c7ff1d25a56a739e1991e1263567a8a747ecc83df
 //! Entries: reason_codes=465
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3346,7 +3346,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_GENESIS_SEAL,
         applies_to: &["seal", "state_resolution"],
-        description: "The first Seal of a Realm did not atomically cover the complete founding anchor unit (the five registered ak.realm.create cell writes: Realm metadata, creator joined membership, create log, founding notary and the authority-root cell), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
+        description: "The first Seal of a Realm did not atomically cover the complete registered bootstrap unit (create writes genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_MEMBERSHIP_TRANSITION,
@@ -3706,7 +3706,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::OUT_OF_ORDER_BOOTSTRAP,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "A Realm bootstrap batch placed a facet event before the ak.realm.create event that establishes the creator membership and Realm create cell.",
+        description: "A Realm bootstrap batch violated the exact ordered-slot registry, including placing any facet before ak.realm.create or creator membership anywhere except the required final slot.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PAIRING_EXPIRED,
@@ -3971,12 +3971,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_ROOT_CONFLICT,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The authority-root cell value was author-supplied or otherwise diverges from the registered value_projection: controller_id not equal to payload.object.created_by, a non-zero controller_epoch or authority_generation at genesis, a capability_action_registry_digest differing from the signed create payload, or members beyond the closed four-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
+        description: "The authority-root cell value was author-supplied or otherwise diverges from the registered value_projection: controller_id not equal to the create envelope actor_id, a non-zero controller_epoch or authority_generation at genesis, a capability_action_registry_digest differing from the signed create payload, or members beyond the closed four-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_ROOT_MISSING,
         applies_to: &["event_envelope", "state_resolution", "auth_decision"],
-        description: "The Realm has no registered ak.component.realm.authority_root.v1 cell in the authorization basis, or a ak.realm.create bootstrap unit failed to materialize it. Reducer MUST reject the entire bootstrap unit atomically without leaving Realm metadata or creator membership, and MUST NOT fall back to created_by, membership or a realm_state.owner projection mirror. See zh/models/realm-and-space.md section 2.5.",
+        description: "The Realm has no registered ak.component.realm.authority_root.v1 cell in the authorization basis, or an ak.realm.create bootstrap unit failed to materialize it. Reducer MUST reject the entire bootstrap unit atomically without leaving genesis, profile, policy, or membership facets, and MUST NOT fall back to membership or a realm_state.owner projection mirror. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_ID_NOT_EVENT_DERIVED,

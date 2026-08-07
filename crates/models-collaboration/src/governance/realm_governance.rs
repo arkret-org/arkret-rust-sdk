@@ -668,7 +668,7 @@ pub enum RealmPolicyServerPayload {
 /// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.
 ///
 /// `realm.schema.json` is a closed object with no `alias` property, and
-/// `ak.realm.create` / `ak.realm.update` payloads MUST NOT carry one
+/// Realm genesis/profile payloads MUST NOT carry one
 /// (`discovery/object-addressing.md` §3.3).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

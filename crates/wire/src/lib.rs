@@ -12,6 +12,7 @@ use serde_json::Value;
 
 mod error;
 mod extension_map;
+mod genesis_salt;
 
 pub mod base64url {
     pub use arkret_canonical::base64url::*;
@@ -82,8 +83,9 @@ pub use cba::{
 pub use cba_proof_bundle::{AvailabilityReceipt, CbaProofBundle};
 pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
-    REALM_METADATA_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, composite_subject,
-    composite_subject_pipe, null_subject_cell, string_set_digest_component, subject_cell,
+    REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_PROFILE_CELL, REALM_REDUCER_PROFILE_CELL,
+    composite_subject, composite_subject_pipe, null_subject_cell, string_set_digest_component,
+    subject_cell,
 };
 pub use consent_scope::*;
 pub use constants::*;
@@ -125,6 +127,7 @@ pub use generated::{
     SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor,
     ServiceOperationDescriptor, ServiceOperationId, TrackName, operation_error_mapping,
 };
+pub use genesis_salt::GenesisSalt;
 pub use http_signature::HttpMessageSignature;
 pub use ingress_budget::WireBodyClass;
 pub use notary::{ForensicAttribution, NotaryValue};

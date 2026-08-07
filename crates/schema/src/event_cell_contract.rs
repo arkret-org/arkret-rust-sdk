@@ -1084,6 +1084,16 @@ fn derive_value_projection_value(
         }
         let resolved = if let Some(path) = member.get("field").and_then(Value::as_str) {
             field_value(event, path).cloned()
+        } else if let Some(path) = member.get("envelope_field").and_then(Value::as_str) {
+            match path {
+                "actor_id" => Some(Value::String(event.actor_id.as_str().to_owned())),
+                "created_at" => Some(Value::String(
+                    arkret_canonical::canonical::normalize_timestamp_canonical(event.created_at)
+                        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                )),
+                "realm_id" => Some(Value::String(event.realm_id.as_str().to_owned())),
+                _ => None,
+            }
         } else if let Some(component) = member.get("select") {
             let path = select_field_path(event, component, &kind)?;
             field_value(event, &path).cloned()
@@ -2604,8 +2614,16 @@ mod tests {
             "refs": refs,
             "payload": {
                 "object": {
-                    "created_by": "did:webvh:z6mkfixture:alice.example",
+                    "schema": "ak.schema.realm_genesis.v1",
+                    "purpose": "collaboration",
+                    "genesis_salt": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "trust_domain": "ak:trust_domain:example.net",
+                    "schema_refs": ["ak.schema.realm.v1"],
                     "reducer_profile": "ak.reducer.core.v1",
+                    "digest_algorithm": "sha256",
+                    "security_class": "standard",
+                    "encryption_profile": "mls_rfc9420",
+                    "notary_profile": "single_did",
                     "notary": {
                         "type": "single_did",
                         "did": "did:webvh:z6mkfixture:alice.example"
@@ -2629,14 +2647,7 @@ mod tests {
         assert_eq!(
             project(&event),
             vec![
-                write(
-                    "ak:cell:ak.component.realm.metadata.v1:null",
-                    set_op(object.clone()),
-                ),
-                write(
-                    "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:alice.example",
-                    transition_op(json!("leave"), json!("join")),
-                ),
+                write(arkret_wire::REALM_GENESIS_CELL, set_op(object.clone()),),
                 write(
                     arkret_wire::REALM_CREATE_CELL,
                     append_op(
@@ -2667,41 +2678,6 @@ mod tests {
                 ),
             ]
         );
-    }
-
-    #[test]
-    fn realm_create_agent_status_write_requires_exactly_one_critical_provision_ref() {
-        let provision_ref = json!({
-            "id": "ak:event:AUnMkflaxtGFOx2-bF9-47QlulhbzBTMRIGsIQWQuRxw",
-            "role": "agent_provision",
-            "critical": true
-        });
-        let event = realm_create_event(json!([provision_ref]));
-        let writes = project(&event);
-        assert_eq!(writes.len(), 7);
-        assert_eq!(
-            writes.last(),
-            Some(&write(
-                "ak:cell:ak.component.agent.status.v1:did:webvh:z6mkfixture:alice.example",
-                transition_op(json!("uninitialized"), json!("active")),
-            ))
-        );
-
-        for refs in [
-            json!([{
-                "id": "ak:event:AZYDa-OW55z7QiNfsbyI6m_eaW--kSvwY6Zi4aatyLw_",
-                "role": "agent_provision",
-                "critical": false
-            }]),
-            json!([{
-                "id": "ak:event:AegCxixACaoAd3ZE5N0PvIF4BcsVt4AFmcYZMLTJUHqO",
-                "role": "did_inception",
-                "critical": true
-            }]),
-            json!([provision_ref.clone(), provision_ref]),
-        ] {
-            assert_eq!(project(&realm_create_event(refs)).len(), 6);
-        }
     }
 
     fn call_event(kind: &str, payload: Value) -> Event {

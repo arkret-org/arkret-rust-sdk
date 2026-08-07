@@ -355,7 +355,7 @@ pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
     AccountDataKey, BindingKind, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileId,
     DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass, EventKind, ExporterLabelId,
-    HPKE_SUITES, IdempotencyKey, KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES,
+    GenesisSalt, HPKE_SUITES, IdempotencyKey, KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES,
     MLS_EXTENSIONS, MlsCiphersuiteId, PROOF_CONTEXTS, ProfileId, ProofContextId, ProtocolOpaqueId,
     ProtocolOperationId, ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS,
     ReservationHandle, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,

@@ -1272,17 +1272,24 @@ singleton_lattice!(
     &["ak.realm.policy"]
 );
 
-// Per-Realm metadata cell. `ak.realm.create` seeds it as its first registered
-// effect and `ak.realm.update` writes every later value, so it MUST exist in
-// the genesis `state_root` leaf set (models/realm-and-space.md section 2.5,
-// authz/event-auth-state-resolution.md section 6.2.1).
+// Per-Realm minimal identity/security root. Mutable and display state is never
+// written here.
 singleton_lattice!(
-    RealmMetadata,
-    arkret_wire::CellFamilyId::REALM_METADATA_V1,
+    RealmGenesis,
+    arkret_wire::CellFamilyId::REALM_GENESIS_V1,
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["ak.realm.create", "ak.realm.update"]
+    &["ak.realm.create"]
+);
+
+singleton_lattice!(
+    RealmProfile,
+    arkret_wire::CellFamilyId::REALM_PROFILE_V1,
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["ak.realm.profile"]
 );
 
 singleton_lattice!(

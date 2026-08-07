@@ -494,7 +494,7 @@ fn recovery_witness_freshness_window_ms(pre_state: &BTreeMap<CellRef, CellState>
         .iter()
         .find_map(|(cell, state)| {
             let cell_id = crate::CellId::parse(cell.as_str()).ok()?;
-            if cell_id.component() != arkret_wire::CellFamilyId::REALM_METADATA_V1 {
+            if cell_id.component() != arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1 {
                 return None;
             }
             let CellState::Value(value) = state else {
@@ -2174,7 +2174,10 @@ mod tests {
             recovery_witness_freshness_window_ms(&BTreeMap::new()),
             DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS
         );
-        let metadata = CellRef::new(arkret_wire::REALM_METADATA_CELL.to_owned()).unwrap();
+        let metadata = CellRef::new(arkret_wire::null_subject_cell(
+            arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1,
+        ))
+        .unwrap();
         let state = BTreeMap::from([(
             metadata,
             CellState::Value(json!({"recovery_witness_freshness_window_ms": 999_999_999_i64})),

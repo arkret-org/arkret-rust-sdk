@@ -263,7 +263,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmSchema
         | EventKind::RealmSearchPolicy
         | EventKind::RealmTombstone
-        | EventKind::RealmUpdate
+        | EventKind::RealmProfile
         | EventKind::RealmUpgrade
         | EventKind::NotaryFaultCensorship
         | EventKind::NotaryFaultEquivocation => EventProductClass::Realm,
@@ -319,7 +319,7 @@ pub fn is_realm_lifecycle_kind(kind: &str) -> bool {
     matches!(
         kind,
         EventKind::REALM_CREATE
-            | EventKind::REALM_UPDATE
+            | EventKind::REALM_PROFILE
             | EventKind::REALM_ARCHIVE
             | EventKind::REALM_FREEZE
             | EventKind::REALM_DESTROY

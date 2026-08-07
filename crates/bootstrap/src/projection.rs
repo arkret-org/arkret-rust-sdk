@@ -10,7 +10,7 @@ use arkret_wire::{
 };
 
 use crate::{
-    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL,
+    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_GENESIS_CELL, REALM_NOTARY_CELL,
     REALM_REDUCER_PROFILE_CELL,
 };
 
@@ -31,33 +31,16 @@ pub type CellWriteProjector<'a> =
 ///
 /// Keeping this set in one SDK helper prevents receivers from retaining a
 /// stale copy when the registered genesis contract gains another cell.
-pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
-    let mut expected = [
-        REALM_METADATA_CELL.to_owned(),
-        format!(
-            "ak:cell:ak.component.member.state.v1:{}",
-            event.actor_id.as_str()
-        ),
+pub fn expected_realm_create_cells(_event: &Event) -> BTreeSet<String> {
+    [
+        REALM_GENESIS_CELL.to_owned(),
         REALM_CREATE_CELL.to_owned(),
         REALM_NOTARY_CELL.to_owned(),
         REALM_REDUCER_PROFILE_CELL.to_owned(),
         REALM_AUTHORITY_ROOT_CELL.to_owned(),
     ]
     .into_iter()
-    .collect::<BTreeSet<_>>();
-    if event
-        .refs
-        .iter()
-        .filter(|event_ref| event_ref.critical && event_ref.role == "agent_provision")
-        .count()
-        == 1
-    {
-        expected.insert(format!(
-            "ak:cell:ak.component.agent.status.v1:{}",
-            event.actor_id.as_str()
-        ));
-    }
-    expected
+    .collect::<BTreeSet<_>>()
 }
 
 /// Project `event` and require every derived write to be directly applicable.
@@ -94,9 +77,9 @@ pub(crate) fn direct_projection(
 /// leaf set.
 ///
 /// Self PCR, managed Agent PCR and ordinary Realm producers all reach the
-/// receiver through the same contract. The six common writes are always
-/// present; a managed Agent create with exactly one critical `agent_provision`
-/// ref also initializes its Agent-status cell. Only the targets are asserted:
+/// receiver through the same contract. The five identity/security-root writes
+/// are always present. Profile, membership and policy cells are separate
+/// registered Events in branches whose bootstrap unit includes them. Only the targets are asserted:
 /// the lattice ops come from the registered `effect_projection` and restating
 /// them here would rebuild the producer-side effect table v1 removed.
 pub(crate) fn validate_realm_create_projection(

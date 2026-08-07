@@ -210,7 +210,7 @@ impl RealmState {
             // Realm lifecycle - generic state reduction. Container-level
             // (`ak.space.*`) lifecycle is covered by the `EventKind::SPACE_*` arms above.
             "ak.realm.create"
-            | "ak.realm.update"
+            | "ak.realm.profile"
             | "ak.realm.organization"
             | "ak.realm.link"
             | "ak.realm.inheritance_policy"

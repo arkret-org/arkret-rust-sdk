@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.2;
-//! sha256=4d472e814bd1e159e43140bc35053d5fd34cd8c196245ec223f15f0ca856744f Entries: error_codes=272
+//! Input: registry/error-code-registry.json; version=2026-08-08.3;
+//! sha256=c3b1f928160579700b734e8c7ff1d25a56a739e1991e1263567a8a747ecc83df Entries: error_codes=272
 
 use serde::{Deserialize, Serialize};
 
@@ -2526,7 +2526,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The first Seal of a Realm did not atomically cover and materialize the complete founding anchor unit, or it declared an empty covered set or an empty control_event_set_root. The founding unit covers the five registered ak.realm.create cell writes: Realm metadata, creator membership, the create log, authority/notary and the authority-root cell. For MLS-backed scope, epoch-0 binding is instead required on the first successor Seal covering ak.mls.genesis, whose seal_basis is the accepted Genesis Seal. Omitted founding authority is never repairable by later Seals. See zh/authz/cba-profiles.md section 3.",
+        description: "The first Seal of a Realm did not atomically cover and materialize the complete registered bootstrap unit, or it declared an empty covered set or an empty control_event_set_root. The five ak.realm.create writes are genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots in the same unit. For MLS-backed scope, epoch-0 binding is instead required on the first successor Seal covering ak.mls.genesis, whose seal_basis is the accepted Genesis Seal. Omitted founding state is never repairable by later Seals. See zh/authz/cba-profiles.md section 3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::InvalidParam,

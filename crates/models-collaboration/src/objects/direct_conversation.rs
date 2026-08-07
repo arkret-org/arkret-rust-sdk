@@ -4,27 +4,22 @@ use std::collections::BTreeSet;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    Did, Discoverability, EncryptionProfile, Error, EventId, FederationPolicy, Hash,
-    HistoryVisibility, JoinRule, ObjectStage, ObjectState, ProfileId, RealmId, Result,
-    SecurityClass, StrandId, TypedTrustDomainId, canonical,
+    Did, EncryptionProfile, Error, EventId, GenesisSalt, Hash, ObjectStage, ObjectState, ProfileId,
+    RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::events_payloads::device_identity::DirectConversationBoundPayload;
-use crate::events_payloads::{RealmCreatePayload, StrandCreatePayload};
-use crate::governance::circle::EncryptionFloor;
+use crate::events_payloads::{RealmCreatePayload, RealmGenesis, RealmPurpose, StrandCreatePayload};
 use crate::governance::delivery_binding::DeliveryStatus;
 use crate::governance::membership_invite::MembershipPayload;
 use crate::objects::profiles::STRAND_TRACK_NAME_DISCUSSION;
-use crate::objects::realm::{NotaryProfile, Realm};
+use crate::objects::realm::NotaryProfile;
 use crate::objects::strand::Strand;
 
 pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
     "ak.feature.direct_conversation_realm_role.v1";
-pub const DIRECT_CONVERSATION_COLLABORATION_ROLE_FIELD: &str = "collaboration_role";
-pub const DIRECT_CONVERSATION_COLLABORATION_ROLE: &str = "direct_conversation";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -129,89 +124,56 @@ pub fn direct_conversation_pair_key(
 pub struct DirectConversationRealmRole;
 
 impl DirectConversationRealmRole {
-    pub fn validate(realm: &Realm) -> Result<Self> {
-        let has_profile = realm
+    pub fn validate(genesis: &RealmGenesis) -> Result<Self> {
+        let has_profile = genesis
             .schema_refs
             .iter()
             .any(|profile| profile == ProfileId::DIRECT_CONVERSATION_REALM_V1);
-        let has_discriminator = realm
-            .fields
-            .get(DIRECT_CONVERSATION_COLLABORATION_ROLE_FIELD)
-            .and_then(Value::as_str)
-            == Some(DIRECT_CONVERSATION_COLLABORATION_ROLE);
-        if !has_profile || !has_discriminator {
+        if !has_profile || genesis.purpose != RealmPurpose::DirectConversation {
             return Err(Error::Protocol(
-                "direct conversation Realm profile/discriminator mismatch (schema_violation)"
-                    .to_owned(),
+                "direct conversation Realm purpose/profile mismatch (schema_violation)".to_owned(),
             ));
         }
-        if realm
-            .schema_refs
-            .iter()
-            .any(|profile| profile == "ak.profile.principal_control_realm.v1")
-            || realm.fields.contains_key("purpose")
+        if genesis.genesis_salt.is_none()
+            || genesis.encryption_profile != EncryptionProfile::MlsRfc9420
         {
             return Err(Error::Protocol(
-                "direct conversation Realm cannot also be a principal control Realm (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        if realm.encryption_profile != EncryptionProfile::MlsRfc9420
-            || realm.default_join_rule != JoinRule::Closed
-            || realm.content_encryption_floor != Some(EncryptionFloor::E2eeRequired)
-            || realm.metadata_encryption_floor != Some(EncryptionFloor::E2eeRequired)
-        {
-            return Err(Error::Protocol(
-                "direct conversation Realm security fields mismatch (schema_violation)".to_owned(),
+                "direct conversation Realm genesis mismatch (schema_violation)".to_owned(),
             ));
         }
         Ok(Self)
     }
 
-    pub fn matches(realm: &Realm) -> bool {
-        Self::validate(realm).is_ok()
+    pub fn matches(genesis: &RealmGenesis) -> bool {
+        Self::validate(genesis).is_ok()
     }
 }
 
 pub fn direct_conversation_realm_create_payload(
-    realm_id: RealmId,
-    creator: Did,
+    genesis_salt: GenesisSalt,
     trust_domain: TypedTrustDomainId,
     notary_profile: NotaryProfile,
     notary: NotaryValue,
     capability_action_registry_digest: Hash,
-    created_at: DateTime<Utc>,
-) -> RealmCreatePayload {
-    let mut realm = Realm::new(
-        realm_id,
-        "Direct conversation",
-        creator,
+    _created_at: DateTime<Utc>,
+) -> Result<RealmCreatePayload> {
+    let genesis = RealmGenesis::event_derived(
+        RealmPurpose::DirectConversation,
+        genesis_salt,
         trust_domain,
+        vec![
+            SchemaId::REALM_V1.to_owned(),
+            ProfileId::DIRECT_CONVERSATION_REALM_V1.to_owned(),
+        ],
         arkret_wire::CORE_REDUCER_PROFILE,
+        arkret_canonical::DigestSuite::Sha256,
+        SecurityClass::Standard,
+        EncryptionProfile::MlsRfc9420,
         notary_profile,
         notary,
         capability_action_registry_digest,
-    );
-    realm.security_class = Some(SecurityClass::Standard);
-    realm
-        .schema_refs
-        .push(ProfileId::DIRECT_CONVERSATION_REALM_V1.to_owned());
-    realm.fields.insert(
-        DIRECT_CONVERSATION_COLLABORATION_ROLE_FIELD.to_owned(),
-        Value::String(DIRECT_CONVERSATION_COLLABORATION_ROLE.to_owned()),
-    );
-    realm.default_discoverability = Discoverability::InviteOnly;
-    realm.default_join_rule = JoinRule::Closed;
-    realm.history_visibility = HistoryVisibility::Joined;
-    realm.encryption_profile = EncryptionProfile::MlsRfc9420;
-    realm.content_encryption_floor = Some(EncryptionFloor::E2eeRequired);
-    realm.metadata_encryption_floor = Some(EncryptionFloor::E2eeRequired);
-    realm.federation_policy = Some(FederationPolicy::Restricted);
-    realm.created_at = created_at;
-    RealmCreatePayload {
-        object: realm,
-        initial_relations: None,
-    }
+    )?;
+    Ok(RealmCreatePayload::new(genesis))
 }
 
 pub fn direct_conversation_membership_bootstrap(
@@ -267,15 +229,14 @@ pub fn direct_conversation_main_strand_create_payload(
 pub fn validate_direct_conversation_binding(
     payload: &DirectConversationBoundPayload,
     trust_domain: TypedTrustDomainId,
-    realm: &Realm,
+    genesis: &RealmGenesis,
+    realm_id: &RealmId,
     active_members: &BTreeSet<Did>,
     main_strand: &Strand,
 ) -> Result<()> {
     payload.validate_pair_key(trust_domain)?;
-    DirectConversationRealmRole::validate(realm)?;
-    if Some(&payload.realm_id) != realm.id.as_ref()
-        || Some(&payload.main_strand_id) != main_strand.id.as_ref()
-    {
+    DirectConversationRealmRole::validate(genesis)?;
+    if &payload.realm_id != realm_id || Some(&payload.main_strand_id) != main_strand.id.as_ref() {
         return Err(Error::Protocol(
             "direct conversation binding object reference mismatch (schema_violation)".to_owned(),
         ));
@@ -286,7 +247,7 @@ pub fn validate_direct_conversation_binding(
             "direct_conversation_member_count_invalid".to_owned(),
         ));
     }
-    if Some(&main_strand.realm_id) != realm.id.as_ref()
+    if &main_strand.realm_id != realm_id
         || main_strand.scope_circle_id.is_some()
         || main_strand.state != Some(ObjectState::Active)
     {
@@ -482,8 +443,7 @@ mod tests {
     fn builder_emits_closed_profiled_e2ee_realm() {
         let creator = did("did:webvh:z6mkfixture:alice.example");
         let payload = direct_conversation_realm_create_payload(
-            RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap(),
-            creator.clone(),
+            GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
             NotaryProfile::SingleDid,
             NotaryValue::single_did(creator),
@@ -491,13 +451,11 @@ mod tests {
             DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
-        );
-        assert!(DirectConversationRealmRole::matches(&payload.object));
-        assert_eq!(payload.object.default_join_rule, JoinRule::Closed);
-        assert_eq!(
-            payload.object.metadata_encryption_floor,
-            Some(EncryptionFloor::E2eeRequired)
-        );
+        )
+        .unwrap();
+        assert_eq!(payload.object.purpose, RealmPurpose::DirectConversation);
+        assert!(payload.object.genesis_salt.is_some());
+        assert_eq!(payload.object.security_class, SecurityClass::Standard);
     }
 
     fn event_id(suffix: &str) -> EventId {
@@ -584,21 +542,20 @@ mod tests {
     fn validator_rejects_third_member_and_circle_scoped_main_strand() {
         let creator = did("did:webvh:z6mkfixture:alice.example");
         let realm = direct_conversation_realm_create_payload(
-            RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap(),
-            creator.clone(),
+            GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
             NotaryProfile::SingleDid,
             NotaryValue::single_did(creator.clone()),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             Utc::now(),
         )
+        .unwrap()
         .object;
+        let realm_id =
+            RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap();
         let mut strand = direct_conversation_main_strand_create_payload(
             StrandId::new("ak:strand:AVBgYTmzSkzTSd1dlFH4ZADaQRkVcx_iTAvXdxlTfxrg").unwrap(),
-            realm
-                .id
-                .clone()
-                .expect("fixture Realm is materialised, so it has an id"),
+            realm_id,
             creator,
             Utc::now(),
         )
@@ -610,6 +567,7 @@ mod tests {
                 &payload,
                 trust_domain(),
                 &realm,
+                &payload.realm_id,
                 &members,
                 &strand,
             )
@@ -622,6 +580,7 @@ mod tests {
                 &payload,
                 trust_domain(),
                 &realm,
+                &payload.realm_id,
                 &members,
                 &strand,
             )
@@ -639,6 +598,7 @@ mod tests {
                 &payload,
                 trust_domain(),
                 &realm,
+                &payload.realm_id,
                 &members,
                 &strand,
             )

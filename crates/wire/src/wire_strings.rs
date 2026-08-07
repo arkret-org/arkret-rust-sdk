@@ -869,7 +869,7 @@ mod tests {
             assert!(AuthorizationRef::new(value).is_ok(), "{value}");
         }
         for value in [
-            "ak:cell:ak.component.realm.metadata.v1:null",
+            crate::REALM_GENESIS_CELL,
             "ak:grant:not-a-uuid",
             "did:web:alice.example",
             "future.authorization.source.v1",

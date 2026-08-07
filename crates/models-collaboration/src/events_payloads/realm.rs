@@ -260,6 +260,8 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub federation_policy: Option<FederationPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aad_visibility: Option<RealmAadVisibilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
@@ -308,6 +310,7 @@ impl RealmPolicyBundlePayload {
             content_scheme: None,
             content_encryption_floor: None,
             metadata_encryption_floor: None,
+            federation_policy: None,
             aad_visibility: None,
             durability_policy: None,
             mls_send_pause: None,
@@ -499,29 +502,170 @@ impl RealmDeliveryBindingPolicyPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmCreatePayload {
-    pub object: Realm,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
+    pub object: RealmGenesis,
 }
 
 impl RealmCreatePayload {
-    pub fn new(object: Realm) -> Self {
-        Self {
-            object,
-            initial_relations: None,
-        }
+    pub fn new(object: RealmGenesis) -> Self {
+        Self { object }
     }
 
-    /// Serialize the create payload, first re-checking the Realm invariants the
-    /// receiver's candidate gate checks (soland
-    /// `validate_realm_proposal_policy`). Authoring is the cheapest place to
-    /// learn that `security_class=high_assurance` was paired with
-    /// `federation_policy=open`, or that `notary_profile` disagrees with
-    /// `notary.kind`.
     pub fn to_value(&self) -> Result<Value> {
-        self.object.validate_kind_invariants()?;
+        self.object.validate()?;
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("realm create payload serialize: {err}")))
+    }
+}
+
+/// Closed Realm identity branch selected by the genesis payload.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmPurpose {
+    Collaboration,
+    DirectConversation,
+    PrincipalControl,
+}
+
+impl RealmPurpose {
+    pub const fn is_event_derived(self) -> bool {
+        !matches!(self, Self::PrincipalControl)
+    }
+}
+
+/// Minimal immutable identity and security interpretation root carried by
+/// `ak.realm.create`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmGenesis {
+    pub schema: String,
+    pub purpose: RealmPurpose,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub genesis_salt: Option<GenesisSalt>,
+    pub trust_domain: TypedTrustDomainId,
+    pub schema_refs: Vec<String>,
+    pub reducer_profile: String,
+    pub digest_algorithm: canonical::DigestSuite,
+    pub security_class: SecurityClass,
+    pub encryption_profile: EncryptionProfile,
+    pub notary_profile: NotaryProfile,
+    pub notary: NotaryValue,
+    pub capability_action_registry_digest: Hash,
+}
+
+impl RealmGenesis {
+    #[allow(clippy::too_many_arguments)]
+    pub fn event_derived(
+        purpose: RealmPurpose,
+        genesis_salt: GenesisSalt,
+        trust_domain: TypedTrustDomainId,
+        schema_refs: Vec<String>,
+        reducer_profile: impl Into<String>,
+        digest_algorithm: canonical::DigestSuite,
+        security_class: SecurityClass,
+        encryption_profile: EncryptionProfile,
+        notary_profile: NotaryProfile,
+        notary: NotaryValue,
+        capability_action_registry_digest: Hash,
+    ) -> Result<Self> {
+        let value = Self {
+            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
+            purpose,
+            genesis_salt: Some(genesis_salt),
+            trust_domain,
+            schema_refs,
+            reducer_profile: reducer_profile.into(),
+            digest_algorithm,
+            security_class,
+            encryption_profile,
+            notary_profile,
+            notary,
+            capability_action_registry_digest,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn principal_control(
+        trust_domain: TypedTrustDomainId,
+        schema_refs: Vec<String>,
+        reducer_profile: impl Into<String>,
+        digest_algorithm: canonical::DigestSuite,
+        security_class: SecurityClass,
+        encryption_profile: EncryptionProfile,
+        notary_profile: NotaryProfile,
+        notary: NotaryValue,
+        capability_action_registry_digest: Hash,
+    ) -> Result<Self> {
+        let value = Self {
+            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
+            purpose: RealmPurpose::PrincipalControl,
+            genesis_salt: None,
+            trust_domain,
+            schema_refs,
+            reducer_profile: reducer_profile.into(),
+            digest_algorithm,
+            security_class,
+            encryption_profile,
+            notary_profile,
+            notary,
+            capability_action_registry_digest,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != SchemaId::REALM_GENESIS_V1
+            || self.schema_refs.is_empty()
+            || self.reducer_profile.is_empty()
+            || self.purpose.is_event_derived() != self.genesis_salt.is_some()
+        {
+            return Err(Error::Protocol(
+                "schema_violation: invalid Realm genesis identity branch".to_owned(),
+            ));
+        }
+        self.notary.validate()?;
+        Ok(())
+    }
+}
+
+/// Complete value of the Realm display-profile singleton cell.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmProfile {
+    pub schema: String,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+}
+
+impl RealmProfile {
+    pub fn new(title: impl Into<String>) -> Result<Self> {
+        let title = title.into();
+        if title.is_empty() {
+            return Err(Error::Protocol(
+                "realm profile title must not be empty (schema_violation)".to_owned(),
+            ));
+        }
+        Ok(Self {
+            schema: SchemaId::REALM_PROFILE_V1.to_owned(),
+            title,
+            summary: None,
+            avatar_blob_ref: None,
+        })
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        if self.schema != SchemaId::REALM_PROFILE_V1 || self.title.is_empty() {
+            return Err(Error::Protocol(
+                "schema_violation: invalid Realm profile".to_owned(),
+            ));
+        }
+        serde_json::to_value(self)
+            .map_err(|error| Error::Protocol(format!("Realm profile serialize: {error}")))
     }
 }
 

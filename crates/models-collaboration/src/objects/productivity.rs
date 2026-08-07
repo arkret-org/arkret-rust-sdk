@@ -3177,7 +3177,7 @@ mod tests {
         );
 
         let leaked_shared_payload = json!({
-            "event_kind": "ak.realm.update",
+            "event_kind": "ak.realm.profile",
             "realm_remark": {
                 "subject": {"kind": "realm", "id": realm_id.as_str()},
                 "pinned": true

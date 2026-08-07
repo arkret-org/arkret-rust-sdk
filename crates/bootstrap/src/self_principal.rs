@@ -3,27 +3,25 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_collaboration::events_payloads::RealmCreatePayload;
 use arkret_models_collaboration::events_payloads::device_identity::{
     DeviceAuthorizePayload, DeviceOrPrincipalRef,
 };
-use arkret_models_collaboration::governance::circle::EncryptionFloor;
+use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
 use arkret_models_collaboration::http_bodies::{
     EventsSubmitBatchRequestBody, EventsSubmitRequestBody,
 };
-use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
+use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_wire::{
-    CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventInitialSubmission,
-    EventKind, EventRef, EventRequirements, Hash, HistoryVisibility, Hlc, JoinRule, NotaryValue,
-    ProfileId, RealmId, Result, SchemaId, ScopeRef, SecurityClass, TypedTrustDomainId,
-    composite_subject, proof_kind,
+    CellRef, Did, EncryptionProfile, Error, Event, EventInitialSubmission, EventKind, EventRef,
+    EventRequirements, Hash, Hlc, NotaryValue, ProfileId, RealmId, Result, SchemaId, ScopeRef,
+    SecurityClass, TypedTrustDomainId, composite_subject, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
+use crate::DID_INCEPTION_REF_ROLE;
 use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
-use crate::{DID_INCEPTION_REF_ROLE, PRINCIPAL_CONTROL_PURPOSE};
 
 /// Public inputs required to construct the unsigned, root-anchored first
 /// Event of a self-principal PCR bootstrap unit.
@@ -62,39 +60,22 @@ pub fn build_self_principal_pcr_create(
         ));
     }
 
-    let mut realm = Realm::new(
-        input.realm_id.clone(),
-        "Principal Control Realm",
-        input.principal_id.clone(),
+    let genesis = RealmGenesis::principal_control(
         input.trust_domain,
+        vec![
+            SchemaId::REALM_V1.to_owned(),
+            ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
+        ],
         arkret_wire::CORE_REDUCER_PROFILE,
+        arkret_canonical::DigestSuite::Sha256,
+        SecurityClass::HighAssurance,
+        EncryptionProfile::MlsRfc9420,
         NotaryProfile::SingleDid,
         NotaryValue::single_did(input.principal_id.clone()),
         input.capability_action_registry_digest.clone(),
-    );
-    realm.security_class = Some(SecurityClass::HighAssurance);
-    realm.schema_refs = vec![
-        SchemaId::REALM_V1.to_owned(),
-        ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
-    ];
-    realm.default_discoverability = Discoverability::Secret;
-    realm.default_join_rule = JoinRule::Closed;
-    realm.history_visibility = HistoryVisibility::Restricted;
-    realm.encryption_profile = EncryptionProfile::MlsRfc9420;
-    realm.content_encryption_floor = Some(EncryptionFloor::E2eeRequired);
-    realm.metadata_encryption_floor = Some(EncryptionFloor::E2eeRequired);
-    realm.fields.insert(
-        "purpose".to_owned(),
-        Value::String(PRINCIPAL_CONTROL_PURPOSE.to_owned()),
-    );
-    realm.created_at = created_at;
-    // R3.1: the create payload carries no object id.
-    realm.id = None;
+    )?;
 
-    let payload = payload_map(&RealmCreatePayload {
-        object: realm,
-        initial_relations: None,
-    })?;
+    let payload = payload_map(&RealmCreatePayload::new(genesis))?;
     let mut event = Event::new_at(
         EventKind::REALM_CREATE,
         // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
@@ -296,45 +277,31 @@ pub(crate) fn validate_self_principal_pcr_create(
 
 fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
     let payload: RealmCreatePayload = event.payload_as()?;
-    let realm = payload.object;
-    let profile_count = realm
+    let genesis = payload.object;
+    let profile_count = genesis
         .schema_refs
         .iter()
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
-    let exact_purpose = realm.fields.len() == 1
-        && realm.fields.get("purpose").and_then(Value::as_str) == Some(PRINCIPAL_CONTROL_PURPOSE);
     let notary_matches = matches!(
-        &realm.notary,
+        &genesis.notary,
         NotaryValue::SingleDid { did, .. } if did == &event.actor_id
     );
-    // R3.1: the create payload MUST omit the object id; the Realm id is
-    // derived from this genesis Event, so a payload copy would be a second,
-    // forgeable truth (zh/models/realm-and-space.md section 2.5.0).
-    if realm.id.is_some()
-        || realm.schema != SchemaId::REALM_V1
-        || realm.created_by != event.actor_id
-        || realm.created_at != event.created_at
-        || realm.security_class != Some(SecurityClass::HighAssurance)
+    if genesis.schema != SchemaId::REALM_GENESIS_V1
+        || genesis.purpose
+            != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl
+        || genesis.genesis_salt.is_some()
+        || genesis.security_class != SecurityClass::HighAssurance
         || profile_count != 1
-        || realm.default_discoverability != Discoverability::Secret
-        || realm.default_join_rule != JoinRule::Closed
-        || realm.history_visibility != HistoryVisibility::Restricted
-        || realm.encryption_profile != EncryptionProfile::MlsRfc9420
-        || realm.content_encryption_floor != Some(EncryptionFloor::E2eeRequired)
-        || realm.metadata_encryption_floor != Some(EncryptionFloor::E2eeRequired)
-        || realm.notary_profile != NotaryProfile::SingleDid
+        || genesis.encryption_profile != EncryptionProfile::MlsRfc9420
+        || genesis.notary_profile != NotaryProfile::SingleDid
         || !notary_matches
-        || !exact_purpose
-        || payload
-            .initial_relations
-            .is_some_and(|items| !items.is_empty())
     {
         return Err(Error::Protocol(
             "self principal PCR create payload violates create-locked profile".to_owned(),
         ));
     }
-    realm.validate_kind_invariants()
+    genesis.validate()
 }
 
 fn validate_event_proof_digests(event: &Event) -> Result<()> {

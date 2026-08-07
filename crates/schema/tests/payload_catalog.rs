@@ -71,14 +71,6 @@ fn patch_event_family_maps_to_canonical_payloads() {
     };
     let patch_kinds = [
         (
-            "ak.realm.update",
-            "realm_update_payload",
-            json!({
-                "target_ref": "ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
-                "patch": { "title": { "$op": "set", "value": "Roadmap" } }
-            }),
-        ),
-        (
             "ak.strand.update",
             "strand_patch_payload",
             json!({

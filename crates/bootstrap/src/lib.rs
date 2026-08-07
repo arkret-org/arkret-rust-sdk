@@ -49,6 +49,6 @@ pub use arkret_models_collaboration::objects::realm::PRINCIPAL_CONTROL_PURPOSE;
 // id: doing so both forks the `state_root` leaf set and turns the per-Realm
 // genesis singleton into a deployment-wide shared key.
 pub use arkret_wire::{
-    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL,
-    REALM_REDUCER_PROFILE_CELL,
+    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_GENESIS_CELL, REALM_NOTARY_CELL,
+    REALM_PROFILE_CELL, REALM_REDUCER_PROFILE_CELL,
 };

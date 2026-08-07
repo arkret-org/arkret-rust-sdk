@@ -239,7 +239,7 @@ mod tests {
     fn owner_action_preflight_uses_snapshot_operational_coverage() {
         let basis = basis();
         assert!(owner_may_author_action("ak.invite.create", Some(&basis)).unwrap());
-        assert!(owner_may_author_action("ak.realm.update", Some(&basis)).unwrap());
+        assert!(owner_may_author_action("ak.realm.profile", Some(&basis)).unwrap());
         assert!(!owner_may_author_action("ak.audit.export", Some(&basis)).unwrap());
         assert!(!owner_may_author_action("ak.realm.destroy", Some(&basis)).unwrap());
     }

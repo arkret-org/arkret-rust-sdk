@@ -11,7 +11,8 @@
 //! (`models/realm-and-space.md` section 2.5).
 
 use arkret_models_collaboration::events_payloads::{
-    RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmOwnerTransferPayload,
+    RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmCreatePayload,
+    RealmOwnerTransferPayload, RealmProfile,
 };
 use arkret_wire::{
     AuthorizationRef, Did, Error, Event, EventId, EventKind, Hash, Hlc, REALM_AUTHORITY_ROOT_CELL,
@@ -23,7 +24,8 @@ use serde::{Deserialize, Serialize};
 pub fn is_realm_bootstrap_followup_kind(kind: &str) -> bool {
     matches!(
         kind,
-        EventKind::MEMBER_STATE
+        EventKind::REALM_PROFILE
+            | EventKind::MEMBER_STATE
             | EventKind::REALM_HISTORY_VISIBILITY
             | EventKind::REALM_HISTORY_SHARING_POLICY
             | EventKind::REALM_POLICY_BUNDLE
@@ -305,17 +307,69 @@ pub fn validate_realm_bootstrap_unit(
         .get("object")
         .and_then(serde_json::Value::as_object)
         .ok_or(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;
-    if object.get("created_by").and_then(serde_json::Value::as_str) != Some(actor_id) {
-        return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
-    }
     let authority_root = genesis_authority_root(object, actor_id)?;
-
+    let payload: RealmCreatePayload = create
+        .payload_as()
+        .map_err(|_| RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;
+    if !payload.object.purpose.is_event_derived() || payload.object.genesis_salt.is_none() {
+        return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
+    }
+    let mut previous_slot = 0_usize;
+    let mut present = std::collections::BTreeSet::new();
     for followup in &events[1..] {
         if followup.actor_id.as_str() != actor_id
             || followup.realm_id.as_str() != realm_id
             || !is_realm_bootstrap_followup_kind(followup.kind.as_str())
         {
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+        }
+        let slot = match followup.kind.as_str() {
+            EventKind::REALM_PROFILE => 1,
+            EventKind::REALM_POLICY_BUNDLE => 2,
+            EventKind::REALM_JOIN_RULE => 3,
+            EventKind::REALM_HISTORY_VISIBILITY => 4,
+            EventKind::REALM_HISTORY_SHARING_POLICY => 5,
+            EventKind::REALM_DISCOVERY => 6,
+            EventKind::REALM_ALIAS => 7,
+            EventKind::REALM_PLAINTEXT_VISIBLE_SERVICES => 8,
+            EventKind::REALM_DELIVERY_BINDING_POLICY => 9,
+            EventKind::MEMBER_STATE => 10,
+            _ => return Err(RealmBootstrapValidationError::OutOfOrderBootstrap),
+        };
+        if slot <= previous_slot || !present.insert(followup.kind.as_str()) {
+            return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+        }
+        previous_slot = slot;
+        match followup.kind.as_str() {
+            EventKind::REALM_PROFILE => {
+                let profile: RealmProfile = followup
+                    .payload_as()
+                    .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
+                profile
+                    .to_value()
+                    .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
+            }
+            EventKind::MEMBER_STATE => {
+                let subject = followup
+                    .payload
+                    .get("actor_id")
+                    .and_then(serde_json::Value::as_str);
+                let membership = followup
+                    .payload
+                    .get("membership")
+                    .and_then(serde_json::Value::as_str);
+                let payload_realm = followup
+                    .payload
+                    .get("realm_id")
+                    .and_then(serde_json::Value::as_str);
+                if subject != Some(actor_id)
+                    || membership != Some("join")
+                    || payload_realm != Some(realm_id)
+                {
+                    return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+                }
+            }
+            _ => {}
         }
         // Every member of the closed bootstrap follow-up set is an active
         // reducer input. Validate its complete `cell_writes[]` contract. The
@@ -331,6 +385,33 @@ pub fn validate_realm_bootstrap_unit(
             "plane_cross_write" => RealmBootstrapValidationError::PlaneCrossWrite,
             _ => RealmBootstrapValidationError::EffectsPayloadMismatch,
         })?;
+    }
+    for required in [
+        EventKind::REALM_PROFILE,
+        EventKind::REALM_POLICY_BUNDLE,
+        EventKind::REALM_JOIN_RULE,
+        EventKind::REALM_HISTORY_VISIBILITY,
+        EventKind::REALM_DISCOVERY,
+        EventKind::REALM_DELIVERY_BINDING_POLICY,
+        EventKind::MEMBER_STATE,
+    ] {
+        if !present.contains(required) {
+            return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+        }
+    }
+    let visibility_requires_sharing = events.iter().any(|event| {
+        event.kind.as_str() == EventKind::REALM_HISTORY_VISIBILITY
+            && event
+                .payload
+                .get("value")
+                .and_then(serde_json::Value::as_str)
+                == Some("restricted")
+    });
+    if visibility_requires_sharing && !present.contains(EventKind::REALM_HISTORY_SHARING_POLICY) {
+        return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+    }
+    if !visibility_requires_sharing && present.contains(EventKind::REALM_HISTORY_SHARING_POLICY) {
+        return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
     }
     Ok(ValidatedRealmBootstrap {
         realm_id: realm_id.to_owned(),
@@ -385,10 +466,53 @@ mod tests {
         event(
             EventKind::REALM_CREATE,
             json!({"object": {
-                "created_by": ACTOR,
+                "schema": "ak.schema.realm_genesis.v1",
+                "purpose": "collaboration",
+                "genesis_salt": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "trust_domain": "ak:trust_domain:example.net",
+                "schema_refs": ["ak.schema.realm.v1"],
+                "reducer_profile": "ak.reducer.core.v1",
+                "digest_algorithm": "sha256",
+                "security_class": "standard",
+                "encryption_profile": "mls_rfc9420",
+                "notary_profile": "single_did",
+                "notary": {"kind": "single_did", "did": ACTOR},
                 "capability_action_registry_digest": DIGEST
             }}),
         )
+    }
+
+    fn complete_unit() -> Vec<Event> {
+        vec![
+            create(),
+            event(
+                EventKind::REALM_PROFILE,
+                json!({"schema": "ak.schema.realm_profile.v1", "title": "Realm"}),
+            ),
+            event(
+                EventKind::REALM_POLICY_BUNDLE,
+                json!({"policy_revision": 1, "content_scheme": "mls_exporter_aead_v1"}),
+            ),
+            event(EventKind::REALM_JOIN_RULE, json!({"value": "invite"})),
+            event(
+                EventKind::REALM_HISTORY_VISIBILITY,
+                json!({"value": "joined"}),
+            ),
+            event(EventKind::REALM_DISCOVERY, json!({"value": "invite_only"})),
+            event(
+                EventKind::REALM_DELIVERY_BINDING_POLICY,
+                json!({"allow_unroutable_members": false}),
+            ),
+            event(
+                EventKind::MEMBER_STATE,
+                json!({
+                    "realm_id": REALM,
+                    "actor_id": ACTOR,
+                    "membership": "join",
+                    "delivery_status": "unroutable"
+                }),
+            ),
+        ]
     }
 
     fn history_sharing_followup() -> Event {
@@ -405,7 +529,7 @@ mod tests {
 
     #[test]
     fn accepts_create_with_registered_authority_root_and_followup() {
-        let events = vec![create(), history_sharing_followup()];
+        let events = complete_unit();
         let result = validate_realm_bootstrap_unit(&events);
         let bootstrap = result.expect("bootstrap accepted");
         assert!(bootstrap.authority_root.is_genesis_for(ACTOR));
@@ -420,11 +544,12 @@ mod tests {
 
     #[test]
     fn rejects_bootstrap_followup_routed_with_data_plane_basis() {
-        let mut followup = history_sharing_followup();
+        let mut events = complete_unit();
+        let followup = events.get_mut(1).unwrap();
         followup.seal_ref =
             Some(arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap());
         assert_eq!(
-            validate_realm_bootstrap_unit(&[create(), followup]),
+            validate_realm_bootstrap_unit(&events),
             Err(RealmBootstrapValidationError::PlaneCrossWrite)
         );
     }
@@ -475,6 +600,34 @@ mod tests {
             validate_realm_bootstrap_unit(&[create(), legacy]),
             Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
         );
+    }
+
+    #[test]
+    fn rejects_creator_member_with_wrong_subject() {
+        let mut events = complete_unit();
+        events.last_mut().unwrap().payload["actor_id"] = json!("did:web:other.example");
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
+        );
+    }
+
+    #[test]
+    fn rejects_unneeded_conditional_history_sharing_slot() {
+        let mut events = complete_unit();
+        events.insert(5, history_sharing_followup());
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
+        );
+    }
+
+    #[test]
+    fn accepts_required_history_sharing_slot_for_restricted_history() {
+        let mut events = complete_unit();
+        events[4].payload = json!({"value": "restricted"});
+        events.insert(5, history_sharing_followup());
+        assert!(validate_realm_bootstrap_unit(&events).is_ok());
     }
 
     #[test]
