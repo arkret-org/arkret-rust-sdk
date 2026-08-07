@@ -294,9 +294,8 @@ mod tests {
         let mut event = make_event();
         let draft_event_id = event.event_id.clone();
         event.actor_seq = 42;
-        event.prev_refs = vec![
-            EventId::new("ak:event:01904100-0000-8000-8000-000000000042").unwrap(),
-        ];
+        event.prev_refs =
+            vec![EventId::new("ak:event:01904100-0000-8000-8000-000000000042").unwrap()];
         event.hlc = Some(Hlc::new("01970e589d21-0042-a13f9c2e").unwrap());
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
