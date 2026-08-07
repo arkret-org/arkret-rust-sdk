@@ -3,7 +3,7 @@
 //! Input: registry/proof-context-registry.json; version=2026-08-06;
 //! sha256=295155b12cd025c068875e0566355623180545bdf233c9f264058a6295176d26 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
-//! sha256=8ac4e357f9c8759ad0ee46582a045c1501665ac3c49b34262fecbbca8c7c28d9 Input: registry/
+//! sha256=f5cd48155364fafa3f58e820f07956881631e08f7c40f488a89aee55d9b63389 Input: registry/
 //! digest-suite-registry.json; version=2026-08-08.1;
 //! sha256=a4f9fec6e45de4aa839c498e2499aa11429adff91a84de2e19571e83c529f52b Input: registry/
 //! signature-alg-registry.json; version=2026-08-04.2;
@@ -1010,9 +1010,9 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         id: ExporterLabelId::SignalV1,
         label: "ak.signal-v1",
         primitive: Some("ExpandWithLabel"),
-        context_fields: &[],
+        context_fields: &["sender_device_id"],
         output_bytes: "AEAD.Nk for the active MLS ciphersuite",
-        empty_context_forbidden: false,
+        empty_context_forbidden: true,
         forbid_reuse_with: &[
             "ak.history-v1",
             "arkret-aead-sender-nonce-prefix-v1",

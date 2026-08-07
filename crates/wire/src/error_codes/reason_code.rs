@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.1;
-//! sha256=b954c27b5608afe1e30852883505235fa903b8081760e32be5cd9da3cc71b2f0
-//! Entries: reason_codes=463
+//! Input: registry/error-code-registry.json; version=2026-08-08.2;
+//! sha256=4d472e814bd1e159e43140bc35053d5fd34cd8c196245ec223f15f0ca856744f
+//! Entries: reason_codes=465
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -151,11 +151,13 @@ pub enum ReasonCode {
     DidProofReplayWindowExceeded,
     DirectConversationActivationAuthorInvalid,
     DirectConversationBindingInvalid,
+    DirectConversationFoundingUnitInvalid,
     DirectConversationInviteForbidden,
     DirectConversationMemberCountInvalid,
     DirectConversationPairMaterializationConflict,
     DirectConversationParticipantAuthorityDenied,
     DirectConversationRootMaskViolation,
+    DirectConversationSlotAlreadyCommitted,
     DirectConversationSpaceForbidden,
     DirectConversationTerminalForbidden,
     DirectConversationThirdPartyMemberForbidden,
@@ -664,6 +666,8 @@ impl ReasonCode {
         "direct_conversation_activation_author_invalid";
     pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
         "direct_conversation_binding_invalid";
+    pub const DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID: &'static str =
+        "direct_conversation_founding_unit_invalid";
     pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str =
         "direct_conversation_invite_forbidden";
     pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str =
@@ -674,6 +678,8 @@ impl ReasonCode {
         "direct_conversation_participant_authority_denied";
     pub const DIRECT_CONVERSATION_ROOT_MASK_VIOLATION: &'static str =
         "direct_conversation_root_mask_violation";
+    pub const DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED: &'static str =
+        "direct_conversation_slot_already_committed";
     pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str =
         "direct_conversation_space_forbidden";
     pub const DIRECT_CONVERSATION_TERMINAL_FORBIDDEN: &'static str =
@@ -1232,6 +1238,9 @@ impl ReasonCode {
                 Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID
             }
             Self::DirectConversationBindingInvalid => Self::DIRECT_CONVERSATION_BINDING_INVALID,
+            Self::DirectConversationFoundingUnitInvalid => {
+                Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID
+            }
             Self::DirectConversationInviteForbidden => Self::DIRECT_CONVERSATION_INVITE_FORBIDDEN,
             Self::DirectConversationMemberCountInvalid => {
                 Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID
@@ -1244,6 +1253,9 @@ impl ReasonCode {
             }
             Self::DirectConversationRootMaskViolation => {
                 Self::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION
+            }
+            Self::DirectConversationSlotAlreadyCommitted => {
+                Self::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED
             }
             Self::DirectConversationSpaceForbidden => Self::DIRECT_CONVERSATION_SPACE_FORBIDDEN,
             Self::DirectConversationTerminalForbidden => {
@@ -1815,6 +1827,9 @@ impl ReasonCode {
                 Self::DirectConversationActivationAuthorInvalid
             }
             Self::DIRECT_CONVERSATION_BINDING_INVALID => Self::DirectConversationBindingInvalid,
+            Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID => {
+                Self::DirectConversationFoundingUnitInvalid
+            }
             Self::DIRECT_CONVERSATION_INVITE_FORBIDDEN => Self::DirectConversationInviteForbidden,
             Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID => {
                 Self::DirectConversationMemberCountInvalid
@@ -1827,6 +1842,9 @@ impl ReasonCode {
             }
             Self::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION => {
                 Self::DirectConversationRootMaskViolation
+            }
+            Self::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED => {
+                Self::DirectConversationSlotAlreadyCommitted
             }
             Self::DIRECT_CONVERSATION_SPACE_FORBIDDEN => Self::DirectConversationSpaceForbidden,
             Self::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN => {
@@ -2984,7 +3002,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_BINDING_INVALID,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "An authored immutable Direct Conversation binding fact has an invalid issuer, pair key, authorization basis, Realm role, exact two-member set, main Strand, founding MLS references, or stable coordinator-operation cross-binding.",
+        description: "An authored immutable Direct Conversation binding fact has an invalid issuer, pair key, authorization basis, Realm role, exact two-member set, main Strand, founding unit digest, or founding MLS references.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID,
+        applies_to: &["event_envelope", "service_call", "federation_transaction"],
+        description: "A Direct Conversation founding unit is not the closed caller-authored three-Event unit. Causes include a count other than three, wrong wire order, a missing peer ak.member.state{join} or ak.strand.create, a fourth Event, a mixed actor/pair/profile/Realm, prev_refs that do not chain the three Events, an envelope realm_id that is not retype(events[0] event_id), a main_strand_id that is not retype(events[2] event_id), a founding_unit_digest that does not match the recomputed value, or any request field asserting a service-allocated identifier, reservation handle or materialization draft. The whole unit is rejected with zero writes. See zh/identity/contact-and-direct-conversation.md sections 5.5 and 6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_INVITE_FORBIDDEN,
@@ -3010,6 +3033,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION,
         applies_to: &["event_envelope", "auth_decision"],
         description: "The technical authority-root controller attempted an operational, grant, member-governance, policy or terminal action outside the Direct Conversation profile phase mask. Root owner aggregation cannot bypass the participant authority or target the other participant.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED,
+        applies_to: &["service_call", "federation_transaction"],
+        description: "The founder's current Principal Server already closed its local (founder_id, trust_domain_id, pair_key) founding slot with a different unit, so this unit is refused with zero writes. Carried under conflict. The caller MUST re-resolve the existing coordinates through ak.self.direct_conversation.read.resolve instead of authoring another unit; the service MUST NOT accept a second unit, degrade it to a partial acceptance or quarantine it. A byte-identical replay of the committed unit is not this code: it returns the stored byte-identical receipt. See zh/identity/contact-and-direct-conversation.md section 5.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_SPACE_FORBIDDEN,

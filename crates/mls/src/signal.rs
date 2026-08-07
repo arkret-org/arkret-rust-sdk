@@ -25,7 +25,8 @@
 //!
 //! ```text
 //! history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
-//! K_signal[N]       = ExpandWithLabel(history_secret[N], "ak.signal-v1", "", AEAD.Nk)
+//! K_signal[N,D]     = ExpandWithLabel(history_secret[N], "ak.signal-v1",
+//!                                     JCS({sender_device_id:D}), AEAD.Nk)
 //! prefix            = MLS-Exporter("arkret-aead-sender-nonce-prefix-v1",
 //!                                  JCS({key_ref, epoch, device_id, purpose, aead_profile}),
 //!                                  N_AEAD - 8)
@@ -42,17 +43,19 @@ use arkret_wire::{
     Hash, MAX_SIGNAL_PLAINTEXT_BYTES, ReasonCode, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
     SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope, canonical,
 };
-use hkdf::Hkdf;
-use sha2::Sha256;
 use zeroize::Zeroizing;
 
-use crate::group::{ArkretMlsGroup, ExporterAeadSuite, mls_kdf_label};
+use crate::exporter_kdf::derive_signal_key_from_history_secret;
+#[cfg(test)]
+use crate::group::mls_kdf_label;
+use crate::group::{ArkretMlsGroup, ExporterAeadSuite};
 use crate::{MlsError as Error, Result};
 
-/// `ExpandWithLabel` label deriving the per-epoch Signal key from the
-/// `history_secret`, registered in `exporter-label-registry.json` with an empty
-/// `context_fields` — exactly like `ak.content-v1`, because the group already
-/// binds the Realm or Circle and the label is the only separator still needed.
+/// `ExpandWithLabel` label deriving the per-epoch, per-sender Signal key from
+/// the `history_secret`.  The sender device is in the KDF context so a 32-bit
+/// AES-GCM nonce-prefix collision across two valid devices can never become a
+/// nonce reuse under one AEAD key.
+#[cfg(test)]
 const SIGNAL_KEY_LABEL: &str = arkret_wire::ExporterLabelId::SIGNAL_V1;
 
 /// A sealed Signal payload plus the nonce counter it consumed.
@@ -252,7 +255,8 @@ impl ArkretMlsGroup {
         Ok(suite)
     }
 
-    /// `K_signal[N] = ExpandWithLabel(history_secret[N], "ak.signal-v1", "", AEAD.Nk)`.
+    /// `K_signal[N,D] = ExpandWithLabel(history_secret[N], "ak.signal-v1",
+    /// JCS({sender_device_id:D}), AEAD.Nk)`.
     ///
     /// The `history_secret` is derived without retaining it: a Signal is
     /// ephemeral and must not make its epoch shareable history.
@@ -262,7 +266,11 @@ impl ArkretMlsGroup {
         suite: ExporterAeadSuite,
     ) -> Result<Zeroizing<Vec<u8>>> {
         let history_secret = self.derive_history_secret(binding.realm_id.as_str())?;
-        derive_signal_key(&history_secret, suite.key_len())
+        derive_signal_key_from_history_secret(
+            &history_secret,
+            binding.sender_device_id,
+            suite.key_len(),
+        )
     }
 
     /// `nonce = sender_nonce_prefix || device_nonce_counter_be64` (§10.1).
@@ -309,21 +317,12 @@ fn signal_nonce_context(binding: &SignalAeadBinding<'_>) -> Result<AeadNonceCont
     })
 }
 
-/// `ExpandWithLabel(history_secret, "ak.signal-v1", "", AEAD.Nk)`.
+/// `ExpandWithLabel(history_secret, "ak.signal-v1",
+/// JCS({sender_device_id}), AEAD.Nk)`.
 ///
 /// Expand-only, no Extract: the `history_secret` is an MLS exporter output and
 /// already has full entropy, which is what `ExpandWithLabel` assumes of its
 /// Secret input.
-fn derive_signal_key(history_secret: &[u8], key_len: usize) -> Result<Zeroizing<Vec<u8>>> {
-    let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
-        .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
-    let info = mls_kdf_label(key_len, SIGNAL_KEY_LABEL, &[])?;
-    let mut key = Zeroizing::new(vec![0u8; key_len]);
-    hkdf.expand(&info, key.as_mut())
-        .map_err(|_| Error::Crypto("signal key derivation failed".to_owned()))?;
-    Ok(key)
-}
-
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
@@ -340,8 +339,9 @@ mod tests {
     const ALICE_DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000006";
     const BOB_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000000e";
     const TYPING: &[u8] = br#"{"kind":"typing"}"#;
-    /// `derive_signal_key(history_secret_of_the_content_key_vector, 16)`.
-    const SIGNAL_KEY_ANCHOR_HEX: &str = "a8dc8c9d501257bd1d75b5b39faf1de0";
+    /// `derive_signal_key(history_secret_of_the_content_key_vector,
+    /// ALICE_DEVICE, 16)`.
+    const SIGNAL_KEY_ANCHOR_HEX: &str = "29152db2983e95748e835fbfb9311d89";
     /// Canonical §10.2 AAD for the fixture header at `epoch=7`, all-zero nonce.
     const SIGNAL_AAD_ANCHOR: &str = concat!(
         "{\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",",
@@ -443,7 +443,7 @@ mod tests {
     /// Every wire-breaking parameter of the `ak.signal-v1` key derivation,
     /// checked against the registry rows rather than against this module.
     ///
-    /// `exporter-label-registry.json` fixes the label and an EMPTY
+    /// `exporter-label-registry.json` fixes the label and sender-device
     /// `context_fields`; `mls-ciphersuite-registry.json`'s only active row is
     /// AES-128-GCM, which fixes `AEAD.Nk` = 16 and `N_AEAD` = 12 — and 12 is
     /// what `signal-envelope.schema.json` independently pins by requiring a
@@ -456,7 +456,7 @@ mod tests {
             .find(|row| row.label == SIGNAL_KEY_LABEL)
             .unwrap();
         assert_eq!(descriptor.primitive, Some("ExpandWithLabel"));
-        assert!(descriptor.context_fields.is_empty());
+        assert_eq!(descriptor.context_fields, ["sender_device_id"]);
 
         let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
         assert_eq!(suite.key_len(), 16);
@@ -475,14 +475,12 @@ mod tests {
         let mut expected = 16u16.to_be_bytes().to_vec();
         expected.push(u8::try_from(full_label.len()).unwrap());
         expected.extend_from_slice(full_label.as_bytes());
-        expected.push(0);
+        let context = format!("{{\"sender_device_id\":\"{ALICE_DEVICE}\"}}");
+        expected.extend_from_slice(&(u16::try_from(context.len()).unwrap() | 0x4000).to_be_bytes());
+        expected.extend_from_slice(context.as_bytes());
         assert_eq!(
-            mls_kdf_label(suite.key_len(), SIGNAL_KEY_LABEL, &[]).unwrap(),
+            mls_kdf_label(suite.key_len(), SIGNAL_KEY_LABEL, context.as_bytes()).unwrap(),
             expected
-        );
-        assert_eq!(
-            hex(&expected),
-            "0010144d4c5320312e3020616b2e7369676e616c2d763100"
         );
     }
 
@@ -501,8 +499,18 @@ mod tests {
             hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();
         let content_key_hex = case["expected"]["content_key_hex"].as_str().unwrap();
 
-        let signal_key = derive_signal_key(&history_secret, 16).unwrap();
+        let alice_device = DeviceId::new(ALICE_DEVICE).unwrap();
+        let bob_device = DeviceId::new(BOB_DEVICE).unwrap();
+        let signal_key =
+            derive_signal_key_from_history_secret(&history_secret, &alice_device, 16).unwrap();
+        let other_sender_key =
+            derive_signal_key_from_history_secret(&history_secret, &bob_device, 16).unwrap();
         assert_eq!(signal_key.len(), 16);
+        assert_ne!(
+            signal_key.as_slice(),
+            other_sender_key.as_slice(),
+            "valid sender devices MUST use distinct Signal AEAD keys even if their nonce prefixes collide"
+        );
         assert!(
             !content_key_hex.starts_with(&hex(&signal_key)),
             "ak.signal-v1 and ak.content-v1 MUST NOT share key material"

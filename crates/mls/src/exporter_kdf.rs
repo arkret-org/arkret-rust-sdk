@@ -1,6 +1,6 @@
 //! Byte-exact RFC 9420 exporter helpers shared by clients and conformance KATs.
 
-use arkret_wire::{Did, RealmId};
+use arkret_wire::{DeviceId, Did, RealmId, canonical};
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use zeroize::Zeroizing;
@@ -42,6 +42,7 @@ pub fn mls_exporter_from_secret(
 pub fn derive_signal_exporter_key(
     exporter_secret: &[u8],
     realm_id: &RealmId,
+    sender_device_id: &DeviceId,
     key_len: usize,
 ) -> Result<Zeroizing<Vec<u8>>> {
     let history_secret = mls_exporter_from_secret(
@@ -50,10 +51,21 @@ pub fn derive_signal_exporter_key(
         realm_id.as_str().as_bytes(),
         MLS_HASH_LEN,
     )?;
+    derive_signal_key_from_history_secret(&history_secret, sender_device_id, key_len)
+}
+
+pub(crate) fn derive_signal_key_from_history_secret(
+    history_secret: &[u8],
+    sender_device_id: &DeviceId,
+    key_len: usize,
+) -> Result<Zeroizing<Vec<u8>>> {
+    let context = canonical::canonical_json_bytes(&serde_json::json!({
+        "sender_device_id": sender_device_id,
+    }))?;
     expand_with_label(
-        &history_secret,
+        history_secret,
         arkret_wire::ExporterLabelId::SIGNAL_V1,
-        &[],
+        &context,
         key_len,
     )
 }
@@ -126,9 +138,12 @@ mod tests {
         let case = fixture_case("signal_exporter_key_sha256_aes128gcm");
         let secret = case_exporter_secret(&case);
         let realm_id = RealmId::new(case["input"]["realm_id_utf8"].as_str().unwrap()).unwrap();
+        let sender_device_id =
+            DeviceId::new(case["input"]["sender_device_id"].as_str().unwrap()).unwrap();
         let key_len = usize::try_from(case["input"]["aead_nk"].as_u64().unwrap()).unwrap();
 
-        let signal = derive_signal_exporter_key(&secret, &realm_id, key_len).unwrap();
+        let signal =
+            derive_signal_exporter_key(&secret, &realm_id, &sender_device_id, key_len).unwrap();
 
         assert_eq!(
             hex(&signal),

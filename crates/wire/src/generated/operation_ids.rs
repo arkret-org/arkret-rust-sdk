@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.5;
-//! sha256=a8356669712e19bd03ecb2fcacae82b526e44f8dad53a84de161cff6cbfbe451 Entries: registered=223
+//! Input: registry/operation-registry.json; version=2026-08-08.7;
+//! sha256=61ed1a088c1a51334dbec8153ccdea7fdb00e1bafb3135981ebd2c35707ac79b Entries: registered=223
 
 use serde::{Deserialize, Serialize};
 
@@ -5244,7 +5244,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {

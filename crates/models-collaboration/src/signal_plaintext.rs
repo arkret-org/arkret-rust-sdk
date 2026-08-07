@@ -31,6 +31,90 @@ use serde_json::Value;
 use crate::call_signal::CallSignalPlaintext;
 use crate::signal_message_stream::MessageStreamFrame;
 
+/// Strictly ordered, non-contiguous sender sequence carried by every Signal
+/// plaintext profile.
+///
+/// This is deliberately only a numeric value, not a Signal identity.  Gaps
+/// are valid (for example after a durable block reservation or failed send),
+/// while a receiver must reject any value that does not advance its
+/// `(sender_device_id, scope_ref)` high-water mark.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+pub struct SignalSequence(u64);
+
+impl SignalSequence {
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub const fn get(self) -> u64 {
+        self.0
+    }
+}
+
+impl From<u64> for SignalSequence {
+    fn from(value: u64) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<SignalSequence> for u64 {
+    fn from(value: SignalSequence) -> Self {
+        value.get()
+    }
+}
+
+/// Result of comparing a candidate Signal sequence with a receiver high-water.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SignalSequenceDecision {
+    /// The candidate advanced the high-water. `gap` is diagnostic only and is
+    /// never a reason to reject the Signal.
+    Advanced {
+        previous: Option<SignalSequence>,
+        current: SignalSequence,
+        gap: u64,
+    },
+    /// The candidate repeated or rolled back from the current high-water.
+    Stale {
+        high_water: SignalSequence,
+        candidate: SignalSequence,
+    },
+}
+
+/// Receiver rule for one `(sender_device_id, scope_ref)` sequence domain.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SignalSequenceHighWater(Option<SignalSequence>);
+
+impl SignalSequenceHighWater {
+    pub const fn current(self) -> Option<SignalSequence> {
+        self.0
+    }
+
+    pub fn observe(&mut self, candidate: SignalSequence) -> SignalSequenceDecision {
+        if let Some(high_water) = self.0
+            && candidate <= high_water
+        {
+            return SignalSequenceDecision::Stale {
+                high_water,
+                candidate,
+            };
+        }
+        let previous = self.0;
+        let gap = previous
+            .map(|value| candidate.get() - value.get() - 1)
+            .unwrap_or(0);
+        self.0 = Some(candidate);
+        SignalSequenceDecision::Advanced {
+            previous,
+            current: candidate,
+            gap,
+        }
+    }
+}
+
 /// Session-class TTL ceiling in milliseconds (`sync/signal.md` §2).
 ///
 /// A plaintext `ttl_ms` may only tighten the enclosing envelope lifetime, so
@@ -105,6 +189,10 @@ pub trait SignalPlaintextProfile: Serialize + DeserializeOwned {
     /// per-call `seq`, `ak.message.stream`'s per-stream `seq`); neither
     /// substitutes for the other.
     fn payload_sequence(&self) -> u64;
+
+    fn signal_sequence(&self) -> SignalSequence {
+        SignalSequence::new(self.payload_sequence())
+    }
 
     /// In-ciphertext reader / publisher identity, when the profile expresses
     /// one. Receivers MUST check it equals the envelope `sender_actor_id`.
@@ -197,6 +285,10 @@ impl SignalPlaintext {
             Self::CallSignal(payload) => payload.payload_sequence(),
             Self::MessageStream(payload) => payload.payload_sequence(),
         }
+    }
+
+    pub fn signal_sequence(&self) -> SignalSequence {
+        SignalSequence::new(self.payload_sequence())
     }
 
     pub fn actor_id(&self) -> Option<&Did> {
@@ -735,5 +827,36 @@ mod tests {
                 .bind_to_envelope(&mallory, sent_at, expires_at)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn sequence_high_water_accepts_gaps_and_rejects_repeat_or_rollback() {
+        let mut high_water = SignalSequenceHighWater::default();
+        assert_eq!(
+            high_water.observe(SignalSequence::new(7)),
+            SignalSequenceDecision::Advanced {
+                previous: None,
+                current: SignalSequence::new(7),
+                gap: 0,
+            }
+        );
+        assert_eq!(
+            high_water.observe(SignalSequence::new(1024)),
+            SignalSequenceDecision::Advanced {
+                previous: Some(SignalSequence::new(7)),
+                current: SignalSequence::new(1024),
+                gap: 1016,
+            }
+        );
+        for candidate in [1024, 8] {
+            assert_eq!(
+                high_water.observe(SignalSequence::new(candidate)),
+                SignalSequenceDecision::Stale {
+                    high_water: SignalSequence::new(1024),
+                    candidate: SignalSequence::new(candidate),
+                }
+            );
+        }
+        assert_eq!(high_water.current(), Some(SignalSequence::new(1024)));
     }
 }
