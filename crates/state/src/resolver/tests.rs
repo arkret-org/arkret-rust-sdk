@@ -6,7 +6,10 @@ use super::*;
 use crate::{EventRequirements, Hlc, RealmId};
 
 fn realm_id() -> RealmId {
-    RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    RealmId::from_event_id(&EventId::from_digest(
+        arkret_canonical::DigestSuite::Sha256,
+        [0x41; 32],
+    ))
 }
 
 fn scope_ref() -> ScopeRef {

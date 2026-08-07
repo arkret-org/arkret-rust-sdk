@@ -477,8 +477,8 @@ impl FederatedDeviceSigningKeyEvidence {
 /// way:
 ///
 /// - **Principal Control Realm** (`payload.object.fields.purpose == "principal_control"`) —
-///   subject-derived UUIDv8 from the principal DID, so the address remains computable from the DID
-///   alone.
+///   subject-derived Realm token (`0x11 || SHA-256(v1 domain || principal DID)`), so the address
+///   remains computable from the DID alone.
 /// - **Collaboration Realm** — event-derived: `retype(event_id)`.
 pub fn derive_genesis_realm_id(
     event_id: &EventId,
@@ -491,7 +491,7 @@ pub fn derive_genesis_realm_id(
         .and_then(Value::as_str)
         == Some("principal_control");
     if is_principal_control {
-        RealmId::from_subject_uuid(crate::principal_control_realm_uuid(actor_id.as_str()))
+        crate::principal_control_realm_id(actor_id.as_str())
     } else {
         RealmId::from_event_id(event_id)
     }

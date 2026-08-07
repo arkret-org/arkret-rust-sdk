@@ -319,10 +319,7 @@ impl DidDocument {
 pub fn principal_control_realm_id(principal_id: &Did) -> String {
     // Single source of the derivation: `arkret-identifiers` owns it so the
     // envelope-construction path in `arkret-wire` derives the identical bytes.
-    format!(
-        "ak:realm:{}",
-        arkret_wire::principal_control_realm_uuid(principal_id.as_str())
-    )
+    arkret_wire::principal_control_realm_id(principal_id.as_str()).to_string()
 }
 
 #[cfg(test)]

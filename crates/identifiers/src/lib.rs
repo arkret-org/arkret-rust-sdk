@@ -112,15 +112,15 @@ macro_rules! id_type {
 /// Hash-bearing kinds (`BlobRef`, `SealId`, `Hash`), `OperationId`, DIDs,
 /// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
 /// bare-uuid form.
-/// `ak:realm:` is not declared here because it accepts both an Event-derived
-/// token and the independently subject-derived PCR UUID form.
+/// `ak:realm:` is not declared here because it uses the derivation-tagged
+/// 33-byte Realm token rather than a UUID.
 ///
 /// - **Collaboration Realm** — event-derived: `realm_id = retype(genesis event_id)`, so the id
 ///   self-certifies against the genesis Event.
-/// - **Principal Control Realm** — subject-derived (UUIDv7 layout):
-///   `H("ak:realm:principal-control:v1:" || principal_did)`. It carries no producer-chosen
-///   timestamp or randomness and stays computable from the DID alone; a PCR's identity anchor is
-///   its `did_inception` root, not its genesis Event.
+/// - **Principal Control Realm** — subject-derived: header `0x11` followed by the full
+///   `SHA-256("ak:realm:principal-control:v1:" || principal_did)` digest. It carries no
+///   producer-chosen timestamp or randomness and stays computable from the DID alone; a PCR's
+///   identity anchor is its `did_inception` root, not its genesis Event.
 ///
 /// Neither form is producer-chosen. The branch is fixed by the create's
 /// `purpose`, never by the call site.
@@ -628,35 +628,50 @@ pub fn new_prefixed_uuid7(prefix: &str) -> String {
     format!("{prefix}{}", uuid_v7_at(platform_unix_ms()))
 }
 
-/// Derive a Principal Control Realm id from its principal DID.
+/// Derivation class carried in the high nibble of a Realm token header.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
+pub enum RealmDerivationClass {
+    EventDerived = 0x0,
+    PrincipalSubjectDerived = 0x1,
+}
+
+impl TryFrom<u8> for RealmDerivationClass {
+    type Error = IdentifierError;
+
+    fn try_from(value: u8) -> Result<Self> {
+        match value {
+            0x0 => Ok(Self::EventDerived),
+            0x1 => Ok(Self::PrincipalSubjectDerived),
+            _ => Err(IdentifierError::InvalidId(format!(
+                "unsupported Realm derivation class: 0x{value:x}"
+            ))),
+        }
+    }
+}
+
+const PRINCIPAL_CONTROL_REALM_HEADER: u8 = 0x11;
+const PRINCIPAL_CONTROL_REALM_DOMAIN: &[u8] = b"ak:realm:principal-control:v1:";
+
+/// Derive a Principal Control Realm id from its canonical principal DID.
 ///
 /// Spec `zh/models/realm-and-space.md` section 2.5.0: a PCR id is
 /// *subject-derived*, not event-derived, so it stays computable from the DID
 /// alone by anyone — that addressability is the point, and a PCR's identity
 /// anchor is its `did_inception` root rather than its genesis Event.
 ///
-/// Realm genesis construction has to pick between the subject-derived PCR
-/// UUID and the Event-derived collaboration token by schema branch.
-pub fn principal_control_realm_uuid(principal_did: &str) -> uuid::Uuid {
-    subject_derived_uuid(b"ak:realm:principal-control:v1:", principal_did)
-}
-
-/// Derive a stable id from a subject under a domain separator.
-///
-/// The UUIDv7 layout is deliberate: a subject-derived id is not event-derived.
-/// Every usable bit comes from the domain-separated subject hash, so there are
-/// no producer-selected timestamp or randomness bits.
-///
-/// `domain` MUST be a distinct, versioned separator per id family, or two
-/// families would collide on the same subject.
-pub fn subject_derived_uuid(domain: &[u8], subject: &str) -> uuid::Uuid {
-    let digest =
-        arkret_canonical::canonical::sha256_bytes_from_slices(&[domain, subject.as_bytes()]);
-    let mut bytes = [0_u8; 16];
-    bytes.copy_from_slice(&digest[..16]);
-    bytes[6] = (bytes[6] & 0x0f) | 0x70;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    uuid::Uuid::from_bytes(bytes)
+/// Realm genesis construction selects this subject transcript only for the
+/// signed `purpose=principal_control` branch. The v1 domain separator is
+/// unchanged; only the Realm wire container is the unified full-digest token.
+pub fn principal_control_realm_id(principal_did: &str) -> RealmId {
+    let digest = arkret_canonical::canonical::sha256_bytes_from_slices(&[
+        PRINCIPAL_CONTROL_REALM_DOMAIN,
+        principal_did.as_bytes(),
+    ]);
+    let mut token = [0_u8; 33];
+    token[0] = PRINCIPAL_CONTROL_REALM_HEADER;
+    token[1..].copy_from_slice(&digest);
+    RealmId(encode_event_token(RealmId::KIND_PREFIX, token))
 }
 
 /// Typed id prefixes whose ids are derived from a create Event rather than
@@ -844,9 +859,30 @@ declare_event_token_id_kinds! {
     ViewId, "ak:view:";
 }
 
+fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
+    let payload = value.strip_prefix("ak:realm:")?;
+    if payload.len() != 44
+        || !payload
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return None;
+    }
+    let decoded = URL_SAFE_NO_PAD.decode(payload).ok()?;
+    let bytes: [u8; 33] = decoded.try_into().ok()?;
+    if URL_SAFE_NO_PAD.encode(bytes) != payload {
+        return None;
+    }
+    RealmDerivationClass::try_from(bytes[0] >> 4).ok()?;
+    let suite = EventDigestSuiteCode::try_from(bytes[0] & 0x0f).ok()?;
+    if suite != EventDigestSuiteCode::Sha256 {
+        return None;
+    }
+    Some(bytes)
+}
+
 fn is_realm_id(value: &str) -> bool {
-    is_event_token_id(value, "ak:realm:")
-        || is_strict_typed_id(value, "ak:realm:", UUID_VERSION_PRODUCER_ALLOCATED)
+    decode_realm_token(value).is_some()
 }
 
 id_type!(RealmId, is_realm_id);
@@ -855,30 +891,45 @@ impl RealmId {
     pub const KIND_PREFIX: &'static str = "ak:realm:";
 
     pub fn from_event_id(event_id: &EventId) -> Self {
+        assert_eq!(
+            event_id.digest_suite_code(),
+            EventDigestSuiteCode::Sha256,
+            "v1 Realm identity is fixed to SHA-256"
+        );
         Self(encode_event_token(
             Self::KIND_PREFIX,
             event_id.token_bytes(),
         ))
     }
 
-    pub fn from_subject_uuid(value: uuid::Uuid) -> Self {
-        Self(format!("{}{}", Self::KIND_PREFIX, value))
+    pub fn token_bytes(&self) -> [u8; 33] {
+        decode_realm_token(&self.0).expect("validated Realm id carries a canonical token")
     }
 
-    pub fn subject_uuid(&self) -> Option<uuid::Uuid> {
-        let payload = self.0.strip_prefix(Self::KIND_PREFIX)?;
-        uuid::Uuid::parse_str(payload).ok()
+    pub fn derivation_class(&self) -> RealmDerivationClass {
+        RealmDerivationClass::try_from(self.token_bytes()[0] >> 4)
+            .expect("validated Realm id carries a registered derivation class")
     }
 
-    pub fn event_token_bytes(&self) -> Option<[u8; 33]> {
-        decode_event_token(&self.0, Self::KIND_PREFIX)
+    pub fn digest_suite_code(&self) -> EventDigestSuiteCode {
+        EventDigestSuiteCode::try_from(self.token_bytes()[0] & 0x0f)
+            .expect("validated Realm id carries an active digest suite")
+    }
+
+    pub fn digest_bytes(&self) -> [u8; 32] {
+        let token = self.token_bytes();
+        let mut digest = [0_u8; 32];
+        digest.copy_from_slice(&token[1..]);
+        digest
     }
 
     /// Retype a collaboration Realm back to its genesis Event identity.
     /// Principal Control Realms are subject-derived and therefore return `None`.
     pub fn event_id(&self) -> Option<EventId> {
-        self.event_token_bytes()
-            .and_then(|token| EventId::from_token_bytes(token).ok())
+        if self.derivation_class() != RealmDerivationClass::EventDerived {
+            return None;
+        }
+        EventId::from_token_bytes(self.token_bytes()).ok()
     }
 }
 
@@ -1480,21 +1531,32 @@ mod tests {
     }
 
     #[test]
-    fn principal_control_realm_uuidv7_known_answer() {
+    fn principal_control_realm_full_digest_token_known_answer() {
         let did = "did:webvh:z6mkfixture:alice.example";
-        let uuid = principal_control_realm_uuid(did);
-        assert_eq!(uuid.to_string(), "984ba56e-2ecf-786c-bbe0-cab2c7a30677");
-        assert_eq!(uuid.get_version_num(), 7);
-        assert!(RealmId::new(format!("ak:realm:{uuid}")).is_ok());
+        let realm_id = principal_control_realm_id(did);
+        assert_eq!(
+            realm_id.as_str(),
+            "ak:realm:EZhLpW4uz0hs--DKssejBneEirYysC3NDtTyvwG9ulcS"
+        );
+        assert_eq!(realm_id.token_bytes()[0], 0x11);
+        assert_eq!(
+            realm_id.derivation_class(),
+            RealmDerivationClass::PrincipalSubjectDerived
+        );
+        assert_eq!(realm_id.digest_suite_code(), EventDigestSuiteCode::Sha256);
+        assert!(realm_id.event_id().is_none());
         assert_ne!(
-            uuid,
-            principal_control_realm_uuid("did:webvh:z6mkfixture:bob.example")
+            realm_id,
+            principal_control_realm_id("did:webvh:z6mkfixture:bob.example")
         );
 
-        // Wire shape alone admits the PCR v7 branch. Genesis validation must
-        // recompute the DID transcript so an arbitrary producer-chosen v7
-        // value cannot become a PCR identity.
-        assert!(RealmId::new("ak:realm:019a6aa0-0000-7000-8000-000000000001").is_ok());
+        assert!(RealmId::new("ak:realm:019a6aa0-0000-7000-8000-000000000001").is_err());
+        let blake3_event = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x42; 32]);
+        let blake3_retyped = encode_event_token("ak:realm:", blake3_event.token_bytes());
+        assert!(
+            RealmId::new(blake3_retyped).is_err(),
+            "v1 Realm IDs reject non-SHA-256 Event suites"
+        );
     }
 
     #[test]

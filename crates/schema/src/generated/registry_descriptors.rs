@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-08.1;
-//! sha256=140311958ba1c0968d1d976ae017a135b068d2c839c0265e0cbd65297c9f80ef Input: registry/
-//! capability-action-registry.json; version=2026-08-08.1;
-//! sha256=102c096d3d25d18a7b032e05ffee3abae6726bfb4f86d139b7a39ce3883ac080 Input: registry/
-//! schema-registry.json; version=2026-08-08.1;
-//! sha256=a6365dab1538a4b6b1b1b3297a112ea2d1200ec0c9b0e3ca8a5b4c8a688cc7b3 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-08.4;
+//! sha256=e1a1682658773b7eadc5a1197c412478f8a6ec10bdd4c28977d23ea29e9864ba Input: registry/
+//! capability-action-registry.json; version=2026-08-08.5;
+//! sha256=192251fe9ae6609abf7753b027c7d25a2b9c320d01cea9d515316e59d7cb45bb Input: registry/
+//! schema-registry.json; version=2026-08-08.5;
+//! sha256=90f77cba1ed3cda9c6797bb77545999d5c3ee3ab853bda2a304d101f21fb92b2 Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
 //! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=56,
 //! special_forms=10, actions=168, schemas=181, account_data_patterns=24
@@ -80,7 +80,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "actor_profile",
         category: "core_object",
-        wire_form: "ak:actor_profile:<event-token>",
+        wire_form: "ak:actor_profile:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "announce",
@@ -90,7 +90,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "appeal",
         category: "moderation",
-        wire_form: "ak:appeal:<event-token>",
+        wire_form: "ak:appeal:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "applet",
@@ -105,17 +105,17 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "audit_binding",
         category: "audit",
-        wire_form: "ak:audit_binding:<event-token>",
+        wire_form: "ak:audit_binding:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "audit_release",
         category: "audit",
-        wire_form: "ak:audit_release:<event-token>",
+        wire_form: "ak:audit_release:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "audit_session",
         category: "audit",
-        wire_form: "ak:audit_session:<event-token>",
+        wire_form: "ak:audit_session:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "authorization_lease",
@@ -150,7 +150,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "call",
         category: "media",
-        wire_form: "ak:call:<event-token>",
+        wire_form: "ak:call:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "capability",
@@ -165,7 +165,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "circle",
         category: "core_object",
-        wire_form: "ak:circle:<event-token>",
+        wire_form: "ak:circle:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "claim",
@@ -190,7 +190,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "event",
         category: "event_history",
-        wire_form: "ak:event:<event-token>",
+        wire_form: "ak:event:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "filter",
@@ -210,12 +210,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "grant",
         category: "authz",
-        wire_form: "ak:grant:<event-token>",
+        wire_form: "ak:grant:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "invite",
         category: "authz",
-        wire_form: "ak:invite:<event-token>",
+        wire_form: "ak:invite:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "invite_locator",
@@ -230,7 +230,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "message",
         category: "core_object",
-        wire_form: "ak:message:<event-token>",
+        wire_form: "ak:message:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "message_stream",
@@ -240,12 +240,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "moderation_queue_item",
         category: "moderation",
-        wire_form: "ak:moderation_queue_item:<event-token>",
+        wire_form: "ak:moderation_queue_item:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "morph",
         category: "core_object",
-        wire_form: "ak:morph:<event-token>",
+        wire_form: "ak:morph:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "notification",
@@ -275,7 +275,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "realm",
         category: "core_object",
-        wire_form: "ak:realm:<uuid>",
+        wire_form: "ak:realm:<44-char-derivation-tagged-full-digest-token>",
     },
     IdKindDescriptor {
         kind: "receipt",
@@ -295,12 +295,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "relation",
         category: "core_object",
-        wire_form: "ak:relation:<event-token>",
+        wire_form: "ak:relation:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "report",
         category: "moderation",
-        wire_form: "ak:report:<event-token>",
+        wire_form: "ak:report:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "request",
@@ -320,12 +320,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "session_grant",
         category: "authz",
-        wire_form: "ak:session_grant:<event-token>",
+        wire_form: "ak:session_grant:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "sidecar",
         category: "core_object",
-        wire_form: "ak:sidecar:<event-token>",
+        wire_form: "ak:sidecar:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "snapshot",
@@ -335,12 +335,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "space",
         category: "core_object",
-        wire_form: "ak:space:<event-token>",
+        wire_form: "ak:space:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "strand",
         category: "core_object",
-        wire_form: "ak:strand:<event-token>",
+        wire_form: "ak:strand:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "subscription",
@@ -355,7 +355,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "view",
         category: "core_object",
-        wire_form: "ak:view:<event-token>",
+        wire_form: "ak:view:<44-char-event-token>",
     },
 ];
 

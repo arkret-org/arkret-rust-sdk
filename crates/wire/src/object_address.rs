@@ -4,17 +4,17 @@
 //! A shareable address points at a Realm, a Strand inside a Realm, or a Message
 //! inside a Strand. Three envelopes share ONE grammar:
 //!
-//! * logical id `ak:<kind>:<uuid>` — opaque, never carries via/action/token.
+//! * logical id `ak:<kind>:<id>` — opaque, never carries via/action/token.
 //! * `web+arkret:` URI scheme: `web+arkret:realm/<realm>/strand/<strand>/m/<msg>?action=view`
 //! * HTTPS landing: `https://<landing>/#realm/.../strand/...?action=...` — everything AFTER the `#`
 //!   is the SAME grammar as the `web+arkret:` form (strip the `https://<host>/#` shell, then reuse
 //!   the same parser).
 //!
 //! ## Normative grammar rules
-//! * PATH carries identity: keyword + bare uuid (the `ak:<kind>:` sigil is stripped). Hierarchy is
+//! * PATH carries identity: keyword + bare token (the `ak:<kind>:` sigil is stripped). Hierarchy is
 //!   fixed `realm/<r>` ⊃ `strand/<f>` ⊃ `m/<msg>`. The message seal keyword is exactly `m/`.
-//! * The `<realm>` segment: a registered UUIDv7/v8 textual form is a `realm_id`; otherwise it is an
-//!   ALIAS (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare uuid.
+//! * The `<realm>` segment: a registered 44-character Realm token is a `realm_id`; otherwise it is
+//!   an ALIAS (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare Event token.
 //! * Strand/Message addresses MUST carry `realm/<r>`. A global strand_id is never guessed. Retired
 //!   `via` query hints are ignored.
 //! * Unknown path keyword, wrong order, or a missing intermediate level fails closed. v1 legal
@@ -104,8 +104,8 @@ impl AddressAction {
     }
 }
 
-/// The realm path segment: a canonical Event token or subject-derived PCR UUID
-/// resolves to a `realm_id`; anything else is an opaque alias.
+/// The realm path segment: a canonical derivation-tagged Realm token resolves
+/// to a `realm_id`; anything else is an opaque alias.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmRef {
@@ -116,10 +116,7 @@ pub enum RealmRef {
 }
 
 impl RealmRef {
-    /// Classify a `<realm>` path segment per the uuid-vs-alias rule.
-    ///
-    /// Collaboration Realms carry an Event token; Principal Control Realms
-    /// retain their subject-derived UUID form.
+    /// Classify a `<realm>` path segment per the token-vs-alias rule.
     pub fn parse(segment: &str) -> Self {
         if RealmId::new(format!("ak:realm:{segment}")).is_ok() {
             RealmRef::RealmId(segment.to_owned())
@@ -128,7 +125,7 @@ impl RealmRef {
         }
     }
 
-    /// The raw path-segment form (bare uuid or alias string) used when
+    /// The raw path-segment form (bare token or alias string) used when
     /// re-serializing the address.
     pub fn path_segment(&self) -> &str {
         match self {
@@ -137,7 +134,7 @@ impl RealmRef {
     }
 }
 
-/// A parsed shareable address. `strand` / `message` are bare uuid strings (the
+/// A parsed shareable address. `strand` / `message` are bare token strings (the
 /// `ak:<kind>:` sigil is stripped on the wire).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParsedAddress {
@@ -468,7 +465,7 @@ fn typed_id(prefix: &str, bare: &str) -> String {
 /// only for strand/message targets; `message_id` only for message targets. Absent
 /// hierarchy fields are OMITTED ENTIRELY (never serialized as `null`) so the
 /// canonical-JSON digest does not drift. VALUES are typed canonical ids
-/// (`ak:realm:<uuid>` etc.), never the bare path uuid or an alias string.
+/// (`ak:realm:<44-char-token>` etc.), never the bare path token or an alias string.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TargetDescriptor {
     pub realm_id: String,
@@ -481,7 +478,7 @@ pub struct TargetDescriptor {
 
 impl TargetDescriptor {
     /// Build a descriptor from a [`ParsedAddress`], rebuilding the bare path
-    /// uuids into typed canonical ids.
+    /// tokens into typed canonical ids.
     ///
     /// If the address used an ALIAS for the realm, `realm_id` is initialized to
     /// the alias string and MUST be replaced with the server-resolved canonical
@@ -489,7 +486,7 @@ impl TargetDescriptor {
     /// digest is computed — the digest is meaningless over an alias.
     pub fn from_parsed(parsed: &ParsedAddress) -> Self {
         let realm_id = match &parsed.realm {
-            RealmRef::RealmId(uuid) => typed_id("ak:realm:", uuid),
+            RealmRef::RealmId(token) => typed_id("ak:realm:", token),
             // Alias targets need directory resolution before signing. Keep the
             // alias placeholder here, then inject the canonical id via
             // `set_realm_id` before digesting/signing.
@@ -506,7 +503,7 @@ impl TargetDescriptor {
         }
     }
 
-    /// Inject the server-resolved canonical `ak:realm:<uuid>` id (used when the
+    /// Inject the server-resolved canonical `ak:realm:<44-char-token>` id (used when the
     /// address arrived as an alias). Idempotent prefix handling.
     pub fn set_realm_id(&mut self, realm_id: impl Into<String>) {
         let realm_id = realm_id.into();
@@ -536,7 +533,7 @@ pub fn target_digest(descriptor: &TargetDescriptor) -> Result<String> {
 /// expiry / issuer is the caller's responsibility. When the address used an
 /// alias, the caller MUST resolve and inject the realm_id (see
 /// [`TargetDescriptor::set_realm_id`]) into the address-derived descriptor
-/// before calling, or pass an address that already carries a uuid realm.
+/// before calling, or pass an address that already carries a Realm token.
 pub fn verify_token_target(
     token_descriptor: &TargetDescriptor,
     address: &ParsedAddress,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-07.3;
-//! sha256=9d62f18c84a3e106c12986eb036113b99545f377052b0ace90ea85c516fd4795
+//! Input: registry/error-code-registry.json; version=2026-08-08.1;
+//! sha256=b954c27b5608afe1e30852883505235fa903b8081760e32be5cd9da3cc71b2f0
 //! Entries: reason_codes=463
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3953,7 +3953,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_ID_NOT_EVENT_DERIVED,
         applies_to: &["event_envelope"],
-        description: "Sub-reason for schema_violation when ak.realm.create carries an envelope realm_id whose UUID segment differs from the UUID segment of its own event_id, or when its payload.object still carries an id field. See zh/models/realm-and-space.md section 2.5.",
+        description: "Sub-reason for schema_violation when ak.realm.create carries a forbidden envelope realm_id instead of the realm_genesis shape, when a Collaboration Realm does not retype the full 33-byte create Event token, when a Principal Control Realm does not match the 0x11 subject transcript, or when payload.object still carries an id field. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_LINK_INVALID_TRANSITION,
