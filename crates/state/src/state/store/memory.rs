@@ -153,6 +153,16 @@ impl ControlEventStore for MemoryControlEventStore {
             .cloned())
     }
 
+    fn sealed_by(&self, event_digest: &Hash) -> StoreResult<Option<SealId>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .sealed
+            .get(event_digest.as_str())
+            .cloned())
+    }
+
     fn control_proposal_ack(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalAck>> {
         Ok(self
             .inner

@@ -98,6 +98,21 @@ pub trait ControlEventStore: Send + Sync {
 
     fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
 
+    /// The accepted Seal whose `delta[]` covers `event_digest`, or `None` when
+    /// the Control Move is unknown or still pending.
+    ///
+    /// This is the point lookup behind the closed derived `seals[]` set that
+    /// `ak.self.events.read.resolve` returns alongside its Events: a covering
+    /// Seal, never a later descendant. Scanning [`Self::list_sealed`] would
+    /// answer the same question but is unbounded in the Realm's history.
+    /// Default implementation reports the backend as unmigrated, matching
+    /// [`SealStore::successors`].
+    fn sealed_by(&self, _event_digest: &Hash) -> StoreResult<Option<SealId>> {
+        Err(StoreError::Backend(
+            "ControlEventStore::sealed_by not implemented for this backend".to_owned(),
+        ))
+    }
+
     fn control_proposal_ack(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalAck>>;
 
     fn record_proposal_decision(
