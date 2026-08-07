@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-07.11;
-//! sha256=a476c897b5858f8637a183a0893e68d1182a6447400090648d00362055a56fce Input: registry/
-//! capability-action-registry.json; version=2026-08-07.11;
-//! sha256=05208ee5f93d03dfc3431dbd0e4dcbba35d0bf5afe810db6e9d1caa9f4ca9d66 Input: registry/
-//! schema-registry.json; version=2026-08-07.11;
-//! sha256=fd067dcabbb9dd0a5bb2c1a6eadc661b54d2847b9b95a836acc0b9f2cac4dff9 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-08.1;
+//! sha256=140311958ba1c0968d1d976ae017a135b068d2c839c0265e0cbd65297c9f80ef Input: registry/
+//! capability-action-registry.json; version=2026-08-08.1;
+//! sha256=102c096d3d25d18a7b032e05ffee3abae6726bfb4f86d139b7a39ce3883ac080 Input: registry/
+//! schema-registry.json; version=2026-08-08.1;
+//! sha256=a6365dab1538a4b6b1b1b3297a112ea2d1200ec0c9b0e3ca8a5b4c8a688cc7b3 Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
 //! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=56,
 //! special_forms=10, actions=168, schemas=181, account_data_patterns=24
@@ -85,82 +85,82 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "announce",
         category: "discovery",
-        wire_form: "ak:announce:<uuid>",
+        wire_form: "ak:announce:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "appeal",
         category: "moderation",
-        wire_form: "ak:appeal:<uuid>",
+        wire_form: "ak:appeal:<event-token>",
     },
     IdKindDescriptor {
         kind: "applet",
         category: "extension",
-        wire_form: "ak:applet:<uuid>",
+        wire_form: "ak:applet:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "attestation",
         category: "audit",
-        wire_form: "ak:attestation:<uuid>",
+        wire_form: "ak:attestation:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "audit_binding",
         category: "audit",
-        wire_form: "ak:audit_binding:<uuid>",
+        wire_form: "ak:audit_binding:<event-token>",
     },
     IdKindDescriptor {
         kind: "audit_release",
         category: "audit",
-        wire_form: "ak:audit_release:<uuid>",
+        wire_form: "ak:audit_release:<event-token>",
     },
     IdKindDescriptor {
         kind: "audit_session",
         category: "audit",
-        wire_form: "ak:audit_session:<uuid>",
+        wire_form: "ak:audit_session:<event-token>",
     },
     IdKindDescriptor {
         kind: "authorization_lease",
         category: "authz",
-        wire_form: "ak:authorization_lease:<uuid>",
+        wire_form: "ak:authorization_lease:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "backup",
         category: "identity",
-        wire_form: "ak:backup:<uuid>",
+        wire_form: "ak:backup:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "backup_series",
         category: "identity",
-        wire_form: "ak:backup_series:<uuid>",
+        wire_form: "ak:backup_series:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "batch",
         category: "discovery",
-        wire_form: "ak:batch:<uuid>",
+        wire_form: "ak:batch:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "blob",
         category: "core_object",
-        wire_form: "ak:blob:<uuid>",
+        wire_form: "ak:blob:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "block",
         category: "account_private",
-        wire_form: "ak:block:<uuid>",
+        wire_form: "ak:block:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "call",
         category: "media",
-        wire_form: "ak:call:<uuid>",
+        wire_form: "ak:call:<event-token>",
     },
     IdKindDescriptor {
         kind: "capability",
         category: "authz",
-        wire_form: "ak:capability:<uuid>",
+        wire_form: "ak:capability:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "chunk",
         category: "snapshot",
-        wire_form: "ak:chunk:<uuid>",
+        wire_form: "ak:chunk:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "circle",
@@ -170,22 +170,22 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "claim",
         category: "identity_authz",
-        wire_form: "ak:claim:<uuid>",
+        wire_form: "ak:claim:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "consent",
         category: "identity_authz",
-        wire_form: "ak:consent:<uuid>",
+        wire_form: "ak:consent:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "device",
         category: "identity",
-        wire_form: "ak:device:<uuid>",
+        wire_form: "ak:device:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "device_message",
         category: "sync",
-        wire_form: "ak:device_message:<uuid>",
+        wire_form: "ak:device_message:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "event",
@@ -195,37 +195,37 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "filter",
         category: "policy",
-        wire_form: "ak:filter:<uuid>",
+        wire_form: "ak:filter:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "frame",
         category: "transport",
-        wire_form: "ak:frame:<uuid>",
+        wire_form: "ak:frame:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "franking_proof",
         category: "moderation",
-        wire_form: "ak:franking_proof:<uuid>",
+        wire_form: "ak:franking_proof:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "grant",
         category: "authz",
-        wire_form: "ak:grant:<uuid>",
+        wire_form: "ak:grant:<event-token>",
     },
     IdKindDescriptor {
         kind: "invite",
         category: "authz",
-        wire_form: "ak:invite:<uuid>",
+        wire_form: "ak:invite:<event-token>",
     },
     IdKindDescriptor {
         kind: "invite_locator",
         category: "account_private",
-        wire_form: "ak:invite_locator:<uuid>",
+        wire_form: "ak:invite_locator:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "key_event",
         category: "identity",
-        wire_form: "ak:key_event:<uuid>",
+        wire_form: "ak:key_event:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "message",
@@ -235,12 +235,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "message_stream",
         category: "sync",
-        wire_form: "ak:message_stream:<uuid>",
+        wire_form: "ak:message_stream:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "moderation_queue_item",
         category: "moderation",
-        wire_form: "ak:moderation_queue_item:<uuid>",
+        wire_form: "ak:moderation_queue_item:<event-token>",
     },
     IdKindDescriptor {
         kind: "morph",
@@ -250,27 +250,27 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "notification",
         category: "derived_projection",
-        wire_form: "ak:notification:<uuid>",
+        wire_form: "ak:notification:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "operation",
         category: "security",
-        wire_form: "ak:operation:<uuid>",
+        wire_form: "ak:operation:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "policy",
         category: "policy",
-        wire_form: "ak:policy:<uuid>",
+        wire_form: "ak:policy:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "presentation",
         category: "identity",
-        wire_form: "ak:presentation:<uuid>",
+        wire_form: "ak:presentation:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "read_cursor",
         category: "account_private",
-        wire_form: "ak:read_cursor:<uuid>",
+        wire_form: "ak:read_cursor:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "realm",
@@ -280,17 +280,17 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "receipt",
         category: "receipt",
-        wire_form: "ak:receipt:<uuid>",
+        wire_form: "ak:receipt:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "recovery_authority_ticket",
         category: "security",
-        wire_form: "ak:recovery_authority_ticket:<uuid>",
+        wire_form: "ak:recovery_authority_ticket:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "recovery_session",
         category: "identity",
-        wire_form: "ak:recovery_session:<uuid>",
+        wire_form: "ak:recovery_session:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "relation",
@@ -300,37 +300,37 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "report",
         category: "moderation",
-        wire_form: "ak:report:<uuid>",
+        wire_form: "ak:report:<event-token>",
     },
     IdKindDescriptor {
         kind: "request",
         category: "transport",
-        wire_form: "ak:request:<uuid>",
+        wire_form: "ak:request:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "rtc_participant",
         category: "media",
-        wire_form: "ak:rtc_participant:<uuid>",
+        wire_form: "ak:rtc_participant:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "scheduled_send",
         category: "account_private",
-        wire_form: "ak:scheduled_send:<uuid>",
+        wire_form: "ak:scheduled_send:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "session_grant",
         category: "authz",
-        wire_form: "ak:session_grant:<uuid>",
+        wire_form: "ak:session_grant:<event-token>",
     },
     IdKindDescriptor {
         kind: "sidecar",
         category: "core_object",
-        wire_form: "ak:sidecar:<uuid>",
+        wire_form: "ak:sidecar:<event-token>",
     },
     IdKindDescriptor {
         kind: "snapshot",
         category: "snapshot",
-        wire_form: "ak:snapshot:<uuid>",
+        wire_form: "ak:snapshot:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "space",
@@ -345,12 +345,12 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "subscription",
         category: "discovery",
-        wire_form: "ak:subscription:<uuid>",
+        wire_form: "ak:subscription:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "transaction",
         category: "security",
-        wire_form: "ak:transaction:<uuid>",
+        wire_form: "ak:transaction:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "view",

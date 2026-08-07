@@ -6,8 +6,8 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{
     AppletActorView, AppletInstallOutcome, AppletInstallPlan, AppletInstallPreviewRequestBody,
     AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletRevokeOutcome, AppletThirdPartyLocationList, AppletThirdPartyUserList,
-    AppletTransactionOutcome,
+    AppletRevokeOutcome, AppletRevokePreviewOutcome, AppletRevokePreviewRequestBody,
+    AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
 };
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
@@ -56,14 +56,26 @@ impl Client {
             .await
     }
 
+    pub async fn applet_revoke_preview(
+        &self,
+        applet_id: &str,
+        request: &AppletRevokePreviewRequestBody,
+    ) -> Result<AppletRevokePreviewOutcome> {
+        reject_path_segment(applet_id)?;
+        let path = format!("/_arkret/self/applets/{applet_id}/revoke/preview");
+        self.post(&path, request).await
+    }
+
     pub async fn applet_revoke(
         &self,
         applet_id: &str,
+        idempotency_key: &str,
         request: &AppletRevokeRequestBody,
     ) -> Result<AppletRevokeOutcome> {
         reject_path_segment(applet_id)?;
         let path = format!("/_arkret/self/applets/{applet_id}/revoke");
-        self.post(&path, request).await
+        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
+        self.post_with_options(&path, request, &options).await
     }
 
     pub async fn applet_transaction(

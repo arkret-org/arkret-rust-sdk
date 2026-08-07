@@ -639,13 +639,49 @@ pub struct SessionRevokeOutcome {
 /// (`AppletRevokeMode`, `arkret-wire`), so it lives in the collaboration domain
 /// which reaches both. the `arkret` umbrella re-exports it for path stability.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
+    pub revoke_plan_digest: Hash,
     pub effective_scope: ScopeRef,
     pub reason_code: ReasonCode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revoke_mode: AppletRevokeMode,
+    pub capability_revoke_events: Vec<EventInitialSubmission>,
+    pub membership_state_events: Vec<EventInitialSubmission>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountLifecycleProof>,
+}
+
+#[cfg(test)]
+mod applet_revoke_request_tests {
+    use super::AppletRevokeRequestBody;
+
+    #[test]
+    fn signed_revoke_carrier_requires_plan_and_both_event_arrays() {
+        let complete = serde_json::json!({
+            "revoke_plan_digest": format!("sha256:{}", "a".repeat(64)),
+            "effective_scope": {"kind": "realm_genesis"},
+            "reason_code": "requested_by_admin",
+            "revoke_mode": "revoke_runtime_only",
+            "capability_revoke_events": [],
+            "membership_state_events": []
+        });
+        let parsed: AppletRevokeRequestBody =
+            serde_json::from_value(complete.clone()).expect("closed revoke carrier");
+        assert_eq!(serde_json::to_value(parsed).unwrap(), complete);
+
+        for required in [
+            "revoke_plan_digest",
+            "capability_revoke_events",
+            "membership_state_events",
+        ] {
+            let mut missing = complete.clone();
+            missing.as_object_mut().unwrap().remove(required);
+            assert!(
+                serde_json::from_value::<AppletRevokeRequestBody>(missing).is_err(),
+                "{required} must not become optional"
+            );
+        }
+    }
 }

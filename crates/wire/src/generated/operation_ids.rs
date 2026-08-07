@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-07.11;
-//! sha256=5d717c6dbebffdfdf39ff041aa905e5d9563368a83d485627489166976e6d24a Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-08.1;
+//! sha256=cb79e4186619fb95abddedab802090a35a629def27af1a149b92cd6862a4cb70 Entries: registered=223
 
 use serde::{Deserialize, Serialize};
 
@@ -129,6 +129,7 @@ pub enum ServiceOperationId {
     SelfAppletCommandRevoke,
     SelfAppletGhostCommandProvision,
     SelfAppletInstallCommandPreview,
+    SelfAppletRevokeCommandPreview,
     SelfAuthorizationLeasesCommandIssue,
     SelfAuthzGrantsReadEffective,
     SelfAuthzInvitesReadList,
@@ -354,6 +355,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_APPLET_COMMAND_REVOKE,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION,
     ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW,
+    ServiceOperationId::SELF_APPLET_REVOKE_COMMAND_PREVIEW,
     ServiceOperationId::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE,
     ServiceOperationId::SELF_AUTHZ_GRANTS_READ_EFFECTIVE,
     ServiceOperationId::SELF_AUTHZ_INVITES_READ_LIST,
@@ -619,6 +621,7 @@ impl ServiceOperationId {
         Self::SelfAppletCommandRevoke,
         Self::SelfAppletGhostCommandProvision,
         Self::SelfAppletInstallCommandPreview,
+        Self::SelfAppletRevokeCommandPreview,
         Self::SelfAuthorizationLeasesCommandIssue,
         Self::SelfAuthzGrantsReadEffective,
         Self::SelfAuthzInvitesReadList,
@@ -920,6 +923,8 @@ impl ServiceOperationId {
         "ak.self.applet.ghost.command.provision";
     pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW: &'static str =
         "ak.self.applet.install.command.preview";
+    pub const SELF_APPLET_REVOKE_COMMAND_PREVIEW: &'static str =
+        "ak.self.applet.revoke.command.preview";
     pub const SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE: &'static str =
         "ak.self.authorization_leases.command.issue";
     pub const SELF_AUTHZ_GRANTS_READ_EFFECTIVE: &'static str =
@@ -1260,6 +1265,7 @@ impl ServiceOperationId {
             Self::SelfAppletCommandRevoke => Self::SELF_APPLET_COMMAND_REVOKE,
             Self::SelfAppletGhostCommandProvision => Self::SELF_APPLET_GHOST_COMMAND_PROVISION,
             Self::SelfAppletInstallCommandPreview => Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW,
+            Self::SelfAppletRevokeCommandPreview => Self::SELF_APPLET_REVOKE_COMMAND_PREVIEW,
             Self::SelfAuthorizationLeasesCommandIssue => {
                 Self::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE
             }
@@ -1619,6 +1625,7 @@ impl ServiceOperationId {
             Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW => {
                 Some(Self::SelfAppletInstallCommandPreview)
             }
+            Self::SELF_APPLET_REVOKE_COMMAND_PREVIEW => Some(Self::SelfAppletRevokeCommandPreview),
             Self::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE => {
                 Some(Self::SelfAuthorizationLeasesCommandIssue)
             }
@@ -4452,6 +4459,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("read_only_preview_despite_post_binding"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAppletRevokeCommandPreview,
+        http_method: "POST",
+        http_path: "/_arkret/self/applets/{applet_id}/revoke/preview",
+        grpc: Some("SelfApplet/RevokePreview"),
+        mq: Some("self.applet.revoke.command.preview"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("none"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_preview_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_preview_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("query_only_recomputed_revoke_plan"),
         }),
     },
     ServiceOperationDescriptor {

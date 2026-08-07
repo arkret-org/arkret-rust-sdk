@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-07.11;
-//! sha256=5d717c6dbebffdfdf39ff041aa905e5d9563368a83d485627489166976e6d24a Input: registry/
-//! operations-error-mapping.json; version=2026-08-07.2;
-//! sha256=5c95c5be1cfdc0b3cc713ceca0fa9aed8fa37c97824821c0cabec62a96968abe Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-08.1;
+//! sha256=cb79e4186619fb95abddedab802090a35a629def27af1a149b92cd6862a4cb70 Input: registry/
+//! operations-error-mapping.json; version=2026-08-08.1;
+//! sha256=c839686d501c9533339461c6945c0481cb350887433262f160071e4b9cc56a85 Input: registry/
 //! error-code-registry.json; version=2026-08-07.3;
-//! sha256=f493fb655ba96b845485d1747fedfb9256051ef101196de8fc828e4422f7dc07 Entries: operations=222
+//! sha256=9d62f18c84a3e106c12986eb036113b99545f377052b0ace90ea85c516fd4795 Entries: operations=223
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -808,6 +808,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(
             ErrorCode::AppletRegistrationUnauthorized,
         )],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfAppletRevokeCommandPreview,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::AppletRegistrationUnauthorized),
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAuthorizationLeasesCommandIssue,

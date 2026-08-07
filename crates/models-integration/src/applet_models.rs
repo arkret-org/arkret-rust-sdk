@@ -9,7 +9,10 @@
 use std::collections::BTreeMap;
 
 pub use arkret_wire::AppletIdentifier;
-use arkret_wire::{BlobRef, Did, Event, EventId, GrantId, Hash, RealmId, ReasonCode, ScopeRef};
+use arkret_wire::{
+    AppletId, BlobRef, Did, Event, EventId, GrantId, Hash, ProtocolOperationId, RealmId,
+    ReasonCode, ScopeRef,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::applet::AppletPackage;
@@ -84,7 +87,7 @@ pub struct AppletWidgetPolicy {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletRejectedItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_scope: Option<String>,
@@ -123,9 +126,117 @@ pub struct AppletInstallOutcome {
 pub use arkret_wire::AppletRevokeMode;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokePreviewRequestBody {
+    pub effective_scope: ScopeRef,
+    pub reason_code: ReasonCode,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub revoke_mode: AppletRevokeMode,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletCapabilityRevokeIntent {
+    pub event_kind: String,
+    pub grant_id: GrantId,
+    pub registration_epoch: Hash,
+    pub reason_code: ReasonCode,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletMembershipRemoveIntent {
+    pub event_kind: String,
+    pub member_id: Did,
+    pub membership: AppletManagedMembershipRemoval,
+    pub reason_code: ReasonCode,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletManagedMembershipRemoval {
+    Leave,
+    Remove,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokePlan {
+    pub applet_id: AppletId,
+    pub effective_scope: ScopeRef,
+    pub registration_epoch: Hash,
+    pub reason_code: ReasonCode,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub revoke_mode: AppletRevokeMode,
+    pub capability_revocations: Vec<AppletCapabilityRevokeIntent>,
+    pub membership_removals: Vec<AppletMembershipRemoveIntent>,
+    pub widget_token_refs: Vec<String>,
+    pub delegated_session_refs: Vec<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokePreviewOutcome {
+    pub revoke_plan_digest: Hash,
+    pub revoke_plan: AppletRevokePlan,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletRevokeSagaStatus {
+    Complete,
+    InProgress,
+    PartiallyCompleted,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletRevokeStepStatus {
+    Pending,
+    Accepted,
+    Duplicate,
+    Rejected,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletRevokeEffectKind {
+    CapabilityRevokeEvent,
+    MembershipStateEvent,
+    WidgetTokenInvalidation,
+    DelegatedSessionRevocation,
+    LocalAppletFence,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokeStep {
+    pub effect_kind: AppletRevokeEffectKind,
+    pub effect_ref: String,
+    pub status: AppletRevokeStepStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<ReasonCode>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletRevokeOutcome {
     pub ok: bool,
+    pub operation_id: ProtocolOperationId,
+    pub revoke_plan_digest: Hash,
+    pub status: AppletRevokeSagaStatus,
+    pub steps: Vec<AppletRevokeStep>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub revoked_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
