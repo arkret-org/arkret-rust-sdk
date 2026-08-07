@@ -1123,11 +1123,17 @@ impl LatticeKind for ContactFactLog {
     }
 }
 
+// contract-registry `ak.direct_conversation.bound`: `lattice = or_set`,
+// `bottom = inert`, `concurrency_class = merge_safe`. The element key is
+// `(binding_digest, envelope.actor_id)` — both participants endorsing the same
+// coordinates are compatible adds that MUST NOT join to bottom
+// (`contact-and-direct-conversation.md` §8.3). The previous `OrderedLog` /
+// `Expose` pair contradicted the generated `SPEC_LATTICE_BINDINGS` entry.
 per_subject_lattice!(
     DirectConversationBinding,
     arkret_wire::CellFamilyId::DIRECT_CONVERSATION_BINDING_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
+    SdkLatticeKind::OrSet,
+    BottomPolicy::Inert,
     Criticality::Required,
     "pair_key",
     &["ak.direct_conversation.bound"]
