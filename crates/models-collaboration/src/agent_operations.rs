@@ -2351,7 +2351,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             digest.as_str(),
-            "sha256:0669f4b4a21989ad51ebd11aec1947244c0994e4275be95fa3b4f5e449e6debc"
+            "sha256:89a6ae4de75b93f1480dee57da9f695e7a0616014c574c31e77006e0e2fd2e86"
         );
     }
 

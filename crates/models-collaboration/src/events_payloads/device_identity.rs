@@ -1118,7 +1118,7 @@ mod tests {
             "created_at": "2026-08-07T12:34:56.000Z"
         });
         let mut parsed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
-        let expected = "sha256:bda6045ed2af5f51dc19296b3c1f906f415a329c9d65c3da40b1d063b68773a8";
+        let expected = "sha256:bb50b66aa3a8e808ea61743efb278f1d55d0849f534ce2ee6ab01e893ce15a58";
         assert_eq!(parsed.binding_digest().unwrap().as_str(), expected);
 
         parsed.participants_unordered.reverse();

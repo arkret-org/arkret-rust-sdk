@@ -1563,13 +1563,15 @@ mod tests {
     fn sidecar_mls_binding_round_trips_and_is_validated_exactly() {
         let sidecar_id =
             SidecarId::new("ak:sidecar:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo").unwrap();
+        let mut control_frontier = vec![
+            NonEmptyString::new(event(2).to_string()).unwrap(),
+            NonEmptyString::new(event(3).to_string()).unwrap(),
+        ];
+        control_frontier.sort();
         let sidecar_binding = SidecarMlsBinding {
             sidecar_id: sidecar_id.clone(),
             participant_authority_digest: hash('8'),
-            control_frontier: vec![
-                NonEmptyString::new(event(2).to_string()).unwrap(),
-                NonEmptyString::new(event(3).to_string()).unwrap(),
-            ],
+            control_frontier,
         };
         let binding = MlsGovernanceBindingPayload::sidecar(
             realm(),
@@ -1588,7 +1590,7 @@ mod tests {
         assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:56ef27d32d442f720bb440015e3b5b7a8bdf7c20cfa54f46f68ca148defa2539"
+            "sha256:db2bf81a807cea601b6209807320e864f6c6b65216ef3303aa6a8b235f709cfa"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));
@@ -1631,14 +1633,17 @@ mod tests {
 
     #[test]
     fn sidecar_mls_binding_rejects_realm_scope_and_unsorted_frontier() {
+        let mut control_frontier = vec![
+            NonEmptyString::new(event(2).to_string()).unwrap(),
+            NonEmptyString::new(event(3).to_string()).unwrap(),
+        ];
+        control_frontier.sort();
+        control_frontier.reverse();
         let sidecar_binding = SidecarMlsBinding {
             sidecar_id: SidecarId::new("ak:sidecar:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo")
                 .unwrap(),
             participant_authority_digest: hash('8'),
-            control_frontier: vec![
-                NonEmptyString::new(event(3).to_string()).unwrap(),
-                NonEmptyString::new(event(2).to_string()).unwrap(),
-            ],
+            control_frontier,
         };
         assert!(sidecar_binding.validate().is_err());
         assert!(

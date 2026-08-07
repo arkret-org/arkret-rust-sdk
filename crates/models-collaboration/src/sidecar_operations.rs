@@ -369,7 +369,10 @@ mod tests {
             authority_refs: Vec::new(),
         };
         frontier.validate().unwrap();
-        frontier.authority_refs = vec![event("000000000004"), event("000000000003")];
+        let mut unsorted = vec![event("000000000004"), event("000000000003")];
+        unsorted.sort();
+        unsorted.reverse();
+        frontier.authority_refs = unsorted;
         assert!(frontier.validate().is_err());
     }
 }
