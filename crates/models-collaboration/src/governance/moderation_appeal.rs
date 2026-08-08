@@ -29,8 +29,8 @@ pub enum AppealEvidenceVisibility {
 
 /// `ak.moderation.appeal.submit` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppealSubmitPayload {
-    pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
     pub decision_ref: EventId,
     pub target_ref: String,
@@ -107,13 +107,16 @@ impl ModerationAppealPayload {
         }
     }
 
-    /// Returns the appeal_id this payload refers to.
-    pub fn appeal_id(&self) -> &TypedAppealId {
+    /// Returns the carried appeal id for a transition targeting an existing
+    /// appeal. A submit creates the appeal whose id is
+    /// `TypedAppealId::from_event_id(submit_event.event_id)`, so its payload
+    /// deliberately carries no `appeal_id`.
+    pub fn appeal_id(&self) -> Option<&TypedAppealId> {
         match self {
-            ModerationAppealPayload::Submit(p) => &p.appeal_id,
-            ModerationAppealPayload::Review(p) => &p.appeal_id,
-            ModerationAppealPayload::Decision(p) => &p.appeal_id,
-            ModerationAppealPayload::Close(p) => &p.appeal_id,
+            ModerationAppealPayload::Submit(_) => None,
+            ModerationAppealPayload::Review(p) => Some(&p.appeal_id),
+            ModerationAppealPayload::Decision(p) => Some(&p.appeal_id),
+            ModerationAppealPayload::Close(p) => Some(&p.appeal_id),
         }
     }
 

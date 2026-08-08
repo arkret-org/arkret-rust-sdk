@@ -1,6 +1,6 @@
 use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
 use arkret_models_collaboration::governance::moderation_appeal::{
-    AppealDecisionPayload, AppealVerdict, ModerationAppealPayload,
+    AppealDecisionPayload, AppealSubmitPayload, AppealVerdict, ModerationAppealPayload,
 };
 use arkret_models_collaboration::governance::policy_check::compute_audit_policy_version_digest;
 use arkret_models_collaboration::governance::third_party_invite::{
@@ -169,6 +169,32 @@ fn moderation_appeal_decision_modify_requires_ref() {
         decided_at: Utc::now(),
     });
     assert!(payload.validate_minimal().is_err());
+}
+
+#[test]
+fn moderation_appeal_submit_omits_event_derived_appeal_id() {
+    let payload = AppealSubmitPayload {
+        realm_id: realm(),
+        decision_ref: EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1")
+            .unwrap(),
+        target_ref: "ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned(),
+        appellant: did(),
+        reason_text_ref: "blob:reason".to_owned(),
+        evidence_refs: Vec::new(),
+        evidence_visibility: None,
+        created_at: Utc::now(),
+    };
+    let value = serde_json::to_value(&payload).unwrap();
+    assert!(value.get("appeal_id").is_none());
+    assert!(
+        ModerationAppealPayload::Submit(payload)
+            .appeal_id()
+            .is_none()
+    );
+
+    let mut legacy = value;
+    legacy["appeal_id"] = json!("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19");
+    assert!(serde_json::from_value::<AppealSubmitPayload>(legacy).is_err());
 }
 
 #[test]
