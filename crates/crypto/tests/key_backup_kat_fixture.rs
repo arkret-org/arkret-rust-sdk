@@ -1,7 +1,6 @@
 #![cfg(feature = "backup")]
 //! Executable consumers for the key-backup cryptographic transcripts in
 //! `fixtures/key-backup-hardening-fixture.json`.
-//!
 use arkret_schema::embedded_json_artifact;
 use chacha20poly1305::ChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
