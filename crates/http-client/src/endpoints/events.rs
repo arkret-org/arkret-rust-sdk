@@ -1,6 +1,9 @@
 //! Event stream / query / submit, snapshot, and authz endpoint methods
 //! on [`Client`].
 
+use arkret_models_collaboration::direct_conversation_ops::{
+    DirectConversationFoundingAcceptanceOutcome, DirectConversationFoundingUnitSubmission,
+};
 use arkret_models_collaboration::event_query::{
     EventsDescribeRequestBody, EventsFrontierRequestBody, EventsQueryPostRequestBody,
 };
@@ -791,6 +794,18 @@ impl Client {
         };
         self.post_with_options("/_arkret/self/events", &body, options)
             .await
+    }
+
+    /// Submit the registered caller-authored Direct Conversation founding unit.
+    ///
+    /// Its idempotency key is part of the closed body contract. Retrying this exact value returns
+    /// the stored byte-identical acceptance receipt; callers must never re-author another unit
+    /// after an ambiguous network result.
+    pub async fn direct_conversation_founding_submit(
+        &self,
+        submission: &DirectConversationFoundingUnitSubmission,
+    ) -> Result<DirectConversationFoundingAcceptanceOutcome> {
+        self.post("/_arkret/self/events", submission).await
     }
 
     /// Submit a current-device-signed Seal through the registered self Events

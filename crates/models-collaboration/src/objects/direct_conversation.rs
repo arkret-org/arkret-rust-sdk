@@ -97,8 +97,10 @@ impl DirectConversationPairKeyParticipant {
 #[derive(Serialize)]
 struct DirectConversationPairKeyMaterial {
     participants: [Did; 2],
-    trust_domain: TypedTrustDomainId,
+    trust_domain_id: TypedTrustDomainId,
 }
+
+const DIRECT_CONVERSATION_PAIR_KEY_DOMAIN: &[u8] = b"ak.direct-conversation.pair-key.v1\n";
 
 pub fn direct_conversation_pair_key(
     trust_domain: TypedTrustDomainId,
@@ -114,10 +116,14 @@ pub fn direct_conversation_pair_key(
     }
     let material = DirectConversationPairKeyMaterial {
         participants,
-        trust_domain,
+        trust_domain_id: trust_domain,
     };
     let canonical = canonical::canonical_json_bytes(&material)?;
-    Ok(Hash::new(canonical::sha256_digest(canonical))?)
+    let mut transcript =
+        Vec::with_capacity(DIRECT_CONVERSATION_PAIR_KEY_DOMAIN.len() + canonical.len());
+    transcript.extend_from_slice(DIRECT_CONVERSATION_PAIR_KEY_DOMAIN);
+    transcript.extend_from_slice(&canonical);
+    Ok(Hash::new(canonical::sha256_digest(transcript))?)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -421,7 +427,7 @@ mod tests {
 
         assert_eq!(
             pair_key.as_str(),
-            "sha256:a97a411daac39d8fe9c29755109c5785e86b83e9f966c65363bafcf02654790b"
+            "sha256:e8c24c1badc48eefa472a1700e87a6597a95aedfab8cbe3173f1622b9ad427b5"
         );
     }
 

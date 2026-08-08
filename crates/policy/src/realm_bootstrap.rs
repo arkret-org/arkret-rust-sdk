@@ -308,6 +308,42 @@ pub fn validate_realm_bootstrap_unit(
         .and_then(serde_json::Value::as_object)
         .ok_or(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;
     let authority_root = genesis_authority_root(object, actor_id)?;
+    let direct_conversation = object
+        .get("schema_refs")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|profiles| {
+            profiles.iter().any(|profile| {
+                profile.as_str() == Some(arkret_wire::ProfileId::DIRECT_CONVERSATION_REALM_V1)
+            })
+        });
+    if direct_conversation {
+        let exact: [&Event; 3] = events
+            .iter()
+            .collect::<Vec<_>>()
+            .try_into()
+            .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
+        arkret_models_collaboration::direct_conversation_ops::DirectConversationFoundingPlan::from_events(exact)
+            .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
+        let direct_roles = create
+            .refs
+            .iter()
+            .filter(|reference| {
+                reference.critical
+                    && matches!(
+                        reference.role.as_str(),
+                        "direct_conversation_basis" | "direct_conversation_agent_provision"
+                    )
+            })
+            .collect::<Vec<_>>();
+        if direct_roles.len() != 1 {
+            return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+        }
+        return Ok(ValidatedRealmBootstrap {
+            realm_id: realm_id.to_owned(),
+            actor_id: actor_id.to_owned(),
+            authority_root,
+        });
+    }
     let payload: RealmCreatePayload = create
         .payload_as()
         .map_err(|_| RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;

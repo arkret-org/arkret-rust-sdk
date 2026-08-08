@@ -19,6 +19,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::contact_operations::{ContactPeer, ContactScopes};
+use crate::direct_conversation_ops::{
+    DirectConversationFoundingAcceptanceOutcome, DirectConversationFoundingUnitSubmission,
+};
 use crate::event_sync::{RealmActorFrontierView, RealmSealFrontierView};
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::authorization::GrantList;
@@ -139,7 +142,7 @@ pub enum EventsSubmitStatus {
 /// An Event never travels alone on this rail — the lease is what bounds the
 /// revocation window, so a body carrying a bare Event is not a valid request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 // Untagged wire union; boxing a variant changes the public constructor shape
 // without changing the JSON.
@@ -147,6 +150,17 @@ pub enum EventsSubmitStatus {
 pub enum EventsSubmitRequestBody {
     Single(EventInitialSubmission),
     Batch(EventsSubmitBatchRequestBody),
+    DirectConversationFounding(DirectConversationFoundingUnitSubmission),
+}
+
+/// Closed response union paired with [`EventsSubmitRequestBody`].
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
+pub enum EventsSubmitResponseBody {
+    Ordinary(EventsSubmitOutcome),
+    DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
 }
 
 pub use arkret_wire::EventsSubmitBatchRequestBody;

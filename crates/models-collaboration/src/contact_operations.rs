@@ -463,6 +463,8 @@ pub struct ContactBasisEvidenceBundle {
     pub request_receipts: Vec<RequestAcceptanceReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub normal_response_receipt: Option<NormalResponseAcceptanceReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glare_concurrency_attestations: Option<[GlareConcurrencyAttestation; 2]>,
     pub current_proofs: Vec<ContactCurrentProof>,
 }
 

@@ -722,7 +722,7 @@ pub const MAX_FEDERATED_EVENTS: usize = 500;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventsSubmitFederationRequestBody {
+pub struct EventsSubmitFederationBatchRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
     /// Each transported Event travels with the lease and the original ingress
     /// receipts that authorized its first publication.
@@ -744,7 +744,7 @@ pub struct EventsSubmitFederationRequestBody {
     pub agent_signer_evidence_bundle: Option<AgentSignerEvidenceBundle>,
 }
 
-impl EventsSubmitFederationRequestBody {
+impl EventsSubmitFederationBatchRequestBody {
     /// The transported Events, without their publication evidence.
     pub fn transported_events(&self) -> impl Iterator<Item = &Event> {
         self.events.iter().map(|submission| &submission.event)
@@ -1089,6 +1089,18 @@ impl EventsSubmitFederationRequestBody {
     }
 }
 
+/// Closed request union for `ak.peer.events.command.submit`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
+pub enum EventsSubmitFederationRequestBody {
+    Batch(EventsSubmitFederationBatchRequestBody),
+    DirectConversationFounding(
+        crate::direct_conversation_ops::DirectConversationFoundingFederationSubmission,
+    ),
+}
+
 // `SnapshotBootstrap` migrated to `sync_frames::snapshot`. It reaches the
 // `arkret::SnapshotBootstrap` path via the `artifacts::sync`
 // re-export, so no shim is needed here.
@@ -1264,7 +1276,7 @@ mod tests {
         .unwrap();
         unrelated.device_id =
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap();
-        let request = EventsSubmitFederationRequestBody {
+        let request = EventsSubmitFederationBatchRequestBody {
             service_binding_ref: FederationServiceBindingRef {
                 realm_id: event.realm_id.clone(),
                 realm_policy_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
@@ -1472,9 +1484,9 @@ mod tests {
         );
     }
 
-    fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {
+    fn federation_request(events: Vec<Event>) -> EventsSubmitFederationBatchRequestBody {
         let realm_id = events[0].realm_id.clone();
-        EventsSubmitFederationRequestBody {
+        EventsSubmitFederationBatchRequestBody {
             service_binding_ref: FederationServiceBindingRef {
                 realm_id,
                 realm_policy_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
@@ -1582,7 +1594,7 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("idempotency_key".to_owned(), json!("header-only"));
-        assert!(serde_json::from_value::<EventsSubmitFederationRequestBody>(value).is_err());
+        assert!(serde_json::from_value::<EventsSubmitFederationBatchRequestBody>(value).is_err());
     }
 
     #[test]
