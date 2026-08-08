@@ -961,6 +961,7 @@ pub struct MimiUpdateConsentRequestBody {
     pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
     pub actor_id: Did,
+    pub consent_event: EventInitialSubmission,
     pub signature: PayloadProof,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<NonEmptyString>,
@@ -973,6 +974,26 @@ pub struct MimiUpdateConsentRequestBody {
 }
 
 impl MimiUpdateConsentRequestBody {
+    pub fn validate_consent_event(&self) -> Result<()> {
+        let expected_kind = match self.decision {
+            MimiConsentDecision::Accept => "ak.consent.grant",
+            MimiConsentDecision::Deny | MimiConsentDecision::Revoke => "ak.consent.revoke",
+        };
+        let event = &self.consent_event.event;
+        if event.kind.as_str() != expected_kind || event.actor_id != self.actor_id {
+            return Err(Error::Protocol(
+                "MIMI consent decision, event kind, and actor binding mismatch".to_owned(),
+            ));
+        }
+        let payload_consent_id = event.payload.get("consent_id").and_then(Value::as_str);
+        if payload_consent_id != Some(self.consent_id.as_str()) {
+            return Err(Error::Protocol(
+                "MIMI consent event payload.consent_id mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Canonical request value covered by the operation proof. The detached
     /// proof is omitted to avoid a self-referential digest.
     pub fn unsigned_payload(&self) -> Result<Value> {
@@ -1031,11 +1052,19 @@ impl MimiUpdateConsentRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiUpdateConsentOutcome {
-    pub status: NonEmptyString,
+    pub status: MimiUpdateConsentStatus,
+    pub consent_id: ConsentId,
+    pub decision: MimiConsentDecision,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_ref: Option<EventId>,
+    pub event_ref: EventId,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MimiUpdateConsentStatus {
+    Accepted,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1116,7 +1145,7 @@ pub struct MimiProxyDownloadOutcome {
 
 #[cfg(test)]
 mod mimi_consent_tests {
-    use arkret_wire::{Audience, DidUrl, proof_kind};
+    use arkret_wire::{Audience, DidUrl, EventKind, EventRequirements, ScopeRef, proof_kind};
     use chrono::TimeZone;
     use serde_json::json;
 
@@ -1134,6 +1163,63 @@ mod mimi_consent_tests {
             .unwrap(),
             decision: MimiConsentDecision::Accept,
             actor_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned()).unwrap(),
+            consent_event: EventInitialSubmission {
+                event: Event {
+                    event_id: EventId::new(
+                        "ak:event:Aaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq".to_owned(),
+                    )
+                    .unwrap(),
+                    kind: EventKind::ConsentGrant,
+                    realm_id: RealmId::new(
+                        "ak:realm:Aaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq".to_owned(),
+                    )
+                    .unwrap(),
+                    scope_ref: ScopeRef::Realm {
+                        realm_id: RealmId::new(
+                            "ak:realm:Aaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq".to_owned(),
+                        )
+                        .unwrap(),
+                    },
+                    actor_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
+                        .unwrap(),
+                    executed_by: None,
+                    authorization_ref: None,
+                    applet_id: None,
+                    external_ref: None,
+                    actor_kind: None,
+                    actor_seq: 1,
+                    created_at,
+                    hlc: None,
+                    prev_refs: Vec::new(),
+                    refs: Vec::new(),
+                    causal_refs: Vec::new(),
+                    preconditions: Vec::new(),
+                    seal_ref: None,
+                    auth_context: None,
+                    seal_basis: None,
+                    payload: [
+                        (
+                            "consent_id".to_owned(),
+                            json!("ak:consent:01964137-0000-7000-8000-000000000777"),
+                        ),
+                        (
+                            "peer".to_owned(),
+                            json!("did:webvh:z6mkfixture:example.com:users:bob"),
+                        ),
+                        ("consent_scope".to_owned(), json!("direct_message")),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    redacts: None,
+                    unsigned: Default::default(),
+                    proofs: Vec::new(),
+                    requirements: EventRequirements::default(),
+                },
+                authorization_lease: None,
+                cba_proof_bundles: Vec::new(),
+                control_proposal_ack: None,
+                membership_compensation_evidence: None,
+            },
             signature: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(
@@ -1196,6 +1282,28 @@ mod mimi_consent_tests {
         request.decision = MimiConsentDecision::Revoke;
 
         assert!(request.signature_binding_bytes().is_err());
+    }
+
+    #[test]
+    fn mimi_consent_event_must_match_decision_actor_and_consent_id() {
+        let request = request();
+        request.validate_consent_event().unwrap();
+
+        let mut wrong_decision = request.clone();
+        wrong_decision.decision = MimiConsentDecision::Revoke;
+        assert!(wrong_decision.validate_consent_event().is_err());
+
+        let mut wrong_actor = request.clone();
+        wrong_actor.actor_id =
+            Did::new("did:webvh:z6mkfixture:example.com:users:mallory".to_owned()).unwrap();
+        assert!(wrong_actor.validate_consent_event().is_err());
+
+        let mut wrong_consent = request;
+        wrong_consent.consent_event.event.payload.insert(
+            "consent_id".to_owned(),
+            json!("ak:consent:01964137-0000-7000-8000-000000000778"),
+        );
+        assert!(wrong_consent.validate_consent_event().is_err());
     }
 }
 

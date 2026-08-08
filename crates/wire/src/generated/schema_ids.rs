@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-08.10;
-//! sha256=2e1fc20e9fe39dd937cd7d1fb28ae1305d9b3813dd3544641c0ee55bb3226afb Entries: schema_ids=183,
-//! active=183
+//! Input: registry/schema-registry.json; version=2026-08-08.11;
+//! sha256=45e9e6ae89feb5b5d9d57b0f32b59762f078e57bf9dcdbd917ec094527640c49 Entries: schema_ids=185,
+//! active=185
 
 use serde::{Deserialize, Serialize};
 
@@ -82,6 +82,7 @@ pub enum SchemaId {
     DraftSyncV1,
     EncryptedEnvelopeV1,
     ErasureReceiptV1,
+    ErasureReceiptOperationsV1,
     ErasureVerificationStubV1,
     EventV1,
     EventBatchReceiptV1,
@@ -132,6 +133,7 @@ pub enum SchemaId {
     PolicyV1,
     PrincipalLocatorV1,
     PrincipalOperationsV1,
+    PrincipalServiceBindingV1,
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
@@ -269,6 +271,7 @@ impl SchemaId {
         Self::DraftSyncV1,
         Self::EncryptedEnvelopeV1,
         Self::ErasureReceiptV1,
+        Self::ErasureReceiptOperationsV1,
         Self::ErasureVerificationStubV1,
         Self::EventV1,
         Self::EventBatchReceiptV1,
@@ -319,6 +322,7 @@ impl SchemaId {
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
+        Self::PrincipalServiceBindingV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -456,6 +460,7 @@ impl SchemaId {
         Self::DraftSyncV1,
         Self::EncryptedEnvelopeV1,
         Self::ErasureReceiptV1,
+        Self::ErasureReceiptOperationsV1,
         Self::ErasureVerificationStubV1,
         Self::EventV1,
         Self::EventBatchReceiptV1,
@@ -506,6 +511,7 @@ impl SchemaId {
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
+        Self::PrincipalServiceBindingV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -782,6 +788,10 @@ impl SchemaId {
     pub const ENCRYPTED_ENVELOPE_V1: &'static str = "ak.schema.encrypted_envelope.v1";
     /// Signed hard-erasure receipt payload for ak.audit.erasure_receipt
     pub const ERASURE_RECEIPT_V1: &'static str = "ak.schema.erasure_receipt.v1";
+    /// Closed service-to-service submission, signed acceptance and retrieval carriers for erasure
+    /// receipts
+    pub const ERASURE_RECEIPT_OPERATIONS_V1: &'static str =
+        "ak.schema.erasure_receipt_operations.v1";
     /// Minimal retained verification stub bound by erasure-receipt.retained_stub_digest
     pub const ERASURE_VERIFICATION_STUB_V1: &'static str = "ak.schema.erasure_verification_stub.v1";
     pub const EVENT_V1: &'static str = "ak.schema.event.v1";
@@ -899,6 +909,8 @@ impl SchemaId {
     /// replacement, history ingress contracts, KeyPackage terminal handling, Sidecar staging and
     /// the shared identifier, signature and receipt primitives those carriers reuse.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
+    /// Accepted-at Principal Server binding snapshot and signed service-cutover continuity chain
+    pub const PRINCIPAL_SERVICE_BINDING_V1: &'static str = "ak.schema.principal_service_binding.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
     /// own document so device, agent, account and to-device surfaces reference one shared
     /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
@@ -1141,6 +1153,7 @@ impl SchemaId {
             Self::DraftSyncV1 => Self::DRAFT_SYNC_V1,
             Self::EncryptedEnvelopeV1 => Self::ENCRYPTED_ENVELOPE_V1,
             Self::ErasureReceiptV1 => Self::ERASURE_RECEIPT_V1,
+            Self::ErasureReceiptOperationsV1 => Self::ERASURE_RECEIPT_OPERATIONS_V1,
             Self::ErasureVerificationStubV1 => Self::ERASURE_VERIFICATION_STUB_V1,
             Self::EventV1 => Self::EVENT_V1,
             Self::EventBatchReceiptV1 => Self::EVENT_BATCH_RECEIPT_V1,
@@ -1193,6 +1206,7 @@ impl SchemaId {
             Self::PolicyV1 => Self::POLICY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
             Self::PrincipalOperationsV1 => Self::PRINCIPAL_OPERATIONS_V1,
+            Self::PrincipalServiceBindingV1 => Self::PRINCIPAL_SERVICE_BINDING_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
@@ -1351,6 +1365,7 @@ impl SchemaId {
             Self::DraftSyncV1 => "schemas/draft-sync.schema.json",
             Self::EncryptedEnvelopeV1 => "schemas/encrypted-envelope.schema.json",
             Self::ErasureReceiptV1 => "schemas/erasure-receipt.schema.json",
+            Self::ErasureReceiptOperationsV1 => "schemas/erasure-receipt-operations.schema.json",
             Self::ErasureVerificationStubV1 => "schemas/erasure-verification-stub.schema.json",
             Self::EventV1 => "schemas/event-envelope.schema.json",
             Self::EventBatchReceiptV1 => "schemas/event-batch-receipt.schema.json",
@@ -1407,6 +1422,7 @@ impl SchemaId {
             Self::PolicyV1 => "schemas/policy.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
             Self::PrincipalOperationsV1 => "schemas/principal-operations.schema.json",
+            Self::PrincipalServiceBindingV1 => "schemas/principal-service-binding.schema.json",
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
@@ -1567,6 +1583,7 @@ impl SchemaId {
             Self::DRAFT_SYNC_V1 => Some(Self::DraftSyncV1),
             Self::ENCRYPTED_ENVELOPE_V1 => Some(Self::EncryptedEnvelopeV1),
             Self::ERASURE_RECEIPT_V1 => Some(Self::ErasureReceiptV1),
+            Self::ERASURE_RECEIPT_OPERATIONS_V1 => Some(Self::ErasureReceiptOperationsV1),
             Self::ERASURE_VERIFICATION_STUB_V1 => Some(Self::ErasureVerificationStubV1),
             Self::EVENT_V1 => Some(Self::EventV1),
             Self::EVENT_BATCH_RECEIPT_V1 => Some(Self::EventBatchReceiptV1),
@@ -1623,6 +1640,7 @@ impl SchemaId {
             Self::POLICY_V1 => Some(Self::PolicyV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
             Self::PRINCIPAL_OPERATIONS_V1 => Some(Self::PrincipalOperationsV1),
+            Self::PRINCIPAL_SERVICE_BINDING_V1 => Some(Self::PrincipalServiceBindingV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),
