@@ -395,12 +395,12 @@ impl ServiceDescribe {
             )));
         }
         const JOIN_OPERATIONS: &[&str] = &[
-            "ak.self.realm.join_application.command.submit",
-            "ak.self.realm.join_application.command.review",
-            "ak.self.realm.join_application.command.cancel",
-            "ak.self.realm.join_application.query.list",
-            "ak.self.realm.join_application.resource.get",
-            "ak.self.realm.join_application.audit.query.list",
+            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
+            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
+            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
+            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST,
+            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
+            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
         ];
         const JOIN_FEATURES: &[&str] = &[
             "candidate_join_policy_reviewer",
@@ -659,12 +659,12 @@ mod tests {
         );
         description.supported_operations.extend(
             [
-                "ak.self.realm.join_application.command.submit",
-                "ak.self.realm.join_application.command.review",
-                "ak.self.realm.join_application.command.cancel",
-                "ak.self.realm.join_application.query.list",
-                "ak.self.realm.join_application.resource.get",
-                "ak.self.realm.join_application.audit.query.list",
+                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
+                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
+                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
+                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST,
+                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
+                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
             ]
             .map(ToOwned::to_owned),
         );
@@ -677,6 +677,22 @@ mod tests {
             .map(ToOwned::to_owned),
         );
         assert!(description.validate().is_ok());
+
+        description.supported_operations.retain(|operation| {
+            operation != ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST
+                && operation != ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST
+        });
+        description.supported_operations.extend(
+            [
+                "ak.self.realm.join_application.query.list",
+                "ak.self.realm.join_application.audit.query.list",
+            ]
+            .map(ToOwned::to_owned),
+        );
+        assert!(
+            description.validate().is_err(),
+            "legacy query aliases must not satisfy the canonical read.list profile surface"
+        );
     }
 
     #[test]
