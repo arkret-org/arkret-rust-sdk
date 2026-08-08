@@ -27,12 +27,6 @@
     },
     {
       "repo": "soland",
-      "path": "crates/http/src/routing/identity/consent.rs",
-      "verdict": "event_derived",
-      "reason": "A contact-managed consent grant mints the `ak:event:` value its cell dot is built from; the in-file comment already states the fix is to author the Event. Not in the handover's list of five."
-    },
-    {
-      "repo": "soland",
       "path": "crates/http/src/routing/interop/mimi/binding.rs",
       "verdict": "event_derived",
       "reason": "MIMI room-binding emits a projection row keyed by a minted `ak:event:`; the in-file comment already states the fix is to author the Event. Not in the handover's list of five."

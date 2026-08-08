@@ -36,8 +36,7 @@ use crate::objects::account_status::AccountStatus;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentState {
     Active,
-    Pending,
-    Revoked,
+    NoConsent,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -121,6 +120,40 @@ pub struct ConsentRequestRequestBody {
     pub peer_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub consent_scope: Option<ConsentScope>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ConsentRequestOutcome {
+    pub ok: bool,
+    pub accepted_for_processing: bool,
+}
+
+#[cfg(test)]
+mod consent_request_tests {
+    use super::{ConsentRequestOutcome, ConsentState};
+
+    #[test]
+    fn opaque_request_outcome_is_closed_and_minimal() {
+        let value = serde_json::json!({
+            "ok": true,
+            "accepted_for_processing": true
+        });
+        let outcome: ConsentRequestOutcome =
+            serde_json::from_value(value.clone()).expect("registered opaque outcome");
+        assert_eq!(serde_json::to_value(outcome).unwrap(), value);
+
+        let mut extra = value;
+        extra["cell_id"] = serde_json::json!(
+            "ak:cell:ak.component.consent.grant.v1:ak:consent:01964137-0000-7000-8000-000000000041"
+        );
+        assert!(serde_json::from_value::<ConsentRequestOutcome>(extra).is_err());
+        assert_eq!(
+            serde_json::to_value(ConsentState::NoConsent).unwrap(),
+            serde_json::json!("no_consent")
+        );
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
