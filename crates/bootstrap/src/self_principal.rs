@@ -91,6 +91,7 @@ pub fn build_self_principal_pcr_create(
     )?;
     event.refs = vec![input.did_inception_ref];
     event.requirements = EventRequirements::default();
+    event.refresh_content_bound_identity()?;
     validate_self_principal_pcr_create(&event, false, project)?;
     Ok(event)
 }
