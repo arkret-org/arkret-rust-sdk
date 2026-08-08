@@ -57,28 +57,6 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     );
                 }
             }
-            "domain_separated_canonical_json_digest" => {
-                let canonical = arkret_canonical::canonical_json_bytes(&vector["input"])
-                    .unwrap_or_else(|error| panic!("{vector_id}: {error}"));
-                assert_eq!(
-                    std::str::from_utf8(&canonical).unwrap(),
-                    vector["expected_canonical_bytes_utf8"].as_str().unwrap(),
-                    "{vector_id}: canonical bytes drifted"
-                );
-                let domain = vector["domain_separator_utf8"].as_str().unwrap();
-                let mut preimage = domain.as_bytes().to_vec();
-                preimage.extend_from_slice(&canonical);
-                assert_eq!(
-                    hex::encode(&preimage),
-                    vector["digest_input_hex"].as_str().unwrap(),
-                    "{vector_id}: digest preimage drifted"
-                );
-                assert_eq!(
-                    arkret_canonical::sha256_digest(&preimage),
-                    vector["expected_digest"].as_str().unwrap(),
-                    "{vector_id}: digest drifted"
-                );
-            }
             "canonical_json_with_ciphertext_digest" => {
                 let metadata = vector
                     .get("payload_metadata")

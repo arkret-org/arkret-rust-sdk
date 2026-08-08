@@ -10,6 +10,40 @@ use serde_json::{Map, Value};
 
 pub const SESSION_GRANT_CREDENTIAL_KIND: &str = "ak.session.grant";
 pub const SESSION_GRANT_ISSUANCE_SCHEMA: &str = "ak.session_grant.issuance.v1";
+pub const DEVICE_BOOTSTRAP_FOUNDING_BATCH_DIGEST_LABEL: &str =
+    "ak.device-bootstrap.founding-batch.v1";
+
+/// Derive the v1 founding-batch digest from the Event IDs in bootstrap wire order.
+///
+/// Callers must pass `ak.realm.create` first and the founding
+/// `ak.device.authorize` second. The helper deliberately preserves order and
+/// hashes the Event ID strings themselves, not Event digests.
+pub fn founding_batch_digest(founding_event_ids: &[EventId]) -> Result<Hash> {
+    if founding_event_ids.len() != 2 || founding_event_ids[0] == founding_event_ids[1] {
+        return Err(Error::Protocol(
+            "founding batch digest requires exactly two distinct Event IDs in wire order"
+                .to_owned(),
+        ));
+    }
+    let canonical = arkret_canonical::canonical_json_bytes(&serde_json::json!({
+        "event_ids": founding_event_ids,
+    }))?;
+    Ok(Hash::new(arkret_canonical::sha256_digest_from_slices(&[
+        DEVICE_BOOTSTRAP_FOUNDING_BATCH_DIGEST_LABEL.as_bytes(),
+        b"\n",
+        &canonical,
+    ]))?)
+}
+
+/// Derive the public authorization digest for a raw Ed25519 device key.
+///
+/// The input is exactly the 32 decoded key bytes. Wire encodings such as
+/// multibase, Base64URL, JWK, or request DTO bytes are intentionally excluded.
+pub fn device_bootstrap_device_key_digest(raw_ed25519_public_key: [u8; 32]) -> Result<Hash> {
+    Ok(Hash::new(arkret_canonical::sha256_digest(
+        raw_ed25519_public_key,
+    ))?)
+}
 
 pub const RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES: [&str; 9] = [
     "ak.root.identity.recovery_policy.resource.get",
@@ -70,7 +104,7 @@ pub enum SessionGrantBootstrapBinding {
         device_id: DeviceId,
         device_key_digest: Hash,
         transaction_id: String,
-        holder_jkt: Hash,
+        holder_jkt: String,
         canonical_request_digest: Hash,
         founding_batch_digest: Hash,
         founding_event_ids: Vec<EventId>,
@@ -86,7 +120,7 @@ pub enum SessionGrantBootstrapBinding {
         device_id: DeviceId,
         device_key_digest: Hash,
         transaction_id: String,
-        holder_jkt: Hash,
+        holder_jkt: String,
         canonical_request_digest: Hash,
         source_device_id: DeviceId,
         target_device_id: DeviceId,
@@ -111,13 +145,14 @@ impl SessionGrantBootstrapBinding {
             Self::Founding {
                 credential_kind,
                 transaction_id,
+                founding_batch_digest: declared_founding_batch_digest,
                 founding_event_ids,
                 allowed_operation_ids,
                 credential_expires_at,
                 bootstrap_transaction_expires_at,
                 ..
             } => {
-                if founding_event_ids.is_empty()
+                if founding_event_ids.len() != 2
                     || founding_event_ids
                         .iter()
                         .collect::<std::collections::BTreeSet<_>>()
@@ -125,7 +160,13 @@ impl SessionGrantBootstrapBinding {
                         != founding_event_ids.len()
                 {
                     return Err(Error::Protocol(
-                        "device bootstrap founding_event_ids must be unique and non-empty"
+                        "device bootstrap founding_event_ids must contain exactly two unique Event IDs in wire order"
+                            .to_owned(),
+                    ));
+                }
+                if founding_batch_digest(founding_event_ids)? != *declared_founding_batch_digest {
+                    return Err(Error::Protocol(
+                        "device bootstrap founding_batch_digest does not match founding_event_ids"
                             .to_owned(),
                     ));
                 }
@@ -169,6 +210,12 @@ impl SessionGrantBootstrapBinding {
                 "bootstrap_binding credential_kind must be device_bootstrap".to_owned(),
             ));
         }
+        let holder_jkt = match self {
+            Self::Founding { holder_jkt, .. } | Self::SiblingPairing { holder_jkt, .. } => {
+                holder_jkt
+            }
+        };
+        validate_jwk_thumbprint(holder_jkt, "bootstrap_binding.holder_jkt")?;
         if transaction_id.trim().is_empty() || allowed_operation_ids.is_empty() {
             return Err(Error::Protocol(
                 "device bootstrap transaction and operation allowlist must be non-empty".to_owned(),
@@ -690,16 +737,7 @@ fn validate_issuance_fields(
             "session grant expires_at must be after not_before".to_owned(),
         ));
     }
-    if cnf.jkt.len() != 43
-        || !cnf
-            .jkt
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-    {
-        return Err(Error::Protocol(
-            "session grant cnf.jkt must be a base64url SHA-256 JWK thumbprint".to_owned(),
-        ));
-    }
+    validate_jwk_thumbprint(&cnf.jkt, "session grant cnf.jkt")?;
     if scope_details.is_some_and(Value::is_null) {
         return Err(Error::Protocol(
             "session grant scope_details must be omitted rather than null".to_owned(),
@@ -718,6 +756,15 @@ fn validate_issuance_fields(
                 }) => {}
         (SessionGrantCredentialClass::DeviceBootstrap, None, Some(binding), None) => {
             binding.validate()?;
+            let holder_jkt = match binding {
+                SessionGrantBootstrapBinding::Founding { holder_jkt, .. }
+                | SessionGrantBootstrapBinding::SiblingPairing { holder_jkt, .. } => holder_jkt,
+            };
+            if holder_jkt != &cnf.jkt {
+                return Err(Error::Protocol(
+                    "bootstrap_binding.holder_jkt must equal session grant cnf.jkt".to_owned(),
+                ));
+            }
         }
         (SessionGrantCredentialClass::Standard, Some(_), None, None) => {}
         _ => {
@@ -730,11 +777,144 @@ fn validate_issuance_fields(
     Ok(())
 }
 
+fn validate_jwk_thumbprint(value: &str, field: &str) -> Result<()> {
+    if value.len() != 43
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(Error::Protocol(format!(
+            "{field} must be an unpadded base64url SHA-256 JWK thumbprint"
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
     use super::*;
+
+    fn founding_event_ids() -> Vec<EventId> {
+        vec![
+            EventId::new("ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N").unwrap(),
+            EventId::new("ak:event:AfG0ACaqIny0W-P5GpiAenooiQrslWpMsBXE3wFeFB2D").unwrap(),
+        ]
+    }
+
+    fn founding_bootstrap_binding() -> SessionGrantBootstrapBinding {
+        let founding_event_ids = founding_event_ids();
+        SessionGrantBootstrapBinding::Founding {
+            credential_kind: "device_bootstrap".to_owned(),
+            principal_id: Did::new("did:web:alice.example").unwrap(),
+            device_id: DeviceId::new("ak:device:019a0000-0000-7000-8000-000000000001").unwrap(),
+            device_key_digest: device_bootstrap_device_key_digest([0_u8; 32]).unwrap(),
+            transaction_id: "bootstrap-transaction-1".to_owned(),
+            holder_jkt: "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k".to_owned(),
+            canonical_request_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+            founding_batch_digest: founding_batch_digest(&founding_event_ids).unwrap(),
+            founding_event_ids,
+            allowed_operation_ids: vec![
+                "ak.gate.account.command.enroll_device".to_owned(),
+                "ak.gate.account.command.cancel_device_bootstrap".to_owned(),
+                "ak.self.events.command.submit".to_owned(),
+                "ak.self.events.read.resolve".to_owned(),
+            ],
+            credential_expires_at: "2026-08-08T00:10:00.000Z".parse().unwrap(),
+            bootstrap_transaction_expires_at: "2026-08-08T00:15:00.000Z".parse().unwrap(),
+        }
+    }
+
+    #[test]
+    fn founding_batch_and_device_key_digest_known_answers() {
+        let fixture =
+            arkret_schema::embedded_json_artifact("fixtures/device-bootstrap-fixture.json")
+                .unwrap();
+        let event_ids: Vec<EventId> =
+            serde_json::from_value(fixture["founding_batch"]["event_ids"].clone()).unwrap();
+        assert_eq!(
+            founding_batch_digest(&event_ids).unwrap().as_str(),
+            fixture["founding_batch"]["expected_digest"]
+                .as_str()
+                .unwrap()
+        );
+        let mut reversed = event_ids.clone();
+        reversed.reverse();
+        assert_ne!(
+            founding_batch_digest(&event_ids).unwrap(),
+            founding_batch_digest(&reversed).unwrap(),
+            "wire order is identity material"
+        );
+
+        let raw_hex = fixture["device_key"]["raw_public_key_hex"]
+            .as_str()
+            .unwrap();
+        let raw: [u8; 32] = std::array::from_fn(|index| {
+            u8::from_str_radix(&raw_hex[index * 2..index * 2 + 2], 16).unwrap()
+        });
+        let digest = device_bootstrap_device_key_digest(raw).unwrap();
+        assert_eq!(
+            digest.as_str(),
+            fixture["device_key"]["expected_digest"].as_str().unwrap()
+        );
+        assert_ne!(
+            digest.as_str(),
+            arkret_canonical::sha256_digest(
+                fixture["device_key"]["public_key_multibase"]
+                    .as_str()
+                    .unwrap()
+            )
+        );
+        assert_ne!(
+            digest.as_str(),
+            arkret_canonical::sha256_digest(
+                fixture["device_key"]["public_key_base64url"]
+                    .as_str()
+                    .unwrap()
+            )
+        );
+        assert!(founding_batch_digest(&event_ids[..1]).is_err());
+    }
+
+    #[test]
+    fn founding_binding_recomputes_batch_digest() {
+        let binding = founding_bootstrap_binding();
+        binding.validate().unwrap();
+
+        let mut tampered = binding;
+        let SessionGrantBootstrapBinding::Founding {
+            founding_batch_digest,
+            ..
+        } = &mut tampered
+        else {
+            unreachable!()
+        };
+        *founding_batch_digest = Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
+        assert!(tampered.validate().is_err());
+    }
+
+    #[test]
+    fn device_bootstrap_holder_jkt_is_closed_and_matches_cnf() {
+        let binding = founding_bootstrap_binding();
+        binding.validate().unwrap();
+
+        let mut invalid = binding.clone();
+        let SessionGrantBootstrapBinding::Founding { holder_jkt, .. } = &mut invalid else {
+            unreachable!()
+        };
+        *holder_jkt = format!("sha256:{}", "1".repeat(64));
+        assert!(invalid.validate().is_err());
+
+        let mut claims = claims();
+        claims.credential_class = SessionGrantCredentialClass::DeviceBootstrap;
+        claims.holder_binding = None;
+        claims.bootstrap_binding = Some(binding);
+        assert!(claims.validate().is_err(), "mismatched cnf.jkt must fail");
+        claims.cnf.jkt = "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k".to_owned();
+        claims.grant_id = claims.recomputed_grant_id().unwrap();
+        claims.validate().unwrap();
+    }
 
     fn materialized_fixture_vector(fixture: &Value, name: &str) -> Value {
         let vectors = fixture["accepted_vectors"].as_array().unwrap();

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.15;
-//! sha256=16a0e9df975d9f0d5ccef59d34f7f70141c58d1be7f14b4cc9d2cbb4eba25a60 Input: registry/
-//! operations-error-mapping.json; version=2026-08-08.5;
-//! sha256=c2d5d6b48ac83a1fbc19596b185854425e9bd1f684c2691c4dec63a8feb00e21 Input: registry/
-//! error-code-registry.json; version=2026-08-08.5;
-//! sha256=75e23bf69307accb022625b9d2c259d405ba4a635165bd63700459fcf2ecc599 Entries: operations=225
+//! Input: registry/operation-registry.json; version=2026-08-08.17;
+//! sha256=47a03dfb2ab304ab0235305006198c5e11846d3d52dfc8eb9e26f39f57310fe8 Input: registry/
+//! operations-error-mapping.json; version=2026-08-08.7;
+//! sha256=6874a856231b799233692c61b45495e556eaa4f2e779687b8318bc575be9e316 Input: registry/
+//! error-code-registry.json; version=2026-08-08.6;
+//! sha256=116212dfe0e795dc99e709d05c9dc9be2b73543f884344568761d16c3b36b2e7 Entries: operations=225
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -211,6 +211,9 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation: ServiceOperationId::GateAccountCommandEnrollDevice,
         operation_specific: &[
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapIdempotencyConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
         ],
@@ -234,6 +237,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::PrincipalUnknown),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayExpired),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayTerminal),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayIndeterminate),
@@ -293,6 +298,9 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantNotFound),
             OperationSpecificError::ErrorCode(ErrorCode::DidProofRequired),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
         ],
     },
     OperationErrorMappingDescriptor {

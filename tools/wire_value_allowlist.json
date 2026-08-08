@@ -108,8 +108,8 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/audit.rs::AuditAppletBindingPayload.approver_policy",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_applet_binding_payload/properties/approver_policy",
+      "rust_field": "crates/models-collaboration/src/events_payloads/audit.rs::AuditAppletBindingCreatePayload.approver_policy",
+      "spec_pointer": "event-payload.schema.json#/$defs/audit_applet_binding_create_payload/properties/approver_policy",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
@@ -194,12 +194,6 @@
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/object.rs::ObjectStageSetPayload.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/object_stage_set_payload/additionalProperties",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/models-collaboration/src/events_payloads/realm.rs::RealmCreatePayload.initial_relations",
-      "spec_pointer": "event-payload.schema.json#/$defs/realm_create_payload/properties/initial_relations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
@@ -1019,6 +1013,12 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
+      "rust_field": "crates/models-identity/src/session_credential.rs::SessionGrantIssuancePreimage.scope_details",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/SignedSessionGrantClaims/properties/scope_details",
+      "classification": "polymorphic_boundary",
+      "reason": "The issuance preimage preserves the credential-class-specific scope details object verbatim and binds it into the derived grant identifier."
+    },
+    {
       "rust_field": "crates/models-identity/src/session_credential.rs::SignedSessionGrantClaims.scope_details",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/SessionGrantOutcome/properties/scope_details",
       "classification": "polymorphic_boundary",
@@ -1313,6 +1313,12 @@
       "spec_pointer": "event-envelope.schema.json#/$defs/predicate/properties/values",
       "classification": "open_json",
       "reason": "Each predicate comparison value is deliberately selected by the target cell schema."
+    },
+    {
+      "rust_field": "crates/wire/src/event_envelope.rs::DeviceAuthorizeEventPreimage.payload",
+      "spec_pointer": "event-envelope.schema.json#/$defs/device_authorize_event_preimage/properties/payload",
+      "classification": "polymorphic_boundary",
+      "reason": "The proof-free Event preimage preserves the registered ak.device.authorize payload bytes in the wire crate; the typed payload contract is validated before enrollment without introducing a reverse crate dependency."
     },
     {
       "rust_field": "crates/wire/src/event_envelope.rs::Event.external_ref",

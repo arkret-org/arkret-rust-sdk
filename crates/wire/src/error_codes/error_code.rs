@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.5;
-//! sha256=75e23bf69307accb022625b9d2c259d405ba4a635165bd63700459fcf2ecc599 Entries: error_codes=275
+//! Input: registry/error-code-registry.json; version=2026-08-08.6;
+//! sha256=116212dfe0e795dc99e709d05c9dc9be2b73543f884344568761d16c3b36b2e7 Entries: error_codes=277
 
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +73,8 @@ pub enum ErrorCode {
     BlobPresignInvalid,
     BlobQuotaExceeded,
     BootstrapIdempotencyConflict,
+    BootstrapTransactionCancelled,
+    BootstrapTransactionExpired,
     BotActorRevoked,
     CallAlreadyAnswered,
     CallExpired,
@@ -362,6 +364,8 @@ impl ErrorCode {
         Self::BlobPresignInvalid,
         Self::BlobQuotaExceeded,
         Self::BootstrapIdempotencyConflict,
+        Self::BootstrapTransactionCancelled,
+        Self::BootstrapTransactionExpired,
         Self::BotActorRevoked,
         Self::CallAlreadyAnswered,
         Self::CallExpired,
@@ -644,6 +648,8 @@ impl ErrorCode {
     pub const BLOB_PRESIGN_INVALID: &'static str = "blob_presign_invalid";
     pub const BLOB_QUOTA_EXCEEDED: &'static str = "blob_quota_exceeded";
     pub const BOOTSTRAP_IDEMPOTENCY_CONFLICT: &'static str = "bootstrap_idempotency_conflict";
+    pub const BOOTSTRAP_TRANSACTION_CANCELLED: &'static str = "bootstrap_transaction_cancelled";
+    pub const BOOTSTRAP_TRANSACTION_EXPIRED: &'static str = "bootstrap_transaction_expired";
     pub const BOT_ACTOR_REVOKED: &'static str = "bot_actor_revoked";
     pub const CALL_ALREADY_ANSWERED: &'static str = "call_already_answered";
     pub const CALL_EXPIRED: &'static str = "call_expired";
@@ -952,6 +958,8 @@ impl ErrorCode {
             Self::BlobPresignInvalid => "blob_presign_invalid",
             Self::BlobQuotaExceeded => "blob_quota_exceeded",
             Self::BootstrapIdempotencyConflict => "bootstrap_idempotency_conflict",
+            Self::BootstrapTransactionCancelled => "bootstrap_transaction_cancelled",
+            Self::BootstrapTransactionExpired => "bootstrap_transaction_expired",
             Self::BotActorRevoked => "bot_actor_revoked",
             Self::CallAlreadyAnswered => "call_already_answered",
             Self::CallExpired => "call_expired",
@@ -1250,6 +1258,8 @@ impl ErrorCode {
             "blob_presign_invalid" => Some(Self::BlobPresignInvalid),
             "blob_quota_exceeded" => Some(Self::BlobQuotaExceeded),
             "bootstrap_idempotency_conflict" => Some(Self::BootstrapIdempotencyConflict),
+            "bootstrap_transaction_cancelled" => Some(Self::BootstrapTransactionCancelled),
+            "bootstrap_transaction_expired" => Some(Self::BootstrapTransactionExpired),
             "bot_actor_revoked" => Some(Self::BotActorRevoked),
             "call_already_answered" => Some(Self::CallAlreadyAnswered),
             "call_expired" => Some(Self::CallExpired),
@@ -1871,6 +1881,22 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "A device bootstrap enroll, cancel or recovery request reused the durable transaction/idempotency identity with different closed request bytes or a different canonical bootstrap request digest. The first outcome remains authoritative and no Event or credential is replaced.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::BootstrapTransactionCancelled,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The durable device bootstrap transaction is cancelled. Only byte-identical replay of an already committed operation outcome is allowed; no bootstrap credential, Event authorization or standard successor may be created.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::BootstrapTransactionExpired,
+        http_status: 410,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The durable device bootstrap transaction deadline elapsed and its state is expired. Only byte-identical replay of an already committed operation outcome is allowed; bearer renewal cannot revive or replace the transaction.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BotActorRevoked,

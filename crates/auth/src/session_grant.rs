@@ -10,8 +10,9 @@
 
 use arkret_models_collaboration::agent_operations::AgentRequestedScopeDisclosure;
 use arkret_models_collaboration::session_grant_bodies::{
-    SessionGrantAgentScopeRequest, SessionGrantAppletDelegation, SessionGrantDpopBindingProof,
-    SessionGrantRequestBody, SessionGrantRequestProof,
+    SessionGrantAgentScopeRequest, SessionGrantAppletDelegation,
+    SessionGrantDeviceBootstrapRequest, SessionGrantDpopBindingProof, SessionGrantRequestBody,
+    SessionGrantRequestProof,
 };
 use arkret_models_identity::SessionGrantProofKind;
 use arkret_wire::{DeviceId, Did, DidUrl, Hash};
@@ -180,6 +181,7 @@ fn agent_key_proof_unsigned_session_grant_request(
         requested_scope_disclosure,
         dpop_binding_proof: Some(dpop_binding_proof),
         applet_authority: None,
+        device_bootstrap_request: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::AgentKeyProof,
             challenge: challenge.into(),
@@ -253,6 +255,7 @@ pub fn holder_proof_session_grant_request(
         requested_scope_disclosure: None,
         dpop_binding_proof,
         applet_authority,
+        device_bootstrap_request: None,
         proof: proof.into_request_proof(SessionGrantProofKind::PairedDeviceProof),
     }
 }
@@ -275,6 +278,7 @@ pub fn did_proof_session_grant_request(
         requested_scope_disclosure: None,
         dpop_binding_proof,
         applet_authority,
+        device_bootstrap_request: None,
         proof: proof.into_request_proof(SessionGrantProofKind::DidBoundSignature),
     }
 }
@@ -305,6 +309,7 @@ pub fn oidc_session_grant_request(
         requested_scope_disclosure: None,
         dpop_binding_proof: None,
         applet_authority: None,
+        device_bootstrap_request: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::OidcCodeExchange,
             challenge: challenge.into(),
@@ -329,8 +334,9 @@ pub fn oidc_session_grant_request(
 /// the same Ed25519 key used by the account-handoff DPoP credential.
 pub fn pre_registration_handoff_session_grant_request(
     principal_id: Did,
-    device_id: Option<DeviceId>,
+    device_id: DeviceId,
     requested_scope: Vec<String>,
+    device_bootstrap_request: SessionGrantDeviceBootstrapRequest,
     challenge: impl Into<String>,
     audience: Did,
     expires_at: DateTime<Utc>,
@@ -338,13 +344,14 @@ pub fn pre_registration_handoff_session_grant_request(
     let placeholder = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
     let mut request = SessionGrantRequestBody {
         principal_id,
-        device_id,
+        device_id: Some(device_id),
         requested_scope,
         agent_key_authorization_ref: None,
         agent_scope_request: None,
         requested_scope_disclosure: None,
         dpop_binding_proof: None,
         applet_authority: None,
+        device_bootstrap_request: Some(device_bootstrap_request),
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::PreRegistrationHandoff,
             challenge: challenge.into(),

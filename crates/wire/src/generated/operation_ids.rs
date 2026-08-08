@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.15;
-//! sha256=16a0e9df975d9f0d5ccef59d34f7f70141c58d1be7f14b4cc9d2cbb4eba25a60 Entries: registered=225
+//! Input: registry/operation-registry.json; version=2026-08-08.17;
+//! sha256=47a03dfb2ab304ab0235305006198c5e11846d3d52dfc8eb9e26f39f57310fe8 Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -2453,7 +2453,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "persists_byte_stable_signed_enrollment_outcome_without_committing_the_event",
+                "persists_byte_stable_authority_proof_outcome_without_committing_or_reauthoring_the_event",
             ),
         }),
     },
@@ -2523,7 +2523,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
+            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\",\"bootstrap_transaction_cancelled\",\"bootstrap_transaction_expired\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2675,7 +2675,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.refresh_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
+            "{\"operation_id\":\"ak.gate.account.command.refresh_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\",\"bootstrap_transaction_cancelled\",\"bootstrap_transaction_expired\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,

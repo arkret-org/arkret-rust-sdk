@@ -397,6 +397,131 @@ pub struct Event {
     pub requirements: EventRequirements,
 }
 
+/// Complete client-authored, proof-free founding `ak.device.authorize` Event.
+///
+/// This closed projection is fixed before a device-bootstrap credential is
+/// issued. The enrollment authority may convert it to [`Event`] only by
+/// appending its proof; every field carried here remains identity material.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceAuthorizeEventPreimage {
+    pub event_id: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub kind: EventKind,
+    pub realm_id: RealmId,
+    pub scope_ref: ScopeRef,
+    pub actor_id: Did,
+    pub executed_by: Did,
+    pub authorization_ref: AuthorizationRef,
+    pub actor_seq: u64,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub hlc: Hlc,
+    pub prev_refs: Vec<EventId>,
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
+    pub refs: Vec<EventRef>,
+    pub payload: BTreeMap<String, Value>,
+}
+
+impl DeviceAuthorizeEventPreimage {
+    /// Validate the closed founding shape and its client-derived Event ID.
+    pub fn validate(&self) -> Result<()> {
+        if self.kind.as_str() != "ak.device.authorize"
+            || self.actor_seq != 1
+            || self.prev_refs.len() != 1
+            || !self.refs.is_empty()
+            || self.scope_ref.realm_id_opt() != Some(&self.realm_id)
+        {
+            return Err(Error::Protocol(
+                "founding device authorize preimage has an invalid closed envelope shape"
+                    .to_owned(),
+            ));
+        }
+        let event = self.clone().into_event();
+        event.validate_structural_in_context(EventSubmitContext::AnchorUnit, false)?;
+        event.verify_event_id_matches_content()
+    }
+
+    /// Materialize the ordinary Event envelope before an authority proof is appended.
+    pub fn into_event(self) -> Event {
+        Event {
+            event_id: self.event_id,
+            kind: self.kind,
+            realm_id: self.realm_id,
+            scope_ref: self.scope_ref,
+            actor_id: self.actor_id,
+            executed_by: Some(self.executed_by),
+            authorization_ref: Some(self.authorization_ref),
+            applet_id: None,
+            external_ref: None,
+            actor_kind: None,
+            actor_seq: self.actor_seq,
+            created_at: self.created_at,
+            hlc: Some(self.hlc),
+            prev_refs: self.prev_refs,
+            refs: self.refs,
+            causal_refs: Vec::new(),
+            preconditions: Vec::new(),
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: None,
+            payload: self.payload,
+            redacts: None,
+            unsigned: BTreeMap::new(),
+            proofs: Vec::new(),
+            requirements: EventRequirements::default(),
+        }
+    }
+}
+
+impl TryFrom<Event> for DeviceAuthorizeEventPreimage {
+    type Error = Error;
+
+    fn try_from(event: Event) -> Result<Self> {
+        if event.executed_by.is_none()
+            || event.authorization_ref.is_none()
+            || event.applet_id.is_some()
+            || event.external_ref.is_some()
+            || event.actor_kind.is_some()
+            || event.hlc.is_none()
+            || !event.causal_refs.is_empty()
+            || !event.preconditions.is_empty()
+            || event.seal_ref.is_some()
+            || event.auth_context.is_some()
+            || event.seal_basis.is_some()
+            || event.redacts.is_some()
+            || !event.unsigned.is_empty()
+            || !event.proofs.is_empty()
+            || !event.requirements.is_empty()
+        {
+            return Err(Error::Protocol(
+                "Event is not the closed proof-free founding device authorize preimage".to_owned(),
+            ));
+        }
+        let preimage = Self {
+            event_id: event.event_id,
+            kind: event.kind,
+            realm_id: event.realm_id,
+            scope_ref: event.scope_ref,
+            actor_id: event.actor_id,
+            executed_by: event.executed_by.expect("checked above"),
+            authorization_ref: event.authorization_ref.expect("checked above"),
+            actor_seq: event.actor_seq,
+            created_at: event.created_at,
+            hlc: event.hlc.expect("checked above"),
+            prev_refs: event.prev_refs,
+            refs: event.refs,
+            payload: event.payload,
+        };
+        preimage.validate()?;
+        Ok(preimage)
+    }
+}
+
 /// Portable authorization evidence for an active participant device signing
 /// key. The original accepted `ak.device.authorize` Event anchors the key in
 /// the principal's delegated enrollment authority; the authenticated source

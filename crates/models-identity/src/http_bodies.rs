@@ -5,8 +5,10 @@
 //! bindings. Pure identity/account wire shapes; validation and dispatch live
 //! with the auth and server behavior crates.
 
-use arkret_wire::{DeviceId, Did, Event, EventId};
-use chrono::{DateTime, Utc};
+use arkret_wire::{
+    DeviceAuthorizeEventPreimage, DeviceId, Did, Error, Event, EventId, Hash, ProtocolOpaqueId,
+    Result,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::identity::{
@@ -30,61 +32,67 @@ pub struct AccountLogoutOutcome {
 
 /// Request body for `ak.gate.account.command.enroll_device`
 /// (`POST /_arkret/gate/account/device-enroll`). The authenticated session
-/// asks its designated enrollment authority to mint a `service_attested`
-/// `ak.device.authorize` for this session's own device (device-lifecycle.md
-/// §5.4, key-management.md §5.0.6). Mirrors
+/// submits the complete proof-free `ak.device.authorize` Event fixed by the
+/// founding client. The enrollment authority may only append its proof. Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_request_body`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountDeviceEnrollRequestBody {
     pub device_id: DeviceId,
-    /// did:key multibase (`z6Mk…`) or base64 of this session's device public key.
-    pub device_public_key: String,
-    /// This device's HPKE sealing public key (multibase); enters
-    /// `ak.device.authorize.payload.hpke_key` verbatim (§5.4).
-    pub hpke_key: String,
-    /// Canonical sorted unique algorithm ids; enters
-    /// `ak.device.authorize.payload.algorithms` verbatim (§5.2/§5.4).
-    pub algorithms: Vec<String>,
-    /// Founding-device sequence. The closed wire contract fixes this to `1`;
-    /// post-bootstrap devices use pairing or recovery re-anchor instead.
-    #[serde(
-        serialize_with = "serialize_founding_device_actor_seq",
-        deserialize_with = "deserialize_founding_device_actor_seq"
-    )]
-    pub actor_seq: u64,
-    /// Root-signed `ak.realm.create` Event id immediately preceding the
-    /// authority-signed authorize in the atomic first-device bootstrap unit.
-    /// Copied to the authorize Event's sole `prev_refs` entry.
-    pub bootstrap_create_event_id: EventId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub not_before: Option<DateTime<Utc>>,
+    pub authorize_event_preimage: DeviceAuthorizeEventPreimage,
 }
 
-fn serialize_founding_device_actor_seq<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    if *value != 1 {
-        return Err(serde::ser::Error::custom(
-            "founding device actor_seq must be 1",
-        ));
+impl AccountDeviceEnrollRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        self.authorize_event_preimage.validate()?;
+        let preimage = &self.authorize_event_preimage;
+        let authority_binding = preimage
+            .payload
+            .get("enrollment_authority_binding")
+            .and_then(serde_json::Value::as_object);
+        if preimage
+            .payload
+            .get("device_id")
+            .and_then(serde_json::Value::as_str)
+            != Some(self.device_id.as_str())
+            || preimage
+                .payload
+                .get("principal_id")
+                .and_then(serde_json::Value::as_str)
+                != Some(preimage.actor_id.as_str())
+            || preimage
+                .payload
+                .get("authorized_by")
+                .and_then(serde_json::Value::as_str)
+                != Some(preimage.actor_id.as_str())
+            || authority_binding
+                .and_then(|binding| binding.get("kind"))
+                .and_then(serde_json::Value::as_str)
+                != Some("service_attested")
+            || authority_binding
+                .and_then(|binding| binding.get("authority_did"))
+                .and_then(serde_json::Value::as_str)
+                != Some(preimage.executed_by.as_str())
+            || authority_binding
+                .and_then(|binding| binding.get("authorization_ref"))
+                .and_then(serde_json::Value::as_str)
+                != Some(preimage.authorization_ref.as_str())
+        {
+            return Err(Error::Protocol(
+                "device enroll request has inconsistent device, principal, or authority bindings"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
     }
-    serializer.serialize_u64(*value)
-}
 
-fn deserialize_founding_device_actor_seq<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = u64::deserialize(deserializer)?;
-    if value != 1 {
-        return Err(serde::de::Error::custom(
-            "founding device actor_seq must be 1",
-        ));
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Ok(Hash::new(arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(self)?,
+        ))?)
     }
-    Ok(value)
 }
 
 /// Outcome for `ak.gate.account.command.enroll_device`. The account authority
@@ -93,7 +101,9 @@ where
 /// `agent-operations.schema.json#/$defs/account_device_enroll_outcome`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountDeviceEnrollOutcome {
+    pub bootstrap_transaction_id: ProtocolOpaqueId,
     pub principal_id: Did,
     pub device_id: DeviceId,
     /// Enrollment authority DID (= `executed_by` /
@@ -102,6 +112,55 @@ pub struct AccountDeviceEnrollOutcome {
     /// Fully-signed `service_attested` `ak.device.authorize` Event envelope.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorized_event: Event,
+    pub authorized_event_id: EventId,
+    pub authorized_event_digest: Hash,
+    pub outcome_digest: Hash,
+}
+
+impl AccountDeviceEnrollOutcome {
+    /// Recompute the durable response identity over the closed outcome with the
+    /// self-referential `outcome_digest` field removed.
+    pub fn recompute_outcome_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("device enroll outcome serializes as an object")
+            .remove("outcome_digest");
+        Ok(Hash::new(arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(&value)?,
+        ))?)
+    }
+
+    /// Ensure the authority returned the caller-fixed Event with only its proof appended.
+    pub fn validate_against(&self, request: &AccountDeviceEnrollRequestBody) -> Result<()> {
+        request.validate()?;
+        if self.device_id != request.device_id
+            || self.principal_id != request.authorize_event_preimage.actor_id
+            || self.authorized_event.event_id != request.authorize_event_preimage.event_id
+            || self.authorized_event_id != request.authorize_event_preimage.event_id
+            || self.authorized_event.proofs.len() != 1
+            || self.authorized_event.executed_by.as_ref() != Some(&self.authority_did)
+            || self.authorized_event_digest.as_str() != self.authorized_event.event_digest()?
+        {
+            return Err(Error::Protocol(
+                "device enroll outcome does not bind the requested Event identity".to_owned(),
+            ));
+        }
+        if self.outcome_digest != self.recompute_outcome_digest()? {
+            return Err(Error::Protocol(
+                "device enroll outcome digest does not match the canonical response".to_owned(),
+            ));
+        }
+        let mut proof_free = self.authorized_event.clone();
+        proof_free.proofs.clear();
+        let returned_preimage = DeviceAuthorizeEventPreimage::try_from(proof_free)?;
+        if returned_preimage != request.authorize_event_preimage {
+            return Err(Error::Protocol(
+                "device enroll authority rewrote the client-authored Event preimage".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -142,59 +201,105 @@ pub struct IdentityReceiptsResultBody(pub IdentityReceiptListOutcome);
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{DidUrl, Proof};
     use serde_json::json;
 
-    use super::AccountDeviceEnrollRequestBody;
+    use super::{AccountDeviceEnrollOutcome, AccountDeviceEnrollRequestBody};
 
     fn founding_request() -> serde_json::Value {
-        json!({
-            "device_id": "ak:device:01964137-0000-7000-8000-000000000001",
-            "device_public_key": "z6MkExamplePublicKey",
-            "hpke_key": "z6LExampleHpkeKey",
-            "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1"],
-            "actor_seq": 1,
-            "bootstrap_create_event_id": "ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N"
-        })
+        arkret_schema::embedded_json_artifact("fixtures/device-bootstrap-fixture.json")
+            .unwrap()["enroll_request"]
+            .clone()
     }
 
     #[test]
-    fn device_enroll_accepts_only_founding_actor_seq() {
-        serde_json::from_value::<AccountDeviceEnrollRequestBody>(founding_request())
-            .expect("founding request");
+    fn device_enroll_fixture_is_canonical_and_closed() {
+        let fixture =
+            arkret_schema::embedded_json_artifact("fixtures/device-bootstrap-fixture.json")
+                .unwrap();
+        let request: AccountDeviceEnrollRequestBody =
+            serde_json::from_value(founding_request()).expect("founding request");
+        request.validate().unwrap();
+        assert_eq!(
+            request.canonical_request_digest().unwrap().as_str(),
+            fixture["canonical_request"]["expected_digest"]
+                .as_str()
+                .unwrap()
+        );
+        assert_eq!(
+            request.authorize_event_preimage.event_id.as_str(),
+            fixture["event_identity"]["expected_event_id"]
+                .as_str()
+                .unwrap()
+        );
+        let serialized = serde_json::to_value(&request).unwrap();
+        assert_eq!(serialized, founding_request());
+        assert!(
+            serialized["authorize_event_preimage"]
+                .get("proofs")
+                .is_none()
+        );
 
         let mut later = founding_request();
-        later["actor_seq"] = json!(2);
-        let decoded_error = serde_json::from_value::<AccountDeviceEnrollRequestBody>(later.clone())
-            .expect_err("later device must fail");
-        assert!(decoded_error.to_string().contains("actor_seq must be 1"));
+        later["authorize_event_preimage"]["actor_seq"] = json!(2);
+        let invalid: AccountDeviceEnrollRequestBody = serde_json::from_value(later).unwrap();
+        assert!(invalid.validate().is_err());
 
-        let invalid_body = AccountDeviceEnrollRequestBody {
-            device_id: serde_json::from_value(later["device_id"].clone()).expect("device id"),
-            device_public_key: "z6MkExamplePublicKey".to_owned(),
-            hpke_key: "z6LExampleHpkeKey".to_owned(),
-            algorithms: vec!["ak.hpke_x25519_aead_chacha20poly1305.v1".to_owned()],
-            actor_seq: 2,
-            bootstrap_create_event_id: serde_json::from_value(
-                later["bootstrap_create_event_id"].clone(),
-            )
-            .expect("event id"),
-            not_before: None,
-        };
-        assert!(
-            serde_json::to_value(invalid_body)
-                .expect_err("invalid constructed request must not serialize")
-                .to_string()
-                .contains("actor_seq must be 1")
-        );
+        let mut unknown = founding_request();
+        unknown["derived_digest"] = json!(format!("sha256:{}", "a".repeat(64)));
+        assert!(serde_json::from_value::<AccountDeviceEnrollRequestBody>(unknown).is_err());
     }
 
     #[test]
-    fn device_enroll_requires_bootstrap_create_event() {
-        let mut missing = founding_request();
-        missing
-            .as_object_mut()
-            .expect("object")
-            .remove("bootstrap_create_event_id");
-        assert!(serde_json::from_value::<AccountDeviceEnrollRequestBody>(missing).is_err());
+    fn device_enroll_outcome_allows_only_one_appended_authority_proof() {
+        let request: AccountDeviceEnrollRequestBody =
+            serde_json::from_value(founding_request()).unwrap();
+        let mut authorized_event = request.authorize_event_preimage.clone().into_event();
+        let digest = authorized_event.event_digest().unwrap();
+        authorized_event.proofs.push(Proof {
+            kind: "DataIntegrityProof".to_owned(),
+            verification_method: DidUrl::new(format!(
+                "{}#enrollment-key-1",
+                request.authorize_event_preimage.executed_by
+            ))
+            .unwrap(),
+            event_digest: arkret_wire::Hash::new(digest.clone()).unwrap(),
+            created_at: request.authorize_event_preimage.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "eyJhbGciOiJFZERTQSJ9..fixture".to_owned(),
+        });
+        let mut outcome = AccountDeviceEnrollOutcome {
+            bootstrap_transaction_id: arkret_wire::ProtocolOpaqueId::new("bootstrap-1").unwrap(),
+            principal_id: request.authorize_event_preimage.actor_id.clone(),
+            device_id: request.device_id.clone(),
+            authority_did: request.authorize_event_preimage.executed_by.clone(),
+            authorized_event,
+            authorized_event_id: request.authorize_event_preimage.event_id.clone(),
+            authorized_event_digest: arkret_wire::Hash::new(digest).unwrap(),
+            outcome_digest: arkret_wire::Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+        };
+        outcome.outcome_digest = outcome.recompute_outcome_digest().unwrap();
+        outcome.validate_against(&request).unwrap();
+
+        let mut wrong_outcome_digest = outcome.clone();
+        wrong_outcome_digest.outcome_digest =
+            arkret_wire::Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
+        assert!(wrong_outcome_digest.validate_against(&request).is_err());
+
+        let mut rewritten = outcome.clone();
+        rewritten.authorized_event.payload.insert(
+            "hpke_key".to_owned(),
+            json!("z6LSdifferentHpkeKey111111111111111111111111111111"),
+        );
+        assert!(rewritten.validate_against(&request).is_err());
+
+        let mut extra_proof = outcome;
+        extra_proof
+            .authorized_event
+            .proofs
+            .push(extra_proof.authorized_event.proofs[0].clone());
+        assert!(extra_proof.validate_against(&request).is_err());
     }
 }

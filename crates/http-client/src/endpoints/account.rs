@@ -90,6 +90,7 @@ where
         requested_scope_disclosure: None,
         dpop_binding_proof: None,
         applet_authority: None,
+        device_bootstrap_request: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::DidBoundSignature,
             challenge: challenge.to_owned(),
@@ -232,13 +233,18 @@ impl Client {
 
     /// `POST /_arkret/gate/account/device-enroll`
     /// (`ak.gate.account.command.enroll_device`): ask the Account Authority
-    /// to mint a signed `service_attested` `ak.device.authorize` event for the
-    /// current DPoP-bound session device.
+    /// to append its proof to the client-authored `service_attested`
+    /// `ak.device.authorize` Event for the current DPoP-bound session device.
     pub async fn auth_device_enroll(
         &self,
         req: &AccountDeviceEnrollRequestBody,
     ) -> Result<AccountDeviceEnrollOutcome> {
-        self.post("/_arkret/gate/account/device-enroll", req).await
+        req.validate()?;
+        let outcome: AccountDeviceEnrollOutcome = self
+            .post("/_arkret/gate/account/device-enroll", req)
+            .await?;
+        outcome.validate_against(req)?;
+        Ok(outcome)
     }
 
     /// `POST /_arkret/gate/account/logout`

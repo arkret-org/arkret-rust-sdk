@@ -142,7 +142,7 @@ pub enum DeviceBootstrapCredential {
         device_id: DeviceId,
         device_key_digest: Hash,
         transaction_id: ProtocolOpaqueId,
-        holder_jkt: Hash,
+        holder_jkt: String,
         canonical_request_digest: Hash,
         founding_batch_digest: Hash,
         founding_event_ids: Vec<EventId>,
@@ -158,7 +158,7 @@ pub enum DeviceBootstrapCredential {
         device_id: DeviceId,
         device_key_digest: Hash,
         transaction_id: ProtocolOpaqueId,
-        holder_jkt: Hash,
+        holder_jkt: String,
         canonical_request_digest: Hash,
         source_device_id: DeviceId,
         target_device_id: DeviceId,
@@ -179,6 +179,16 @@ pub struct CancelDeviceBootstrapRequestBody {
     pub mode: BootstrapMode,
     pub canonical_request_digest: Hash,
     pub idempotency_key: IdempotencyKey,
+}
+
+impl CancelDeviceBootstrapRequestBody {
+    /// Compute the exact-replay identity of this closed request body.
+    pub fn canonical_request_digest(&self) -> arkret_wire::Result<Hash> {
+        Hash::new(arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(self)?,
+        ))
+        .map_err(Into::into)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -211,6 +221,57 @@ pub enum CancelDeviceBootstrapOutcome {
         retry_after_ms: Option<u64>,
         outcome_digest: Hash,
     },
+}
+
+impl CancelDeviceBootstrapOutcome {
+    /// Recompute the exact response identity after removing the self-referential
+    /// `outcome_digest` member from the closed outcome object.
+    pub fn recompute_outcome_digest(&self) -> arkret_wire::Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "cancel outcome must serialize as an object".to_owned(),
+                )
+            })?
+            .remove("outcome_digest");
+        Hash::new(arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(&value)?,
+        ))
+        .map_err(Into::into)
+    }
+
+    /// Validate the response transaction binding and its canonical outcome digest.
+    pub fn validate_against(
+        &self,
+        request: &CancelDeviceBootstrapRequestBody,
+    ) -> arkret_wire::Result<()> {
+        let (transaction_id, outcome_digest) = match self {
+            Self::Cancelled {
+                transaction_id,
+                outcome_digest,
+            }
+            | Self::Expired {
+                transaction_id,
+                outcome_digest,
+                ..
+            }
+            | Self::Pending {
+                transaction_id,
+                outcome_digest,
+                ..
+            } => (transaction_id, outcome_digest),
+        };
+        if transaction_id != &request.transaction_id
+            || outcome_digest != &self.recompute_outcome_digest()?
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "cancel device bootstrap outcome does not match request identity".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1038,5 +1099,44 @@ mod tests {
         let mut reordered = sibling.as_array().unwrap().clone();
         reordered.swap(2, 3);
         assert!(serde_json::from_value::<SiblingAllowedOperations>(json!(reordered)).is_err());
+    }
+
+    fn cancel_request() -> CancelDeviceBootstrapRequestBody {
+        CancelDeviceBootstrapRequestBody {
+            transaction_id: ProtocolOpaqueId::new("txn-fixture").unwrap(),
+            mode: BootstrapMode::Founding,
+            canonical_request_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            idempotency_key: IdempotencyKey::new("idem-fixture").unwrap(),
+        }
+    }
+
+    #[test]
+    fn cancel_request_and_outcome_digest_kat() {
+        let request = cancel_request();
+        assert_eq!(
+            request.canonical_request_digest().unwrap().as_str(),
+            "sha256:80cc83d8c2559a140eba5e2d9fac29c61b2bb9d2302e6264d160f7580c166e2f"
+        );
+
+        let mut outcome = CancelDeviceBootstrapOutcome::Cancelled {
+            transaction_id: request.transaction_id.clone(),
+            outcome_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+        };
+        let digest = outcome.recompute_outcome_digest().unwrap();
+        assert_eq!(
+            digest.as_str(),
+            "sha256:ebbe9c35f475eebe51d100722e07fab1d6b3884d5e718daece23d6b1f1340d05"
+        );
+        let CancelDeviceBootstrapOutcome::Cancelled { outcome_digest, .. } = &mut outcome else {
+            unreachable!()
+        };
+        *outcome_digest = digest;
+        outcome.validate_against(&request).unwrap();
+
+        let other_request = CancelDeviceBootstrapRequestBody {
+            transaction_id: ProtocolOpaqueId::new("different-transaction").unwrap(),
+            ..request
+        };
+        assert!(outcome.validate_against(&other_request).is_err());
     }
 }
