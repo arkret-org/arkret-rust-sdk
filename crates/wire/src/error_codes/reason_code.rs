@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.4;
-//! sha256=da8f13c84bd0fbacdbb93a1a96f797d9fa38f612533b41e33e435eed21c0e818
-//! Entries: reason_codes=465
+//! Input: registry/error-code-registry.json; version=2026-08-08.5;
+//! sha256=75e23bf69307accb022625b9d2c259d405ba4a635165bd63700459fcf2ecc599
+//! Entries: reason_codes=468
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -173,6 +173,9 @@ pub enum ReasonCode {
     EgressPolicyDenied,
     EpochUpdateRequired,
     ErasurePendingIsTerminal,
+    ErasureReceiptAuthorityInvalid,
+    ErasureReceiptProofInvalid,
+    ErasureReceiptStubBindingMismatch,
     ErasureReceiptStubDigestMismatch,
     EventIdDigestMismatch,
     EvidenceRecipientMismatch,
@@ -702,6 +705,10 @@ impl ReasonCode {
     pub const EGRESS_POLICY_DENIED: &'static str = "egress_policy_denied";
     pub const EPOCH_UPDATE_REQUIRED: &'static str = "epoch_update_required";
     pub const ERASURE_PENDING_IS_TERMINAL: &'static str = "erasure_pending_is_terminal";
+    pub const ERASURE_RECEIPT_AUTHORITY_INVALID: &'static str = "erasure_receipt_authority_invalid";
+    pub const ERASURE_RECEIPT_PROOF_INVALID: &'static str = "erasure_receipt_proof_invalid";
+    pub const ERASURE_RECEIPT_STUB_BINDING_MISMATCH: &'static str =
+        "erasure_receipt_stub_binding_mismatch";
     pub const ERASURE_RECEIPT_STUB_DIGEST_MISMATCH: &'static str =
         "erasure_receipt_stub_digest_mismatch";
     pub const EVENT_ID_DIGEST_MISMATCH: &'static str = "event_id_digest_mismatch";
@@ -1284,6 +1291,9 @@ impl ReasonCode {
             Self::EgressPolicyDenied => Self::EGRESS_POLICY_DENIED,
             Self::EpochUpdateRequired => Self::EPOCH_UPDATE_REQUIRED,
             Self::ErasurePendingIsTerminal => Self::ERASURE_PENDING_IS_TERMINAL,
+            Self::ErasureReceiptAuthorityInvalid => Self::ERASURE_RECEIPT_AUTHORITY_INVALID,
+            Self::ErasureReceiptProofInvalid => Self::ERASURE_RECEIPT_PROOF_INVALID,
+            Self::ErasureReceiptStubBindingMismatch => Self::ERASURE_RECEIPT_STUB_BINDING_MISMATCH,
             Self::ErasureReceiptStubDigestMismatch => Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH,
             Self::EventIdDigestMismatch => Self::EVENT_ID_DIGEST_MISMATCH,
             Self::EvidenceRecipientMismatch => Self::EVIDENCE_RECIPIENT_MISMATCH,
@@ -1873,6 +1883,9 @@ impl ReasonCode {
             Self::EGRESS_POLICY_DENIED => Self::EgressPolicyDenied,
             Self::EPOCH_UPDATE_REQUIRED => Self::EpochUpdateRequired,
             Self::ERASURE_PENDING_IS_TERMINAL => Self::ErasurePendingIsTerminal,
+            Self::ERASURE_RECEIPT_AUTHORITY_INVALID => Self::ErasureReceiptAuthorityInvalid,
+            Self::ERASURE_RECEIPT_PROOF_INVALID => Self::ErasureReceiptProofInvalid,
+            Self::ERASURE_RECEIPT_STUB_BINDING_MISMATCH => Self::ErasureReceiptStubBindingMismatch,
             Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH => Self::ErasureReceiptStubDigestMismatch,
             Self::EVENT_ID_DIGEST_MISMATCH => Self::EventIdDigestMismatch,
             Self::EVIDENCE_RECIPIENT_MISMATCH => Self::EvidenceRecipientMismatch,
@@ -3113,6 +3126,21 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::ERASURE_PENDING_IS_TERMINAL,
         applies_to: &["account_status", "event_envelope", "state_resolution"],
         description: "A `ak.account.status` event attempted to supersede an `erasure_pending` status (via `supersedes_status_event_id`) down to a lower-severity status. `erasure_pending` is terminal: erasure physically destroys data, so reducers / projections MUST reject the downgrade and keep `erasure_pending` as the current status. See zh/identity/account-lifecycle.md §3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ERASURE_RECEIPT_AUTHORITY_INVALID,
+        applies_to: &["account_status", "identity_resolution", "service_call"],
+        description: "The erasure receipt issuer, signing verification method, service transport identity or accepted-at authority chain does not establish authority for the claimed erasure scope. The receiver MUST reject before deletion or durable acknowledgement.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ERASURE_RECEIPT_PROOF_INVALID,
+        applies_to: &["account_status", "identity_resolution", "service_call"],
+        description: "One or more required erasure receipt proofs fail canonical transcript, signature, threshold or validity-window verification. The receiver MUST reject before deletion or durable acknowledgement.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ERASURE_RECEIPT_STUB_BINDING_MISMATCH,
+        applies_to: &["account_status", "identity_resolution", "service_call"],
+        description: "The retained stub carried with an erasure receipt does not bind the receipt scope, subject, terminal status or required verification coordinates. The receiver MUST reject before deletion or durable acknowledgement.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH,

@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-08.8;
 //! sha256=fd2b31e3ce3fc2ce7e63c8a9730c34768b58f2c572f6ab4d44a4c9645ddfd248 Input: registry/
-//! capability-action-registry.json; version=2026-08-08.14;
-//! sha256=ffed5345d11f288223b3ef27fcc64800b7c199447d7740ff860ace569f6a4b92 Input: registry/
-//! schema-registry.json; version=2026-08-08.14;
-//! sha256=28374ff77f5087bcb266a3ad5929355e660886cce3bf3f5ccb5238b1c38a320e Input: registry/
+//! capability-action-registry.json; version=2026-08-08.15;
+//! sha256=6493fb51d99a07a37c70b95b957d91a71124315cbe27f990aa0379b8ca96b7b4 Input: registry/
+//! schema-registry.json; version=2026-08-08.15;
+//! sha256=795c97157ed192dc04101afdb89133417690f05363db194ffd636c730e9fb899 Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
 //! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=56,
-//! special_forms=10, actions=168, schemas=183, account_data_patterns=24
+//! special_forms=10, actions=168, schemas=185, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -3165,6 +3165,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/erasure-receipt.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::ERASURE_RECEIPT_OPERATIONS_V1,
+        file: "schemas/erasure-receipt-operations.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::ERASURE_VERIFICATION_STUB_V1,
         file: "schemas/erasure-verification-stub.schema.json",
     },
@@ -3363,6 +3367,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::PRINCIPAL_OPERATIONS_V1,
         file: "schemas/principal-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PRINCIPAL_SERVICE_BINDING_V1,
+        file: "schemas/principal-service-binding.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PUBLIC_KEY_V1,

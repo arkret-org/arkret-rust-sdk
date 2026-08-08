@@ -47,6 +47,7 @@ pub type SubjectRef = String;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/erasure-receipt.schema.json#/$defs/verification_stub`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSubject {
     pub kind: String,
@@ -54,6 +55,7 @@ pub struct VerificationStubSubject {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubScope {
     pub storage_boundary: String,
@@ -68,6 +70,7 @@ pub struct VerificationStubScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSealInclusion {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -79,6 +82,7 @@ pub struct VerificationStubSealInclusion {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStub {
     pub stub_schema: String,
@@ -103,6 +107,7 @@ pub struct VerificationStub {
 pub type BoardSpaceId = SpaceId;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(untagged)]
 pub enum LegalHoldRef {
     PolicyId(PolicyId),

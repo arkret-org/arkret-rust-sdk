@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.14;
-//! sha256=df7e922827106a15db0ee52d7818f0a8cef9b64e86ef220d357212acf8f82e55 Input: registry/
-//! operations-error-mapping.json; version=2026-08-08.4;
-//! sha256=a77d7120c162d37574d1511525c953f703c9e466bc1f579586b73322662b1aa2 Input: registry/
-//! error-code-registry.json; version=2026-08-08.4;
-//! sha256=da8f13c84bd0fbacdbb93a1a96f797d9fa38f612533b41e33e435eed21c0e818 Entries: operations=223
+//! Input: registry/operation-registry.json; version=2026-08-08.15;
+//! sha256=16a0e9df975d9f0d5ccef59d34f7f70141c58d1be7f14b4cc9d2cbb4eba25a60 Input: registry/
+//! operations-error-mapping.json; version=2026-08-08.5;
+//! sha256=c2d5d6b48ac83a1fbc19596b185854425e9bd1f684c2691c4dec63a8feb00e21 Input: registry/
+//! error-code-registry.json; version=2026-08-08.5;
+//! sha256=75e23bf69307accb022625b9d2c259d405ba4a635165bd63700459fcf2ecc599 Entries: operations=225
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -424,6 +424,24 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
+            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerErasureReceiptCommandSubmit,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::ErasureReceiptAuthorityInvalid),
+            OperationSpecificError::ReasonCode(ReasonCode::ErasureReceiptProofInvalid),
+            OperationSpecificError::ReasonCode(ReasonCode::ErasureReceiptStubBindingMismatch),
+            OperationSpecificError::ReasonCode(ReasonCode::ErasureReceiptStubDigestMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerErasureReceiptResourceGet,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
             OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
         ],
     },

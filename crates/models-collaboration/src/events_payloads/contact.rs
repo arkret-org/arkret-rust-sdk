@@ -17,6 +17,8 @@ pub struct ContactAcceptedPayload {
     pub version: u64,
     pub request_event_ref: EventId,
     pub request_acceptance_receipt_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_terminal_basis_id: Option<Hash>,
     pub granted_to_peer_scopes: ContactScopes,
 }
 
@@ -40,6 +42,8 @@ pub struct ContactRequestedPayload {
     pub peer: ContactPeer,
     pub granted_to_peer_scopes: ContactScopes,
     pub introduction_evidence_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_terminal_basis_id: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }

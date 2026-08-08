@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.14;
-//! sha256=df7e922827106a15db0ee52d7818f0a8cef9b64e86ef220d357212acf8f82e55 Entries: registered=223
+//! Input: registry/operation-registry.json; version=2026-08-08.15;
+//! sha256=16a0e9df975d9f0d5ccef59d34f7f70141c58d1be7f14b4cc9d2cbb4eba25a60 Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,8 @@ pub enum ServiceOperationId {
     PeerAccountStatusCommandSubmit,
     PeerAccountStatusReadAuthoringBasis,
     PeerContactsCommandSubmit,
+    PeerErasureReceiptCommandSubmit,
+    PeerErasureReceiptResourceGet,
     PeerEventsCommandSubmit,
     PeerEventsReadDescribe,
     PeerEventsReadFrontier,
@@ -298,6 +300,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_READ_DESCRIBE,
     ServiceOperationId::PEER_EVENTS_READ_FRONTIER,
@@ -564,6 +568,8 @@ impl ServiceOperationId {
         Self::PeerAccountStatusCommandSubmit,
         Self::PeerAccountStatusReadAuthoringBasis,
         Self::PeerContactsCommandSubmit,
+        Self::PeerErasureReceiptCommandSubmit,
+        Self::PeerErasureReceiptResourceGet,
         Self::PeerEventsCommandSubmit,
         Self::PeerEventsReadDescribe,
         Self::PeerEventsReadFrontier,
@@ -834,6 +840,10 @@ impl ServiceOperationId {
     pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS: &'static str =
         "ak.peer.account_status.read.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
+    pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT: &'static str =
+        "ak.peer.erasure_receipt.command.submit";
+    pub const PEER_ERASURE_RECEIPT_RESOURCE_GET: &'static str =
+        "ak.peer.erasure_receipt.resource.get";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
     pub const PEER_EVENTS_READ_DESCRIBE: &'static str = "ak.peer.events.read.describe";
     pub const PEER_EVENTS_READ_FRONTIER: &'static str = "ak.peer.events.read.frontier";
@@ -1178,6 +1188,8 @@ impl ServiceOperationId {
                 Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
+            Self::PeerErasureReceiptCommandSubmit => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
+            Self::PeerErasureReceiptResourceGet => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
             Self::PeerEventsReadDescribe => Self::PEER_EVENTS_READ_DESCRIBE,
             Self::PeerEventsReadFrontier => Self::PEER_EVENTS_READ_FRONTIER,
@@ -1524,6 +1536,10 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusReadAuthoringBasis)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
+            Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT => {
+                Some(Self::PeerErasureReceiptCommandSubmit)
+            }
+            Self::PEER_ERASURE_RECEIPT_RESOURCE_GET => Some(Self::PeerErasureReceiptResourceGet),
             Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
             Self::PEER_EVENTS_READ_DESCRIBE => Some(Self::PeerEventsReadDescribe),
             Self::PEER_EVENTS_READ_FRONTIER => Some(Self::PeerEventsReadFrontier),
@@ -3046,21 +3062,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_request_body",
         ),
         response_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.read.list\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Dynamic(
+                "$request.consent_event.event.kind",
+            )),
+            rationale: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3236,6 +3252,50 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: None,
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerErasureReceiptCommandSubmit,
+        http_method: "POST",
+        http_path: "/_arkret/peer/erasure-receipts",
+        grpc: Some("PeerErasureReceipts/Submit"),
+        mq: Some("peer.erasure_receipt.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_submit_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_submit_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "accepts_a_signed_receipt_and_may_trigger_local_erasure_but_does_not_author_an_event",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerErasureReceiptResourceGet,
+        http_method: "GET",
+        http_path: "/_arkret/peer/erasure-receipts/{receipt_id}",
+        grpc: Some("PeerErasureReceipts/Get"),
+        mq: Some("peer.erasure_receipt.resource.get"),
+        body_class: Some("none"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_resource",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsCommandSubmit,

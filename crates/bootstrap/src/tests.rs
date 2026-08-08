@@ -184,6 +184,7 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
     assert!(event.proofs.is_empty());
     assert_eq!(event.refs.len(), 1);
     assert_eq!(event.refs[0].role, DID_INCEPTION_REF_ROLE);
+    event.verify_event_id_matches_content().unwrap();
     // A genesis envelope carries no realm_id and uses the closed genesis
     // scope; the Realm id is derived (subject-derived for a PCR).
     assert_eq!(event.scope_ref, ScopeRef::RealmGenesis);

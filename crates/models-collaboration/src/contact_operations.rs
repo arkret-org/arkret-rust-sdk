@@ -267,6 +267,8 @@ pub struct RequestAcceptanceReceiptCore {
     pub slot_version: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot_predecessor: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_terminal_basis_id: Option<Hash>,
     pub request_event_ref: EventId,
     pub request_digest: Hash,
     pub source_checkpoint: Hash,
@@ -304,6 +306,7 @@ pub struct RequestAcceptanceReceipt {
 pub struct ContactCurrentProof {
     pub basis_id: Hash,
     pub issuer: Did,
+    pub terminal: bool,
     pub head_event_ref: EventId,
     pub head_digest: Hash,
     pub accepted_frontier: Vec<EventId>,
@@ -409,6 +412,8 @@ pub struct ContactPrepareRequestBody {
     pub granted_to_peer_scopes: ContactScopes,
     pub introduction_evidence: ContactIntroductionEvidence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_terminal_basis_id: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
@@ -459,6 +464,8 @@ pub enum ContactScopeUpdateRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactBasisEvidenceBundle {
     pub basis_id: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_terminal_basis_id: Option<Hash>,
     pub basis: ContactBasis,
     pub request_receipts: Vec<RequestAcceptanceReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -466,6 +473,59 @@ pub struct ContactBasisEvidenceBundle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub glare_concurrency_attestations: Option<[GlareConcurrencyAttestation; 2]>,
     pub current_proofs: Vec<ContactCurrentProof>,
+}
+
+pub fn validate_recontact_continuity(
+    current: &ContactBasisEvidenceBundle,
+    predecessors: &[ContactBasisEvidenceBundle],
+) -> arkret_wire::Result<()> {
+    if predecessors.len() > 64 {
+        return Err(arkret_wire::Error::Protocol(
+            "Contact basis continuity exceeds 64 predecessors".to_owned(),
+        ));
+    }
+    let mut expected = current.previous_terminal_basis_id.as_ref();
+    if current
+        .request_receipts
+        .iter()
+        .any(|receipt| receipt.core.previous_terminal_basis_id.as_ref() != expected)
+    {
+        return Err(arkret_wire::Error::Protocol(
+            "current Contact request receipt continuity pointer mismatch".to_owned(),
+        ));
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    seen.insert(current.basis_id.clone());
+    for predecessor in predecessors {
+        if expected != Some(&predecessor.basis_id)
+            || predecessor.current_proofs.len() != 2
+            || predecessor
+                .current_proofs
+                .iter()
+                .any(|proof| !proof.terminal || proof.basis_id != predecessor.basis_id)
+            || !seen.insert(predecessor.basis_id.clone())
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "invalid Contact terminal basis continuity edge".to_owned(),
+            ));
+        }
+        if predecessor.request_receipts.iter().any(|receipt| {
+            receipt.core.previous_terminal_basis_id != predecessor.previous_terminal_basis_id
+        }) {
+            return Err(arkret_wire::Error::Protocol(
+                "predecessor Contact request receipt continuity pointer mismatch".to_owned(),
+            ));
+        }
+        expected = predecessor.previous_terminal_basis_id.as_ref();
+    }
+    if expected.is_some()
+        || (current.previous_terminal_basis_id.is_some() && predecessors.is_empty())
+    {
+        return Err(arkret_wire::Error::Protocol(
+            "Contact basis continuity does not terminate at one root".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

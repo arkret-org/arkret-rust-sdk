@@ -6,14 +6,140 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, DidUrl, Error, EventKind, Hash, PolicyId, RealmId, Result, SchemaId};
+use arkret_wire::{
+    Did, DidUrl, Error, EventKind, Hash, PolicyId, ProtocolSignature, RealmId, Result, SchemaId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::events_payloads::event_wire::VerificationStub;
 
+pub const ERASURE_RECEIPT_DIGEST_DOMAIN: &[u8] = b"ak.erasure-receipt.v1\n";
+pub const ERASURE_RECEIPT_ACCEPTANCE_DOMAIN: &[u8] = b"ak.erasure-receipt-acceptance.v1\n";
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ErasureReceiptPackage {
+    pub receipt: ErasureReceipt,
+    pub receipt_digest: Hash,
+    pub retained_stub: VerificationStub,
+}
+
+impl ErasureReceiptPackage {
+    pub fn computed_receipt_digest(&self) -> Result<Hash> {
+        let bytes = canonical::canonical_json_bytes(&self.receipt)?;
+        let mut preimage = Vec::with_capacity(ERASURE_RECEIPT_DIGEST_DOMAIN.len() + bytes.len());
+        preimage.extend_from_slice(ERASURE_RECEIPT_DIGEST_DOMAIN);
+        preimage.extend_from_slice(&bytes);
+        Ok(Hash::new(canonical::sha256_digest(&preimage))?)
+    }
+
+    pub fn validate_bindings(&self) -> Result<()> {
+        self.receipt.validate_minimal()?;
+        if self.computed_receipt_digest()? != self.receipt_digest {
+            return Err(Error::Protocol(
+                "erasure receipt digest mismatch".to_owned(),
+            ));
+        }
+        self.receipt
+            .validate_with_retained_stub(&self.retained_stub)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ErasureReceiptSubmitRequestBody {
+    pub package: ErasureReceiptPackage,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasureReceiptAcceptanceStatus {
+    Accepted,
+    Duplicate,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ErasureReceiptAcceptance {
+    pub status: ErasureReceiptAcceptanceStatus,
+    pub receipt_id: String,
+    pub receipt_digest: Hash,
+    pub issuer_service_id: Did,
+    pub receiver_service_id: Did,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub proof: ProtocolSignature,
+}
+
+impl ErasureReceiptAcceptance {
+    pub fn signing_input_bytes(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .ok_or_else(|| {
+                Error::Protocol("erasure receipt acceptance must be an object".to_owned())
+            })?
+            .remove("proof");
+        let bytes = canonical::canonical_json_bytes(&value)?;
+        let mut preimage =
+            Vec::with_capacity(ERASURE_RECEIPT_ACCEPTANCE_DOMAIN.len() + bytes.len());
+        preimage.extend_from_slice(ERASURE_RECEIPT_ACCEPTANCE_DOMAIN);
+        preimage.extend_from_slice(&bytes);
+        Ok(preimage)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasureReceiptRejectionReason {
+    ErasureReceiptAuthorityInvalid,
+    ErasureReceiptProofInvalid,
+    ErasureReceiptStubBindingMismatch,
+    ErasureReceiptStubDigestMismatch,
+    DuplicateConflict,
+    Unauthorized,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ErasureReceiptRejection {
+    pub status: ErasureReceiptRejectionStatus,
+    pub receipt_id: String,
+    pub reason_code: ErasureReceiptRejectionReason,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasureReceiptRejectionStatus {
+    Rejected,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(untagged)]
+pub enum ErasureReceiptSubmitOutcome {
+    Accepted(ErasureReceiptAcceptance),
+    Rejected(ErasureReceiptRejection),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ErasureReceiptResource {
+    pub package: ErasureReceiptPackage,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureSubjectKind {
     Principal,
@@ -25,6 +151,7 @@ pub enum ErasureSubjectKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureStorageBoundary {
     CanonicalLogMinimization,
@@ -39,6 +166,7 @@ pub enum ErasureStorageBoundary {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureOutcome {
     Completed,
@@ -47,6 +175,7 @@ pub enum ErasureOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasedClass {
     CanonicalPayloadBytes,
@@ -61,12 +190,14 @@ pub enum ErasedClass {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasureSubject {
     pub kind: ErasureSubjectKind,
     pub subject_ref: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasureScope {
     pub storage_boundary: ErasureStorageBoundary,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -80,11 +211,13 @@ pub struct ErasureScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasureReceiptProof {
     pub verification_method: DidUrl,
     pub payload_digest: Hash,
     pub signature: String,
     #[serde(flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Object)))]
     pub extra: BTreeMap<String, Value>,
 }
 
@@ -93,6 +226,7 @@ pub struct ErasureReceiptProof {
 /// models/realm-and-space.md §2.6.2). Replaces the dropped point-dotted pseudo
 /// kind `ak.audit.erasure_receipt.fanout_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureFanoutStatus {
     /// Peers still within `erasure_propagation_window_ms` and not all
@@ -109,6 +243,7 @@ pub enum ErasureFanoutStatus {
 /// Per-peer fanout acknowledgement status (mirrors `erasure-receipt.schema.json`
 /// `peer_receipts[].status`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasurePeerStatus {
     /// Awaiting this peer's feedback receipt.
@@ -126,6 +261,7 @@ pub enum ErasurePeerStatus {
 /// (mirrors `erasure-receipt.schema.json` `peer_receipts[]`). One entry per peer
 /// Principal Server that ever held this Realm's content.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasurePeerReceipt {
     /// Peer Principal Server DID.
     pub peer: Did,
@@ -142,6 +278,7 @@ pub struct ErasurePeerReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasureReceipt {
     pub receipt_id: String,
     pub schema: String,
