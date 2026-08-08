@@ -1,9 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    BackupRotationBinding, CROSS_SIGNING_RECOVERY_STEP_ORDER,
-    ENROLLMENT_AUTHORITY_RECOVERY_STEP_ORDER, Error, Result, SECURITY_ROTATION_STEP_ORDER,
-    SecurityTransactionStep,
+    BackupRotationBinding, Error, ROOT_ANCHORED_RECOVERY_STEP_ORDER, Result,
+    SECURITY_ROTATION_STEP_ORDER, SecurityTransactionStep,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -88,8 +87,7 @@ fn step_name(step: SecurityTransactionStep) -> Result<String> {
 
 fn transaction_steps(kind: &str) -> Result<Vec<String>> {
     let steps: &[SecurityTransactionStep] = match kind {
-        "recovery_cross_signing" => &CROSS_SIGNING_RECOVERY_STEP_ORDER,
-        "recovery_enrollment_authority" => &ENROLLMENT_AUTHORITY_RECOVERY_STEP_ORDER,
+        "recovery_root_anchored" => &ROOT_ANCHORED_RECOVERY_STEP_ORDER,
         "security_rotation" => &SECURITY_ROTATION_STEP_ORDER,
         _ => {
             return Err(Error::Protocol(format!(
@@ -102,8 +100,7 @@ fn transaction_steps(kind: &str) -> Result<Vec<String>> {
 
 fn transaction_id(kind: &str) -> Result<String> {
     let suffix = match kind {
-        "recovery_cross_signing" => "000000000001",
-        "recovery_enrollment_authority" => "000000000002",
+        "recovery_root_anchored" => "000000000001",
         "security_rotation" => "000000000003",
         _ => {
             return Err(Error::Protocol(format!(
@@ -378,7 +375,7 @@ pub fn run_security_transaction_resilience_fixture(
     let kinds = required_string_array(fixture, "/fault_matrix/transaction_kinds")?;
     let positions = required_string_array(fixture, "/fault_matrix/fault_positions")?;
     let faults = required_string_array(fixture, "/fault_matrix/faults")?;
-    if kinds.len() != 3 || positions.len() != 3 || faults.len() != 7 {
+    if kinds != ["security_rotation"] || positions.len() != 3 || faults.len() != 7 {
         return Err(Error::Protocol(
             "security transaction resilience fault matrix cardinality changed".to_owned(),
         ));
@@ -407,7 +404,7 @@ mod tests {
         )
         .unwrap();
         let projections = run_security_transaction_resilience_fixture(&fixture).unwrap();
-        assert_eq!(projections.len(), 65);
+        assert_eq!(projections.len(), 23);
         assert_eq!(
             projections
                 .iter()

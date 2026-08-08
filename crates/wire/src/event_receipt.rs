@@ -15,14 +15,41 @@ use crate::wire_strings::NonEmptyString;
 use crate::{SchemaId, canonical};
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EventBatchReceiptScope {
+    PcrGenesis(PcrGenesisReceiptScope),
     DeviceReanchor(DeviceReanchorReceiptScope),
     Ordinary(EventBatchOrdinaryReceiptScope),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PcrGenesisReceiptScopeKind {
+    #[serde(rename = "pcr_genesis_unit")]
+    PcrGenesisUnit,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PcrGenesisReceiptScope {
+    pub kind: PcrGenesisReceiptScopeKind,
+    pub principal_id: Did,
+    pub realm_id: RealmId,
+    pub create_digest: Hash,
+    pub founding_authorize_digest: Hash,
+    pub accepted_device_id: crate::DeviceId,
+    pub device_key_digest: Hash,
+    pub hpke_key_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub audience: Did,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchOrdinaryReceiptScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -33,13 +60,15 @@ pub struct EventBatchOrdinaryReceiptScope {
     pub query_digest: Option<Hash>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeviceReanchorReceiptScopeKind {
     #[serde(rename = "device_reanchor_unit")]
     DeviceReanchorUnit,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorReceiptScope {
     pub kind: DeviceReanchorReceiptScopeKind,
@@ -51,7 +80,8 @@ pub struct DeviceReanchorReceiptScope {
     pub replacement_authorize_digest: Hash,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceiptFrontier {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -64,7 +94,8 @@ pub struct EventBatchReceiptFrontier {
     pub hlc: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceipt {
     pub schema: String,
@@ -78,6 +109,7 @@ pub struct EventBatchReceipt {
     pub proofs: Vec<Proof>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EventBatchReceiptEvent {
@@ -85,6 +117,7 @@ pub enum EventBatchReceiptEvent {
     Item(EventBatchReceiptItem),
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceiptItem {
@@ -192,8 +225,54 @@ impl EventBatchReceipt {
                     ));
                 }
             }
+            EventBatchReceiptScope::PcrGenesis(scope) => {
+                if self.events.len() != 2
+                    || self
+                        .events
+                        .iter()
+                        .any(|event| !matches!(event, EventBatchReceiptEvent::Item(_)))
+                {
+                    return Err(Error::Protocol(
+                        "PCR genesis receipt must contain exactly two typed event items".to_owned(),
+                    ));
+                }
+                let create = self.events.iter().find_map(|event| match event {
+                    EventBatchReceiptEvent::Item(item)
+                        if item.kind.as_str() == "ak.realm.create" =>
+                    {
+                        Some(item)
+                    }
+                    _ => None,
+                });
+                let authorize = self.events.iter().find_map(|event| match event {
+                    EventBatchReceiptEvent::Item(item)
+                        if item.kind.as_str() == "ak.device.authorize" =>
+                    {
+                        Some(item)
+                    }
+                    _ => None,
+                });
+                if create.map(|item| &item.event_digest) != Some(&scope.create_digest)
+                    || authorize.map(|item| &item.event_digest)
+                        != Some(&scope.founding_authorize_digest)
+                {
+                    return Err(Error::Protocol(
+                        "PCR genesis receipt event binding mismatch".to_owned(),
+                    ));
+                }
+            }
         }
         Ok(())
+    }
+
+    pub fn pcr_genesis_scope(&self) -> Result<&PcrGenesisReceiptScope> {
+        self.validate()?;
+        match &self.scope {
+            EventBatchReceiptScope::PcrGenesis(scope) => Ok(scope),
+            _ => Err(Error::Protocol(
+                "event batch receipt scope is not pcr_genesis_unit".to_owned(),
+            )),
+        }
     }
 }
 

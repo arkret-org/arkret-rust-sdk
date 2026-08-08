@@ -1315,10 +1315,10 @@
       "reason": "Each predicate comparison value is deliberately selected by the target cell schema."
     },
     {
-      "rust_field": "crates/wire/src/event_envelope.rs::DeviceAuthorizeEventPreimage.payload",
-      "spec_pointer": "event-envelope.schema.json#/$defs/device_authorize_event_preimage/properties/payload",
+      "rust_field": "crates/wire/src/event_envelope.rs::FederatedDeviceRecord.algorithms",
+      "spec_pointer": "keys-operations.schema.json#/$defs/query_device_record/properties/algorithms",
       "classification": "polymorphic_boundary",
-      "reason": "The proof-free Event preimage preserves the registered ak.device.authorize payload bytes in the wire crate; the typed payload contract is validated before enrollment without introducing a reverse crate dependency."
+      "reason": "Each algorithm id selects a value independently validated against the closed key_record schema before federation evidence is accepted."
     },
     {
       "rust_field": "crates/wire/src/event_envelope.rs::Event.external_ref",
@@ -1357,28 +1357,28 @@
       "reason": "RFC 9457 problem details explicitly permit extension members."
     },
     {
-      "rust_field": "crates/wire/src/recovery_authority.rs::AuthorizeRecoveryDeviceOutcome.authorized_event",
-      "spec_pointer": "recovery-authority.schema.json#/$defs/authorize_recovery_device_outcome/properties/authorized_event",
-      "classification": "polymorphic_boundary",
-      "reason": "The outcome carries a complete signed Event that is independently validated against its declared Event schema."
-    },
-    {
       "rust_field": "crates/wire/src/recovery_authority.rs::CanonicalPublicMaterial.value",
       "spec_pointer": "recovery-authority.schema.json#/$defs/canonical_public_material/properties/value",
       "classification": "polymorphic_boundary",
       "reason": "The declared canonical encoding and digest bind this intentionally open public-material object."
     },
     {
-      "rust_field": "crates/wire/src/recovery_authority.rs::PromoteRecoverySessionGrantOutcome.new_grant",
-      "spec_pointer": "recovery-authority.schema.json#/$defs/promote_recovery_session_grant_outcome/properties/new_grant",
+      "rust_field": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantOutcome.session_grant_outcome",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_outcome/properties/session_grant_outcome",
       "classification": "polymorphic_boundary",
-      "reason": "The opaque value is independently constrained by the referenced SessionGrantOutcome schema."
+      "reason": "The wire-layer value is independently decoded and validated as the referenced SessionGrantOutcome type."
     },
     {
-      "rust_field": "crates/wire/src/recovery_authority.rs::PromoteRecoverySessionGrantRequest.terminal_receipt",
-      "spec_pointer": "recovery-authority.schema.json#/$defs/promote_recovery_session_grant_request/properties/terminal_receipt",
+      "rust_field": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantRequest.initial_session",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request/properties/initial_session",
       "classification": "polymorphic_boundary",
-      "reason": "The opaque value is independently constrained by the referenced recovery receipt schema."
+      "reason": "The wire-layer value is independently decoded and validated as the referenced InitialSessionGrantRequest type."
+    },
+    {
+      "rust_field": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantRequest.terminal_receipt",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request/properties/terminal_receipt",
+      "classification": "polymorphic_boundary",
+      "reason": "The wire-layer value is independently decoded and validated as the referenced RecoveryReceipt type."
     },
     {
       "rust_field": "crates/wire/src/seal.rs::PayloadSignature.extra",

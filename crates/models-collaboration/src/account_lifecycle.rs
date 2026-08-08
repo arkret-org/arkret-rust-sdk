@@ -18,8 +18,9 @@ use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
     AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId, Did, DidUrl, Event,
-    EventId, EventInitialSubmission, Hash, NonEmptyString, PayloadProof, RealmId, ReasonCode,
-    ReceiptId, Result, ScopeRef, ServiceOperationId, SessionGrantId, canonical,
+    EventBatchReceipt, EventId, EventInitialSubmission, Hash, NonEmptyString, PayloadProof,
+    RealmId, ReasonCode, ReceiptId, Result, ScopeRef, ServiceOperationId, SessionGrantId,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -601,8 +602,33 @@ pub struct AccountRegisterRequestBody {
     pub policy_evidence: Option<AccountRegistrationPolicyEvidence>,
 }
 
+impl AccountRegisterRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.proof.is_some() && self.identity_creation.is_some() {
+            return Err(arkret_wire::Error::Protocol(
+                "account register proof and identity_creation are mutually exclusive".to_owned(),
+            ));
+        }
+        if let Some(identity_creation) = &self.identity_creation {
+            identity_creation.validate()?;
+            if identity_creation.control_proof.principal_id != self.principal_id
+                || self.device_id.as_ref().is_some_and(|device_id| {
+                    device_id != &identity_creation.initial_session.device_id
+                })
+            {
+                return Err(arkret_wire::Error::Protocol(
+                    "account register identity creation does not match principal or device"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountRegisterOutcome {
     pub principal_id: Did,
     pub state: AccountStatus,
@@ -625,6 +651,57 @@ pub struct AccountRegisterOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub binding_receipt: Option<AccountBindingReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub pcr_genesis_receipt: Option<EventBatchReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub session_grant_outcome: Option<crate::session_grant_bodies::SessionGrantOutcome>,
+}
+
+impl AccountRegisterOutcome {
+    pub fn validate_against_request(&self, request: &AccountRegisterRequestBody) -> Result<()> {
+        request.validate()?;
+        if self.principal_id != request.principal_id {
+            return Err(arkret_wire::Error::Protocol(
+                "account register outcome principal_id mismatch".to_owned(),
+            ));
+        }
+        if let Some(identity_creation) = &request.identity_creation {
+            let receipt = self.pcr_genesis_receipt.as_ref().ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "identity creation outcome omits pcr_genesis_receipt".to_owned(),
+                )
+            })?;
+            receipt.validate()?;
+            let receipt_scope = receipt.pcr_genesis_scope()?;
+            let grant = self.session_grant_outcome.as_ref().ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "identity creation outcome omits session_grant_outcome".to_owned(),
+                )
+            })?;
+            let initial = &identity_creation.initial_session;
+            if grant.principal_id != request.principal_id
+                || grant.device_id.as_ref() != Some(&initial.device_id)
+                || grant.session_public_key != initial.session_public_key
+                || grant.audience != initial.audience
+                || grant
+                    .granted_scope
+                    .iter()
+                    .any(|scope| !initial.requested_scope.contains(scope))
+                || receipt_scope.principal_id != request.principal_id
+                || receipt_scope.realm_id != identity_creation.control_proof.pcr_realm_id
+                || receipt_scope.accepted_device_id != initial.device_id
+                || receipt_scope.audience != identity_creation.control_proof.audience
+            {
+                return Err(arkret_wire::Error::Protocol(
+                    "initial session grant outcome does not match its registration request"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

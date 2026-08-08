@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-08.7;
-//! sha256=f5d6dfff1cbd749fe7c10db5b5ba67b014acd18d5411f2e2c5e248b553c49825 Entries: profile_ids=100
+//! Input: profiles/conformance-profiles.json; version=2026-08-09.2;
+//! sha256=a9aac6c8b32e3747c21613f0ea5a6882aa46d1f42179a37ea7486d49dba6344a Entries: profile_ids=99
 
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +38,6 @@ pub enum ProfileId {
     ConstraintVisibilityControlV1,
     CoreEventStoreV1,
     CrdtTextV1,
-    CrossSigningResetV1,
     DirectConversationRealmV1,
     DirectConversationRepairV1,
     DirectoryServiceV1,
@@ -142,7 +141,6 @@ impl ProfileId {
         Self::ConstraintVisibilityControlV1,
         Self::CoreEventStoreV1,
         Self::CrdtTextV1,
-        Self::CrossSigningResetV1,
         Self::DirectConversationRealmV1,
         Self::DirectConversationRepairV1,
         Self::DirectoryServiceV1,
@@ -251,7 +249,6 @@ impl ProfileId {
         "ak.profile.constraint.visibility_control.v1";
     pub const CORE_EVENT_STORE_V1: &'static str = "ak.profile.core_event_store.v1";
     pub const CRDT_TEXT_V1: &'static str = "ak.profile.crdt.text.v1";
-    pub const CROSS_SIGNING_RESET_V1: &'static str = "ak.profile.cross_signing.reset.v1";
     pub const DIRECT_CONVERSATION_REALM_V1: &'static str =
         "ak.profile.direct_conversation_realm.v1";
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
@@ -374,7 +371,6 @@ impl ProfileId {
             Self::ConstraintVisibilityControlV1 => Self::CONSTRAINT_VISIBILITY_CONTROL_V1,
             Self::CoreEventStoreV1 => Self::CORE_EVENT_STORE_V1,
             Self::CrdtTextV1 => Self::CRDT_TEXT_V1,
-            Self::CrossSigningResetV1 => Self::CROSS_SIGNING_RESET_V1,
             Self::DirectConversationRealmV1 => Self::DIRECT_CONVERSATION_REALM_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::DirectoryServiceV1 => Self::DIRECTORY_SERVICE_V1,
@@ -483,7 +479,6 @@ impl ProfileId {
             Self::CONSTRAINT_VISIBILITY_CONTROL_V1 => Some(Self::ConstraintVisibilityControlV1),
             Self::CORE_EVENT_STORE_V1 => Some(Self::CoreEventStoreV1),
             Self::CRDT_TEXT_V1 => Some(Self::CrdtTextV1),
-            Self::CROSS_SIGNING_RESET_V1 => Some(Self::CrossSigningResetV1),
             Self::DIRECT_CONVERSATION_REALM_V1 => Some(Self::DirectConversationRealmV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::DIRECTORY_SERVICE_V1 => Some(Self::DirectoryServiceV1),

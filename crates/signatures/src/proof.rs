@@ -320,10 +320,9 @@ pub fn validate_ed25519_detached_jws_shape(
 /// Unlike [`verify_ed25519_detached_jws_proof`] (which reconstructs a JWS
 /// signing input and a proof binding object), this is the bare primitive: the
 /// signature is computed directly over `message` bytes. It is the verification
-/// half used by the cross-signing chain check
-/// (`arkret_crypto::verify_device_cross_signing_chain`), where the message is a
-/// `ak.cross-signing-bind-v1` / `ak.device-trust-bind-v1` canonical input and
-/// the signature is base64url(-no-pad).
+/// half used by device proof-of-possession verification, where the message is
+/// the canonical, domain-separated device authorization input and the
+/// signature is base64url(-no-pad).
 ///
 /// Uses `ed25519-dalek` `verify_strict` (rejects malleable / non-canonical
 /// signatures). Returns `false` on any decode or verification failure — it

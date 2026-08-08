@@ -10,42 +10,7 @@ use serde_json::{Map, Value};
 
 pub const SESSION_GRANT_CREDENTIAL_KIND: &str = "ak.session.grant";
 pub const SESSION_GRANT_ISSUANCE_SCHEMA: &str = "ak.session_grant.issuance.v1";
-pub const DEVICE_BOOTSTRAP_FOUNDING_BATCH_DIGEST_LABEL: &str =
-    "ak.device-bootstrap.founding-batch.v1";
-
-/// Derive the v1 founding-batch digest from the Event IDs in bootstrap wire order.
-///
-/// Callers must pass `ak.realm.create` first and the founding
-/// `ak.device.authorize` second. The helper deliberately preserves order and
-/// hashes the Event ID strings themselves, not Event digests.
-pub fn founding_batch_digest(founding_event_ids: &[EventId]) -> Result<Hash> {
-    if founding_event_ids.len() != 2 || founding_event_ids[0] == founding_event_ids[1] {
-        return Err(Error::Protocol(
-            "founding batch digest requires exactly two distinct Event IDs in wire order"
-                .to_owned(),
-        ));
-    }
-    let canonical = arkret_canonical::canonical_json_bytes(&serde_json::json!({
-        "event_ids": founding_event_ids,
-    }))?;
-    Ok(Hash::new(arkret_canonical::sha256_digest_from_slices(&[
-        DEVICE_BOOTSTRAP_FOUNDING_BATCH_DIGEST_LABEL.as_bytes(),
-        b"\n",
-        &canonical,
-    ]))?)
-}
-
-/// Derive the public authorization digest for a raw Ed25519 device key.
-///
-/// The input is exactly the 32 decoded key bytes. Wire encodings such as
-/// multibase, Base64URL, JWK, or request DTO bytes are intentionally excluded.
-pub fn device_bootstrap_device_key_digest(raw_ed25519_public_key: [u8; 32]) -> Result<Hash> {
-    Ok(Hash::new(arkret_canonical::sha256_digest(
-        raw_ed25519_public_key,
-    ))?)
-}
-
-pub const RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES: [&str; 9] = [
+pub const RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES: [&str; 8] = [
     "ak.root.identity.recovery_policy.resource.get",
     "ak.root.identity.recovery_session.command.create",
     "ak.root.identity.recovery_session.resource.get",
@@ -53,7 +18,6 @@ pub const RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES: [&str; 9] = [
     "ak.self.security_transaction.command.create",
     "ak.self.security_transaction.resource.get",
     "ak.self.security_transaction.command.continue",
-    "ak.self.recovery_authority_ticket.command.issue",
     "ak.self.keys.backups.command.unlock",
 ];
 
@@ -75,7 +39,6 @@ pub enum SessionGrantProofKind {
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantCredentialClass {
     Standard,
-    DeviceBootstrap,
     RecoveryRestricted,
 }
 
@@ -92,142 +55,6 @@ pub enum SessionGrantHolderBinding {
         agent_key_authorization_ref: EventId,
         verification_method: DidUrl,
     },
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
-pub enum SessionGrantBootstrapBinding {
-    Founding {
-        credential_kind: String,
-        principal_id: Did,
-        device_id: DeviceId,
-        device_key_digest: Hash,
-        transaction_id: String,
-        holder_jkt: String,
-        canonical_request_digest: Hash,
-        founding_batch_digest: Hash,
-        founding_event_ids: Vec<EventId>,
-        allowed_operation_ids: Vec<String>,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        credential_expires_at: DateTime<Utc>,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        bootstrap_transaction_expires_at: DateTime<Utc>,
-    },
-    SiblingPairing {
-        credential_kind: String,
-        principal_id: Did,
-        device_id: DeviceId,
-        device_key_digest: Hash,
-        transaction_id: String,
-        holder_jkt: String,
-        canonical_request_digest: Hash,
-        source_device_id: DeviceId,
-        target_device_id: DeviceId,
-        verification_content_kinds: Vec<String>,
-        allowed_operation_ids: Vec<String>,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        credential_expires_at: DateTime<Utc>,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        bootstrap_transaction_expires_at: DateTime<Utc>,
-    },
-}
-
-impl SessionGrantBootstrapBinding {
-    fn validate(&self) -> Result<()> {
-        let (
-            credential_kind,
-            transaction_id,
-            allowed_operation_ids,
-            credential_expires_at,
-            bootstrap_transaction_expires_at,
-        ) = match self {
-            Self::Founding {
-                credential_kind,
-                transaction_id,
-                founding_batch_digest: declared_founding_batch_digest,
-                founding_event_ids,
-                allowed_operation_ids,
-                credential_expires_at,
-                bootstrap_transaction_expires_at,
-                ..
-            } => {
-                if founding_event_ids.len() != 2
-                    || founding_event_ids
-                        .iter()
-                        .collect::<std::collections::BTreeSet<_>>()
-                        .len()
-                        != founding_event_ids.len()
-                {
-                    return Err(Error::Protocol(
-                        "device bootstrap founding_event_ids must contain exactly two unique Event IDs in wire order"
-                            .to_owned(),
-                    ));
-                }
-                if founding_batch_digest(founding_event_ids)? != *declared_founding_batch_digest {
-                    return Err(Error::Protocol(
-                        "device bootstrap founding_batch_digest does not match founding_event_ids"
-                            .to_owned(),
-                    ));
-                }
-                (
-                    credential_kind,
-                    transaction_id,
-                    allowed_operation_ids,
-                    credential_expires_at,
-                    bootstrap_transaction_expires_at,
-                )
-            }
-            Self::SiblingPairing {
-                credential_kind,
-                transaction_id,
-                verification_content_kinds,
-                allowed_operation_ids,
-                credential_expires_at,
-                bootstrap_transaction_expires_at,
-                ..
-            } => {
-                if verification_content_kinds.is_empty()
-                    || verification_content_kinds.iter().any(|kind| {
-                        !kind.starts_with("ak.key.verification.") || kind.trim().is_empty()
-                    })
-                {
-                    return Err(Error::Protocol(
-                        "device bootstrap verification_content_kinds are invalid".to_owned(),
-                    ));
-                }
-                (
-                    credential_kind,
-                    transaction_id,
-                    allowed_operation_ids,
-                    credential_expires_at,
-                    bootstrap_transaction_expires_at,
-                )
-            }
-        };
-        if credential_kind != "device_bootstrap" {
-            return Err(Error::Protocol(
-                "bootstrap_binding credential_kind must be device_bootstrap".to_owned(),
-            ));
-        }
-        let holder_jkt = match self {
-            Self::Founding { holder_jkt, .. } | Self::SiblingPairing { holder_jkt, .. } => {
-                holder_jkt
-            }
-        };
-        validate_jwk_thumbprint(holder_jkt, "bootstrap_binding.holder_jkt")?;
-        if transaction_id.trim().is_empty() || allowed_operation_ids.is_empty() {
-            return Err(Error::Protocol(
-                "device bootstrap transaction and operation allowlist must be non-empty".to_owned(),
-            ));
-        }
-        if credential_expires_at > bootstrap_transaction_expires_at {
-            return Err(Error::Protocol(
-                "device bootstrap credential cannot outlive its transaction".to_owned(),
-            ));
-        }
-        Ok(())
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -330,6 +157,37 @@ impl CanonicalSessionPublicJwk {
 
     pub fn into_string(self) -> String {
         self.0
+    }
+
+    /// RFC 7638 SHA-256 thumbprint of the required public-key members.
+    pub fn thumbprint_sha256(&self) -> Result<String> {
+        let value: Value = serde_json::from_str(&self.0)?;
+        let object = value
+            .as_object()
+            .expect("validated canonical session JWK is an object");
+        let members = match object["kty"].as_str().expect("validated kty") {
+            "OKP" => serde_json::json!({
+                "crv": object["crv"],
+                "kty": object["kty"],
+                "x": object["x"],
+            }),
+            "EC" => serde_json::json!({
+                "crv": object["crv"],
+                "kty": object["kty"],
+                "x": object["x"],
+                "y": object["y"],
+            }),
+            "RSA" => serde_json::json!({
+                "e": object["e"],
+                "kty": object["kty"],
+                "n": object["n"],
+            }),
+            _ => unreachable!("validated session JWK has a supported kty"),
+        };
+        let bytes = arkret_canonical::canonical_json_bytes(&members)?;
+        Ok(arkret_canonical::base64url_encode(
+            <sha2::Sha256 as sha2::Digest>::digest(bytes),
+        ))
     }
 }
 
@@ -523,12 +381,6 @@ pub struct SessionGrantIssuancePreimage {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_optional_non_null"
     )]
-    pub bootstrap_binding: Option<SessionGrantBootstrapBinding>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
-    )]
     pub recovery_binding: Option<SessionGrantRecoveryBinding>,
     #[serde(
         default,
@@ -578,7 +430,6 @@ impl SessionGrantIssuancePreimage {
             &self.cnf,
             self.credential_class,
             self.holder_binding.as_ref(),
-            self.bootstrap_binding.as_ref(),
             self.recovery_binding.as_ref(),
             self.device_binding.as_ref(),
             self.scope_details.as_ref(),
@@ -612,12 +463,6 @@ pub struct SignedSessionGrantClaims {
         deserialize_with = "deserialize_optional_non_null"
     )]
     pub holder_binding: Option<SessionGrantHolderBinding>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
-    )]
-    pub bootstrap_binding: Option<SessionGrantBootstrapBinding>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -660,7 +505,6 @@ impl SignedSessionGrantClaims {
             cnf: self.cnf.clone(),
             credential_class: self.credential_class,
             holder_binding: self.holder_binding.clone(),
-            bootstrap_binding: self.bootstrap_binding.clone(),
             recovery_binding: self.recovery_binding.clone(),
             device_binding: self.device_binding.clone(),
             proof_kind: self.proof_kind,
@@ -707,7 +551,6 @@ fn validate_issuance_fields(
     cnf: &SessionGrantCnf,
     credential_class: SessionGrantCredentialClass,
     holder_binding: Option<&SessionGrantHolderBinding>,
-    bootstrap_binding: Option<&SessionGrantBootstrapBinding>,
     recovery_binding: Option<&SessionGrantRecoveryBinding>,
     device_binding: Option<&SessionGrantDeviceBinding>,
     scope_details: Option<&Value>,
@@ -743,30 +586,13 @@ fn validate_issuance_fields(
             "session grant scope_details must be omitted rather than null".to_owned(),
         ));
     }
-    match (
-        credential_class,
-        holder_binding,
-        bootstrap_binding,
-        recovery_binding,
-    ) {
-        (SessionGrantCredentialClass::RecoveryRestricted, None, None, Some(binding))
+    match (credential_class, holder_binding, recovery_binding) {
+        (SessionGrantCredentialClass::RecoveryRestricted, None, Some(binding))
             if binding.policy_version > 0
                 && scopes.iter().all(|scope| {
                     RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES.contains(&scope.as_str())
                 }) => {}
-        (SessionGrantCredentialClass::DeviceBootstrap, None, Some(binding), None) => {
-            binding.validate()?;
-            let holder_jkt = match binding {
-                SessionGrantBootstrapBinding::Founding { holder_jkt, .. }
-                | SessionGrantBootstrapBinding::SiblingPairing { holder_jkt, .. } => holder_jkt,
-            };
-            if holder_jkt != &cnf.jkt {
-                return Err(Error::Protocol(
-                    "bootstrap_binding.holder_jkt must equal session grant cnf.jkt".to_owned(),
-                ));
-            }
-        }
-        (SessionGrantCredentialClass::Standard, Some(_), None, None) => {}
+        (SessionGrantCredentialClass::Standard, Some(_), None) => {}
         _ => {
             return Err(Error::Protocol(
                 "session grant credential class and typed bindings disagree".to_owned(),
@@ -795,126 +621,6 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::*;
-
-    fn founding_event_ids() -> Vec<EventId> {
-        vec![
-            EventId::new("ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N").unwrap(),
-            EventId::new("ak:event:AfG0ACaqIny0W-P5GpiAenooiQrslWpMsBXE3wFeFB2D").unwrap(),
-        ]
-    }
-
-    fn founding_bootstrap_binding() -> SessionGrantBootstrapBinding {
-        let founding_event_ids = founding_event_ids();
-        SessionGrantBootstrapBinding::Founding {
-            credential_kind: "device_bootstrap".to_owned(),
-            principal_id: Did::new("did:web:alice.example").unwrap(),
-            device_id: DeviceId::new("ak:device:019a0000-0000-7000-8000-000000000001").unwrap(),
-            device_key_digest: device_bootstrap_device_key_digest([0_u8; 32]).unwrap(),
-            transaction_id: "bootstrap-transaction-1".to_owned(),
-            holder_jkt: "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k".to_owned(),
-            canonical_request_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
-            founding_batch_digest: founding_batch_digest(&founding_event_ids).unwrap(),
-            founding_event_ids,
-            allowed_operation_ids: vec![
-                "ak.gate.account.command.enroll_device".to_owned(),
-                "ak.gate.account.command.cancel_device_bootstrap".to_owned(),
-                "ak.self.events.command.submit".to_owned(),
-                "ak.self.events.read.resolve".to_owned(),
-            ],
-            credential_expires_at: "2026-08-08T00:10:00.000Z".parse().unwrap(),
-            bootstrap_transaction_expires_at: "2026-08-08T00:15:00.000Z".parse().unwrap(),
-        }
-    }
-
-    #[test]
-    fn founding_batch_and_device_key_digest_known_answers() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/device-bootstrap-fixture.json")
-                .unwrap();
-        let event_ids: Vec<EventId> =
-            serde_json::from_value(fixture["founding_batch"]["event_ids"].clone()).unwrap();
-        assert_eq!(
-            founding_batch_digest(&event_ids).unwrap().as_str(),
-            fixture["founding_batch"]["expected_digest"]
-                .as_str()
-                .unwrap()
-        );
-        let mut reversed = event_ids.clone();
-        reversed.reverse();
-        assert_ne!(
-            founding_batch_digest(&event_ids).unwrap(),
-            founding_batch_digest(&reversed).unwrap(),
-            "wire order is identity material"
-        );
-
-        let raw_hex = fixture["device_key"]["raw_public_key_hex"]
-            .as_str()
-            .unwrap();
-        let raw: [u8; 32] = std::array::from_fn(|index| {
-            u8::from_str_radix(&raw_hex[index * 2..index * 2 + 2], 16).unwrap()
-        });
-        let digest = device_bootstrap_device_key_digest(raw).unwrap();
-        assert_eq!(
-            digest.as_str(),
-            fixture["device_key"]["expected_digest"].as_str().unwrap()
-        );
-        assert_ne!(
-            digest.as_str(),
-            arkret_canonical::sha256_digest(
-                fixture["device_key"]["public_key_multibase"]
-                    .as_str()
-                    .unwrap()
-            )
-        );
-        assert_ne!(
-            digest.as_str(),
-            arkret_canonical::sha256_digest(
-                fixture["device_key"]["public_key_base64url"]
-                    .as_str()
-                    .unwrap()
-            )
-        );
-        assert!(founding_batch_digest(&event_ids[..1]).is_err());
-    }
-
-    #[test]
-    fn founding_binding_recomputes_batch_digest() {
-        let binding = founding_bootstrap_binding();
-        binding.validate().unwrap();
-
-        let mut tampered = binding;
-        let SessionGrantBootstrapBinding::Founding {
-            founding_batch_digest,
-            ..
-        } = &mut tampered
-        else {
-            unreachable!()
-        };
-        *founding_batch_digest = Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
-        assert!(tampered.validate().is_err());
-    }
-
-    #[test]
-    fn device_bootstrap_holder_jkt_is_closed_and_matches_cnf() {
-        let binding = founding_bootstrap_binding();
-        binding.validate().unwrap();
-
-        let mut invalid = binding.clone();
-        let SessionGrantBootstrapBinding::Founding { holder_jkt, .. } = &mut invalid else {
-            unreachable!()
-        };
-        *holder_jkt = format!("sha256:{}", "1".repeat(64));
-        assert!(invalid.validate().is_err());
-
-        let mut claims = claims();
-        claims.credential_class = SessionGrantCredentialClass::DeviceBootstrap;
-        claims.holder_binding = None;
-        claims.bootstrap_binding = Some(binding);
-        assert!(claims.validate().is_err(), "mismatched cnf.jkt must fail");
-        claims.cnf.jkt = "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k".to_owned();
-        claims.grant_id = claims.recomputed_grant_id().unwrap();
-        claims.validate().unwrap();
-    }
 
     fn materialized_fixture_vector(fixture: &Value, name: &str) -> Value {
         let vectors = fixture["accepted_vectors"].as_array().unwrap();
@@ -975,7 +681,6 @@ mod tests {
             holder_binding: Some(SessionGrantHolderBinding::HumanDevice {
                 device_binding: "ak:device:019a0000-0000-7000-8000-000000000001".to_owned(),
             }),
-            bootstrap_binding: None,
             recovery_binding: None,
             device_binding: None,
             proof_kind: Some(SessionGrantProofKind::DidBoundSignature),
@@ -1098,10 +803,6 @@ mod tests {
                     value["holder_binding"]["device_binding"] =
                         Value::String("ak:device:019a0000-0000-7000-8000-000000000099".to_owned());
                 }
-                "bootstrap_binding.transaction_id" => {
-                    value["bootstrap_binding"]["transaction_id"] =
-                        Value::String("bootstrap-transaction-tampered".to_owned());
-                }
                 "session_public_key_member_order_or_whitespace" => {
                     value["session_public_key"] = Value::String(
                         r#"{ "x":"11qYAYdk9Jc1iP4Z9Qv7XKpM6Jw8LmN0RsTuVwXyZaB", "kty":"OKP", "crv":"Ed25519" }"#
@@ -1123,10 +824,7 @@ mod tests {
             let tampered: SignedSessionGrantClaims = serde_json::from_value(value).unwrap();
             assert!(tampered.validate().is_err(), "{name} must fail validation");
         }
-        for required in [
-            "holder_binding_changed_without_jti_change",
-            "bootstrap_binding_changed_without_jti_change",
-        ] {
+        for required in ["holder_binding_changed_without_jti_change"] {
             assert!(
                 covered.contains(required),
                 "missing fixture coverage for {required}"
@@ -1163,10 +861,7 @@ mod tests {
             let invalid: SignedSessionGrantClaims = serde_json::from_value(value).unwrap();
             assert!(invalid.validate().is_err(), "{name} must fail validation");
         }
-        for required in [
-            "standard_with_recovery_binding",
-            "device_bootstrap_with_recovery_binding",
-        ] {
+        for required in ["standard_with_recovery_binding"] {
             assert!(
                 covered.contains(required),
                 "missing fixture coverage for {required}"

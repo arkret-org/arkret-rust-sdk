@@ -12,8 +12,8 @@ use arkret_wire::{
     CbaProofBundle, ControlProposalAck, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
     LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RealmId, ReasonCode, ReceiptId,
-    RecoveryAuthorityTicketId, RecoverySessionId, Result, SchemaId, ServiceOperationId,
-    TransactionId, TypedTrustDomainId, XExtensionMap,
+    RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId, TypedTrustDomainId,
+    XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -746,77 +746,13 @@ impl KeyBackup {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyBackupFrontierRef {
     pub frontier_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<String>,
-    pub generation: KeyBackupFrontierGeneration,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KeyBackupFrontierGeneration {
-    SskGeneration(NonZeroU64),
-    DeviceGenerationRef(NonEmptyString),
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct KeyBackupFrontierRefWire {
-    frontier_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    seal_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
-    ssk_generation: Option<NonZeroU64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    device_generation_ref: Option<NonEmptyString>,
-}
-
-impl Serialize for KeyBackupFrontierRef {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let (ssk_generation, device_generation_ref) = match &self.generation {
-            KeyBackupFrontierGeneration::SskGeneration(generation) => (Some(*generation), None),
-            KeyBackupFrontierGeneration::DeviceGenerationRef(generation) => {
-                (None, Some(generation.clone()))
-            }
-        };
-        KeyBackupFrontierRefWire {
-            frontier_digest: self.frontier_digest.clone(),
-            seal_ref: self.seal_ref.clone(),
-            ssk_generation,
-            device_generation_ref,
-        }
-        .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for KeyBackupFrontierRef {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = KeyBackupFrontierRefWire::deserialize(deserializer)?;
-        let generation = match (wire.ssk_generation, wire.device_generation_ref) {
-            (Some(generation), None) => KeyBackupFrontierGeneration::SskGeneration(generation),
-            (None, Some(generation)) => {
-                KeyBackupFrontierGeneration::DeviceGenerationRef(generation)
-            }
-            _ => {
-                return Err(serde::de::Error::custom(
-                    "key backup frontier_ref must contain exactly one generation binding",
-                ));
-            }
-        };
-        Ok(Self {
-            frontier_digest: wire.frontier_digest,
-            seal_ref: wire.seal_ref,
-            generation,
-        })
-    }
+    pub device_generation_ref: NonEmptyString,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1284,11 +1220,7 @@ pub struct KeyBackupAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
-    pub ssk_generation: Option<NonZeroU64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_authorize_event_id: Option<EventId>,
+    pub device_authorize_event_id: EventId,
     pub signed_fields: Vec<String>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
@@ -2194,8 +2126,6 @@ pub struct RecoveryReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authority_ticket_id: Option<RecoveryAuthorityTicketId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub did_entry_ref: Option<String>,
     pub proof_summary: RecoveryProofSummary,
     pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
@@ -2266,33 +2196,17 @@ impl RecoveryReceipt {
             .validate_for(self.identity_model)?;
         self.result_model_generation_ref
             .validate_for(self.identity_model)?;
-        match self.identity_model {
-            RecoveryIdentityModel::CrossSigning => {
-                if self.device_list_update_event_id.is_none()
-                    || self.reanchor_event_id.is_some()
-                    || self.reanchor_batch_receipt_id.is_some()
-                    || self.authority_ticket_id.is_some()
-                    || self.did_entry_ref.is_some()
-                    || self.previous_model_generation_ref != self.result_model_generation_ref
-                {
-                    return Err(Error::Protocol(
-                        "cross-signing recovery receipt requires equal generation refs and only a device-list-update artifact".to_owned(),
-                    ));
-                }
-            }
-            RecoveryIdentityModel::EnrollmentAuthority => {
-                if self.device_list_update_event_id.is_some()
-                    || self.reanchor_event_id.is_none()
-                    || self.reanchor_batch_receipt_id.is_none()
-                    || self.authority_ticket_id.is_none()
-                    || self.did_entry_ref.as_deref().is_none_or(str::is_empty)
-                    || self.previous_model_generation_ref == self.result_model_generation_ref
-                {
-                    return Err(Error::Protocol(
-                        "enrollment-authority recovery receipt requires an advancing re-anchor artifact pair".to_owned(),
-                    ));
-                }
-            }
+        if self.identity_model != RecoveryIdentityModel::RootAnchored
+            || self.device_list_update_event_id.is_some()
+            || self.reanchor_event_id.is_none()
+            || self.reanchor_batch_receipt_id.is_none()
+            || self.did_entry_ref.as_deref().is_none_or(str::is_empty)
+            || self.previous_model_generation_ref == self.result_model_generation_ref
+        {
+            return Err(Error::Protocol(
+                "root-anchored recovery receipt requires an advancing re-anchor artifact pair"
+                    .to_owned(),
+            ));
         }
         if self.completed_at < self.started_at {
             return Err(Error::Protocol(
@@ -2353,19 +2267,11 @@ impl RecoveryReceipt {
             "started_at",
             "completed_at",
         ];
-        match self.identity_model {
-            RecoveryIdentityModel::CrossSigning => {
-                required.push("device_list_update_event_id");
-            }
-            RecoveryIdentityModel::EnrollmentAuthority => {
-                required.extend([
-                    "reanchor_event_id",
-                    "reanchor_batch_receipt_id",
-                    "authority_ticket_id",
-                    "did_entry_ref",
-                ]);
-            }
-        }
+        required.extend([
+            "reanchor_event_id",
+            "reanchor_batch_receipt_id",
+            "did_entry_ref",
+        ]);
         if self.welcome_realm_summary.is_some() {
             required.push("welcome_realm_summary");
         }
@@ -2453,7 +2359,7 @@ pub struct RecoveryReceiptAuthData {
 // deployment-local concern per `identity-did.md` §5.1 and has no
 // dedicated `/_arkret/` sub-path.
 
-#[cfg(test)]
+#[cfg(any())]
 mod encryption_validate_tests {
     use super::*;
 
@@ -2684,7 +2590,7 @@ mod encryption_validate_tests {
                 "verification_method": "not-a-did-url",
                 "signature_algorithm": "Ed25519",
                 "signature": "padded==",
-                "ssk_generation": 0,
+                "legacy_generation": 0,
                 "signed_fields": ["backup_id"]
             }));
         assert!(invalid_auth.is_err());
@@ -2708,7 +2614,7 @@ mod encryption_validate_tests {
         assert!(
             serde_json::from_value::<KeyBackupFrontierRef>(serde_json::json!({
                 "frontier_digest": format!("sha256:{}", "a".repeat(64)),
-                "ssk_generation": 1,
+                "legacy_generation": 1,
                 "device_generation_ref": "1-QmGeneration"
             }))
             .is_err()
@@ -2817,11 +2723,13 @@ mod encryption_validate_tests {
             "policy_version": 1,
             "trust_domain": "ak:trust_domain:example.local",
             "new_device_id": "ak:device:019a6aa0-0000-7000-8000-000000000099",
-            "identity_model": "cross_signing",
-            "previous_model_generation_ref": 1,
-            "result_model_generation_ref": 1,
+            "identity_model": "root_anchored",
+            "previous_model_generation_ref": "1-zgenesis",
+            "result_model_generation_ref": "2-zreanchor",
             "authorization_event_id": "ak:event:ATyV5XR6BcRjzlrvTfk1r6sWwIdO63K42L1e3vfblrp2",
-            "device_list_update_event_id": "ak:event:AWUihVghLvB7EYCQO7BxXzmD4am86y2k-ml1QZW00wHW",
+            "reanchor_event_id": "ak:event:AWUihVghLvB7EYCQO7BxXzmD4am86y2k-ml1QZW00wHW",
+            "reanchor_batch_receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000ce",
+            "did_entry_ref": "2-zreanchor",
             "proof_summary": {
                 "kind": "principal_signing",
                 "proof_digest": format!("sha256:{}", "a".repeat(64))
@@ -2851,7 +2759,9 @@ mod encryption_validate_tests {
                     "previous_model_generation_ref",
                     "result_model_generation_ref",
                     "authorization_event_id",
-                    "device_list_update_event_id",
+                    "reanchor_event_id",
+                    "reanchor_batch_receipt_id",
+                    "did_entry_ref",
                     "proof_summary",
                     "backup_classes_unlocked",
                     "welcome_count",

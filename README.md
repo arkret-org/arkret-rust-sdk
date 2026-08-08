@@ -116,8 +116,8 @@ Headline additions:
 - **Federation trust-domain header constants**: `Source-Trust-Domain` /
   `Destination-Trust-Domain` (entered into the HTTP-message-signature
   transcript); canonical JSON bodies use the single RFC 9530 `Content-Digest`.
-- **CAS upgrade**: `CrossSigningPublishPayload` gains required
-  `expected_previous_generation`; `compute_audit_policy_version_digest`
+- **CAS upgrade**: device-generation transitions require the current accepted
+  generation; `compute_audit_policy_version_digest`
   takes 4 args (`realm_id, trust_domain, audit_disclosure,
   audit_assurance`).
 - **`ak.call.signal` (Round 4 wire revision)**: 13-value `signal_kind`

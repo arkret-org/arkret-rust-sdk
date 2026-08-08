@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-08.18;
-//! sha256=319acd81d62378f952a5a7a22394dbf953b409b5191f9a349f26c6d96c85eb32 Entries: schema_ids=185,
-//! active=185
+//! Input: registry/schema-registry.json; version=2026-08-09.2;
+//! sha256=dc2307c8baf6c6deea98b4f19e1e982f7004850d19519a6d9db8b3dcfa7374b7 Entries: schema_ids=182,
+//! active=182
 
 use serde::{Deserialize, Serialize};
 
@@ -64,8 +64,6 @@ pub enum SchemaId {
     ContactScopeUpdateV1,
     ContentBlockPollV1,
     ControllerAccountGateAttestationV1,
-    CrossSigningPublishV1,
-    CrossSigningResetV1,
     CursorV1,
     DeliveryBindingStaleV1,
     DeviceMessageV1,
@@ -149,7 +147,6 @@ pub enum SchemaId {
     RealmPolicyServerOperationsV1,
     RealmProfileV1,
     RealmReadOperationsV1,
-    RecoveryAuthorityTicketV1,
     RecoveryCompletionAttestationV1,
     RecoveryPolicyV1,
     RecoveryReceiptV1,
@@ -253,8 +250,6 @@ impl SchemaId {
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
-        Self::CrossSigningPublishV1,
-        Self::CrossSigningResetV1,
         Self::CursorV1,
         Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
@@ -338,7 +333,6 @@ impl SchemaId {
         Self::RealmPolicyServerOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
-        Self::RecoveryAuthorityTicketV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
@@ -442,8 +436,6 @@ impl SchemaId {
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
-        Self::CrossSigningPublishV1,
-        Self::CrossSigningResetV1,
         Self::CursorV1,
         Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
@@ -527,7 +519,6 @@ impl SchemaId {
         Self::RealmPolicyServerOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
-        Self::RecoveryAuthorityTicketV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
@@ -735,12 +726,6 @@ impl SchemaId {
     /// never carries service-local account identity or a raw account cell.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
         "ak.schema.controller_account_gate_attestation.v1";
-    /// Wire payload schema for ak.cross_signing.publish — establishes the PSK→{SSK, USK} binding on
-    /// the principal control stream. See device-lifecycle.md §5.1.
-    pub const CROSS_SIGNING_PUBLISH_V1: &'static str = "ak.schema.cross_signing_publish.v1";
-    /// Wire payload schema for ak.cross_signing.reset — retires the current (SSK, USK) generation
-    /// under one of four kinds of high-risk proof. See device-lifecycle.md §14.1.
-    pub const CROSS_SIGNING_RESET_V1: &'static str = "ak.schema.cross_signing_reset.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
     /// Canonical response body for the delivery_binding_stale federation signal (member
     /// delivery-binding rebind handover): new_recipient_service_id, handover_frontier, and the
@@ -756,8 +741,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for the server-mediated device-pairing short-link handoff
     /// (stage / resolve / status). See device-lifecycle.md §2.1.1.
     pub const DEVICE_PAIRING_OPERATIONS_V1: &'static str = "ak.schema.device_pairing_operations.v1";
-    /// Closed B-model recovery re-anchor payload binding one verified DID version, the complete
-    /// pre-fence Seal frontier, and the exact replacement device authorization event id/digest.
+    /// Closed root-anchored recovery re-entry payload binding one verified DID version, the
+    /// complete pre-fence Seal frontier, and the exact replacement device authorization event
+    /// id/digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
     /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
     /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),
@@ -801,10 +787,9 @@ impl SchemaId {
     pub const EVENTS_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.events_subscribe_frame.v1";
     /// Declarative extension loading and conformance manifest.
     pub const EXTENSION_MANIFEST_V1: &'static str = "ak.schema.extension_manifest.v1";
-    /// Portable service-attested device authorization evidence reused by peer Event, contact fact,
-    /// and KeyPackage claim transports. The original ak.device.authorize Event anchors the key in
-    /// the DID-designated enrollment authority; the source Principal Server attests current
-    /// lifecycle freshness.
+    /// Portable PCR-root-anchored device authorization evidence reused by peer Event, contact fact,
+    /// and KeyPackage claim transports. DID history supplies only the identity root; accepted PCR
+    /// Events and Seal evidence establish device authority and freshness.
     pub const FEDERATED_DEVICE_SIGNING_KEY_EVIDENCE_V1: &'static str =
         "ak.schema.federated_device_signing_key_evidence.v1";
     /// Encrypted account-data plaintext shape and to-device key message content for
@@ -905,9 +890,9 @@ impl SchemaId {
     /// Signed online invite locator asserting subject_id and recipient_service_id for private
     /// invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
-    /// Closed wire carriers scoped to a single principal: device bootstrap, participation
-    /// replacement, history ingress contracts, KeyPackage terminal handling, Sidecar staging and
-    /// the shared identifier, signature and receipt primitives those carriers reuse.
+    /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
+    /// history ingress contracts, KeyPackage terminal handling, Sidecar staging and shared
+    /// primitives.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
     /// Accepted-at Principal Server binding snapshot and signed service-cutover continuity chain
     pub const PRINCIPAL_SERVICE_BINDING_V1: &'static str = "ak.schema.principal_service_binding.v1";
@@ -954,17 +939,13 @@ impl SchemaId {
     /// operations (ak.self.realm.*); see zh/models/realm-and-space.md and
     /// zh/governance/content-moderation.md.
     pub const REALM_READ_OPERATIONS_V1: &'static str = "ak.schema.realm_read_operations.v1";
-    /// Transaction-bound recovery authority ticket plus ticket issuance, recovery device
-    /// authorization and recovery grant promotion DTOs.
-    pub const RECOVERY_AUTHORITY_TICKET_V1: &'static str = "ak.schema.recovery_authority_ticket.v1";
     /// Coordinator-signed proof of a durably completed RecoveryTransaction for recovery grant
     /// promotion.
     pub const RECOVERY_COMPLETION_ATTESTATION_V1: &'static str =
         "ak.schema.recovery_completion_attestation.v1";
-    /// Wire payload schema for the principal recovery policy. Bound to the Principal Control Realm
-    /// via signed publish / rotate / share-revoke; receivers MUST reject recovery / rotate /
-    /// ak.device.authorize and cross-signing-reset evidence whose proof family is not allowed by
-    /// the currently accepted recovery policy. See identity/key-management.md §3.3 / §7 / §8.
+    /// Wire payload schema for the principal recovery policy. Bound to the Principal Control Realm;
+    /// receivers reject recovery and device authorization evidence whose proof family is not
+    /// allowed by current accepted policy.
     pub const RECOVERY_POLICY_V1: &'static str = "ak.schema.recovery_policy.v1";
     /// Signed completion receipt for a principal recovery strand. Bound to recovery_session_id used
     /// by every proof, backup unlock, and MLS Welcome replay during the recovery. See
@@ -1135,8 +1116,6 @@ impl SchemaId {
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
             }
-            Self::CrossSigningPublishV1 => Self::CROSS_SIGNING_PUBLISH_V1,
-            Self::CrossSigningResetV1 => Self::CROSS_SIGNING_RESET_V1,
             Self::CursorV1 => Self::CURSOR_V1,
             Self::DeliveryBindingStaleV1 => Self::DELIVERY_BINDING_STALE_V1,
             Self::DeviceMessageV1 => Self::DEVICE_MESSAGE_V1,
@@ -1222,7 +1201,6 @@ impl SchemaId {
             Self::RealmPolicyServerOperationsV1 => Self::REALM_POLICY_SERVER_OPERATIONS_V1,
             Self::RealmProfileV1 => Self::REALM_PROFILE_V1,
             Self::RealmReadOperationsV1 => Self::REALM_READ_OPERATIONS_V1,
-            Self::RecoveryAuthorityTicketV1 => Self::RECOVERY_AUTHORITY_TICKET_V1,
             Self::RecoveryCompletionAttestationV1 => Self::RECOVERY_COMPLETION_ATTESTATION_V1,
             Self::RecoveryPolicyV1 => Self::RECOVERY_POLICY_V1,
             Self::RecoveryReceiptV1 => Self::RECOVERY_RECEIPT_V1,
@@ -1345,8 +1323,6 @@ impl SchemaId {
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ControllerAccountGateAttestationV1 => "schemas/agent-signer-evidence.schema.json",
-            Self::CrossSigningPublishV1 => "schemas/cross-signing-publish.schema.json",
-            Self::CrossSigningResetV1 => "schemas/cross-signing-reset.schema.json",
             Self::CursorV1 => "schemas/cursor.schema.json",
             Self::DeliveryBindingStaleV1 => "schemas/delivery-binding-stale.schema.json",
             Self::DeviceMessageV1 => "schemas/device-message.schema.json",
@@ -1444,7 +1420,6 @@ impl SchemaId {
             }
             Self::RealmProfileV1 => "schemas/realm-profile.schema.json",
             Self::RealmReadOperationsV1 => "schemas/realm-read-operations.schema.json",
-            Self::RecoveryAuthorityTicketV1 => "schemas/recovery-authority.schema.json",
             Self::RecoveryCompletionAttestationV1 => "schemas/recovery-authority.schema.json",
             Self::RecoveryPolicyV1 => "schemas/recovery-policy.schema.json",
             Self::RecoveryReceiptV1 => "schemas/recovery-receipt.schema.json",
@@ -1565,8 +1540,6 @@ impl SchemaId {
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)
             }
-            Self::CROSS_SIGNING_PUBLISH_V1 => Some(Self::CrossSigningPublishV1),
-            Self::CROSS_SIGNING_RESET_V1 => Some(Self::CrossSigningResetV1),
             Self::CURSOR_V1 => Some(Self::CursorV1),
             Self::DELIVERY_BINDING_STALE_V1 => Some(Self::DeliveryBindingStaleV1),
             Self::DEVICE_MESSAGE_V1 => Some(Self::DeviceMessageV1),
@@ -1656,7 +1629,6 @@ impl SchemaId {
             Self::REALM_POLICY_SERVER_OPERATIONS_V1 => Some(Self::RealmPolicyServerOperationsV1),
             Self::REALM_PROFILE_V1 => Some(Self::RealmProfileV1),
             Self::REALM_READ_OPERATIONS_V1 => Some(Self::RealmReadOperationsV1),
-            Self::RECOVERY_AUTHORITY_TICKET_V1 => Some(Self::RecoveryAuthorityTicketV1),
             Self::RECOVERY_COMPLETION_ATTESTATION_V1 => Some(Self::RecoveryCompletionAttestationV1),
             Self::RECOVERY_POLICY_V1 => Some(Self::RecoveryPolicyV1),
             Self::RECOVERY_RECEIPT_V1 => Some(Self::RecoveryReceiptV1),

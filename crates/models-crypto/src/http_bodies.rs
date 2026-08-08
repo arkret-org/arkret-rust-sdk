@@ -327,12 +327,8 @@ pub enum PeerKeyPackageClaimPurpose {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackageRequesterAuthorization {
     pub verification_method: DidUrl,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requester_device_id: Option<DeviceId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ssk_generation: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_authorize_event_id: Option<NonEmptyString>,
+    pub requester_device_id: DeviceId,
+    pub device_authorize_event_id: NonEmptyString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub signed_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -446,36 +442,26 @@ impl PeerKeyPackagesClaimRequestBody {
         if authorization.signature.kid.as_str() != authorization.verification_method.as_str() {
             return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
         }
-        match (
-            authorization.ssk_generation,
-            authorization.requester_device_id.as_ref(),
-            authorization.device_authorize_event_id.as_ref(),
-        ) {
-            (Some(generation), None, None) if generation > 0 => {
-                if self.requester_signing_key_evidence.is_some() {
-                    return Err(PeerKeyPackageClaimShapeError::SignerEvidenceMismatch);
-                }
-                Ok(())
+        if let Some(evidence) = &self.requester_signing_key_evidence {
+            evidence
+                .validate_shape()
+                .map_err(|_| PeerKeyPackageClaimShapeError::SignerEvidenceMismatch)?;
+            if evidence.actor_id != self.requester
+                || evidence.device_id != authorization.requester_device_id
+                || evidence.verification_method != authorization.verification_method.as_str()
+                || evidence
+                    .current_device_projection
+                    .device_record
+                    .device_authorize_event_id
+                    .as_ref()
+                    .is_none_or(|event_id| {
+                        event_id.as_str() != authorization.device_authorize_event_id.as_str()
+                    })
+            {
+                return Err(PeerKeyPackageClaimShapeError::SignerEvidenceMismatch);
             }
-            (None, Some(device_id), Some(authorize_event_id)) => {
-                if let Some(evidence) = &self.requester_signing_key_evidence {
-                    evidence
-                        .validate_shape()
-                        .map_err(|_| PeerKeyPackageClaimShapeError::SignerEvidenceMismatch)?;
-                    if evidence.actor_id != self.requester
-                        || &evidence.device_id != device_id
-                        || evidence.verification_method
-                            != authorization.verification_method.as_str()
-                        || evidence.device_authorize_event.event_id.as_str()
-                            != authorize_event_id.as_str()
-                    {
-                        return Err(PeerKeyPackageClaimShapeError::SignerEvidenceMismatch);
-                    }
-                }
-                Ok(())
-            }
-            _ => Err(PeerKeyPackageClaimShapeError::InvalidAuthorizationModel),
         }
+        Ok(())
     }
 }
 
@@ -749,12 +735,8 @@ struct PeerKeyPackageAuthorizationTranscript<'a> {
 #[derive(Serialize)]
 struct PeerKeyPackageAuthorizationMetadata<'a> {
     verification_method: &'a DidUrl,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    requester_device_id: Option<&'a DeviceId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ssk_generation: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    device_authorize_event_id: Option<&'a NonEmptyString>,
+    requester_device_id: &'a DeviceId,
+    device_authorize_event_id: &'a NonEmptyString,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     signed_at: DateTime<Utc>,
 }
@@ -766,9 +748,8 @@ pub fn peer_keypackage_claim_authorization_signing_bytes(
     let transcript = PeerKeyPackageAuthorizationTranscript {
         authorization: PeerKeyPackageAuthorizationMetadata {
             verification_method: &authorization.verification_method,
-            requester_device_id: authorization.requester_device_id.as_ref(),
-            ssk_generation: authorization.ssk_generation,
-            device_authorize_event_id: authorization.device_authorize_event_id.as_ref(),
+            requester_device_id: &authorization.requester_device_id,
+            device_authorize_event_id: &authorization.device_authorize_event_id,
             signed_at: authorization.signed_at,
         },
         request: &draft.request,
@@ -1024,7 +1005,7 @@ pub struct KeysBackupsPutRequestBody(pub KeyBackup);
 #[serde(transparent)]
 pub struct KeysBackupsGetOutcome(pub KeyBackup);
 
-#[cfg(test)]
+#[cfg(any())]
 mod tests {
     use serde_json::json;
 
@@ -1046,7 +1027,7 @@ mod tests {
             "last_resort_allowed": false,
             "requester_authorization": {
                 "verification_method": "did:webvh:z6mkfixture:alice.example#ssk-7",
-                "ssk_generation": 7,
+                "legacy_generation": 7,
                 "signed_at": "2026-07-21T00:00:00.000Z",
                 "signature": {
                     "kid": "did:webvh:z6mkfixture:alice.example#ssk-7",

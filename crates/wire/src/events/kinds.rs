@@ -161,8 +161,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::DirectConversationBound
         | EventKind::DirectConversationMlsGenerationActivate => EventProductClass::Contact,
         EventKind::DeviceAuthorize
-        | EventKind::CrossSigningPublish
-        | EventKind::CrossSigningReset
         | EventKind::DeviceListUpdate
         | EventKind::DevicePushRoute
         | EventKind::DeviceReanchor

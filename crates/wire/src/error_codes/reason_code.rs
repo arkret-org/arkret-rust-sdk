@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.7;
-//! sha256=e4d461da5f862e0d479a9d6dfdd57967e94762bddf027bc8552e5262d5935194
-//! Entries: reason_codes=468
+//! Input: registry/error-code-registry.json; version=2026-08-09.3;
+//! sha256=c88f3720ad518b4f58ff32c49f34ea9350a64b6136f2878c6075c3804d05e0ff
+//! Entries: reason_codes=456
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -67,7 +67,6 @@ pub enum ReasonCode {
     AuthorizedGrantRevoked,
     BackendUnavailable,
     BackupFrontierStale,
-    BackupPostResetStale,
     BlobRedacted,
     CalendarActivationMismatch,
     CalendarEventCancelled,
@@ -111,19 +110,6 @@ pub enum ReasonCode {
     CreatedAtBeforeCausalPredecessor,
     CrossDomainReplayRejected,
     CrossRealmStructuralRelation,
-    CrossSigningReset,
-    CrossSigningResetAttestationMissing,
-    CrossSigningResetClockSkewExceeded,
-    CrossSigningResetGenerationMismatch,
-    CrossSigningResetProofAuthorityInvalid,
-    CrossSigningResetQuorumBelowPolicy,
-    CrossSigningResetQuorumInsufficient,
-    CrossSigningResetRecoveryRefUnknown,
-    CrossSigningResetRecoveryServiceAttestationDomainMismatch,
-    CrossSigningResetRecoveryServiceUnknown,
-    CrossSigningResetReplayed,
-    CrossSigningResetSignatureInvalid,
-    CrossSigningResetUnlockCommitmentMismatch,
     CrossSpaceStructuralRelation,
     CursorExpired,
     CursorIntegrityInvalid,
@@ -141,13 +127,11 @@ pub enum ReasonCode {
     DeltaContainsDataEvent,
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
-    DeviceEnrollmentAuthoritySnapshotMissing,
     DeviceGenerationFenced,
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorConflict,
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
-    DeviceRecoverySskGenerationMismatch,
     DidProofReplayWindowExceeded,
     DirectConversationActivationAuthorInvalid,
     DirectConversationBindingInvalid,
@@ -187,6 +171,7 @@ pub enum ReasonCode {
     FocusMismatch,
     FocusUnavailableForClient,
     ForensicAttributionMismatch,
+    FoundingDeviceCommitmentMismatch,
     GateCheckFailed,
     GenesisCreatedAtTooOld,
     GovernanceBindingMismatch,
@@ -203,6 +188,7 @@ pub enum ReasonCode {
     HateSpeech,
     HistoryVisibilityRequiresHistoryCapableScheme,
     HumanApprovalRequired,
+    IdentityCreationLeaseFenced,
     IdentityLinkNoLongerVisible,
     IdentityLinkPolicyTightened,
     Illegal,
@@ -213,6 +199,7 @@ pub enum ReasonCode {
     InceptionUpgradeSignatureChainInvalid,
     InclusionListViolation,
     InclusionProofFailed,
+    InitialSessionRequestMismatch,
     InsufficientChallengeSamples,
     IntegrityFailed,
     InternalError,
@@ -293,7 +280,6 @@ pub enum ReasonCode {
     Ok,
     OperatorRejected,
     Other,
-    OutOfOrderBootstrap,
     PairingExpired,
     PairingRequestExpired,
     PartialAuthState,
@@ -303,6 +289,9 @@ pub enum ReasonCode {
     PatchPathInvalid,
     PatchPathReducerManaged,
     PatchUnsetRedactableField,
+    PcrGenesisConflict,
+    PcrGenesisNotFirst,
+    PcrGenesisUnitInvalid,
     PermissionDenied,
     PlaneCrossWrite,
     PolicyDenied,
@@ -432,7 +421,6 @@ pub enum ReasonCode {
     SpaceParentCycle,
     SpaceParentUnreadable,
     Spam,
-    StaleBackupTrustGeneration,
     StateMismatch,
     StorageFailed,
     StrandAlreadyTerminal,
@@ -559,7 +547,6 @@ impl ReasonCode {
     pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
     pub const BACKEND_UNAVAILABLE: &'static str = "backend_unavailable";
     pub const BACKUP_FRONTIER_STALE: &'static str = "backup_frontier_stale";
-    pub const BACKUP_POST_RESET_STALE: &'static str = "backup_post_reset_stale";
     pub const BLOB_REDACTED: &'static str = "blob_redacted";
     pub const CALENDAR_ACTIVATION_MISMATCH: &'static str = "calendar_activation_mismatch";
     pub const CALENDAR_EVENT_CANCELLED: &'static str = "calendar_event_cancelled";
@@ -609,30 +596,6 @@ impl ReasonCode {
         "created_at_before_causal_predecessor";
     pub const CROSS_DOMAIN_REPLAY_REJECTED: &'static str = "cross_domain_replay_rejected";
     pub const CROSS_REALM_STRUCTURAL_RELATION: &'static str = "cross_realm_structural_relation";
-    pub const CROSS_SIGNING_RESET: &'static str = "cross_signing_reset";
-    pub const CROSS_SIGNING_RESET_ATTESTATION_MISSING: &'static str =
-        "cross_signing_reset_attestation_missing";
-    pub const CROSS_SIGNING_RESET_CLOCK_SKEW_EXCEEDED: &'static str =
-        "cross_signing_reset_clock_skew_exceeded";
-    pub const CROSS_SIGNING_RESET_GENERATION_MISMATCH: &'static str =
-        "cross_signing_reset_generation_mismatch";
-    pub const CROSS_SIGNING_RESET_PROOF_AUTHORITY_INVALID: &'static str =
-        "cross_signing_reset_proof_authority_invalid";
-    pub const CROSS_SIGNING_RESET_QUORUM_BELOW_POLICY: &'static str =
-        "cross_signing_reset_quorum_below_policy";
-    pub const CROSS_SIGNING_RESET_QUORUM_INSUFFICIENT: &'static str =
-        "cross_signing_reset_quorum_insufficient";
-    pub const CROSS_SIGNING_RESET_RECOVERY_REF_UNKNOWN: &'static str =
-        "cross_signing_reset_recovery_ref_unknown";
-    pub const CROSS_SIGNING_RESET_RECOVERY_SERVICE_ATTESTATION_DOMAIN_MISMATCH: &'static str =
-        "cross_signing_reset_recovery_service_attestation_domain_mismatch";
-    pub const CROSS_SIGNING_RESET_RECOVERY_SERVICE_UNKNOWN: &'static str =
-        "cross_signing_reset_recovery_service_unknown";
-    pub const CROSS_SIGNING_RESET_REPLAYED: &'static str = "cross_signing_reset_replayed";
-    pub const CROSS_SIGNING_RESET_SIGNATURE_INVALID: &'static str =
-        "cross_signing_reset_signature_invalid";
-    pub const CROSS_SIGNING_RESET_UNLOCK_COMMITMENT_MISMATCH: &'static str =
-        "cross_signing_reset_unlock_commitment_mismatch";
     pub const CROSS_SPACE_STRUCTURAL_RELATION: &'static str = "cross_space_structural_relation";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
@@ -654,16 +617,12 @@ impl ReasonCode {
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
-    pub const DEVICE_ENROLLMENT_AUTHORITY_SNAPSHOT_MISSING: &'static str =
-        "device_enrollment_authority_snapshot_missing";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
-    pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str =
-        "device_recovery_ssk_generation_mismatch";
     pub const DID_PROOF_REPLAY_WINDOW_EXCEEDED: &'static str = "did_proof_replay_window_exceeded";
     pub const DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID: &'static str =
         "direct_conversation_activation_author_invalid";
@@ -721,6 +680,8 @@ impl ReasonCode {
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
     pub const FORENSIC_ATTRIBUTION_MISMATCH: &'static str = "forensic_attribution_mismatch";
+    pub const FOUNDING_DEVICE_COMMITMENT_MISMATCH: &'static str =
+        "founding_device_commitment_mismatch";
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
     pub const GENESIS_CREATED_AT_TOO_OLD: &'static str = "genesis_created_at_too_old";
     pub const GOVERNANCE_BINDING_MISMATCH: &'static str = "governance_binding_mismatch";
@@ -739,6 +700,7 @@ impl ReasonCode {
     pub const HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME: &'static str =
         "history_visibility_requires_history_capable_scheme";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
+    pub const IDENTITY_CREATION_LEASE_FENCED: &'static str = "identity_creation_lease_fenced";
     pub const IDENTITY_LINK_NO_LONGER_VISIBLE: &'static str = "identity_link_no_longer_visible";
     pub const IDENTITY_LINK_POLICY_TIGHTENED: &'static str = "identity_link_policy_tightened";
     pub const ILLEGAL: &'static str = "illegal";
@@ -753,6 +715,7 @@ impl ReasonCode {
         "inception_upgrade_signature_chain_invalid";
     pub const INCLUSION_LIST_VIOLATION: &'static str = "inclusion_list_violation";
     pub const INCLUSION_PROOF_FAILED: &'static str = "inclusion_proof_failed";
+    pub const INITIAL_SESSION_REQUEST_MISMATCH: &'static str = "initial_session_request_mismatch";
     pub const INSUFFICIENT_CHALLENGE_SAMPLES: &'static str = "insufficient_challenge_samples";
     pub const INTEGRITY_FAILED: &'static str = "integrity_failed";
     pub const INTERNAL_ERROR: &'static str = "internal_error";
@@ -849,7 +812,6 @@ impl ReasonCode {
     pub const OK: &'static str = "ok";
     pub const OPERATOR_REJECTED: &'static str = "operator_rejected";
     pub const OTHER: &'static str = "other";
-    pub const OUT_OF_ORDER_BOOTSTRAP: &'static str = "out_of_order_bootstrap";
     pub const PAIRING_EXPIRED: &'static str = "pairing_expired";
     pub const PAIRING_REQUEST_EXPIRED: &'static str = "pairing_request_expired";
     pub const PARTIAL_AUTH_STATE: &'static str = "partial_auth_state";
@@ -859,6 +821,9 @@ impl ReasonCode {
     pub const PATCH_PATH_INVALID: &'static str = "patch_path_invalid";
     pub const PATCH_PATH_REDUCER_MANAGED: &'static str = "patch_path_reducer_managed";
     pub const PATCH_UNSET_REDACTABLE_FIELD: &'static str = "patch_unset_redactable_field";
+    pub const PCR_GENESIS_CONFLICT: &'static str = "pcr_genesis_conflict";
+    pub const PCR_GENESIS_NOT_FIRST: &'static str = "pcr_genesis_not_first";
+    pub const PCR_GENESIS_UNIT_INVALID: &'static str = "pcr_genesis_unit_invalid";
     pub const PERMISSION_DENIED: &'static str = "permission_denied";
     pub const PLANE_CROSS_WRITE: &'static str = "plane_cross_write";
     pub const POLICY_DENIED: &'static str = "policy_denied";
@@ -1006,7 +971,6 @@ impl ReasonCode {
     pub const SPACE_PARENT_CYCLE: &'static str = "space_parent_cycle";
     pub const SPACE_PARENT_UNREADABLE: &'static str = "space_parent_unreadable";
     pub const SPAM: &'static str = "spam";
-    pub const STALE_BACKUP_TRUST_GENERATION: &'static str = "stale_backup_trust_generation";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
     pub const STORAGE_FAILED: &'static str = "storage_failed";
     pub const STRAND_ALREADY_TERMINAL: &'static str = "strand_already_terminal";
@@ -1129,7 +1093,6 @@ impl ReasonCode {
             Self::AuthorizedGrantRevoked => Self::AUTHORIZED_GRANT_REVOKED,
             Self::BackendUnavailable => Self::BACKEND_UNAVAILABLE,
             Self::BackupFrontierStale => Self::BACKUP_FRONTIER_STALE,
-            Self::BackupPostResetStale => Self::BACKUP_POST_RESET_STALE,
             Self::BlobRedacted => Self::BLOB_REDACTED,
             Self::CalendarActivationMismatch => Self::CALENDAR_ACTIVATION_MISMATCH,
             Self::CalendarEventCancelled => Self::CALENDAR_EVENT_CANCELLED,
@@ -1173,39 +1136,6 @@ impl ReasonCode {
             Self::CreatedAtBeforeCausalPredecessor => Self::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR,
             Self::CrossDomainReplayRejected => Self::CROSS_DOMAIN_REPLAY_REJECTED,
             Self::CrossRealmStructuralRelation => Self::CROSS_REALM_STRUCTURAL_RELATION,
-            Self::CrossSigningReset => Self::CROSS_SIGNING_RESET,
-            Self::CrossSigningResetAttestationMissing => {
-                Self::CROSS_SIGNING_RESET_ATTESTATION_MISSING
-            }
-            Self::CrossSigningResetClockSkewExceeded => {
-                Self::CROSS_SIGNING_RESET_CLOCK_SKEW_EXCEEDED
-            }
-            Self::CrossSigningResetGenerationMismatch => {
-                Self::CROSS_SIGNING_RESET_GENERATION_MISMATCH
-            }
-            Self::CrossSigningResetProofAuthorityInvalid => {
-                Self::CROSS_SIGNING_RESET_PROOF_AUTHORITY_INVALID
-            }
-            Self::CrossSigningResetQuorumBelowPolicy => {
-                Self::CROSS_SIGNING_RESET_QUORUM_BELOW_POLICY
-            }
-            Self::CrossSigningResetQuorumInsufficient => {
-                Self::CROSS_SIGNING_RESET_QUORUM_INSUFFICIENT
-            }
-            Self::CrossSigningResetRecoveryRefUnknown => {
-                Self::CROSS_SIGNING_RESET_RECOVERY_REF_UNKNOWN
-            }
-            Self::CrossSigningResetRecoveryServiceAttestationDomainMismatch => {
-                Self::CROSS_SIGNING_RESET_RECOVERY_SERVICE_ATTESTATION_DOMAIN_MISMATCH
-            }
-            Self::CrossSigningResetRecoveryServiceUnknown => {
-                Self::CROSS_SIGNING_RESET_RECOVERY_SERVICE_UNKNOWN
-            }
-            Self::CrossSigningResetReplayed => Self::CROSS_SIGNING_RESET_REPLAYED,
-            Self::CrossSigningResetSignatureInvalid => Self::CROSS_SIGNING_RESET_SIGNATURE_INVALID,
-            Self::CrossSigningResetUnlockCommitmentMismatch => {
-                Self::CROSS_SIGNING_RESET_UNLOCK_COMMITMENT_MISMATCH
-            }
             Self::CrossSpaceStructuralRelation => Self::CROSS_SPACE_STRUCTURAL_RELATION,
             Self::CursorExpired => Self::CURSOR_EXPIRED,
             Self::CursorIntegrityInvalid => Self::CURSOR_INTEGRITY_INVALID,
@@ -1229,17 +1159,11 @@ impl ReasonCode {
             Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
                 Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
             }
-            Self::DeviceEnrollmentAuthoritySnapshotMissing => {
-                Self::DEVICE_ENROLLMENT_AUTHORITY_SNAPSHOT_MISSING
-            }
             Self::DeviceGenerationFenced => Self::DEVICE_GENERATION_FENCED,
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
             Self::DeviceReanchorConflict => Self::DEVICE_REANCHOR_CONFLICT,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
-            Self::DeviceRecoverySskGenerationMismatch => {
-                Self::DEVICE_RECOVERY_SSK_GENERATION_MISMATCH
-            }
             Self::DidProofReplayWindowExceeded => Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED,
             Self::DirectConversationActivationAuthorInvalid => {
                 Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID
@@ -1305,6 +1229,7 @@ impl ReasonCode {
             Self::FocusMismatch => Self::FOCUS_MISMATCH,
             Self::FocusUnavailableForClient => Self::FOCUS_UNAVAILABLE_FOR_CLIENT,
             Self::ForensicAttributionMismatch => Self::FORENSIC_ATTRIBUTION_MISMATCH,
+            Self::FoundingDeviceCommitmentMismatch => Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
             Self::GateCheckFailed => Self::GATE_CHECK_FAILED,
             Self::GenesisCreatedAtTooOld => Self::GENESIS_CREATED_AT_TOO_OLD,
             Self::GovernanceBindingMismatch => Self::GOVERNANCE_BINDING_MISMATCH,
@@ -1323,6 +1248,7 @@ impl ReasonCode {
                 Self::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME
             }
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
+            Self::IdentityCreationLeaseFenced => Self::IDENTITY_CREATION_LEASE_FENCED,
             Self::IdentityLinkNoLongerVisible => Self::IDENTITY_LINK_NO_LONGER_VISIBLE,
             Self::IdentityLinkPolicyTightened => Self::IDENTITY_LINK_POLICY_TIGHTENED,
             Self::Illegal => Self::ILLEGAL,
@@ -1341,6 +1267,7 @@ impl ReasonCode {
             }
             Self::InclusionListViolation => Self::INCLUSION_LIST_VIOLATION,
             Self::InclusionProofFailed => Self::INCLUSION_PROOF_FAILED,
+            Self::InitialSessionRequestMismatch => Self::INITIAL_SESSION_REQUEST_MISMATCH,
             Self::InsufficientChallengeSamples => Self::INSUFFICIENT_CHALLENGE_SAMPLES,
             Self::IntegrityFailed => Self::INTEGRITY_FAILED,
             Self::InternalError => Self::INTERNAL_ERROR,
@@ -1439,7 +1366,6 @@ impl ReasonCode {
             Self::Ok => Self::OK,
             Self::OperatorRejected => Self::OPERATOR_REJECTED,
             Self::Other => Self::OTHER,
-            Self::OutOfOrderBootstrap => Self::OUT_OF_ORDER_BOOTSTRAP,
             Self::PairingExpired => Self::PAIRING_EXPIRED,
             Self::PairingRequestExpired => Self::PAIRING_REQUEST_EXPIRED,
             Self::PartialAuthState => Self::PARTIAL_AUTH_STATE,
@@ -1449,6 +1375,9 @@ impl ReasonCode {
             Self::PatchPathInvalid => Self::PATCH_PATH_INVALID,
             Self::PatchPathReducerManaged => Self::PATCH_PATH_REDUCER_MANAGED,
             Self::PatchUnsetRedactableField => Self::PATCH_UNSET_REDACTABLE_FIELD,
+            Self::PcrGenesisConflict => Self::PCR_GENESIS_CONFLICT,
+            Self::PcrGenesisNotFirst => Self::PCR_GENESIS_NOT_FIRST,
+            Self::PcrGenesisUnitInvalid => Self::PCR_GENESIS_UNIT_INVALID,
             Self::PermissionDenied => Self::PERMISSION_DENIED,
             Self::PlaneCrossWrite => Self::PLANE_CROSS_WRITE,
             Self::PolicyDenied => Self::POLICY_DENIED,
@@ -1592,7 +1521,6 @@ impl ReasonCode {
             Self::SpaceParentCycle => Self::SPACE_PARENT_CYCLE,
             Self::SpaceParentUnreadable => Self::SPACE_PARENT_UNREADABLE,
             Self::Spam => Self::SPAM,
-            Self::StaleBackupTrustGeneration => Self::STALE_BACKUP_TRUST_GENERATION,
             Self::StateMismatch => Self::STATE_MISMATCH,
             Self::StorageFailed => Self::STORAGE_FAILED,
             Self::StrandAlreadyTerminal => Self::STRAND_ALREADY_TERMINAL,
@@ -1721,7 +1649,6 @@ impl ReasonCode {
             Self::AUTHORIZED_GRANT_REVOKED => Self::AuthorizedGrantRevoked,
             Self::BACKEND_UNAVAILABLE => Self::BackendUnavailable,
             Self::BACKUP_FRONTIER_STALE => Self::BackupFrontierStale,
-            Self::BACKUP_POST_RESET_STALE => Self::BackupPostResetStale,
             Self::BLOB_REDACTED => Self::BlobRedacted,
             Self::CALENDAR_ACTIVATION_MISMATCH => Self::CalendarActivationMismatch,
             Self::CALENDAR_EVENT_CANCELLED => Self::CalendarEventCancelled,
@@ -1765,39 +1692,6 @@ impl ReasonCode {
             Self::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR => Self::CreatedAtBeforeCausalPredecessor,
             Self::CROSS_DOMAIN_REPLAY_REJECTED => Self::CrossDomainReplayRejected,
             Self::CROSS_REALM_STRUCTURAL_RELATION => Self::CrossRealmStructuralRelation,
-            Self::CROSS_SIGNING_RESET => Self::CrossSigningReset,
-            Self::CROSS_SIGNING_RESET_ATTESTATION_MISSING => {
-                Self::CrossSigningResetAttestationMissing
-            }
-            Self::CROSS_SIGNING_RESET_CLOCK_SKEW_EXCEEDED => {
-                Self::CrossSigningResetClockSkewExceeded
-            }
-            Self::CROSS_SIGNING_RESET_GENERATION_MISMATCH => {
-                Self::CrossSigningResetGenerationMismatch
-            }
-            Self::CROSS_SIGNING_RESET_PROOF_AUTHORITY_INVALID => {
-                Self::CrossSigningResetProofAuthorityInvalid
-            }
-            Self::CROSS_SIGNING_RESET_QUORUM_BELOW_POLICY => {
-                Self::CrossSigningResetQuorumBelowPolicy
-            }
-            Self::CROSS_SIGNING_RESET_QUORUM_INSUFFICIENT => {
-                Self::CrossSigningResetQuorumInsufficient
-            }
-            Self::CROSS_SIGNING_RESET_RECOVERY_REF_UNKNOWN => {
-                Self::CrossSigningResetRecoveryRefUnknown
-            }
-            Self::CROSS_SIGNING_RESET_RECOVERY_SERVICE_ATTESTATION_DOMAIN_MISMATCH => {
-                Self::CrossSigningResetRecoveryServiceAttestationDomainMismatch
-            }
-            Self::CROSS_SIGNING_RESET_RECOVERY_SERVICE_UNKNOWN => {
-                Self::CrossSigningResetRecoveryServiceUnknown
-            }
-            Self::CROSS_SIGNING_RESET_REPLAYED => Self::CrossSigningResetReplayed,
-            Self::CROSS_SIGNING_RESET_SIGNATURE_INVALID => Self::CrossSigningResetSignatureInvalid,
-            Self::CROSS_SIGNING_RESET_UNLOCK_COMMITMENT_MISMATCH => {
-                Self::CrossSigningResetUnlockCommitmentMismatch
-            }
             Self::CROSS_SPACE_STRUCTURAL_RELATION => Self::CrossSpaceStructuralRelation,
             Self::CURSOR_EXPIRED => Self::CursorExpired,
             Self::CURSOR_INTEGRITY_INVALID => Self::CursorIntegrityInvalid,
@@ -1821,17 +1715,11 @@ impl ReasonCode {
             Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH => {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
             }
-            Self::DEVICE_ENROLLMENT_AUTHORITY_SNAPSHOT_MISSING => {
-                Self::DeviceEnrollmentAuthoritySnapshotMissing
-            }
             Self::DEVICE_GENERATION_FENCED => Self::DeviceGenerationFenced,
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
             Self::DEVICE_REANCHOR_CONFLICT => Self::DeviceReanchorConflict,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
-            Self::DEVICE_RECOVERY_SSK_GENERATION_MISMATCH => {
-                Self::DeviceRecoverySskGenerationMismatch
-            }
             Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED => Self::DidProofReplayWindowExceeded,
             Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID => {
                 Self::DirectConversationActivationAuthorInvalid
@@ -1897,6 +1785,7 @@ impl ReasonCode {
             Self::FOCUS_MISMATCH => Self::FocusMismatch,
             Self::FOCUS_UNAVAILABLE_FOR_CLIENT => Self::FocusUnavailableForClient,
             Self::FORENSIC_ATTRIBUTION_MISMATCH => Self::ForensicAttributionMismatch,
+            Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH => Self::FoundingDeviceCommitmentMismatch,
             Self::GATE_CHECK_FAILED => Self::GateCheckFailed,
             Self::GENESIS_CREATED_AT_TOO_OLD => Self::GenesisCreatedAtTooOld,
             Self::GOVERNANCE_BINDING_MISMATCH => Self::GovernanceBindingMismatch,
@@ -1915,6 +1804,7 @@ impl ReasonCode {
                 Self::HistoryVisibilityRequiresHistoryCapableScheme
             }
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
+            Self::IDENTITY_CREATION_LEASE_FENCED => Self::IdentityCreationLeaseFenced,
             Self::IDENTITY_LINK_NO_LONGER_VISIBLE => Self::IdentityLinkNoLongerVisible,
             Self::IDENTITY_LINK_POLICY_TIGHTENED => Self::IdentityLinkPolicyTightened,
             Self::ILLEGAL => Self::Illegal,
@@ -1933,6 +1823,7 @@ impl ReasonCode {
             }
             Self::INCLUSION_LIST_VIOLATION => Self::InclusionListViolation,
             Self::INCLUSION_PROOF_FAILED => Self::InclusionProofFailed,
+            Self::INITIAL_SESSION_REQUEST_MISMATCH => Self::InitialSessionRequestMismatch,
             Self::INSUFFICIENT_CHALLENGE_SAMPLES => Self::InsufficientChallengeSamples,
             Self::INTEGRITY_FAILED => Self::IntegrityFailed,
             Self::INTERNAL_ERROR => Self::InternalError,
@@ -2031,7 +1922,6 @@ impl ReasonCode {
             Self::OK => Self::Ok,
             Self::OPERATOR_REJECTED => Self::OperatorRejected,
             Self::OTHER => Self::Other,
-            Self::OUT_OF_ORDER_BOOTSTRAP => Self::OutOfOrderBootstrap,
             Self::PAIRING_EXPIRED => Self::PairingExpired,
             Self::PAIRING_REQUEST_EXPIRED => Self::PairingRequestExpired,
             Self::PARTIAL_AUTH_STATE => Self::PartialAuthState,
@@ -2041,6 +1931,9 @@ impl ReasonCode {
             Self::PATCH_PATH_INVALID => Self::PatchPathInvalid,
             Self::PATCH_PATH_REDUCER_MANAGED => Self::PatchPathReducerManaged,
             Self::PATCH_UNSET_REDACTABLE_FIELD => Self::PatchUnsetRedactableField,
+            Self::PCR_GENESIS_CONFLICT => Self::PcrGenesisConflict,
+            Self::PCR_GENESIS_NOT_FIRST => Self::PcrGenesisNotFirst,
+            Self::PCR_GENESIS_UNIT_INVALID => Self::PcrGenesisUnitInvalid,
             Self::PERMISSION_DENIED => Self::PermissionDenied,
             Self::PLANE_CROSS_WRITE => Self::PlaneCrossWrite,
             Self::POLICY_DENIED => Self::PolicyDenied,
@@ -2184,7 +2077,6 @@ impl ReasonCode {
             Self::SPACE_PARENT_CYCLE => Self::SpaceParentCycle,
             Self::SPACE_PARENT_UNREADABLE => Self::SpaceParentUnreadable,
             Self::SPAM => Self::Spam,
-            Self::STALE_BACKUP_TRUST_GENERATION => Self::StaleBackupTrustGeneration,
             Self::STATE_MISMATCH => Self::StateMismatch,
             Self::STORAGE_FAILED => Self::StorageFailed,
             Self::STRAND_ALREADY_TERMINAL => Self::StrandAlreadyTerminal,
@@ -2451,7 +2343,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ATTESTATION_MISSING,
         applies_to: &["crypto", "device_recovery", "schema_validation"],
-        description: "A `recipient_method=hardware_wrapped_key` key-backup envelope, or any recovery / cross-signing proof requiring hardware attestation, lacks an `attestation` chain that the receiver can verify against the active recovery policy's `trusted_recovery_services[]`. See zh/identity/key-management.md §7.5.5.",
+        description: "A `recipient_method=hardware_wrapped_key` key-backup envelope, or a recovery proof requiring hardware attestation, lacks an `attestation` chain that the receiver can verify against the active recovery policy's `trusted_recovery_services[]`. See zh/identity/key-management.md §7.5.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AUDIENCE_MISMATCH,
@@ -2591,12 +2483,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::BACKUP_FRONTIER_STALE,
         applies_to: &["device_recovery", "state_resolution"],
-        description: "`ak.schema.key_backup.v1.frontier_ref.frontier_digest` does not match the current principal control stream frontier; in A model `ssk_generation` is below the current accepted generation; or in B model `device_generation_ref` does not equal the active `current_device_generation_ref` / the generation is not active. Receivers MUST refuse to use the envelope as the primary recovery source. See zh/identity/key-management.md §7.6.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::BACKUP_POST_RESET_STALE,
-        applies_to: &["device_recovery", "cross_signing"],
-        description: "A `secret_storage` backup envelope references a `self_signing_key` / `user_signing_key` whose generation was retired by a cross-signing reset, and the publish-recovery window elapsed without a successor envelope. Receivers MUST refuse it as the primary recovery source. See zh/crypto-media/device-lifecycle.md §14.2 step 7.",
+        description: "`ak.schema.key_backup.v1.frontier_ref.frontier_digest` does not match the current principal control stream frontier, or `device_generation_ref` does not equal the active `current_device_generation_ref`. Receivers MUST refuse to use the envelope as the primary recovery source. See zh/identity/key-management.md §7.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::BLOB_REDACTED,
@@ -2736,7 +2623,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_GENERATION_MISMATCH,
         applies_to: &["crypto", "auth_decision"],
-        description: "An MLS Welcome / KeyPackage claim binds a cross-signing or self-signing generation that does not equal the receiver's current accepted generation. Receivers MUST reject before admitting the Welcome or key material. See zh/crypto-media/encryption-and-audit.md §2.6 and zh/crypto-media/device-lifecycle.md §14.4.",
+        description: "An MLS Welcome / KeyPackage claim binds a device generation that does not equal the receiver's current accepted generation. Receivers MUST reject before admitting the Welcome or key material. See zh/crypto-media/encryption-and-audit.md §2.6 and zh/crypto-media/device-lifecycle.md §14.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_INVALID,
@@ -2805,78 +2692,13 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CROSS_DOMAIN_REPLAY_REJECTED,
-        applies_to: &["auth_decision"],
-        description: "A ak.cross_signing.reset payload declared a trust_domain that does not match the receiver's own trust_domain (or the receiver is unable to validate that the declared trust_domain belongs to this deployment). Rejected before signature verification to prevent replay of reset proofs across deployments / sovereign trust domains. See zh/crypto-media/device-lifecycle.md §14.1.",
+        applies_to: &["identity_creation", "proof_verification"],
+        description: "The signed proof audience, origin or trust_domain does not match the current request context; the verifier rejects it before any state transition.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CROSS_REALM_STRUCTURAL_RELATION,
         applies_to: &["event_envelope", "auth_decision"],
         description: "A structural `contains` Relation was submitted that would cross Realm boundaries. Structural containment (Board → List → Strand / Space hierarchy) MUST stay within a single Realm; cross-Realm links use the dedicated `ak.relation.*` non-structural kinds. See zh/models/relation.md §4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A previously trusted cross-signing key set was reset; verifications against the old `ssk_generation` MUST fail until the user re-verifies under the new generation. See zh/crypto-media/device-lifecycle.md §14.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_ATTESTATION_MISSING,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `trusted_recovery_service` declaration requires an `attestation_ref` but the proof omits it, or the ref does not resolve to a verifiable attestation event. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_CLOCK_SKEW_EXCEEDED,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "`ak.cross_signing.reset.issued_at` deviates from receiver local clock by more than `ak.profile.cross_signing.reset.v1.max_clock_skew_seconds`. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_GENERATION_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "`ak.cross_signing.reset.previous_generation` does not equal the receiver's currently accepted publish generation, or `new_generation != previous_generation + 1`. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_PROOF_AUTHORITY_INVALID,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `ak.cross_signing.reset` proof was signed by a key class that does not have authority for that proof.kind: `principal_signing.verification_method` is not a principal-grade DID control key (or is the self/user signing key being retired), `recovery_unlock` is signed by a key that is not the declared recovery key, `trusted_recovery_service` is signed by a non-published verification method, or `device_quorum.signatures[i].verification_method` is not the named device's authorized key. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_QUORUM_BELOW_POLICY,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "`device_quorum.threshold` is below the principal's currently published `recovery_policy.device_quorum.threshold`; receivers MUST reject so issuers cannot weaken the quorum unilaterally. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_QUORUM_INSUFFICIENT,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "After deduplication by `device_id` and signature verification, `device_quorum.signatures[]` contains fewer than `threshold` valid signatures. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_RECOVERY_REF_UNKNOWN,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "`recovery_unlock.recovery_secret_ref` does not resolve to an active recovery_keys[] signing entry in the recovery session's snapshotted accepted recovery_policy at `issued_at`. DID Document-only keys are not authoritative. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_RECOVERY_SERVICE_ATTESTATION_DOMAIN_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `ak.cross_signing.reset` `trusted_recovery_service` proof referenced an `attestation_ref` whose trust domain does not equal the reset payload `trust_domain`. Cross-trust-domain attestations MUST NOT serve as recovery-service authorization. See zh/crypto-media/device-lifecycle.md §14.4 and cross-signing-reset.schema.json.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_RECOVERY_SERVICE_UNKNOWN,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "`trusted_recovery_service.service_id` is not declared in the recovery session's snapshotted accepted `recovery_policy.trusted_recovery_services[]`, or is outside its validity window. A DID Document-only service declaration is not sufficient. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_REPLAYED,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Another `ak.cross_signing.reset` already consumed the same `(principal_id, previous_generation)` tuple; receivers MUST reject duplicates until the corresponding successor `ak.cross_signing.publish` is accepted + 24h. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_SIGNATURE_INVALID,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `ak.cross_signing.reset` proof signature failed verification: `principal_signing.signature` does not verify under the resolved principal-grade DID control key, `recovery_unlock` / `trusted_recovery_service` signature does not verify under the bound key, or any `device_quorum.signatures[i]` does not verify under the named device key. Key-class or authority failures use `cross_signing_reset_proof_authority_invalid`. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SIGNING_RESET_UNLOCK_COMMITMENT_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "`recovery_unlock.unlock_commitment` does not equal the receiver-recomputed `SHA-256(utf8('ak.cross-signing-reset-unlock-binding-v1\\n') || recovery_secret_ref || unlock_binding_input_bytes)`, where `unlock_binding_input_bytes` is the §14.1 canonical input with `proof_body` excluding both signature fields and `unlock_commitment`. This is a wire-integrity binding (not a secret-knowledge proof) preventing the same recovery-key signature from being shelled into a different reset envelope. See zh/crypto-media/device-lifecycle.md §14.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CROSS_SPACE_STRUCTURAL_RELATION,
@@ -2968,11 +2790,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A non-bootstrap ak.device.authorize event was submitted outside the principal's bound principal_control Realm, or the Realm purpose/profile/created_by does not match the device owner and issuer principal. Reducer MUST fail closed. See zh/identity/key-management.md §5.0.3.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DEVICE_ENROLLMENT_AUTHORITY_SNAPSHOT_MISSING,
-        applies_to: &["auth_decision", "state_resolution"],
-        description: "A service_attested ak.device.authorize was signed by an enrollment authority whose DID has no history-resolution method (e.g. did:web), but its enrollment_authority_binding omits the inline issuance-time verification method snapshot and/or controller proof required for point-in-time historical re-verification. Without these, the authorization cannot be re-verified at its signing time and a rotated/hijacked current document could forge re-verification, so the receiver MUST reject. See zh/identity/key-management.md §5.0.6 and zh/identity/identity-did.md §3.2.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_GENERATION_FENCED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a reason_code and a top-level service code (see codes[]).",
@@ -2996,11 +2813,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::DEVICE_REANCHOR_FRONTIER_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The re-anchor pre_fence_basis is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DEVICE_RECOVERY_SSK_GENERATION_MISMATCH,
-        applies_to: &["device_recovery", "cross_signing"],
-        description: "Recovery request or device authorization references a stale or future cross-signing generation.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DID_PROOF_REPLAY_WINDOW_EXCEEDED,
@@ -3198,6 +3010,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A threshold-notary Seal's declared forensic_attribution mode (e.g. waived or quorum_intersection) does not satisfy the Realm's forensic-attribution obligation for the signer set. The Seal MUST reject. See fixtures/cba-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
+        applies_to: &["pcr_genesis"],
+        description: "The FoundingDeviceDescriptor, authorize payload, device/HPKE digests, algorithms or root creation transcript are not byte-for-byte consistent.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::GATE_CHECK_FAILED,
         applies_to: &["auth_decision", "state_resolution"],
         description: "External applicant-facing generic join gate failure. Wire response MUST NOT reveal whether a claim was absent, revoked, issuer-unreachable, parent-membership-missing, or challenge-invalid; detailed diagnostics are audit/reviewer-only. See zh/governance/join-policy.md §5.",
@@ -3282,6 +3099,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An agent runtime requested a high-risk session scope that requires out-of-band controller approval. The top-level service error is claim_required; error.details carries this reason_code and an opaque approval_request_id. The runtime MUST NOT receive a CAPTCHA, OTP, or browser challenge. See zh/identity/key-management.md §3.2.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::IDENTITY_CREATION_LEASE_FENCED,
+        applies_to: &["identity_creation"],
+        description: "The identity-creation lease fence is no longer current. A stale holder cannot publish or complete the frozen account/principal registration.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_LINK_NO_LONGER_VISIBLE,
         applies_to: &["identity_resolution"],
         description: "An identity-link resolution was invalidated because the linked identity is no longer visible to the requester after a membership transition or capability revoke; directory / sync / invite caches MUST drop the stale link. See zh/conformance/conformance-vectors.md §9 (ak.vector.identity_link.eager_invalidation.v1).",
@@ -3330,6 +3152,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::INCLUSION_PROOF_FAILED,
         applies_to: &["client_sync", "snapshot_verification"],
         description: "Snapshot inclusion / omission challenge failed: issuer could not produce a valid Merkle branch or ordered-set slice for a sampled Event ID / actor sequence range against the manifest's event_set_commitment.root, OR the proof's root differs, OR an actor sequence gap is not reflected in soft_failed/quarantined digests. Client MUST quarantine or reject the snapshot and fall back to raw Event replay.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::INITIAL_SESSION_REQUEST_MISMATCH,
+        applies_to: &["identity_creation"],
+        description: "The InitialSessionGrantRequest digest, device id, audience, scope ceiling, or RFC 7638 thumbprint does not match the frozen registration and handoff holder binding.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INSUFFICIENT_CHALLENGE_SAMPLES,
@@ -3454,7 +3281,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An MLS Welcome arrived with a `claim_envelope` whose canonical signing input does not match the Welcome's actual intended_realm_id / claim_id / requester_did, or the envelope signature does not chain to the requester's current accepted self-signing key or requester device authorization. See zh/crypto-media/encryption-and-audit.md §2.6.",
+        description: "An MLS Welcome arrived with a `claim_envelope` whose canonical signing input does not match the Welcome's actual intended_realm_id / claim_id / requester_did, or the envelope signature does not chain to the requester's PCR current accepted device signing key and authorization Event. See zh/crypto-media/encryption-and-audit.md §2.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::LAST_RESORT_NOT_SUPPORTED,
@@ -3732,11 +3559,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Standard moderation reason: catch-all for reports that do not fit the named categories. MUST be accompanied by a free-text `description` field. See zh/governance/content-moderation.md §3.2.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::OUT_OF_ORDER_BOOTSTRAP,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "A Realm bootstrap batch violated the exact ordered-slot registry, including placing any facet before ak.realm.create or creator membership anywhere except the required final slot.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::PAIRING_EXPIRED,
         applies_to: &["auth_decision", "event_envelope"],
         description: "Agent bootstrap pairing window elapsed before the first runtime key authorization completed. Generic list/get views close the open handle and report readiness not_ready with runtime_key_missing; only the pairing poll may return its operation-local runtime_state=pairing_expired diagnostic. Pairing expiry does not create, revoke or rewrite Realm grants. It never applies to previously keyed Agents: an expired replacement handle only clears open fields and pairing_open readiness.",
@@ -3780,6 +3602,21 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::PATCH_UNSET_REDACTABLE_FIELD,
         applies_to: &["event_envelope"],
         description: "An `ak.schema.patch.v1` `$op=\"unset\"` was used on a redactable content field (e.g. message.content, strand.metadata.summary, encrypted_content / encrypted_metadata). Redaction MUST go through `ak.<kind>.redact` or `ak.redaction` events to enforce redaction-specific capability checks and audit. See zh/models/event-and-patch.md §4.2.4.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::PCR_GENESIS_CONFLICT,
+        applies_to: &["pcr_genesis"],
+        description: "The deterministic Principal Control Realm already has a different authoritative genesis unit. The receiver MUST perform zero writes and MUST NOT replace the accepted founding device.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::PCR_GENESIS_NOT_FIRST,
+        applies_to: &["pcr_genesis"],
+        description: "Genesis admission was attempted after the PCR frontier ceased to be empty, or after a PCR genesis receipt already existed. The caller must use device pairing or root-anchored re-anchor.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::PCR_GENESIS_UNIT_INVALID,
+        applies_to: &["pcr_genesis"],
+        description: "The closed ordered pair is not exactly one root-signed ak.realm.create followed by one founding-device-signed ak.device.authorize, or atomic validation failed. No partial write is permitted.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PERMISSION_DENIED,
@@ -4083,8 +3920,8 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_EVIDENCE_UNBOUND,
-        applies_to: &["device_recovery", "cross_signing"],
-        description: "A proof transcript for recovery, cross-signing reset, device authorization, or recovery-policy rotation is not bound to `(policy_id, version, recovery_session_id)`. Receivers MUST reject. See zh/identity/key-management.md §8.1.",
+        applies_to: &["recovery_transaction"],
+        description: "Recovery evidence does not bind the current transaction, recovery session, principal, replacement device or prepared-plan digest.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_POLICY_GENESIS_NOT_V1,
@@ -4436,11 +4273,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Standard moderation reason: spam content.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::STALE_BACKUP_TRUST_GENERATION,
-        applies_to: &["device_recovery", "cross_signing", "state_resolution"],
-        description: "A key-backup envelope's auth_data verification method is bound to a self-signing generation older than the current accepted generation and outside the rotation grace window. Receivers MUST reject the envelope for recovery or read paths. See zh/identity/key-management.md §7.4.1.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::STATE_MISMATCH,
         applies_to: &["client_sync", "state_resolution"],
         description: "Local state does not match the authoritative frontier; client SHOULD reconcile via backfill or snapshot before continuing.",
@@ -4573,7 +4405,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::UNTRUSTED_BACKUP_SIGNATURE,
         applies_to: &["crypto", "device_recovery", "state_resolution"],
-        description: "A key-backup envelope signature verifies cryptographically but the signer device key cannot be linked to the current actor cross-signing trust root, or the signer is revoked, unauthorized, or generation-mismatched. Receivers MUST reject it even if the series chain and ciphertext_digest are self-consistent. See zh/identity/key-management.md §7.4.1.",
+        description: "A key-backup envelope signature verifies cryptographically but the signer is not an active accepted device in the current generation, or is revoked, unauthorized, or generation-mismatched. Receivers MUST reject it even if the series chain and ciphertext_digest are self-consistent. See zh/identity/key-management.md §7.4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::VERIFICATION_METHOD_PRINCIPAL_MISMATCH,

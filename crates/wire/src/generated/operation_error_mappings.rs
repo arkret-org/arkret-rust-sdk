@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.18;
-//! sha256=7bed75e04ac1fcbed491860b8a1134be6b863f881af53a8f3fc74b7a902644d6 Input: registry/
-//! operations-error-mapping.json; version=2026-08-08.8;
-//! sha256=c3ed8fd707f0c3b1db9c4635dd3bfe604a16d47fd54510af724b7f6a16f0d3f3 Input: registry/
-//! error-code-registry.json; version=2026-08-08.7;
-//! sha256=e4d461da5f862e0d479a9d6dfdd57967e94762bddf027bc8552e5262d5935194 Entries: operations=226
+//! Input: registry/operation-registry.json; version=2026-08-09.2;
+//! sha256=538f5493fe28e390da90341a5ebd4e350e94a066b8ae6b52f26a4f7219a4ed2a Input: registry/
+//! operations-error-mapping.json; version=2026-08-09.2;
+//! sha256=7b1cc011a4c98b14fa5285120b1ca896e93630e79b5876cedc32f8d00fbf0487 Input: registry/
+//! error-code-registry.json; version=2026-08-09.3;
+//! sha256=c88f3720ad518b4f58ff32c49f34ea9350a64b6136f2878c6075c3804d05e0ff Entries: operations=222
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -189,36 +189,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::GateAccountCommandAuthorizeRecoveryDevice,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::AudienceMismatch),
-            OperationSpecificError::ReasonCode(ReasonCode::TokenExpired),
-            OperationSpecificError::ErrorCode(ErrorCode::RecoveryPolicyMismatch),
-            OperationSpecificError::ReasonCode(ReasonCode::RecoverySessionTerminal),
-            OperationSpecificError::ErrorCode(ErrorCode::DeviceReanchorAuthorizeMismatch),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::GateAccountCommandCancelDeviceBootstrap,
-        operation_specific: &[OperationSpecificError::ErrorCode(
-            ErrorCode::BootstrapIdempotencyConflict,
-        )],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::GateAccountCommandEnrollDevice,
-        operation_specific: &[
-            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapIdempotencyConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-        ],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandIntrospectSessionGrant,
         operation_specific: &[],
     },
@@ -231,14 +201,22 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountCommandIssueRecoveryCompletionGrant,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceGenerationFenced),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceReanchorAuthorizeMismatch),
+        ],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandIssueSessionGrant,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::AudienceUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::PrincipalUnknown),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayExpired),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayTerminal),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayIndeterminate),
@@ -274,18 +252,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::GateAccountCommandPromoteRecoverySessionGrant,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::GrantAlreadyConsumed),
-            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantNotFound),
-            OperationSpecificError::ErrorCode(ErrorCode::DeviceGenerationFenced),
-            OperationSpecificError::ErrorCode(ErrorCode::DeviceReanchorAuthorizeMismatch),
-        ],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandRefreshSessionGrant,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::GrantAlreadyConsumed),
@@ -298,19 +264,21 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantNotFound),
             OperationSpecificError::ErrorCode(ErrorCode::DidProofRequired),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
         ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandRegister,
         operation_specific: &[
-            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
             OperationSpecificError::ReasonCode(ReasonCode::ChallengeExpired),
             OperationSpecificError::ReasonCode(ReasonCode::CrossDomainReplayRejected),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ReasonCode(ReasonCode::FoundingDeviceCommitmentMismatch),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationLeaseFenced),
+            OperationSpecificError::ReasonCode(ReasonCode::InitialSessionRequestMismatch),
+            OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisUnitInvalid),
+            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -436,13 +404,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerDeviceBootstrapCommandDecide,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapDecisionConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapDecisionIndeterminate),
-        ],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerErasureReceiptCommandSubmit,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
@@ -532,6 +493,17 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
             OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
             OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerPrincipalGenesisCommandSubmit,
+        operation_specific: &[
+            OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisNotFirst),
+            OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisUnitInvalid),
+            OperationSpecificError::ReasonCode(ReasonCode::FoundingDeviceCommitmentMismatch),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationLeaseFenced),
+            OperationSpecificError::ReasonCode(ReasonCode::InitialSessionRequestMismatch),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1085,9 +1057,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::StaleSealRef),
             OperationSpecificError::ErrorCode(ErrorCode::SealRefUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::RealmFrozen),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
-            OperationSpecificError::ErrorCode(ErrorCode::BootstrapDecisionConflict),
             OperationSpecificError::ErrorCode(ErrorCode::Quarantine),
         ],
     },
@@ -1405,16 +1374,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfRealmPolicyServerResourceReplace,
         operation_specific: &[],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfRecoveryAuthorityTicketCommandIssue,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::RecoveryPolicyMismatch),
-            OperationSpecificError::ReasonCode(ReasonCode::RecoverySessionTerminal),
-        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfSecurityTransactionCommandContinue,

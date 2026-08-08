@@ -60,14 +60,61 @@ pub struct AgentSigningKeyBindingCore {
     pub controller_id: Did,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
 pub struct AgentSigningKeyBinding {
     #[serde(flatten)]
     pub core: AgentSigningKeyBindingCore,
     pub agent_key_authorize_event_id: EventId,
     pub controller_proof: AgentControllerProof,
+}
+
+// Serde does not support combining deny_unknown_fields with flatten.
+// Decode through an explicit closed carrier so the public wire shape remains
+// flat while unknown members are still rejected.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AgentSigningKeyBindingWire {
+    schema: NonEmptyString,
+    agent_id: Did,
+    agent_key_id: NonEmptyString,
+    verification_method: DidUrl,
+    public_key: AgentSigningPublicKey,
+    public_key_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+    #[serde(
+        default,
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    expires_at: Option<DateTime<Utc>>,
+    controller_id: Did,
+    agent_key_authorize_event_id: EventId,
+    controller_proof: AgentControllerProof,
+}
+
+impl<'de> Deserialize<'de> for AgentSigningKeyBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = AgentSigningKeyBindingWire::deserialize(deserializer)?;
+        Ok(Self {
+            core: AgentSigningKeyBindingCore {
+                schema: wire.schema,
+                agent_id: wire.agent_id,
+                agent_key_id: wire.agent_key_id,
+                verification_method: wire.verification_method,
+                public_key: wire.public_key,
+                public_key_digest: wire.public_key_digest,
+                issued_at: wire.issued_at,
+                expires_at: wire.expires_at,
+                controller_id: wire.controller_id,
+            },
+            agent_key_authorize_event_id: wire.agent_key_authorize_event_id,
+            controller_proof: wire.controller_proof,
+        })
+    }
 }
 
 impl core::ops::Deref for AgentSigningKeyBinding {

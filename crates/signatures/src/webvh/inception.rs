@@ -26,7 +26,7 @@
 //! (sodmin / inkson) and servers (soland / coauth) can all share one
 //! implementation with no drift.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use arkret_canonical::base64url::base64url_encode;
 use arkret_canonical::multibase::decode_ed25519_multibase;
@@ -167,10 +167,6 @@ pub struct ValidatedPrincipalInception {
     pub operation_digest: Hash,
     /// The method-native identity root selected from `parameters.updateKeys[0]`.
     pub root_public_key_multibase: String,
-    /// DID-document profile selected by the inception state.
-    pub document_profile: PrincipalDidDocumentProfile,
-    /// External enrollment authority for the B model, when present.
-    pub enrollment_authority: Option<Did>,
 }
 
 /// Validate a complete, signed `did:webvh` entry-0 operation before it is
@@ -258,30 +254,11 @@ pub fn validate_principal_inception_operation(
             "principal inception must contain a DID document state".to_owned(),
         )
     })?;
-    let document_profile = validate_principal_did_document_profile(
+    validate_principal_did_document_profile(
         request.did.as_str(),
         state,
         &[root_public_key_multibase],
     )?;
-    let enrollment_authority = if document_profile == PrincipalDidDocumentProfile::ExternalAuthority
-    {
-        state
-            .get("service")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .find(|service| {
-                service.get("type").and_then(Value::as_str)
-                    == Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
-            })
-            .and_then(|service| service.get("serviceEndpoint"))
-            .and_then(Value::as_str)
-            .map(|did| Did::new(did.to_owned()))
-            .transpose()
-            .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?
-    } else {
-        None
-    };
     let operation_digest = Hash::new(
         arkret_canonical::canonical::canonical_sha256(request)
             .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
@@ -292,8 +269,6 @@ pub fn validate_principal_inception_operation(
         principal_id: request.did.clone(),
         operation_digest,
         root_public_key_multibase: root_public_key_multibase.to_owned(),
-        document_profile,
-        enrollment_authority,
     })
 }
 
@@ -422,24 +397,6 @@ impl PreparedInception {
     }
 }
 
-pub enum PrincipalEnrollmentDelegation<'a> {
-    ExternalAuthority {
-        authority_did: &'a str,
-    },
-    SelfAuthority {
-        principal_signing_public_key_multibase: &'a str,
-        enrollment_public_key_multibase: &'a str,
-        principal_signing_fragment: Option<&'a str>,
-        enrollment_fragment: Option<&'a str>,
-    },
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PrincipalDidDocumentProfile {
-    ExternalAuthority,
-    SelfAuthority,
-}
-
 /// Inputs to a client-authored principal inception. The caller must derive
 /// `root_seed` and `next_root_public_key_multibase` from the same confirmed
 /// recovery secret before publishing the result.
@@ -457,7 +414,6 @@ pub struct PrincipalInceptionInput<'a> {
     pub version_time: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
-    pub enrollment: PrincipalEnrollmentDelegation<'a>,
 }
 
 /// Inputs for a client-authored WebVH inception. The client supplies the DID
@@ -472,7 +428,6 @@ pub struct SuppliedPrincipalInceptionInput<'a> {
     pub root_public_key_multibase: &'a str,
     pub next_root_public_key_multibase: &'a str,
     pub proof: Value,
-    pub enrollment: PrincipalEnrollmentDelegation<'a>,
 }
 
 #[derive(Debug, Clone)]
@@ -506,7 +461,6 @@ pub fn prepare_principal_inception(
     validate_principal_key_separation(
         &root_public_key_multibase,
         input.next_root_public_key_multibase,
-        &input.enrollment,
     )?;
     let next_root_key_hash = webvh_next_key_hash(input.next_root_public_key_multibase)?;
     let placeholder_did = format_webvh_did(&method_authority, WEBVH_SCID_PLACEHOLDER, &local_id);
@@ -514,12 +468,8 @@ pub fn prepare_principal_inception(
     let version_time = input
         .version_time
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let document_skeleton = principal_document_value(
-        &placeholder_did,
-        input.also_known_as,
-        &service_endpoint,
-        &input.enrollment,
-    )?;
+    let document_skeleton =
+        principal_document_value(&placeholder_did, input.also_known_as, &service_endpoint)?;
     validate_principal_did_document_profile(
         &placeholder_did,
         &document_skeleton,
@@ -878,7 +828,7 @@ pub fn prepare_principal_rotation(
 /// Inputs for a service's own `did:webvh` self-mint.
 ///
 /// A service DID is the identity of the service itself and carries no
-/// device-enrollment authority. The resulting DID document therefore omits the
+/// device authorization authority. The resulting DID document therefore omits the
 /// enrollment-authority service entry.
 pub struct ServiceInceptionInput<'a> {
     /// The service's own public base endpoint, e.g. `https://auth.example.com/`.
@@ -914,7 +864,7 @@ pub struct ServiceRegistrationInceptionInput<'a> {
 /// The service-identity counterpart to [`prepare_principal_inception`]: it self-generates
 /// the DID + update keypairs and constructs a byte-identical inception via the
 /// same SCID / version-hash / `eddsa-jcs-2022` proof machinery, but produces a
-/// service-shaped DID document with no device-enrollment-authority service
+/// service-shaped DID document with no device-authorization-authority service
 /// entry. Used by a service (e.g. a principal server hosting its own webvh log,
 /// or an auth server minting against such a host) to bootstrap its own stable
 /// service identity without an external minting round-trip.
@@ -1103,7 +1053,6 @@ pub fn prepare_supplied_principal_inception(
     validate_principal_key_separation(
         input.root_public_key_multibase,
         input.next_root_public_key_multibase,
-        &input.enrollment,
     )?;
     DateTime::parse_from_rfc3339(input.version_time).map_err(|_| {
         WebvhInceptionError::InvalidProof("version_time must be RFC3339".to_owned())
@@ -1113,12 +1062,8 @@ pub fn prepare_supplied_principal_inception(
     let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
     let placeholder_did = format_webvh_did(&method_authority, WEBVH_SCID_PLACEHOLDER, &local_id);
     let service_endpoint = trimmed_endpoint(input.principal_endpoint);
-    let document_skeleton = principal_document_value(
-        &placeholder_did,
-        input.also_known_as,
-        &service_endpoint,
-        &input.enrollment,
-    )?;
+    let document_skeleton =
+        principal_document_value(&placeholder_did, input.also_known_as, &service_endpoint)?;
     validate_principal_did_document_profile(
         &placeholder_did,
         &document_skeleton,
@@ -1238,78 +1183,17 @@ fn principal_document_value(
     did: &str,
     also_known_as: &[String],
     service_endpoint: &str,
-    enrollment: &PrincipalEnrollmentDelegation<'_>,
 ) -> Result<Value, WebvhInceptionError> {
-    let mut services = vec![json!({
-        "id": format!("{did}#soland"),
-        "type": "ArkretPrincipalServer",
-        "serviceEndpoint": service_endpoint,
-    })];
-    let mut document = json!({
+    Ok(json!({
         "@context": ["https://www.w3.org/ns/did/v1"],
         "id": did,
         "alsoKnownAs": also_known_as,
-    });
-
-    match enrollment {
-        PrincipalEnrollmentDelegation::ExternalAuthority { authority_did } => {
-            Did::new((*authority_did).to_owned()).map_err(|error| {
-                WebvhInceptionError::InvalidDid(format!(
-                    "enrollment authority DID is invalid: {error}"
-                ))
-            })?;
-            services.push(json!({
-                "id": format!("{did}#enrollment-authority"),
-                "type": arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
-                "serviceEndpoint": authority_did,
-            }));
-        }
-        PrincipalEnrollmentDelegation::SelfAuthority {
-            principal_signing_public_key_multibase,
-            enrollment_public_key_multibase,
-            principal_signing_fragment,
-            enrollment_fragment,
-        } => {
-            let principal_fragment = normalize_key_fragment(
-                principal_signing_fragment.unwrap_or("principal-signing-key"),
-            )
-            .ok_or(WebvhInceptionError::InvalidKeyFragment)?;
-            let enrollment_fragment = normalize_key_fragment(
-                enrollment_fragment.unwrap_or("device-enrollment-authority"),
-            )
-            .ok_or(WebvhInceptionError::InvalidKeyFragment)?;
-            if principal_fragment == enrollment_fragment {
-                return Err(WebvhInceptionError::InvalidKeyFragment);
-            }
-            let principal_id = format!("{did}#{principal_fragment}");
-            let enrollment_id = format!("{did}#{enrollment_fragment}");
-            if let Value::Object(properties) = &mut document {
-                properties.insert(
-                    "verificationMethod".to_owned(),
-                    json!([
-                        {
-                            "id": principal_id,
-                            "type": "Multikey",
-                            "controller": did,
-                            "publicKeyMultibase": principal_signing_public_key_multibase,
-                        },
-                        {
-                            "id": enrollment_id,
-                            "type": "Multikey",
-                            "controller": did,
-                            "publicKeyMultibase": enrollment_public_key_multibase,
-                        }
-                    ]),
-                );
-                properties.insert("assertionMethod".to_owned(), json!([principal_id]));
-                properties.insert("capabilityDelegation".to_owned(), json!([enrollment_id]));
-            }
-        }
-    }
-    if let Value::Object(properties) = &mut document {
-        properties.insert("service".to_owned(), Value::Array(services));
-    }
-    Ok(document)
+        "service": [{
+            "id": format!("{did}#soland"),
+            "type": "ArkretPrincipalServer",
+            "serviceEndpoint": service_endpoint,
+        }],
+    }))
 }
 
 /// Validate the two mutually exclusive principal DID-document profiles and
@@ -1319,7 +1203,7 @@ pub fn validate_principal_did_document_profile(
     did: &str,
     state: &Value,
     forbidden_root_keys: &[&str],
-) -> Result<PrincipalDidDocumentProfile, WebvhInceptionError> {
+) -> Result<(), WebvhInceptionError> {
     let object = state.as_object().ok_or_else(|| {
         WebvhInceptionError::InvalidProof("principal DID document must be an object".to_owned())
     })?;
@@ -1328,158 +1212,62 @@ pub fn validate_principal_did_document_profile(
             "principal DID document id mismatch".to_owned(),
         ));
     }
-    let services = object
-        .get("service")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            WebvhInceptionError::InvalidProof(
-                "principal DID document must declare services".to_owned(),
-            )
-        })?;
-    let enrollment_services = services
-        .iter()
-        .filter(|service| {
-            service.get("type").and_then(Value::as_str)
-                == Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
-        })
-        .collect::<Vec<_>>();
-    if enrollment_services.len() > 1 {
-        return Err(WebvhInceptionError::InvalidProof(
-            "principal DID document has duplicate enrollment authority services".to_owned(),
-        ));
-    }
-
-    if let Some(service) = enrollment_services.first() {
-        if object.get("verificationMethod").is_some()
-            || object.get("assertionMethod").is_some()
-            || object.get("capabilityDelegation").is_some()
-        {
-            return Err(WebvhInceptionError::InvalidProof(
-                "external enrollment authority is mutually exclusive with self-authority keys"
-                    .to_owned(),
-            ));
-        }
-        let endpoint = service
-            .get("serviceEndpoint")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                WebvhInceptionError::InvalidProof(
-                    "external enrollment authority serviceEndpoint must be a DID".to_owned(),
-                )
-            })?;
-        Did::new(endpoint.to_owned()).map_err(|error| {
-            WebvhInceptionError::InvalidDid(format!("enrollment authority DID is invalid: {error}"))
-        })?;
-        return Ok(PrincipalDidDocumentProfile::ExternalAuthority);
-    }
-
-    let methods = object
-        .get("verificationMethod")
-        .and_then(Value::as_array)
-        .filter(|methods| methods.len() == 2)
-        .ok_or_else(|| {
-            WebvhInceptionError::InvalidProof(
-                "self-authority principal must declare exactly two verification methods".to_owned(),
-            )
-        })?;
-    let mut method_keys = BTreeMap::new();
-    for method in methods {
-        let method = method.as_object().ok_or_else(|| {
-            WebvhInceptionError::InvalidProof(
-                "principal verification method must be an object".to_owned(),
-            )
-        })?;
-        let id = method.get("id").and_then(Value::as_str).ok_or_else(|| {
-            WebvhInceptionError::InvalidProof(
-                "principal verification method id is required".to_owned(),
-            )
-        })?;
-        if !id.starts_with(&format!("{did}#"))
-            || method.get("controller").and_then(Value::as_str) != Some(did)
-            || method.get("type").and_then(Value::as_str) != Some("Multikey")
-        {
-            return Err(WebvhInceptionError::InvalidProof(
-                "principal verification method id, controller, or type is invalid".to_owned(),
-            ));
-        }
-        let key = method
-            .get("publicKeyMultibase")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                WebvhInceptionError::InvalidProof(
-                    "principal verification method publicKeyMultibase is required".to_owned(),
-                )
-            })?;
-        if !valid_multibase_key(key) {
-            return Err(WebvhInceptionError::InvalidProof(
-                "principal verification method must contain an Ed25519 multikey".to_owned(),
-            ));
-        }
-        if forbidden_root_keys.contains(&key) {
-            return Err(WebvhInceptionError::InvalidProof(
-                "identity root keys must not appear in the principal DID document".to_owned(),
-            ));
-        }
-        if method_keys.insert(id, key).is_some() {
-            return Err(WebvhInceptionError::InvalidProof(
-                "principal verification method ids must be distinct".to_owned(),
-            ));
-        }
-    }
-    let unique_keys = method_keys.values().copied().collect::<BTreeSet<_>>();
-    if unique_keys.len() != method_keys.len() {
-        return Err(WebvhInceptionError::InvalidProof(
-            "principal signing and enrollment keys must be distinct".to_owned(),
-        ));
-    }
-    let assertion = single_relationship_reference(object, "assertionMethod")?;
-    let delegation = single_relationship_reference(object, "capabilityDelegation")?;
-    if assertion == delegation
-        || !method_keys.contains_key(assertion)
-        || !method_keys.contains_key(delegation)
+    if [
+        "verificationMethod",
+        "authentication",
+        "assertionMethod",
+        "capabilityDelegation",
+    ]
+    .iter()
+    .any(|field| object.contains_key(*field))
     {
         return Err(WebvhInceptionError::InvalidProof(
-            "principal assertion and enrollment relationships must reference distinct local methods"
+            "principal DID document is an identity anchor and must not carry device or business authority keys"
                 .to_owned(),
         ));
     }
-    Ok(PrincipalDidDocumentProfile::SelfAuthority)
-}
-
-fn single_relationship_reference<'a>(
-    object: &'a serde_json::Map<String, Value>,
-    field: &str,
-) -> Result<&'a str, WebvhInceptionError> {
-    object
-        .get(field)
+    if forbidden_root_keys
+        .iter()
+        .any(|key| serde_json::to_string(state).is_ok_and(|document| document.contains(*key)))
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "identity root keys must not appear in the principal DID document".to_owned(),
+        ));
+    }
+    let services = object
+        .get("service")
         .and_then(Value::as_array)
-        .filter(|references| references.len() == 1)
-        .and_then(|references| references[0].as_str())
+        .filter(|services| services.len() == 1)
         .ok_or_else(|| {
-            WebvhInceptionError::InvalidProof(format!(
-                "principal {field} must contain exactly one string reference"
-            ))
-        })
+            WebvhInceptionError::InvalidProof(
+                "principal DID document must declare exactly one Principal Server service"
+                    .to_owned(),
+            )
+        })?;
+    let service = &services[0];
+    let expected_service_id = format!("{did}#soland");
+    if service.get("id").and_then(Value::as_str) != Some(expected_service_id.as_str())
+        || service.get("type").and_then(Value::as_str) != Some("ArkretPrincipalServer")
+        || service
+            .get("serviceEndpoint")
+            .and_then(Value::as_str)
+            .is_none()
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal DID document Principal Server service is invalid".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_principal_key_separation(
     root_public_key_multibase: &str,
     next_root_public_key_multibase: &str,
-    enrollment: &PrincipalEnrollmentDelegation<'_>,
 ) -> Result<(), WebvhInceptionError> {
-    let mut named_keys = vec![
+    let named_keys = [
         ("root", root_public_key_multibase),
         ("next root", next_root_public_key_multibase),
     ];
-    if let PrincipalEnrollmentDelegation::SelfAuthority {
-        principal_signing_public_key_multibase,
-        enrollment_public_key_multibase,
-        ..
-    } = enrollment
-    {
-        named_keys.push(("principal signing", principal_signing_public_key_multibase));
-        named_keys.push(("enrollment", enrollment_public_key_multibase));
-    }
     for (name, key) in &named_keys {
         if !valid_multibase_key(key) {
             return Err(WebvhInceptionError::InvalidProof(format!(
@@ -1487,15 +1275,10 @@ fn validate_principal_key_separation(
             )));
         }
     }
-    for left in 0..named_keys.len() {
-        for right in (left + 1)..named_keys.len() {
-            if named_keys[left].1 == named_keys[right].1 {
-                return Err(WebvhInceptionError::InvalidProof(format!(
-                    "{} and {} keys must be distinct",
-                    named_keys[left].0, named_keys[right].0
-                )));
-            }
-        }
+    if root_public_key_multibase == next_root_public_key_multibase {
+        return Err(WebvhInceptionError::InvalidProof(
+            "root and next root keys must be distinct".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -1767,757 +1550,4 @@ fn normalize_key_fragment(value: &str) -> Option<String> {
 
 fn valid_multibase_key(value: &str) -> bool {
     decode_ed25519_multibase(value).is_ok()
-}
-
-#[cfg(test)]
-mod tests {
-    use rand_chacha::ChaCha20Rng;
-    use rand_chacha::rand_core::SeedableRng;
-
-    use super::*;
-
-    fn public_multikey(seed: u8) -> String {
-        encode_ed25519_pubkey_multibase(
-            SigningKey::from_bytes(&[seed; SECRET_KEY_LENGTH])
-                .verifying_key()
-                .as_bytes(),
-        )
-    }
-
-    fn run_prepare(seed: u8) -> PreparedPrincipalInception {
-        let endpoint = Url::parse("https://local.host:8080/").unwrap();
-        let root_seed = [seed; SECRET_KEY_LENGTH];
-        let next_root_public_key_multibase = public_multikey(seed.wrapping_add(1));
-        let input = PrincipalInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "01krmccd3cehqbtvzg383m3maf",
-            also_known_as: &["acct:user@local.host".to_owned()],
-            version_time: DateTime::parse_from_rfc3339("2026-05-15T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            root_seed: &root_seed,
-            next_root_public_key_multibase: &next_root_public_key_multibase,
-            enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
-                authority_did: "did:web:coauth.example.com",
-            },
-        };
-        prepare_principal_inception(&input).expect("prepare ok")
-    }
-
-    /// Self-authority variant: the DID document carries two verification
-    /// methods (principal signing at `seed + 2`, enrollment at `seed + 3`)
-    /// that are distinct from the entry-0 root.
-    fn run_prepare_self_authority(seed: u8) -> PreparedPrincipalInception {
-        let endpoint = Url::parse("https://local.host:8080/").unwrap();
-        let root_seed = [seed; SECRET_KEY_LENGTH];
-        let next_root_public_key_multibase = public_multikey(seed.wrapping_add(1));
-        let principal_signing = public_multikey(seed.wrapping_add(2));
-        let enrollment_key = public_multikey(seed.wrapping_add(3));
-        let input = PrincipalInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "01krmccd3cehqbtvzg383m3maf",
-            also_known_as: &["acct:user@local.host".to_owned()],
-            version_time: DateTime::parse_from_rfc3339("2026-05-15T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            root_seed: &root_seed,
-            next_root_public_key_multibase: &next_root_public_key_multibase,
-            enrollment: PrincipalEnrollmentDelegation::SelfAuthority {
-                principal_signing_public_key_multibase: &principal_signing,
-                enrollment_public_key_multibase: &enrollment_key,
-                principal_signing_fragment: None,
-                enrollment_fragment: None,
-            },
-        };
-        prepare_principal_inception(&input).expect("prepare ok")
-    }
-
-    /// Unsigned account-binding control proof whose transcript fields all
-    /// match `validated`; tests then choose the verification key and signing
-    /// seed to probe each rejection path in isolation.
-    fn account_binding_proof_fixture(
-        validated: &ValidatedPrincipalInception,
-    ) -> IdentityCreationControlProof {
-        let issued_at = DateTime::parse_from_rfc3339("2026-05-15T00:01:00.000Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        IdentityCreationControlProof {
-            proof_kind:
-                arkret_models_identity::IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
-            challenge_id: "challenge_0123456789012345678901".to_owned(),
-            challenge: "nonce_0123456789012345678901".to_owned(),
-            purpose: arkret_models_identity::IdentityBindingPurpose::AccountBinding,
-            principal_id: validated.principal_id.clone(),
-            operation_digest: validated.operation_digest.clone(),
-            lease_id: "lease_0123456789012345678901".to_owned(),
-            lease_fence: 1,
-            dpop_jkt: "a".repeat(43),
-            audience: Did::new("did:web:coauth.example.com").unwrap(),
-            origin: "https://coauth.example.com".to_owned(),
-            trust_domain: arkret_wire::TypedTrustDomainId::new(
-                "ak:trust_domain:example.com".to_owned(),
-            )
-            .unwrap(),
-            issued_at,
-            expires_at: issued_at + chrono::Duration::minutes(5),
-            verification_key_multibase: validated.root_public_key_multibase.clone(),
-            signature: String::new(),
-        }
-    }
-
-    #[test]
-    fn did_format_matches_embedded_provider_authority() {
-        let prepared = run_prepare(1);
-        assert!(
-            prepared.did.starts_with("did:webvh:")
-                && prepared.did.contains(":local.host%3A8080:webvh:")
-                && prepared.did.ends_with(":01krmccd3cehqbtvzg383m3maf"),
-            "unexpected DID: {}",
-            prepared.did
-        );
-        assert_eq!(prepared.method_authority, "local.host%3A8080");
-        assert_eq!(prepared.https_authority, "local.host:8080");
-        assert_eq!(prepared.local_id, "01krmccd3cehqbtvzg383m3maf");
-        // DIF did:webvh v1.0: entry hashes are bare base58btc sha256
-        // multihashes — 46 chars, `Qm…`, no multibase `z` prefix.
-        assert!(
-            prepared.version_id.starts_with("1-Qm"),
-            "unexpected versionId: {}",
-            prepared.version_id
-        );
-        let scid = prepared.did.split(':').nth(2).unwrap_or_default();
-        assert!(
-            scid.starts_with("Qm") && scid.len() == 46,
-            "SCID must be a bare 46-char base58btc multihash, got: {scid}"
-        );
-    }
-
-    #[test]
-    fn submit_body_matches_arkret_protocol() {
-        let prepared = run_prepare(3);
-        let body = &prepared.submit_body;
-        assert_eq!(body.did.as_str(), prepared.did.as_str());
-        assert_eq!(body.did_method, "webvh");
-        assert_eq!(body.seq, Some(1));
-        assert!(body.prev_event_digest.is_none());
-        assert_eq!(
-            body.operation["parameters"]["updateKeys"][0].as_str(),
-            Some(prepared.root_public_key_multibase.as_str()),
-        );
-        assert_eq!(
-            body.operation["parameters"]["nextKeyHashes"][0].as_str(),
-            Some(prepared.next_root_key_hash.as_str()),
-        );
-        assert!(body.operation["state"].get("verificationMethod").is_none());
-        assert_eq!(
-            body.operation["versionTime"].as_str(),
-            Some(prepared.version_time.as_str())
-        );
-        let proof = &body.operation["proof"][0];
-        assert!(proof.is_object());
-        assert_eq!(proof["cryptosuite"].as_str(), Some("eddsa-jcs-2022"));
-    }
-
-    #[test]
-    fn account_binding_control_proof_uses_entry_zero_root() {
-        let prepared = run_prepare(19);
-        let validated = validate_principal_inception_operation(&prepared.submit_body)
-            .expect("inception validates");
-        assert_eq!(validated.principal_id.as_str(), prepared.did);
-        assert_eq!(
-            validated.document_profile,
-            PrincipalDidDocumentProfile::ExternalAuthority
-        );
-        assert_eq!(
-            validated.enrollment_authority.as_ref().map(Did::as_str),
-            Some("did:web:coauth.example.com")
-        );
-
-        let mut proof = account_binding_proof_fixture(&validated);
-        sign_identity_creation_control_proof(&mut proof, &[19; SECRET_KEY_LENGTH])
-            .expect("proof signs");
-        verify_identity_creation_control_proof(&prepared.submit_body, &proof)
-            .expect("root proof verifies");
-
-        proof.verification_key_multibase = public_multikey(20);
-        assert!(verify_identity_creation_control_proof(&prepared.submit_body, &proof).is_err());
-    }
-
-    #[test]
-    fn public_inception_validator_rejects_forged_controller_proof() {
-        let prepared = run_prepare(21);
-        let mut request = prepared.submit_body;
-        let forged = SigningKey::from_bytes(&[99_u8; 32]).sign(b"unrelated");
-        request
-            .operation
-            .get_mut("proof")
-            .and_then(Value::as_array_mut)
-            .and_then(|proofs| proofs.first_mut())
-            .and_then(Value::as_object_mut)
-            .expect("proof object")
-            .insert(
-                "proofValue".to_owned(),
-                Value::String(arkret_canonical::encode_multibase_base58btc(
-                    forged.to_bytes(),
-                )),
-            );
-        assert!(matches!(
-            validate_principal_inception_operation(&request),
-            Err(WebvhInceptionError::InvalidProof(_))
-        ));
-    }
-
-    #[test]
-    fn account_binding_control_proof_rejects_arbitrary_requested_key() {
-        // An attacker may ask the authority to accept any key it controls.
-        // Even with a self-consistent signature under the requested key, the
-        // proof must be pinned to entry-0 `parameters.updateKeys[0]`.
-        let prepared = run_prepare(23);
-        let validated = validate_principal_inception_operation(&prepared.submit_body)
-            .expect("inception validates");
-        let mut proof = account_binding_proof_fixture(&validated);
-        proof.verification_key_multibase = public_multikey(77);
-        sign_identity_creation_control_proof(&mut proof, &[77; SECRET_KEY_LENGTH])
-            .expect("proof signs");
-        let error = verify_identity_creation_control_proof(&prepared.submit_body, &proof)
-            .expect_err("arbitrary key must be rejected");
-        assert!(
-            error
-                .to_string()
-                .contains("does not match the reserved inception root"),
-            "got: {error}"
-        );
-    }
-
-    #[test]
-    fn account_binding_control_proof_rejects_document_verification_method_key() {
-        // Self-authority documents carry verification methods distinct from
-        // the root. A proof under a DID Document VM key — even validly
-        // signed — must never substitute for `updateKeys[0]`.
-        let prepared = run_prepare_self_authority(29);
-        let validated = validate_principal_inception_operation(&prepared.submit_body)
-            .expect("inception validates");
-        assert_eq!(
-            validated.document_profile,
-            PrincipalDidDocumentProfile::SelfAuthority
-        );
-        let document_key = public_multikey(31);
-        let document_keys = prepared
-            .log_entry
-            .pointer("/state/verificationMethod")
-            .and_then(Value::as_array)
-            .map(|methods| {
-                methods
-                    .iter()
-                    .filter_map(|method| method.get("publicKeyMultibase").and_then(Value::as_str))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        assert!(
-            document_keys.contains(&document_key.as_str()),
-            "fixture document must carry the principal signing key"
-        );
-        let mut proof = account_binding_proof_fixture(&validated);
-        proof.verification_key_multibase = document_key;
-        sign_identity_creation_control_proof(&mut proof, &[31; SECRET_KEY_LENGTH])
-            .expect("proof signs");
-        let error = verify_identity_creation_control_proof(&prepared.submit_body, &proof)
-            .expect_err("document VM key must be rejected");
-        assert!(
-            error
-                .to_string()
-                .contains("does not match the reserved inception root"),
-            "got: {error}"
-        );
-    }
-
-    #[test]
-    fn account_binding_control_proof_rejects_foreign_public_operation() {
-        // Public operation checkpoints leak no signing authority: an attacker
-        // holding someone else's published entry 0 can neither sign for its
-        // root nor re-target its own proof at the foreign operation.
-        let victim = run_prepare(37);
-        let attacker = run_prepare(41);
-        let victim_validated = validate_principal_inception_operation(&victim.submit_body)
-            .expect("victim inception validates");
-        let attacker_validated = validate_principal_inception_operation(&attacker.submit_body)
-            .expect("attacker inception validates");
-
-        // Transcript copied from the victim checkpoint, signed by the
-        // attacker root: the claimed key matches updateKeys[0], so only the
-        // signature check can stop it.
-        let mut forged = account_binding_proof_fixture(&victim_validated);
-        sign_identity_creation_control_proof(&mut forged, &[41; SECRET_KEY_LENGTH])
-            .expect("proof signs");
-        let error = verify_identity_creation_control_proof(&victim.submit_body, &forged)
-            .expect_err("foreign signature must be rejected");
-        assert!(
-            error.to_string().contains("control signature is invalid"),
-            "got: {error}"
-        );
-
-        // A fully valid proof for the attacker's own inception must not bind
-        // the victim's operation: principal and digest are pinned.
-        let mut own = account_binding_proof_fixture(&attacker_validated);
-        sign_identity_creation_control_proof(&mut own, &[41; SECRET_KEY_LENGTH])
-            .expect("proof signs");
-        verify_identity_creation_control_proof(&attacker.submit_body, &own)
-            .expect("attacker proof verifies against its own operation");
-        let error = verify_identity_creation_control_proof(&victim.submit_body, &own)
-            .expect_err("cross-operation proof must be rejected");
-        assert!(
-            error
-                .to_string()
-                .contains("does not match the reserved inception root"),
-            "got: {error}"
-        );
-    }
-
-    #[test]
-    fn supplied_inception_reconstructs_submit_body() {
-        let prepared = run_prepare(31);
-        let endpoint = Url::parse("https://local.host:8080/").unwrap();
-        let proof = prepared.log_entry["proof"][0].clone();
-        let also_known_as = ["acct:user@local.host".to_owned()];
-        let supplied = prepare_supplied_principal_inception(&SuppliedPrincipalInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: &prepared.local_id,
-            also_known_as: &also_known_as,
-            version_time: &prepared.version_time,
-            root_public_key_multibase: &prepared.root_public_key_multibase,
-            next_root_public_key_multibase: &prepared.next_root_public_key_multibase,
-            proof,
-            enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
-                authority_did: "did:web:coauth.example.com",
-            },
-        })
-        .expect("supplied inception ok");
-
-        assert_eq!(supplied.did, prepared.did);
-        assert_eq!(supplied.key_log_head, prepared.version_id);
-        assert_eq!(
-            supplied.submit_body.operation,
-            prepared.submit_body.operation
-        );
-        assert_eq!(supplied.submit_body.did.as_str(), prepared.did.as_str());
-    }
-
-    #[test]
-    fn document_carries_enrollment_authority_service() {
-        let prepared = run_prepare(11);
-        let services = prepared
-            .log_entry
-            .pointer("/state/service")
-            .and_then(Value::as_array)
-            .expect("state.service array");
-        let entry = services
-            .iter()
-            .find(|svc| {
-                svc.get("type").and_then(Value::as_str)
-                    == Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
-            })
-            .expect("enrollment-authority service entry present");
-        assert_eq!(
-            entry.get("serviceEndpoint").and_then(Value::as_str),
-            Some("did:web:coauth.example.com"),
-        );
-        let id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
-        assert!(
-            id.ends_with("#enrollment-authority"),
-            "service id must use the #enrollment-authority fragment, got {id}"
-        );
-    }
-
-    #[test]
-    fn rejects_endpoint_without_dot() {
-        let endpoint = Url::parse("http://localhost:8080/").unwrap();
-        let root_seed = [1; SECRET_KEY_LENGTH];
-        let next_root = public_multikey(2);
-        let input = PrincipalInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "abc",
-            also_known_as: &[],
-            version_time: Utc::now(),
-            root_seed: &root_seed,
-            next_root_public_key_multibase: &next_root,
-            enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
-                authority_did: "did:web:coauth.example.com",
-            },
-        };
-        let err = prepare_principal_inception(&input).unwrap_err();
-        assert!(matches!(err, WebvhInceptionError::EndpointHostInvalid));
-    }
-
-    #[test]
-    fn rejects_invalid_local_id() {
-        let endpoint = Url::parse("https://local.host:8080/").unwrap();
-        let root_seed = [1; SECRET_KEY_LENGTH];
-        let next_root = public_multikey(2);
-        let input = PrincipalInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "../etc/passwd",
-            also_known_as: &[],
-            version_time: Utc::now(),
-            root_seed: &root_seed,
-            next_root_public_key_multibase: &next_root,
-            enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
-                authority_did: "did:web:coauth.example.com",
-            },
-        };
-        let err = prepare_principal_inception(&input).unwrap_err();
-        assert!(matches!(err, WebvhInceptionError::InvalidLocalId));
-    }
-
-    #[test]
-    fn determinism_under_fixed_root_schedule() {
-        let a = run_prepare(123);
-        let b = run_prepare(123);
-        assert_eq!(a.did, b.did);
-        assert_eq!(a.version_id, b.version_id);
-        assert_eq!(a.root_public_key_multibase, b.root_public_key_multibase);
-    }
-
-    #[test]
-    fn principal_rotation_activates_only_the_precommitted_root() {
-        let genesis = run_prepare(1);
-        let next_root = public_multikey(3);
-        let rotated = prepare_principal_rotation(&PrincipalRotationInput {
-            did: &genesis.did,
-            local_id: &genesis.local_id,
-            previous_entries: std::slice::from_ref(&genesis.log_entry),
-            version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            current_root_seed: &[2; SECRET_KEY_LENGTH],
-            next_root_public_key_multibase: &next_root,
-            state: &genesis.log_entry["state"],
-        })
-        .unwrap();
-
-        assert!(rotated.version_id.starts_with("2-Qm"));
-        assert_eq!(rotated.previous_version_id, genesis.version_id);
-        assert!(
-            rotated.log_entry["parameters"]
-                .get("prevVersionId")
-                .is_none()
-        );
-        assert!(
-            rotated.log_entry["parameters"]
-                .get("previousVersionId")
-                .is_none()
-        );
-        assert_eq!(
-            rotated.log_entry["parameters"]["updateKeys"][0],
-            public_multikey(2)
-        );
-        assert_eq!(rotated.submit_body.did_method, "webvh");
-        assert_eq!(rotated.submit_body.seq, Some(2));
-        assert_eq!(
-            rotated
-                .submit_body
-                .prev_event_digest
-                .as_ref()
-                .map(Hash::as_str),
-            Some(
-                arkret_canonical::canonical::canonical_sha256(&genesis.log_entry)
-                    .unwrap()
-                    .as_str()
-            )
-        );
-
-        let error = prepare_principal_rotation(&PrincipalRotationInput {
-            did: &genesis.did,
-            local_id: &genesis.local_id,
-            previous_entries: std::slice::from_ref(&genesis.log_entry),
-            version_time: Utc::now(),
-            current_root_seed: &[4; SECRET_KEY_LENGTH],
-            next_root_public_key_multibase: &next_root,
-            state: &genesis.log_entry["state"],
-        })
-        .unwrap_err();
-        assert!(error.to_string().contains("not uniquely precommitted"));
-    }
-
-    #[test]
-    fn principal_rotation_rejects_any_previously_activated_root() {
-        let genesis = run_prepare(1);
-        let third_root = public_multikey(3);
-        let first_rotation = prepare_principal_rotation(&PrincipalRotationInput {
-            did: &genesis.did,
-            local_id: &genesis.local_id,
-            previous_entries: std::slice::from_ref(&genesis.log_entry),
-            version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            current_root_seed: &[2; SECRET_KEY_LENGTH],
-            next_root_public_key_multibase: &third_root,
-            state: &genesis.log_entry["state"],
-        })
-        .unwrap();
-        let history = vec![genesis.log_entry.clone(), first_rotation.log_entry.clone()];
-
-        let error = prepare_principal_rotation(&PrincipalRotationInput {
-            did: &genesis.did,
-            local_id: &genesis.local_id,
-            previous_entries: &history,
-            version_time: DateTime::parse_from_rfc3339("2026-05-17T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            current_root_seed: &[3; SECRET_KEY_LENGTH],
-            next_root_public_key_multibase: &public_multikey(1),
-            state: &first_rotation.log_entry["state"],
-        })
-        .unwrap_err();
-
-        assert!(error.to_string().contains("already activated"));
-    }
-
-    #[test]
-    fn no_default_port_in_authority() {
-        let endpoint = Url::parse("https://local.host/").unwrap();
-        let root_seed = [1; SECRET_KEY_LENGTH];
-        let next_root = public_multikey(2);
-        let input = PrincipalInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "abc",
-            also_known_as: &[],
-            version_time: Utc::now(),
-            root_seed: &root_seed,
-            next_root_public_key_multibase: &next_root,
-            enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
-                authority_did: "did:web:coauth.example.com",
-            },
-        };
-        let prepared = prepare_principal_inception(&input).unwrap();
-        assert_eq!(prepared.method_authority, "local.host");
-        assert!(prepared.did.contains(":local.host:webvh:"));
-    }
-
-    #[test]
-    fn self_authority_keeps_all_principal_keys_separate() {
-        let endpoint = Url::parse("https://local.host/").unwrap();
-        let root_seed = [1; SECRET_KEY_LENGTH];
-        let next_root = public_multikey(2);
-        let principal_signing = public_multikey(3);
-        let enrollment = public_multikey(4);
-        let prepared = prepare_principal_inception(&PrincipalInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "abc",
-            also_known_as: &[],
-            version_time: Utc::now(),
-            root_seed: &root_seed,
-            next_root_public_key_multibase: &next_root,
-            enrollment: PrincipalEnrollmentDelegation::SelfAuthority {
-                principal_signing_public_key_multibase: &principal_signing,
-                enrollment_public_key_multibase: &enrollment,
-                principal_signing_fragment: None,
-                enrollment_fragment: None,
-            },
-        })
-        .unwrap();
-
-        let state = &prepared.log_entry["state"];
-        assert_eq!(state["verificationMethod"].as_array().unwrap().len(), 2);
-        assert_eq!(state["assertionMethod"].as_array().unwrap().len(), 1);
-        assert_eq!(state["capabilityDelegation"].as_array().unwrap().len(), 1);
-        assert!(
-            state["verificationMethod"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .all(|method| method["publicKeyMultibase"] != prepared.root_public_key_multibase)
-        );
-    }
-
-    #[test]
-    fn principal_profile_rejects_mixed_or_dangling_enrollment_authority() {
-        let did = "did:webvh:{SCID}:local.host:webvh:abc";
-        let root = public_multikey(1);
-        let principal_signing = public_multikey(2);
-        let enrollment = public_multikey(3);
-        let principal_method = format!("{did}#principal-signing-key");
-        let enrollment_method = format!("{did}#device-enrollment-authority");
-        let mut state = json!({
-            "id": did,
-            "verificationMethod": [
-                {
-                    "id": principal_method,
-                    "type": "Multikey",
-                    "controller": did,
-                    "publicKeyMultibase": principal_signing,
-                },
-                {
-                    "id": enrollment_method,
-                    "type": "Multikey",
-                    "controller": did,
-                    "publicKeyMultibase": enrollment,
-                }
-            ],
-            "assertionMethod": [principal_method],
-            "capabilityDelegation": [enrollment_method],
-            "service": [{
-                "id": format!("{did}#soland"),
-                "type": "ArkretPrincipalServer",
-                "serviceEndpoint": "https://local.host"
-            }]
-        });
-        assert_eq!(
-            validate_principal_did_document_profile(did, &state, &[&root]).unwrap(),
-            PrincipalDidDocumentProfile::SelfAuthority
-        );
-
-        state["capabilityDelegation"] = json!([format!("{did}#missing")]);
-        assert!(validate_principal_did_document_profile(did, &state, &[&root]).is_err());
-
-        state["capabilityDelegation"] = json!([enrollment_method]);
-        state["service"].as_array_mut().unwrap().push(json!({
-            "id": format!("{did}#enrollment-authority"),
-            "type": arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
-            "serviceEndpoint": "did:web:coauth.example.com"
-        }));
-        assert!(validate_principal_did_document_profile(did, &state, &[&root]).is_err());
-    }
-
-    fn run_prepare_service(seed: u64) -> PreparedInception {
-        let mut rng = ChaCha20Rng::seed_from_u64(seed);
-        let endpoint = Url::parse("https://auth.example.com/").unwrap();
-        let input = ServiceInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "service",
-            also_known_as: &[],
-            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            did_key_fragment: None,
-        };
-        prepare_service_inception(&mut rng, &input).expect("service prepare ok")
-    }
-
-    #[test]
-    fn service_inception_has_service_id_shape() {
-        let prepared = run_prepare_service(5);
-        assert!(prepared.did.starts_with("did:webvh:"), "{}", prepared.did);
-        assert!(
-            prepared.did.contains(":auth.example.com:webvh:") && prepared.did.ends_with(":service"),
-            "unexpected service DID: {}",
-            prepared.did
-        );
-        assert_eq!(prepared.local_id, "service");
-    }
-
-    #[test]
-    fn service_inception_omits_enrollment_authority() {
-        let prepared = run_prepare_service(9);
-        let services = prepared
-            .log_entry
-            .pointer("/state/service")
-            .and_then(Value::as_array)
-            .expect("state.service array");
-        assert!(
-            services.iter().all(|svc| {
-                svc.get("type").and_then(Value::as_str)
-                    != Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
-            }),
-            "service DID document must not carry a device-enrollment-authority entry",
-        );
-        assert!(
-            services.iter().any(|svc| {
-                svc.get("type").and_then(Value::as_str) == Some("ArkretService")
-                    && svc.get("serviceKind").and_then(Value::as_str) == Some("principal_server")
-            }),
-            "service DID document should carry the typed ArkretService entry",
-        );
-    }
-
-    #[test]
-    fn provider_host_and_registered_public_base_are_independent() {
-        let mut rng = ChaCha20Rng::seed_from_u64(29);
-        let provider_endpoint = Url::parse("https://identity.example/").unwrap();
-        let registration_key = ServiceRegistrationKey::new(
-            ServiceKind::AuthServer,
-            CanonicalServiceUrl::new("https://auth.example/").unwrap(),
-        )
-        .unwrap();
-        let prepared = prepare_service_registration_inception(
-            &mut rng,
-            &ServiceRegistrationInceptionInput {
-                provider_endpoint: &provider_endpoint,
-                registration_key: &registration_key,
-                also_known_as: &[],
-                version_time: DateTime::parse_from_rfc3339("2026-07-15T00:00:00.000Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                did_key_fragment: None,
-            },
-        )
-        .unwrap();
-
-        assert!(prepared.did.contains(":identity.example:webvh:"));
-        let operation = prepared.service_registration_operation().unwrap();
-        operation.validate_for(&registration_key).unwrap();
-        assert_eq!(
-            operation.state.service[0].service_endpoint.as_str(),
-            "https://auth.example/"
-        );
-        assert_eq!(
-            operation.state.service[0].service_kind,
-            ServiceKind::AuthServer
-        );
-    }
-
-    #[test]
-    fn service_inception_can_publish_durable_signing_key() {
-        let mut rng = ChaCha20Rng::seed_from_u64(19);
-        let endpoint = Url::parse("https://auth.example.com/").unwrap();
-        let input = ServiceInceptionInput {
-            principal_endpoint: &endpoint,
-            local_id: "service",
-            also_known_as: &[],
-            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            did_key_fragment: Some("notary-key"),
-        };
-        let signing_seed = [0x5au8; SECRET_KEY_LENGTH];
-        let prepared = prepare_service_inception_with_did_key_seed(&mut rng, &input, &signing_seed)
-            .expect("service prepare with durable key");
-        let expected_public_key = encode_ed25519_pubkey_multibase(
-            SigningKey::from_bytes(&signing_seed)
-                .verifying_key()
-                .as_bytes(),
-        );
-
-        assert_eq!(prepared.did_key_seed, signing_seed);
-        assert_eq!(prepared.did_public_key_multibase, expected_public_key);
-        assert_eq!(prepared.did_key_id, format!("{}#notary-key", prepared.did));
-        assert_eq!(
-            prepared.log_entry["state"]["verificationMethod"][0]["id"],
-            prepared.did_key_id,
-        );
-        assert_eq!(
-            prepared.log_entry["state"]["verificationMethod"][0]["publicKeyMultibase"],
-            expected_public_key,
-        );
-        assert_eq!(
-            prepared.log_entry["state"]["verificationMethod"][1]["id"],
-            format!("{}#federation-fanout-key", prepared.did),
-        );
-        assert_eq!(
-            prepared.log_entry["state"]["verificationMethod"][1]["publicKeyMultibase"],
-            expected_public_key,
-        );
-        assert_eq!(
-            prepared.log_entry["state"]["assertionMethod"][1],
-            format!("{}#federation-fanout-key", prepared.did),
-        );
-    }
-
-    #[test]
-    fn service_inception_determinism_under_fixed_rng() {
-        let a = run_prepare_service(77);
-        let b = run_prepare_service(77);
-        assert_eq!(a.did, b.did);
-        assert_eq!(a.version_id, b.version_id);
-        assert_eq!(a.update_key_seed, b.update_key_seed);
-    }
 }

@@ -927,7 +927,7 @@ mod tests {
         "did:web:alice.example#key.1",
         "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
         "did:webvh:z6mkfixture:alice.example#ak:device:0198c4d2-af00-7000-8000-aabbccddeeff",
-        "did:webvh:z6mkfixture:alice.example#ak_self_signing_v1",
+        "did:webvh:z6mkfixture:alice.example#ak_device_signing_v1",
         "did:webvh:example.test:orgs:org1#k1",
         "did:key2:abc#k",
         // The spec identifier class `[^\s#?]+` allows `/`; staying no stricter

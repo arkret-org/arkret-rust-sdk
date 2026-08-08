@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.7;
-//! sha256=e4d461da5f862e0d479a9d6dfdd57967e94762bddf027bc8552e5262d5935194 Entries: error_codes=279
+//! Input: registry/error-code-registry.json; version=2026-08-09.3;
+//! sha256=c88f3720ad518b4f58ff32c49f34ea9350a64b6136f2878c6075c3804d05e0ff Entries: error_codes=272
 
 use serde::{Deserialize, Serialize};
 
@@ -72,11 +72,6 @@ pub enum ErrorCode {
     BlobExpired,
     BlobPresignInvalid,
     BlobQuotaExceeded,
-    BootstrapDecisionConflict,
-    BootstrapDecisionIndeterminate,
-    BootstrapIdempotencyConflict,
-    BootstrapTransactionCancelled,
-    BootstrapTransactionExpired,
     BotActorRevoked,
     CallAlreadyAnswered,
     CallExpired,
@@ -96,7 +91,6 @@ pub enum ErrorCode {
     ControllerSignedEventRequired,
     CredentialExpired,
     CredentialNotFound,
-    CrossSigningStateMissing,
     CursorExpired,
     CursorIntegrityInvalid,
     CursorInvalid,
@@ -107,14 +101,13 @@ pub enum ErrorCode {
     DeliveryBindingUnresolvable,
     DependencyMissing,
     DeviceAlreadyAuthorized,
-    DeviceEnrollmentAuthorityNotDesignated,
     DeviceGenerationFenced,
     DeviceNotAuthorized,
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorConflict,
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
-    DeviceRecoverySskGenerationMismatch,
+    DeviceRecoveryGenerationMismatch,
     DeviceRevoked,
     DeviceUnknown,
     DidAlreadyExists,
@@ -365,11 +358,6 @@ impl ErrorCode {
         Self::BlobExpired,
         Self::BlobPresignInvalid,
         Self::BlobQuotaExceeded,
-        Self::BootstrapDecisionConflict,
-        Self::BootstrapDecisionIndeterminate,
-        Self::BootstrapIdempotencyConflict,
-        Self::BootstrapTransactionCancelled,
-        Self::BootstrapTransactionExpired,
         Self::BotActorRevoked,
         Self::CallAlreadyAnswered,
         Self::CallExpired,
@@ -389,7 +377,6 @@ impl ErrorCode {
         Self::ControllerSignedEventRequired,
         Self::CredentialExpired,
         Self::CredentialNotFound,
-        Self::CrossSigningStateMissing,
         Self::CursorExpired,
         Self::CursorIntegrityInvalid,
         Self::CursorInvalid,
@@ -400,14 +387,13 @@ impl ErrorCode {
         Self::DeliveryBindingUnresolvable,
         Self::DependencyMissing,
         Self::DeviceAlreadyAuthorized,
-        Self::DeviceEnrollmentAuthorityNotDesignated,
         Self::DeviceGenerationFenced,
         Self::DeviceNotAuthorized,
         Self::DeviceReanchorAuthorizeMismatch,
         Self::DeviceReanchorConflict,
         Self::DeviceReanchorEntryNotHead,
         Self::DeviceReanchorFrontierMismatch,
-        Self::DeviceRecoverySskGenerationMismatch,
+        Self::DeviceRecoveryGenerationMismatch,
         Self::DeviceRevoked,
         Self::DeviceUnknown,
         Self::DidAlreadyExists,
@@ -651,11 +637,6 @@ impl ErrorCode {
     pub const BLOB_EXPIRED: &'static str = "blob_expired";
     pub const BLOB_PRESIGN_INVALID: &'static str = "blob_presign_invalid";
     pub const BLOB_QUOTA_EXCEEDED: &'static str = "blob_quota_exceeded";
-    pub const BOOTSTRAP_DECISION_CONFLICT: &'static str = "bootstrap_decision_conflict";
-    pub const BOOTSTRAP_DECISION_INDETERMINATE: &'static str = "bootstrap_decision_indeterminate";
-    pub const BOOTSTRAP_IDEMPOTENCY_CONFLICT: &'static str = "bootstrap_idempotency_conflict";
-    pub const BOOTSTRAP_TRANSACTION_CANCELLED: &'static str = "bootstrap_transaction_cancelled";
-    pub const BOOTSTRAP_TRANSACTION_EXPIRED: &'static str = "bootstrap_transaction_expired";
     pub const BOT_ACTOR_REVOKED: &'static str = "bot_actor_revoked";
     pub const CALL_ALREADY_ANSWERED: &'static str = "call_already_answered";
     pub const CALL_EXPIRED: &'static str = "call_expired";
@@ -675,7 +656,6 @@ impl ErrorCode {
     pub const CONTROLLER_SIGNED_EVENT_REQUIRED: &'static str = "controller_signed_event_required";
     pub const CREDENTIAL_EXPIRED: &'static str = "credential_expired";
     pub const CREDENTIAL_NOT_FOUND: &'static str = "credential_not_found";
-    pub const CROSS_SIGNING_STATE_MISSING: &'static str = "cross_signing_state_missing";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
     pub const CURSOR_INVALID: &'static str = "cursor_invalid";
@@ -686,8 +666,6 @@ impl ErrorCode {
     pub const DELIVERY_BINDING_UNRESOLVABLE: &'static str = "delivery_binding_unresolvable";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
-    pub const DEVICE_ENROLLMENT_AUTHORITY_NOT_DESIGNATED: &'static str =
-        "device_enrollment_authority_not_designated";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
     pub const DEVICE_NOT_AUTHORIZED: &'static str = "device_not_authorized";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
@@ -695,8 +673,8 @@ impl ErrorCode {
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
-    pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str =
-        "device_recovery_ssk_generation_mismatch";
+    pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str =
+        "device_recovery_generation_mismatch";
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
     pub const DEVICE_UNKNOWN: &'static str = "device_unknown";
     pub const DID_ALREADY_EXISTS: &'static str = "did_already_exists";
@@ -963,11 +941,6 @@ impl ErrorCode {
             Self::BlobExpired => "blob_expired",
             Self::BlobPresignInvalid => "blob_presign_invalid",
             Self::BlobQuotaExceeded => "blob_quota_exceeded",
-            Self::BootstrapDecisionConflict => "bootstrap_decision_conflict",
-            Self::BootstrapDecisionIndeterminate => "bootstrap_decision_indeterminate",
-            Self::BootstrapIdempotencyConflict => "bootstrap_idempotency_conflict",
-            Self::BootstrapTransactionCancelled => "bootstrap_transaction_cancelled",
-            Self::BootstrapTransactionExpired => "bootstrap_transaction_expired",
             Self::BotActorRevoked => "bot_actor_revoked",
             Self::CallAlreadyAnswered => "call_already_answered",
             Self::CallExpired => "call_expired",
@@ -987,7 +960,6 @@ impl ErrorCode {
             Self::ControllerSignedEventRequired => "controller_signed_event_required",
             Self::CredentialExpired => "credential_expired",
             Self::CredentialNotFound => "credential_not_found",
-            Self::CrossSigningStateMissing => "cross_signing_state_missing",
             Self::CursorExpired => "cursor_expired",
             Self::CursorIntegrityInvalid => "cursor_integrity_invalid",
             Self::CursorInvalid => "cursor_invalid",
@@ -998,16 +970,13 @@ impl ErrorCode {
             Self::DeliveryBindingUnresolvable => "delivery_binding_unresolvable",
             Self::DependencyMissing => "dependency_missing",
             Self::DeviceAlreadyAuthorized => "device_already_authorized",
-            Self::DeviceEnrollmentAuthorityNotDesignated => {
-                "device_enrollment_authority_not_designated"
-            }
             Self::DeviceGenerationFenced => "device_generation_fenced",
             Self::DeviceNotAuthorized => "device_not_authorized",
             Self::DeviceReanchorAuthorizeMismatch => "device_reanchor_authorize_mismatch",
             Self::DeviceReanchorConflict => "device_reanchor_conflict",
             Self::DeviceReanchorEntryNotHead => "device_reanchor_entry_not_head",
             Self::DeviceReanchorFrontierMismatch => "device_reanchor_frontier_mismatch",
-            Self::DeviceRecoverySskGenerationMismatch => "device_recovery_ssk_generation_mismatch",
+            Self::DeviceRecoveryGenerationMismatch => "device_recovery_generation_mismatch",
             Self::DeviceRevoked => "device_revoked",
             Self::DeviceUnknown => "device_unknown",
             Self::DidAlreadyExists => "did_already_exists",
@@ -1265,11 +1234,6 @@ impl ErrorCode {
             "blob_expired" => Some(Self::BlobExpired),
             "blob_presign_invalid" => Some(Self::BlobPresignInvalid),
             "blob_quota_exceeded" => Some(Self::BlobQuotaExceeded),
-            "bootstrap_decision_conflict" => Some(Self::BootstrapDecisionConflict),
-            "bootstrap_decision_indeterminate" => Some(Self::BootstrapDecisionIndeterminate),
-            "bootstrap_idempotency_conflict" => Some(Self::BootstrapIdempotencyConflict),
-            "bootstrap_transaction_cancelled" => Some(Self::BootstrapTransactionCancelled),
-            "bootstrap_transaction_expired" => Some(Self::BootstrapTransactionExpired),
             "bot_actor_revoked" => Some(Self::BotActorRevoked),
             "call_already_answered" => Some(Self::CallAlreadyAnswered),
             "call_expired" => Some(Self::CallExpired),
@@ -1289,7 +1253,6 @@ impl ErrorCode {
             "controller_signed_event_required" => Some(Self::ControllerSignedEventRequired),
             "credential_expired" => Some(Self::CredentialExpired),
             "credential_not_found" => Some(Self::CredentialNotFound),
-            "cross_signing_state_missing" => Some(Self::CrossSigningStateMissing),
             "cursor_expired" => Some(Self::CursorExpired),
             "cursor_integrity_invalid" => Some(Self::CursorIntegrityInvalid),
             "cursor_invalid" => Some(Self::CursorInvalid),
@@ -1300,18 +1263,13 @@ impl ErrorCode {
             "delivery_binding_unresolvable" => Some(Self::DeliveryBindingUnresolvable),
             "dependency_missing" => Some(Self::DependencyMissing),
             "device_already_authorized" => Some(Self::DeviceAlreadyAuthorized),
-            "device_enrollment_authority_not_designated" => {
-                Some(Self::DeviceEnrollmentAuthorityNotDesignated)
-            }
             "device_generation_fenced" => Some(Self::DeviceGenerationFenced),
             "device_not_authorized" => Some(Self::DeviceNotAuthorized),
             "device_reanchor_authorize_mismatch" => Some(Self::DeviceReanchorAuthorizeMismatch),
             "device_reanchor_conflict" => Some(Self::DeviceReanchorConflict),
             "device_reanchor_entry_not_head" => Some(Self::DeviceReanchorEntryNotHead),
             "device_reanchor_frontier_mismatch" => Some(Self::DeviceReanchorFrontierMismatch),
-            "device_recovery_ssk_generation_mismatch" => {
-                Some(Self::DeviceRecoverySskGenerationMismatch)
-            }
+            "device_recovery_generation_mismatch" => Some(Self::DeviceRecoveryGenerationMismatch),
             "device_revoked" => Some(Self::DeviceRevoked),
             "device_unknown" => Some(Self::DeviceUnknown),
             "did_already_exists" => Some(Self::DidAlreadyExists),
@@ -1885,46 +1843,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The blob operation exceeds actor, Realm, organization, or deployment storage/bandwidth quota.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::BootstrapDecisionConflict,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "A Principal Server already has an immutable accepted, cancelled or expired device-bootstrap decision whose authority, transaction or founding binding differs from the canonical S2S request. The stored decision remains authoritative and the request performs zero Event, tombstone or credential writes.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::BootstrapDecisionIndeterminate,
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "The Principal Server cannot prove the durable device-bootstrap decision because its transactional storage result or required decision record is unavailable. The Account Authority MUST leave its four-state transaction unchanged (normally pending), MUST NOT infer cancellation or expiry from a directory miss, and MUST retry with the exact same request identity and canonical bytes.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::BootstrapIdempotencyConflict,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A device bootstrap enroll, cancel or recovery request reused the durable transaction/idempotency identity with different closed request bytes or a different canonical bootstrap request digest. The first outcome remains authoritative and no Event or credential is replaced.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::BootstrapTransactionCancelled,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The durable device bootstrap transaction is cancelled. Only byte-identical replay of an already committed operation outcome is allowed; no bootstrap credential, Event authorization or standard successor may be created.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::BootstrapTransactionExpired,
-        http_status: 410,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The durable device bootstrap transaction deadline elapsed and its state is expired. Only byte-identical replay of an already committed operation outcome is allowed; bearer renewal cannot revive or replace the transaction.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::BotActorRevoked,
         http_status: 403,
         http_status_by_context: &[],
@@ -2077,14 +1995,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The holder has no credential matching the authorized presentation request.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::CrossSigningStateMissing,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "Cross-signing state is missing for the principal.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::CursorExpired,
         http_status: 410,
         http_status_by_context: &[],
@@ -2165,14 +2075,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The device is already authorized.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::DeviceEnrollmentAuthorityNotDesignated,
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A service-attested ak.device.authorize names an executed_by / authority_did that is not designated as an enrollment authority by the principal DID document (resolved at the event's accepted-at), or its authorization_ref delegation does not cover device authorization.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::DeviceGenerationFenced,
         http_status: 409,
         http_status_by_context: &[],
@@ -2221,12 +2123,12 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A device re-anchor completion carries a frontier that does not match the recomputed device frontier. Dual-registered as a service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::DeviceRecoverySskGenerationMismatch,
+        code: ErrorCode::DeviceRecoveryGenerationMismatch,
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Device recovery proof or authorization references an SSK generation that does not equal the current accepted cross-signing publish generation for the principal.",
+        description: "Device recovery proof or authorization references a device generation that does not equal the principal's current accepted device generation.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRevoked,

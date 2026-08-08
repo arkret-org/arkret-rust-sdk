@@ -39,11 +39,15 @@ use serde_json::Value;
 use crate::cba::{Precondition, SealBasis};
 use crate::error::{Error, Result};
 use crate::error_codes::ReasonCode;
+use crate::event_receipt::EventBatchReceipt;
 use crate::events::kinds::EventKind;
 use crate::primitives::{
     Audience, CriticalExtension, Proof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{AuthorizationRef, DidKey, DidUrl, FeatureRef, ProfileRef, SchemaId, canonical};
+use crate::seal::Seal;
+use crate::{
+    AuthorizationRef, DidKey, DidUrl, FeatureRef, NonEmptyString, ProfileRef, SchemaId, canonical,
+};
 
 /// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
 /// reducer-stamped top-level fields and every producer proof, excluding the read-view `unsigned`.
@@ -397,136 +401,55 @@ pub struct Event {
     pub requirements: EventRequirements,
 }
 
-/// Complete client-authored, proof-free founding `ak.device.authorize` Event.
-///
-/// This closed projection is fixed before a device-bootstrap credential is
-/// issued. The enrollment authority may convert it to [`Event`] only by
-/// appending its proof; every field carried here remains identity material.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+/// Portable PCR-anchored authorization evidence for an active device key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FederatedDeviceStatus {
+    Active,
+    Revoked,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FederatedDeviceGenerationStatus {
+    Active,
+    Conflicted,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceAuthorizeEventPreimage {
-    pub event_id: EventId,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub kind: EventKind,
-    pub realm_id: RealmId,
-    pub scope_ref: ScopeRef,
-    pub actor_id: Did,
-    pub executed_by: Did,
-    pub authorization_ref: AuthorizationRef,
-    pub actor_seq: u64,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    pub hlc: Hlc,
-    pub prev_refs: Vec<EventId>,
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Vec<serde_json::Value>))
-    )]
-    pub refs: Vec<EventRef>,
-    pub payload: BTreeMap<String, Value>,
+pub struct FederatedDeviceRecord {
+    pub algorithms: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_signing_key: Option<DidKey>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hpke_key: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust_algorithms: Option<Vec<NonEmptyString>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_status: Option<FederatedDeviceStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_generation_ref: Option<NonEmptyString>,
 }
 
-impl DeviceAuthorizeEventPreimage {
-    /// Validate the closed founding shape and its client-derived Event ID.
-    pub fn validate(&self) -> Result<()> {
-        if self.kind.as_str() != "ak.device.authorize"
-            || self.actor_seq != 1
-            || self.prev_refs.len() != 1
-            || !self.refs.is_empty()
-            || self.scope_ref.realm_id_opt() != Some(&self.realm_id)
-        {
-            return Err(Error::Protocol(
-                "founding device authorize preimage has an invalid closed envelope shape"
-                    .to_owned(),
-            ));
-        }
-        let event = self.clone().into_event();
-        event.validate_structural_in_context(EventSubmitContext::AnchorUnit, false)?;
-        event.verify_event_id_matches_content()
-    }
-
-    /// Materialize the ordinary Event envelope before an authority proof is appended.
-    pub fn into_event(self) -> Event {
-        Event {
-            event_id: self.event_id,
-            kind: self.kind,
-            realm_id: self.realm_id,
-            scope_ref: self.scope_ref,
-            actor_id: self.actor_id,
-            executed_by: Some(self.executed_by),
-            authorization_ref: Some(self.authorization_ref),
-            applet_id: None,
-            external_ref: None,
-            actor_kind: None,
-            actor_seq: self.actor_seq,
-            created_at: self.created_at,
-            hlc: Some(self.hlc),
-            prev_refs: self.prev_refs,
-            refs: self.refs,
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            seal_ref: None,
-            auth_context: None,
-            seal_basis: None,
-            payload: self.payload,
-            redacts: None,
-            unsigned: BTreeMap::new(),
-            proofs: Vec::new(),
-            requirements: EventRequirements::default(),
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FederatedDeviceGenerationState {
+    pub current_device_generation_ref: NonEmptyString,
+    pub device_generation_status: FederatedDeviceGenerationStatus,
 }
 
-impl TryFrom<Event> for DeviceAuthorizeEventPreimage {
-    type Error = Error;
-
-    fn try_from(event: Event) -> Result<Self> {
-        if event.executed_by.is_none()
-            || event.authorization_ref.is_none()
-            || event.applet_id.is_some()
-            || event.external_ref.is_some()
-            || event.actor_kind.is_some()
-            || event.hlc.is_none()
-            || !event.causal_refs.is_empty()
-            || !event.preconditions.is_empty()
-            || event.seal_ref.is_some()
-            || event.auth_context.is_some()
-            || event.seal_basis.is_some()
-            || event.redacts.is_some()
-            || !event.unsigned.is_empty()
-            || !event.proofs.is_empty()
-            || !event.requirements.is_empty()
-        {
-            return Err(Error::Protocol(
-                "Event is not the closed proof-free founding device authorize preimage".to_owned(),
-            ));
-        }
-        let preimage = Self {
-            event_id: event.event_id,
-            kind: event.kind,
-            realm_id: event.realm_id,
-            scope_ref: event.scope_ref,
-            actor_id: event.actor_id,
-            executed_by: event.executed_by.expect("checked above"),
-            authorization_ref: event.authorization_ref.expect("checked above"),
-            actor_seq: event.actor_seq,
-            created_at: event.created_at,
-            hlc: event.hlc.expect("checked above"),
-            prev_refs: event.prev_refs,
-            refs: event.refs,
-            payload: event.payload,
-        };
-        preimage.validate()?;
-        Ok(preimage)
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FederatedCurrentDeviceProjection {
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    pub device_record: FederatedDeviceRecord,
+    pub generation_state: FederatedDeviceGenerationState,
 }
 
-/// Portable authorization evidence for an active participant device signing
-/// key. The original accepted `ak.device.authorize` Event anchors the key in
-/// the principal's delegated enrollment authority; the authenticated source
-/// service only attests current lifecycle freshness. This transport context is
-/// never part of another Event's canonical bytes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FederatedDeviceSigningKeyEvidence {
@@ -536,7 +459,11 @@ pub struct FederatedDeviceSigningKeyEvidence {
     pub device_signing_key: DidKey,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub authorization_accepted_at: DateTime<Utc>,
-    pub device_authorize_event: Box<Event>,
+    pub principal_genesis_receipt: EventBatchReceipt,
+    pub authorization_chain: Vec<Event>,
+    pub accepted_seal: Seal,
+    pub current_device_projection: FederatedCurrentDeviceProjection,
+    pub range_completeness_evidence: Vec<Event>,
 }
 
 impl FederatedDeviceSigningKeyEvidence {
@@ -548,36 +475,223 @@ impl FederatedDeviceSigningKeyEvidence {
                     .to_owned(),
             ));
         }
-        if self.device_authorize_event.kind.as_str() != "ak.device.authorize"
-            || self.device_authorize_event.actor_id != self.actor_id
-            || self.authorization_accepted_at < self.device_authorize_event.created_at
+        if !(2..=64).contains(&self.authorization_chain.len()) {
+            return Err(Error::Protocol(
+                "federated device signing evidence authorization_chain length is invalid"
+                    .to_owned(),
+            ));
+        }
+        let create = &self.authorization_chain[0];
+        if create.kind.as_str() != "ak.realm.create"
+            || create.actor_id != self.actor_id
+            || create.proofs.len() != 1
+            || !create.proofs[0].verification_method.starts_with("did:key:")
+        {
+            return Err(Error::Protocol(
+                "federated device signing evidence must start at the root-signed PCR create"
+                    .to_owned(),
+            ));
+        }
+        let receipt_scope = self.principal_genesis_receipt.pcr_genesis_scope()?;
+        if self.current_device_projection.principal_id != self.actor_id
+            || self.current_device_projection.device_id != self.device_id
             || self
-                .device_authorize_event
-                .payload
-                .get("principal_id")
-                .and_then(Value::as_str)
-                != Some(self.actor_id.as_str())
+                .current_device_projection
+                .device_record
+                .device_signing_key
+                .as_ref()
+                != Some(&self.device_signing_key)
+            || self.current_device_projection.device_record.device_status
+                != Some(FederatedDeviceStatus::Active)
             || self
-                .device_authorize_event
-                .payload
-                .get("device_id")
-                .and_then(Value::as_str)
+                .current_device_projection
+                .generation_state
+                .device_generation_status
+                != FederatedDeviceGenerationStatus::Active
+            || self
+                .current_device_projection
+                .device_record
+                .authorized_generation_ref
+                .as_ref()
+                != Some(
+                    &self
+                        .current_device_projection
+                        .generation_state
+                        .current_device_generation_ref,
+                )
+            || self.range_completeness_evidence.is_empty()
+            || self.range_completeness_evidence.iter().any(|attestation| {
+                attestation.kind.as_str() != "ak.attestation.range_completeness"
+                    || attestation.realm_id != create.realm_id
+            })
+        {
+            return Err(Error::Protocol(
+                "federated device signing evidence projection or range evidence is invalid"
+                    .to_owned(),
+            ));
+        }
+        let mut accepted_device_ids = BTreeSet::new();
+        let mut expecting_root_authorize = true;
+        let mut target_authorize = None;
+        for (index, event) in self.authorization_chain.iter().enumerate().skip(1) {
+            event.validate_proof_bindings()?;
+            if event.actor_id != self.actor_id
+                || event.realm_id != create.realm_id
+                || event.proofs.len() != 1
+            {
+                return Err(Error::Protocol(
+                    "federated device signing evidence contains an invalid control Event"
+                        .to_owned(),
+                ));
+            }
+            match event.kind.as_str() {
+                "ak.device.authorize" => {
+                    let device_id = event
+                        .payload
+                        .get("device_id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| {
+                            Error::Protocol("device authorization omits device_id".to_owned())
+                        })?;
+                    let binding_kind = event
+                        .payload
+                        .get("authorization_binding_kind")
+                        .and_then(Value::as_str);
+                    let authorized_by = event.payload.get("authorized_by").and_then(Value::as_str);
+                    let proof_device_id = if expecting_root_authorize {
+                        if binding_kind != Some("root_anchored")
+                            || authorized_by != Some(self.actor_id.as_str())
+                        {
+                            return Err(Error::Protocol(
+                                "root-anchored device authorization is required after an identity root anchor"
+                                    .to_owned(),
+                            ));
+                        }
+                        device_id
+                    } else {
+                        let authorizer = authorized_by.ok_or_else(|| {
+                            Error::Protocol(
+                                "accepted-device authorization omits authorized_by".to_owned(),
+                            )
+                        })?;
+                        if binding_kind != Some("accepted_device")
+                            || !accepted_device_ids.contains(authorizer)
+                        {
+                            return Err(Error::Protocol(
+                                "device authorization authorizer is not active in the replayed prefix"
+                                    .to_owned(),
+                            ));
+                        }
+                        authorizer
+                    };
+                    if event.proofs[0].verification_method
+                        != format!("{}#{proof_device_id}", self.actor_id)
+                    {
+                        return Err(Error::Protocol(
+                            "device authorization Event proof signer does not match its binding"
+                                .to_owned(),
+                        ));
+                    }
+                    accepted_device_ids.insert(device_id.to_owned());
+                    expecting_root_authorize = false;
+                    if device_id == self.device_id.as_str() {
+                        target_authorize = Some(event);
+                    }
+                }
+                "ak.device.revoke" => {
+                    let device_id = event
+                        .payload
+                        .get("device_id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| {
+                            Error::Protocol("device revoke omits device_id".to_owned())
+                        })?;
+                    accepted_device_ids.remove(device_id);
+                }
+                "ak.device.reanchor" => {
+                    if !event.proofs[0].verification_method.starts_with("did:key:") {
+                        return Err(Error::Protocol(
+                            "device reanchor must carry an identity-root proof".to_owned(),
+                        ));
+                    }
+                    accepted_device_ids.clear();
+                    expecting_root_authorize = true;
+                    target_authorize = None;
+                }
+                "ak.device.list.update" => {}
+                _ => {
+                    return Err(Error::Protocol(
+                        "authorization_chain contains a non-device-control Event".to_owned(),
+                    ));
+                }
+            }
+            if index == 1 && expecting_root_authorize {
+                return Err(Error::Protocol(
+                    "PCR genesis must place its founding authorization second".to_owned(),
+                ));
+            }
+        }
+        let target = target_authorize.ok_or_else(|| {
+            Error::Protocol("authorization chain does not authorize the target device".to_owned())
+        })?;
+        let create_digest = Hash::new(create.event_digest()?)?;
+        let founding_authorize_digest = Hash::new(self.authorization_chain[1].event_digest()?)?;
+        if !accepted_device_ids.contains(self.device_id.as_str())
+            || self.authorization_accepted_at < target.created_at
+            || target.payload.get("device_id").and_then(Value::as_str)
                 != Some(self.device_id.as_str())
-            || self
-                .device_authorize_event
+            || target
                 .payload
                 .get("device_public_key")
                 .and_then(Value::as_str)
-                .is_none_or(|value| {
-                    self.device_signing_key.as_str().strip_prefix("did:key:") != Some(value)
+                != Some(self.device_signing_key.as_str())
+            || self
+                .current_device_projection
+                .device_record
+                .device_authorize_event_id
+                .as_ref()
+                != Some(&target.event_id)
+            || self
+                .current_device_projection
+                .device_record
+                .hpke_key
+                .as_deref()
+                != target.payload.get("hpke_key").and_then(Value::as_str)
+            || self
+                .current_device_projection
+                .device_record
+                .trust_algorithms
+                .as_ref()
+                .is_none_or(|algorithms| {
+                    target
+                        .payload
+                        .get("algorithms")
+                        .and_then(Value::as_array)
+                        .is_none_or(|carried| {
+                            algorithms.len() != carried.len()
+                                || algorithms
+                                    .iter()
+                                    .zip(carried)
+                                    .any(|(left, right)| right.as_str() != Some(left.as_str()))
+                        })
                 })
-            || !self
-                .device_authorize_event
-                .payload
-                .contains_key("enrollment_authority_binding")
+            || receipt_scope.principal_id != self.actor_id
+            || receipt_scope.realm_id != create.realm_id
+            || receipt_scope.create_digest != create_digest
+            || receipt_scope.founding_authorize_digest != founding_authorize_digest
+            || self.accepted_seal.realm_id != create.realm_id
+            || self.authorization_chain.iter().any(|event| {
+                event.event_digest().ok().is_none_or(|digest| {
+                    !self
+                        .accepted_seal
+                        .covered_event_digests
+                        .iter()
+                        .any(|covered| covered.as_str() == digest)
+                })
+            })
         {
             return Err(Error::Protocol(
-                "federated device signing evidence must carry the matching service-attested ak.device.authorize Event"
+                "federated device signing evidence commitments do not match its authorization chain"
                     .to_owned(),
             ));
         }

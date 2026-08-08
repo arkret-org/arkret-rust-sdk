@@ -353,7 +353,7 @@ macro_rules! declare_event_token_id_kinds {
 /// so the spec-coverage constants in `arkret-schema` had to repeat the kind
 /// list as hand-written strings. That copy silently fell five kinds behind the
 /// registry (`authorization_lease`, `invite_locator`, `message_stream`,
-/// `recovery_authority_ticket`, `sidecar`). [`DECLARED_UUID_ID_KIND_PREFIXES`]
+/// `sidecar`). [`DECLARED_UUID_ID_KIND_PREFIXES`]
 /// closes that gap: it is derived from the same literals the types validate
 /// against, so it cannot disagree with them.
 ///
@@ -577,7 +577,7 @@ pub fn is_service_registration_receipt_id(value: &str) -> bool {
 /// Validate the `ak:trust_domain:<scope>` wire form. Scope MUST be lowercase
 /// `[a-z0-9._:-]` (alphanumerics + dot/dash/underscore/colon), max 128 chars,
 /// non-empty. Round R2/R3 (2026-05-20). Spec: id-kind-registry.json
-/// `special_forms[trust_domain]`; pattern matches cross-signing-reset.schema.json
+/// `special_forms[trust_domain]`; pattern matches the recovery trust-domain contract
 /// `^ak:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
 ///
 /// Zero-allocation public validator for the trust-domain wire form. This is
@@ -797,7 +797,6 @@ declare_uuid_id_kinds! {
     // Key-backup hardening (B-C) typed ids.
     BackupSeriesId, "ak:backup_series:", UUID_VERSION_PRODUCER_ALLOCATED;
     RecoverySessionId, "ak:recovery_session:", UUID_VERSION_PRODUCER_ALLOCATED;
-    RecoveryAuthorityTicketId, "ak:recovery_authority_ticket:", UUID_VERSION_PRODUCER_ALLOCATED;
     AnnounceId, "ak:announce:", UUID_VERSION_PRODUCER_ALLOCATED;
     AppletId, "ak:applet:", UUID_VERSION_PRODUCER_ALLOCATED;
     BackupId, "ak:backup:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1459,7 +1458,6 @@ mod tests {
         assert_id!(RtcParticipantId, "ak:rtc_participant:");
         assert_id!(BackupSeriesId, "ak:backup_series:");
         assert_id!(RecoverySessionId, "ak:recovery_session:");
-        assert_id!(RecoveryAuthorityTicketId, "ak:recovery_authority_ticket:");
         assert_id!(AnnounceId, "ak:announce:");
         assert_id!(AppletId, "ak:applet:");
         assert_id!(BackupId, "ak:backup:");

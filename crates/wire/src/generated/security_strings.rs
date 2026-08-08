@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-08.1;
-//! sha256=d29286b035f5f88c256ba2e21cf745c4d80bf718c05cf3725339a82e54df20a1 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-09.1;
+//! sha256=593b1728df2b562a6890a0d5109b50867683d18b7a2199bd4b4a2b622f712a38 Input: registry/
 //! exporter-label-registry.json; version=2026-08-08;
 //! sha256=065f7fc5f29a97a542f54805b594d8d702b3f7f41bd072135f225508fb9e5768 Input: registry/
 //! digest-suite-registry.json; version=2026-08-08.2;
@@ -31,7 +31,7 @@ pub enum ProofContextId {
     AuthorizationLeaseProofV1,
     ControlProposalAuthorityAckProofV1,
     ControlProposalDecisionProofV1,
-    DeviceBootstrapDecisionReceiptProofV1,
+    DeviceAuthorizePossessionProofV1,
     DidContinuityProofV1,
     DidKeyLogEntryProofV1,
     DidWebvhWitnessReceiptProofV1,
@@ -73,7 +73,7 @@ impl ProofContextId {
         Self::AuthorizationLeaseProofV1,
         Self::ControlProposalAuthorityAckProofV1,
         Self::ControlProposalDecisionProofV1,
-        Self::DeviceBootstrapDecisionReceiptProofV1,
+        Self::DeviceAuthorizePossessionProofV1,
         Self::DidContinuityProofV1,
         Self::DidKeyLogEntryProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
@@ -119,8 +119,8 @@ impl ProofContextId {
         "ak.control-proposal-authority-ack-proof-v1";
     pub const CONTROL_PROPOSAL_DECISION_PROOF_V1: &'static str =
         "ak.control-proposal-decision-proof-v1";
-    pub const DEVICE_BOOTSTRAP_DECISION_RECEIPT_PROOF_V1: &'static str =
-        "ak.device-bootstrap-decision-receipt-proof-v1";
+    pub const DEVICE_AUTHORIZE_POSSESSION_PROOF_V1: &'static str =
+        "ak.device-authorize-possession-proof-v1";
     pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
     pub const DID_KEY_LOG_ENTRY_PROOF_V1: &'static str = "ak.did-key-log-entry-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
@@ -178,9 +178,7 @@ impl ProofContextId {
                 Self::CONTROL_PROPOSAL_AUTHORITY_ACK_PROOF_V1
             }
             Self::ControlProposalDecisionProofV1 => Self::CONTROL_PROPOSAL_DECISION_PROOF_V1,
-            Self::DeviceBootstrapDecisionReceiptProofV1 => {
-                Self::DEVICE_BOOTSTRAP_DECISION_RECEIPT_PROOF_V1
-            }
+            Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
             Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
             Self::DidKeyLogEntryProofV1 => Self::DID_KEY_LOG_ENTRY_PROOF_V1,
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
@@ -243,8 +241,8 @@ impl ProofContextId {
                 Some(Self::ControlProposalAuthorityAckProofV1)
             }
             Self::CONTROL_PROPOSAL_DECISION_PROOF_V1 => Some(Self::ControlProposalDecisionProofV1),
-            Self::DEVICE_BOOTSTRAP_DECISION_RECEIPT_PROOF_V1 => {
-                Some(Self::DeviceBootstrapDecisionReceiptProofV1)
+            Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1 => {
+                Some(Self::DeviceAuthorizePossessionProofV1)
             }
             Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
             Self::DID_KEY_LOG_ENTRY_PROOF_V1 => Some(Self::DidKeyLogEntryProofV1),
@@ -545,19 +543,24 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/control-proposal-decision.schema.json#/$defs/proposal_decision",
     },
     ProofContextDescriptor {
-        id: ProofContextId::DeviceBootstrapDecisionReceiptProofV1,
-        context: "ak.device-bootstrap-decision-receipt-proof-v1",
-        object_family: "device_bootstrap_decision_receipt",
+        id: ProofContextId::DeviceAuthorizePossessionProofV1,
+        context: "ak.device-authorize-possession-proof-v1",
+        object_family: "device_authorize_possession",
         binding_fields: &[
-            "payload_digest",
-            "principal_server_id",
-            "account_authority_id",
-            "transaction_id",
-            "verification_method",
-            "created_at",
-            "audience",
+            "principal_id",
+            "device_id",
+            "device_public_key",
+            "hpke_key",
+            "algorithms",
+            "device_key_algorithm",
+            "authorized_by",
+            "not_before",
+            "expires_at?",
+            "scopes?",
+            "recovery_session_id?",
+            "authorization_binding_kind",
         ],
-        schema_ref: "schemas/principal-operations.schema.json#/$defs/device_bootstrap_decision_receipt",
+        schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidContinuityProofV1,
@@ -670,13 +673,28 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         context: "ak.identity-creation-control-proof-v1",
         object_family: "identity_creation_control",
         binding_fields: &[
-            "payload_digest",
+            "proof_kind",
+            "challenge_id",
+            "challenge",
+            "purpose",
             "principal_id",
-            "verification_method",
-            "created_at",
+            "operation_digest",
+            "pcr_realm_id",
+            "realm_create_payload_digest",
+            "founding_authorize_payload_digest",
+            "initial_session_request_digest",
+            "genesis_unit_kinds",
+            "identity_creation_lease_id",
+            "lease_fence",
+            "dpop_jkt",
             "audience",
+            "origin",
+            "trust_domain",
+            "issued_at",
+            "expires_at",
+            "verification_key_multibase",
         ],
-        schema_ref: "schemas/account-operations.schema.json",
+        schema_ref: "schemas/account-operations.schema.json#/$defs/identity_creation_control_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::IdentityReceiptProofV1,

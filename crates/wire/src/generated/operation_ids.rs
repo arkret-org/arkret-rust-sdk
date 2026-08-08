@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.18;
-//! sha256=7bed75e04ac1fcbed491860b8a1134be6b863f881af53a8f3fc74b7a902644d6 Entries: registered=226
+//! Input: registry/operation-registry.json; version=2026-08-09.2;
+//! sha256=538f5493fe28e390da90341a5ebd4e350e94a066b8ae6b52f26a4f7219a4ed2a Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -35,17 +35,14 @@ pub enum ServiceOperationId {
     FindDirectoryReadSearchOrganizations,
     FindDirectoryReadSearchRealms,
     FindDirectoryReadSearchUsers,
-    GateAccountCommandAuthorizeRecoveryDevice,
-    GateAccountCommandCancelDeviceBootstrap,
-    GateAccountCommandEnrollDevice,
     GateAccountCommandIntrospectSessionGrant,
     GateAccountCommandIssueIdentityBindingChallenge,
+    GateAccountCommandIssueRecoveryCompletionGrant,
     GateAccountCommandIssueSessionGrant,
     GateAccountCommandLogout,
     GateAccountCommandLogoutAuthSession,
     GateAccountCommandPairAgentKey,
     GateAccountCommandPairDevice,
-    GateAccountCommandPromoteRecoverySessionGrant,
     GateAccountCommandRefreshSessionGrant,
     GateAccountCommandRegister,
     GateAccountCommandRevokeSession,
@@ -72,7 +69,6 @@ pub enum ServiceOperationId {
     PeerAccountStatusCommandSubmit,
     PeerAccountStatusReadAuthoringBasis,
     PeerContactsCommandSubmit,
-    PeerDeviceBootstrapCommandDecide,
     PeerErasureReceiptCommandSubmit,
     PeerErasureReceiptResourceGet,
     PeerEventsCommandSubmit,
@@ -84,6 +80,7 @@ pub enum ServiceOperationId {
     PeerKeysKeypackagesCommandClaim,
     PeerKeysKeypackagesReadClaim,
     PeerMlsReadGroupStateMaterial,
+    PeerPrincipalGenesisCommandSubmit,
     PeerSignalCommandRelay,
     PeerSnapshotReadManifestHead,
     RootIdentityCommandSubmitDidOperation,
@@ -223,7 +220,6 @@ pub enum ServiceOperationId {
     SelfRealmPolicyServerResourceDelete,
     SelfRealmPolicyServerResourceGet,
     SelfRealmPolicyServerResourceReplace,
-    SelfRecoveryAuthorityTicketCommandIssue,
     SelfSecurityTransactionCommandContinue,
     SelfSecurityTransactionCommandCreate,
     SelfSecurityTransactionResourceGet,
@@ -264,17 +260,14 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS,
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_REALMS,
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_USERS,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_LOGOUT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
@@ -301,7 +294,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
@@ -313,6 +305,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL,
+    ServiceOperationId::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY,
     ServiceOperationId::PEER_SNAPSHOT_READ_MANIFEST_HEAD,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION,
@@ -452,7 +445,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_GET,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE,
-    ServiceOperationId::SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET,
@@ -533,17 +525,14 @@ impl ServiceOperationId {
         Self::FindDirectoryReadSearchOrganizations,
         Self::FindDirectoryReadSearchRealms,
         Self::FindDirectoryReadSearchUsers,
-        Self::GateAccountCommandAuthorizeRecoveryDevice,
-        Self::GateAccountCommandCancelDeviceBootstrap,
-        Self::GateAccountCommandEnrollDevice,
         Self::GateAccountCommandIntrospectSessionGrant,
         Self::GateAccountCommandIssueIdentityBindingChallenge,
+        Self::GateAccountCommandIssueRecoveryCompletionGrant,
         Self::GateAccountCommandIssueSessionGrant,
         Self::GateAccountCommandLogout,
         Self::GateAccountCommandLogoutAuthSession,
         Self::GateAccountCommandPairAgentKey,
         Self::GateAccountCommandPairDevice,
-        Self::GateAccountCommandPromoteRecoverySessionGrant,
         Self::GateAccountCommandRefreshSessionGrant,
         Self::GateAccountCommandRegister,
         Self::GateAccountCommandRevokeSession,
@@ -570,7 +559,6 @@ impl ServiceOperationId {
         Self::PeerAccountStatusCommandSubmit,
         Self::PeerAccountStatusReadAuthoringBasis,
         Self::PeerContactsCommandSubmit,
-        Self::PeerDeviceBootstrapCommandDecide,
         Self::PeerErasureReceiptCommandSubmit,
         Self::PeerErasureReceiptResourceGet,
         Self::PeerEventsCommandSubmit,
@@ -582,6 +570,7 @@ impl ServiceOperationId {
         Self::PeerKeysKeypackagesCommandClaim,
         Self::PeerKeysKeypackagesReadClaim,
         Self::PeerMlsReadGroupStateMaterial,
+        Self::PeerPrincipalGenesisCommandSubmit,
         Self::PeerSignalCommandRelay,
         Self::PeerSnapshotReadManifestHead,
         Self::RootIdentityCommandSubmitDidOperation,
@@ -721,7 +710,6 @@ impl ServiceOperationId {
         Self::SelfRealmPolicyServerResourceDelete,
         Self::SelfRealmPolicyServerResourceGet,
         Self::SelfRealmPolicyServerResourceReplace,
-        Self::SelfRecoveryAuthorityTicketCommandIssue,
         Self::SelfSecurityTransactionCommandContinue,
         Self::SelfSecurityTransactionCommandCreate,
         Self::SelfSecurityTransactionResourceGet,
@@ -779,16 +767,12 @@ impl ServiceOperationId {
         "ak.find.directory.read.search_realms";
     pub const FIND_DIRECTORY_READ_SEARCH_USERS: &'static str =
         "ak.find.directory.read.search_users";
-    pub const GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE: &'static str =
-        "ak.gate.account.command.authorize_recovery_device";
-    pub const GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP: &'static str =
-        "ak.gate.account.command.cancel_device_bootstrap";
-    pub const GATE_ACCOUNT_COMMAND_ENROLL_DEVICE: &'static str =
-        "ak.gate.account.command.enroll_device";
     pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT: &'static str =
         "ak.gate.account.command.introspect_session_grant";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE: &'static str =
         "ak.gate.account.command.issue_identity_binding_challenge";
+    pub const GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT: &'static str =
+        "ak.gate.account.command.issue_recovery_completion_grant";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT: &'static str =
         "ak.gate.account.command.issue_session_grant";
     pub const GATE_ACCOUNT_COMMAND_LOGOUT: &'static str = "ak.gate.account.command.logout";
@@ -798,8 +782,6 @@ impl ServiceOperationId {
         "ak.gate.account.command.pair_agent_key";
     pub const GATE_ACCOUNT_COMMAND_PAIR_DEVICE: &'static str =
         "ak.gate.account.command.pair_device";
-    pub const GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT: &'static str =
-        "ak.gate.account.command.promote_recovery_session_grant";
     pub const GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT: &'static str =
         "ak.gate.account.command.refresh_session_grant";
     pub const GATE_ACCOUNT_COMMAND_REGISTER: &'static str = "ak.gate.account.command.register";
@@ -843,8 +825,6 @@ impl ServiceOperationId {
     pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS: &'static str =
         "ak.peer.account_status.read.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
-    pub const PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE: &'static str =
-        "ak.peer.device_bootstrap.command.decide";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT: &'static str =
         "ak.peer.erasure_receipt.command.submit";
     pub const PEER_ERASURE_RECEIPT_RESOURCE_GET: &'static str =
@@ -861,6 +841,8 @@ impl ServiceOperationId {
         "ak.peer.keys.keypackages.read.claim";
     pub const PEER_MLS_READ_GROUP_STATE_MATERIAL: &'static str =
         "ak.peer.mls.read.group_state_material";
+    pub const PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT: &'static str =
+        "ak.peer.principal_genesis.command.submit";
     pub const PEER_SIGNAL_COMMAND_RELAY: &'static str = "ak.peer.signal.command.relay";
     pub const PEER_SNAPSHOT_READ_MANIFEST_HEAD: &'static str =
         "ak.peer.snapshot.read.manifest_head";
@@ -1069,8 +1051,6 @@ impl ServiceOperationId {
         "ak.self.realm_policy_server.resource.get";
     pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE: &'static str =
         "ak.self.realm_policy_server.resource.replace";
-    pub const SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE: &'static str =
-        "ak.self.recovery_authority_ticket.command.issue";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE: &'static str =
         "ak.self.security_transaction.command.continue";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CREATE: &'static str =
@@ -1132,18 +1112,14 @@ impl ServiceOperationId {
             }
             Self::FindDirectoryReadSearchRealms => Self::FIND_DIRECTORY_READ_SEARCH_REALMS,
             Self::FindDirectoryReadSearchUsers => Self::FIND_DIRECTORY_READ_SEARCH_USERS,
-            Self::GateAccountCommandAuthorizeRecoveryDevice => {
-                Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE
-            }
-            Self::GateAccountCommandCancelDeviceBootstrap => {
-                Self::GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP
-            }
-            Self::GateAccountCommandEnrollDevice => Self::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE,
             Self::GateAccountCommandIntrospectSessionGrant => {
                 Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT
             }
             Self::GateAccountCommandIssueIdentityBindingChallenge => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE
+            }
+            Self::GateAccountCommandIssueRecoveryCompletionGrant => {
+                Self::GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT
             }
             Self::GateAccountCommandIssueSessionGrant => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT
@@ -1154,9 +1130,6 @@ impl ServiceOperationId {
             }
             Self::GateAccountCommandPairAgentKey => Self::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
             Self::GateAccountCommandPairDevice => Self::GATE_ACCOUNT_COMMAND_PAIR_DEVICE,
-            Self::GateAccountCommandPromoteRecoverySessionGrant => {
-                Self::GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT
-            }
             Self::GateAccountCommandRefreshSessionGrant => {
                 Self::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT
             }
@@ -1193,7 +1166,6 @@ impl ServiceOperationId {
                 Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
-            Self::PeerDeviceBootstrapCommandDecide => Self::PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE,
             Self::PeerErasureReceiptCommandSubmit => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
             Self::PeerErasureReceiptResourceGet => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
@@ -1205,6 +1177,7 @@ impl ServiceOperationId {
             Self::PeerKeysKeypackagesCommandClaim => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
             Self::PeerKeysKeypackagesReadClaim => Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
             Self::PeerMlsReadGroupStateMaterial => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL,
+            Self::PeerPrincipalGenesisCommandSubmit => Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT,
             Self::PeerSignalCommandRelay => Self::PEER_SIGNAL_COMMAND_RELAY,
             Self::PeerSnapshotReadManifestHead => Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD,
             Self::RootIdentityCommandSubmitDidOperation => {
@@ -1402,9 +1375,6 @@ impl ServiceOperationId {
             Self::SelfRealmPolicyServerResourceReplace => {
                 Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE
             }
-            Self::SelfRecoveryAuthorityTicketCommandIssue => {
-                Self::SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE
-            }
             Self::SelfSecurityTransactionCommandContinue => {
                 Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE
             }
@@ -1475,18 +1445,14 @@ impl ServiceOperationId {
             }
             Self::FIND_DIRECTORY_READ_SEARCH_REALMS => Some(Self::FindDirectoryReadSearchRealms),
             Self::FIND_DIRECTORY_READ_SEARCH_USERS => Some(Self::FindDirectoryReadSearchUsers),
-            Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE => {
-                Some(Self::GateAccountCommandAuthorizeRecoveryDevice)
-            }
-            Self::GATE_ACCOUNT_COMMAND_CANCEL_DEVICE_BOOTSTRAP => {
-                Some(Self::GateAccountCommandCancelDeviceBootstrap)
-            }
-            Self::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE => Some(Self::GateAccountCommandEnrollDevice),
             Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT => {
                 Some(Self::GateAccountCommandIntrospectSessionGrant)
             }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE => {
                 Some(Self::GateAccountCommandIssueIdentityBindingChallenge)
+            }
+            Self::GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT => {
+                Some(Self::GateAccountCommandIssueRecoveryCompletionGrant)
             }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT => {
                 Some(Self::GateAccountCommandIssueSessionGrant)
@@ -1497,9 +1463,6 @@ impl ServiceOperationId {
             }
             Self::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY => Some(Self::GateAccountCommandPairAgentKey),
             Self::GATE_ACCOUNT_COMMAND_PAIR_DEVICE => Some(Self::GateAccountCommandPairDevice),
-            Self::GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT => {
-                Some(Self::GateAccountCommandPromoteRecoverySessionGrant)
-            }
             Self::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT => {
                 Some(Self::GateAccountCommandRefreshSessionGrant)
             }
@@ -1542,9 +1505,6 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusReadAuthoringBasis)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
-            Self::PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE => {
-                Some(Self::PeerDeviceBootstrapCommandDecide)
-            }
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT => {
                 Some(Self::PeerErasureReceiptCommandSubmit)
             }
@@ -1560,6 +1520,9 @@ impl ServiceOperationId {
             }
             Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM => Some(Self::PeerKeysKeypackagesReadClaim),
             Self::PEER_MLS_READ_GROUP_STATE_MATERIAL => Some(Self::PeerMlsReadGroupStateMaterial),
+            Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT => {
+                Some(Self::PeerPrincipalGenesisCommandSubmit)
+            }
             Self::PEER_SIGNAL_COMMAND_RELAY => Some(Self::PeerSignalCommandRelay),
             Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::PeerSnapshotReadManifestHead),
             Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION => {
@@ -1790,9 +1753,6 @@ impl ServiceOperationId {
             }
             Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE => {
                 Some(Self::SelfRealmPolicyServerResourceReplace)
-            }
-            Self::SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE => {
-                Some(Self::SelfRecoveryAuthorityTicketCommandIssue)
             }
             Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE => {
                 Some(Self::SelfSecurityTransactionCommandContinue)
@@ -2393,80 +2353,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandAuthorizeRecoveryDevice,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/recovery-device-authorizations",
-        grpc: Some("GateAccount/AuthorizeRecoveryDevice"),
-        mq: Some("gate.account.command.authorize_recovery_device"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/recovery-authority.schema.json#/$defs/authorize_recovery_device_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/recovery-authority.schema.json#/$defs/authorize_recovery_device_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("returns_signed_event_material_without_committing_it"),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandCancelDeviceBootstrap,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/device-bootstrap/cancel",
-        grpc: Some("GateAccount/CancelDeviceBootstrap"),
-        mq: Some("gate.account.command.cancel_device_bootstrap"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/cancel_device_bootstrap_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/cancel_device_bootstrap_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_bootstrap_transaction_terminal_or_replay_only"),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandEnrollDevice,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/device-enroll",
-        grpc: Some("GateAccount/DeviceEnroll"),
-        mq: Some("gate.account.command.enroll_device"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/account_device_enroll_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/account_device_enroll_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "persists_byte_stable_authority_proof_outcome_without_committing_or_reauthoring_the_event",
-            ),
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIntrospectSessionGrant,
         http_method: "POST",
         http_path: "/_arkret/gate/account/session-grants/introspect",
@@ -2515,6 +2401,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandIssueRecoveryCompletionGrant,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/recovery-session-grants/issue",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIssueSessionGrant,
         http_method: "POST",
         http_path: "/_arkret/gate/account/session-grants",
@@ -2532,7 +2442,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\",\"bootstrap_transaction_cancelled\",\"bootstrap_transaction_expired\"]}",
+            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2643,30 +2553,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandPromoteRecoverySessionGrant,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/recovery-session-grants/promote",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("protocol_sequence"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/recovery-authority.schema.json#/$defs/promote_recovery_session_grant_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/recovery-authority.schema.json#/$defs/promote_recovery_session_grant_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandRefreshSessionGrant,
         http_method: "POST",
         http_path: "/_arkret/gate/account/session-grants/refresh",
@@ -2684,7 +2570,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.refresh_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\",\"bootstrap_transaction_cancelled\",\"bootstrap_transaction_expired\"]}",
+            "{\"operation_id\":\"ak.gate.account.command.refresh_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3263,32 +3149,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerDeviceBootstrapCommandDecide,
-        http_method: "POST",
-        http_path: "/_arkret/peer/device-bootstrap-decisions",
-        grpc: Some("PeerDeviceBootstrap/Decide"),
-        mq: Some("peer.device_bootstrap.command.decide"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/device_bootstrap_decision_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/device_bootstrap_decision_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.peer.device_bootstrap.command.decide\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("principal_server_local_terminal_bootstrap_decision_tombstone_only"),
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerErasureReceiptCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/peer/erasure-receipts",
@@ -3521,6 +3381,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerPrincipalGenesisCommandSubmit,
+        http_method: "POST",
+        http_path: "/_arkret/peer/principal-genesis",
+        grpc: Some("PeerPrincipalGenesis/Submit"),
+        mq: Some("peer.principal_genesis.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/principal-operations.schema.json#/$defs/pcr_genesis_submit_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/principal-operations.schema.json#/$defs/pcr_genesis_submit_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.realm.create",
+                "ak.device.authorize",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerSignalCommandRelay,
@@ -6525,28 +6412,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
             rationale: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRecoveryAuthorityTicketCommandIssue,
-        http_method: "POST",
-        http_path: "/_arkret/self/recovery-authority-tickets",
-        grpc: Some("SelfRecoveryAuthorityTickets/Issue"),
-        mq: Some("self.recovery_authority_ticket.command.issue"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/recovery-authority.schema.json#/$defs/ticket_issue_request",
-        ),
-        response_schema_ref: Some("schemas/recovery-authority.schema.json"),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
         }),
     },
     ServiceOperationDescriptor {

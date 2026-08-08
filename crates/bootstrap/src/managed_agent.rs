@@ -48,6 +48,7 @@ pub fn build_managed_agent_pcr_create_payload(
         vec![input.controller_id.clone()],
     );
     let genesis = RealmGenesis::principal_control(
+        None,
         input.trust_domain,
         vec![
             SchemaId::REALM_V1.to_owned(),

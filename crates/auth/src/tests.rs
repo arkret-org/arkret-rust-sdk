@@ -60,7 +60,6 @@ fn session_grant_payload(now: DateTime<Utc>, device_id: &DeviceId) -> SessionGra
                 device_binding: device_id.to_string(),
             },
         ),
-        bootstrap_binding: None,
         recovery_binding: None,
         device_binding: None,
         proof_kind: None,

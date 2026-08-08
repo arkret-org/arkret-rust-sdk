@@ -27,7 +27,6 @@ pub mod secret_share;
 #[cfg(feature = "sframe")]
 pub mod sframe;
 
-mod cross_signing;
 mod device;
 mod errors;
 mod session;
@@ -38,7 +37,6 @@ pub use aead_nonce::*;
 pub use arkret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 // Re-export every moved public item at the crate root so the public API is
 // byte-identical to the pre-split single-file module.
-pub use cross_signing::*;
 pub use device::*;
 pub use errors::*;
 #[cfg(feature = "aead")]

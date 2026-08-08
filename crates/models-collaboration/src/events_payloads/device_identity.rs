@@ -1,15 +1,20 @@
-//! Device-authorization, cross-signing, and identity-binding payloads.
+//! Device-authorization and identity-binding payloads.
 
 use std::collections::BTreeSet;
 use std::fmt;
-use std::num::NonZeroU64;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::internal_prelude::*;
 
-pub const DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON: &str = "device_authorize_binding_one_of";
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DeviceAuthorizationBindingKind {
+    RootAnchored,
+    AcceptedDevice,
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -17,9 +22,8 @@ pub struct DeviceAuthorizePayload {
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub device_public_key: NonEmptyString,
-    /// Device HPKE public key used for secret/key envelope sealing. Covered by
-    /// `cross_signing_binding` (§5.2) or the enrollment-authority Event proof
-    /// (§5.4); services MUST NOT substitute this value in projection.
+    /// Device HPKE public key used for secret/key envelope sealing. Services
+    /// MUST NOT substitute this value in projection.
     pub hpke_key: NonEmptyString,
     /// Canonical sorted (UTF-8 bytewise) unique algorithm ids supported by
     /// this device. Enters the device trust binding transcript together with
@@ -34,14 +38,8 @@ pub struct DeviceAuthorizePayload {
     pub not_before: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<NullableTimestamp>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_signature: Option<SignatureMaterial>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<SignatureMaterial>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cross_signing_binding: Option<DeviceCrossSigningBinding>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
+    pub authorization_binding_kind: DeviceAuthorizationBindingKind,
+    pub device_signature: SignatureMaterial,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_session_id: Option<RecoverySessionId>,
 }
@@ -63,14 +61,8 @@ struct DeviceAuthorizePayloadWire {
     not_before: DateTime<Utc>,
     #[serde(default)]
     expires_at: Option<NullableTimestamp>,
-    #[serde(default)]
-    device_signature: Option<SignatureMaterial>,
-    #[serde(default)]
-    proof: Option<SignatureMaterial>,
-    #[serde(default)]
-    cross_signing_binding: Option<DeviceCrossSigningBinding>,
-    #[serde(default)]
-    enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
+    authorization_binding_kind: DeviceAuthorizationBindingKind,
+    device_signature: SignatureMaterial,
     #[serde(default)]
     recovery_session_id: Option<RecoverySessionId>,
 }
@@ -92,10 +84,8 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
             scopes: wire.scopes,
             not_before: wire.not_before,
             expires_at: wire.expires_at,
+            authorization_binding_kind: wire.authorization_binding_kind,
             device_signature: wire.device_signature,
-            proof: wire.proof,
-            cross_signing_binding: wire.cross_signing_binding,
-            enrollment_authority_binding: wire.enrollment_authority_binding,
             recovery_session_id: wire.recovery_session_id,
         };
         payload
@@ -124,27 +114,14 @@ impl DeviceAuthorizePayload {
         Ok(())
     }
 
-    pub fn authorization_binding_count(&self) -> usize {
-        self.cross_signing_binding.is_some() as usize
-            + self.enrollment_authority_binding.is_some() as usize
-    }
-
-    pub fn validate_authorization_binding_one_of(&self) -> std::result::Result<(), &'static str> {
-        if self.authorization_binding_count() == 1 {
-            Ok(())
-        } else {
-            Err(DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON)
-        }
-    }
-
     pub fn validate_wire_constraints(&self) -> std::result::Result<(), &'static str> {
-        self.validate_authorization_binding_one_of()?;
         self.validate_canonical_algorithms()?;
-        if self.device_signature.is_none()
-            && self.proof.is_none()
-            && self.enrollment_authority_binding.is_none()
-        {
-            return Err("device_authorize_signature_or_authority_required");
+        match (&self.authorization_binding_kind, &self.authorized_by) {
+            (DeviceAuthorizationBindingKind::RootAnchored, DeviceOrPrincipalRef::Did(did))
+                if did == &self.principal_id => {}
+            (DeviceAuthorizationBindingKind::AcceptedDevice, DeviceOrPrincipalRef::DeviceId(_)) => {
+            }
+            _ => return Err("device_authorize_authorization_binding_mismatch"),
         }
         if let Some(scopes) = &self.scopes
             && (scopes.is_empty() || scopes.iter().collect::<BTreeSet<_>>().len() != scopes.len())
@@ -158,10 +135,10 @@ impl DeviceAuthorizePayload {
     /// `ak.device.authorize.payload.device_signature`.
     ///
     /// The signature proves possession of the private key corresponding to
-    /// `device_public_key`; it is deliberately separate from the SSK-signed
-    /// `cross_signing_binding`.
+    /// `device_public_key`; authorization is independently established by the
+    /// root anchor or an accepted device.
     pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
-        self.validate_authorization_binding_one_of()
+        self.validate_wire_constraints()
             .map_err(|reason| Error::Protocol(reason.to_owned()))?;
         self.validate_canonical_algorithms()
             .map_err(|reason| Error::Protocol(reason.to_owned()))?;
@@ -173,16 +150,6 @@ impl DeviceAuthorizePayload {
                 "device_authorize_device_key_algorithm_unsupported".to_owned(),
             ));
         }
-        let (authorization_binding_kind, cross_signing_generation) =
-            if let Some(binding) = &self.cross_signing_binding {
-                ("cross_signing", Some(binding.ssk_generation))
-            } else if self.enrollment_authority_binding.is_some() {
-                ("enrollment_authority", None)
-            } else {
-                return Err(Error::Protocol(
-                    DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON.to_owned(),
-                ));
-            };
         let authorized_by = match &self.authorized_by {
             DeviceOrPrincipalRef::DeviceId(device_id) => device_id.as_str(),
             DeviceOrPrincipalRef::Did(did) => did.as_str(),
@@ -206,43 +173,18 @@ impl DeviceAuthorizePayload {
             "expires_at": expires_at,
             "scopes": scopes,
             "recovery_session_id": recovery_session_id,
-            "authorization_binding_kind": authorization_binding_kind,
-            "cross_signing_generation": cross_signing_generation,
+            "authorization_binding_kind": self.authorization_binding_kind,
         });
         let mut out = binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX.to_vec();
         out.extend_from_slice(&canonical::canonical_json_bytes(&body)?);
         Ok(out)
-    }
-
-    /// Validate the provenance anchor for a `service_attested`
-    /// `ak.device.authorize` payload.
-    ///
-    /// The payload binding is not authority by itself: the accepted Event
-    /// envelope must name the same service DID as `executed_by`, carry the same
-    /// `authorization_ref`, and point at the DID-document delegation used for
-    /// the enrollment authority signature.
-    pub fn validate_service_attested_provenance(
-        &self,
-        executed_by: Option<&Did>,
-        authorization_ref: Option<&str>,
-        accepted_at: DateTime<Utc>,
-    ) -> Result<()> {
-        self.validate_authorization_binding_one_of()
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
-        let binding = self.enrollment_authority_binding.as_ref().ok_or_else(|| {
-            Error::Protocol(
-                "service_attested device authorize requires enrollment_authority_binding"
-                    .to_owned(),
-            )
-        })?;
-        binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)
     }
 }
 
 /// Canonical digest of an `ak.device.authorize` payload as it appears on the
 /// wire.
 ///
-/// This is the value a B-model re-anchor commits to through
+/// This is the value a root-anchored re-entry commits to through
 /// [`DeviceReanchorPayload::replacement_authorize_payload_digest`]. The
 /// re-anchor cannot commit to the authorize Event id or envelope digest because
 /// that Event's `prev_refs` names the re-anchor, and every `event_id` derives
@@ -253,7 +195,7 @@ impl DeviceAuthorizePayload {
 /// It takes the wire `payload` object rather than [`DeviceAuthorizePayload`] on
 /// purpose: the producer and the verifier must hash the same bytes, and a
 /// parse-then-reserialize round trip is one normalization away from disagreeing.
-pub fn device_authorize_replacement_payload_digest(
+pub fn device_authorize_payload_digest(
     payload: &Value,
     digest_suite: canonical::DigestSuite,
 ) -> Result<Hash> {
@@ -261,7 +203,26 @@ pub fn device_authorize_replacement_payload_digest(
     Ok(Hash::new(canonical::digest(digest_suite, &bytes))?)
 }
 
-/// Closed B-model recovery payload for `ak.device.reanchor`.
+pub fn validate_root_anchored_authorize_payload_digest(
+    committed_digest: &Hash,
+    payload: &Value,
+    digest_suite: canonical::DigestSuite,
+) -> Result<()> {
+    let authorize: DeviceAuthorizePayload = serde_json::from_value(payload.clone())?;
+    if authorize.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored {
+        return Err(Error::Protocol(
+            "root-anchored unit requires authorization_binding_kind=root_anchored".to_owned(),
+        ));
+    }
+    if device_authorize_payload_digest(payload, digest_suite)? != *committed_digest {
+        return Err(Error::Protocol(
+            "root-anchored authorize payload digest mismatch".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+/// Closed root-anchored recovery payload for `ak.device.reanchor`.
 ///
 /// The replacement binding commits to the authorize payload digest, never to
 /// that Event's id or envelope digest: the authorize envelope carries this
@@ -412,19 +373,7 @@ fn parse_did_webvh_version_id(value: &str) -> std::result::Result<u64, &'static 
     Ok(number)
 }
 
-use arkret_models_identity::artifacts_device_identity::DeviceEnrollmentAuthorityBinding;
 use arkret_wire::SchemaId;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/device_cross_signing_binding`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceCrossSigningBinding {
-    pub verification_method: DidUrl,
-    pub signature_algorithm: NonEmptyString,
-    pub ssk_generation: NonZeroU64,
-    pub signature: Base64UrlString,
-}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/device_list_update_payload`.
@@ -661,7 +610,6 @@ impl DirectConversationBoundPayload {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_identity::artifacts_device_identity::DeviceEnrollmentAuthorityBindingKind;
     use serde_json::json;
 
     use super::*;
@@ -676,145 +624,88 @@ mod tests {
                 "ak.hpke_x25519_aead_chacha20poly1305.v1",
                 "ak.mls.v1"
             ],
-            "device_signature": "c2ln",
+            "device_key_algorithm": "Ed25519",
             "authorized_by": "did:webvh:z6mkfixture:alice.example",
             "not_before": "2026-05-30T00:00:00.000Z",
-            "enrollment_authority_binding": {
-                "kind": "service_attested",
-                "authority_did": "did:webvh:z6mkauthority:auth.example",
-                "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
-            }
+            "authorization_binding_kind": "root_anchored",
+            "device_signature": "c2ln"
         })
     }
 
-    fn base_device_authorize_payload() -> DeviceAuthorizePayload {
-        DeviceAuthorizePayload {
-            principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-a11ce0000001").unwrap(),
-            device_public_key: NonEmptyString::new("z6MkDeviceKey").unwrap(),
-            hpke_key: NonEmptyString::new("z6LSHpkeKey").unwrap(),
-            algorithms: vec![
-                NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap(),
-                NonEmptyString::new("ak.mls.v1").unwrap(),
-            ],
-            device_key_algorithm: None,
-            authorized_by: DeviceOrPrincipalRef::Did(
-                Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            ),
-            scopes: None,
-            not_before: "2026-05-30T00:00:00.000Z".parse().unwrap(),
-            expires_at: None,
-            device_signature: None,
-            proof: None,
-            cross_signing_binding: None,
-            enrollment_authority_binding: None,
-            recovery_session_id: None,
-        }
-    }
+    #[test]
+    fn device_authorize_binding_kind_is_closed_and_matches_authorizer() {
+        let root: DeviceAuthorizePayload =
+            serde_json::from_value(device_authorize_value()).unwrap();
+        root.validate_wire_constraints().unwrap();
 
-    fn cross_signing_binding() -> DeviceCrossSigningBinding {
-        DeviceCrossSigningBinding {
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#ssk").unwrap(),
-            signature_algorithm: NonEmptyString::new("Ed25519").unwrap(),
-            ssk_generation: NonZeroU64::new(1).unwrap(),
-            signature: Base64UrlString::new("c2ln").unwrap(),
-        }
+        let mut accepted = device_authorize_value();
+        accepted["authorization_binding_kind"] = json!("accepted_device");
+        accepted["authorized_by"] = json!("ak:device:01904100-0000-7000-8000-000000000002");
+        serde_json::from_value::<DeviceAuthorizePayload>(accepted).unwrap();
+
+        let mut mismatch = device_authorize_value();
+        mismatch["authorization_binding_kind"] = json!("accepted_device");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(mismatch).is_err());
     }
 
     #[test]
-    fn device_authorize_requires_exactly_one_authorization_binding() {
-        let mut payload = base_device_authorize_payload();
-        assert_eq!(
-            payload.validate_authorization_binding_one_of(),
-            Err(DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON)
-        );
-
-        payload.cross_signing_binding = Some(cross_signing_binding());
-        assert!(payload.validate_authorization_binding_one_of().is_ok());
-
-        payload.enrollment_authority_binding = Some(DeviceEnrollmentAuthorityBinding {
-            kind: DeviceEnrollmentAuthorityBindingKind::ServiceAttested,
-            authority_did: Did::new("did:webvh:z6mkauthority:auth.example").unwrap(),
-            authorization_ref: NonEmptyString::new(
-                "did:webvh:z6mkfixture:alice.example#enrollment-authority",
-            )
-            .unwrap(),
-        });
-        assert_eq!(
-            payload.validate_authorization_binding_one_of(),
-            Err(DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON)
-        );
-
-        payload.cross_signing_binding = None;
-        assert!(payload.validate_authorization_binding_one_of().is_ok());
-    }
-
-    #[test]
-    fn device_authorize_possession_input_binds_device_and_recovery_context() {
-        let mut payload = base_device_authorize_payload();
-        payload.device_key_algorithm = Some(NonEmptyString::new("Ed25519").unwrap());
-        payload.cross_signing_binding = Some(cross_signing_binding());
-        payload.scopes = Some(vec![
-            NonEmptyString::new("write").unwrap(),
-            NonEmptyString::new("read").unwrap(),
-            NonEmptyString::new("read").unwrap(),
-        ]);
-        payload.recovery_session_id = Some(
-            RecoverySessionId::new("ak:recovery_session:01904100-0000-7000-8000-000000000042")
-                .unwrap(),
-        );
-
-        let input = String::from_utf8(payload.device_possession_signature_input().unwrap())
-            .expect("canonical input is utf8");
-
+    fn possession_input_binds_authorization_kind() {
+        let payload: DeviceAuthorizePayload =
+            serde_json::from_value(device_authorize_value()).unwrap();
+        let input =
+            String::from_utf8(payload.device_possession_signature_input().unwrap()).unwrap();
         assert!(
             input
                 .as_bytes()
                 .starts_with(binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX)
         );
-        assert!(input.contains("\"authorization_binding_kind\":\"cross_signing\""));
-        assert!(input.contains("\"cross_signing_generation\":1"));
-        assert!(input.contains(
-            "\"recovery_session_id\":\"ak:recovery_session:01904100-0000-7000-8000-000000000042\""
-        ));
-        assert!(input.contains("\"scopes\":[\"read\",\"write\"]"));
+        assert!(input.contains("\"authorization_binding_kind\":\"root_anchored\""));
     }
 
     #[test]
-    fn device_authorize_possession_input_requires_declared_device_alg() {
-        let mut payload = base_device_authorize_payload();
-        payload.cross_signing_binding = Some(cross_signing_binding());
+    fn root_anchor_digest_verifier_rejects_kind_and_payload_mutation() {
+        let value = device_authorize_value();
+        let digest =
+            device_authorize_payload_digest(&value, canonical::DigestSuite::Sha256).unwrap();
+        validate_root_anchored_authorize_payload_digest(
+            &digest,
+            &value,
+            canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
 
-        assert!(matches!(
-            payload.device_possession_signature_input(),
-            Err(Error::Protocol(reason))
-                if reason == "device_authorize_device_key_algorithm_required"
-        ));
+        let mut mutated = value.clone();
+        mutated["hpke_key"] = json!("z6LSMutated");
+        assert!(
+            validate_root_anchored_authorize_payload_digest(
+                &digest,
+                &mutated,
+                canonical::DigestSuite::Sha256,
+            )
+            .is_err()
+        );
+
+        let mut wrong_kind = value;
+        wrong_kind["authorization_binding_kind"] = json!("accepted_device");
+        wrong_kind["authorized_by"] = json!("ak:device:01904100-0000-7000-8000-000000000002");
+        assert!(
+            validate_root_anchored_authorize_payload_digest(
+                &digest,
+                &wrong_kind,
+                canonical::DigestSuite::Sha256,
+            )
+            .is_err()
+        );
     }
 
     #[test]
-    fn device_authorize_deserialization_enforces_conditionals_and_canonical_lists() {
-        assert!(serde_json::from_value::<DeviceAuthorizePayload>(device_authorize_value()).is_ok());
-
-        let mut missing_proof = device_authorize_value();
-        missing_proof
+    fn device_authorize_deserialization_enforces_required_signature_and_canonical_lists() {
+        let mut missing_signature = device_authorize_value();
+        missing_signature
             .as_object_mut()
             .unwrap()
             .remove("device_signature");
-        missing_proof
-            .as_object_mut()
-            .unwrap()
-            .remove("enrollment_authority_binding");
-        assert!(serde_json::from_value::<DeviceAuthorizePayload>(missing_proof).is_err());
-
-        let mut conflicting_binding = device_authorize_value();
-        conflicting_binding["cross_signing_binding"] = json!({
-            "verification_method": "did:webvh:z6mkfixture:alice.example#ssk",
-            "signature_algorithm": "Ed25519",
-            "ssk_generation": 1,
-            "signature": "c2ln"
-        });
-        assert!(serde_json::from_value::<DeviceAuthorizePayload>(conflicting_binding).is_err());
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(missing_signature).is_err());
 
         let mut unsorted_algorithms = device_authorize_value();
         unsorted_algorithms["algorithms"] = json!(["ak.mls.v1", "ak.hpke.v1"]);
@@ -823,60 +714,6 @@ mod tests {
         let mut duplicate_scopes = device_authorize_value();
         duplicate_scopes["scopes"] = json!(["read", "read"]);
         assert!(serde_json::from_value::<DeviceAuthorizePayload>(duplicate_scopes).is_err());
-    }
-
-    #[test]
-    fn device_authorize_rejects_wrong_consts_and_scalar_shapes() {
-        let mut empty_key = device_authorize_value();
-        empty_key["device_public_key"] = json!("");
-        assert!(serde_json::from_value::<DeviceAuthorizePayload>(empty_key).is_err());
-
-        let mut invalid_device = device_authorize_value();
-        invalid_device["device_id"] = json!("device-1");
-        assert!(serde_json::from_value::<DeviceAuthorizePayload>(invalid_device).is_err());
-    }
-
-    #[test]
-    fn device_authorize_accepts_service_attested_did_key_authority() {
-        let payload = json!({
-            "principal_id": "did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x",
-            "device_id": "ak:device:019eefcb-5882-7861-bc30-3033fa32dcf6",
-            "device_public_key": "z6MkjHNtpwuhc2QSXzkf4DWoWp7eSMKB9PzfdnvaLB7kb3dG",
-            "hpke_key": "z6LSgy7T8CEsMDMzk1e4EBFVX8CDXWWzvkFZWSXhsC97zjcM",
-            "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1", "ak.mls.v1"],
-            "authorized_by": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
-            "not_before": "2026-06-22T14:45:51.000Z",
-            "enrollment_authority_binding": {
-                "kind": "service_attested",
-                "authority_did": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
-                "authorization_ref": "did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x#enrollment-authority"
-            }
-        });
-        let payload: DeviceAuthorizePayload = serde_json::from_value(payload).unwrap();
-        assert!(payload.validate_authorization_binding_one_of().is_ok());
-        assert!(
-            payload
-                .validate_service_attested_provenance(
-                    Some(&Did::new(
-                        "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw".to_owned()
-                    )
-                    .unwrap()),
-                    Some("did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x#enrollment-authority"),
-                    "2026-06-22T14:45:52.000Z".parse().unwrap(),
-                )
-                .is_ok()
-        );
-    }
-
-    #[test]
-    fn service_attested_rejects_legacy_version_time_alias() {
-        let binding = serde_json::from_value::<DeviceEnrollmentAuthorityBinding>(json!({
-            "kind": "service_attested",
-            "authority_did": "did:webvh:z6mkfixture:authority.example",
-            "versionTime": "2026-06-22T14:45:51.000Z",
-            "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
-        }));
-        assert!(binding.is_err());
     }
 
     #[test]

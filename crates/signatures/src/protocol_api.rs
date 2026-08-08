@@ -108,6 +108,12 @@ pub use proof::{
 pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "collaboration")]
+pub use crate::device_authorization::{
+    replay_federated_device_authorization, verify_device_authorize_possession,
+    verify_federated_device_authorization_chain,
+};
+
 /// Wire-reserved proof algorithms: registered `active` rows of the
 /// signature-alg-registry whose wire `jose_algorithm` value this SDK can parse and
 /// recognise, but for which it ships **no client signer or verifier yet**.

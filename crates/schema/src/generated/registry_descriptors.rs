@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-08.8;
-//! sha256=fd2b31e3ce3fc2ce7e63c8a9730c34768b58f2c572f6ab4d44a4c9645ddfd248 Input: registry/
-//! capability-action-registry.json; version=2026-08-08.18;
-//! sha256=de699c9ac1d28e5ed4f14a4640c36d7760e4093ee336dc095a5ce9f2365a3adf Input: registry/
-//! schema-registry.json; version=2026-08-08.18;
-//! sha256=319acd81d62378f952a5a7a22394dbf953b409b5191f9a349f26c6d96c85eb32 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-09.2;
+//! sha256=43c439d6f11a81994ecb0f13e39dec7745514916c5c7e3528e061ae9000da992 Input: registry/
+//! capability-action-registry.json; version=2026-08-09.2;
+//! sha256=d3b3fa0394b4fde4c4297b4a91b1b4f73a54e028efb26634c79b39cb37b04c51 Input: registry/
+//! schema-registry.json; version=2026-08-09.2;
+//! sha256=dc2307c8baf6c6deea98b4f19e1e982f7004850d19519a6d9db8b3dcfa7374b7 Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
-//! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=56,
-//! special_forms=10, actions=168, schemas=185, account_data_patterns=24
+//! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=55,
+//! special_forms=10, actions=168, schemas=182, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -281,11 +281,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "receipt",
         category: "receipt",
         wire_form: "ak:receipt:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "recovery_authority_ticket",
-        category: "security",
-        wire_form: "ak:recovery_authority_ticket:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "recovery_session",
@@ -3093,14 +3088,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-signer-evidence.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CROSS_SIGNING_PUBLISH_V1,
-        file: "schemas/cross-signing-publish.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CROSS_SIGNING_RESET_V1,
-        file: "schemas/cross-signing-reset.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::CURSOR_V1,
         file: "schemas/cursor.schema.json",
     },
@@ -3431,10 +3418,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::REALM_READ_OPERATIONS_V1,
         file: "schemas/realm-read-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::RECOVERY_AUTHORITY_TICKET_V1,
-        file: "schemas/recovery-authority.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1,

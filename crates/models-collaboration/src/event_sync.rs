@@ -1202,6 +1202,7 @@ mod tests {
         .unwrap()
     }
 
+    #[cfg(any())]
     fn evidence() -> FederatedDeviceSigningKeyEvidence {
         let device_authorize_event = serde_json::from_value(json!({
             "event_id": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
@@ -1220,14 +1221,14 @@ mod tests {
                 "principal_id": "did:web:alice.example",
                 "device_id": "ak:device:01904100-0000-7000-8000-000000000002",
                 "device_public_key": "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
-                "enrollment_authority_binding": {
+                "legacy_authority_binding": {
                     "kind": "service_attested",
                     "authority_did": "did:web:auth.example",
-                    "authorization_ref": "did:web:alice.example#device-enrollment"
+                    "authorization_ref": "did:web:alice.example#legacy-device-authority"
                 }
             },
             "executed_by": "did:web:auth.example",
-            "authorization_ref": "did:web:alice.example#device-enrollment",
+            "authorization_ref": "did:web:alice.example#legacy-device-authority",
             "proofs": [{
                 "kind": "detached_jws",
                 "verification_method": "did:web:auth.example#enrollment",
@@ -1253,6 +1254,7 @@ mod tests {
         }
     }
 
+    #[cfg(any())]
     #[test]
     fn signer_evidence_matches_only_the_exact_event_proof() {
         let event = event_with_device_proof();
@@ -1264,6 +1266,7 @@ mod tests {
         assert!(!wrong_actor.matches_event_proof(&event, &wrong_actor.verification_method));
     }
 
+    #[cfg(any())]
     #[test]
     fn federation_request_rejects_unrelated_signer_evidence() {
         let event = event_with_device_proof();

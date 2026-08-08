@@ -595,6 +595,56 @@ pub enum RealmPurpose {
     PrincipalControl,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum FoundingDeviceKeyAlgorithm {
+    Ed25519,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FoundingDeviceKeyPurpose {
+    EventSigningAndMlsIdentity,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum FoundingDeviceHpkeKeyAlgorithm {
+    X25519,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FoundingDeviceDescriptor {
+    pub descriptor_version: u8,
+    pub device_id: DeviceId,
+    pub device_public_key: NonEmptyString,
+    pub device_key_digest: Hash,
+    pub device_key_algorithm: FoundingDeviceKeyAlgorithm,
+    pub device_key_purpose: FoundingDeviceKeyPurpose,
+    pub hpke_key: NonEmptyString,
+    pub hpke_key_digest: Hash,
+    pub hpke_key_algorithm: FoundingDeviceHpkeKeyAlgorithm,
+    pub algorithms: Vec<NonEmptyString>,
+    pub founding_authorize_payload_digest: Hash,
+}
+
+impl FoundingDeviceDescriptor {
+    pub fn validate(&self) -> Result<()> {
+        if self.descriptor_version != 1
+            || !self.device_public_key.as_str().starts_with("did:key:z")
+            || self.algorithms.is_empty()
+            || self
+                .algorithms
+                .windows(2)
+                .any(|pair| pair[0].as_bytes() >= pair[1].as_bytes())
+        {
+            return Err(Error::Protocol(
+                "schema_violation: invalid founding device descriptor".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl RealmPurpose {
     pub const fn is_event_derived(self) -> bool {
         !matches!(self, Self::PrincipalControl)
@@ -610,6 +660,8 @@ pub struct RealmGenesis {
     pub purpose: RealmPurpose,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub genesis_salt: Option<GenesisSalt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub founding_device_descriptor: Option<FoundingDeviceDescriptor>,
     pub trust_domain: TypedTrustDomainId,
     pub schema_refs: Vec<String>,
     pub reducer_profile: String,
@@ -640,6 +692,7 @@ impl RealmGenesis {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
             purpose,
             genesis_salt: Some(genesis_salt),
+            founding_device_descriptor: None,
             trust_domain,
             schema_refs,
             reducer_profile: reducer_profile.into(),
@@ -656,6 +709,7 @@ impl RealmGenesis {
 
     #[allow(clippy::too_many_arguments)]
     pub fn principal_control(
+        founding_device_descriptor: Option<FoundingDeviceDescriptor>,
         trust_domain: TypedTrustDomainId,
         schema_refs: Vec<String>,
         reducer_profile: impl Into<String>,
@@ -670,6 +724,7 @@ impl RealmGenesis {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
             purpose: RealmPurpose::PrincipalControl,
             genesis_salt: None,
+            founding_device_descriptor,
             trust_domain,
             schema_refs,
             reducer_profile: reducer_profile.into(),
@@ -689,10 +744,14 @@ impl RealmGenesis {
             || self.schema_refs.is_empty()
             || self.reducer_profile.is_empty()
             || self.purpose.is_event_derived() != self.genesis_salt.is_some()
+            || (self.purpose.is_event_derived() && self.founding_device_descriptor.is_some())
         {
             return Err(Error::Protocol(
                 "schema_violation: invalid Realm genesis identity branch".to_owned(),
             ));
+        }
+        if let Some(descriptor) = &self.founding_device_descriptor {
+            descriptor.validate()?;
         }
         self.notary.validate()?;
         Ok(())

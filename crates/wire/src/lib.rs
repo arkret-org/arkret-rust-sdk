@@ -103,7 +103,7 @@ pub use event_receipt::*;
 pub use event_submission::{
     AuthorizationLeaseIssueIntent, AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest,
     EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
-    classify_event_submit_context, validate_anchor_unit_lease_bindings,
+    PcrGenesisUnit, classify_event_submit_context, validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{
@@ -136,8 +136,8 @@ pub use offline_publication::{
     AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef, AuthoritySetAuthorizationRule,
     AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicySource,
     AuthoritySetRef, AuthorizationLease, IngressReceipt, LeaseBasisRef,
-    RECOVERY_ACCOUNT_AUTHORITY_SET_ID, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
-    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier, distinct_issuer_count,
+    RECOVERY_ACCOUNT_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier,
+    distinct_issuer_count,
 };
 pub use operation_types::*;
 pub use patch::*;
@@ -151,16 +151,10 @@ pub use query_auth::{
 };
 pub use receive_policy::*;
 pub use recovery_authority::{
-    AuthorizeEventPublicationIntent, AuthorizeRecoveryDeviceOutcome,
-    AuthorizeRecoveryDeviceRequest, CanonicalEncoding, CanonicalPublicMaterial,
-    EnrollmentAuthorityIdentityModel, IssueAuthorityTicketStep,
-    MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS, PromoteRecoverySessionGrantOutcome,
-    PromoteRecoverySessionGrantRequest, RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS,
-    RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS, RecoveryAuthorityHolderProof,
-    RecoveryAuthorityTicket, RecoveryAuthorityTicketAuthData, RecoveryAuthorityTicketIssueRequest,
-    RecoveryAuthorizationPreimage, RecoveryCompletionAttestation,
-    RecoveryCompletionAttestationAuthData, RecoveryModelGenerationRef,
-    ReplacementDevicePossessionProof, ServiceSignatureAlgorithm,
+    CanonicalEncoding, CanonicalPublicMaterial, IssueRecoveryCompletionGrantOutcome,
+    IssueRecoveryCompletionGrantRequest, RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS,
+    RecoveryCompletionAttestation, RecoveryCompletionAttestationAuthData,
+    RecoveryModelGenerationRef,
 };
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{
@@ -169,14 +163,12 @@ pub use seal::{
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
-    CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, CROSS_SIGNING_RECOVERY_STEP_ORDER,
-    ClientStepAttestation, ClientStepAttestationAuthData, CrossSigningRecoveryBinding,
-    CrossSigningRecoveryPlan, ENROLLMENT_AUTHORITY_RECOVERY_STEP_ORDER,
-    EnrollmentAuthorityRecoveryBinding, EnrollmentAuthorityRecoveryPlan, PreparedDidPublication,
-    PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel, RecoveryPreparedPlan,
-    RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER, SecurityRotationBinding,
-    SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
-    SecurityTransactionBinding, SecurityTransactionContinueRequest,
+    CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation, ClientStepAttestationAuthData,
+    PreparedDidPublication, PreparedEventUnit, ROOT_ANCHORED_RECOVERY_STEP_ORDER, RecoveryBinding,
+    RecoveryIdentityModel, RecoveryPreparedPlan, RecoveryTransactionCreateRequest,
+    RootAnchoredRecoveryBinding, RootAnchoredRecoveryPlan, SECURITY_ROTATION_STEP_ORDER,
+    SecurityRotationBinding, SecurityRotationPlan, SecurityRotationTransactionCreateRequest,
+    SecurityTransaction, SecurityTransactionBinding, SecurityTransactionContinueRequest,
     SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
     SecurityTransactionResultKind, SecurityTransactionState, SecurityTransactionStep,
     SecurityTransactionTerminalResult, security_rotation_erase_confirmation_digest,

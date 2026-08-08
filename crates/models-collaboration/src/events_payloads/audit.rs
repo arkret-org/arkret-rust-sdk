@@ -22,7 +22,6 @@ pub enum AuditAccessedKind {
     WatchAuditRead,
     #[serde(rename = "e2ee_late_recovery")]
     E2EELateRecovery,
-    CrossSigningReset,
     JoinApplicationReview,
     PolicyAuditRead,
     Other,

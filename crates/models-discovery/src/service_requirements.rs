@@ -20,7 +20,6 @@ use crate::service_description::ServiceDescribe;
 /// mirroring `ArkretPrincipalServer`. See `zh/identity/identity-did.md` and
 /// `zh/crypto-media/device-lifecycle.md` §5.4. This is distinct from the
 /// snake_case [`ServiceKind`] used by `ServiceEndpointBinding`.
-pub const DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY: &str = "ArkretDeviceEnrollmentAuthority";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

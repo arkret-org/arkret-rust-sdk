@@ -3,12 +3,7 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
-use arkret_models_identity::artifacts_device_identity::{
-    CrossSigningPublish, DeviceEnrollmentAuthorityBinding,
-};
-use arkret_wire::{
-    Base64UrlString, DeviceId, Did, DidKey, DidUrl, EventId, NonEmptyString, ReasonCode,
-};
+use arkret_wire::{Base64UrlString, DeviceId, Did, DidKey, EventId, NonEmptyString, ReasonCode};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_keys::{
@@ -126,33 +121,6 @@ pub struct DeviceGenerationState {
     pub device_generation_status: DeviceGenerationStatus,
 }
 
-/// Per-device cross-signing binding echoed from
-/// `ak.device.authorize.payload.cross_signing_binding`
-/// (`crypto-media/device-lifecycle.md` §5.2). The accepted-generation SSK signs
-/// `"ak.device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
-/// device_public_key, hpke_key, algorithms, ssk_generation})`. Absent for
-/// service-attested devices. Mirrors
-/// `keys-operations.schema.json#/$defs/cross_signing_binding`.
-///
-/// Shape-identical to `arkret_crypto::DeviceTrustBinding` (the SDK chain
-/// verifier's input type), but defined here in `core` because `core` cannot
-/// depend on `crypto`; `alg` is optional per schema.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct QueryDeviceCrossSigningBinding {
-    /// DID URL of the self-signing key (SSK) that produced the binding
-    /// signature, e.g. `did:webvh:...#ak_self_signing_v1`.
-    pub verification_method: DidUrl,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signature_algorithm: Option<NonEmptyString>,
-    /// `cross_signing.publish` generation under which the SSK signed this
-    /// device binding; compared to the principal's accepted generation per
-    /// §5.2.1.
-    pub ssk_generation: u64,
-    pub signature: Base64UrlString,
-}
-
 /// Per-`(principal_id, device_id)` entry in [`KeysQueryOutcome::device_keys`].
 ///
 /// The prekey bundle is carried under `algorithms` (algorithm name →
@@ -192,26 +160,8 @@ pub struct QueryDeviceRecord {
     /// Directory status of the device at query time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_status: Option<DeviceStatus>,
-    /// Cross-signing trust material: the device's authoritative
-    /// `cross_signing_binding` echoed verbatim, so the client can
-    /// independently verify the device-key ← SSK link (`device-lifecycle.md`
-    /// §8.3). Absent for service-attested devices.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cross_signing_binding: Option<QueryDeviceCrossSigningBinding>,
-    /// Service-attested trust material for managed-DID devices
-    /// (`device-lifecycle.md` §5.4), echoed from the accepted
-    /// `ak.device.authorize` payload. Present only for a verified, non-revoked
-    /// device authorized by the designated enrollment authority.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Option<serde_json::Value>))
-    )]
-    pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
     /// Accepted `ak.device.authorize` event id that anchored the device-set
-    /// projection. For service-attested devices this pairs with
-    /// [`Self::enrollment_authority_binding`] and is the hot-path trust anchor
-    /// clients carry forward.
+    /// projection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
     /// Reducer-managed B-model generation that authorized this device.
@@ -220,24 +170,17 @@ pub struct QueryDeviceRecord {
 }
 
 impl QueryDeviceRecord {
-    /// Return whether this device is usable under exactly one accepted trust
-    /// model. A-model devices require only a cross-signing binding. B-model
-    /// devices require the current generation, enrollment-authority binding,
-    /// and accepted authorize-event anchor. Mixed A/B projections fail closed.
+    /// Return whether this device is usable in the reducer's current accepted
+    /// generation.
     pub fn is_usable_in_generation(&self, generation: Option<&DeviceGenerationState>) -> bool {
         if self.device_status != Some(DeviceStatus::Active) {
             return false;
         }
         match (generation, self.authorized_generation_ref.as_ref()) {
-            (None, None) => {
-                self.cross_signing_binding.is_some() && self.enrollment_authority_binding.is_none()
-            }
             (Some(state), Some(device_generation)) => {
                 state.device_generation_status == DeviceGenerationStatus::Active
                     && device_generation == &state.current_device_generation_ref
-                    && self.enrollment_authority_binding.is_some()
                     && self.device_authorize_event_id.is_some()
-                    && self.cross_signing_binding.is_none()
             }
             _ => false,
         }
@@ -251,17 +194,6 @@ pub struct KeysQueryOutcome {
     pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, QueryDeviceRecord>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<KeysOperationFailure>,
-    /// Tier-2: per-principal current accepted-generation
-    /// `ak.cross_signing.publish` payload (`device-lifecycle.md` §5.1), letting
-    /// the client anchor the SSK to the DID control set before trusting any
-    /// `cross_signing_binding` (§8.3). Reuses the schema-counterpart type
-    /// [`CrossSigningPublish`].
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = std::collections::BTreeMap<String, serde_json::Value>))
-    )]
-    pub cross_signing: BTreeMap<Did, CrossSigningPublish>,
     /// Reducer-managed B-model device generation fence by principal.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub device_generations: BTreeMap<Did, DeviceGenerationState>,
@@ -339,46 +271,25 @@ mod device_generation_tests {
     }
 
     #[test]
-    fn device_generation_trust_models_are_exclusive_and_fully_anchored() {
-        let cross_signing_binding = json!({
-            "verification_method": "did:webvh:z6mkfixture:alice.example#ssk",
-            "ssk_generation": 1,
-            "signature": "c2ln"
-        });
-        let enrollment_authority_binding = json!({
-            "kind": "service_attested",
-            "authority_did": "did:webvh:z6mkauthority:auth.example",
-            "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
-        });
-
-        let mut a_model: QueryDeviceRecord = serde_json::from_value(json!({
-            "device_status": "active",
-            "cross_signing_binding": cross_signing_binding
-        }))
-        .unwrap();
-        assert!(a_model.is_usable_in_generation(None));
-        a_model.enrollment_authority_binding =
-            Some(serde_json::from_value(enrollment_authority_binding.clone()).unwrap());
-        assert!(!a_model.is_usable_in_generation(None));
-
+    fn device_generation_must_be_current_and_fully_anchored() {
         let generation = DeviceGenerationState {
             current_device_generation_ref: NonEmptyString::new("did-version-7").unwrap(),
             device_generation_status: DeviceGenerationStatus::Active,
         };
-        let mut b_model: QueryDeviceRecord = serde_json::from_value(json!({
+        let mut record: QueryDeviceRecord = serde_json::from_value(json!({
             "device_status": "active",
-            "enrollment_authority_binding": enrollment_authority_binding,
             "device_authorize_event_id": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
             "authorized_generation_ref": "did-version-7"
         }))
         .unwrap();
-        assert!(b_model.is_usable_in_generation(Some(&generation)));
+        assert!(record.is_usable_in_generation(Some(&generation)));
+        assert!(!record.is_usable_in_generation(None));
 
-        b_model.device_authorize_event_id = None;
-        assert!(!b_model.is_usable_in_generation(Some(&generation)));
-        b_model.device_authorize_event_id =
+        record.device_authorize_event_id = None;
+        assert!(!record.is_usable_in_generation(Some(&generation)));
+        record.device_authorize_event_id =
             Some(EventId::new("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap());
-        b_model.cross_signing_binding = a_model.cross_signing_binding;
-        assert!(!b_model.is_usable_in_generation(Some(&generation)));
+        record.authorized_generation_ref = Some(NonEmptyString::new("did-version-6").unwrap());
+        assert!(!record.is_usable_in_generation(Some(&generation)));
     }
 }

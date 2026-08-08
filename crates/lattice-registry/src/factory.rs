@@ -33,7 +33,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(StrandStage);
     registry.register(MorphStage);
     registry.register(StrandWatch);
-    registry.register(CrossSigningPublish);
     registry.register(NotaryCell);
     registry.register(IdentityAccountability);
     registry.register(MlsEpoch);
@@ -62,7 +61,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(SpaceParent);
     registry.register(AccountStatus);
     registry.register(PolicyRule);
-    registry.register(CrossSigningReset);
     registry.register(MemberIdentityLattice);
     registry.register(ContactFactLog);
     registry.register(DirectConversationBinding);

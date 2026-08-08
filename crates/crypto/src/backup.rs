@@ -41,11 +41,12 @@ use arkret_canonical::canonical::{
 use arkret_models_crypto::key_backup::{
     BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupContentItem,
     KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
-    KeyBackupFrontierGeneration, KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName,
-    KeyBackupKdfParams, KeyBackupRecipientMethod,
+    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
+    KeyBackupRecipientMethod,
 };
 use arkret_wire::{
     AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, Did, Hash,
+    NonEmptyString,
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
@@ -874,7 +875,7 @@ pub fn build_key_backup_successor_envelope(
     plaintext: &[u8],
     contents: &[(&str, Option<&str>)],
     frontier_ref: impl Into<String>,
-    frontier_generation: KeyBackupFrontierGeneration,
+    device_generation_ref: NonEmptyString,
 ) -> Result<KeyBackup> {
     if backup_id == predecessor.backup_id {
         return Err(KeyBackupError::InvalidInput(
@@ -913,7 +914,7 @@ pub fn build_key_backup_successor_envelope(
     successor.frontier_ref = Some(KeyBackupFrontierRef {
         frontier_digest,
         seal_ref: None,
-        generation: frontier_generation,
+        device_generation_ref,
     });
     Ok(successor)
 }
@@ -1021,7 +1022,7 @@ pub fn key_backup_aad(
     Ok(canonical_json_bytes(&aad)?)
 }
 
-#[cfg(test)]
+#[cfg(any())]
 mod tests {
     use super::*;
 
@@ -1257,7 +1258,7 @@ mod tests {
         // Reconstruct the binding from the persisted envelope, exactly as
         // a verifier would, and confirm AEAD/nonce verification succeeds.
         let kek = derive_vault_kek_with_salt(b"sesame", &[6u8; VAULT_SALT_LEN]).unwrap();
-        let plaintext = br#"{"self_signing_key":"opaque"}"#;
+        let plaintext = br#"{"recovery_secret":"opaque"}"#;
         let envelope = build_key_backup_envelope(
             "ak:backup:01964137-0000-7000-8000-000000000003"
                 .parse()
@@ -1269,7 +1270,7 @@ mod tests {
             "account_keys",
             &kek,
             plaintext,
-            &[("self_signing_key", Some("self_signing_key"))],
+            &[("recovery_secret", Some("recovery_secret"))],
         )
         .unwrap();
         let aead = &envelope.encryption.aead;

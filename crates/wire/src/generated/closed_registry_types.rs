@@ -1,12 +1,12 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/track-name-registry.json; version=2026-08-08.18;
-//! sha256=e94813fa73f67a3f6df17c974eb2c07b2370e73e7361faa2980f8d5ce83d4391 Input: registry/
-//! binding-kind-registry.json; version=2026-08-08.18;
-//! sha256=e236ffec9b9a967f7d8d4ea433c38a3d9e5369359e3b2fe55f2b50e65a0de75e Input: registry/
-//! authority-set-policy-registry.json; version=2026-07-29;
-//! sha256=dc07cbcb760b98bbefbeb59a101a76b7ca05d5f9a9e2d8f025096c1234f2e004 Entries: track_names=2,
-//! binding_kinds=3, authority_policy_kinds=2, authority_source_kinds=4
+//! Input: registry/track-name-registry.json; version=2026-08-09.2;
+//! sha256=5d738567435926505ae098592057df82e15e090179b9d7bf8c47486137dc2729 Input: registry/
+//! binding-kind-registry.json; version=2026-08-09.2;
+//! sha256=4818cdc817fa57e51bbc2525354d3d326692d8460468b21fdc54d9a6b263899b Input: registry/
+//! authority-set-policy-registry.json; version=2026-08-09.1;
+//! sha256=6d57556e8dcb20cc5b6780ea768ee05b206d4503236526a52e92bf0ef3169edb Entries: track_names=2,
+//! binding_kinds=3, authority_policy_kinds=2, authority_source_kinds=2
 
 use serde::{Deserialize, Serialize};
 
@@ -116,24 +116,15 @@ impl std::fmt::Display for AuthoritySetPolicyKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthoritySetSourceKind {
-    CrossSigningPublish,
-    DidDocument,
     RealmControl,
     RecoveryPolicy,
 }
 
 impl AuthoritySetSourceKind {
-    pub const ALL: &'static [Self] = &[
-        Self::CrossSigningPublish,
-        Self::DidDocument,
-        Self::RealmControl,
-        Self::RecoveryPolicy,
-    ];
+    pub const ALL: &'static [Self] = &[Self::RealmControl, Self::RecoveryPolicy];
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::CrossSigningPublish => "cross_signing_publish",
-            Self::DidDocument => "did_document",
             Self::RealmControl => "realm_control",
             Self::RecoveryPolicy => "recovery_policy",
         }
@@ -141,8 +132,6 @@ impl AuthoritySetSourceKind {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            "cross_signing_publish" => Some(Self::CrossSigningPublish),
-            "did_document" => Some(Self::DidDocument),
             "realm_control" => Some(Self::RealmControl),
             "recovery_policy" => Some(Self::RecoveryPolicy),
             _ => None,

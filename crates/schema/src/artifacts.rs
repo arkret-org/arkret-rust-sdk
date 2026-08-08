@@ -741,7 +741,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "authorization_lease",
     "invite_locator",
     "message_stream",
-    "recovery_authority_ticket",
     "sidecar",
 ];
 
@@ -1723,7 +1722,11 @@ mod tests {
             .join("arkret-service-api.openapi.yaml");
         let live = fs::read_to_string(&live_path)
             .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
-        assert_eq!(embedded, live, "embedded OpenAPI artifact drifted");
+        assert_eq!(
+            embedded.replace("\r\n", "\n"),
+            live.replace("\r\n", "\n"),
+            "embedded OpenAPI artifact drifted"
+        );
     }
 
     #[test]

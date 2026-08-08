@@ -13,7 +13,7 @@ use chrono::Utc;
 use serde_json::Value;
 
 use crate::projection::{CellWriteProjector, state_root_from_projection};
-use crate::self_principal::validate_self_principal_bootstrap_unit;
+use crate::self_principal::validate_self_principal_pcr_genesis_unit;
 
 /// Build and sign the first principal-control Seal after the closed bootstrap
 /// unit has been accepted. The Seal is rooted (no predecessors), covers both
@@ -26,7 +26,7 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
     signer: &S,
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
-    validate_self_principal_bootstrap_unit(create, authorize, project)?;
+    validate_self_principal_pcr_genesis_unit(create, authorize, project)?;
     if signer.signer_did() != &create.actor_id {
         return Err(Error::Protocol(
             "bootstrap Seal signer DID must equal the principal DID".to_owned(),
@@ -106,7 +106,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     signer: &S,
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
-    validate_self_principal_bootstrap_unit(create, authorize, project)?;
+    validate_self_principal_pcr_genesis_unit(create, authorize, project)?;
     if successor.realm_id != create.realm_id
         || successor.actor_id != create.actor_id
         || successor.actor_seq != 2

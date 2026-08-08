@@ -185,8 +185,10 @@ mod tests {
                 .unwrap(),
                 signature_algorithm: arkret_models_crypto::KeyBackupSignatureAlgorithm::Ed25519,
                 signature: arkret_wire::Base64UrlString::new("c2ln").unwrap(),
-                ssk_generation: std::num::NonZeroU64::new(1),
-                device_authorize_event_id: None,
+                device_authorize_event_id: arkret_wire::EventId::new(
+                    "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
+                )
+                .unwrap(),
                 signed_fields: [
                     "backup_id",
                     "actor_id",

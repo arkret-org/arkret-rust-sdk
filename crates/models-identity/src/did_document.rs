@@ -350,7 +350,7 @@ mod tests {
             "@context": ["https://www.w3.org/ns/did/v1"],
             "id": "did:webvh:z6mkfixture:alice.example",
             "capabilityDelegation": [
-                "did:webvh:z6mkfixture:alice.example#device-enrollment-authority"
+                "did:webvh:z6mkfixture:alice.example#legacy-device-authority"
             ],
             "service": [{
                 "id": "did:webvh:z6mkfixture:alice.example#principal-server",

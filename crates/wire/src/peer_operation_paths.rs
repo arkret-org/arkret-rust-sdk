@@ -2,7 +2,7 @@
 
 pub const PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS: &str =
     "/_arkret/peer/account-status/authoring-basis";
-pub const PATH_PEER_DEVICE_BOOTSTRAP_DECISIONS: &str = "/_arkret/peer/device-bootstrap-decisions";
+pub const PATH_PEER_PRINCIPAL_GENESIS: &str = "/_arkret/peer/principal-genesis";
 pub const PATH_PEER_MLS_GROUP_STATE_MATERIAL: &str = "/_arkret/peer/mls/group-state-material";
 
 #[cfg(test)]
@@ -19,10 +19,10 @@ mod tests {
             PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS
         );
         assert_eq!(
-            ServiceOperationId::PeerDeviceBootstrapCommandDecide
+            ServiceOperationId::PeerPrincipalGenesisCommandSubmit
                 .descriptor()
                 .http_path,
-            PATH_PEER_DEVICE_BOOTSTRAP_DECISIONS
+            PATH_PEER_PRINCIPAL_GENESIS
         );
         assert_eq!(
             ServiceOperationId::PeerMlsReadGroupStateMaterial

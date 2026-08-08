@@ -4,17 +4,17 @@
 use std::collections::BTreeMap;
 
 use arkret_models_collaboration::events_payloads::device_identity::{
-    DeviceAuthorizePayload, DeviceOrPrincipalRef,
+    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceOrPrincipalRef,
+    validate_root_anchored_authorize_payload_digest,
 };
-use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
-use arkret_models_collaboration::http_bodies::{
-    EventsSubmitBatchRequestBody, EventsSubmitRequestBody,
+use arkret_models_collaboration::events_payloads::{
+    FoundingDeviceDescriptor, RealmCreatePayload, RealmGenesis,
 };
 use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_wire::{
-    CellRef, Did, EncryptionProfile, Error, Event, EventInitialSubmission, EventKind, EventRef,
-    EventRequirements, Hash, Hlc, NotaryValue, ProfileId, RealmId, Result, SchemaId, ScopeRef,
+    CellRef, Did, EncryptionProfile, Error, Event, EventKind, EventRef, EventRequirements, Hash,
+    Hlc, NotaryValue, PcrGenesisUnit, ProfileId, RealmId, Result, SchemaId, ScopeRef,
     SecurityClass, TypedTrustDomainId, composite_subject, proof_kind,
 };
 use chrono::{DateTime, Utc};
@@ -31,6 +31,7 @@ pub struct SelfPrincipalPcrCreateInput {
     pub realm_id: RealmId,
     pub trust_domain: TypedTrustDomainId,
     pub did_inception_ref: EventRef,
+    pub founding_device_descriptor: FoundingDeviceDescriptor,
     /// Genesis capability-action registry basis copied into the Realm's
     /// authority-root cell (`models/realm-and-space.md` section 2.5).
     pub capability_action_registry_digest: Hash,
@@ -61,6 +62,7 @@ pub fn build_self_principal_pcr_create(
     }
 
     let genesis = RealmGenesis::principal_control(
+        Some(input.founding_device_descriptor),
         input.trust_domain,
         vec![
             SchemaId::REALM_V1.to_owned(),
@@ -96,54 +98,21 @@ pub fn build_self_principal_pcr_create(
     Ok(event)
 }
 
-/// Validate and package the closed two-slot self-principal bootstrap batch.
-/// The receiver still verifies both cryptographic proofs and entry-0 history.
-///
-/// Each slot travels with one authorization lease bound to the complete
-/// ordered anchor unit. The admitting Principal Server uses that pre-admission
-/// evidence to mint the two Control Proposal Acks inside the atomic genesis
-/// transaction, so callers must not attach Control Proposal Acks themselves.
-pub fn self_principal_bootstrap_submit_request(
-    create: EventInitialSubmission,
-    authorize: EventInitialSubmission,
+/// Validate and package the closed two-slot self-principal PCR genesis unit.
+/// Authorization leases do not exist before the PCR. The root proof on
+/// `ak.realm.create`, the device-possession signature in
+/// `ak.device.authorize`, and the descriptor's one-way payload commitment are
+/// the complete genesis authorization chain.
+pub fn build_self_principal_pcr_genesis_unit(
+    create: Event,
+    authorize: Event,
     project: CellWriteProjector<'_>,
-) -> Result<EventsSubmitRequestBody> {
-    validate_self_principal_bootstrap_unit(&create.event, &authorize.event, project)?;
-    for submission in [&create, &authorize] {
-        submission.validate_structural_in_context(arkret_wire::EventSubmitContext::AnchorUnit)?;
-    }
-    let leases = [
-        create.authorization_lease.clone().ok_or_else(|| {
-            Error::Protocol(
-                "self principal bootstrap requires a complete anchor-unit authorization lease set"
-                    .to_owned(),
-            )
-        })?,
-        authorize.authorization_lease.clone().ok_or_else(|| {
-            Error::Protocol(
-                "self principal bootstrap requires a complete anchor-unit authorization lease set"
-                    .to_owned(),
-            )
-        })?,
-    ];
-    arkret_wire::validate_anchor_unit_lease_bindings(
-        &[create.event.clone(), authorize.event.clone()],
-        &leases,
-    )?;
-    if create.control_proposal_ack.is_some() || authorize.control_proposal_ack.is_some() {
-        return Err(Error::Protocol(
-            "self principal bootstrap Control Proposal Acks are minted by the admitting server"
-                .to_owned(),
-        ));
-    }
-    Ok(EventsSubmitRequestBody::Batch(
-        EventsSubmitBatchRequestBody {
-            events: vec![create, authorize],
-        },
-    ))
+) -> Result<PcrGenesisUnit> {
+    validate_self_principal_pcr_genesis_unit(&create, &authorize, project)?;
+    PcrGenesisUnit::new(create, authorize)
 }
 
-pub fn validate_self_principal_bootstrap_unit(
+pub fn validate_self_principal_pcr_genesis_unit(
     create: &Event,
     authorize: &Event,
     project: CellWriteProjector<'_>,
@@ -159,8 +128,8 @@ pub fn validate_self_principal_bootstrap_unit(
         || authorize.auth_context.is_some()
         || authorize.seal_basis.is_some()
         || !authorize.preconditions.is_empty()
-        || authorize.executed_by.is_none()
-        || authorize.authorization_ref.is_none()
+        || authorize.executed_by.is_some()
+        || authorize.authorization_ref.is_some()
         || authorize.applet_id.is_some()
         || authorize.external_ref.is_some()
         || authorize.actor_kind.is_some()
@@ -180,34 +149,41 @@ pub fn validate_self_principal_bootstrap_unit(
     validate_event_proof_digests(authorize)?;
     let payload: DeviceAuthorizePayload = authorize.typed_payload(EventKind::DEVICE_AUTHORIZE)?;
     if payload.principal_id != create.actor_id
-        || payload.cross_signing_binding.is_some()
-        || payload.enrollment_authority_binding.is_none()
+        || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored
         || payload.recovery_session_id.is_some()
     {
         return Err(Error::Protocol(
-            "bootstrap device authorize must use only enrollment authority binding".to_owned(),
+            "founding device authorize must be root-anchored".to_owned(),
         ));
     }
-    payload.validate_service_attested_provenance(
-        authorize.executed_by.as_ref(),
-        authorize.authorization_ref.as_deref(),
-        authorize.created_at,
-    )?;
-    let binding = payload
-        .enrollment_authority_binding
-        .as_ref()
-        .expect("checked above");
     let authorized_by_matches = matches!(
         &payload.authorized_by,
-        DeviceOrPrincipalRef::Did(did) if did == &binding.authority_did
+        DeviceOrPrincipalRef::Did(did) if did == &create.actor_id
     );
+    let create_payload: RealmCreatePayload = create.payload_as()?;
+    let descriptor = create_payload
+        .object
+        .founding_device_descriptor
+        .as_ref()
+        .ok_or_else(|| {
+            Error::Protocol("PCR genesis omits founding device descriptor".to_owned())
+        })?;
+    validate_root_anchored_authorize_payload_digest(
+        &descriptor.founding_authorize_payload_digest,
+        &Value::Object(authorize.payload.clone().into_iter().collect()),
+        arkret_canonical::DigestSuite::Sha256,
+    )?;
     if !authorized_by_matches
         || authorize.proofs.len() != 1
-        || proof_controller(&authorize.proofs[0].verification_method)
-            != Some(binding.authority_did.as_str())
+        || authorize.proofs[0].verification_method.as_str()
+            != format!("{}#{}", create.actor_id, descriptor.device_id)
+        || descriptor.device_id != payload.device_id
+        || descriptor.device_public_key != payload.device_public_key
+        || descriptor.hpke_key != payload.hpke_key
+        || descriptor.algorithms != payload.algorithms
     {
         return Err(Error::Protocol(
-            "bootstrap authorize proof does not belong to its enrollment authority".to_owned(),
+            "founding device authorize does not match its committed descriptor".to_owned(),
         ));
     }
     // The second slot used to be pinned by requiring an empty producer-written
@@ -322,10 +298,6 @@ fn validate_event_proof_digests(event: &Event) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-fn proof_controller(verification_method: &str) -> Option<&str> {
-    verification_method.split_once('#').map(|(did, _)| did)
 }
 
 fn payload_map<T: serde::Serialize>(payload: &T) -> Result<BTreeMap<String, Value>> {

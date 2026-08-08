@@ -124,7 +124,7 @@ impl From<KeyBackupError> for Error {
     }
 }
 
-/// Maximum length (bytes) for serialized device/cross-signing public keys and
+/// Maximum length (bytes) for serialized device public keys and
 /// signature values. 4 KiB comfortably covers any RFC-defined public key /
 /// signature format the v1 crypto suite emits.
 pub const MAX_KEY_FIELD_LEN: usize = 4096;
@@ -174,7 +174,7 @@ pub(crate) fn validate_max_length(field: &str, value: &str, max: usize) -> Resul
 }
 
 // Note: `validate_nonempty_key` / `validate_max_length` are `pub(crate)` (they
-// were file-private fns before this split) so the sibling `cross_signing`,
+// were file-private fns before this split) so sibling crypto modules,
 // `device`, and `session` modules can call them via `crate::errors::...`.
 // They are intentionally NOT re-exported at crate root, preserving their
 // crate-internal status.

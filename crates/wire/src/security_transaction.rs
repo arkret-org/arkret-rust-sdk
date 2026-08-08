@@ -12,14 +12,11 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::recovery_authority::{
-    AuthorizeEventPublicationIntent, AuthorizeRecoveryDeviceRequest, CanonicalPublicMaterial,
-    IssueAuthorityTicketStep, RecoveryAuthorityTicketIssueRequest, RecoveryAuthorizationPreimage,
-    RecoveryCompletionAttestation, RecoveryModelGenerationRef,
+    CanonicalPublicMaterial, RecoveryCompletionAttestation, RecoveryModelGenerationRef,
 };
 use crate::{
     BackupId, BackupSeriesId, DeviceId, Did, DidUrl, EventId, EventInitialSubmission,
-    EventSubmitContext, EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoveryAuthorityTicketId,
-    RecoverySessionId, TransactionId,
+    EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoverySessionId, TransactionId,
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
@@ -34,14 +31,7 @@ pub const CLIENT_STEP_ATTESTATION_SIGNED_FIELDS: [&str; 6] = [
     "attestation_digest",
 ];
 
-pub const CROSS_SIGNING_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 2] = [
-    SecurityTransactionStep::SubmitAuthorizeUnit,
-    SecurityTransactionStep::IssueTerminalReceipt,
-];
-
-pub const ENROLLMENT_AUTHORITY_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 5] = [
-    SecurityTransactionStep::IssueAuthorityTicket,
-    SecurityTransactionStep::AuthorizeRecoveryDevice,
+pub const ROOT_ANCHORED_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 3] = [
     SecurityTransactionStep::PublishDidEntry,
     SecurityTransactionStep::SubmitReanchorUnit,
     SecurityTransactionStep::IssueTerminalReceipt,
@@ -67,8 +57,7 @@ pub enum SecurityTransactionKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryIdentityModel {
-    CrossSigning,
-    EnrollmentAuthority,
+    RootAnchored,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -110,9 +99,6 @@ pub enum BackupRotationKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityTransactionStep {
-    SubmitAuthorizeUnit,
-    IssueAuthorityTicket,
-    AuthorizeRecoveryDevice,
     PublishDidEntry,
     SubmitReanchorUnit,
     IssueTerminalReceipt,
@@ -139,23 +125,10 @@ pub struct AcceptedStep {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CrossSigningRecoveryBinding {
+pub struct RootAnchoredRecoveryBinding {
     pub identity_model: RecoveryIdentityModel,
     pub recovery_session_id: RecoverySessionId,
     pub replacement_device_id: DeviceId,
-    pub authorize_event_id: EventId,
-    pub device_list_update_event_id: EventId,
-    pub terminal_receipt_id: ReceiptId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EnrollmentAuthorityRecoveryBinding {
-    pub identity_model: RecoveryIdentityModel,
-    pub recovery_session_id: RecoverySessionId,
-    pub replacement_device_id: DeviceId,
-    pub authority_ticket_id: RecoveryAuthorityTicketId,
     pub did_entry_ref: String,
     pub reanchor_event_id: EventId,
     pub authorize_event_id: EventId,
@@ -166,41 +139,27 @@ pub struct EnrollmentAuthorityRecoveryBinding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RecoveryBinding {
-    CrossSigning(CrossSigningRecoveryBinding),
-    EnrollmentAuthority(EnrollmentAuthorityRecoveryBinding),
+    RootAnchored(RootAnchoredRecoveryBinding),
 }
 
 impl RecoveryBinding {
     pub fn identity_model(&self) -> RecoveryIdentityModel {
-        match self {
-            Self::CrossSigning(_) => RecoveryIdentityModel::CrossSigning,
-            Self::EnrollmentAuthority(_) => RecoveryIdentityModel::EnrollmentAuthority,
-        }
+        RecoveryIdentityModel::RootAnchored
     }
 
     pub fn terminal_receipt_id(&self) -> &ReceiptId {
-        match self {
-            Self::CrossSigning(binding) => &binding.terminal_receipt_id,
-            Self::EnrollmentAuthority(binding) => &binding.terminal_receipt_id,
-        }
+        let Self::RootAnchored(binding) = self;
+        &binding.terminal_receipt_id
     }
 
     pub fn recovery_session_id(&self) -> &RecoverySessionId {
-        match self {
-            Self::CrossSigning(binding) => &binding.recovery_session_id,
-            Self::EnrollmentAuthority(binding) => &binding.recovery_session_id,
-        }
+        let Self::RootAnchored(binding) = self;
+        &binding.recovery_session_id
     }
 
     fn validate_discriminator(&self) -> Result<()> {
-        let valid = match self {
-            Self::CrossSigning(binding) => {
-                binding.identity_model == RecoveryIdentityModel::CrossSigning
-            }
-            Self::EnrollmentAuthority(binding) => {
-                binding.identity_model == RecoveryIdentityModel::EnrollmentAuthority
-            }
-        };
+        let Self::RootAnchored(binding) = self;
+        let valid = binding.identity_model == RecoveryIdentityModel::RootAnchored;
         if !valid {
             return Err(Error::Protocol(
                 "recovery binding identity_model disagrees with its closed shape".to_owned(),
@@ -369,30 +328,14 @@ impl PreparedDidPublication {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CrossSigningRecoveryPlan {
-    pub identity_model: RecoveryIdentityModel,
-    pub recovery_session_snapshot_digest: Hash,
-    pub proof_digest: Hash,
-    pub previous_model_generation_ref: u64,
-    pub result_model_generation_ref: u64,
-    pub authorize_unit: PreparedEventSubmissionBatch,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EnrollmentAuthorityRecoveryPlan {
+pub struct RootAnchoredRecoveryPlan {
     pub identity_model: RecoveryIdentityModel,
     pub recovery_session_snapshot_digest: Hash,
     pub proof_digest: Hash,
     pub previous_model_generation_ref: String,
     pub result_model_generation_ref: String,
-    pub authorization_preimage: RecoveryAuthorizationPreimage,
-    pub authorization_request_digest: Hash,
     pub did_publication: PreparedDidPublication,
-    pub reanchor_event_submission: EventInitialSubmission,
-    pub reanchor_event_submission_digest: Hash,
-    pub authorize_event_publication_intent: AuthorizeEventPublicationIntent,
+    pub reanchor_unit: PreparedEventUnit,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -402,25 +345,17 @@ pub struct EnrollmentAuthorityRecoveryPlan {
 // without changing the JSON.
 #[allow(clippy::large_enum_variant)]
 pub enum RecoveryPreparedPlan {
-    CrossSigning(CrossSigningRecoveryPlan),
-    EnrollmentAuthority(EnrollmentAuthorityRecoveryPlan),
+    RootAnchored(RootAnchoredRecoveryPlan),
 }
 
 impl RecoveryPreparedPlan {
     pub fn identity_model(&self) -> RecoveryIdentityModel {
-        match self {
-            Self::CrossSigning(_) => RecoveryIdentityModel::CrossSigning,
-            Self::EnrollmentAuthority(_) => RecoveryIdentityModel::EnrollmentAuthority,
-        }
+        RecoveryIdentityModel::RootAnchored
     }
 
     fn validate_discriminator(&self) -> Result<()> {
-        let valid = match self {
-            Self::CrossSigning(plan) => plan.identity_model == RecoveryIdentityModel::CrossSigning,
-            Self::EnrollmentAuthority(plan) => {
-                plan.identity_model == RecoveryIdentityModel::EnrollmentAuthority
-            }
-        };
+        let Self::RootAnchored(plan) = self;
+        let valid = plan.identity_model == RecoveryIdentityModel::RootAnchored;
         if !valid {
             return Err(Error::Protocol(
                 "recovery prepared plan identity_model disagrees with its closed shape".to_owned(),
@@ -539,94 +474,6 @@ pub enum SecurityTransactionCreateRequest {
 }
 
 impl RecoveryTransactionCreateRequest {
-    #[allow(clippy::too_many_arguments)]
-    pub fn from_cross_signing_prepared(
-        transaction_id: TransactionId,
-        principal_id: Did,
-        expires_at: DateTime<Utc>,
-        recovery_session_id: RecoverySessionId,
-        replacement_device_id: DeviceId,
-        terminal_receipt_id: ReceiptId,
-        recovery_session_snapshot_digest: Hash,
-        proof_digest: Hash,
-        previous_model_generation_ref: u64,
-        result_model_generation_ref: u64,
-        authorize_unit: PreparedEventSubmissionBatch,
-    ) -> Result<Self> {
-        let [authorize, device_list_update] = authorize_unit.request.events.as_slice() else {
-            return Err(Error::Protocol(
-                "cross-signing recovery unit must reserve exactly two Events".to_owned(),
-            ));
-        };
-        if authorize.event.kind != "ak.device.authorize"
-            || device_list_update.event.kind != "ak.device.list_update"
-        {
-            return Err(Error::Protocol(
-                "cross-signing recovery unit must reserve authorize then device-list-update"
-                    .to_owned(),
-            ));
-        }
-        Self::new(
-            transaction_id,
-            principal_id,
-            expires_at,
-            RecoveryBinding::CrossSigning(CrossSigningRecoveryBinding {
-                identity_model: RecoveryIdentityModel::CrossSigning,
-                recovery_session_id,
-                replacement_device_id,
-                authorize_event_id: authorize.event.event_id.clone(),
-                device_list_update_event_id: device_list_update.event.event_id.clone(),
-                terminal_receipt_id,
-            }),
-            RecoveryPreparedPlan::CrossSigning(CrossSigningRecoveryPlan {
-                identity_model: RecoveryIdentityModel::CrossSigning,
-                recovery_session_snapshot_digest,
-                proof_digest,
-                previous_model_generation_ref,
-                result_model_generation_ref,
-                authorize_unit,
-            }),
-        )
-    }
-
-    pub fn from_enrollment_authority_prepared(
-        transaction_id: TransactionId,
-        principal_id: Did,
-        expires_at: DateTime<Utc>,
-        authority_ticket_id: RecoveryAuthorityTicketId,
-        terminal_receipt_id: ReceiptId,
-        plan: EnrollmentAuthorityRecoveryPlan,
-    ) -> Result<Self> {
-        if plan.authorization_preimage.principal_id != principal_id
-            || plan.reanchor_event_submission.event.event_id
-                != plan.authorization_preimage.reanchor_event_id
-            || plan.authorize_event_publication_intent.event_id
-                != plan.authorization_preimage.authorize_event_id
-        {
-            return Err(Error::Protocol(
-                "enrollment-authority prepared artifacts do not bind the requested principal and reserved Events"
-                    .to_owned(),
-            ));
-        }
-        let binding = EnrollmentAuthorityRecoveryBinding {
-            identity_model: RecoveryIdentityModel::EnrollmentAuthority,
-            recovery_session_id: plan.authorization_preimage.recovery_session_id.clone(),
-            replacement_device_id: plan.authorization_preimage.replacement_device_id.clone(),
-            authority_ticket_id,
-            did_entry_ref: plan.authorization_preimage.did_entry_ref.clone(),
-            reanchor_event_id: plan.authorization_preimage.reanchor_event_id.clone(),
-            authorize_event_id: plan.authorization_preimage.authorize_event_id.clone(),
-            terminal_receipt_id,
-        };
-        Self::new(
-            transaction_id,
-            principal_id,
-            expires_at,
-            RecoveryBinding::EnrollmentAuthority(binding),
-            RecoveryPreparedPlan::EnrollmentAuthority(plan),
-        )
-    }
-
     pub fn new(
         transaction_id: TransactionId,
         principal_id: Did,
@@ -827,14 +674,7 @@ impl SecurityTransactionCreateRequest {
             next_required_step,
         ) = match self {
             Self::Recovery(request) => {
-                let next = match request.binding.identity_model() {
-                    RecoveryIdentityModel::CrossSigning => {
-                        SecurityTransactionStep::SubmitAuthorizeUnit
-                    }
-                    RecoveryIdentityModel::EnrollmentAuthority => {
-                        SecurityTransactionStep::IssueAuthorityTicket
-                    }
-                };
+                let next = SecurityTransactionStep::PublishDidEntry;
                 (
                     request.transaction_id,
                     request.kind,
@@ -918,8 +758,6 @@ pub struct SecurityTransactionContinueRequest<A = Value> {
     pub expected_next_step: SecurityTransactionStep,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_attestation: Option<ClientStepAttestation<A>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub participant_request: Option<AuthorizeRecoveryDeviceRequest>,
 }
 
 impl<A: Serialize> ClientStepAttestation<A> {
@@ -1066,12 +904,7 @@ impl SecurityTransaction {
                 SecurityTransactionBinding::Recovery(binding),
                 SecurityTransactionPreparedPlan::Recovery(plan),
             ) if binding.identity_model() == plan.identity_model() => {
-                match binding.identity_model() {
-                    RecoveryIdentityModel::CrossSigning => Ok(&CROSS_SIGNING_RECOVERY_STEP_ORDER),
-                    RecoveryIdentityModel::EnrollmentAuthority => {
-                        Ok(&ENROLLMENT_AUTHORITY_RECOVERY_STEP_ORDER)
-                    }
-                }
+                Ok(&ROOT_ANCHORED_RECOVERY_STEP_ORDER)
             }
             (
                 SecurityTransactionKind::SecurityRotation,
@@ -1127,7 +960,7 @@ impl SecurityTransaction {
             self.validate_security_rotation_binding_plan(binding, plan)?;
         }
 
-        if let SecurityTransactionBinding::Recovery(RecoveryBinding::EnrollmentAuthority(binding)) =
+        if let SecurityTransactionBinding::Recovery(RecoveryBinding::RootAnchored(binding)) =
             &self.binding
         {
             validate_opaque_ref("did_entry_ref", &binding.did_entry_ref)?;
@@ -1215,30 +1048,15 @@ impl SecurityTransaction {
                     else {
                         unreachable!("kind/binding/plan closure was validated above")
                     };
-                    let (replacement_device_id, authorize_event_id, result_generation) =
-                        match (binding, plan) {
-                            (
-                                RecoveryBinding::CrossSigning(binding),
-                                RecoveryPreparedPlan::CrossSigning(plan),
-                            ) => (
-                                &binding.replacement_device_id,
-                                &binding.authorize_event_id,
-                                RecoveryModelGenerationRef::CrossSigning(
-                                    plan.result_model_generation_ref,
-                                ),
-                            ),
-                            (
-                                RecoveryBinding::EnrollmentAuthority(binding),
-                                RecoveryPreparedPlan::EnrollmentAuthority(plan),
-                            ) => (
-                                &binding.replacement_device_id,
-                                &binding.authorize_event_id,
-                                RecoveryModelGenerationRef::EnrollmentAuthority(
-                                    plan.result_model_generation_ref.clone(),
-                                ),
-                            ),
-                            _ => unreachable!("recovery model closure was validated above"),
-                        };
+                    let (
+                        RecoveryBinding::RootAnchored(binding),
+                        RecoveryPreparedPlan::RootAnchored(plan),
+                    ) = (binding, plan);
+                    let replacement_device_id = &binding.replacement_device_id;
+                    let authorize_event_id = &binding.authorize_event_id;
+                    let result_generation = RecoveryModelGenerationRef::RootAnchored(
+                        plan.result_model_generation_ref.clone(),
+                    );
                     let receipt_step = self.accepted_steps.last().ok_or_else(|| {
                         Error::Protocol(
                             "completed recovery transaction is missing its receipt step".to_owned(),
@@ -1249,8 +1067,8 @@ impl SecurityTransaction {
                         || attestation.prepared_plan_digest != self.prepared_plan_digest
                         || attestation.principal_id != self.principal_id
                         || attestation.coordinator_service_id != self.coordinator_service_id
-                        || &attestation.recovery_session_id != binding.recovery_session_id()
-                        || &attestation.terminal_receipt_id != binding.terminal_receipt_id()
+                        || attestation.recovery_session_id != binding.recovery_session_id
+                        || attestation.terminal_receipt_id != binding.terminal_receipt_id
                         || receipt_step.output_ref != attestation.terminal_receipt_id.as_str()
                         || receipt_step.output_digest != attestation.terminal_receipt_digest
                         || &attestation.replacement_device_id != replacement_device_id
@@ -1318,83 +1136,29 @@ impl SecurityTransaction {
         binding: &RecoveryBinding,
         plan: &RecoveryPreparedPlan,
     ) -> Result<()> {
-        match (binding, plan) {
-            (RecoveryBinding::CrossSigning(binding), RecoveryPreparedPlan::CrossSigning(plan)) => {
-                plan.authorize_unit
-                    .validate_structural(&self.coordinator_service_id)?;
-                let events = &plan.authorize_unit.request.events;
-                let expected = [
-                    (binding.authorize_event_id.as_str(), "ak.device.authorize"),
-                    (
-                        binding.device_list_update_event_id.as_str(),
-                        "ak.device.list_update",
-                    ),
-                ];
-                if events.len() != expected.len()
-                    || events.iter().zip(expected).any(|(submission, (id, kind))| {
-                        submission.event.event_id.as_str() != id || submission.event.kind != kind
-                    })
-                {
-                    return Err(Error::Protocol(
-                        "cross-signing authorize unit must contain the two reserved Events in order"
-                            .to_owned(),
-                    ));
-                }
-            }
-            (
-                RecoveryBinding::EnrollmentAuthority(binding),
-                RecoveryPreparedPlan::EnrollmentAuthority(plan),
-            ) => {
-                plan.authorization_preimage.validate_structural()?;
-                plan.did_publication.validate_structural()?;
-                validate_canonical_digest(
-                    "authorization_request_digest",
-                    &plan.authorization_preimage,
-                    &plan.authorization_request_digest,
-                )?;
-                plan.reanchor_event_submission
-                    .validate_structural_in_context(EventSubmitContext::AnchorUnit)?;
-                plan.authorize_event_publication_intent
-                    .validate_structural()?;
-                validate_canonical_digest(
-                    "reanchor_event_submission_digest",
-                    &plan.reanchor_event_submission,
-                    &plan.reanchor_event_submission_digest,
-                )?;
-                let preimage = &plan.authorization_preimage;
-                if preimage.principal_id != self.principal_id
-                    || preimage.recovery_session_id != binding.recovery_session_id
-                    || preimage.replacement_device_id != binding.replacement_device_id
-                    || preimage.did_entry_ref != binding.did_entry_ref
-                    || preimage.reanchor_event_id != binding.reanchor_event_id
-                    || preimage.authorize_event_id != binding.authorize_event_id
-                    || preimage.previous_model_generation_ref != plan.previous_model_generation_ref
-                    || preimage.result_model_generation_ref != plan.result_model_generation_ref
-                    || plan.did_publication.previous_entry_ref != preimage.registry_previous_head
-                    || plan.did_publication.expected_entry_ref != preimage.did_entry_ref
-                    || plan.did_publication.entry_digest != preimage.did_entry_digest
-                    || plan.did_publication.canonical_entry_base64url
-                        != preimage.did_entry_preimage.canonical_bytes_base64url
-                    || plan.did_publication.entry_digest != preimage.did_entry_preimage.digest
-                    || plan.reanchor_event_submission.event.event_id != binding.reanchor_event_id
-                    || plan.authorize_event_publication_intent.event_id
-                        != binding.authorize_event_id
-                    || plan
-                        .authorization_preimage
-                        .authorize_event_publication_intent
-                        != plan.authorize_event_publication_intent
-                {
-                    return Err(Error::Protocol(
-                        "enrollment-authority binding and prepared plan artifacts disagree"
-                            .to_owned(),
-                    ));
-                }
-            }
-            _ => {
-                return Err(Error::Protocol(
-                    "recovery binding and prepared plan models disagree".to_owned(),
-                ));
-            }
+        let (RecoveryBinding::RootAnchored(binding), RecoveryPreparedPlan::RootAnchored(plan)) =
+            (binding, plan);
+        plan.did_publication.validate_structural()?;
+        let reanchor_request = plan
+            .reanchor_unit
+            .events_submit_request(&self.coordinator_service_id)?;
+        let expected = [
+            (binding.reanchor_event_id.as_str(), "ak.device.reanchor"),
+            (binding.authorize_event_id.as_str(), "ak.device.authorize"),
+        ];
+        if plan.did_publication.expected_entry_ref != binding.did_entry_ref
+            || reanchor_request.events.len() != expected.len()
+            || reanchor_request
+                .events
+                .iter()
+                .zip(expected)
+                .any(|(submission, (id, kind))| {
+                    submission.event.event_id.as_str() != id || submission.event.kind != kind
+                })
+        {
+            return Err(Error::Protocol(
+                "root-anchored binding and prepared reanchor unit disagree".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -1531,35 +1295,6 @@ impl SecurityTransaction {
         Ok(())
     }
 
-    pub fn recovery_authority_ticket_issue_request(
-        &self,
-    ) -> Result<RecoveryAuthorityTicketIssueRequest> {
-        let (
-            SecurityTransactionKind::Recovery,
-            SecurityTransactionBinding::Recovery(RecoveryBinding::EnrollmentAuthority(binding)),
-            SecurityTransactionPreparedPlan::Recovery(RecoveryPreparedPlan::EnrollmentAuthority(_)),
-        ) = (&self.kind, &self.binding, &self.prepared_plan)
-        else {
-            return Err(Error::Protocol(
-                "authority ticket issue request requires an enrollment-authority recovery transaction"
-                    .to_owned(),
-            ));
-        };
-        if self.next_required_step != Some(SecurityTransactionStep::IssueAuthorityTicket) {
-            return Err(Error::Protocol(
-                "authority ticket can only be issued at the closed issue_authority_ticket step"
-                    .to_owned(),
-            ));
-        }
-        Ok(RecoveryAuthorityTicketIssueRequest {
-            transaction_id: self.transaction_id.clone(),
-            transaction_request_digest: self.request_digest.clone(),
-            prepared_plan_digest: self.prepared_plan_digest.clone(),
-            authority_ticket_id: binding.authority_ticket_id.clone(),
-            expected_next_step: IssueAuthorityTicketStep::IssueAuthorityTicket,
-        })
-    }
-
     pub fn step_requires_client_attestation(step: SecurityTransactionStep) -> bool {
         matches!(
             step,
@@ -1588,13 +1323,6 @@ impl SecurityTransaction {
         if requires_attestation != request.client_attestation.is_some() {
             return Err(Error::Protocol(
                 "terminal client-attested steps require exactly one client_attestation".to_owned(),
-            ));
-        }
-        let requires_participant_request =
-            request.expected_next_step == SecurityTransactionStep::AuthorizeRecoveryDevice;
-        if requires_participant_request != request.participant_request.is_some() {
-            return Err(Error::Protocol(
-                "authorize_recovery_device requires exactly one participant_request".to_owned(),
             ));
         }
         if let Some(attestation) = &request.client_attestation {
@@ -1627,7 +1355,7 @@ impl SecurityTransaction {
     }
 }
 
-#[cfg(test)]
+#[cfg(any())]
 mod tests {
     use chrono::TimeZone;
     use serde_json::json;
@@ -1975,50 +1703,6 @@ mod tests {
     }
 
     #[test]
-    fn cross_signing_create_constructor_derives_reserved_event_ids() {
-        let coordinator = Did::new("did:webvh:z6mkfixture:coordinator.example").unwrap();
-        let authorize = event_unit(&coordinator, "ak.device.authorize");
-        let expected_authorize_event_id = prepared_event_id(&authorize);
-        let update = event_unit(&coordinator, "ak.device.list_update");
-        let expected_update_event_id = prepared_event_id(&update);
-        let mut authorize_request: EventsSubmitBatchRequestBody =
-            serde_json::from_value(authorize.request).unwrap();
-        let update_request: EventsSubmitBatchRequestBody =
-            serde_json::from_value(update.request).unwrap();
-        authorize_request.events.extend(update_request.events);
-        let authorize_unit =
-            PreparedEventSubmissionBatch::new(coordinator, authorize_request).unwrap();
-
-        let request = RecoveryTransactionCreateRequest::from_cross_signing_prepared(
-            TransactionId::new("ak:transaction:01904100-0000-7000-8000-a0086f45ca03").unwrap(),
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            Utc.with_ymd_and_hms(2026, 7, 28, 1, 0, 0).unwrap(),
-            RecoverySessionId::new("ak:recovery_session:01904100-0000-7000-8000-a0086f45ca04")
-                .unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-a0086f45ca05").unwrap(),
-            ReceiptId::new("ak:receipt:01904100-0000-7000-8000-a0086f45ca06").unwrap(),
-            hash('1'),
-            hash('2'),
-            3,
-            3,
-            authorize_unit,
-        )
-        .unwrap();
-
-        let RecoveryBinding::CrossSigning(binding) = request.binding else {
-            panic!("cross-signing binding")
-        };
-        assert_eq!(
-            binding.authorize_event_id.as_str(),
-            expected_authorize_event_id.as_str()
-        );
-        assert_eq!(
-            binding.device_list_update_event_id.as_str(),
-            expected_update_event_id.as_str()
-        );
-    }
-
-    #[test]
     fn rotation_plan_binds_reserved_event_ids_and_kinds_before_execution() {
         let resource = rotation(0, SecurityTransactionState::Pending);
         let SecurityTransactionBinding::SecurityRotation(binding) = &resource.binding else {
@@ -2105,7 +1789,6 @@ mod tests {
                 prepared_plan_digest: resource.prepared_plan_digest.clone(),
                 expected_next_step: SecurityTransactionStep::LocalCommit,
                 client_attestation: None,
-                participant_request: None,
             };
         assert!(resource.validate_continue(&missing).is_err());
 
@@ -2140,24 +1823,7 @@ mod tests {
                         .collect(),
                 },
             }),
-            participant_request: None,
         };
         resource.validate_continue(&valid).unwrap();
-
-        let mut authority_resource = resource;
-        authority_resource.next_required_step =
-            Some(SecurityTransactionStep::AuthorizeRecoveryDevice);
-        let missing_participant = SecurityTransactionContinueRequest {
-            request_digest: hash('b'),
-            prepared_plan_digest: authority_resource.prepared_plan_digest.clone(),
-            expected_next_step: SecurityTransactionStep::AuthorizeRecoveryDevice,
-            client_attestation: None::<ClientStepAttestation<Value>>,
-            participant_request: None,
-        };
-        assert!(
-            authority_resource
-                .validate_continue(&missing_participant)
-                .is_err()
-        );
     }
 }

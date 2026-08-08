@@ -70,8 +70,6 @@ pub struct AuthoritySetRef {
     pub authority_set_digest: Hash,
 }
 
-pub const RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID: &str =
-    "ak.authority_set.recovery_cross_signing.v1";
 pub const RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID: &str =
     "ak.authority_set.recovery_identity_reanchor.v1";
 pub const RECOVERY_ACCOUNT_AUTHORITY_SET_ID: &str =
@@ -81,9 +79,7 @@ pub const RECOVERY_ACCOUNT_AUTHORITY_SET_ID: &str =
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthoritySetIssuerRole {
-    CrossSigningSelfSigning,
     IdentityRecovery,
-    AccountEnrollmentAuthority,
     RealmAdmission,
 }
 

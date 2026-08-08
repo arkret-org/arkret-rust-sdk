@@ -50,6 +50,7 @@ pub use circle::*;
 pub use consent::*;
 pub use contact::*;
 pub use container::*;
+pub use device_identity::*;
 pub use history_sharing::*;
 pub use join_policy::*;
 pub use key_backup::*;

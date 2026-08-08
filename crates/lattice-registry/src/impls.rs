@@ -385,16 +385,6 @@ impl LatticeKind for StrandWatch {
     }
 }
 
-per_subject_lattice!(
-    CrossSigningPublish,
-    arkret_wire::CellFamilyId::CROSS_SIGNING_PUBLISH_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "principal_id",
-    &["ak.cross_signing.publish"]
-);
-
 singleton_lattice!(
     NotaryCell,
     arkret_wire::CellFamilyId::NOTARY_V1,
@@ -1005,16 +995,6 @@ per_subject_lattice!(
     Criticality::Required,
     "rule_id",
     &["ak.policy.rule"]
-);
-
-per_subject_lattice!(
-    CrossSigningReset,
-    arkret_wire::CellFamilyId::CROSS_SIGNING_RESET_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "principal_id",
-    &["ak.cross_signing.reset"]
 );
 
 /// Lattice marker for the `ak.component.member.identity.v1` cell family.

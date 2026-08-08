@@ -26,7 +26,7 @@ pub use managed_agent::{
 pub use projection::{CellWriteProjector, expected_realm_create_cells};
 pub use self_principal::{
     SelfPrincipalPcrCreateInput, build_self_principal_pcr_create,
-    self_principal_bootstrap_submit_request, validate_self_principal_bootstrap_unit,
+    build_self_principal_pcr_genesis_unit, validate_self_principal_pcr_genesis_unit,
 };
 pub use self_principal_seal::{
     build_self_principal_bootstrap_seal, build_self_principal_event_seal,

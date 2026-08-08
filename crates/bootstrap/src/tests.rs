@@ -2,24 +2,20 @@ use std::collections::BTreeSet;
 
 use arkret_models_collaboration::events_payloads::agent::AgentProvisionPayload;
 use arkret_models_collaboration::events_payloads::device_identity::{
-    DeviceAuthorizePayload, DeviceOrPrincipalRef,
+    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceOrPrincipalRef,
 };
-use arkret_models_collaboration::http_bodies::EventsSubmitRequestBody;
-use arkret_models_identity::artifacts_device_identity::{
-    DeviceEnrollmentAuthorityBinding, DeviceEnrollmentAuthorityBindingKind,
+use arkret_models_collaboration::events_payloads::{
+    FoundingDeviceDescriptor, FoundingDeviceHpkeKeyAlgorithm, FoundingDeviceKeyAlgorithm,
+    FoundingDeviceKeyPurpose, SignatureMaterial, device_authorize_payload_digest,
 };
 use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef, AuthoritySetAuthorizationRule,
-    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
-    AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
-    AuthorizationLeaseId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl, Event,
-    EventDigestSuiteCode, EventId, EventIdentityKey, EventInitialSubmission, EventKind, EventRef,
-    Hash, Hlc, LeaseBasisRef, NonEmptyString, NotarySig, PayloadProof, PayloadSignature,
-    PayloadSigner, ProjectedCellWrite, Proof, RealmId, RiskTier, SchemaId, ScopeRef, SealBasis,
-    SealId, SemanticRefProof, SemanticRefProofKind, TypedTrustDomainId, WireError,
-    composite_subject, proof_kind,
+    AuthorizationRef, CellRef, DeviceId, Did, DidUrl, Event, EventDigestSuiteCode, EventId,
+    EventIdentityKey, EventKind, EventRef, Hash, Hlc, NonEmptyString, NotarySig, PayloadSignature,
+    PayloadSigner, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis, SealId,
+    SemanticRefProof, SemanticRefProofKind, TypedTrustDomainId, WireError, composite_subject,
+    proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -32,8 +28,8 @@ use crate::{
     REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
     build_agent_provision_event_draft, build_managed_agent_pcr_create_payload,
     build_managed_agent_pcr_event_seal, build_self_principal_bootstrap_seal,
-    build_self_principal_pcr_create, materialize_managed_agent_pcr_control,
-    self_principal_bootstrap_submit_request, validate_self_principal_bootstrap_unit,
+    build_self_principal_pcr_create, build_self_principal_pcr_genesis_unit,
+    materialize_managed_agent_pcr_control, validate_self_principal_pcr_genesis_unit,
 };
 
 struct FixtureSigner {
@@ -104,30 +100,7 @@ fn bootstrap_unit() -> (Event, Event) {
         .unwrap(),
     );
 
-    let authority = Did::new("did:key:z6MkgZb469vbyZCg3L7kx1PbQuUD4NToPpcy1utdLxUUfpsh").unwrap();
-    let authorization_ref =
-        NonEmptyString::new(format!("{}#enrollment-authority", create.actor_id)).unwrap();
-    let payload = DeviceAuthorizePayload {
-        principal_id: create.actor_id.clone(),
-        device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-        device_public_key: NonEmptyString::new("z6MkDeviceKey").unwrap(),
-        hpke_key: NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
-        algorithms: vec![NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap()],
-        device_key_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
-        authorized_by: DeviceOrPrincipalRef::Did(authority.clone()),
-        scopes: None,
-        not_before: create.created_at,
-        expires_at: None,
-        device_signature: None,
-        proof: None,
-        cross_signing_binding: None,
-        enrollment_authority_binding: Some(DeviceEnrollmentAuthorityBinding {
-            kind: DeviceEnrollmentAuthorityBindingKind::ServiceAttested,
-            authority_did: authority.clone(),
-            authorization_ref: authorization_ref.clone(),
-        }),
-        recovery_session_id: None,
-    };
+    let payload = founding_authorize_payload(&create.actor_id, create.created_at);
     let mut authorize = Event::new(
         EventKind::DEVICE_AUTHORIZE,
         // The genesis scope belongs to the create alone; the first authorize is
@@ -143,34 +116,94 @@ fn bootstrap_unit() -> (Event, Event) {
     .unwrap();
     authorize.created_at = create.created_at;
     authorize.prev_refs = vec![create.event_id.clone()];
-    authorize.executed_by = Some(authority.clone());
-    authorize.authorization_ref =
-        Some(AuthorizationRef::new(authorization_ref.to_string()).unwrap());
     authorize.refresh_content_bound_identity().unwrap();
     attach_fixture_proof(
         &mut authorize,
-        &DidUrl::new(format!(
-            "{authority}#z6MkgZb469vbyZCg3L7kx1PbQuUD4NToPpcy1utdLxUUfpsh"
-        ))
-        .unwrap(),
+        &DidUrl::new(format!("{}#{}", create.actor_id, founding_device_id())).unwrap(),
     );
     (create, authorize)
 }
 
 fn input() -> SelfPrincipalPcrCreateInput {
     let principal_id = Did::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
+    let created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
     SelfPrincipalPcrCreateInput {
         realm_id: RealmId::new(principal_control_realm_id(&principal_id)).unwrap(),
-        principal_id,
+        principal_id: principal_id.clone(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         did_inception_ref: EventRef::new(
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             DID_INCEPTION_REF_ROLE,
         ),
+        founding_device_descriptor: founding_device_descriptor(&principal_id, created_at),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),
-        created_at: "2026-07-15T00:00:00.000Z".parse().unwrap(),
+        created_at,
         hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+    }
+}
+
+fn founding_device_public_key() -> &'static str {
+    "did:key:z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ"
+}
+
+fn founding_device_id() -> DeviceId {
+    DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap()
+}
+
+fn founding_authorize_payload(
+    principal_id: &Did,
+    not_before: chrono::DateTime<Utc>,
+) -> DeviceAuthorizePayload {
+    DeviceAuthorizePayload {
+        principal_id: principal_id.clone(),
+        device_id: founding_device_id(),
+        device_public_key: NonEmptyString::new(founding_device_public_key()).unwrap(),
+        hpke_key: NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
+        algorithms: vec![NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap()],
+        device_key_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
+        authorized_by: DeviceOrPrincipalRef::Did(principal_id.clone()),
+        scopes: None,
+        not_before,
+        expires_at: None,
+        authorization_binding_kind: DeviceAuthorizationBindingKind::RootAnchored,
+        device_signature: SignatureMaterial::NonEmptyString(
+            NonEmptyString::new("signature").unwrap(),
+        ),
+        recovery_session_id: None,
+    }
+}
+
+fn founding_device_descriptor(
+    principal_id: &Did,
+    not_before: chrono::DateTime<Utc>,
+) -> FoundingDeviceDescriptor {
+    let payload =
+        serde_json::to_value(founding_authorize_payload(principal_id, not_before)).unwrap();
+    let device_public_key = NonEmptyString::new(founding_device_public_key()).unwrap();
+    let hpke_key = NonEmptyString::new("z6LSDeviceHpkeKey").unwrap();
+    FoundingDeviceDescriptor {
+        descriptor_version: 1,
+        device_id: founding_device_id(),
+        device_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
+            device_public_key.as_bytes(),
+        ))
+        .unwrap(),
+        device_public_key,
+        device_key_algorithm: FoundingDeviceKeyAlgorithm::Ed25519,
+        device_key_purpose: FoundingDeviceKeyPurpose::EventSigningAndMlsIdentity,
+        hpke_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
+            hpke_key.as_bytes(),
+        ))
+        .unwrap(),
+        hpke_key,
+        hpke_key_algorithm: FoundingDeviceHpkeKeyAlgorithm::X25519,
+        algorithms: vec![NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap()],
+        founding_authorize_payload_digest: device_authorize_payload_digest(
+            &payload,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap(),
     }
 }
 
@@ -234,126 +267,27 @@ fn builder_rejects_a_non_self_realm_and_indirect_inception_ref() {
 #[test]
 fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
     let (create, authorize) = bootstrap_unit();
-    validate_self_principal_bootstrap_unit(&create, &authorize, &registry_projection).unwrap();
-    let [create_submission, authorize_submission] = submissions(create.clone(), authorize.clone());
-    let request = self_principal_bootstrap_submit_request(
-        create_submission,
-        authorize_submission,
+    validate_self_principal_pcr_genesis_unit(&create, &authorize, &registry_projection).unwrap();
+    let unit = build_self_principal_pcr_genesis_unit(
+        create.clone(),
+        authorize.clone(),
         &registry_projection,
     )
     .unwrap();
-    let EventsSubmitRequestBody::Batch(batch) = request else {
-        panic!("the bootstrap unit is always a two-slot batch")
-    };
-    assert_eq!(batch.events.len(), 2);
-
-    let [mut lease_free_create, leased_authorize] = submissions(create.clone(), authorize.clone());
-    lease_free_create.authorization_lease = None;
-    let error = self_principal_bootstrap_submit_request(
-        lease_free_create,
-        leased_authorize,
-        &registry_projection,
-    )
-    .expect_err("bootstrap must not regress to lease-free online submissions");
-    assert!(error.to_string().contains("complete anchor-unit"));
+    assert_eq!(unit.events.len(), 2);
 
     let mut missing = authorize.clone();
     missing.prev_refs.clear();
     assert!(
-        validate_self_principal_bootstrap_unit(&create, &missing, &registry_projection).is_err()
+        validate_self_principal_pcr_genesis_unit(&create, &missing, &registry_projection).is_err()
     );
 
     let mut unrelated = authorize;
     unrelated.prev_refs = vec![create.event_id.clone(), fixture_event_id(0x99)];
     assert!(
-        validate_self_principal_bootstrap_unit(&create, &unrelated, &registry_projection).is_err()
+        validate_self_principal_pcr_genesis_unit(&create, &unrelated, &registry_projection)
+            .is_err()
     );
-}
-
-/// Complete lease-bound wrappers for the ordered genesis unit.
-fn submissions(create: Event, authorize: Event) -> [EventInitialSubmission; 2] {
-    let event_digests = [&create, &authorize]
-        .into_iter()
-        .map(|event| Hash::new(event.event_digest().unwrap()).unwrap())
-        .collect::<Vec<_>>();
-    let mut anchor_unit = AnchorUnitLeaseBasis {
-        realm_id: create.realm_id.clone(),
-        event_digests,
-        unit_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-    };
-    anchor_unit.unit_digest = anchor_unit.expected_unit_digest().unwrap();
-    [
-        submission(create, anchor_unit.clone(), "0000000000f1"),
-        submission(authorize, anchor_unit, "0000000000f2"),
-    ]
-}
-
-fn submission(
-    event: Event,
-    anchor_unit: AnchorUnitLeaseBasis,
-    lease_suffix: &str,
-) -> EventInitialSubmission {
-    let authority_set_policy = AuthoritySetPolicy {
-        schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
-        authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
-        policy_kind: AuthoritySetPolicyKind::RealmAdmission,
-        scope_ref: event.scope_ref.clone(),
-        source: AuthoritySetPolicySource {
-            source_kind: AuthoritySetSourceKind::RealmControl,
-            source_ref: event.event_id.as_str().to_owned(),
-            source_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-            generation_ref: "1".to_owned(),
-        },
-        authorization_rules: vec![AuthoritySetAuthorizationRule {
-            rule_id: "realm_admission".to_owned(),
-            issuer_role: AuthoritySetIssuerRole::RealmAdmission,
-            allowed_actions: vec!["ak.realm.admin".to_owned()],
-            issuers: vec![AuthoritySetIssuer {
-                verification_method: DidUrl::new(format!("{}#bootstrap-authority", event.actor_id))
-                    .unwrap(),
-            }],
-            threshold: 1,
-        }],
-    };
-    let mut lease = AuthorizationLease {
-        authorization_lease_id: AuthorizationLeaseId::new(format!(
-            "ak:authorization_lease:01904100-0000-7000-8000-{lease_suffix}"
-        ))
-        .unwrap(),
-        basis_ref: LeaseBasisRef::AnchorUnit(AnchorUnitLeaseBasisRef { anchor_unit }),
-        actor_id: event.actor_id.clone(),
-        device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-        scope_ref: event.scope_ref.clone(),
-        action: "ak.realm.admin".to_owned(),
-        authorization_rule_id: "realm_admission".to_owned(),
-        risk_tier: RiskTier::High,
-        issued_at: event.created_at,
-        expires_at: event.created_at + chrono::Duration::minutes(5),
-        authority_set_ref: AuthoritySetRef {
-            authority_set_id: authority_set_policy.authority_set_id.clone(),
-            authority_set_digest: authority_set_policy.digest().unwrap(),
-        },
-        authority_set_policy,
-        proofs: Vec::new(),
-    };
-    lease.proofs = vec![PayloadProof {
-        kind: proof_kind::DETACHED_JWS.to_owned(),
-        verification_method: DidUrl::new(format!("{}#bootstrap-authority", event.actor_id))
-            .unwrap(),
-        payload_digest: lease.lease_digest().unwrap(),
-        created_at: lease.issued_at,
-        domain: None,
-        audience: None,
-        proof_purpose: None,
-        jws: "fixture.detached-signature".to_owned(),
-    }];
-    EventInitialSubmission {
-        event,
-        authorization_lease: Some(lease),
-        cba_proof_bundles: Vec::new(),
-        control_proposal_ack: None,
-        membership_compensation_evidence: None,
-    }
 }
 
 #[test]

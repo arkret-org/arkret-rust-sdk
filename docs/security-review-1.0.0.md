@@ -38,7 +38,7 @@ attestation; it is the evidence bundle a reviewer needs before the local
   JSON floats.
 - Replay: verify Event Envelope, federation, and session-grant replay handling
   fail closed.
-- Key lifecycle: verify cross-signing CAS, MLS epoch rollback checks, backup
+- Key lifecycle: verify PCR device-generation fences, MLS epoch rollback checks, backup
   envelope digest checks, and keypackage state transitions.
 - Privacy: verify blind-payload sanitizer rejects identity, realm, device,
   token, and plaintext message fields recursively.

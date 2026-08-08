@@ -2,9 +2,7 @@
 
 use arkret_models_crypto::TypedSecurityTransactionContinueRequest;
 use arkret_wire::{
-    AuthorizeRecoveryDeviceOutcome, AuthorizeRecoveryDeviceRequest,
-    PromoteRecoverySessionGrantOutcome, PromoteRecoverySessionGrantRequest,
-    RecoveryAuthorityTicket, RecoveryAuthorityTicketIssueRequest, SecurityTransaction,
+    IssueRecoveryCompletionGrantOutcome, IssueRecoveryCompletionGrantRequest, SecurityTransaction,
     SecurityTransactionCreateRequest, TransactionId,
 };
 
@@ -75,62 +73,19 @@ impl Client {
         Ok(outcome)
     }
 
-    pub async fn issue_recovery_authority_ticket(
+    pub async fn issue_recovery_completion_grant(
         &self,
-        request: &RecoveryAuthorityTicketIssueRequest,
-    ) -> Result<RecoveryAuthorityTicket> {
-        let ticket: RecoveryAuthorityTicket = self
-            .post("/_arkret/self/recovery-authority-tickets", request)
-            .await?;
-        ticket.validate_structural()?;
-        if ticket.transaction_id != request.transaction_id
-            || ticket.transaction_request_digest != request.transaction_request_digest
-            || ticket.prepared_plan_digest != request.prepared_plan_digest
-            || ticket.ticket_id != request.authority_ticket_id
-        {
-            return Err(Error::Protocol(
-                "recovery authority ticket response changed transaction binding".to_owned(),
-            ));
-        }
-        Ok(ticket)
-    }
-
-    pub async fn authorize_recovery_device(
-        &self,
-        request: &AuthorizeRecoveryDeviceRequest,
-    ) -> Result<AuthorizeRecoveryDeviceOutcome> {
-        let outcome: AuthorizeRecoveryDeviceOutcome = self
+        request: &IssueRecoveryCompletionGrantRequest,
+    ) -> Result<IssueRecoveryCompletionGrantOutcome> {
+        let outcome: IssueRecoveryCompletionGrantOutcome = self
             .post(
-                "/_arkret/gate/account/recovery-device-authorizations",
+                "/_arkret/gate/account/recovery-session-grants/issue",
                 request,
             )
             .await?;
-        if outcome.ticket_id != request.ticket.ticket_id
-            || outcome.transaction_id != request.ticket.transaction_id
-            || outcome.authorize_event_id != request.ticket.authorize_event_id
-        {
+        if outcome.transaction_id != request.transaction_id {
             return Err(Error::Protocol(
-                "recovery device authorization response changed ticket binding".to_owned(),
-            ));
-        }
-        Ok(outcome)
-    }
-
-    pub async fn promote_recovery_session_grant(
-        &self,
-        request: &PromoteRecoverySessionGrantRequest,
-    ) -> Result<PromoteRecoverySessionGrantOutcome> {
-        let outcome: PromoteRecoverySessionGrantOutcome = self
-            .post(
-                "/_arkret/gate/account/recovery-session-grants/promote",
-                request,
-            )
-            .await?;
-        if outcome.transaction_id != request.transaction_id
-            || outcome.consumed_grant_id != request.old_grant_id
-        {
-            return Err(Error::Protocol(
-                "recovery grant promotion response changed transaction or grant binding".to_owned(),
+                "recovery completion grant response changed transaction binding".to_owned(),
             ));
         }
         Ok(outcome)

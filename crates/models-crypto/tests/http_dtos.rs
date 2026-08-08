@@ -18,7 +18,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "key_package": "AQID",
             "capabilities": ["ak.mls.profile.full"],
             "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "ssk_generation": 3,
+            "device_authorize_event_id": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
             "expires_at": "2100-01-01T00:00:00.000Z",
             "device_signature": {
                 "kid": "did:webvh:z6mkfixture:alice.example#ak:device:01904100-0000-7000-8000-000000000001",
@@ -35,8 +35,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     });
     let parsed: KeyPackagesClaimOutcome = serde_json::from_value(outcome).unwrap();
     assert_eq!(parsed.claims[0].principal_id, did("alice"));
-    assert_eq!(parsed.claims[0].ssk_generation, Some(3));
-    assert_eq!(parsed.claims[0].device_authorize_event_id, None);
+    assert!(parsed.claims[0].device_authorize_event_id.is_some());
     assert_eq!(parsed.failures[0].reason_code.as_str(), "not_found");
 
     let malformed_claim = json!({
@@ -49,7 +48,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "key_package": "AQID",
             "capabilities": ["ak.mls.profile.full"],
             "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "ssk_generation": 3,
+            "device_authorize_event_id": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
             "expires_at": "2100-01-01T00:00:00.000Z",
             "device_signature": {"kid": "did:webvh:z6mkfixture:alice.example#device", "sig": "c2ln"},
             "unexpected": true

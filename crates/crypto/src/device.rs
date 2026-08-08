@@ -48,7 +48,7 @@ impl DeviceKeyBundle {
     }
 }
 
-/// Per-device cross-signing trust verdict tracked alongside the
+/// Per-device verification verdict tracked alongside the
 /// device-key bundle in `CryptoStoreBinding::device_trust`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -57,13 +57,13 @@ pub enum DeviceTrustState {
     Unverified,
     /// User has marked the device trusted on this client only.
     LocallyTrusted,
-    /// Device key is signed by the principal's SSK.
-    CrossSigned,
-    /// Verified end-to-end (cross-signed plus an interactive verification).
+    /// Device key is covered by the accepted PCR authorization chain.
+    Authorized,
+    /// Verified end-to-end (PCR-authorized plus an interactive verification).
     Verified,
-    /// After a cross-signing reset (spec §14.2), trust state drops here and
+    /// After a root-anchored device re-entry, trust state drops here and
     /// the device must be re-verified before it can be treated as
-    /// `cross_signed` or `verified` again.
+    /// `authorized` or `verified` again.
     NeedsReverification,
     Blocked,
 }

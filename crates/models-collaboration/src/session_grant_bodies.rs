@@ -5,13 +5,12 @@
 //! directly to these owner-defined types; the `arkret` umbrella re-exports them.
 
 use arkret_models_identity::{
-    CanonicalSessionPublicJwk, SessionGrantBootstrapBinding, SessionGrantCredentialClass,
-    SessionGrantHolderBinding, SessionGrantProofKind, SessionGrantRecoveryBinding,
-    founding_batch_digest,
+    CanonicalSessionPublicJwk, SessionGrantCredentialClass, SessionGrantHolderBinding,
+    SessionGrantProofKind, SessionGrantRecoveryBinding,
 };
 use arkret_wire::{
-    DeviceAuthorizeEventPreimage, DeviceId, Did, DidUrl, Error, EventId, Hash, NonEmptyString,
-    RealmId, Result, ScopeRef, SessionGrantId, StrandId, canonical,
+    DeviceId, Did, DidUrl, Error, EventId, Hash, NonEmptyString, RealmId, Result, ScopeRef,
+    SessionGrantId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -41,51 +40,11 @@ pub struct SessionGrantRequestBody {
     pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_authority: Option<SessionGrantAppletDelegation>,
-    /// Client-fixed founding material. Present exactly for the
-    /// `pre_registration_handoff` proof branch.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_bootstrap_request: Option<SessionGrantDeviceBootstrapRequest>,
     pub proof: SessionGrantRequestProof,
 }
 
 impl SessionGrantRequestBody {
-    /// Enforce the closed founding-bootstrap selector and its content bindings.
     pub fn validate(&self) -> Result<()> {
-        let is_pre_registration =
-            self.proof.proof_kind == SessionGrantProofKind::PreRegistrationHandoff;
-        match (
-            is_pre_registration,
-            self.device_id.as_ref(),
-            self.device_bootstrap_request.as_ref(),
-        ) {
-            (true, Some(device_id), Some(bootstrap)) => {
-                bootstrap.validate()?;
-                if bootstrap
-                    .authorize_event_preimage
-                    .payload
-                    .get("device_id")
-                    .and_then(Value::as_str)
-                    != Some(device_id.as_str())
-                {
-                    return Err(Error::Protocol(
-                        "device bootstrap request does not bind the outer device_id".to_owned(),
-                    ));
-                }
-            }
-            (true, ..) => {
-                return Err(Error::Protocol(
-                    "pre-registration handoff requires device_id and device_bootstrap_request"
-                        .to_owned(),
-                ));
-            }
-            (false, _, Some(_)) => {
-                return Err(Error::Protocol(
-                    "device_bootstrap_request is only valid for pre-registration handoff"
-                        .to_owned(),
-                ));
-            }
-            (false, _, None) => {}
-        }
         Ok(())
     }
 
@@ -101,39 +60,6 @@ impl SessionGrantRequestBody {
         proof.remove("request_canonical_digest");
         proof.remove("signature");
         Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
-    }
-}
-
-crate::string_marker!(SessionGrantDeviceBootstrapMode, Founding, "founding");
-
-/// Client-fixed material required to issue the founding `device_bootstrap`
-/// credential. Every issuer-owned field is intentionally absent.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantDeviceBootstrapRequest {
-    pub mode: SessionGrantDeviceBootstrapMode,
-    pub authorize_event_preimage: DeviceAuthorizeEventPreimage,
-    pub founding_event_ids: Vec<EventId>,
-    pub founding_batch_digest: Hash,
-}
-
-impl SessionGrantDeviceBootstrapRequest {
-    /// Validate ordered founding-event identity and the recomputable batch digest.
-    pub fn validate(&self) -> Result<()> {
-        self.authorize_event_preimage.validate()?;
-        if self.founding_event_ids.len() != 2
-            || self.founding_event_ids[0] == self.founding_event_ids[1]
-            || self.authorize_event_preimage.prev_refs.as_slice()
-                != [self.founding_event_ids[0].clone()]
-            || self.authorize_event_preimage.event_id != self.founding_event_ids[1]
-            || self.founding_batch_digest != founding_batch_digest(&self.founding_event_ids)?
-        {
-            return Err(Error::Protocol(
-                "device bootstrap request has inconsistent founding Event identity".to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -538,8 +464,6 @@ pub struct SessionGrantIntrospectGrant {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_binding: Option<SessionGrantRecoveryBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bootstrap_binding: Option<SessionGrantBootstrapBinding>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub holder_binding: Option<SessionGrantHolderBinding>,
 }
 
@@ -566,8 +490,6 @@ struct SessionGrantIntrospectGrantWire {
     #[serde(default)]
     recovery_binding: Option<SessionGrantRecoveryBinding>,
     #[serde(default)]
-    bootstrap_binding: Option<SessionGrantBootstrapBinding>,
-    #[serde(default)]
     holder_binding: Option<SessionGrantHolderBinding>,
 }
 
@@ -577,19 +499,10 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
     fn try_from(wire: SessionGrantIntrospectGrantWire) -> std::result::Result<Self, Self::Error> {
         let binding_is_closed = match wire.credential_class {
             SessionGrantCredentialClass::Standard => {
-                wire.holder_binding.is_some()
-                    && wire.bootstrap_binding.is_none()
-                    && wire.recovery_binding.is_none()
-            }
-            SessionGrantCredentialClass::DeviceBootstrap => {
-                wire.bootstrap_binding.is_some()
-                    && wire.holder_binding.is_none()
-                    && wire.recovery_binding.is_none()
+                wire.holder_binding.is_some() && wire.recovery_binding.is_none()
             }
             SessionGrantCredentialClass::RecoveryRestricted => {
-                wire.recovery_binding.is_some()
-                    && wire.holder_binding.is_none()
-                    && wire.bootstrap_binding.is_none()
+                wire.recovery_binding.is_some() && wire.holder_binding.is_none()
             }
         };
         if !binding_is_closed {
@@ -614,7 +527,6 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
             cnf_jkt: wire.cnf_jkt,
             credential_class: wire.credential_class,
             recovery_binding: wire.recovery_binding,
-            bootstrap_binding: wire.bootstrap_binding,
             holder_binding: wire.holder_binding,
         })
     }
@@ -705,98 +617,6 @@ mod session_grant_contract_tests {
         assert!(serde_json::from_value::<SessionGrantOutcome>(noncanonical).is_err());
     }
 
-    fn founding_bootstrap_issue_request(proof_kind: &str) -> Value {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/device-bootstrap-fixture.json")
-                .unwrap();
-        let bootstrap = json!({
-            "mode": "founding",
-            "authorize_event_preimage": fixture["enroll_request"]["authorize_event_preimage"],
-            "founding_event_ids": fixture["founding_batch"]["event_ids"],
-            "founding_batch_digest": fixture["founding_batch"]["expected_digest"]
-        });
-        json!({
-            "principal_id": fixture["enroll_request"]["authorize_event_preimage"]["actor_id"],
-            "device_id": fixture["enroll_request"]["device_id"],
-            "device_bootstrap_request": bootstrap,
-            "proof": {
-                "proof_kind": proof_kind,
-                "challenge": "0123456789abcdef",
-                "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
-                "audience": "did:webvh:z6mkfixture:service.example",
-                "signature": "detached.jws"
-            }
-        })
-    }
-
-    #[test]
-    fn founding_bootstrap_request_is_closed_and_handoff_only() {
-        let valid = founding_bootstrap_issue_request("pre_registration_handoff");
-        serde_json::from_value::<SessionGrantRequestBody>(valid.clone())
-            .unwrap()
-            .validate()
-            .unwrap();
-
-        let mut wrong_proof = valid.clone();
-        wrong_proof["proof"]["proof_kind"] = json!("did_bound_signature");
-        assert!(
-            serde_json::from_value::<SessionGrantRequestBody>(wrong_proof)
-                .unwrap()
-                .validate()
-                .is_err()
-        );
-
-        let mut missing_bootstrap = valid.clone();
-        missing_bootstrap
-            .as_object_mut()
-            .unwrap()
-            .remove("device_bootstrap_request");
-        assert!(
-            serde_json::from_value::<SessionGrantRequestBody>(missing_bootstrap)
-                .unwrap()
-                .validate()
-                .is_err()
-        );
-
-        let mut unknown = valid;
-        unknown["device_bootstrap_request"]["transaction_id"] = json!("issuer-owned");
-        assert!(serde_json::from_value::<SessionGrantRequestBody>(unknown).is_err());
-    }
-
-    #[test]
-    fn founding_bootstrap_request_recomputes_ordered_identity_and_digest() {
-        let valid = founding_bootstrap_issue_request("pre_registration_handoff");
-
-        let mut duplicate_id = valid.clone();
-        duplicate_id["device_bootstrap_request"]["founding_event_ids"][1] =
-            duplicate_id["device_bootstrap_request"]["founding_event_ids"][0].clone();
-        assert!(
-            serde_json::from_value::<SessionGrantRequestBody>(duplicate_id)
-                .unwrap()
-                .validate()
-                .is_err()
-        );
-
-        let mut wrong_digest = valid.clone();
-        wrong_digest["device_bootstrap_request"]["founding_batch_digest"] =
-            json!(format!("sha256:{}", "ff".repeat(32)));
-        assert!(
-            serde_json::from_value::<SessionGrantRequestBody>(wrong_digest)
-                .unwrap()
-                .validate()
-                .is_err()
-        );
-
-        let mut wrong_device = valid;
-        wrong_device["device_id"] = json!("ak:device:019a0000-0000-7000-8000-000000000002");
-        assert!(
-            serde_json::from_value::<SessionGrantRequestBody>(wrong_device)
-                .unwrap()
-                .validate()
-                .is_err()
-        );
-    }
-
     #[test]
     fn refresh_request_proof_is_required_and_closed() {
         let valid = json!({
@@ -874,31 +694,10 @@ mod session_grant_contract_tests {
         })
     }
 
-    fn bootstrap_binding() -> Value {
-        json!({
-            "mode": "founding",
-            "credential_kind": "device_bootstrap",
-            "principal_id": "did:example:alice",
-            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "device_key_digest": format!("sha256:{}", "11".repeat(32)),
-            "transaction_id": "bootstrap-transaction-1",
-            "holder_jkt": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
-            "canonical_request_digest": format!("sha256:{}", "33".repeat(32)),
-            "founding_batch_digest": format!("sha256:{}", "44".repeat(32)),
-            "founding_event_ids": [
-                "ak:event:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
-            ],
-            "allowed_operation_ids": ["ak.gate.account.command.register"],
-            "credential_expires_at": "2026-08-08T12:04:00.000Z",
-            "bootstrap_transaction_expires_at": "2026-08-08T12:05:00.000Z"
-        })
-    }
-
     #[test]
     fn introspection_grant_enforces_credential_class_binding_xor() {
         let cases = [
             ("standard", "holder_binding", holder_binding()),
-            ("device_bootstrap", "bootstrap_binding", bootstrap_binding()),
             (
                 "recovery_restricted",
                 "recovery_binding",

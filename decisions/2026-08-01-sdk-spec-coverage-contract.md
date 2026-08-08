@@ -52,7 +52,7 @@ the contract above; none is classified outside the promise:
 - `ak.schema.object_addressing.v1`
 - `ak.schema.offline_publication.v1`
 - `ak.schema.public_key.v1`
-- `ak.schema.recovery_authority_ticket.v1`
+- former recovery authority ticket schema (removed by the PCR-genesis clean cut)
 - `ak.schema.recovery_completion_attestation.v1`
 - `ak.schema.security_rotation_local_commit.v1`
 - `ak.schema.security_transaction.v1`

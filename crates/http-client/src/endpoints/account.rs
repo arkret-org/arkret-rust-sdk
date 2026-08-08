@@ -30,10 +30,10 @@ use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
-    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
-    AccountDeviceEnrollRequestBody, AccountHandoffOutcome, AccountHandoffRequestBody,
-    AccountLogoutOutcome, AccountLogoutRequestBody, AccountUpdateProfileOutcome,
-    IdentityBindingChallengeOutcome, IdentityBindingChallengeRequestBody, SessionGrantProofKind,
+    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
+    AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
+    AccountUpdateProfileOutcome, IdentityBindingChallengeOutcome,
+    IdentityBindingChallengeRequestBody, SessionGrantProofKind,
 };
 use arkret_wire::{
     DeviceId, Did, Hash, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
@@ -90,7 +90,6 @@ where
         requested_scope_disclosure: None,
         dpop_binding_proof: None,
         applet_authority: None,
-        device_bootstrap_request: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::DidBoundSignature,
             challenge: challenge.to_owned(),
@@ -231,22 +230,6 @@ impl Client {
             .await
     }
 
-    /// `POST /_arkret/gate/account/device-enroll`
-    /// (`ak.gate.account.command.enroll_device`): ask the Account Authority
-    /// to append its proof to the client-authored `service_attested`
-    /// `ak.device.authorize` Event for the current DPoP-bound session device.
-    pub async fn auth_device_enroll(
-        &self,
-        req: &AccountDeviceEnrollRequestBody,
-    ) -> Result<AccountDeviceEnrollOutcome> {
-        req.validate()?;
-        let outcome: AccountDeviceEnrollOutcome = self
-            .post("/_arkret/gate/account/device-enroll", req)
-            .await?;
-        outcome.validate_against(req)?;
-        Ok(outcome)
-    }
-
     /// `POST /_arkret/gate/account/logout`
     /// (`ak.gate.account.command.logout`): terminate the current
     /// DPoP-bound account session at the Account Authority.
@@ -266,7 +249,11 @@ impl Client {
         &self,
         request: &AccountRegisterRequestBody,
     ) -> Result<AccountRegisterOutcome> {
-        self.post("/_arkret/gate/account/register", request).await
+        request.validate()?;
+        let outcome: AccountRegisterOutcome =
+            self.post("/_arkret/gate/account/register", request).await?;
+        outcome.validate_against_request(request)?;
+        Ok(outcome)
     }
 
     pub async fn account_update_profile(

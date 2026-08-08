@@ -396,8 +396,6 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["device", "authorized"] => candidates.push("device_authorized_payload".to_owned()),
         ["device", "revoked"] => candidates.push("device_revoked_payload".to_owned()),
         ["device", "list_update"] => candidates.push("device_list_update_payload".to_owned()),
-        ["cross_signing", "publish"] => candidates.push("cross_signing_publish_payload".to_owned()),
-        ["cross_signing", "reset"] => candidates.push("cross_signing_reset_payload".to_owned()),
         ["mls", "proposal"] => candidates.push("mls_proposal_payload".to_owned()),
         ["mls", "genesis"] => candidates.push("mls_genesis_payload".to_owned()),
         ["mls", "commit"] => candidates.push("mls_commit_payload".to_owned()),
@@ -1024,20 +1022,18 @@ mod tests {
         }
     }
 
-    fn service_attested_device_authorize_payload() -> Value {
+    fn root_anchored_device_authorize_payload() -> Value {
         json!({
             "principal_id": "did:webvh:z6mkfixture:alice.example",
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
-            "device_public_key": "z6Mki3devicepublickey",
+            "device_public_key": "did:key:z6Mki3devicepublickey",
             "hpke_key": "z6LSdevicehpke",
             "algorithms": ["ed25519", "x25519-hpke"],
-            "authorized_by": "did:webvh:z6mkfixture:authority.example",
+            "device_key_algorithm": "Ed25519",
+            "authorized_by": "did:webvh:z6mkfixture:alice.example",
             "not_before": "2026-06-30T00:00:00.000Z",
-            "enrollment_authority_binding": {
-                "kind": "service_attested",
-                "authority_did": "did:webvh:z6mkfixture:authority.example",
-                "authorization_ref": "ak:grant:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL"
-            }
+            "authorization_binding_kind": "root_anchored",
+            "device_signature": "c2lnbmF0dXJl"
         })
     }
 
@@ -1054,7 +1050,7 @@ mod tests {
         catalog
             .validate_payload(
                 "ak.device.authorize",
-                &service_attested_device_authorize_payload(),
+                &root_anchored_device_authorize_payload(),
             )
             .unwrap();
     }

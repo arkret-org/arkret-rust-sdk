@@ -341,16 +341,14 @@ fn webvh_accepts_valid_signed_log_with_key_rotation() {
 #[test]
 fn webvh_candidate_entry_is_verified_without_publishing_it() {
     use arkret_signatures::webvh::{
-        PrincipalEnrollmentDelegation, PrincipalInceptionInput, PrincipalRotationInput,
-        prepare_principal_inception, prepare_principal_rotation,
+        PrincipalInceptionInput, PrincipalRotationInput, prepare_principal_inception,
+        prepare_principal_rotation,
     };
     use chrono::{DateTime, Utc};
 
     let current_seed = [9u8; 32];
     let current_key = vector_update_key(&SigningKey::from_bytes(&current_seed));
     let next_key = vector_update_key(&SigningKey::from_bytes(&[11u8; 32]));
-    let authority_key = vector_update_key(&SigningKey::from_bytes(&[13u8; 32]));
-    let authority_did = format!("did:key:{authority_key}");
     let endpoint = "https://starid.example.com/".parse().unwrap();
     let inception = prepare_principal_inception(&PrincipalInceptionInput {
         principal_endpoint: &endpoint,
@@ -361,9 +359,6 @@ fn webvh_candidate_entry_is_verified_without_publishing_it() {
             .with_timezone(&Utc),
         root_seed: &[7u8; 32],
         next_root_public_key_multibase: &current_key,
-        enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
-            authority_did: &authority_did,
-        },
     })
     .unwrap();
     let rotation = prepare_principal_rotation(&PrincipalRotationInput {
@@ -432,8 +427,8 @@ fn webvh_document_and_log_bytes_require_the_verified_head_document() {
 #[test]
 fn canonical_principal_builders_produce_a_verified_rotation_chain() {
     use arkret_signatures::webvh::{
-        PrincipalEnrollmentDelegation, PrincipalInceptionInput, PrincipalRotationInput,
-        prepare_principal_inception, prepare_principal_rotation,
+        PrincipalInceptionInput, PrincipalRotationInput, prepare_principal_inception,
+        prepare_principal_rotation,
     };
     use chrono::{DateTime, Utc};
 
@@ -442,8 +437,6 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
     let next_seed = [11u8; 32];
     let current_key = vector_update_key(&SigningKey::from_bytes(&current_seed));
     let next_key = vector_update_key(&SigningKey::from_bytes(&next_seed));
-    let authority_key = vector_update_key(&SigningKey::from_bytes(&[13u8; 32]));
-    let authority_did = format!("did:key:{authority_key}");
     let endpoint = "https://starid.example.com/".parse().unwrap();
     let inception = prepare_principal_inception(&PrincipalInceptionInput {
         principal_endpoint: &endpoint,
@@ -454,9 +447,6 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
             .with_timezone(&Utc),
         root_seed: &root_seed,
         next_root_public_key_multibase: &current_key,
-        enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
-            authority_did: &authority_did,
-        },
     })
     .unwrap();
     let rotation = prepare_principal_rotation(&PrincipalRotationInput {

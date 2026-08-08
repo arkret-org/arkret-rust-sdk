@@ -1,6 +1,6 @@
 use arkret_wire::{
-    DeviceId, Did, Error, EventId, Hash, ReasonCode, RequestId, Result, TypedTrustDomainId,
-    canonical,
+    DeviceId, Did, Error, EventId, Hash, RealmId, ReasonCode, RequestId, Result,
+    TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,7 @@ use crate::actor_profile::ActorProfile;
 use crate::artifacts_account::DeviceSummaryStatus;
 use crate::handle::Handle;
 use crate::identity::DidOperationSubmitRequestBody;
+use crate::session_credential::CanonicalSessionPublicJwk;
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -241,7 +242,7 @@ pub struct AccountDataDeleteOutcome {
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
     pub status: DeviceSummaryStatus,
-    /// device-lifecycle.md §6 trust dimension: `unverified` / `cross_signed`
+    /// device-lifecycle.md §6 trust dimension: `unverified` / `authorized`
     /// / `needs_reverification` / `verified`. Distinct from `status`, which is
     /// the lifecycle rollup (`active` / `revoked` / `unknown`). Clients render
     /// the §6 trust pill and gate device-to-device pairing fan-out on it.
@@ -336,12 +337,15 @@ pub enum AccountHandoffAllowedOperation {
     Register,
     #[serde(rename = "ak.gate.account.command.issue_session_grant")]
     IssueSessionGrant,
+    #[serde(rename = "ak.gate.account.command.issue_recovery_completion_grant")]
+    IssueRecoveryCompletionGrant,
 }
 
-pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 3] = [
+pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 4] = [
     AccountHandoffAllowedOperation::IssueIdentityBindingChallenge,
     AccountHandoffAllowedOperation::Register,
     AccountHandoffAllowedOperation::IssueSessionGrant,
+    AccountHandoffAllowedOperation::IssueRecoveryCompletionGrant,
 ];
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -415,7 +419,7 @@ pub struct AccountHandoffOutcome {
     pub account_handoff_grant: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub allowed_operations: [AccountHandoffAllowedOperation; 3],
+    pub allowed_operations: [AccountHandoffAllowedOperation; 4],
     pub binding: AccountHandoffBinding,
 }
 
@@ -436,9 +440,13 @@ impl AccountHandoffOutcome {
 #[serde(deny_unknown_fields)]
 pub struct IdentityBindingChallengeRequestBody {
     pub request_id: RequestId,
-    pub lease_id: String,
+    pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub did_operation: DidOperationSubmitRequestBody,
+    pub pcr_realm_id: RealmId,
+    pub realm_create_payload_digest: Hash,
+    pub founding_authorize_payload_digest: Hash,
+    pub initial_session_request_digest: Hash,
 }
 
 impl IdentityBindingChallengeRequestBody {
@@ -451,7 +459,57 @@ impl IdentityBindingChallengeRequestBody {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityBindingPurpose {
-    AccountBinding,
+    AccountBindingAndPcrGenesis,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum PcrGenesisUnitEventKind {
+    #[serde(rename = "ak.realm.create")]
+    RealmCreate,
+    #[serde(rename = "ak.device.authorize")]
+    DeviceAuthorize,
+}
+
+pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
+    PcrGenesisUnitEventKind::RealmCreate,
+    PcrGenesisUnitEventKind::DeviceAuthorize,
+];
+
+/// The first sender-constrained Standard grant requested atomically with
+/// account binding and PCR genesis.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InitialSessionGrantRequest {
+    pub device_id: DeviceId,
+    pub session_public_key: CanonicalSessionPublicJwk,
+    pub audience: Did,
+    pub requested_scope: Vec<String>,
+}
+
+impl InitialSessionGrantRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.requested_scope.is_empty()
+            || self.requested_scope.iter().any(String::is_empty)
+            || self
+                .requested_scope
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != self.requested_scope.len()
+        {
+            return Err(Error::Protocol(
+                "initial session requested_scope must be non-empty and unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -464,7 +522,12 @@ pub struct IdentityBindingChallengeOutcome {
     pub purpose: IdentityBindingPurpose,
     pub principal_id: Did,
     pub operation_digest: Hash,
-    pub lease_id: String,
+    pub pcr_realm_id: RealmId,
+    pub realm_create_payload_digest: Hash,
+    pub founding_authorize_payload_digest: Hash,
+    pub initial_session_request_digest: Hash,
+    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
+    pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
     pub audience: Did,
@@ -493,7 +556,12 @@ pub struct IdentityCreationControlProof {
     pub purpose: IdentityBindingPurpose,
     pub principal_id: Did,
     pub operation_digest: Hash,
-    pub lease_id: String,
+    pub pcr_realm_id: RealmId,
+    pub realm_create_payload_digest: Hash,
+    pub founding_authorize_payload_digest: Hash,
+    pub initial_session_request_digest: Hash,
+    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
+    pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
     pub audience: Did,
@@ -508,7 +576,21 @@ pub struct IdentityCreationControlProof {
 }
 
 impl IdentityCreationControlProof {
+    pub fn validate_shape(&self) -> Result<()> {
+        if self.purpose != IdentityBindingPurpose::AccountBindingAndPcrGenesis
+            || self.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
+            || self.lease_fence == 0
+            || self.expires_at <= self.issued_at
+        {
+            return Err(Error::Protocol(
+                "identity creation control proof has an invalid PCR genesis binding".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        self.validate_shape()?;
         let mut value = serde_json::to_value(self)?;
         value
             .as_object_mut()
@@ -524,10 +606,60 @@ impl IdentityCreationControlProof {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationRegistration {
-    pub lease_id: String,
+    pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub did_operation: DidOperationSubmitRequestBody,
     pub control_proof: IdentityCreationControlProof,
+    pub pcr_genesis_unit: arkret_wire::PcrGenesisUnit,
+    pub initial_session: InitialSessionGrantRequest,
+}
+
+impl IdentityCreationRegistration {
+    pub fn validate(&self) -> Result<()> {
+        self.control_proof.validate_shape()?;
+        self.pcr_genesis_unit.validate_ordered_envelopes()?;
+        self.initial_session.validate()?;
+        if self.initial_session.canonical_request_digest()?
+            != self.control_proof.initial_session_request_digest
+            || self
+                .initial_session
+                .session_public_key
+                .thumbprint_sha256()?
+                != self.control_proof.dpop_jkt
+            || self.identity_creation_lease_id != self.control_proof.identity_creation_lease_id
+            || self.lease_fence != self.control_proof.lease_fence
+            || Hash::new(canonical::canonical_sha256(&self.did_operation)?)?
+                != self.control_proof.operation_digest
+            || self.pcr_genesis_unit.create().actor_id != self.control_proof.principal_id
+            || self.pcr_genesis_unit.create().realm_id != self.control_proof.pcr_realm_id
+            || Hash::new(canonical::canonical_sha256(
+                &self.pcr_genesis_unit.create().payload,
+            )?)? != self.control_proof.realm_create_payload_digest
+            || Hash::new(canonical::canonical_sha256(
+                &self.pcr_genesis_unit.founding_authorize().payload,
+            )?)? != self.control_proof.founding_authorize_payload_digest
+        {
+            return Err(Error::Protocol(
+                "initial session does not match identity creation control proof".to_owned(),
+            ));
+        }
+        let descriptor_device_id = self
+            .pcr_genesis_unit
+            .create()
+            .payload
+            .get("object")
+            .and_then(Value::as_object)
+            .and_then(|object| object.get("founding_device_descriptor"))
+            .and_then(Value::as_object)
+            .and_then(|descriptor| descriptor.get("device_id"))
+            .and_then(Value::as_str);
+        if descriptor_device_id != Some(self.initial_session.device_id.as_str()) {
+            return Err(Error::Protocol(
+                "initial session device_id does not match founding device descriptor".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -550,7 +682,7 @@ pub enum IdentityCreationOperationStatus {
 #[serde(deny_unknown_fields)]
 pub struct AccountBindingReceipt {
     pub binding_state: AccountBindingState,
-    pub lease_id: String,
+    pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub operation_status: IdentityCreationOperationStatus,
     pub operation_digest: Hash,

@@ -65,6 +65,51 @@ pub struct EventsSubmitBatchRequestBody {
     pub events: Vec<EventInitialSubmission>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PcrGenesisUnit {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub events: [Event; 2],
+}
+
+impl PcrGenesisUnit {
+    pub fn new(create: Event, founding_authorize: Event) -> Result<Self> {
+        let unit = Self {
+            events: [create, founding_authorize],
+        };
+        unit.validate_ordered_envelopes()?;
+        Ok(unit)
+    }
+
+    pub fn create(&self) -> &Event {
+        &self.events[0]
+    }
+
+    pub fn founding_authorize(&self) -> &Event {
+        &self.events[1]
+    }
+
+    pub fn validate_ordered_envelopes(&self) -> Result<()> {
+        let create = self.create();
+        let authorize = self.founding_authorize();
+        if create.kind.as_str() != "ak.realm.create"
+            || authorize.kind.as_str() != "ak.device.authorize"
+            || create.actor_id != authorize.actor_id
+            || create.realm_id != authorize.realm_id
+            || create.actor_seq != 0
+            || authorize.prev_refs.as_slice() != [create.event_id.clone()]
+            || authorize.actor_seq != 1
+            || authorize.event_id == create.event_id
+        {
+            return Err(Error::Protocol(
+                "PCR genesis unit must be the exact ordered create/authorize pair".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Signed Events presented to the actor's Principal Server for publication
 /// lease issuance. Issuance validates but does not commit these Events.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
