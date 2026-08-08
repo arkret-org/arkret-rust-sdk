@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-08.8;
-//! sha256=191e933049326d0629f6c19e9769c4777a6354105beb665a58eb7222028b05c9 Entries: registered=168
+//! Input: registry/capability-action-registry.json; version=2026-08-08.9;
+//! sha256=e0524216edfd4ab9a5f1e9363f85abdcad7ce2d38c1d403053137d822f57b056 Entries: registered=168
 
 use serde::{Deserialize, Serialize};
 
@@ -122,10 +122,10 @@ pub enum CapabilityActionId {
     RealmOwnerTransfer,
     RealmPlaintextVisibleServices,
     RealmPreviewPolicy,
+    RealmProfile,
     RealmSearchPolicy,
     RealmSetDefaultStrand,
     RealmTombstone,
-    RealmUpdate,
     RealmUpgrade,
     RealmKeyShare,
     ReceiptBroadcast,
@@ -294,10 +294,10 @@ impl CapabilityActionId {
         Self::RealmOwnerTransfer,
         Self::RealmPlaintextVisibleServices,
         Self::RealmPreviewPolicy,
+        Self::RealmProfile,
         Self::RealmSearchPolicy,
         Self::RealmSetDefaultStrand,
         Self::RealmTombstone,
-        Self::RealmUpdate,
         Self::RealmUpgrade,
         Self::RealmKeyShare,
         Self::ReceiptBroadcast,
@@ -465,10 +465,10 @@ impl CapabilityActionId {
     pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &'static str =
         "ak.realm.plaintext_visible_services";
     pub const REALM_PREVIEW_POLICY: &'static str = "ak.realm.preview_policy";
+    pub const REALM_PROFILE: &'static str = "ak.realm.profile";
     pub const REALM_SEARCH_POLICY: &'static str = "ak.realm.search_policy";
     pub const REALM_SET_DEFAULT_STRAND: &'static str = "ak.realm.set_default_strand";
     pub const REALM_TOMBSTONE: &'static str = "ak.realm.tombstone";
-    pub const REALM_UPDATE: &'static str = "ak.realm.update";
     pub const REALM_UPGRADE: &'static str = "ak.realm.upgrade";
     pub const REALM_KEY_SHARE: &'static str = "ak.realm_key.share";
     pub const RECEIPT_BROADCAST: &'static str = "ak.receipt.broadcast";
@@ -641,10 +641,10 @@ impl CapabilityActionId {
             Self::RealmOwnerTransfer => Self::REALM_OWNER_TRANSFER,
             Self::RealmPlaintextVisibleServices => Self::REALM_PLAINTEXT_VISIBLE_SERVICES,
             Self::RealmPreviewPolicy => Self::REALM_PREVIEW_POLICY,
+            Self::RealmProfile => Self::REALM_PROFILE,
             Self::RealmSearchPolicy => Self::REALM_SEARCH_POLICY,
             Self::RealmSetDefaultStrand => Self::REALM_SET_DEFAULT_STRAND,
             Self::RealmTombstone => Self::REALM_TOMBSTONE,
-            Self::RealmUpdate => Self::REALM_UPDATE,
             Self::RealmUpgrade => Self::REALM_UPGRADE,
             Self::RealmKeyShare => Self::REALM_KEY_SHARE,
             Self::ReceiptBroadcast => Self::RECEIPT_BROADCAST,
@@ -816,10 +816,10 @@ impl CapabilityActionId {
             Self::REALM_OWNER_TRANSFER => Some(Self::RealmOwnerTransfer),
             Self::REALM_PLAINTEXT_VISIBLE_SERVICES => Some(Self::RealmPlaintextVisibleServices),
             Self::REALM_PREVIEW_POLICY => Some(Self::RealmPreviewPolicy),
+            Self::REALM_PROFILE => Some(Self::RealmProfile),
             Self::REALM_SEARCH_POLICY => Some(Self::RealmSearchPolicy),
             Self::REALM_SET_DEFAULT_STRAND => Some(Self::RealmSetDefaultStrand),
             Self::REALM_TOMBSTONE => Some(Self::RealmTombstone),
-            Self::REALM_UPDATE => Some(Self::RealmUpdate),
             Self::REALM_UPGRADE => Some(Self::RealmUpgrade),
             Self::REALM_KEY_SHARE => Some(Self::RealmKeyShare),
             Self::RECEIPT_BROADCAST => Some(Self::ReceiptBroadcast),

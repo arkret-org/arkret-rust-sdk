@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-08.8;
-//! sha256=7f1433d6dc6e041a23a7688820e2824c4423d75374767faeb3609b944beee922 Entries: schema_ids=181,
-//! active=181
+//! Input: registry/schema-registry.json; version=2026-08-08.9;
+//! sha256=7cd8e07f52d701e436a6c2df2a67f5565e6e704f73fd297be061f40985a4b6d4 Entries: schema_ids=183,
+//! active=183
 
 use serde::{Deserialize, Serialize};
 
@@ -140,10 +140,12 @@ pub enum SchemaId {
     ReadCursorOperationsV1,
     ReadReceiptV1,
     RealmV1,
+    RealmGenesisV1,
     RealmJoinCandidateV1,
     RealmLinkOperationsV1,
     RealmOrganizationOperationsV1,
     RealmPolicyServerOperationsV1,
+    RealmProfileV1,
     RealmReadOperationsV1,
     RecoveryAuthorityTicketV1,
     RecoveryCompletionAttestationV1,
@@ -325,10 +327,12 @@ impl SchemaId {
         Self::ReadCursorOperationsV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
+        Self::RealmGenesisV1,
         Self::RealmJoinCandidateV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
         Self::RealmPolicyServerOperationsV1,
+        Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RecoveryAuthorityTicketV1,
         Self::RecoveryCompletionAttestationV1,
@@ -510,10 +514,12 @@ impl SchemaId {
         Self::ReadCursorOperationsV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
+        Self::RealmGenesisV1,
         Self::RealmJoinCandidateV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
         Self::RealmPolicyServerOperationsV1,
+        Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RecoveryAuthorityTicketV1,
         Self::RecoveryCompletionAttestationV1,
@@ -915,6 +921,7 @@ impl SchemaId {
     /// Closed decrypted Signal payload profile for ak.receipt.read timeline read hints.
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
+    pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
     /// Time-bounded routing hint returned by Realm discovery / resolve paths for selecting a
     /// qualified service to receive join, invite-accept, knock, or restricted-join submissions. Not
     /// an authorization grant and not a member_delivery_binding.
@@ -930,6 +937,7 @@ impl SchemaId {
     /// (ak.self.realm_policy_server.*); see zh/authz/policy-server.md.
     pub const REALM_POLICY_SERVER_OPERATIONS_V1: &'static str =
         "ak.schema.realm_policy_server_operations.v1";
+    pub const REALM_PROFILE_V1: &'static str = "ak.schema.realm_profile.v1";
     /// Closed request/response DTO bundle for self-surface Realm read and moderation-policy
     /// operations (ak.self.realm.*); see zh/models/realm-and-space.md and
     /// zh/governance/content-moderation.md.
@@ -1193,10 +1201,12 @@ impl SchemaId {
             Self::ReadCursorOperationsV1 => Self::READ_CURSOR_OPERATIONS_V1,
             Self::ReadReceiptV1 => Self::READ_RECEIPT_V1,
             Self::RealmV1 => Self::REALM_V1,
+            Self::RealmGenesisV1 => Self::REALM_GENESIS_V1,
             Self::RealmJoinCandidateV1 => Self::REALM_JOIN_CANDIDATE_V1,
             Self::RealmLinkOperationsV1 => Self::REALM_LINK_OPERATIONS_V1,
             Self::RealmOrganizationOperationsV1 => Self::REALM_ORGANIZATION_OPERATIONS_V1,
             Self::RealmPolicyServerOperationsV1 => Self::REALM_POLICY_SERVER_OPERATIONS_V1,
+            Self::RealmProfileV1 => Self::REALM_PROFILE_V1,
             Self::RealmReadOperationsV1 => Self::REALM_READ_OPERATIONS_V1,
             Self::RecoveryAuthorityTicketV1 => Self::RECOVERY_AUTHORITY_TICKET_V1,
             Self::RecoveryCompletionAttestationV1 => Self::RECOVERY_COMPLETION_ATTESTATION_V1,
@@ -1407,6 +1417,7 @@ impl SchemaId {
             Self::ReadCursorOperationsV1 => "schemas/read-cursor-operations.schema.json",
             Self::ReadReceiptV1 => "schemas/read-receipt.schema.json",
             Self::RealmV1 => "schemas/realm.schema.json",
+            Self::RealmGenesisV1 => "schemas/realm-genesis.schema.json",
             Self::RealmJoinCandidateV1 => "schemas/realm-join-candidate.schema.json",
             Self::RealmLinkOperationsV1 => "schemas/realm-link-operations.schema.json",
             Self::RealmOrganizationOperationsV1 => {
@@ -1415,6 +1426,7 @@ impl SchemaId {
             Self::RealmPolicyServerOperationsV1 => {
                 "schemas/realm-policy-server-operations.schema.json"
             }
+            Self::RealmProfileV1 => "schemas/realm-profile.schema.json",
             Self::RealmReadOperationsV1 => "schemas/realm-read-operations.schema.json",
             Self::RecoveryAuthorityTicketV1 => "schemas/recovery-authority.schema.json",
             Self::RecoveryCompletionAttestationV1 => "schemas/recovery-authority.schema.json",
@@ -1619,10 +1631,12 @@ impl SchemaId {
             Self::READ_CURSOR_OPERATIONS_V1 => Some(Self::ReadCursorOperationsV1),
             Self::READ_RECEIPT_V1 => Some(Self::ReadReceiptV1),
             Self::REALM_V1 => Some(Self::RealmV1),
+            Self::REALM_GENESIS_V1 => Some(Self::RealmGenesisV1),
             Self::REALM_JOIN_CANDIDATE_V1 => Some(Self::RealmJoinCandidateV1),
             Self::REALM_LINK_OPERATIONS_V1 => Some(Self::RealmLinkOperationsV1),
             Self::REALM_ORGANIZATION_OPERATIONS_V1 => Some(Self::RealmOrganizationOperationsV1),
             Self::REALM_POLICY_SERVER_OPERATIONS_V1 => Some(Self::RealmPolicyServerOperationsV1),
+            Self::REALM_PROFILE_V1 => Some(Self::RealmProfileV1),
             Self::REALM_READ_OPERATIONS_V1 => Some(Self::RealmReadOperationsV1),
             Self::RECOVERY_AUTHORITY_TICKET_V1 => Some(Self::RecoveryAuthorityTicketV1),
             Self::RECOVERY_COMPLETION_ATTESTATION_V1 => Some(Self::RecoveryCompletionAttestationV1),

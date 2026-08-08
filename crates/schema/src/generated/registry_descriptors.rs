@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-08.4;
 //! sha256=e1a1682658773b7eadc5a1197c412478f8a6ec10bdd4c28977d23ea29e9864ba Input: registry/
-//! capability-action-registry.json; version=2026-08-08.8;
-//! sha256=191e933049326d0629f6c19e9769c4777a6354105beb665a58eb7222028b05c9 Input: registry/
-//! schema-registry.json; version=2026-08-08.8;
-//! sha256=7f1433d6dc6e041a23a7688820e2824c4423d75374767faeb3609b944beee922 Input: registry/
+//! capability-action-registry.json; version=2026-08-08.9;
+//! sha256=e0524216edfd4ab9a5f1e9363f85abdcad7ce2d38c1d403053137d822f57b056 Input: registry/
+//! schema-registry.json; version=2026-08-08.9;
+//! sha256=7cd8e07f52d701e436a6c2df2a67f5565e6e704f73fd297be061f40985a4b6d4 Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
 //! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=56,
-//! special_forms=10, actions=168, schemas=181, account_data_patterns=24
+//! special_forms=10, actions=168, schemas=183, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -1984,11 +1984,11 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             EventKind::REALM_POLICY_BUNDLE,
             EventKind::REALM_POLICY_SERVER,
             EventKind::REALM_PREVIEW_POLICY,
+            EventKind::REALM_PROFILE,
             EventKind::REALM_READ_RECEIPT_POLICY,
             EventKind::REALM_SCHEMA,
             EventKind::REALM_SEARCH_POLICY,
             EventKind::REALM_SET_DEFAULT_STRAND,
-            EventKind::REALM_UPDATE,
             EventKind::REALM_UPGRADE,
             EventKind::REDACTION,
             EventKind::RELATION_CREATE,
@@ -2100,8 +2100,8 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.owner",
             "ak.realm.plaintext_visible_services",
             "ak.realm.preview_policy",
+            "ak.realm.profile",
             "ak.realm.set_default_strand",
-            "ak.realm.update",
             "ak.realm.upgrade",
             "ak.realm_key.share",
             "ak.receipt.broadcast",
@@ -2180,6 +2180,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmProfile,
+        category: "general",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &["allowed_write_fields"],
+        target_event_kinds: &[EventKind::REALM_PROFILE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::RealmSearchPolicy,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
@@ -2214,19 +2227,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         grant_authority_actions: &[],
         profile: None,
         root_control_only: true,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmUpdate,
-        category: "general",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &["allowed_write_fields"],
-        target_event_kinds: &[EventKind::REALM_UPDATE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "same_name",
@@ -3397,6 +3397,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::REALM_GENESIS_V1,
+        file: "schemas/realm-genesis.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::REALM_JOIN_CANDIDATE_V1,
         file: "schemas/realm-join-candidate.schema.json",
     },
@@ -3411,6 +3415,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::REALM_POLICY_SERVER_OPERATIONS_V1,
         file: "schemas/realm-policy-server-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_PROFILE_V1,
+        file: "schemas/realm-profile.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_READ_OPERATIONS_V1,

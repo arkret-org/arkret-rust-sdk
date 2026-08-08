@@ -6,8 +6,7 @@ use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     BlobRef, CORE_REDUCER_PROFILE, CORE_SCHEMA_PROFILE, ControlProposalDecisionPolicy, Did, DidUrl,
     Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule,
-    PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId,
-    canonical,
+    PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -32,7 +31,7 @@ pub fn realm_object_is_principal_control(object: &Value) -> bool {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/sync_endpoint`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SyncEndpoint {
     pub did: Did,

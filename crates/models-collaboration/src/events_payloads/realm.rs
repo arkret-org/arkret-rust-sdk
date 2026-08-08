@@ -262,6 +262,8 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_endpoints: Option<Vec<SyncEndpoint>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aad_visibility: Option<RealmAadVisibilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
@@ -291,6 +293,26 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_policy: Option<RealmAuditPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revocation_freshness_window_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_witness_freshness_window_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_intake_sla_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_decision_window_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_absolute_deadline_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_proposal_defers: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seal_compaction_max_interval_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_authority_lifetime_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom_escalation_after_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cell_lattices: Option<Vec<CellLatticeDeclaration>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_third_party_invite_verification_service_ids: Option<Vec<Did>>,
@@ -311,6 +333,7 @@ impl RealmPolicyBundlePayload {
             content_encryption_floor: None,
             metadata_encryption_floor: None,
             federation_policy: None,
+            sync_endpoints: None,
             aad_visibility: None,
             durability_policy: None,
             mls_send_pause: None,
@@ -321,6 +344,16 @@ impl RealmPolicyBundlePayload {
             account_deactivation: None,
             availability_policy: None,
             audit_policy: None,
+            revocation_freshness_window_ms: None,
+            recovery_witness_freshness_window_ms: None,
+            proposal_intake_sla_ms: None,
+            proposal_decision_window_ms: None,
+            proposal_absolute_deadline_ms: None,
+            max_proposal_defers: None,
+            seal_compaction_max_interval_ms: None,
+            max_authority_lifetime_ms: None,
+            bottom_escalation_after_ms: None,
+            cell_lattices: None,
             preauth: None,
             allowed_third_party_invite_verification_service_ids: None,
         }
@@ -403,7 +436,43 @@ impl RealmPolicyBundlePayload {
                 ));
             }
         }
+        self.control_proposal_decision_policy()?;
         Ok(())
+    }
+
+    /// Resolve the Control Proposal timing policy carried by this complete
+    /// policy-bundle revision, applying the protocol defaults for omitted
+    /// fields.
+    pub fn control_proposal_decision_policy(&self) -> Result<ControlProposalDecisionPolicy> {
+        let defaults = ControlProposalDecisionPolicy::default();
+        let duration_ms =
+            |value: Option<u64>, fallback: chrono::Duration| -> Result<chrono::Duration> {
+                let millis = value.unwrap_or_else(|| fallback.num_milliseconds() as u64);
+                let millis = i64::try_from(millis).map_err(|_| {
+                    Error::Protocol(
+                    "Realm proposal decision duration exceeds i64 milliseconds (schema_violation)"
+                        .to_owned(),
+                )
+                })?;
+                Ok(chrono::Duration::milliseconds(millis))
+            };
+        let policy = ControlProposalDecisionPolicy {
+            proposal_intake_sla: duration_ms(
+                self.proposal_intake_sla_ms,
+                defaults.proposal_intake_sla,
+            )?,
+            decision_window: duration_ms(
+                self.proposal_decision_window_ms,
+                defaults.decision_window,
+            )?,
+            absolute_horizon: duration_ms(
+                self.proposal_absolute_deadline_ms,
+                defaults.absolute_horizon,
+            )?,
+            max_defers: self.max_proposal_defers.unwrap_or(defaults.max_defers),
+        };
+        policy.validate()?;
+        Ok(policy)
     }
 
     /// Components declared beside `policy_revision`.
@@ -1317,5 +1386,24 @@ mod realm_policy_bundle_tests {
             require_consent: true,
         });
         only_preauth.validate().unwrap();
+    }
+
+    #[test]
+    fn governance_timing_fields_have_one_typed_policy_bundle_carrier() {
+        let mut bundle = RealmPolicyBundlePayload::new(1);
+        bundle.proposal_intake_sla_ms = Some(5_000);
+        bundle.proposal_decision_window_ms = Some(30_000);
+        bundle.proposal_absolute_deadline_ms = Some(90_000);
+        bundle.max_proposal_defers = Some(2);
+        bundle.revocation_freshness_window_ms = Some(60_000);
+        bundle.max_authority_lifetime_ms = Some(120_000);
+        let value = bundle.to_value().unwrap();
+        assert_eq!(value["proposal_decision_window_ms"], Value::from(30_000));
+        assert_eq!(value["max_authority_lifetime_ms"], Value::from(120_000));
+
+        bundle.proposal_decision_window_ms = Some(90_000);
+        bundle.proposal_absolute_deadline_ms = Some(90_000);
+        bundle.max_proposal_defers = Some(1);
+        assert!(bundle.validate().is_err());
     }
 }
