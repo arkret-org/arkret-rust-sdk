@@ -5,6 +5,87 @@ use std::result::Result as StdResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Closed issuer-ledger state returned for an exact replay whose recorded
+/// grant has expired. This is not a hint to transparently issue again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct SessionGrantReplayExpiredProblem {
+    grant_id: crate::SessionGrantId,
+    state: &'static str,
+}
+
+impl SessionGrantReplayExpiredProblem {
+    pub fn new(grant_id: crate::SessionGrantId) -> Self {
+        Self {
+            grant_id,
+            state: "expired",
+        }
+    }
+
+    pub fn grant_id(&self) -> &crate::SessionGrantId {
+        &self.grant_id
+    }
+
+    pub const fn state(&self) -> &'static str {
+        self.state
+    }
+}
+
+impl<'de> Deserialize<'de> for SessionGrantReplayExpiredProblem {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireDetails {
+            grant_id: crate::SessionGrantId,
+            state: String,
+        }
+
+        let wire = WireDetails::deserialize(deserializer)?;
+        if wire.state != "expired" {
+            return Err(serde::de::Error::custom("state must be expired"));
+        }
+        Ok(Self::new(wire.grant_id))
+    }
+}
+
+/// Durable terminal states returned for an exact replay. The client must not
+/// convert either state into an automatic re-issuance attempt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantReplayTerminalState {
+    Revoked,
+    Superseded,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantReplayTerminalProblem {
+    grant_id: crate::SessionGrantId,
+    state: SessionGrantReplayTerminalState,
+}
+
+impl SessionGrantReplayTerminalProblem {
+    pub fn new(grant_id: crate::SessionGrantId, state: SessionGrantReplayTerminalState) -> Self {
+        Self { grant_id, state }
+    }
+
+    pub fn grant_id(&self) -> &crate::SessionGrantId {
+        &self.grant_id
+    }
+
+    pub const fn state(&self) -> SessionGrantReplayTerminalState {
+        self.state
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SessionGrantReplayProblemError {
+    #[error("invalid session-grant replay error details: {0}")]
+    InvalidDetails(#[from] serde_json::Error),
+}
+
 /// Closed details carried by a `claim_required` error when an agent action
 /// needs out-of-band controller approval.
 ///
@@ -128,6 +209,33 @@ impl ErrorDetail {
             .map(Some)
             .map_err(AgentHumanApprovalProblemError::from)
     }
+
+    /// Decode the closed expired-record details only for the matching
+    /// registry code. An indeterminate replay deliberately has no typed
+    /// terminal details.
+    pub fn session_grant_replay_expired_details(
+        &self,
+    ) -> StdResult<Option<SessionGrantReplayExpiredProblem>, SessionGrantReplayProblemError> {
+        if self.code != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_EXPIRED {
+            return Ok(None);
+        }
+        serde_json::from_value(Value::Object(self.details.clone().into_iter().collect()))
+            .map(Some)
+            .map_err(SessionGrantReplayProblemError::from)
+    }
+
+    /// Decode the closed revoked/superseded record details only for the
+    /// matching registry code.
+    pub fn session_grant_replay_terminal_details(
+        &self,
+    ) -> StdResult<Option<SessionGrantReplayTerminalProblem>, SessionGrantReplayProblemError> {
+        if self.code != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_TERMINAL {
+            return Ok(None);
+        }
+        serde_json::from_value(Value::Object(self.details.clone().into_iter().collect()))
+            .map(Some)
+            .map_err(SessionGrantReplayProblemError::from)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -214,6 +322,18 @@ impl ErrorEnvelope {
         &self,
     ) -> StdResult<Option<AgentHumanApprovalProblem>, AgentHumanApprovalProblemError> {
         self.error.agent_human_approval_details()
+    }
+
+    pub fn session_grant_replay_expired_details(
+        &self,
+    ) -> StdResult<Option<SessionGrantReplayExpiredProblem>, SessionGrantReplayProblemError> {
+        self.error.session_grant_replay_expired_details()
+    }
+
+    pub fn session_grant_replay_terminal_details(
+        &self,
+    ) -> StdResult<Option<SessionGrantReplayTerminalProblem>, SessionGrantReplayProblemError> {
+        self.error.session_grant_replay_terminal_details()
     }
 }
 
@@ -325,5 +445,72 @@ mod tests {
 
         assert_eq!(details.error_code(), None);
         assert_eq!(details.code, "vendor_remote_error");
+    }
+
+    fn grant_id() -> crate::SessionGrantId {
+        crate::SessionGrantId::new("ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW")
+            .unwrap()
+    }
+
+    #[test]
+    fn session_grant_replay_details_are_code_gated_and_closed() {
+        let expired = ErrorEnvelope::new(
+            crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_EXPIRED,
+            "recorded grant expired",
+        )
+        .with_detail("grant_id", json!(grant_id()))
+        .with_detail("state", json!("expired"));
+        let details = expired
+            .session_grant_replay_expired_details()
+            .unwrap()
+            .unwrap();
+        assert_eq!(details.grant_id(), &grant_id());
+        assert_eq!(details.state(), "expired");
+        assert_eq!(
+            expired.session_grant_replay_terminal_details().unwrap(),
+            None
+        );
+
+        let terminal = ErrorEnvelope::new(
+            crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_TERMINAL,
+            "recorded grant is terminal",
+        )
+        .with_detail("grant_id", json!(grant_id()))
+        .with_detail("state", json!("superseded"));
+        assert_eq!(
+            terminal
+                .session_grant_replay_terminal_details()
+                .unwrap()
+                .unwrap()
+                .state(),
+            SessionGrantReplayTerminalState::Superseded
+        );
+
+        for invalid in [
+            json!({"grant_id": grant_id(), "state": "revoked", "extra": true}),
+            json!({"grant_id": grant_id(), "state": "active"}),
+            json!({"state": "expired"}),
+        ] {
+            assert!(serde_json::from_value::<SessionGrantReplayExpiredProblem>(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn replay_indeterminate_never_fabricates_terminal_details() {
+        let envelope = ErrorEnvelope::new(
+            crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_INDETERMINATE,
+            "replay record no longer decidable",
+        )
+        .with_detail("grant_id", json!(grant_id()))
+        .with_detail("state", json!("revoked"));
+
+        assert_eq!(
+            envelope.session_grant_replay_expired_details().unwrap(),
+            None
+        );
+        assert_eq!(
+            envelope.session_grant_replay_terminal_details().unwrap(),
+            None
+        );
     }
 }

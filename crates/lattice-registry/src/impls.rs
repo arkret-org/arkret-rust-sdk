@@ -171,16 +171,6 @@ per_subject_lattice!(
 );
 
 per_subject_lattice!(
-    SessionGrant,
-    arkret_wire::CellFamilyId::SESSION_GRANT_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "session_id",
-    &["ak.session.grant"]
-);
-
-per_subject_lattice!(
     DeviceAuthorized,
     arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1,
     SdkLatticeKind::OrSet,

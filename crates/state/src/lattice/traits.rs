@@ -45,7 +45,6 @@ impl LatticeKind {
                 "ak.capability.grant",
                 "ak.capability.revoke",
                 "ak.capability.derived",
-                "ak.session.grant",
                 "ak.consent.grant",
                 "ak.consent.revoke",
                 "ak.device.authorize",

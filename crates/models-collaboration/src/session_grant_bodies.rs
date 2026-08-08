@@ -5,21 +5,23 @@
 //! directly to these owner-defined types; the `arkret` umbrella re-exports them.
 
 use arkret_models_identity::{
-    SessionGrantCredentialClass, SessionGrantDeviceBinding, SessionGrantProofKind,
-    SessionGrantRecoveryBinding,
+    CanonicalSessionPublicJwk, SessionGrantBootstrapBinding, SessionGrantCredentialClass,
+    SessionGrantHolderBinding, SessionGrantProofKind, SessionGrantRecoveryBinding,
 };
 use arkret_wire::{
-    DeviceId, Did, DidUrl, Error, FreshnessState, Hash, NonEmptyString, RealmId, Result, ScopeRef,
-    SessionGrantId, StrandId, canonical,
+    DeviceId, Did, DidUrl, Error, Hash, NonEmptyString, RealmId, Result, ScopeRef, SessionGrantId,
+    StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::agent_operations::AgentRequestedScopeDisclosure;
 use crate::governance::agent_participation::AgentParticipationEntry;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantRequestBody {
     /// Existing principal DID. OIDC verifies a login factor and never mints or
     /// derives protocol identity.
@@ -32,6 +34,8 @@ pub struct SessionGrantRequestBody {
     pub agent_key_authorization_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_scope_request: Option<SessionGrantAgentScopeRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -56,6 +60,7 @@ impl SessionGrantRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantDpopBindingProof {
     pub proof_jwt: String,
 }
@@ -74,6 +79,7 @@ pub struct SessionGrantAgentScopeRequest {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantAppletDelegation {
     pub applet_id: String,
     pub effective_scope: ScopeRef,
@@ -86,6 +92,7 @@ pub struct SessionGrantAppletDelegation {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantRequestProof {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof_kind: SessionGrantProofKind,
@@ -137,6 +144,7 @@ impl SessionGrantRequestProof {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantOutcome {
     pub principal_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,17 +154,14 @@ pub struct SessionGrantOutcome {
     pub expires_at: DateTime<Utc>,
     /// Stable id of the issued session grant. Returned for every grant (human
     /// and agent). Mirrors `SessionGrantRefreshOutcome.grant_id`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant_id: Option<SessionGrantId>,
+    pub grant_id: SessionGrantId,
     /// JWK of the holder/session key the grant is bound to. The client needs
     /// this for RFC 9421 PoP / DPoP `cnf.jkt` derivation on `/_arkret/self/*`
     /// requests, returned at issue time to avoid a mandatory introspect
     /// round-trip. Mirrors `SessionGrantRefreshOutcome.session_public_key`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_public_key: Option<String>,
+    pub session_public_key: CanonicalSessionPublicJwk,
     /// Audience the grant is bound to. Mirrors `SessionGrantRefreshOutcome.audience`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Did>,
+    pub audience: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
     /// `ak.profile.agent_auth.v1` overlay (AKP-0008 §4.6). Materialized narrow
@@ -258,6 +263,7 @@ pub struct SessionGrantIntrospectionProofClaims {
 /// `ak.gate.account.command.refresh_session_grant` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantRefreshRequestBody {
     pub grant_jwt: String,
     /// MUST equal the grant's bound audience if present (audience MUST NOT
@@ -266,33 +272,25 @@ pub struct SessionGrantRefreshRequestBody {
     pub audience: Option<Did>,
     /// Required when recovering from `soft_logged_out`; binds the signed
     /// challenge to the concrete authorized device that owns this grant chain.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
+    pub device_id: DeviceId,
     /// Fresh DID/device proof for `soft_logged_out -> active` recovery.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<SessionGrantRefreshProof>,
+    pub proof: SessionGrantRefreshProof,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantRefreshProof {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof_kind: Option<SessionGrantProofKind>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_canonical_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub issued_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, alias = "proof_jws", skip_serializing_if = "Option::is_none")]
-    pub signature: Option<String>,
+    pub proof_kind: SessionGrantProofKind,
+    pub challenge: String,
+    pub request_canonical_digest: Hash,
+    pub audience: Did,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub signature: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_method: Option<DidUrl>,
 }
@@ -373,20 +371,20 @@ pub fn session_grant_refresh_proof_signing_bytes(
 /// `ak.gate.account.command.refresh_session_grant` outcome.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantRefreshOutcome {
     pub grant_id: SessionGrantId,
     pub grant_jwt: String,
     /// JWK the rotated grant is bound to (the device holder key); the server
     /// does not mint a fresh session private key on rotation.
-    pub session_public_key: String,
+    pub session_public_key: CanonicalSessionPublicJwk,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub audience: Did,
-    #[serde(default)]
     pub scopes: Vec<String>,
     /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
     pub dpop_jkt: String,
-    /// The prior grant, single-use revoked on success.
+    /// The predecessor grant, atomically superseded on success.
     pub previous_grant_id: SessionGrantId,
 }
 
@@ -420,6 +418,7 @@ pub struct AuthSessionLogoutOutcome {
 pub enum SessionGrantIntrospectStatus {
     Active,
     Revoked,
+    Superseded,
     Expired,
     Locked,
     Suspended,
@@ -433,6 +432,7 @@ pub enum SessionGrantIntrospectStatus {
 /// includes the grant JWT, refresh token, or session private key.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(try_from = "SessionGrantIntrospectGrantWire")]
 pub struct SessionGrantIntrospectGrant {
     pub id: SessionGrantId,
     pub issuer: String,
@@ -441,7 +441,6 @@ pub struct SessionGrantIntrospectGrant {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub audience: Did,
-    #[serde(default)]
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -451,37 +450,123 @@ pub struct SessionGrantIntrospectGrant {
     pub revocation_ref: String,
     /// Session signing key (JWK) for RFC 9421 PoP verification on
     /// `/_arkret/self/*`. Server-to-server only.
-    pub session_public_key: String,
+    pub session_public_key: CanonicalSessionPublicJwk,
     /// RFC 7638 JWK SHA-256 thumbprint of the holder (DPoP) key the grant is
     /// bound to (the grant's `cnf.jkt`); the Principal Server uses it to verify
     /// the per-request DPoP proof on `/_arkret/self/*`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cnf_jkt: Option<String>,
+    pub cnf_jkt: String,
     pub credential_class: SessionGrantCredentialClass,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_binding: Option<SessionGrantRecoveryBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_binding: Option<SessionGrantDeviceBinding>,
+    pub bootstrap_binding: Option<SessionGrantBootstrapBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof_kind: Option<SessionGrantProofKind>,
-    /// Materialized scope details for `agent_key_proof` sessions. Human session
-    /// grants omit this field.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_details: Option<SessionGrantScopeDetails>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub freshness_state: Option<FreshnessState>,
+    pub holder_binding: Option<SessionGrantHolderBinding>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SessionGrantIntrospectGrantWire {
+    id: SessionGrantId,
+    issuer: String,
+    subject: String,
+    service_account_id: String,
+    #[serde(default)]
+    device_id: Option<DeviceId>,
+    audience: Did,
+    scopes: Vec<String>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    revoked_at: Option<DateTime<Utc>>,
+    revocation_ref: String,
+    session_public_key: CanonicalSessionPublicJwk,
+    cnf_jkt: String,
+    credential_class: SessionGrantCredentialClass,
+    #[serde(default)]
+    recovery_binding: Option<SessionGrantRecoveryBinding>,
+    #[serde(default)]
+    bootstrap_binding: Option<SessionGrantBootstrapBinding>,
+    #[serde(default)]
+    holder_binding: Option<SessionGrantHolderBinding>,
+}
+
+impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
+    type Error = String;
+
+    fn try_from(wire: SessionGrantIntrospectGrantWire) -> std::result::Result<Self, Self::Error> {
+        let binding_is_closed = match wire.credential_class {
+            SessionGrantCredentialClass::Standard => {
+                wire.holder_binding.is_some()
+                    && wire.bootstrap_binding.is_none()
+                    && wire.recovery_binding.is_none()
+            }
+            SessionGrantCredentialClass::DeviceBootstrap => {
+                wire.bootstrap_binding.is_some()
+                    && wire.holder_binding.is_none()
+                    && wire.recovery_binding.is_none()
+            }
+            SessionGrantCredentialClass::RecoveryRestricted => {
+                wire.recovery_binding.is_some()
+                    && wire.holder_binding.is_none()
+                    && wire.bootstrap_binding.is_none()
+            }
+        };
+        if !binding_is_closed {
+            return Err(
+                "session grant introspection binding must match credential_class as a closed XOR"
+                    .to_owned(),
+            );
+        }
+
+        Ok(Self {
+            id: wire.id,
+            issuer: wire.issuer,
+            subject: wire.subject,
+            service_account_id: wire.service_account_id,
+            device_id: wire.device_id,
+            audience: wire.audience,
+            scopes: wire.scopes,
+            expires_at: wire.expires_at,
+            revoked_at: wire.revoked_at,
+            revocation_ref: wire.revocation_ref,
+            session_public_key: wire.session_public_key,
+            cnf_jkt: wire.cnf_jkt,
+            credential_class: wire.credential_class,
+            recovery_binding: wire.recovery_binding,
+            bootstrap_binding: wire.bootstrap_binding,
+            holder_binding: wire.holder_binding,
+        })
+    }
 }
 
 /// `ak.gate.account.command.introspect_session_grant` request. Exactly one of
 /// `id` / `grant_jwt` identifies the grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionGrantIntrospectRequestBody {
+#[serde(untagged)]
+pub enum SessionGrantIntrospectRequestBody {
+    ById(SessionGrantIntrospectById),
+    ByJwt(SessionGrantIntrospectByJwt),
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantIntrospectById {
+    pub id: SessionGrantId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<SessionGrantId>,
+    pub audience: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant_jwt: Option<String>,
+    pub proof: Option<SessionGrantIntrospectionProof>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantIntrospectByJwt {
+    pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -492,6 +577,7 @@ pub struct SessionGrantIntrospectRequestBody {
 /// introspection never consumes the grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantIntrospectOutcome {
     pub active: bool,
     pub status: SessionGrantIntrospectStatus,
@@ -500,4 +586,206 @@ pub struct SessionGrantIntrospectOutcome {
     pub one_time_use_consumed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant: Option<SessionGrantIntrospectGrant>,
+}
+
+#[cfg(test)]
+mod session_grant_contract_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const GRANT_ID: &str = "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW";
+    const CANONICAL_JWK: &str =
+        r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#;
+
+    #[test]
+    fn issue_outcome_requires_identity_key_and_audience() {
+        let valid = json!({
+            "principal_id": "did:example:alice",
+            "session_grant": "signed.jwt",
+            "expires_at": "2026-08-08T12:00:00.000Z",
+            "grant_id": GRANT_ID,
+            "session_public_key": CANONICAL_JWK,
+            "audience": "did:example:service"
+        });
+        assert!(serde_json::from_value::<SessionGrantOutcome>(valid.clone()).is_ok());
+
+        for field in ["grant_id", "session_public_key", "audience"] {
+            let mut missing = valid.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<SessionGrantOutcome>(missing).is_err(),
+                "{field} must be required"
+            );
+        }
+
+        let mut noncanonical = valid;
+        noncanonical["session_public_key"] = json!(
+            r#"{"kty":"OKP", "crv":"Ed25519","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#
+        );
+        assert!(serde_json::from_value::<SessionGrantOutcome>(noncanonical).is_err());
+    }
+
+    #[test]
+    fn refresh_request_proof_is_required_and_closed() {
+        let valid = json!({
+            "grant_jwt": "signed.jwt",
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
+            "proof": {
+                "proof_kind": "did_bound_signature",
+                "challenge": "0123456789abcdef",
+                "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
+                "audience": "did:example:service",
+                "issued_at": "2026-08-08T11:59:00.000Z",
+                "expires_at": "2026-08-08T12:04:00.000Z",
+                "signature": "detached.jws"
+            }
+        });
+        assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(valid.clone()).is_ok());
+
+        let mut missing_proof = valid.clone();
+        missing_proof.as_object_mut().unwrap().remove("proof");
+        assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(missing_proof).is_err());
+
+        let mut open_proof = valid;
+        open_proof["proof"]["retry_nonce"] = json!("must-not-be-accepted");
+        assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(open_proof).is_err());
+    }
+
+    #[test]
+    fn introspection_selector_is_exactly_one_and_status_includes_superseded() {
+        let by_id = json!({"id": GRANT_ID, "audience": "did:example:service"});
+        let by_jwt = json!({"grant_jwt": "signed.jwt"});
+        assert!(serde_json::from_value::<SessionGrantIntrospectRequestBody>(by_id).is_ok());
+        assert!(serde_json::from_value::<SessionGrantIntrospectRequestBody>(by_jwt).is_ok());
+        assert!(
+            serde_json::from_value::<SessionGrantIntrospectRequestBody>(json!({
+                "id": GRANT_ID,
+                "grant_jwt": "signed.jwt"
+            }))
+            .is_err()
+        );
+        assert!(serde_json::from_value::<SessionGrantIntrospectRequestBody>(json!({})).is_err());
+        assert_eq!(
+            serde_json::from_value::<SessionGrantIntrospectStatus>(json!("superseded")).unwrap(),
+            SessionGrantIntrospectStatus::Superseded
+        );
+    }
+
+    fn introspect_grant_base(credential_class: &str) -> Value {
+        json!({
+            "id": GRANT_ID,
+            "issuer": "did:example:issuer",
+            "subject": "did:example:alice",
+            "service_account_id": "account-1",
+            "audience": "did:example:service",
+            "scopes": [],
+            "expires_at": "2026-08-08T12:04:00.000Z",
+            "revocation_ref": "ledger-row-1",
+            "session_public_key": CANONICAL_JWK,
+            "cnf_jkt": "holder-thumbprint",
+            "credential_class": credential_class
+        })
+    }
+
+    fn holder_binding() -> Value {
+        json!({
+            "kind": "human_device",
+            "device_binding": "accepted-device-binding"
+        })
+    }
+
+    fn recovery_binding() -> Value {
+        json!({
+            "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000042",
+            "policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
+            "policy_version": 1
+        })
+    }
+
+    fn bootstrap_binding() -> Value {
+        json!({
+            "mode": "founding",
+            "credential_kind": "device_bootstrap",
+            "principal_id": "did:example:alice",
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
+            "device_key_digest": format!("sha256:{}", "11".repeat(32)),
+            "transaction_id": "bootstrap-transaction-1",
+            "holder_jkt": format!("sha256:{}", "22".repeat(32)),
+            "canonical_request_digest": format!("sha256:{}", "33".repeat(32)),
+            "founding_batch_digest": format!("sha256:{}", "44".repeat(32)),
+            "founding_event_ids": [
+                "ak:event:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
+            ],
+            "allowed_operation_ids": ["ak.gate.account.command.register"],
+            "credential_expires_at": "2026-08-08T12:04:00.000Z",
+            "bootstrap_transaction_expires_at": "2026-08-08T12:05:00.000Z"
+        })
+    }
+
+    #[test]
+    fn introspection_grant_enforces_credential_class_binding_xor() {
+        let cases = [
+            ("standard", "holder_binding", holder_binding()),
+            ("device_bootstrap", "bootstrap_binding", bootstrap_binding()),
+            (
+                "recovery_restricted",
+                "recovery_binding",
+                recovery_binding(),
+            ),
+        ];
+
+        for (credential_class, field, binding) in cases {
+            let mut valid = introspect_grant_base(credential_class);
+            valid[field] = binding;
+            assert!(
+                serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).is_ok(),
+                "valid {credential_class} binding must decode"
+            );
+
+            let mut missing = valid.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<SessionGrantIntrospectGrant>(missing).is_err(),
+                "{credential_class} must require {field}"
+            );
+
+            let mixed_field = if field == "holder_binding" {
+                "recovery_binding"
+            } else {
+                "holder_binding"
+            };
+            valid[mixed_field] = if mixed_field == "holder_binding" {
+                holder_binding()
+            } else {
+                recovery_binding()
+            };
+            assert!(
+                serde_json::from_value::<SessionGrantIntrospectGrant>(valid).is_err(),
+                "{credential_class} must reject mixed bindings"
+            );
+        }
+    }
+
+    #[test]
+    fn refresh_and_introspection_scopes_are_required() {
+        let mut introspect = introspect_grant_base("standard");
+        introspect["holder_binding"] = holder_binding();
+        introspect.as_object_mut().unwrap().remove("scopes");
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(introspect).is_err());
+
+        let mut refresh = json!({
+            "grant_id": GRANT_ID,
+            "grant_jwt": "successor.jwt",
+            "session_public_key": CANONICAL_JWK,
+            "expires_at": "2026-08-08T12:04:00.000Z",
+            "audience": "did:example:service",
+            "scopes": [],
+            "dpop_jkt": "holder-thumbprint",
+            "previous_grant_id": GRANT_ID
+        });
+        assert!(serde_json::from_value::<SessionGrantRefreshOutcome>(refresh.clone()).is_ok());
+        refresh.as_object_mut().unwrap().remove("scopes");
+        assert!(serde_json::from_value::<SessionGrantRefreshOutcome>(refresh).is_err());
+    }
 }

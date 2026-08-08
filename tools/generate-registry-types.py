@@ -101,6 +101,102 @@ def ensure_unique(
         seen[name] = value
 
 
+def generate_digest_suite_codes(artifacts: Path) -> str:
+    relative = "registry/digest-suite-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(
+        (row for row in artifact["suites"] if row["status"] == "active"),
+        key=lambda row: row["wire_code"],
+    )
+    ensure_unique(rows, "canonical_id")
+    seen_codes: set[int] = set()
+    for row in rows:
+        code = int(row["wire_code"])
+        if code in seen_codes:
+            raise ValueError(f"duplicate active digest-suite wire_code: {code}")
+        if code == 0 or code & 0xF0:
+            raise ValueError(
+                f"active v1 suite-tagged full-digest wire_code must have high nibble zero: 0x{code:02x}"
+            )
+        if int(row["digest_length_bytes"]) != 32:
+            raise ValueError(
+                f"active 33-byte token suite {row['canonical_id']!r} does not have a 32-byte digest"
+            )
+        seen_codes.add(code)
+
+    lines = header([(relative, artifact, digest)], f"active={len(rows)}")
+    lines.extend(
+        [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(u8)]",
+            "pub enum DigestSuiteCode {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['canonical_id'])} = 0x{int(row['wire_code']):02x},")
+    lines.extend(["}", "", "impl DigestSuiteCode {"])
+    lines.extend(
+        [
+            "    pub const fn as_u8(self) -> u8 { self as u8 }",
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['canonical_id'])} => {rust_string(row['canonical_id'])},"
+        )
+    lines.extend(["        }", "    }", ""])
+    lines.extend(
+        [
+            "    pub const fn from_digest_suite(suite: arkret_canonical::DigestSuite) -> Self {",
+            "        match suite {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            arkret_canonical::DigestSuite::{variant(row['canonical_id'])} => Self::{variant(row['canonical_id'])},"
+        )
+    lines.extend(["        }", "    }", ""])
+    lines.extend(
+        [
+            "    pub const fn digest_suite(self) -> arkret_canonical::DigestSuite {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['canonical_id'])} => arkret_canonical::DigestSuite::{variant(row['canonical_id'])},"
+        )
+    lines.extend(["        }", "    }", "}", ""])
+    lines.extend(
+        [
+            "impl TryFrom<u8> for DigestSuiteCode {",
+            "    type Error = crate::IdentifierError;",
+            "",
+            "    fn try_from(value: u8) -> crate::Result<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            0x{int(row['wire_code']):02x} => Ok(Self::{variant(row['canonical_id'])}),"
+        )
+    lines.extend(
+        [
+            "            _ => Err(crate::IdentifierError::InvalidId(format!(",
+            "                \"unsupported digest suite code: 0x{value:02x}\"",
+            "            ))),",
+            "        }",
+            "    }",
+            "}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def generate_operations(artifacts: Path) -> str:
     relative = "registry/operation-registry.json"
     artifact, digest = load(artifacts / relative)
@@ -2338,6 +2434,7 @@ def generate_did_freshness_profiles(artifacts: Path) -> str:
 
 
 GENERATORS = {
+    "crates/identifiers/src/generated/digest_suite_codes.rs": generate_digest_suite_codes,
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
     "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
     "crates/wire/src/generated/operation_ids.rs": generate_operations,

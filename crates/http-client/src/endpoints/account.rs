@@ -3,7 +3,7 @@
 
 use arkret_models_collaboration::account_lifecycle::{
     AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
-    AccountView,
+    AccountView, SessionRevokeOutcome, SessionRevokeRequestBody,
 };
 use arkret_models_collaboration::contact_operations::{
     ContactAcceptRequestBody, ContactOperationOutcome, ContactOperationRequestBody,
@@ -18,8 +18,9 @@ use arkret_models_collaboration::http_bodies::{
     DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
-    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
-    SessionGrantRequestBody, SessionGrantRequestProof,
+    SessionGrantIntrospectOutcome, SessionGrantIntrospectRequestBody, SessionGrantOutcome,
+    SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
+    SessionGrantRequestProof,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
@@ -79,56 +80,42 @@ where
         ));
     }
 
-    let issued_at = Utc::now();
-    let expires_at = issued_at + Duration::seconds(DID_PROOF_FRESHNESS_WINDOW_SECS);
-    let request_binding = serde_json::json!({
-        "principal_id": principal_id.as_str(),
-        "device_id": device_id.as_str(),
-    });
-    let request_canonical_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
-        &arkret_canonical::canonical::canonical_json_bytes(&request_binding)?,
-    ))?;
-    let signing_payload = serde_json::json!({
-        "kind": "ak.did.proof",
-        "purpose": "ak.session.grant",
-        "did": principal_id.as_str(),
-        "device_id": device_id.as_str(),
-        "audience": audience.as_str(),
-        "challenge": challenge,
-        "request_canonical_digest": request_canonical_digest.as_str(),
-        "issued_at": arkret_canonical::canonical::format_timestamp_canonical(issued_at),
-        "expires_at": arkret_canonical::canonical::format_timestamp_canonical(expires_at),
-    });
-    let payload_bytes = arkret_canonical::canonical::canonical_json_bytes(&signing_payload)?;
-    let move_sig = signer.sign_payload(&payload_bytes)?;
+    let expires_at = Utc::now() + Duration::seconds(DID_PROOF_FRESHNESS_WINDOW_SECS);
+    let mut request = SessionGrantRequestBody {
+        principal_id,
+        device_id: Some(device_id),
+        requested_scope: Vec::new(),
+        agent_key_authorization_ref: None,
+        agent_scope_request: None,
+        requested_scope_disclosure: None,
+        dpop_binding_proof: None,
+        applet_authority: None,
+        proof: SessionGrantRequestProof {
+            proof_kind: SessionGrantProofKind::DidBoundSignature,
+            challenge: challenge.to_owned(),
+            request_canonical_digest: Hash::new(format!("sha256:{}", "00".repeat(32)))?,
+            audience,
+            expires_at: Some(expires_at),
+            signature: String::new(),
+            verification_method: None,
+            issuer: None,
+            client_id: None,
+            redirect_uri: None,
+            state: None,
+            nonce: None,
+            authorization_code: None,
+            code_verifier: None,
+        },
+    };
 
-    client
-        .auth_issue_session_grant(&SessionGrantRequestBody {
-            principal_id,
-            device_id: Some(device_id),
-            requested_scope: Vec::new(),
-            agent_key_authorization_ref: None,
-            agent_scope_request: None,
-            dpop_binding_proof: None,
-            applet_authority: None,
-            proof: SessionGrantRequestProof {
-                proof_kind: SessionGrantProofKind::DidBoundSignature,
-                challenge: challenge.to_owned(),
-                request_canonical_digest,
-                audience,
-                expires_at: Some(expires_at),
-                signature: move_sig.jws,
-                verification_method: None,
-                issuer: None,
-                client_id: None,
-                redirect_uri: None,
-                state: None,
-                nonce: None,
-                authorization_code: None,
-                code_verifier: None,
-            },
-        })
-        .await
+    // Prepare the complete intent once, derive the body-bound request identity,
+    // then finalize its detached proof exactly once. Transport retry below
+    // reuses the resulting canonical body bytes verbatim.
+    request.proof.request_canonical_digest = request.canonical_request_digest()?;
+    let signing_bytes = request.proof.canonical_signing_bytes()?;
+    request.proof.signature = signer.sign_payload(&signing_bytes)?.jws;
+
+    client.auth_issue_session_grant(&request).await
 }
 
 /// Validated account-subscribe frame stream bound to its request context.
@@ -208,7 +195,8 @@ impl Client {
         &self,
         req: &SessionGrantRequestBody,
     ) -> Result<SessionGrantOutcome> {
-        self.post("/_arkret/gate/account/session-grants", req).await
+        self.post_protocol_replay_safe("/_arkret/gate/account/session-grants", req)
+            .await
     }
 
     /// `POST /_arkret/gate/account/session-grants/refresh`
@@ -218,7 +206,27 @@ impl Client {
         &self,
         req: &SessionGrantRefreshRequestBody,
     ) -> Result<SessionGrantRefreshOutcome> {
-        self.post("/_arkret/gate/account/session-grants/refresh", req)
+        self.post_protocol_replay_safe("/_arkret/gate/account/session-grants/refresh", req)
+            .await
+    }
+
+    /// Durable exact-replay session-grant revocation. Retries reuse the same
+    /// canonical request body and proof; no `Idempotency-Key` header is added.
+    pub async fn auth_revoke_session_grant(
+        &self,
+        req: &SessionRevokeRequestBody,
+    ) -> Result<SessionRevokeOutcome> {
+        self.post_protocol_replay_safe("/_arkret/gate/account/session-grants/revoke", req)
+            .await
+    }
+
+    /// Read-only issuer-ledger introspection. Exactly one of grant id or JWT is
+    /// encoded by `SessionGrantIntrospectRequestBody`.
+    pub async fn auth_introspect_session_grant(
+        &self,
+        req: &SessionGrantIntrospectRequestBody,
+    ) -> Result<SessionGrantIntrospectOutcome> {
+        self.post("/_arkret/gate/account/session-grants/introspect", req)
             .await
     }
 
@@ -616,6 +624,446 @@ mod tests {
         let request_line = lines.next().unwrap_or("").to_owned();
         let headers = lines.next().unwrap_or("").to_owned();
         (request_line, headers, body)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn read_http_request(socket: &mut tokio::net::TcpStream) -> Vec<u8> {
+        use tokio::io::AsyncReadExt;
+
+        let mut raw = Vec::new();
+        let mut buffer = [0u8; 2048];
+        loop {
+            let count = socket.read(&mut buffer).await.unwrap();
+            if count == 0 {
+                break;
+            }
+            raw.extend_from_slice(&buffer[..count]);
+            let Some(header_end) = raw.windows(4).position(|window| window == b"\r\n\r\n") else {
+                continue;
+            };
+            let headers = std::str::from_utf8(&raw[..header_end]).unwrap();
+            let content_length = headers
+                .lines()
+                .find_map(|line| {
+                    line.split_once(':').and_then(|(name, value)| {
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().unwrap())
+                    })
+                })
+                .unwrap_or(0);
+            if raw.len() >= header_end + 4 + content_length {
+                break;
+            }
+        }
+        raw
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn session_grant_request() -> SessionGrantRequestBody {
+        serde_json::from_value(serde_json::json!({
+            "principal_id": "did:example:alice",
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
+            "proof": {
+                "proof_kind": "did_bound_signature",
+                "challenge": "0123456789abcdef",
+                "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
+                "audience": "did:example:service",
+                "expires_at": "2026-08-08T12:04:00.000Z",
+                "signature": "detached.jws"
+            }
+        }))
+        .unwrap()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn session_grant_outcome_json() -> String {
+        serde_json::json!({
+            "principal_id": "did:example:alice",
+            "session_grant": "signed.jwt",
+            "expires_at": "2026-08-08T12:04:00.000Z",
+            "grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+            "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+            "audience": "did:example:service"
+        })
+        .to_string()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn session_grant_refresh_request() -> SessionGrantRefreshRequestBody {
+        serde_json::from_value(serde_json::json!({
+            "grant_jwt": "predecessor.jwt",
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
+            "proof": {
+                "proof_kind": "did_bound_signature",
+                "challenge": "0123456789abcdef",
+                "request_canonical_digest": format!("sha256:{}", "11".repeat(32)),
+                "audience": "did:example:service",
+                "issued_at": "2026-08-08T11:59:00.000Z",
+                "expires_at": "2026-08-08T12:04:00.000Z",
+                "signature": "refresh.detached.jws"
+            }
+        }))
+        .unwrap()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn session_grant_refresh_outcome_json() -> String {
+        serde_json::json!({
+            "grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+            "grant_jwt": "successor.jwt",
+            "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+            "expires_at": "2026-08-08T12:04:00.000Z",
+            "audience": "did:example:service",
+            "scopes": [],
+            "dpop_jkt": "holder-thumbprint",
+            "previous_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
+        })
+        .to_string()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn session_revoke_request() -> SessionRevokeRequestBody {
+        serde_json::from_value(serde_json::json!({
+            "target_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
+        }))
+        .unwrap()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn session_revoke_outcome_json() -> String {
+        serde_json::json!({
+            "revoked_count": 1,
+            "revoked_grant_ids": [
+                "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
+            ]
+        })
+        .to_string()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[derive(Clone, Copy)]
+    enum ReplayTrigger {
+        Timeout,
+        ServiceUnavailable,
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn start_exact_replay_server(
+        trigger: ReplayTrigger,
+        success_body: String,
+    ) -> (
+        std::net::SocketAddr,
+        tokio::task::JoinHandle<(Vec<u8>, Vec<u8>)>,
+    ) {
+        use std::time::Duration as StdDuration;
+
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut first, _) = listener.accept().await.unwrap();
+            let first_raw = read_http_request(&mut first).await;
+            match trigger {
+                ReplayTrigger::Timeout => {
+                    tokio::time::sleep(StdDuration::from_millis(80)).await;
+                }
+                ReplayTrigger::ServiceUnavailable => {
+                    let body = serde_json::json!({
+                        "ok": false,
+                        "error": {"code": "frontier_unavailable", "message": "retry"},
+                        "request_id": "attempt-1"
+                    })
+                    .to_string();
+                    let response = format!(
+                        "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    first.write_all(response.as_bytes()).await.unwrap();
+                }
+            }
+            drop(first);
+
+            let (mut second, _) = listener.accept().await.unwrap();
+            let second_raw = read_http_request(&mut second).await;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                success_body.len(),
+                success_body
+            );
+            second.write_all(response.as_bytes()).await.unwrap();
+            (first_raw, second_raw)
+        });
+        (addr, server)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn exact_replay_client(addr: std::net::SocketAddr, timeout_ms: u64) -> Client {
+        use std::time::Duration as StdDuration;
+
+        Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
+            .allow_insecure_localhost()
+            .timeout(StdDuration::from_millis(timeout_ms))
+            .retry(
+                crate::RetryConfig::standard(1)
+                    .with_base_delay(StdDuration::from_millis(1))
+                    .with_jitter(false),
+            )
+            .build()
+            .unwrap()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn assert_exact_replay_capture(first: &[u8], second: &[u8], expected_path: &str) {
+        let (first_line, first_headers, first_body) = split_request(first);
+        let (second_line, second_headers, second_body) = split_request(second);
+        assert!(first_line.starts_with(&format!("POST {expected_path} ")));
+        assert!(second_line.starts_with(&format!("POST {expected_path} ")));
+        assert_eq!(first_body, second_body);
+        assert!(
+            !first_headers
+                .to_ascii_lowercase()
+                .contains("idempotency-key:")
+        );
+        assert!(
+            !second_headers
+                .to_ascii_lowercase()
+                .contains("idempotency-key:")
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn session_grant_retry_after_commit_timeout_reuses_exact_body_without_idempotency_key() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::time::Duration as StdDuration;
+
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut first, _) = listener.accept().await.unwrap();
+            let first_raw = read_http_request(&mut first).await;
+            // Model a durable commit followed by a lost/late response.
+            tokio::time::sleep(StdDuration::from_millis(80)).await;
+            drop(first);
+
+            let (mut second, _) = listener.accept().await.unwrap();
+            let second_raw = read_http_request(&mut second).await;
+            let body = session_grant_outcome_json();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            second.write_all(response.as_bytes()).await.unwrap();
+            (first_raw, second_raw)
+        });
+
+        let proof_calls = Arc::new(AtomicUsize::new(0));
+        let proof_calls_for_auth = Arc::clone(&proof_calls);
+        let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
+            .allow_insecure_localhost()
+            .auth(crate::Auth::Dpop(crate::DpopAuth::proof_only(move |_| {
+                Ok(format!(
+                    "outer-proof-{}",
+                    proof_calls_for_auth.fetch_add(1, Ordering::SeqCst)
+                ))
+            })))
+            .timeout(StdDuration::from_millis(40))
+            .retry(
+                crate::RetryConfig::standard(1)
+                    .with_base_delay(StdDuration::from_millis(1))
+                    .with_jitter(false),
+            )
+            .build()
+            .unwrap();
+
+        client
+            .auth_issue_session_grant(&session_grant_request())
+            .await
+            .unwrap();
+        let (first, second) = server.await.unwrap();
+        let (_, first_headers, first_body) = split_request(&first);
+        let (_, second_headers, second_body) = split_request(&second);
+        assert_eq!(first_body, second_body);
+        assert!(
+            !first_headers
+                .to_ascii_lowercase()
+                .contains("idempotency-key:")
+        );
+        assert!(
+            !second_headers
+                .to_ascii_lowercase()
+                .contains("idempotency-key:")
+        );
+        let dpop = |headers: &str| {
+            headers
+                .lines()
+                .find_map(|line| {
+                    line.split_once(':')
+                        .filter(|(name, _)| name.eq_ignore_ascii_case("dpop"))
+                        .map(|(_, value)| value.trim().to_owned())
+                })
+                .unwrap()
+        };
+        assert_ne!(dpop(&first_headers), dpop(&second_headers));
+        assert_eq!(proof_calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn session_grant_refresh_timeout_reuses_exact_body_without_idempotency_key() {
+        let (addr, server) =
+            start_exact_replay_server(ReplayTrigger::Timeout, session_grant_refresh_outcome_json())
+                .await;
+        exact_replay_client(addr, 40)
+            .auth_refresh_session_grant(&session_grant_refresh_request())
+            .await
+            .unwrap();
+        let (first, second) = server.await.unwrap();
+        assert_exact_replay_capture(
+            &first,
+            &second,
+            "/_arkret/gate/account/session-grants/refresh",
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn session_grant_revoke_timeout_reuses_exact_body_without_idempotency_key() {
+        let (addr, server) =
+            start_exact_replay_server(ReplayTrigger::Timeout, session_revoke_outcome_json()).await;
+        exact_replay_client(addr, 40)
+            .auth_revoke_session_grant(&session_revoke_request())
+            .await
+            .unwrap();
+        let (first, second) = server.await.unwrap();
+        assert_exact_replay_capture(
+            &first,
+            &second,
+            "/_arkret/gate/account/session-grants/revoke",
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn all_session_grant_mutations_replay_exact_body_after_5xx() {
+        let (addr, server) = start_exact_replay_server(
+            ReplayTrigger::ServiceUnavailable,
+            session_grant_outcome_json(),
+        )
+        .await;
+        exact_replay_client(addr, 1_000)
+            .auth_issue_session_grant(&session_grant_request())
+            .await
+            .unwrap();
+        let (first, second) = server.await.unwrap();
+        assert_exact_replay_capture(&first, &second, "/_arkret/gate/account/session-grants");
+
+        let (addr, server) = start_exact_replay_server(
+            ReplayTrigger::ServiceUnavailable,
+            session_grant_refresh_outcome_json(),
+        )
+        .await;
+        exact_replay_client(addr, 1_000)
+            .auth_refresh_session_grant(&session_grant_refresh_request())
+            .await
+            .unwrap();
+        let (first, second) = server.await.unwrap();
+        assert_exact_replay_capture(
+            &first,
+            &second,
+            "/_arkret/gate/account/session-grants/refresh",
+        );
+
+        let (addr, server) = start_exact_replay_server(
+            ReplayTrigger::ServiceUnavailable,
+            session_revoke_outcome_json(),
+        )
+        .await;
+        exact_replay_client(addr, 1_000)
+            .auth_revoke_session_grant(&session_revoke_request())
+            .await
+            .unwrap();
+        let (first, second) = server.await.unwrap();
+        assert_exact_replay_capture(
+            &first,
+            &second,
+            "/_arkret/gate/account/session-grants/revoke",
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn terminal_session_grant_replay_is_not_automatically_reissued() {
+        use std::time::Duration as StdDuration;
+
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let _ = read_http_request(&mut socket).await;
+            let body = serde_json::json!({
+                "ok": false,
+                "error": {
+                    "code": "session_grant_replay_terminal",
+                    "message": "recorded grant is superseded",
+                    "details": {
+                        "grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+                        "state": "superseded"
+                    }
+                },
+                "request_id": "request-1"
+            })
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            socket.write_all(response.as_bytes()).await.unwrap();
+            drop(socket);
+
+            tokio::time::timeout(StdDuration::from_millis(80), listener.accept())
+                .await
+                .is_ok()
+        });
+
+        let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
+            .allow_insecure_localhost()
+            .retry(
+                crate::RetryConfig::standard(1)
+                    .with_base_delay(StdDuration::from_millis(1))
+                    .with_jitter(false),
+            )
+            .build()
+            .unwrap();
+        let error = client
+            .auth_issue_session_grant(&session_grant_request())
+            .await
+            .unwrap_err();
+        match error {
+            Error::Api { error, .. } => assert!(
+                error
+                    .session_grant_replay_terminal_details()
+                    .unwrap()
+                    .is_some()
+            ),
+            other => panic!("unexpected error: {other}"),
+        }
+        assert!(
+            !server.await.unwrap(),
+            "terminal outcome must not be retried"
+        );
     }
 
     #[test]

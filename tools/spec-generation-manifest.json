@@ -2,6 +2,17 @@
   "version": 1,
   "entries": [
     {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/identifiers/src/generated/digest_suite_codes.rs"
+      ],
+      "owner": "arkret-identifiers",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/digest-suite-registry.json"
+      ]
+    },
+    {
       "generator": "event-kinds",
       "outputs": [
         "crates/wire/src/generated/event_kinds.rs"

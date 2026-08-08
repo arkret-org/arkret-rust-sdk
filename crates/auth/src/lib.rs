@@ -21,8 +21,8 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 
 pub use admin_key::AdminKeyStore;
-use arkret_models_identity::DidDocument;
-use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof, SessionGrantId};
+use arkret_models_identity::{DidDocument, SignedSessionGrantClaims};
+use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof};
 use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
 use error::AuthError as Error;
@@ -229,7 +229,7 @@ pub struct SessionPrincipalBinding {
 pub fn is_principal_control_event(event_kind: &str) -> bool {
     matches!(
         event_kind,
-        EventKind::DEVICE_AUTHORIZE | EventKind::DEVICE_REVOKE | EventKind::SESSION_GRANT
+        EventKind::DEVICE_AUTHORIZE | EventKind::DEVICE_REVOKE
     )
 }
 

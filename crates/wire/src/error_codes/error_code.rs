@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.3;
-//! sha256=c3b1f928160579700b734e8c7ff1d25a56a739e1991e1263567a8a747ecc83df Entries: error_codes=272
+//! Input: registry/error-code-registry.json; version=2026-08-08.4;
+//! sha256=da8f13c84bd0fbacdbb93a1a96f797d9fa38f612533b41e33e435eed21c0e818 Entries: error_codes=275
 
 use serde::{Deserialize, Serialize};
 
@@ -258,6 +258,9 @@ pub enum ErrorCode {
     ServiceRegistrationRejected,
     ServiceUnavailable,
     SessionGrantNotFound,
+    SessionGrantReplayExpired,
+    SessionGrantReplayIndeterminate,
+    SessionGrantReplayTerminal,
     SessionLoggedOut,
     SessionRevokeSelectorConflict,
     SfuNotAllowed,
@@ -544,6 +547,9 @@ impl ErrorCode {
         Self::ServiceRegistrationRejected,
         Self::ServiceUnavailable,
         Self::SessionGrantNotFound,
+        Self::SessionGrantReplayExpired,
+        Self::SessionGrantReplayIndeterminate,
+        Self::SessionGrantReplayTerminal,
         Self::SessionLoggedOut,
         Self::SessionRevokeSelectorConflict,
         Self::SfuNotAllowed,
@@ -846,6 +852,10 @@ impl ErrorCode {
     pub const SERVICE_REGISTRATION_REJECTED: &'static str = "service_registration_rejected";
     pub const SERVICE_UNAVAILABLE: &'static str = "service_unavailable";
     pub const SESSION_GRANT_NOT_FOUND: &'static str = "session_grant_not_found";
+    pub const SESSION_GRANT_REPLAY_EXPIRED: &'static str = "session_grant_replay_expired";
+    pub const SESSION_GRANT_REPLAY_INDETERMINATE: &'static str =
+        "session_grant_replay_indeterminate";
+    pub const SESSION_GRANT_REPLAY_TERMINAL: &'static str = "session_grant_replay_terminal";
     pub const SESSION_LOGGED_OUT: &'static str = "session_logged_out";
     pub const SESSION_REVOKE_SELECTOR_CONFLICT: &'static str = "session_revoke_selector_conflict";
     pub const SFU_NOT_ALLOWED: &'static str = "sfu_not_allowed";
@@ -1139,6 +1149,9 @@ impl ErrorCode {
             Self::ServiceRegistrationRejected => "service_registration_rejected",
             Self::ServiceUnavailable => "service_unavailable",
             Self::SessionGrantNotFound => "session_grant_not_found",
+            Self::SessionGrantReplayExpired => "session_grant_replay_expired",
+            Self::SessionGrantReplayIndeterminate => "session_grant_replay_indeterminate",
+            Self::SessionGrantReplayTerminal => "session_grant_replay_terminal",
             Self::SessionLoggedOut => "session_logged_out",
             Self::SessionRevokeSelectorConflict => "session_revoke_selector_conflict",
             Self::SfuNotAllowed => "sfu_not_allowed",
@@ -1454,6 +1467,9 @@ impl ErrorCode {
             "service_registration_rejected" => Some(Self::ServiceRegistrationRejected),
             "service_unavailable" => Some(Self::ServiceUnavailable),
             "session_grant_not_found" => Some(Self::SessionGrantNotFound),
+            "session_grant_replay_expired" => Some(Self::SessionGrantReplayExpired),
+            "session_grant_replay_indeterminate" => Some(Self::SessionGrantReplayIndeterminate),
+            "session_grant_replay_terminal" => Some(Self::SessionGrantReplayTerminal),
             "session_logged_out" => Some(Self::SessionLoggedOut),
             "session_revoke_selector_conflict" => Some(Self::SessionRevokeSelectorConflict),
             "sfu_not_allowed" => Some(Self::SfuNotAllowed),
@@ -3335,6 +3351,30 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &["auth_decision", "service_call"],
         description: "`ak.gate.account.command.revoke_session` targeted a session grant that is unknown, already inactive, or not owned by the current principal. Implementations SHOULD use a uniform response shape that does not disclose another principal's session grant existence.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::SessionGrantReplayExpired,
+        http_status: 410,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A durable exact-replay lookup found the original SessionGrant issuance outcome, but its immutable expires_at is past. The response details MUST include grant_id and state=expired. The issuer MUST NOT return the expired credential as success or issue a replacement under the same request identity; the client must perform full authentication with a new one-shot proof and request identity.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::SessionGrantReplayIndeterminate,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The stable SessionGrant request identity is older than the issuer's durable replay-record retention window, so the issuer cannot prove whether the one-shot request previously committed. It MUST fail closed and MUST NOT treat the request as first issuance; the client must obtain a new one-shot proof and request identity.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::SessionGrantReplayTerminal,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A durable exact-replay lookup found the original SessionGrant issuance outcome in revoked or superseded state. The response details MUST include grant_id and the exact terminal state. The issuer MUST NOT return the credential as success or issue a replacement under the same request identity; the client must perform full authentication with a new one-shot proof and request identity.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionLoggedOut,

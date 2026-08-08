@@ -205,7 +205,20 @@ impl Client {
         &self,
         builder: RequestBuilder,
     ) -> Result<T> {
-        self.send_json_with_headers(builder)
+        self.send_json_with_headers_and_replay_policy(builder, false)
+            .await
+            .map(|(body, _headers)| body)
+    }
+
+    /// Send a request whose protocol operation registry defines durable exact
+    /// replay from a stable request identity embedded in the canonical body.
+    /// This is intentionally crate-private: ordinary POSTs must not opt into
+    /// retry merely because their body happens to be cloneable.
+    pub(crate) async fn send_json_protocol_replay_safe<T: DeserializeOwned>(
+        &self,
+        builder: RequestBuilder,
+    ) -> Result<T> {
+        self.send_json_with_headers_and_replay_policy(builder, true)
             .await
             .map(|(body, _headers)| body)
     }
@@ -214,7 +227,18 @@ impl Client {
         &self,
         builder: RequestBuilder,
     ) -> Result<(T, HeaderMap)> {
-        let response = self.execute(builder).await?;
+        self.send_json_with_headers_and_replay_policy(builder, false)
+            .await
+    }
+
+    async fn send_json_with_headers_and_replay_policy<T: DeserializeOwned>(
+        &self,
+        builder: RequestBuilder,
+        protocol_replay_safe: bool,
+    ) -> Result<(T, HeaderMap)> {
+        let response = self
+            .execute_with_replay_policy(builder, protocol_replay_safe)
+            .await?;
         let status = response.status();
         if !status.is_success() {
             let error = error_envelope_from_response(response).await;
@@ -352,7 +376,21 @@ impl Client {
     }
 
     fn build_signed_request(&self, builder: RequestBuilder) -> Result<reqwest::Request> {
-        let request = builder.build().map_err(transport_error)?;
+        let mut request = builder.build().map_err(transport_error)?;
+        // The inner operation proof and canonical body remain immutable across
+        // exact replay. DPoP is an outer per-HTTP-attempt proof and may carry a
+        // fresh jti/iat while binding the same method, target and access token.
+        if request.headers().contains_key("DPoP")
+            && let Some(Auth::Dpop(auth)) = &self.auth
+        {
+            let proof = auth.proof_for(request.method(), request.url())?;
+            validate_header_value("DPoP proof", &proof)?;
+            request.headers_mut().insert(
+                "DPoP",
+                HeaderValue::from_str(&proof)
+                    .map_err(|error| Error::Protocol(format!("DPoP proof: {error}")))?,
+            );
+        }
         self.sign_http_message(request)
     }
 
@@ -363,6 +401,15 @@ impl Client {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
+        self.execute_with_replay_policy(builder, false).await
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn execute_with_replay_policy(
+        &self,
+        builder: RequestBuilder,
+        protocol_replay_safe: bool,
+    ) -> Result<Response> {
         validate_request_builder(&builder)?;
         #[cfg(feature = "tracing")]
         let trace = request_trace_fields(&builder);
@@ -403,28 +450,30 @@ impl Client {
             return Ok(response);
         };
 
-        // Blind resends of a non-idempotent request can duplicate a write
-        // the server already executed (a 5xx or timeout does not prove the
-        // request had no effect). Safe/idempotent HTTP methods are always
-        // retryable; POST/PATCH only when the caller attached an
-        // `Idempotency-Key`. Everything else only retries connect-level
-        // failures, where the request provably never reached the server.
-        let idempotent = template
-            .try_clone()
-            .and_then(|clone| clone.build().ok())
-            .map(|request| {
-                matches!(
-                    *request.method(),
-                    Method::GET
-                        | Method::HEAD
-                        | Method::OPTIONS
-                        | Method::TRACE
-                        | Method::PUT
-                        | Method::DELETE
-                ) || request.method().as_str() == "QUERY"
-                    || request.headers().contains_key(HEADER_IDEMPOTENCY_KEY)
-            })
-            .unwrap_or(false);
+        // Blind resends of a non-idempotent request can duplicate a write the
+        // server already executed (a 5xx or timeout does not prove the request
+        // had no effect). Safe/idempotent HTTP methods are always retryable;
+        // POST/PATCH require either an `Idempotency-Key` or the crate-private,
+        // operation-specific durable protocol replay contract. Everything else
+        // only retries connect-level failures, where the request provably never
+        // reached the server.
+        let retry_safe = protocol_replay_safe
+            || template
+                .try_clone()
+                .and_then(|clone| clone.build().ok())
+                .map(|request| {
+                    matches!(
+                        *request.method(),
+                        Method::GET
+                            | Method::HEAD
+                            | Method::OPTIONS
+                            | Method::TRACE
+                            | Method::PUT
+                            | Method::DELETE
+                    ) || request.method().as_str() == "QUERY"
+                        || request.headers().contains_key(HEADER_IDEMPOTENCY_KEY)
+                })
+                .unwrap_or(false);
 
         let mut attempts = 0usize;
         loop {
@@ -434,7 +483,7 @@ impl Client {
             let attempt_request = self.build_signed_request(attempt_builder)?;
             match self.http.execute(attempt_request).await {
                 Ok(response)
-                    if idempotent
+                    if retry_safe
                         && attempts < self.retry.max_retries
                         && self.retry.should_retry_status(response.status()) =>
                 {
@@ -473,9 +522,10 @@ impl Client {
                     if attempts < self.retry.max_retries && self.retry.retry_network_errors =>
                 {
                     attempts += 1;
-                    // Timeouts may fire after the server received the
-                    // request; only idempotent requests may resend then.
-                    let retryable = error.is_connect() || (idempotent && error.is_timeout());
+                    // Timeouts may fire after the server received the request;
+                    // only HTTP-idempotent or protocol-replay-safe requests may
+                    // resend then.
+                    let retryable = error.is_connect() || (retry_safe && error.is_timeout());
                     if !retryable {
                         #[cfg(feature = "tracing")]
                         if let Some(trace) = &trace {
@@ -527,6 +577,15 @@ impl Client {
     /// retry on top via `wasm-bindgen-futures` if they need it.
     #[cfg(target_arch = "wasm32")]
     pub(crate) async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
+        self.execute_with_replay_policy(builder, false).await
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    async fn execute_with_replay_policy(
+        &self,
+        builder: RequestBuilder,
+        _protocol_replay_safe: bool,
+    ) -> Result<Response> {
         validate_request_builder(&builder)?;
         // Surface the platform parity gap instead of silently ignoring the
         // caller's RetryConfig (see `ClientBuilder::retry` / `RetryConfig`

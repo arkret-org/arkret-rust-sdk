@@ -8,67 +8,29 @@ use super::*;
 /// identity metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionGrantPayload {
-    /// Principal or agent DID authorized by this grant.
-    pub subject: Did,
-    pub audience: Did,
-    pub scopes: Vec<String>,
-    pub session_id: String,
-    /// JWT `jti`, equal to the `ak:session_grant:` typed ID obtained by
-    /// retyping the accepted `ak.session.grant` EventId's full 44-character token.
-    pub grant_jti: SessionGrantId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cnf: Option<SessionGrantConfirmation>,
-}
-
-/// RFC 9449 / RFC 7800 confirmation claim for DPoP-bound session grants.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SessionGrantConfirmation {
-    pub jkt: String,
+    #[serde(flatten)]
+    pub claims: SignedSessionGrantClaims,
 }
 
 impl SessionGrantPayload {
     /// Validate the payload before it is signed or persisted.
     pub fn validate(&self) -> Result<()> {
-        if self.scopes.is_empty() {
-            return Err(Error::Protocol(
-                "session grant scopes must not be empty".to_owned(),
-            ));
-        }
-        if self.session_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "session grant session_id must not be empty".to_owned(),
-            ));
-        }
-        if let Some(cnf) = &self.cnf
-            && cnf.jkt.trim().is_empty()
-        {
-            return Err(Error::Protocol(
-                "session grant cnf.jkt must not be empty".to_owned(),
-            ));
-        }
-        if self.expires_at <= self.issued_at {
-            return Err(Error::Protocol(
-                "session grant expires_at must be after issued_at".to_owned(),
-            ));
-        }
-        Ok(())
+        self.claims
+            .validate()
+            .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     /// Return the Principal Server session binding represented by this grant.
     pub fn principal_binding(&self) -> Result<SessionPrincipalBinding> {
-        let device_id = primary_device_id_from_scopes(&self.scopes).ok_or_else(|| {
+        let device_id = primary_device_id_from_scopes(&self.claims.scopes).ok_or_else(|| {
             Error::Protocol("session grant has no device scope for principal binding".to_owned())
         })?;
         Ok(SessionPrincipalBinding {
-            session_id: self.session_id.clone(),
-            principal_id: self.subject.clone(),
+            session_id: self.claims.session_id.clone(),
+            principal_id: self.claims.subject.clone(),
             device_id,
-            created_at: self.issued_at,
-            expires_at: self.expires_at,
+            created_at: self.claims.not_before,
+            expires_at: self.claims.expires_at,
         })
     }
 }
@@ -115,8 +77,10 @@ impl SessionGrant {
             payload: self.payload,
             grant_hash: self.grant_hash,
             created_at: Utc::now(),
+            state: SessionGrantProjectionState::Active,
             revoked_at: None,
             revoke_reason: None,
+            successor_session_grant_id: None,
         }
     }
 }
@@ -193,28 +157,58 @@ pub fn verify_session_grant_with_verifier(
     Ok(verification)
 }
 
-/// Durable session grant record. Token material is represented by hash only.
+/// Freshness-bounded local projection of the Account Authority issuer ledger.
+///
+/// This helper is not a second lifecycle authority. A Principal Server must
+/// refresh it through authenticated introspection before its deployment
+/// freshness ceiling and must fail closed when that is impossible.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionGrantRecord {
     pub payload: SessionGrantPayload,
     pub grant_hash: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
+    pub state: SessionGrantProjectionState,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoke_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub successor_session_grant_id: Option<arkret_wire::SessionGrantId>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantProjectionState {
+    Active,
+    Revoked,
+    Superseded,
 }
 
 impl SessionGrantRecord {
     pub fn active(&self, now: DateTime<Utc>) -> bool {
-        self.revoked_at.is_none() && now < self.payload.expires_at
+        matches!(self.state, SessionGrantProjectionState::Active)
+            && self.revoked_at.is_none()
+            && now < self.payload.claims.expires_at
     }
 
     pub fn revoke(&mut self, revoked_at: DateTime<Utc>, reason: impl Into<String>) {
+        self.state = SessionGrantProjectionState::Revoked;
         self.revoked_at = Some(revoked_at);
         self.revoke_reason = Some(reason.into());
+        self.successor_session_grant_id = None;
+    }
+
+    pub fn supersede(
+        &mut self,
+        superseded_at: DateTime<Utc>,
+        successor: arkret_wire::SessionGrantId,
+    ) {
+        self.state = SessionGrantProjectionState::Superseded;
+        self.revoked_at = Some(superseded_at);
+        self.revoke_reason = Some("superseded".to_owned());
+        self.successor_session_grant_id = Some(successor);
     }
 }
 
@@ -224,6 +218,7 @@ impl SessionGrantRecord {
 pub enum SessionGrantNotificationKind {
     Created,
     Revoked,
+    Superseded,
 }
 
 /// Idempotent notification sent from an identity provider to Principal Servers.
@@ -247,10 +242,19 @@ impl PrincipalSessionGrantNotification {
         }
         self.record.payload.validate()?;
         if matches!(self.kind, SessionGrantNotificationKind::Revoked)
-            && self.record.revoked_at.is_none()
+            && (!matches!(self.record.state, SessionGrantProjectionState::Revoked)
+                || self.record.revoked_at.is_none())
         {
             return Err(Error::Protocol(
                 "revoked session grant notification must include revoked_at".to_owned(),
+            ));
+        }
+        if matches!(self.kind, SessionGrantNotificationKind::Superseded)
+            && (!matches!(self.record.state, SessionGrantProjectionState::Superseded)
+                || self.record.successor_session_grant_id.is_none())
+        {
+            return Err(Error::Protocol(
+                "superseded session grant projection must include its successor".to_owned(),
             ));
         }
         Ok(())

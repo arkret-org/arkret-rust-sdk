@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.10;
-//! sha256=949f87f2b5a7a8e67693461e634948f3cf9e8a33ee53d6295daa0ddb43a0eb67 Input: registry/
-//! operations-error-mapping.json; version=2026-08-08.1;
-//! sha256=c839686d501c9533339461c6945c0481cb350887433262f160071e4b9cc56a85 Input: registry/
-//! error-code-registry.json; version=2026-08-08.3;
-//! sha256=c3b1f928160579700b734e8c7ff1d25a56a739e1991e1263567a8a747ecc83df Entries: operations=223
+//! Input: registry/operation-registry.json; version=2026-08-08.14;
+//! sha256=df7e922827106a15db0ee52d7818f0a8cef9b64e86ef220d357212acf8f82e55 Input: registry/
+//! operations-error-mapping.json; version=2026-08-08.4;
+//! sha256=a77d7120c162d37574d1511525c953f703c9e466bc1f579586b73322662b1aa2 Input: registry/
+//! error-code-registry.json; version=2026-08-08.4;
+//! sha256=da8f13c84bd0fbacdbb93a1a96f797d9fa38f612533b41e33e435eed21c0e818 Entries: operations=223
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -233,6 +233,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::AudienceUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::PrincipalUnknown),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayExpired),
+            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayTerminal),
+            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayIndeterminate),
             OperationSpecificError::ReasonCode(ReasonCode::VerificationMethodPrincipalMismatch),
             OperationSpecificError::ReasonCode(ReasonCode::AgentPaused),
             OperationSpecificError::ReasonCode(ReasonCode::AgentDeactivated),
@@ -282,6 +286,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::GrantAlreadyConsumed),
             OperationSpecificError::ErrorCode(ErrorCode::SessionLoggedOut),
             OperationSpecificError::ErrorCode(ErrorCode::AudienceMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayExpired),
+            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayTerminal),
+            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayIndeterminate),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantNotFound),
             OperationSpecificError::ErrorCode(ErrorCode::DidProofRequired),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
@@ -303,6 +311,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantNotFound),
             OperationSpecificError::ErrorCode(ErrorCode::SessionRevokeSelectorConflict),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayIndeterminate),
         ],
     },
     OperationErrorMappingDescriptor {

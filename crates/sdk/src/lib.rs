@@ -247,7 +247,9 @@ pub use arkret_models_discovery::service_requirements::{
 pub use arkret_models_discovery::{ops, service_requirements as service};
 pub use arkret_models_identity::account::*;
 pub use arkret_models_identity::actor_profile::*;
-pub use arkret_models_identity::admin_grant::{SessionGrantIntrospection, admin_scopes};
+pub use arkret_models_identity::admin_grant::{
+    SessionGrantAdminIntrospectionStatus, SessionGrantIntrospection, admin_scopes,
+};
 pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
 pub use arkret_models_identity::attestation::*;
@@ -464,13 +466,12 @@ pub use auth::{
     PasswordVerificationRequestBody, PersistedAuthSession, PresentationRequestBody,
     PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
     PrincipalSessionGrantNotificationOutcome, PrincipalSessionGrantNotifier, RejectedClaim,
-    RenewalCredentialMetadata, SessionGrant, SessionGrantConfirmation,
-    SessionGrantNotificationKind, SessionGrantOutboxEntry, SessionGrantOutboxState,
-    SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy, SessionGrantSigner,
-    SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding, SessionRevocation,
-    WebAuthnPasskeyOutcome, arkret_device_scope, device_id_from_scope_token,
-    issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
-    verify_presentation_with_adapter, verify_session_grant_with_verifier,
+    RenewalCredentialMetadata, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
+    SessionGrantOutboxState, SessionGrantPayload, SessionGrantProjectionState, SessionGrantRecord,
+    SessionGrantRetryPolicy, SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier,
+    SessionPrincipalBinding, SessionRevocation, WebAuthnPasskeyOutcome, arkret_device_scope,
+    device_id_from_scope_token, issue_session_grant_with_signer, primary_device_id_from_scopes,
+    validate_presentation, verify_presentation_with_adapter, verify_session_grant_with_verifier,
 };
 #[cfg(feature = "client")]
 pub use http_client::{

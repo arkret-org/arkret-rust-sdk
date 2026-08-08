@@ -140,9 +140,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::CapabilityRevoke
         | EventKind::RealmAuthorityBasisUpdate
         | EventKind::RealmAuthorityReset
-        | EventKind::RealmOwnerTransfer
-        | EventKind::SessionGrant
-        | EventKind::SessionGrantState => EventProductClass::Authz,
+        | EventKind::RealmOwnerTransfer => EventProductClass::Authz,
         EventKind::CallCreate
         | EventKind::CallRecordingStart
         | EventKind::CallState

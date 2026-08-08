@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.10;
-//! sha256=949f87f2b5a7a8e67693461e634948f3cf9e8a33ee53d6295daa0ddb43a0eb67 Entries: registered=223
+//! Input: registry/operation-registry.json; version=2026-08-08.14;
+//! sha256=df7e922827106a15db0ee52d7818f0a8cef9b64e86ef220d357212acf8f82e55 Entries: registered=223
 
 use serde::{Deserialize, Serialize};
 
@@ -2498,8 +2498,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody",
         ),
@@ -2507,7 +2507,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
+            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2650,8 +2650,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshRequestBody",
         ),
@@ -2659,7 +2659,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
+            "{\"operation_id\":\"ak.gate.account.command.refresh_session_grant\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2700,8 +2700,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/account-operations.schema.json#/$defs/session_revoke_request_body",
         ),
@@ -2709,7 +2709,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/session_revoke_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.gate.account.command.revoke_session\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,

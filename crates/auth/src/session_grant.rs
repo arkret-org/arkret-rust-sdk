@@ -8,6 +8,7 @@
 //! [`SessionGrantProofFields`]; the OIDC kind
 //! (`oidc_code_exchange`) uses [`oidc_session_grant_request`].
 
+use arkret_models_collaboration::agent_operations::AgentRequestedScopeDisclosure;
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantAgentScopeRequest, SessionGrantAppletDelegation, SessionGrantDpopBindingProof,
     SessionGrantRequestBody, SessionGrantRequestProof,
@@ -66,6 +67,7 @@ pub fn agent_key_proof_signing_input_for_session_grant(
     requested_scope: &[String],
     agent_key_authorization_ref: &str,
     agent_scope_request: &SessionGrantAgentScopeRequest,
+    requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     dpop_binding_proof: &SessionGrantDpopBindingProof,
     verification_method: DidUrl,
     challenge: impl Into<String>,
@@ -81,6 +83,7 @@ pub fn agent_key_proof_signing_input_for_session_grant(
         requested_scope.to_vec(),
         agent_key_authorization_ref,
         agent_scope_request.clone(),
+        requested_scope_disclosure,
         dpop_binding_proof.clone(),
         verification_method.clone(),
         challenge.clone(),
@@ -107,6 +110,7 @@ pub fn agent_key_proof_session_grant_request(
     requested_scope: Vec<String>,
     agent_key_authorization_ref: impl Into<String>,
     agent_scope_request: SessionGrantAgentScopeRequest,
+    requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: DidUrl,
     challenge: impl Into<String>,
@@ -124,6 +128,7 @@ pub fn agent_key_proof_session_grant_request(
         &requested_scope,
         &agent_key_authorization_ref,
         &agent_scope_request,
+        requested_scope_disclosure.clone(),
         &dpop_binding_proof,
         verification_method.clone(),
         challenge.clone(),
@@ -137,6 +142,7 @@ pub fn agent_key_proof_session_grant_request(
         requested_scope,
         agent_key_authorization_ref,
         agent_scope_request,
+        requested_scope_disclosure,
         dpop_binding_proof,
         verification_method,
         challenge,
@@ -156,6 +162,7 @@ fn agent_key_proof_unsigned_session_grant_request(
     requested_scope: Vec<String>,
     agent_key_authorization_ref: impl Into<String>,
     agent_scope_request: SessionGrantAgentScopeRequest,
+    requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: DidUrl,
     challenge: impl Into<String>,
@@ -170,6 +177,7 @@ fn agent_key_proof_unsigned_session_grant_request(
         requested_scope,
         agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
         agent_scope_request: Some(agent_scope_request),
+        requested_scope_disclosure,
         dpop_binding_proof: Some(dpop_binding_proof),
         applet_authority: None,
         proof: SessionGrantRequestProof {
@@ -242,6 +250,7 @@ pub fn holder_proof_session_grant_request(
         requested_scope,
         agent_key_authorization_ref: None,
         agent_scope_request: None,
+        requested_scope_disclosure: None,
         dpop_binding_proof,
         applet_authority,
         proof: proof.into_request_proof(SessionGrantProofKind::PairedDeviceProof),
@@ -263,6 +272,7 @@ pub fn did_proof_session_grant_request(
         requested_scope,
         agent_key_authorization_ref: None,
         agent_scope_request: None,
+        requested_scope_disclosure: None,
         dpop_binding_proof,
         applet_authority,
         proof: proof.into_request_proof(SessionGrantProofKind::DidBoundSignature),
@@ -292,6 +302,7 @@ pub fn oidc_session_grant_request(
         requested_scope,
         agent_key_authorization_ref: None,
         agent_scope_request: None,
+        requested_scope_disclosure: None,
         dpop_binding_proof: None,
         applet_authority: None,
         proof: SessionGrantRequestProof {
@@ -331,6 +342,7 @@ pub fn pre_registration_handoff_session_grant_request(
         requested_scope,
         agent_key_authorization_ref: None,
         agent_scope_request: None,
+        requested_scope_disclosure: None,
         dpop_binding_proof: None,
         applet_authority: None,
         proof: SessionGrantRequestProof {
@@ -382,6 +394,51 @@ mod tests {
                 DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap(),
             ),
         }
+    }
+
+    fn requested_scope_disclosure() -> AgentRequestedScopeDisclosure {
+        let mut disclosure: AgentRequestedScopeDisclosure =
+            serde_json::from_value(serde_json::json!({
+                "schema": "ak.schema.agent_requested_scope_disclosure.v1",
+                "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
+                "agent_id": did(),
+                "controller_id": "did:webvh:z6mkfixture:controller.example",
+                "requested_scope": {
+                    "actions": ["ak.message.create"],
+                    "resources": []
+                },
+                "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
+                "verifier_did": "did:webvh:z6mkfixture:service.example",
+                "audience": "ak.gate.account.command.issue_session_grant",
+                "challenge": "agent-disclosure-challenge-0001",
+                "issued_at": "2026-08-08T12:00:00.000Z",
+                "expires_at": "2026-08-08T12:05:00.000Z",
+                "proofs": []
+            }))
+            .unwrap();
+        disclosure.requested_scope_digest =
+            arkret_models_collaboration::agent_operations::agent_requested_scope_digest(
+                &disclosure.agent_id,
+                &disclosure.controller_id,
+                &disclosure.requested_scope,
+            )
+            .unwrap();
+        let payload_digest = disclosure.payload_digest().unwrap();
+        disclosure.proofs.push(arkret_wire::Proof {
+            kind: "DataIntegrityProof".to_owned(),
+            verification_method: DidUrl::new(
+                "did:webvh:z6mkfixture:controller.example#controller-key-1",
+            )
+            .unwrap(),
+            event_digest: payload_digest,
+            created_at: "2026-08-08T12:00:00.000Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "controller-disclosure-proof".to_owned(),
+        });
+        disclosure.validate().unwrap();
+        disclosure
     }
 
     #[test]
@@ -456,5 +513,51 @@ mod tests {
         );
         assert_eq!(request.proof.authorization_code.as_deref(), Some("code-1"));
         assert!(request.proof.signature.is_empty());
+    }
+
+    #[test]
+    fn agent_disclosure_is_preserved_and_bound_into_the_request_digest() {
+        let disclosure = requested_scope_disclosure();
+        let request = agent_key_proof_session_grant_request(
+            did(),
+            device_id(),
+            vec!["ak.message.create".to_owned()],
+            "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+            SessionGrantAgentScopeRequest {
+                realm_ids: Vec::new(),
+                strand_ids: Vec::new(),
+                track_names: Vec::new(),
+            },
+            Some(disclosure.clone()),
+            SessionGrantDpopBindingProof {
+                proof_jwt: "agent-holder-dpop-proof".to_owned(),
+            },
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#runtime-key-1").unwrap(),
+            "agent-session-grant-challenge-0001",
+            "agent-session-grant-nonce-0001",
+            Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            "2026-08-08T12:05:00.000Z".parse().unwrap(),
+            "agent-runtime-signature",
+        )
+        .unwrap();
+
+        assert_eq!(
+            serde_json::to_value(request.requested_scope_disclosure.as_ref().unwrap()).unwrap(),
+            serde_json::to_value(disclosure).unwrap()
+        );
+        assert_eq!(
+            request.proof.request_canonical_digest,
+            agent_key_proof_request_binding_digest(&request).unwrap()
+        );
+
+        let mut tampered = request.clone();
+        tampered
+            .requested_scope_disclosure
+            .as_mut()
+            .unwrap()
+            .verifier_did = Did::new("did:webvh:z6mkfixture:other-verifier.example").unwrap();
+        let tampered_digest = agent_key_proof_request_binding_digest(&tampered).unwrap();
+        assert_ne!(tampered_digest, request.proof.request_canonical_digest);
+        assert_ne!(tampered_digest, tampered.proof.request_canonical_digest);
     }
 }

@@ -42,6 +42,26 @@ class RegistryGeneratorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "coverage mismatch"):
                 GENERATOR.generate_operation_error_mappings(artifacts)
 
+    def test_digest_suite_codes_are_generated_from_the_registry(self) -> None:
+        temporary, artifacts = self.registry_fixture(["digest-suite-registry.json"])
+        with temporary:
+            generated = GENERATOR.generate_digest_suite_codes(artifacts)
+
+        self.assertIn("Sha256 = 0x01,", generated)
+        self.assertIn("Blake3 = 0x02,", generated)
+        self.assertIn("0x01 => Ok(Self::Sha256),", generated)
+
+    def test_digest_suite_codes_reject_nonzero_high_nibble(self) -> None:
+        temporary, artifacts = self.registry_fixture(["digest-suite-registry.json"])
+        with temporary:
+            path = artifacts / "registry" / "digest-suite-registry.json"
+            registry = json.loads(path.read_text(encoding="utf-8"))
+            registry["suites"][0]["wire_code"] = 0x11
+            path.write_text(json.dumps(registry), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "high nibble zero"):
+                GENERATOR.generate_digest_suite_codes(artifacts)
+
     def test_operation_error_mapping_rejects_unknown_error(self) -> None:
         temporary, artifacts = self.registry_fixture(
             [

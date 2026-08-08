@@ -13,6 +13,15 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use thiserror::Error;
 
+pub mod generated {
+    pub mod digest_suite_codes;
+}
+
+pub use generated::digest_suite_codes::DigestSuiteCode;
+/// Event identifiers use the generic registered digest-suite code on their
+/// Event-specific authority surface.
+pub type EventDigestSuiteCode = DigestSuiteCode;
+
 pub type Result<T> = std::result::Result<T, IdentifierError>;
 
 #[derive(Debug, Error)]
@@ -198,43 +207,6 @@ macro_rules! uuid_id_type {
     };
 }
 
-/// Numeric digest-suite code carried in the low nibble of every Event-derived
-/// token header. Codes are immutable registry values, not enum ordinals
-/// inferred at runtime.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(u8)]
-pub enum EventDigestSuiteCode {
-    Sha256 = 0x01,
-    Blake3 = 0x02,
-}
-
-impl EventDigestSuiteCode {
-    pub const fn as_u8(self) -> u8 {
-        self as u8
-    }
-
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Sha256 => "sha256",
-            Self::Blake3 => "blake3",
-        }
-    }
-
-    pub const fn from_digest_suite(suite: arkret_canonical::DigestSuite) -> Self {
-        match suite {
-            arkret_canonical::DigestSuite::Sha256 => Self::Sha256,
-            arkret_canonical::DigestSuite::Blake3 => Self::Blake3,
-        }
-    }
-
-    pub const fn digest_suite(self) -> arkret_canonical::DigestSuite {
-        match self {
-            Self::Sha256 => arkret_canonical::DigestSuite::Sha256,
-            Self::Blake3 => arkret_canonical::DigestSuite::Blake3,
-        }
-    }
-}
-
 /// Event and Event-derived token headers reserve the high nibble as zero. Realm
 /// tokens reuse that position for their derivation class, which is what makes a
 /// class-zero Collaboration Realm a byte-for-byte retype of its create Event.
@@ -250,20 +222,6 @@ fn event_digest_suite_from_header(header: u8) -> Result<EventDigestSuiteCode> {
         )));
     }
     EventDigestSuiteCode::try_from(header & DIGEST_SUITE_LOW_NIBBLE_MASK)
-}
-
-impl TryFrom<u8> for EventDigestSuiteCode {
-    type Error = IdentifierError;
-
-    fn try_from(value: u8) -> Result<Self> {
-        match value {
-            0x01 => Ok(Self::Sha256),
-            0x02 => Ok(Self::Blake3),
-            _ => Err(IdentifierError::InvalidId(format!(
-                "unsupported Event digest suite code: 0x{value:02x}"
-            ))),
-        }
-    }
 }
 
 /// Parsed form of an [`EventId`]'s complete cryptographic identity.
@@ -303,17 +261,21 @@ impl EventIdentityKey {
 /// Every Event-derived id kind shares this one encoder so a storage or
 /// transport boundary that has to round-trip a raw token never grows a second
 /// spelling of the wire form.
-pub fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
+pub fn encode_digest_token(prefix: &str, bytes: [u8; 33]) -> String {
     format!("{prefix}{}", URL_SAFE_NO_PAD.encode(bytes))
+}
+
+pub fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
+    encode_digest_token(prefix, bytes)
 }
 
 /// Recover the 33-byte token from a typed Event-derived id.
 ///
 /// Returns `None` unless `value` carries `prefix`, decodes to exactly 33
 /// octets, re-encodes byte-for-byte to the same canonical unpadded Base64URL
-/// spelling, has a zero Event reserved nibble, and carries an active digest
-/// suite code in the low nibble.
-pub fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
+/// spelling, and leads with an active v1 digest suite code whose high nibble is
+/// zero.
+pub fn decode_digest_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix(prefix)?;
     if payload.len() != 44
         || !payload
@@ -328,6 +290,12 @@ pub fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     if URL_SAFE_NO_PAD.encode(bytes) != payload {
         return None;
     }
+    DigestSuiteCode::try_from(bytes[0]).ok()?;
+    Some(bytes)
+}
+
+pub fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
+    let bytes = decode_digest_token(value, prefix)?;
     event_digest_suite_from_header(bytes[0]).ok()?;
     Some(bytes)
 }
@@ -722,7 +690,6 @@ pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:realm:",
     "ak:relation:",
     "ak:report:",
-    "ak:session_grant:",
     "ak:sidecar:",
     "ak:space:",
     "ak:strand:",
@@ -881,12 +848,56 @@ declare_event_token_id_kinds! {
     MorphId, "ak:morph:";
     RelationId, "ak:relation:";
     ReportId, "ak:report:";
-    SessionGrantId, "ak:session_grant:";
     SidecarId, "ak:sidecar:";
     SpaceId, "ak:space:";
     StrandId, "ak:strand:";
     ViewId, "ak:view:";
 }
+
+fn decode_session_grant_token(value: &str) -> Option<[u8; 33]> {
+    let token = decode_digest_token(value, SessionGrantId::KIND_PREFIX)?;
+    (token[0] == DigestSuiteCode::Sha256.as_u8()).then_some(token)
+}
+
+id_type!(SessionGrantId, |value: &str| decode_session_grant_token(
+    value
+)
+.is_some());
+
+impl SessionGrantId {
+    pub const KIND_PREFIX: &'static str = "ak:session_grant:";
+
+    /// Derive the issuer-record identifier from the SHA-256 digest of the
+    /// closed `ak.session_grant.issuance.v1` preimage.
+    pub fn from_issuance_digest(digest: [u8; 32]) -> Self {
+        let mut token = [0_u8; 33];
+        token[0] = DigestSuiteCode::Sha256.as_u8();
+        token[1..].copy_from_slice(&digest);
+        Self(encode_digest_token(Self::KIND_PREFIX, token))
+    }
+
+    pub fn token_bytes(&self) -> [u8; 33] {
+        decode_session_grant_token(&self.0)
+            .expect("validated SessionGrant id carries a canonical digest token")
+    }
+
+    pub fn digest_suite_code(&self) -> DigestSuiteCode {
+        DigestSuiteCode::try_from(self.token_bytes()[0])
+            .expect("validated SessionGrant id carries an active digest suite")
+    }
+
+    pub fn issuance_digest(&self) -> [u8; 32] {
+        let token = self.token_bytes();
+        let mut digest = [0_u8; 32];
+        digest.copy_from_slice(&token[1..]);
+        digest
+    }
+}
+
+/// Issuer-record identifiers whose wire payload is a complete registered
+/// suite byte plus a 32-byte digest, but whose authority is not an Event.
+pub const DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES: &[&str] =
+    &[SessionGrantId::KIND_PREFIX];
 
 fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix("ak:realm:")?;
@@ -1431,6 +1442,8 @@ mod tests {
                         $prefix,
                         &event.as_str()[EventId::KIND_PREFIX.len()..]
                     )
+                } else if DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES.contains(&$prefix) {
+                    SessionGrantId::from_issuance_digest([0x11; 32]).into_string()
                 } else {
                     format!("{}01904100-0000-7000-8000-000000000001", $prefix)
                 };
@@ -1498,6 +1511,33 @@ mod tests {
 
         assert_eq!(message_id.token_bytes(), event_id.token_bytes());
         assert_eq!(message_id.event_id(), event_id);
+    }
+
+    #[test]
+    fn session_grant_id_is_an_issuer_record_digest_token() {
+        let id = SessionGrantId::from_issuance_digest([0x42; 32]);
+        assert_eq!(id.digest_suite_code(), DigestSuiteCode::Sha256);
+        assert_eq!(id.issuance_digest(), [0x42; 32]);
+        assert!(SessionGrantId::new(id.as_str()).is_ok());
+        assert!(!EVENT_DERIVED_ID_KIND_PREFIXES.contains(&SessionGrantId::KIND_PREFIX));
+
+        let mut unknown = id.token_bytes();
+        unknown[0] = 0x7f;
+        assert!(
+            SessionGrantId::new(encode_digest_token(SessionGrantId::KIND_PREFIX, unknown)).is_err()
+        );
+
+        let mut blake3 = id.token_bytes();
+        blake3[0] = DigestSuiteCode::Blake3.as_u8();
+        let blake3_token = encode_digest_token(SessionGrantId::KIND_PREFIX, blake3);
+        assert_eq!(
+            decode_digest_token(&blake3_token, SessionGrantId::KIND_PREFIX),
+            Some(blake3)
+        );
+        assert!(SessionGrantId::new(blake3_token).is_err());
+
+        let blake3_event = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x42; 32]);
+        assert!(EventId::new(blake3_event.as_str()).is_ok());
     }
 
     #[test]

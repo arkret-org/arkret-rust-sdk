@@ -27,29 +27,55 @@ fn deny_password_login(ctx: &AuthRateLimitContext) -> Result<()> {
     }
 }
 
+fn session_grant_payload(now: DateTime<Utc>, device_id: &DeviceId) -> SessionGrantPayload {
+    use arkret_models_identity::{
+        CanonicalSessionPublicJwk, SESSION_GRANT_CREDENTIAL_KIND, SessionGrantCnf,
+        SessionGrantCredentialClass, SessionGrantIssuanceNonce,
+    };
+
+    let mut claims = SignedSessionGrantClaims {
+        kind: SESSION_GRANT_CREDENTIAL_KIND.to_owned(),
+        grant_id: arkret_wire::SessionGrantId::from_issuance_digest([0; 32]),
+        issuer: did("coauth"),
+        issuance_nonce: SessionGrantIssuanceNonce::from_bytes([0x33; 32]),
+        subject: did("alice"),
+        session_public_key: CanonicalSessionPublicJwk::new(
+            r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+        )
+        .unwrap(),
+        audience: did("soland"),
+        scopes: vec![
+            arkret_device_scope(device_id),
+            "urn:arkret:principal-server:session.bind".to_owned(),
+        ],
+        not_before: now,
+        expires_at: now + Duration::minutes(10),
+        session_id: "browser-session-1".to_owned(),
+        cnf: SessionGrantCnf {
+            jkt: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+        },
+        credential_class: SessionGrantCredentialClass::Standard,
+        holder_binding: Some(
+            arkret_models_identity::SessionGrantHolderBinding::HumanDevice {
+                device_binding: device_id.to_string(),
+            },
+        ),
+        bootstrap_binding: None,
+        recovery_binding: None,
+        device_binding: None,
+        proof_kind: None,
+        scope_details: None,
+    };
+    claims.grant_id = claims.recomputed_grant_id().unwrap();
+    SessionGrantPayload { claims }
+}
+
 fn session_grant_notification(
     now: DateTime<Utc>,
     request_id: &str,
 ) -> PrincipalSessionGrantNotification {
     let device_id = device("desktop");
-    let payload = SessionGrantPayload {
-        subject: did("alice"),
-        audience: did("soland"),
-        scopes: vec![
-            "urn:arkret:principal-server:session.bind".to_owned(),
-            arkret_device_scope(&device_id),
-        ],
-        session_id: "browser-session-1".to_owned(),
-        grant_jti: SessionGrantId::new(
-            "ak:session_grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-        )
-        .unwrap(),
-        issued_at: now,
-        expires_at: now + Duration::minutes(10),
-        cnf: Some(SessionGrantConfirmation {
-            jkt: "session-key-thumbprint".to_owned(),
-        }),
-    };
+    let payload = session_grant_payload(now, &device_id);
     let mut record = SessionGrant::new(payload, "signed.jwt.value")
         .unwrap()
         .into_record();
@@ -407,24 +433,7 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
 fn session_grant_contract_redacts_and_notifies_principal_servers() {
     let now = Utc::now();
     let device_id = device("desktop");
-    let payload = SessionGrantPayload {
-        subject: did("alice"),
-        audience: did("soland"),
-        scopes: vec![
-            "urn:arkret:principal-server:session.bind".to_owned(),
-            arkret_device_scope(&device_id),
-        ],
-        session_id: "browser-session-1".to_owned(),
-        grant_jti: SessionGrantId::new(
-            "ak:session_grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-        )
-        .unwrap(),
-        issued_at: now,
-        expires_at: now + Duration::minutes(10),
-        cnf: Some(SessionGrantConfirmation {
-            jkt: "session-key-thumbprint".to_owned(),
-        }),
-    };
+    let payload = session_grant_payload(now, &device_id);
     payload.validate().unwrap();
     let binding = payload.principal_binding().unwrap();
     assert_eq!(binding.principal_id, did("alice"));
@@ -432,7 +441,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
 
     let signer = |payload: &SessionGrantPayload| {
         payload.validate()?;
-        Ok(format!("signed.{}.jwt", payload.grant_jti))
+        Ok(format!("signed.{}.jwt", payload.claims.grant_id))
     };
     let issued = issue_session_grant_with_signer(payload.clone(), &signer).unwrap();
     let verifier = |grant_jwt: &str| {
@@ -449,6 +458,12 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     assert!(!format!("{grant:?}").contains("signed.jwt.value"));
     let mut record = grant.into_record();
     assert!(record.active(now));
+    let successor = arkret_wire::SessionGrantId::from_issuance_digest([0x55; 32]);
+    record.supersede(now + Duration::seconds(30), successor.clone());
+    assert!(!record.active(now));
+    assert_eq!(record.successor_session_grant_id, Some(successor));
+    // Build the revoke projection used by the remainder of this legacy
+    // notification adapter test.
     record.revoke(now + Duration::minutes(1), "logout");
 
     let notification = PrincipalSessionGrantNotification {

@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn canonical_fsm_contracts_resolve_all_templates_with_exact_closure() {
         let contracts = canonical_fsm_contracts().unwrap();
-        assert_eq!(contracts.len(), 18);
+        assert_eq!(contracts.len(), 17);
         let by_family: BTreeMap<_, _> = contracts
             .iter()
             .map(|contract| (contract.cell_family.as_str(), contract))

@@ -40,11 +40,31 @@ pub mod admin_scopes {
 /// convention) when introspecting a bearer token. The fields are a
 /// strict subset of the RFC 7662 introspection response plus the
 /// `org.arkret.*` extensions soland already uses.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantAdminIntrospectionStatus {
+    Active,
+    Revoked,
+    Superseded,
+    Expired,
+    Locked,
+    Suspended,
+    AudienceMismatch,
+    ProofRequired,
+    InvalidProof,
+    NotFound,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionGrantIntrospection {
     /// Whether the bearer token is currently valid. Receivers MUST
     /// reject any introspection where `active=false`.
     pub active: bool,
+    /// Issuer-ledger status. `active=true` is valid only with `status=active`;
+    /// in particular a superseded grant can never remain active in this
+    /// admin projection.
+    pub status: SessionGrantAdminIntrospectionStatus,
     /// The operator's principal ID. Populated from
     /// `org.arkret.principal_id` (or `sub`) on the IdP side.
     pub principal_id: Did,
@@ -78,7 +98,7 @@ impl SessionGrantIntrospection {
     /// later than `expires_at`). `now_unix` is process-internal Unix seconds,
     /// not a wire representation.
     pub fn is_currently_active(&self, now_unix: i64) -> bool {
-        if !self.active {
+        if !self.active || self.status != SessionGrantAdminIntrospectionStatus::Active {
             return false;
         }
         !matches!(self.expires_at, Some(exp) if exp.timestamp() <= now_unix)
@@ -116,6 +136,7 @@ mod tests {
     fn grant_active(scopes: &[&str]) -> SessionGrantIntrospection {
         SessionGrantIntrospection {
             active: true,
+            status: SessionGrantAdminIntrospectionStatus::Active,
             principal_id: admin("did:webvh:z6mkfixture:alice.example"),
             admin_scopes: scopes.iter().map(|s| (*s).to_owned()).collect(),
             expires_at: Some(DateTime::from_timestamp(2_000_000_000, 0).unwrap()),
@@ -129,6 +150,13 @@ mod tests {
         let mut g = grant_active(&[]);
         g.active = false;
         assert!(!g.is_currently_active(0));
+    }
+
+    #[test]
+    fn superseded_grant_never_currently_active() {
+        let mut grant = grant_active(&[]);
+        grant.status = SessionGrantAdminIntrospectionStatus::Superseded;
+        assert!(!grant.is_currently_active(0));
     }
 
     #[test]
@@ -171,6 +199,7 @@ mod tests {
     fn introspection_serializes_with_defaults() {
         let g = SessionGrantIntrospection {
             active: true,
+            status: SessionGrantAdminIntrospectionStatus::Active,
             principal_id: admin("did:webvh:z6mkfixture:alice.example"),
             admin_scopes: vec![],
             expires_at: None,
@@ -185,7 +214,7 @@ mod tests {
     #[test]
     fn introspection_deserializes_minimal_envelope() {
         // Only `active` and `principal_id` required; the rest default.
-        let s = r#"{"active":true,"principal_id":"did:webvh:z6mkfixture:alice.example"}"#;
+        let s = r#"{"active":true,"status":"active","principal_id":"did:webvh:z6mkfixture:alice.example"}"#;
         let g: SessionGrantIntrospection = serde_json::from_str(s).unwrap();
         assert!(g.active);
         assert!(g.admin_scopes.is_empty());

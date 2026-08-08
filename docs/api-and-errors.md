@@ -31,7 +31,8 @@ to applications.
 ## Cross-Service Contracts
 
 The auth surface exposes `SessionGrantPayload`, `SessionGrantRecord` and
-`PrincipalSessionGrantNotification` so coauth can issue auditable session grants
+`PrincipalSessionGrantNotification` as issuer-credential and freshness-bounded
+projection helpers; they do not replace the Account Authority issuer ledger
 and soland can consume grant-created / grant-revoked notifications without
 copying private key material into persistence. `SessionGrant` redacts the
 serialized grant token in `Debug`; durable stores should persist `grant_hash`.

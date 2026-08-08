@@ -55,6 +55,23 @@ impl Client {
         .await
     }
 
+    /// Serialize a protocol-replay-safe operation exactly once, then reuse
+    /// those canonical bytes for every transport attempt. Eligibility is kept
+    /// crate-private and is limited to endpoints whose operation contracts
+    /// define a durable body-bound request identity.
+    pub(crate) async fn post_protocol_replay_safe<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+    ) -> Result<R> {
+        let body = arkret_canonical::canonical::canonical_json_bytes(body)?;
+        let builder = self
+            .request(Method::POST, path)?
+            .header(CONTENT_TYPE, "application/json")
+            .body(body);
+        self.send_json_protocol_replay_safe(builder).await
+    }
+
     pub async fn put<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
         let builder = self.canonical_json_body(self.request(Method::PUT, path)?, body)?;
         self.send_json(builder).await

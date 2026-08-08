@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-08.5;
-//! sha256=becd4f5debfcf01036f27d05479faa00a2265fa8698f388f1167241de1b76479 Input: registry/
-//! capability-action-registry.json; version=2026-08-08.10;
-//! sha256=582ab79c1f6522fdd9e11222db02b5ed2ea34ef4c5cbee587c3fd33e74a4ad41 Input: registry/
-//! schema-registry.json; version=2026-08-08.10;
-//! sha256=2e1fc20e9fe39dd937cd7d1fb28ae1305d9b3813dd3544641c0ee55bb3226afb Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-08.8;
+//! sha256=fd2b31e3ce3fc2ce7e63c8a9730c34768b58f2c572f6ab4d44a4c9645ddfd248 Input: registry/
+//! capability-action-registry.json; version=2026-08-08.14;
+//! sha256=ffed5345d11f288223b3ef27fcc64800b7c199447d7740ff860ace569f6a4b92 Input: registry/
+//! schema-registry.json; version=2026-08-08.14;
+//! sha256=28374ff77f5087bcb266a3ad5929355e660886cce3bf3f5ccb5238b1c38a320e Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
 //! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=56,
 //! special_forms=10, actions=168, schemas=183, account_data_patterns=24
@@ -320,7 +320,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "session_grant",
         category: "authz",
-        wire_form: "ak:session_grant:<44-char-event-token>",
+        wire_form: "ak:session_grant:<44-char-suite-tagged-full-digest-token>",
     },
     IdKindDescriptor {
         kind: "sidecar",
