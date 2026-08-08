@@ -1,8 +1,7 @@
 use std::fmt;
 
 use arkret_wire::{
-    DeviceId, Did, DidUrl, Error, EventId, Hash, PolicyId, RecoveryModelGenerationRef,
-    RecoverySessionId, Result, SessionGrantId,
+    DeviceId, Did, DidUrl, Error, EventId, RecoveryModelGenerationRef, Result, SessionGrantId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -10,17 +9,6 @@ use serde_json::{Map, Value};
 
 pub const SESSION_GRANT_CREDENTIAL_KIND: &str = "ak.session.grant";
 pub const SESSION_GRANT_ISSUANCE_SCHEMA: &str = "ak.session_grant.issuance.v1";
-pub const RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES: [&str; 8] = [
-    "ak.root.identity.recovery_policy.resource.get",
-    "ak.root.identity.recovery_session.command.create",
-    "ak.root.identity.recovery_session.resource.get",
-    "ak.root.identity.recovery_session.command.submit_proof",
-    "ak.self.security_transaction.command.create",
-    "ak.self.security_transaction.resource.get",
-    "ak.self.security_transaction.command.continue",
-    "ak.self.keys.backups.command.unlock",
-];
-
 /// Proof kind presented with an `ak.session.grant` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,7 +27,6 @@ pub enum SessionGrantProofKind {
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantCredentialClass {
     Standard,
-    RecoveryRestricted,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -55,15 +42,6 @@ pub enum SessionGrantHolderBinding {
         agent_key_authorization_ref: EventId,
         verification_method: DidUrl,
     },
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantRecoveryBinding {
-    pub recovery_session_id: RecoverySessionId,
-    pub policy_id: PolicyId,
-    pub policy_version: u64,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -370,18 +348,7 @@ pub struct SessionGrantIssuancePreimage {
     pub session_id: String,
     pub cnf: SessionGrantCnf,
     pub credential_class: SessionGrantCredentialClass,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
-    )]
-    pub holder_binding: Option<SessionGrantHolderBinding>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
-    )]
-    pub recovery_binding: Option<SessionGrantRecoveryBinding>,
+    pub holder_binding: SessionGrantHolderBinding,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -429,8 +396,7 @@ impl SessionGrantIssuancePreimage {
             &self.session_id,
             &self.cnf,
             self.credential_class,
-            self.holder_binding.as_ref(),
-            self.recovery_binding.as_ref(),
+            &self.holder_binding,
             self.device_binding.as_ref(),
             self.scope_details.as_ref(),
         )
@@ -457,18 +423,7 @@ pub struct SignedSessionGrantClaims {
     pub session_id: String,
     pub cnf: SessionGrantCnf,
     pub credential_class: SessionGrantCredentialClass,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
-    )]
-    pub holder_binding: Option<SessionGrantHolderBinding>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
-    )]
-    pub recovery_binding: Option<SessionGrantRecoveryBinding>,
+    pub holder_binding: SessionGrantHolderBinding,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -505,7 +460,6 @@ impl SignedSessionGrantClaims {
             cnf: self.cnf.clone(),
             credential_class: self.credential_class,
             holder_binding: self.holder_binding.clone(),
-            recovery_binding: self.recovery_binding.clone(),
             device_binding: self.device_binding.clone(),
             proof_kind: self.proof_kind,
             scope_details: self.scope_details.clone(),
@@ -550,8 +504,7 @@ fn validate_issuance_fields(
     session_id: &str,
     cnf: &SessionGrantCnf,
     credential_class: SessionGrantCredentialClass,
-    holder_binding: Option<&SessionGrantHolderBinding>,
-    recovery_binding: Option<&SessionGrantRecoveryBinding>,
+    holder_binding: &SessionGrantHolderBinding,
     device_binding: Option<&SessionGrantDeviceBinding>,
     scope_details: Option<&Value>,
 ) -> Result<()> {
@@ -586,20 +539,7 @@ fn validate_issuance_fields(
             "session grant scope_details must be omitted rather than null".to_owned(),
         ));
     }
-    match (credential_class, holder_binding, recovery_binding) {
-        (SessionGrantCredentialClass::RecoveryRestricted, None, Some(binding))
-            if binding.policy_version > 0
-                && scopes.iter().all(|scope| {
-                    RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES.contains(&scope.as_str())
-                }) => {}
-        (SessionGrantCredentialClass::Standard, Some(_), None) => {}
-        _ => {
-            return Err(Error::Protocol(
-                "session grant credential class and typed bindings disagree".to_owned(),
-            ));
-        }
-    }
-    let _ = (audience, device_binding);
+    let _ = (audience, credential_class, holder_binding, device_binding);
     Ok(())
 }
 
@@ -678,10 +618,9 @@ mod tests {
                 jkt: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
             },
             credential_class: SessionGrantCredentialClass::Standard,
-            holder_binding: Some(SessionGrantHolderBinding::HumanDevice {
+            holder_binding: SessionGrantHolderBinding::HumanDevice {
                 device_binding: "ak:device:019a0000-0000-7000-8000-000000000001".to_owned(),
-            }),
-            recovery_binding: None,
+            },
             device_binding: None,
             proof_kind: Some(SessionGrantProofKind::DidBoundSignature),
             scope_details: None,
@@ -727,7 +666,7 @@ mod tests {
         assert!(tampered.validate().is_err());
 
         let mut value = serde_json::to_value(claims()).unwrap();
-        value["recovery_binding"] = Value::Null;
+        value["unexpected_binding"] = Value::Object(Default::default());
         assert!(serde_json::from_value::<SignedSessionGrantClaims>(value).is_err());
 
         let mut self_referential = claims();
@@ -858,10 +797,12 @@ mod tests {
                     materialized_fixture_vector(&fixture, addition["vector"].as_str().unwrap());
                 object.insert(field.to_owned(), source[field].clone());
             }
-            let invalid: SignedSessionGrantClaims = serde_json::from_value(value).unwrap();
-            assert!(invalid.validate().is_err(), "{name} must fail validation");
+            assert!(
+                serde_json::from_value::<SignedSessionGrantClaims>(value).is_err(),
+                "{name} must fail decoding"
+            );
         }
-        for required in ["standard_with_recovery_binding"] {
+        for required in ["standard_missing_holder_binding"] {
             assert!(
                 covered.contains(required),
                 "missing fixture coverage for {required}"

@@ -6,11 +6,11 @@
 
 use arkret_models_identity::{
     CanonicalSessionPublicJwk, SessionGrantCredentialClass, SessionGrantHolderBinding,
-    SessionGrantProofKind, SessionGrantRecoveryBinding,
+    SessionGrantProofKind,
 };
 use arkret_wire::{
-    DeviceId, Did, DidUrl, Error, EventId, Hash, NonEmptyString, RealmId, Result, ScopeRef,
-    SessionGrantId, StrandId, canonical,
+    DeviceId, Did, DidUrl, Error, Hash, NonEmptyString, RealmId, Result, ScopeRef, SessionGrantId,
+    StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -461,10 +461,7 @@ pub struct SessionGrantIntrospectGrant {
     /// the per-request DPoP proof on `/_arkret/self/*`.
     pub cnf_jkt: String,
     pub credential_class: SessionGrantCredentialClass,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_binding: Option<SessionGrantRecoveryBinding>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub holder_binding: Option<SessionGrantHolderBinding>,
+    pub holder_binding: SessionGrantHolderBinding,
 }
 
 #[derive(Deserialize)]
@@ -487,31 +484,13 @@ struct SessionGrantIntrospectGrantWire {
     session_public_key: CanonicalSessionPublicJwk,
     cnf_jkt: String,
     credential_class: SessionGrantCredentialClass,
-    #[serde(default)]
-    recovery_binding: Option<SessionGrantRecoveryBinding>,
-    #[serde(default)]
-    holder_binding: Option<SessionGrantHolderBinding>,
+    holder_binding: SessionGrantHolderBinding,
 }
 
 impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
     type Error = String;
 
     fn try_from(wire: SessionGrantIntrospectGrantWire) -> std::result::Result<Self, Self::Error> {
-        let binding_is_closed = match wire.credential_class {
-            SessionGrantCredentialClass::Standard => {
-                wire.holder_binding.is_some() && wire.recovery_binding.is_none()
-            }
-            SessionGrantCredentialClass::RecoveryRestricted => {
-                wire.recovery_binding.is_some() && wire.holder_binding.is_none()
-            }
-        };
-        if !binding_is_closed {
-            return Err(
-                "session grant introspection binding must match credential_class as a closed XOR"
-                    .to_owned(),
-            );
-        }
-
         Ok(Self {
             id: wire.id,
             issuer: wire.issuer,
@@ -526,7 +505,6 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
             session_public_key: wire.session_public_key,
             cnf_jkt: wire.cnf_jkt,
             credential_class: wire.credential_class,
-            recovery_binding: wire.recovery_binding,
             holder_binding: wire.holder_binding,
         })
     }
@@ -686,55 +664,18 @@ mod session_grant_contract_tests {
         })
     }
 
-    fn recovery_binding() -> Value {
-        json!({
-            "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000042",
-            "policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
-            "policy_version": 1
-        })
-    }
-
     #[test]
-    fn introspection_grant_enforces_credential_class_binding_xor() {
-        let cases = [
-            ("standard", "holder_binding", holder_binding()),
-            (
-                "recovery_restricted",
-                "recovery_binding",
-                recovery_binding(),
-            ),
-        ];
+    fn introspection_grant_requires_standard_holder_binding() {
+        let mut valid = introspect_grant_base("standard");
+        valid["holder_binding"] = holder_binding();
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).is_ok());
 
-        for (credential_class, field, binding) in cases {
-            let mut valid = introspect_grant_base(credential_class);
-            valid[field] = binding;
-            assert!(
-                serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).is_ok(),
-                "valid {credential_class} binding must decode"
-            );
+        valid.as_object_mut().unwrap().remove("holder_binding");
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(valid).is_err());
 
-            let mut missing = valid.clone();
-            missing.as_object_mut().unwrap().remove(field);
-            assert!(
-                serde_json::from_value::<SessionGrantIntrospectGrant>(missing).is_err(),
-                "{credential_class} must require {field}"
-            );
-
-            let mixed_field = if field == "holder_binding" {
-                "recovery_binding"
-            } else {
-                "holder_binding"
-            };
-            valid[mixed_field] = if mixed_field == "holder_binding" {
-                holder_binding()
-            } else {
-                recovery_binding()
-            };
-            assert!(
-                serde_json::from_value::<SessionGrantIntrospectGrant>(valid).is_err(),
-                "{credential_class} must reject mixed bindings"
-            );
-        }
+        let mut legacy = introspect_grant_base("temporary_recovery");
+        legacy["holder_binding"] = holder_binding();
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(legacy).is_err());
     }
 
     #[test]

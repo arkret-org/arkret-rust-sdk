@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-09.4;
-//! sha256=4e5816855d38eff1fb193d5990d2fca13855726e176e67fcf514f6906cc010c5 Input: registry/
-//! operations-error-mapping.json; version=2026-08-09.2;
-//! sha256=66a215fed5f009a45ae8b63f5d4655c0712b43bd998f1f03c6e3b0884ad322ed Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-09.5;
+//! sha256=3f9d0abd790a183ae1eaff51716d3cd4927f6f2396f7121caa4cb86d5822ac74 Input: registry/
+//! operations-error-mapping.json; version=2026-08-09.3;
+//! sha256=8c318bff19fa2bd74338b1a80f6dd0636da69abb35e6a1523f458cae15b80706 Input: registry/
 //! error-code-registry.json; version=2026-08-09.3;
-//! sha256=7f9b0c139c4555cc1739f994edf5597e64f30e50df164f6143242ff3b7be0e94 Entries: operations=222
+//! sha256=c88f3720ad518b4f58ff32c49f34ea9350a64b6136f2878c6075c3804d05e0ff Entries: operations=222
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -980,6 +980,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
         ],
