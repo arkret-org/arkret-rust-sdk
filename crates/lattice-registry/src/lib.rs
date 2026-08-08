@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn canonical_fsm_contracts_resolve_all_templates_with_exact_closure() {
         let contracts = canonical_fsm_contracts().unwrap();
-        assert_eq!(contracts.len(), 17);
+        assert_eq!(contracts.len(), 18);
         let by_family: BTreeMap<_, _> = contracts
             .iter()
             .map(|contract| (contract.cell_family.as_str(), contract))
@@ -500,7 +500,9 @@ mod tests {
             RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
                 .unwrap();
         for (family, initial) in [
-            (arkret_wire::CellFamilyId::AUDIT_BINDING_V1, "active"),
+            // The lifecycle FSM lives on the state cell; `audit.binding.v1`
+            // is the immutable config cas_register beside it.
+            (arkret_wire::CellFamilyId::AUDIT_BINDING_STATE_V1, "active"),
             (arkret_wire::CellFamilyId::AUDIT_SESSION_V1, "request"),
             (arkret_wire::CellFamilyId::REALM_LINK_V1, "active"),
         ] {
