@@ -47,7 +47,7 @@ class EventDerivedIdMintingAuditTests(unittest.TestCase):
         # A missing `realm` or `event` would silence most of the audit.
         self.assertIn("realm", kinds)
         self.assertIn("event", kinds)
-        self.assertNotIn("grant", kinds)
+        self.assertIn("grant", kinds)
 
     def test_flags_an_interpolated_mint(self) -> None:
         source = 'let id = format!("ak:strand:{}", uuid_v7());\n'
@@ -67,7 +67,10 @@ class EventDerivedIdMintingAuditTests(unittest.TestCase):
         self.assertEqual(self.scan({"src/project.rs": source}, []), 0)
 
     def test_a_producer_allocated_kind_is_not_flagged(self) -> None:
-        source = 'let grant = GrantId::new(new_prefixed_uuid7("ak:grant:"))?;\n'
+        source = (
+            'let capability = CapabilityId::new('
+            'new_prefixed_uuid7("ak:capability:"))?;\n'
+        )
         self.assertEqual(self.scan({"src/authz.rs": source}, []), 0)
 
     def test_a_recorded_verdict_passes(self) -> None:

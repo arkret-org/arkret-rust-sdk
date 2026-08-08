@@ -81,15 +81,15 @@
     },
     {
       "repo": "coauth",
-      "path": "crates/backend/src/handlers/admin/v1/collaboration_capabilities.rs",
-      "verdict": "event_derived",
-      "reason": "The grant / revoke fanout payloads carry a minted `ak:event:` for an Event coauth never authors. Either the Event is authored (and its id derived) or the field must name a local reference."
-    },
-    {
-      "repo": "coauth",
       "path": "crates/storage-postgres/src/account_handoff.rs",
       "verdict": "test_fixture",
       "reason": "Test row builder for an `authorized_event` payload."
+    },
+    {
+      "repo": "coauth",
+      "path": "crates/storage-postgres/src/organization_control.rs",
+      "verdict": "test_fixture",
+      "reason": "Synthetic delegation reference used only by the PostgreSQL round-trip test."
     },
     {
       "repo": "bridges",
