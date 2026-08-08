@@ -12,7 +12,7 @@
 
 use arkret_models_collaboration::events_payloads::{
     RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmCreatePayload,
-    RealmOwnerTransferPayload, RealmProfile,
+    RealmOwnerTransferPayload, RealmProfile, RealmPurpose,
 };
 use arkret_wire::{
     AuthorizationRef, Did, Error, Event, EventId, EventKind, Hash, Hlc, REALM_AUTHORITY_ROOT_CELL,
@@ -311,7 +311,9 @@ pub fn validate_realm_bootstrap_unit(
     let payload: RealmCreatePayload = create
         .payload_as()
         .map_err(|_| RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;
-    if !payload.object.purpose.is_event_derived() || payload.object.genesis_salt.is_none() {
+    if payload.object.purpose != RealmPurpose::Collaboration
+        || payload.object.genesis_salt.is_none()
+    {
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     }
     let mut previous_slot = 0_usize;
@@ -605,7 +607,11 @@ mod tests {
     #[test]
     fn rejects_creator_member_with_wrong_subject() {
         let mut events = complete_unit();
-        events.last_mut().unwrap().payload["actor_id"] = json!("did:web:other.example");
+        events
+            .last_mut()
+            .unwrap()
+            .payload
+            .insert("actor_id".to_owned(), json!("did:web:other.example"));
         assert_eq!(
             validate_realm_bootstrap_unit(&events),
             Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
@@ -625,9 +631,24 @@ mod tests {
     #[test]
     fn accepts_required_history_sharing_slot_for_restricted_history() {
         let mut events = complete_unit();
-        events[4].payload = json!({"value": "restricted"});
+        events[4].payload = serde_json::from_value(json!({"value": "restricted"})).unwrap();
         events.insert(5, history_sharing_followup());
         assert!(validate_realm_bootstrap_unit(&events).is_ok());
+    }
+
+    #[test]
+    fn rejects_direct_conversation_as_ordinary_bootstrap() {
+        let mut events = complete_unit();
+        events[0]
+            .payload
+            .get_mut("object")
+            .and_then(serde_json::Value::as_object_mut)
+            .unwrap()
+            .insert("purpose".to_owned(), json!("direct_conversation"));
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)
+        );
     }
 
     #[test]

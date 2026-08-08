@@ -176,24 +176,40 @@ pub fn direct_conversation_realm_create_payload(
     Ok(RealmCreatePayload::new(genesis))
 }
 
-pub fn direct_conversation_membership_bootstrap(
+/// Build the sole explicit membership Event in the exact three-Event Direct
+/// Conversation founding unit. The founder membership is a fixed profile
+/// projection of `ak.realm.create`; authoring two membership Events would make
+/// the unit non-canonical.
+pub fn direct_conversation_peer_membership_bootstrap(
     realm_id: RealmId,
+    founder: &Did,
     participants: [Did; 2],
     delivery_status: DeliveryStatus,
-) -> Result<[MembershipPayload; 2]> {
+) -> Result<MembershipPayload> {
     if participants[0] == participants[1] {
         return Err(Error::Protocol(
             "direct conversation participants must be distinct (schema_violation)".to_owned(),
         ));
     }
-    Ok(participants.map(|participant| {
-        MembershipPayload::join(
-            realm_id.clone(),
-            participant,
-            delivery_status,
-            "direct_conversation_bootstrap",
-        )
-    }))
+    if !participants
+        .iter()
+        .any(|participant| participant == founder)
+    {
+        return Err(Error::Protocol(
+            "direct conversation founder must be one of the two participants (schema_violation)"
+                .to_owned(),
+        ));
+    }
+    let peer = participants
+        .into_iter()
+        .find(|participant| participant != founder)
+        .expect("distinct participant pair containing founder has one peer");
+    Ok(MembershipPayload::join(
+        realm_id,
+        peer,
+        delivery_status,
+        "direct_conversation_bootstrap",
+    ))
 }
 
 pub fn direct_conversation_member_join_payload(
