@@ -2,15 +2,72 @@
 
 use crate::internal_prelude::*;
 
+/// Top-level application fields declared by `auth_data.signed_fields`.
+///
+/// The signature transcript also binds every `auth_data` member except the
+/// signature itself. Those members are signature-envelope metadata rather
+/// than application fields, so they are intentionally not repeated here.
+pub const KEY_BACKUP_ACTIVE_SERIES_SIGNED_FIELDS: [&str; 8] = [
+    "schema",
+    "actor_id",
+    "backup_kind",
+    "active_series_id",
+    "series_pointer_version",
+    "previous_series_ids",
+    "frontier_ref",
+    "issued_at",
+];
+
+/// A real active-series signature. The unsigned state has no value of this
+/// type, and the historical `"pending"` sentinel is rejected at every typed
+/// construction and deserialization boundary.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct KeyBackupActiveSeriesSignature(Base64UrlString);
+
+impl KeyBackupActiveSeriesSignature {
+    pub fn new(signature: Base64UrlString) -> Result<Self> {
+        if signature.as_str() == "pending" {
+            return Err(Error::Protocol(
+                "active-series signature cannot be the pending sentinel".to_owned(),
+            ));
+        }
+        Ok(Self(signature))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl<'de> Deserialize<'de> for KeyBackupActiveSeriesSignature {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let signature = Base64UrlString::deserialize(deserializer)?;
+        Self::new(signature).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Counterpart for the closed current-generation device authorization binding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupActiveSeriesAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
-    pub signature: Base64UrlString,
+    pub signature: KeyBackupActiveSeriesSignature,
     pub signed_fields: Vec<String>,
     pub device_authorize_event_id: EventId,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+struct UnsignedKeyBackupActiveSeriesAuthData {
+    verification_method: DidUrl,
+    signature_algorithm: KeyBackupSignatureAlgorithm,
+    signed_fields: Vec<String>,
+    device_authorize_event_id: EventId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,22 +95,144 @@ pub struct KeyBackupActiveSeries {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Authoring-only active-series record before a signature exists.
+///
+/// Its fields are private so this state can only be created through [`Self::new`],
+/// and it intentionally does not implement `Deserialize`: unsigned records are
+/// never wire or persistence inputs.
+#[derive(Clone, Debug, Serialize)]
+pub struct UnsignedKeyBackupActiveSeries {
+    schema: String,
+    actor_id: Did,
+    backup_kind: BackupKind,
+    active_series_id: BackupSeriesId,
+    series_pointer_version: u64,
+    previous_series_ids: Vec<BackupSeriesId>,
+    frontier_ref: KeyBackupActiveSeriesFrontierRef,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+    auth_data: UnsignedKeyBackupActiveSeriesAuthData,
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
+impl UnsignedKeyBackupActiveSeries {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        actor_id: Did,
+        backup_kind: BackupKind,
+        active_series_id: BackupSeriesId,
+        series_pointer_version: u64,
+        previous_series_ids: Vec<BackupSeriesId>,
+        frontier_digest: Hash,
+        seal_ref: Option<SealId>,
+        issued_at: DateTime<Utc>,
+        verification_method: DidUrl,
+        trust_anchor: ControllerBackupTrustAnchor,
+    ) -> Result<Self> {
+        if series_pointer_version == 0 {
+            return Err(Error::Protocol(
+                "active-series pointer version must be at least one".to_owned(),
+            ));
+        }
+        if previous_series_ids
+            .iter()
+            .any(|series_id| series_id == &active_series_id)
+        {
+            return Err(Error::Protocol(
+                "active series cannot also be a previous series".to_owned(),
+            ));
+        }
+        if previous_series_ids
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != previous_series_ids.len()
+        {
+            return Err(Error::Protocol(
+                "previous active-series ids must be unique".to_owned(),
+            ));
+        }
+        Ok(Self {
+            schema: SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1.to_owned(),
+            actor_id,
+            backup_kind,
+            active_series_id,
+            series_pointer_version,
+            previous_series_ids,
+            frontier_ref: KeyBackupActiveSeriesFrontierRef {
+                frontier_digest,
+                seal_ref,
+                device_generation_ref: trust_anchor.generation_ref,
+            },
+            issued_at,
+            auth_data: UnsignedKeyBackupActiveSeriesAuthData {
+                verification_method,
+                signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
+                signed_fields: KEY_BACKUP_ACTIVE_SERIES_SIGNED_FIELDS
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+                device_authorize_event_id: trust_anchor.authorize_event_id,
+            },
+            extra: BTreeMap::new(),
+        })
+    }
+
+    /// Canonical bytes signed by active-series producers and verified by all
+    /// receivers. The unsigned typestate serializes exactly like the signed
+    /// wire record except that `auth_data.signature` does not exist yet.
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        Ok(canonical::canonical_json_bytes(self)?)
+    }
+
+    pub fn attach_signature(self, signature: Base64UrlString) -> Result<KeyBackupActiveSeries> {
+        Ok(KeyBackupActiveSeries {
+            schema: self.schema,
+            actor_id: self.actor_id,
+            backup_kind: self.backup_kind,
+            active_series_id: self.active_series_id,
+            series_pointer_version: self.series_pointer_version,
+            previous_series_ids: self.previous_series_ids,
+            frontier_ref: self.frontier_ref,
+            issued_at: self.issued_at,
+            auth_data: KeyBackupActiveSeriesAuthData {
+                verification_method: self.auth_data.verification_method,
+                signature_algorithm: self.auth_data.signature_algorithm,
+                signature: KeyBackupActiveSeriesSignature::new(signature)?,
+                signed_fields: self.auth_data.signed_fields,
+                device_authorize_event_id: self.auth_data.device_authorize_event_id,
+            },
+            extra: self.extra,
+        })
+    }
+}
+
 impl KeyBackupActiveSeries {
     /// Canonical bytes covered by `auth_data.signature`.
     ///
     /// The active-series schema excludes only the signature member itself
     /// from this transcript. Keeping that operation on the public model avoids
     /// every producer and verifier growing its own JSON-shape implementation.
-    pub fn signature_payload_bytes(&self) -> Result<Vec<u8>> {
-        let mut unsigned = serde_json::to_value(self)?;
-        unsigned
-            .get_mut("auth_data")
-            .and_then(Value::as_object_mut)
-            .ok_or_else(|| {
-                Error::Protocol("active-series auth_data must serialize as an object".to_owned())
-            })?
-            .remove("signature");
-        Ok(canonical::canonical_json_bytes(&unsigned)?)
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        let unsigned = UnsignedKeyBackupActiveSeries {
+            schema: self.schema.clone(),
+            actor_id: self.actor_id.clone(),
+            backup_kind: self.backup_kind,
+            active_series_id: self.active_series_id.clone(),
+            series_pointer_version: self.series_pointer_version,
+            previous_series_ids: self.previous_series_ids.clone(),
+            frontier_ref: self.frontier_ref.clone(),
+            issued_at: self.issued_at,
+            auth_data: UnsignedKeyBackupActiveSeriesAuthData {
+                verification_method: self.auth_data.verification_method.clone(),
+                signature_algorithm: self.auth_data.signature_algorithm,
+                signed_fields: self.auth_data.signed_fields.clone(),
+                device_authorize_event_id: self.auth_data.device_authorize_event_id.clone(),
+            },
+            extra: self.extra.clone(),
+        };
+        unsigned.signing_payload_bytes()
     }
 
     /// Canonical CAS cell selected by `(actor_id, backup_kind)`.
@@ -102,20 +281,6 @@ pub struct ControllerBackupTrustAnchor {
 }
 
 impl ControllerBackupTrustAnchor {
-    pub fn frontier_ref_member(&self) -> (&'static str, Value) {
-        (
-            "device_generation_ref",
-            Value::String(self.generation_ref.to_string()),
-        )
-    }
-
-    pub fn auth_data_member(&self) -> (&'static str, Value) {
-        (
-            "device_authorize_event_id",
-            Value::String(self.authorize_event_id.to_string()),
-        )
-    }
-
     pub fn from_record(record: &KeyBackupActiveSeries) -> Self {
         Self {
             authorize_event_id: record.auth_data.device_authorize_event_id.clone(),
@@ -180,57 +345,27 @@ pub enum KeyBackupActiveSeriesTransitionError {
     PointerVersionFork,
 }
 
+impl KeyBackupActiveSeriesTransitionError {
+    pub const fn reason_code(self) -> &'static str {
+        match self {
+            Self::SchemaMismatch => "key_backup_active_series_schema_mismatch",
+            Self::SignedFieldsDuplicate => "key_backup_active_series_signed_fields_duplicate",
+            Self::SignedFieldsIncomplete => "key_backup_active_series_signed_fields_incomplete",
+            Self::ActiveInPrevious => "key_backup_active_series_active_in_previous",
+            Self::PreviousSeriesDuplicate => "key_backup_active_series_previous_series_duplicate",
+            Self::ActorOrClassMismatch => "key_backup_active_series_actor_or_class_mismatch",
+            Self::PointerVersionRollback => "key_backup_active_series_pointer_version_rollback",
+            Self::PointerVersionGap => "key_backup_active_series_pointer_version_gap",
+            Self::PointerVersionFork => "key_backup_active_series_pointer_version_fork",
+        }
+    }
+}
+
 pub fn validate_key_backup_active_series_transition(
     current: Option<&KeyBackupActiveSeriesHead>,
     record: &KeyBackupActiveSeries,
 ) -> std::result::Result<KeyBackupActiveSeriesHead, KeyBackupActiveSeriesTransitionError> {
-    const REQUIRED_SIGNED_FIELDS: &[&str] = &[
-        "schema",
-        "actor_id",
-        "backup_kind",
-        "active_series_id",
-        "series_pointer_version",
-        "previous_series_ids",
-        "frontier_ref",
-        "issued_at",
-    ];
-    if record.schema != "ak.schema.key_backup_active_series.v1"
-        || record
-            .extra
-            .keys()
-            .any(|key| !valid_active_series_extension_key(key))
-    {
-        return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
-    }
-    let signed_fields = record
-        .auth_data
-        .signed_fields
-        .iter()
-        .collect::<std::collections::BTreeSet<_>>();
-    if signed_fields.len() != record.auth_data.signed_fields.len() {
-        return Err(KeyBackupActiveSeriesTransitionError::SignedFieldsDuplicate);
-    }
-    if REQUIRED_SIGNED_FIELDS.iter().any(|required| {
-        !signed_fields
-            .iter()
-            .any(|candidate| candidate.as_str() == *required)
-    }) {
-        return Err(KeyBackupActiveSeriesTransitionError::SignedFieldsIncomplete);
-    }
-    if record
-        .previous_series_ids
-        .iter()
-        .any(|series_id| series_id == &record.active_series_id)
-    {
-        return Err(KeyBackupActiveSeriesTransitionError::ActiveInPrevious);
-    }
-    let previous = record
-        .previous_series_ids
-        .iter()
-        .collect::<std::collections::BTreeSet<_>>();
-    if previous.len() != record.previous_series_ids.len() {
-        return Err(KeyBackupActiveSeriesTransitionError::PreviousSeriesDuplicate);
-    }
+    validate_key_backup_active_series_record(record)?;
     let next = key_backup_active_series_head(record)?;
     let Some(current) = current else {
         return if record.series_pointer_version == 1 {
@@ -257,6 +392,55 @@ pub fn validate_key_backup_active_series_transition(
         return Err(KeyBackupActiveSeriesTransitionError::PointerVersionGap);
     }
     Ok(next)
+}
+
+/// Validate one active-series record independently of its predecessor. This is
+/// shared by admission, authority, and reducer paths so `signed_fields`
+/// duplicate/incomplete semantics cannot diverge between verifiers.
+pub fn validate_key_backup_active_series_record(
+    record: &KeyBackupActiveSeries,
+) -> std::result::Result<(), KeyBackupActiveSeriesTransitionError> {
+    if record.schema != "ak.schema.key_backup_active_series.v1"
+        || record
+            .extra
+            .keys()
+            .any(|key| !valid_active_series_extension_key(key))
+    {
+        return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
+    }
+    let signed_fields = record
+        .auth_data
+        .signed_fields
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    if signed_fields.len() != record.auth_data.signed_fields.len() {
+        return Err(KeyBackupActiveSeriesTransitionError::SignedFieldsDuplicate);
+    }
+    if KEY_BACKUP_ACTIVE_SERIES_SIGNED_FIELDS
+        .iter()
+        .any(|required| {
+            !signed_fields
+                .iter()
+                .any(|candidate| candidate.as_str() == *required)
+        })
+    {
+        return Err(KeyBackupActiveSeriesTransitionError::SignedFieldsIncomplete);
+    }
+    if record
+        .previous_series_ids
+        .iter()
+        .any(|series_id| series_id == &record.active_series_id)
+    {
+        return Err(KeyBackupActiveSeriesTransitionError::ActiveInPrevious);
+    }
+    let previous = record
+        .previous_series_ids
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    if previous.len() != record.previous_series_ids.len() {
+        return Err(KeyBackupActiveSeriesTransitionError::PreviousSeriesDuplicate);
+    }
+    Ok(())
 }
 
 pub fn key_backup_active_series_head(
@@ -289,3 +473,95 @@ fn valid_active_series_extension_key(key: &str) -> bool {
 }
 
 pub type KeyBackupActiveSeriesPayload = KeyBackupActiveSeries;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unsigned_fixture() -> UnsignedKeyBackupActiveSeries {
+        UnsignedKeyBackupActiveSeries::new(
+            Did::new("did:web:alice.example".to_owned()).unwrap(),
+            BackupKind::MlsHistory,
+            BackupSeriesId::new("ak:backup_series:019a6760-0000-7000-8000-000000000001".to_owned())
+                .unwrap(),
+            1,
+            vec![],
+            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
+            DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            DidUrl::new("did:web:alice.example#device-1".to_owned()).unwrap(),
+            ControllerBackupTrustAnchor {
+                authorize_event_id: EventId::new(
+                    "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e".to_owned(),
+                )
+                .unwrap(),
+                generation_ref: NonEmptyString::new("1-did:web:alice.example".to_owned()).unwrap(),
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn active_series_signing_transcript_kat_is_stable_across_typestates() {
+        const EXPECTED: &str = concat!(
+            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":"did:web:alice.example","auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","signed_fields":["schema","actor_id","backup_kind","active_series_id","series_pointer_version","previous_series_ids","frontier_ref","issued_at"],"verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":"1-did:web:alice.example","frontier_digest":"sha256:"#,
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            r#"","seal_ref":"ak:seal:sha256:"#,
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            r#""},"issued_at":"2026-08-08T00:00:00.000Z","previous_series_ids":[],"schema":"ak.schema.key_backup_active_series.v1","series_pointer_version":1}"#,
+        );
+        let unsigned = unsigned_fixture();
+        assert_eq!(
+            unsigned.signing_payload_bytes().unwrap(),
+            EXPECTED.as_bytes()
+        );
+
+        let signed = unsigned
+            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
+            .unwrap();
+        assert_eq!(signed.signing_payload_bytes().unwrap(), EXPECTED.as_bytes());
+    }
+
+    #[test]
+    fn signed_active_series_rejects_the_historical_pending_sentinel() {
+        let unsigned = unsigned_fixture();
+        assert!(
+            unsigned
+                .attach_signature(Base64UrlString::new("pending".to_owned()).unwrap())
+                .is_err()
+        );
+
+        let signed = unsigned_fixture()
+            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
+            .unwrap();
+        let mut value = serde_json::to_value(signed).unwrap();
+        value["auth_data"]["signature"] = Value::String("pending".to_owned());
+        assert!(serde_json::from_value::<KeyBackupActiveSeries>(value).is_err());
+    }
+
+    #[test]
+    fn signed_fields_duplicate_and_incomplete_reasons_are_stable() {
+        let mut duplicate = unsigned_fixture()
+            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
+            .unwrap();
+        duplicate.auth_data.signed_fields.push("schema".to_owned());
+        assert_eq!(
+            validate_key_backup_active_series_transition(None, &duplicate),
+            Err(KeyBackupActiveSeriesTransitionError::SignedFieldsDuplicate)
+        );
+
+        let mut incomplete = unsigned_fixture()
+            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
+            .unwrap();
+        incomplete
+            .auth_data
+            .signed_fields
+            .retain(|field| field != "issued_at");
+        assert_eq!(
+            validate_key_backup_active_series_transition(None, &incomplete),
+            Err(KeyBackupActiveSeriesTransitionError::SignedFieldsIncomplete)
+        );
+    }
+}

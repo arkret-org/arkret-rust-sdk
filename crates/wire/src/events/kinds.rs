@@ -289,61 +289,55 @@ pub fn event_product_class_from_wire(kind: &str) -> EventProductClass {
     event_product_class(&EventKind::from_wire(kind))
 }
 
-pub fn is_audit_kind(kind: &str) -> bool {
-    kind.starts_with("ak.audit.")
+pub fn is_audit_kind(kind: &EventKind) -> bool {
+    matches!(event_product_class(kind), EventProductClass::Audit)
 }
 
-pub fn is_redaction_kind(kind: &str) -> bool {
-    matches!(kind, EventKind::MESSAGE_REDACT | EventKind::REDACTION)
+pub fn is_redaction_kind(kind: &EventKind) -> bool {
+    matches!(kind, EventKind::MessageRedact | EventKind::Redaction)
 }
 
-pub fn is_membership_kind(kind: &str) -> bool {
-    matches!(
-        event_product_class_from_wire(kind),
-        EventProductClass::Membership
-    )
+pub fn is_membership_kind(kind: &EventKind) -> bool {
+    matches!(event_product_class(kind), EventProductClass::Membership)
 }
 
-pub fn is_invite_kind(kind: &str) -> bool {
-    matches!(
-        event_product_class_from_wire(kind),
-        EventProductClass::Invite
-    )
+pub fn is_invite_kind(kind: &EventKind) -> bool {
+    matches!(event_product_class(kind), EventProductClass::Invite)
 }
 
-pub fn is_realm_lifecycle_kind(kind: &str) -> bool {
+pub fn is_realm_lifecycle_kind(kind: &EventKind) -> bool {
     matches!(
         kind,
-        EventKind::REALM_CREATE
-            | EventKind::REALM_PROFILE
-            | EventKind::REALM_ARCHIVE
-            | EventKind::REALM_FREEZE
-            | EventKind::REALM_DESTROY
-            | EventKind::REALM_TOMBSTONE
+        EventKind::RealmCreate
+            | EventKind::RealmProfile
+            | EventKind::RealmArchive
+            | EventKind::RealmFreeze
+            | EventKind::RealmDestroy
+            | EventKind::RealmTombstone
     )
 }
 
-pub fn is_pin_kind(kind: &str) -> bool {
-    matches!(event_product_class_from_wire(kind), EventProductClass::Pin)
+pub fn is_pin_kind(kind: &EventKind) -> bool {
+    matches!(event_product_class(kind), EventProductClass::Pin)
 }
 
-pub fn is_space_lifecycle_kind(kind: &str) -> bool {
+pub fn is_space_lifecycle_kind(kind: &EventKind) -> bool {
     matches!(
         kind,
-        EventKind::SPACE_ARCHIVE | EventKind::SPACE_RESTORE | EventKind::SPACE_TOMBSTONE
+        EventKind::SpaceArchive | EventKind::SpaceRestore | EventKind::SpaceTombstone
     )
 }
 
-pub fn is_strand_lifecycle_kind(kind: &str) -> bool {
-    matches!(kind, EventKind::STRAND_ARCHIVE | EventKind::STRAND_RESTORE)
+pub fn is_strand_lifecycle_kind(kind: &EventKind) -> bool {
+    matches!(kind, EventKind::StrandArchive | EventKind::StrandRestore)
 }
 
-pub fn is_morph_lifecycle_kind(kind: &str) -> bool {
-    matches!(kind, EventKind::MORPH_ARCHIVE | EventKind::MORPH_RESTORE)
+pub fn is_morph_lifecycle_kind(kind: &EventKind) -> bool {
+    matches!(kind, EventKind::MorphArchive | EventKind::MorphRestore)
 }
 
-pub fn is_strand_tracks_kind(kind: &str) -> bool {
-    matches!(kind, EventKind::STRAND_TRACKS_UPDATE)
+pub fn is_strand_tracks_kind(kind: &EventKind) -> bool {
+    matches!(kind, EventKind::StrandTracksUpdate)
 }
 
 #[cfg(test)]
@@ -352,7 +346,7 @@ mod tests {
 
     #[test]
     fn classifies_active_spec_event_kinds() {
-        assert!(is_standard_event_kind(EventKind::MESSAGE_CREATE));
+        assert!(EventKind::MessageCreate.is_standard());
         assert_eq!(
             EventKind::MessageCreate.product_class(),
             EventProductClass::Message
@@ -365,16 +359,16 @@ mod tests {
             EventKind::SpaceCreate.product_class(),
             EventProductClass::Space
         );
-        assert!(is_invite_kind(EventKind::INVITE_CREATE));
-        assert!(is_membership_kind(EventKind::MEMBER_STATE));
-        assert!(is_pin_kind(EventKind::PIN_ADD));
-        assert!(is_audit_kind(EventKind::AUDIT_RYW_RECEIPT));
-        assert!(is_redaction_kind(EventKind::REDACTION));
-        assert!(is_realm_lifecycle_kind(EventKind::REALM_TOMBSTONE));
-        assert!(is_space_lifecycle_kind(EventKind::SPACE_ARCHIVE));
-        assert!(is_strand_lifecycle_kind(EventKind::STRAND_ARCHIVE));
-        assert!(is_morph_lifecycle_kind(EventKind::MORPH_ARCHIVE));
-        assert!(is_strand_tracks_kind(EventKind::STRAND_TRACKS_UPDATE));
+        assert!(is_invite_kind(&EventKind::InviteCreate));
+        assert!(is_membership_kind(&EventKind::MemberState));
+        assert!(is_pin_kind(&EventKind::PinAdd));
+        assert!(is_audit_kind(&EventKind::AuditRywReceipt));
+        assert!(is_redaction_kind(&EventKind::Redaction));
+        assert!(is_realm_lifecycle_kind(&EventKind::RealmTombstone));
+        assert!(is_space_lifecycle_kind(&EventKind::SpaceArchive));
+        assert!(is_strand_lifecycle_kind(&EventKind::StrandArchive));
+        assert!(is_morph_lifecycle_kind(&EventKind::MorphArchive));
+        assert!(is_strand_tracks_kind(&EventKind::StrandTracksUpdate));
         assert_eq!(
             EventKind::CallState.product_class(),
             EventProductClass::Call
@@ -395,15 +389,15 @@ mod tests {
 
     #[test]
     fn event_kind_namespaced_value_round_trips() {
-        let kind = EventKind::try_new(EventKind::MESSAGE_CREATE).expect("registered event kind");
-        assert_eq!(kind.as_str(), EventKind::MESSAGE_CREATE);
+        let kind = EventKind::MessageCreate;
+        assert_eq!(kind, EventKind::MessageCreate);
         assert_eq!(kind.product_class(), EventProductClass::Message);
         assert!(kind.is_reducer_input());
     }
 
     #[test]
     fn event_kind_try_new_rejects_vendor_kinds() {
-        assert!(EventKind::try_new(EventKind::MESSAGE_CREATE).is_some());
+        assert!(EventKind::MessageCreate.is_standard());
         assert!(EventKind::try_new("vendor.example.widget").is_none());
         assert!(EventKind::try_new("").is_none());
     }
@@ -412,7 +406,7 @@ mod tests {
     fn event_kind_serde_preserves_unknown() {
         let kind = EventKind::MessageCreate;
         let json_text = serde_json::to_string(&kind).unwrap();
-        assert_eq!(json_text, format!(r#""{}""#, EventKind::MESSAGE_CREATE));
+        assert_eq!(json_text, format!(r#""{}""#, EventKind::MessageCreate));
         assert_eq!(serde_json::from_str::<EventKind>(&json_text).unwrap(), kind);
 
         let parsed: EventKind = serde_json::from_str(r#""ak.future.kind""#).unwrap();

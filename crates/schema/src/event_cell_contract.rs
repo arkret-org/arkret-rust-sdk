@@ -185,7 +185,7 @@ pub fn project_registered_cell_writes_with_pre_state(
         // closed to `ak.state.conflict_recovery`; anything else declaring it is
         // a registry error, not a shape to interpret.
         if let Some(cell_ref_rule) = write.get("cell_ref") {
-            if kind != EventKind::STATE_CONFLICT_RECOVERY {
+            if event.kind != EventKind::StateConflictRecovery {
                 return Err(effect_set_error(
                     &kind,
                     "cell_ref is reserved to ak.state.conflict_recovery",
@@ -1859,7 +1859,7 @@ mod tests {
     fn rsvp_event(occurrence: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe",
-            "kind": EventKind::RSVP_SET,
+            "kind": EventKind::RsvpSet,
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
@@ -1942,11 +1942,15 @@ mod tests {
 
         let event = rsvp_event(Value::Null);
         assert!(matches!(
-            component_value(&event, &json!("envelope.event_id"), EventKind::RSVP_SET),
+            component_value(
+                &event,
+                &json!("envelope.event_id"),
+                EventKind::RsvpSet.as_str(),
+            ),
             Err(EventCellContractError::SubjectDerivation { .. })
         ));
         assert!(matches!(
-            component_value(&event, &json!("actor_id"), EventKind::RSVP_SET),
+            component_value(&event, &json!("actor_id"), EventKind::RsvpSet.as_str(),),
             Err(EventCellContractError::SubjectDerivation { .. })
         ));
 
@@ -1970,7 +1974,7 @@ mod tests {
             }
         });
         assert_eq!(
-            component_value(&event, &envelope_select, EventKind::RSVP_SET).unwrap(),
+            component_value(&event, &envelope_select, EventKind::RsvpSet.as_str(),).unwrap(),
             json!("did:webvh:z6mkfixture:alice.example")
         );
     }
@@ -2110,7 +2114,7 @@ mod tests {
     fn accountability_event(scope: Value, status: &str) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AbTm4abxkmMcE7rkV-Wz8Uk_vFh-cUlesAd-EsJX395Y",
-            "kind": EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
+            "kind": EventKind::IdentityAccountabilityGrant,
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
             "actor_id": "did:web:issuer.example",
@@ -2215,7 +2219,7 @@ mod tests {
             component_value(
                 &event,
                 &descriptor,
-                EventKind::IDENTITY_ACCOUNTABILITY_GRANT
+                EventKind::IdentityAccountabilityGrant.as_str()
             ),
             Err(EventCellContractError::SubjectDerivation { .. })
         ));
@@ -2232,7 +2236,7 @@ mod tests {
         );
     }
 
-    fn realm_facet(kind: &str, payload: Value) -> Event {
+    fn realm_facet(kind: EventKind, payload: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
             "kind": kind,
@@ -2280,7 +2284,7 @@ mod tests {
         });
         serde_json::from_value(json!({
             "event_id": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
-            "kind": EventKind::REALM_KEY_SHARE,
+            "kind": EventKind::RealmKeyShare,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
@@ -2331,7 +2335,7 @@ mod tests {
         }
         serde_json::from_value(json!({
             "event_id": "ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA",
-            "kind": EventKind::INVITE_CREATE,
+            "kind": EventKind::InviteCreate,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
@@ -2389,7 +2393,7 @@ mod tests {
     fn invite_accept_member_target_uses_explicit_envelope_actor() {
         let event: Event = serde_json::from_value(json!({
             "event_id": "ak:event:AVoVBx7js38H0fUT57Q-OzdWFD9lkqs6-SHqacF1Z0kE",
-            "kind": EventKind::INVITE_ACCEPT,
+            "kind": EventKind::InviteAccept,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "did:webvh:z6mkfixture:bob.example",
@@ -2423,7 +2427,7 @@ mod tests {
         );
     }
 
-    fn invite_terminal_event(kind: &str) -> Event {
+    fn invite_terminal_event(kind: EventKind) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:Ae88ZtS-5TAd47HF5YoHYlf7n9J0LovDSKxh6tVLAhQK",
             "kind": kind,
@@ -2459,11 +2463,11 @@ mod tests {
             ),
         ];
         assert_eq!(
-            project(&invite_terminal_event(EventKind::INVITE_REVOKE)),
+            project(&invite_terminal_event(EventKind::InviteRevoke)),
             expected
         );
 
-        let cancel = invite_terminal_event(EventKind::INVITE_CANCEL);
+        let cancel = invite_terminal_event(EventKind::InviteCancel);
         let lifecycle = CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap();
         let mut pre_state = FrozenPreState::new();
         pre_state.insert(
@@ -2505,7 +2509,7 @@ mod tests {
     fn consent_revoke_event(observed_dots: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AbZaFFVA6-wyHEXt0cn9FZyvdNAvqOLngkxh8qyrpg1Z",
-            "kind": EventKind::CONSENT_REVOKE,
+            "kind": EventKind::ConsentRevoke,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
@@ -2581,7 +2585,7 @@ mod tests {
         // `payload.target_state`. A payload without it leaves the reducer with
         // no derivable write, which fails the whole Event closed rather than
         // falling back to an implementation-private default.
-        let mut event = invite_terminal_event(EventKind::INVITE_CANCEL);
+        let mut event = invite_terminal_event(EventKind::InviteCancel);
         event.payload.remove("target_state");
         let mut pre_state = FrozenPreState::new();
         pre_state.insert(
@@ -2604,7 +2608,7 @@ mod tests {
     fn realm_create_event(refs: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G",
-            "kind": EventKind::REALM_CREATE,
+            "kind": EventKind::RealmCreate,
             "scope_ref": {"kind": "realm_genesis"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 7,
@@ -2680,7 +2684,7 @@ mod tests {
         );
     }
 
-    fn call_event(kind: &str, payload: Value) -> Event {
+    fn call_event(kind: EventKind, payload: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G",
             "kind": kind,
@@ -2705,7 +2709,7 @@ mod tests {
             "device_id": "ak:device:019f9000-0000-7000-8000-000000000023"
         });
         let event = call_event(
-            EventKind::CALL_STATE,
+            EventKind::CallState,
             json!({
                 "call_id": call_id,
                 "state_transition": {"from": "ringing", "to": "active"},
@@ -2743,7 +2747,7 @@ mod tests {
     #[test]
     fn or_set_delta_rejects_an_unregistered_selector_branch() {
         let event = call_event(
-            EventKind::CALL_STATE,
+            EventKind::CallState,
             json!({
                 "call_id": "ak:call:AUnMkflaxtGFOx2-bF9-47QlulhbzBTMRIGsIQWQuRxw",
                 "roster_delta": {"op": "kick", "observed_dot": "ak:event:019f9000:0"}
@@ -2767,7 +2771,7 @@ mod tests {
             "retention": {"consent_confirmed": true}
         });
         let recording = call_event(
-            EventKind::CALL_RECORDING_START,
+            EventKind::CallRecordingStart,
             json!({
                 "call_id": call_id,
                 "recording_id": recording_id,
@@ -2796,7 +2800,7 @@ mod tests {
             "retention": {"consent_confirmed": true}
         });
         let transcript = call_event(
-            EventKind::CALL_RECORDING_START,
+            EventKind::CallRecordingStart,
             json!({
                 "call_id": call_id,
                 "recording_id": recording_id,
@@ -2826,7 +2830,7 @@ mod tests {
         let grant_id = "ak:grant:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM";
         let event: Event = serde_json::from_value(json!({
             "event_id": event_id,
-            "kind": EventKind::CAPABILITY_GRANT,
+            "kind": EventKind::CapabilityGrant,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "did:webvh:z6mkfixture:alice.example",
@@ -3115,7 +3119,7 @@ mod tests {
     #[test]
     fn validates_realm_join_rule_from_registry() {
         let event = realm_facet(
-            EventKind::REALM_JOIN_RULE,
+            EventKind::RealmJoinRule,
             json!({"value": "knock_restricted"}),
         );
         validate_registered_cell_writes(&event).unwrap();
@@ -3134,7 +3138,7 @@ mod tests {
         // can no longer aim a discovery Event at the join-rule cell, nor set the
         // register to a value its payload never carried: both the family and the
         // set value are read straight off the registry row.
-        let event = realm_facet(EventKind::REALM_DISCOVERY, json!({"value": "listed"}));
+        let event = realm_facet(EventKind::RealmDiscovery, json!({"value": "listed"}));
         assert_eq!(
             project(&event),
             vec![write(
@@ -3146,7 +3150,7 @@ mod tests {
 
     #[test]
     fn accepts_only_basis_free_control_facets_in_realm_bootstrap_context() {
-        let mut event = realm_facet(EventKind::REALM_JOIN_RULE, json!({"value": "invite"}));
+        let mut event = realm_facet(EventKind::RealmJoinRule, json!({"value": "invite"}));
         event.seal_basis = None;
         validate_registered_cell_writes_in_context(
             &event,

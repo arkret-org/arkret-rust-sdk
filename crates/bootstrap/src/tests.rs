@@ -102,7 +102,7 @@ fn bootstrap_unit() -> (Event, Event) {
 
     let payload = founding_authorize_payload(&create.actor_id, create.created_at);
     let mut authorize = Event::new(
-        EventKind::DEVICE_AUTHORIZE,
+        EventKind::DeviceAuthorize.to_string(),
         // The genesis scope belongs to the create alone; the first authorize is
         // an ordinary Control Move inside the Realm the create just named.
         ScopeRef::Realm {
@@ -211,7 +211,7 @@ fn founding_device_descriptor(
 fn builder_emits_only_the_closed_unsigned_root_shape() {
     let event = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
 
-    assert_eq!(event.kind, EventKind::REALM_CREATE);
+    assert_eq!(event.kind, EventKind::RealmCreate);
     assert_eq!(event.actor_seq, 0);
     assert!(event.prev_refs.is_empty());
     assert!(event.proofs.is_empty());
@@ -341,7 +341,7 @@ fn managed_agent_pcr_create() -> Event {
     })
     .unwrap();
     let mut create = Event::new(
-        EventKind::REALM_CREATE,
+        EventKind::RealmCreate.to_string(),
         ScopeRef::Realm {
             realm_id: realm_id.clone(),
         },
@@ -454,7 +454,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
     );
 
     let mut later_transition = Event::new(
-        EventKind::MLS_GENESIS,
+        EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),
         1,
@@ -479,7 +479,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     let create = managed_agent_pcr_create();
     let controller = create.executed_by.clone().unwrap();
     let mut anchor = Event::new(
-        EventKind::MLS_GENESIS,
+        EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),
         1,

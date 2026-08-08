@@ -6,10 +6,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::sync_frames::snapshot::{
     RangeCompletenessAttestation, RangeCompletenessAttestationEventRangeActorSeqRangesItem,
 };
-use arkret_wire::{Did, Event, EventId, Hash, RealmId};
+use arkret_wire::{Did, Event, EventId, Hash, RealmId, event_spec};
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -471,7 +472,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
         ));
     }
     let payload: RangeCompletenessAttestation = attestation_event
-        .payload_as()
+        .typed_payload::<event_spec::AttestationRangeCompleteness>()
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
     if payload.schema != arkret_wire::SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1
         || payload.realm_id != *expected_realm

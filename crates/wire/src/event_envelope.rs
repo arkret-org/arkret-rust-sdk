@@ -32,7 +32,6 @@ use arkret_identifiers::{
     AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId, SidecarId,
 };
 use chrono::{DateTime, Utc};
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -834,7 +833,7 @@ impl<'a> From<&'a Event> for EventSer<'a> {
         Self {
             event_id: &event.event_id,
             kind: &event.kind,
-            realm_id: (event.kind != EventKind::REALM_CREATE).then_some(&event.realm_id),
+            realm_id: (event.kind != EventKind::RealmCreate).then_some(&event.realm_id),
             scope_ref: &event.scope_ref,
             actor_id: &event.actor_id,
             executed_by: &event.executed_by,
@@ -927,7 +926,7 @@ impl TryFrom<EventWire> for Event {
         // omits realm_id and receivers derive it from the Event's own id.
         let realm_id = match wire.realm_id {
             Some(realm_id) => {
-                if kind == EventKind::REALM_CREATE {
+                if kind == EventKind::RealmCreate {
                     return Err(
                         "realm_id_not_event_derived: ak.realm.create MUST omit realm_id".to_owned(),
                     );
@@ -935,7 +934,7 @@ impl TryFrom<EventWire> for Event {
                 realm_id
             }
             None => {
-                if kind != EventKind::REALM_CREATE {
+                if kind != EventKind::RealmCreate {
                     return Err("realm_id is required".to_owned());
                 }
                 derive_genesis_realm_id(&wire.event_id, &wire.actor_id, wire.payload.get("object"))
@@ -1139,33 +1138,6 @@ impl Event {
         Ok(event)
     }
 
-    /// Parse the opaque event payload as `T` without checking `kind`.
-    pub fn payload_as<T: DeserializeOwned>(&self) -> Result<T> {
-        serde_json::from_value(Value::Object(
-            self.payload
-                .clone()
-                .into_iter()
-                .collect::<serde_json::Map<_, _>>(),
-        ))
-        .map_err(Into::into)
-    }
-
-    /// Assert the event kind before parsing the payload as `T`.
-    pub fn typed_payload<T: DeserializeOwned>(&self, expected_kind: &str) -> Result<T> {
-        self.ensure_payload_kind(expected_kind)?;
-        self.payload_as()
-    }
-
-    fn ensure_payload_kind(&self, expected_kind: &str) -> Result<()> {
-        if self.kind != expected_kind {
-            return Err(Error::Protocol(format!(
-                "event payload kind mismatch: expected {expected_kind}, got {}",
-                self.kind.as_str()
-            )));
-        }
-        Ok(())
-    }
-
     /// Top-level Envelope fields that are stamped by the reducer AFTER the
     /// producer signs, and therefore MUST NOT enter the signature/digest
     /// input (otherwise a federated peer independently recomputing the
@@ -1342,7 +1314,7 @@ impl Event {
         // zh/models/realm-and-space.md section 2.5.0: the genesis scope carries
         // no realm_id, so the equality check applies to every other kind and
         // the genesis branch instead pins the closed scope shape.
-        if self.kind == EventKind::REALM_CREATE {
+        if self.kind == EventKind::RealmCreate {
             if self.scope_ref != ScopeRef::RealmGenesis {
                 return Err(Error::Protocol(
                     "ak.realm.create MUST use the realm_genesis scope".to_owned(),
@@ -1861,19 +1833,6 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn typed_payload_rejects_kind_mismatch() {
-        #[derive(Debug, Deserialize)]
-        struct AnyPayload {}
-
-        let event = base_event();
-        let error = event
-            .typed_payload::<AnyPayload>(EventKind::STRAND_CREATE)
-            .unwrap_err();
-
-        assert!(error.to_string().contains("kind mismatch"), "{error}");
-    }
-
-    #[test]
     fn event_serialization_omits_applet_surface_when_absent() {
         let event = base_event();
         let serialized = serde_json::to_value(&event).unwrap();
@@ -2049,7 +2008,7 @@ mod event_wire_surface_tests {
     #[test]
     fn anchor_unit_allows_preconditions_without_any_cba_basis_field() {
         let mut event = base_event();
-        event.kind = EventKind::from(EventKind::REALM_CREATE);
+        event.kind = EventKind::RealmCreate;
         // A Realm genesis carries the closed `realm_genesis` scope and no
         // `realm_id` (spec `zh/models/realm-and-space.md` section 2.5.0).
         event.scope_ref = ScopeRef::RealmGenesis;

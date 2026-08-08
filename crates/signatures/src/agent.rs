@@ -278,7 +278,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
 }
 
 fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> Result<()> {
-    if authorize_event.kind.as_str() != EventKind::AGENT_KEY_AUTHORIZE {
+    if authorize_event.kind != EventKind::AgentKeyAuthorize {
         return Err(Error::Protocol(
             "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
         ));
@@ -753,7 +753,7 @@ mod tests {
             runtime_attestation: None,
         };
         let authorize_event = Event::new(
-            EventKind::AGENT_KEY_AUTHORIZE,
+            EventKind::AgentKeyAuthorize.to_string(),
             arkret_wire::ScopeRef::Realm {
                 realm_id: RealmId::from_event_id(&EventId::from_digest(
                     arkret_canonical::DigestSuite::Sha256,

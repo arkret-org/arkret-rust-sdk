@@ -99,7 +99,7 @@ impl TryFrom<&Event> for AgentProvisionPayload {
     type Error = AgentProvisionPayloadError;
 
     fn try_from(event: &Event) -> core::result::Result<Self, Self::Error> {
-        if event.kind.as_str() != EventKind::AGENT_PROVISION {
+        if event.kind != EventKind::AgentProvision {
             return Err(AgentProvisionPayloadError::UnexpectedKind(
                 event.kind.as_str().to_owned(),
             ));
@@ -438,7 +438,7 @@ impl TryFrom<&Event> for AgentKeyAuthorizePayload {
     type Error = AgentKeyAuthorizePayloadError;
 
     fn try_from(event: &Event) -> core::result::Result<Self, Self::Error> {
-        if event.kind.as_str() != EventKind::AGENT_KEY_AUTHORIZE {
+        if event.kind != EventKind::AgentKeyAuthorize {
             return Err(AgentKeyAuthorizePayloadError::UnexpectedKind(
                 event.kind.as_str().to_owned(),
             ));

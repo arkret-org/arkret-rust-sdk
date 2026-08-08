@@ -147,7 +147,7 @@ impl FrankingProof {
     pub const TIME_ANCHOR_MAX_SKEW_SECS: i64 = 300;
 
     pub fn validate_event_time_anchor(&self, anchor: &FrankingProofEventTimeAnchor) -> Result<()> {
-        if self.kind != EventKind::MODERATION_FRANKING_PROOF {
+        if self.kind != arkret_wire::event_kind_str::MODERATION_FRANKING_PROOF {
             return Err(Error::Protocol(
                 "franking proof kind must be ak.moderation.franking_proof".to_owned(),
             ));
@@ -215,7 +215,7 @@ mod tests {
 
     fn proof() -> FrankingProof {
         FrankingProof {
-            kind: EventKind::MODERATION_FRANKING_PROOF.to_owned(),
+            kind: EventKind::ModerationFrankingProof.to_string(),
             franking_proof_id: "ak:franking_proof:01904100-0000-7000-8000-000000000111".to_owned(),
             realm_id: realm_id(),
             event_id: event_id("ak:event:AY3aEHEku45kFksenyEUUeJDYGC8pcxJwaT9PypXoEZw"),

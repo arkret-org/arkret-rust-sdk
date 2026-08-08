@@ -436,7 +436,7 @@ pub struct WireAppletRegistration {
 
 impl WireAppletRegistration {
     /// Durable event kind this registration is published under.
-    pub const KIND: &'static str = EventKind::APPLET_REGISTRATION;
+    pub const KIND: &'static str = arkret_wire::event_kind_str::APPLET_REGISTRATION;
 
     /// Build an unsigned registration. Caller MUST attach `proof` via
     /// [`sign_registration`].
@@ -714,7 +714,7 @@ impl AppletRegistrationEpochTranscript {
         let mut transcript = Self {
             schema: SchemaId::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1.to_owned(),
             derived_registration: AppletRegistrationEpochDerivedRegistration {
-                kind: EventKind::APPLET_REGISTRATION.to_owned(),
+                kind: EventKind::AppletRegistration.to_string(),
                 applet_id: package.applet_id.clone(),
                 service_id: package.service_id.clone(),
                 controller_id: package.controller_id.clone(),
@@ -813,7 +813,7 @@ impl AppletRegistrationEpochTranscript {
                 "applet registration epoch transcript schema mismatch".to_owned(),
             ));
         }
-        if self.derived_registration.kind != EventKind::APPLET_REGISTRATION {
+        if self.derived_registration.kind != arkret_wire::event_kind_str::APPLET_REGISTRATION {
             return Err(Error::Protocol(
                 "applet registration epoch transcript kind mismatch".to_owned(),
             ));

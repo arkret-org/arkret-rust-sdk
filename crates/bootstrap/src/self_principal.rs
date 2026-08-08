@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 
+use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::device_identity::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceOrPrincipalRef,
     validate_root_anchored_authorize_payload_digest,
@@ -15,7 +16,7 @@ use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_wire::{
     CellRef, Did, EncryptionProfile, Error, Event, EventKind, EventRef, EventRequirements, Hash,
     Hlc, NotaryValue, PcrGenesisUnit, ProfileId, RealmId, Result, SchemaId, ScopeRef,
-    SecurityClass, TypedTrustDomainId, composite_subject, proof_kind,
+    SecurityClass, TypedTrustDomainId, composite_subject, event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -79,7 +80,7 @@ pub fn build_self_principal_pcr_create(
 
     let payload = payload_map(&RealmCreatePayload::new(genesis))?;
     let mut event = Event::new_at(
-        EventKind::REALM_CREATE,
+        EventKind::RealmCreate.to_string(),
         // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
         // carries no realm_id. For a PCR the id is subject-derived from the
         // principal DID rather than from this Event, but the wire shape is the
@@ -118,7 +119,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     project: CellWriteProjector<'_>,
 ) -> Result<()> {
     validate_self_principal_pcr_create(create, true, project)?;
-    if authorize.kind != EventKind::DEVICE_AUTHORIZE
+    if authorize.kind != EventKind::DeviceAuthorize
         || authorize.realm_id != create.realm_id
         || authorize.actor_id != create.actor_id
         || authorize.actor_seq != 1
@@ -147,7 +148,8 @@ pub fn validate_self_principal_pcr_genesis_unit(
         ));
     }
     validate_event_proof_digests(authorize)?;
-    let payload: DeviceAuthorizePayload = authorize.typed_payload(EventKind::DEVICE_AUTHORIZE)?;
+    let payload: DeviceAuthorizePayload =
+        authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
     if payload.principal_id != create.actor_id
         || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored
         || payload.recovery_session_id.is_some()
@@ -160,7 +162,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         &payload.authorized_by,
         DeviceOrPrincipalRef::Did(did) if did == &create.actor_id
     );
-    let create_payload: RealmCreatePayload = create.payload_as()?;
+    let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let descriptor = create_payload
         .object
         .founding_device_descriptor
@@ -211,7 +213,7 @@ pub(crate) fn validate_self_principal_pcr_create(
     project: CellWriteProjector<'_>,
 ) -> Result<()> {
     let expected_realm_id = RealmId::new(principal_control_realm_id(&event.actor_id))?;
-    if event.kind != EventKind::REALM_CREATE
+    if event.kind != EventKind::RealmCreate
         || event.realm_id != expected_realm_id
         || event.actor_seq != 0
         || !event.prev_refs.is_empty()
@@ -253,7 +255,7 @@ pub(crate) fn validate_self_principal_pcr_create(
 }
 
 fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
-    let payload: RealmCreatePayload = event.payload_as()?;
+    let payload: RealmCreatePayload = event.typed_payload::<event_spec::RealmCreate>()?;
     let genesis = payload.object;
     let profile_count = genesis
         .schema_refs

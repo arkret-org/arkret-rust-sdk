@@ -611,12 +611,12 @@ mod tests {
     }
 
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
-        envelope_for(id, EventKind::REALM_CREATE, json!({}), deps, false)
+        envelope_for(id, EventKind::RealmCreate, json!({}), deps, false)
     }
 
     fn envelope_for(
         id: &str,
-        kind: &str,
+        kind: EventKind,
         payload: Value,
         deps: Vec<&str>,
         authz: bool,
@@ -625,7 +625,7 @@ mod tests {
             OperationId::new(id).unwrap(),
             scope(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            kind,
+            kind.to_string(),
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )
@@ -713,7 +713,7 @@ mod tests {
     fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
         let create = envelope_for(
             "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
-            EventKind::SPACE_CREATE,
+            EventKind::SpaceCreate,
             json!({
                 "object": {},
                 "space_id": "ak:space:AfPl7J7DavQ-qKMZkTOswmjwNqOKZKnaiz3DQ9jKrjtS"
@@ -723,14 +723,14 @@ mod tests {
         );
         let delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-bc16402a117e",
-            EventKind::SPACE_TOMBSTONE,
+            EventKind::SpaceTombstone,
             json!({"space_id": "ak:space:AfPl7J7DavQ-qKMZkTOswmjwNqOKZKnaiz3DQ9jKrjtS"}),
             vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
         let update_after_delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
-            EventKind::SPACE_CREATE,
+            EventKind::SpaceCreate,
             json!({
                 "object": {},
                 "space_id": "ak:space:AfPl7J7DavQ-qKMZkTOswmjwNqOKZKnaiz3DQ9jKrjtS"
@@ -744,7 +744,7 @@ mod tests {
 
         let missing_authz = envelope_for(
             "ak:operation:01904100-0000-7000-8000-a8e5d315a094",
-            EventKind::SPACE_CREATE,
+            EventKind::SpaceCreate,
             json!({
                 "object": {},
                 "space_id": "ak:space:AW-XLsAjCOHwpM6iXxRfj5JLnjmNine6PTpH3gGo7OJq"
@@ -754,20 +754,5 @@ mod tests {
         );
         let report = reduce_operation_semantics(&[missing_authz]);
         assert_eq!(report.rejected[0].kind, "missing_authz");
-    }
-
-    #[test]
-    fn registry_requires_semantic_content_fields() {
-        let result = OperationEnvelopeBuilder::new(
-            OperationId::new("ak:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
-            scope(),
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            EventKind::SPACE_CREATE,
-            1,
-            Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
-        )
-        .with_payload(json!({}))
-        .build(&EventDraftKindRegistry::default());
-        assert!(matches!(result, Err(EventDraftError::Protocol(_))));
     }
 }

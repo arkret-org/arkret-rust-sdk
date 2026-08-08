@@ -1613,7 +1613,7 @@ impl CapabilityGrantBuilder {
             "grant": serde_json::to_value(&self.grant)?,
         });
         crate::Event::new(
-            arkret_wire::EventKind::CAPABILITY_GRANT,
+            arkret_wire::EventKind::CapabilityGrant.to_string(),
             self.scope_ref,
             self.actor_id,
             actor_seq,
@@ -1634,7 +1634,7 @@ pub fn build_capability_relinquish_event(
     payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
 ) -> Result<crate::Event> {
     crate::Event::new(
-        arkret_wire::EventKind::CAPABILITY_RELINQUISH,
+        arkret_wire::EventKind::CapabilityRelinquish.to_string(),
         scope_ref,
         subject,
         actor_seq,
@@ -1703,7 +1703,7 @@ mod capability_grant_builder_tests {
         let event = CapabilityGrantBuilder::new(scope(), alice(), base_grant())
             .build(1, hlc())
             .unwrap();
-        assert_eq!(event.kind, arkret_wire::EventKind::CAPABILITY_GRANT);
+        assert_eq!(event.kind, arkret_wire::EventKind::CapabilityGrant);
         // Canonical capability_grant_payload wrapper: {grant_id, grant}.
         assert_eq!(
             event.payload["grant_id"],
@@ -2216,10 +2216,7 @@ mod capability_grant_builder_tests {
             reason: Some("no longer needed".to_owned()),
         };
         let event = build_capability_relinquish_event(scope(), bob(), 7, hlc(), payload).unwrap();
-        assert_eq!(
-            event.kind.as_str(),
-            arkret_wire::EventKind::CAPABILITY_RELINQUISH
-        );
+        assert_eq!(event.kind, arkret_wire::EventKind::CapabilityRelinquish);
         assert!(event.authorization_ref.is_none());
         assert_eq!(event.actor_id, bob());
     }

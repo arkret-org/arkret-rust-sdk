@@ -1,7 +1,5 @@
-use arkret_models_collaboration::events_payloads::{
-    MorphCreatePayload, MorphUpdatePayload, StrandCreatePayload, StrandPatchPayload,
-};
-use arkret_wire::{EventKind, SchemaId};
+use arkret_event_draft::EventPayloadExt;
+use arkret_wire::{SchemaId, event_spec};
 
 use super::super::snapshot::{patch_fields, patch_state, patch_string, space_state_from_str};
 use super::super::*;
@@ -9,9 +7,7 @@ use super::RealmState;
 
 impl RealmState {
     pub(super) fn create_morph(&mut self, event: &Event) -> Result<()> {
-        let object = event
-            .typed_payload::<MorphCreatePayload>(EventKind::MORPH_CREATE)?
-            .object;
+        let object = event.typed_payload::<event_spec::MorphCreate>()?.object;
         // The object id is derived from this create Event, never read from the
         // payload — the payload MUST NOT carry one (spec
         // `zh/models/common-fields.md` section 6.0).
@@ -47,7 +43,7 @@ impl RealmState {
     }
 
     pub(super) fn update_morph(&mut self, event: &Event) -> Result<()> {
-        let payload = event.typed_payload::<MorphUpdatePayload>(EventKind::MORPH_UPDATE)?;
+        let payload = event.typed_payload::<event_spec::MorphUpdate>()?;
         let morph_id_str = payload.target_ref.as_str().to_owned();
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
         if let Some(morph) = self.morphs.get(&morph_id_str)
@@ -460,9 +456,7 @@ impl RealmState {
     }
 
     pub(super) fn create_strand(&mut self, event: &Event) -> Result<()> {
-        let object = event
-            .typed_payload::<StrandCreatePayload>(EventKind::STRAND_CREATE)?
-            .object;
+        let object = event.typed_payload::<event_spec::StrandCreate>()?.object;
         // Derived from this create Event, never read from the payload.
         let strand_id = arkret_wire::StrandId::from_event_id(&event.event_id);
         let strand_id_str = strand_id.as_str().to_owned();
@@ -504,7 +498,7 @@ impl RealmState {
     }
 
     pub(super) fn update_strand(&mut self, event: &Event) -> Result<()> {
-        let payload = event.typed_payload::<StrandPatchPayload>(EventKind::STRAND_UPDATE)?;
+        let payload = event.typed_payload::<event_spec::StrandUpdate>()?;
         let strand_id_str = payload.target_ref.as_str().to_owned();
         // Spec common-fields.md §5.1 final paragraph: update on a non-active
         // object MUST fail — otherwise an edit would silently revive an

@@ -9,6 +9,15 @@ pub enum WireError {
     #[error("wire validation failed: {0}")]
     Protocol(String),
 
+    #[error("event payload kind mismatch: expected {expected}, got {actual}")]
+    PayloadKindMismatch {
+        expected: &'static str,
+        actual: String,
+    },
+
+    #[error("event payload for {kind} is invalid: {reason}")]
+    PayloadInvalid { kind: &'static str, reason: String },
+
     #[error(transparent)]
     Canonical(#[from] arkret_canonical::CanonicalError),
 

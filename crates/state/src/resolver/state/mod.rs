@@ -177,82 +177,79 @@ impl RealmState {
 
     /// Process the content of an event and update state.
     pub(super) fn process_event_content(&mut self, event: &Event) -> Result<()> {
-        match event.kind.as_str() {
-            EventKind::STRAND_CREATE => self.create_strand(event)?,
-            EventKind::STRAND_UPDATE => self.update_strand(event)?,
-            EventKind::STRAND_ARCHIVE => self.archive_strand(event)?,
-            EventKind::STRAND_RESTORE => self.restore_strand(event)?,
-            EventKind::STRAND_MOVE | EventKind::STRAND_REORDER => self.touch_strand(event)?,
-            EventKind::STRAND_TRACKS_UPDATE => self.update_strand_tracks(event)?,
+        match &event.kind {
+            EventKind::StrandCreate => self.create_strand(event)?,
+            EventKind::StrandUpdate => self.update_strand(event)?,
+            EventKind::StrandArchive => self.archive_strand(event)?,
+            EventKind::StrandRestore => self.restore_strand(event)?,
+            EventKind::StrandMove | EventKind::StrandReorder => self.touch_strand(event)?,
+            EventKind::StrandTracksUpdate => self.update_strand_tracks(event)?,
 
-            EventKind::MORPH_CREATE => self.create_morph(event)?,
-            EventKind::MORPH_UPDATE => self.update_morph(event)?,
-            EventKind::MORPH_ARCHIVE => self.archive_morph(event)?,
-            EventKind::MORPH_RESTORE => self.restore_morph(event)?,
+            EventKind::MorphCreate => self.create_morph(event)?,
+            EventKind::MorphUpdate => self.update_morph(event)?,
+            EventKind::MorphArchive => self.archive_morph(event)?,
+            EventKind::MorphRestore => self.restore_morph(event)?,
 
-            EventKind::SPACE_CREATE => self.create_space(event)?,
-            EventKind::SPACE_UPDATE => self.update_space(event)?,
-            EventKind::SPACE_PARENT => self.set_space_parent(event)?,
-            EventKind::SPACE_ARCHIVE => self.archive_space(event)?,
-            EventKind::SPACE_RESTORE => self.restore_space(event)?,
-            EventKind::SPACE_TOMBSTONE => self.tombstone_space(event)?,
+            EventKind::SpaceCreate => self.create_space(event)?,
+            EventKind::SpaceUpdate => self.update_space(event)?,
+            EventKind::SpaceParent => self.set_space_parent(event)?,
+            EventKind::SpaceArchive => self.archive_space(event)?,
+            EventKind::SpaceRestore => self.restore_space(event)?,
+            EventKind::SpaceTombstone => self.tombstone_space(event)?,
 
             // Relation lifecycle
-            EventKind::RELATION_CREATE => self.create_relation(event)?,
-            EventKind::RELATION_TOMBSTONE => self.delete_relation(event)?,
-            EventKind::CONTAINER_MOVE_ITEM => self.move_relation(event)?,
+            EventKind::RelationCreate => self.create_relation(event)?,
+            EventKind::RelationTombstone => self.delete_relation(event)?,
+            EventKind::ContainerMoveItem => self.move_relation(event)?,
 
             // View operations
-            EventKind::VIEW_CREATE => self.create_view(event)?,
-            EventKind::VIEW_UPDATE => self.update_view(event)?,
-            EventKind::VIEW_RECONCILE => self.reconcile_view(event)?,
+            EventKind::ViewCreate => self.create_view(event)?,
+            EventKind::ViewUpdate => self.update_view(event)?,
+            EventKind::ViewReconcile => self.reconcile_view(event)?,
 
             // Realm lifecycle - generic state reduction. Container-level
-            // (`ak.space.*`) lifecycle is covered by the `EventKind::SPACE_*` arms above.
-            "ak.realm.create"
-            | "ak.realm.update"
-            | "ak.realm.organization"
-            | "ak.realm.link"
-            | "ak.realm.inheritance_policy"
-            | "ak.realm.join_rule"
-            | "ak.realm.history_visibility"
-            | "ak.realm.discovery"
-            | "ak.realm.archive"
-            | "ak.realm.freeze"
-            | "ak.realm.destroy" => self.reduce_realm_lifecycle_event(event)?,
+            // (`ak.space.*`) lifecycle is covered by the typed arms above.
+            EventKind::RealmCreate
+            | EventKind::RealmOrganization
+            | EventKind::RealmLink
+            | EventKind::RealmInheritancePolicy
+            | EventKind::RealmJoinRule
+            | EventKind::RealmHistoryVisibility
+            | EventKind::RealmDiscovery
+            | EventKind::RealmArchive
+            | EventKind::RealmFreeze
+            | EventKind::RealmDestroy => self.reduce_realm_lifecycle_event(event)?,
 
             // Member / capability / invite / policy / read-marker state
-            "ak.member.state"
-            | "ak.capability.grant"
-            | "ak.capability.revoke"
-            | "ak.realm.policy"
-            | "ak.policy.set"
-            | "ak.invite.create"
-            | "ak.invite.cancel"
-            | "ak.invite.accept"
-            | "ak.read_cursor.advance"
+            EventKind::MemberState
+            | EventKind::CapabilityGrant
+            | EventKind::CapabilityRevoke
+            | EventKind::RealmPolicy
+            | EventKind::PolicySet
+            | EventKind::InviteCreate
+            | EventKind::InviteCancel
+            | EventKind::InviteAccept
+            | EventKind::ReadCursorAdvance
             // Account lifecycle (account-lifecycle.md §3 +
             // event-auth-state-resolution.md). The cell subject is the
             // account DID; the latest event wins per HLC ordering.
-            | "ak.account.status"
-            | "ak.account.deactivation"
-            | "ak.account.erasure"
+            | EventKind::AccountStatus
             // Moderation reports / franks (moderation.md §3).
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.
-            | "ak.self.moderation.report"
-            | "ak.moderation.franking_proof" => self.reduce_generic_state_event(event)?,
+            | EventKind::SelfModerationReport
+            | EventKind::ModerationFrankingProof => self.reduce_generic_state_event(event)?,
 
             // Message timeline
-            "ak.message.create" => self.create_message(event)?,
-            "ak.message.revise" => self.revise_message(event)?,
-            "ak.message.redact" => self.redact_message(event)?,
+            EventKind::MessageCreate => self.create_message(event)?,
+            EventKind::MessageRevise => self.revise_message(event)?,
+            EventKind::MessageRedact => self.redact_message(event)?,
 
             // Reactions
-            "ak.reaction.add" | "ak.reaction.remove" => self.reduce_reaction(event)?,
+            EventKind::ReactionAdd | EventKind::ReactionRemove => self.reduce_reaction(event)?,
 
             // Realm upgrade
-            "ak.realm.upgrade" => self.upgrade_realm(event)?,
+            EventKind::RealmUpgrade => self.upgrade_realm(event)?,
 
             // Generic redaction. Round 11 (2026-05-16): also flips Strand /
             // Morph subject state to Redacted per spec common-fields.md
@@ -261,7 +258,7 @@ impl RealmState {
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `ak.space.tombstone` only.
-            "ak.redaction" => {
+            EventKind::Redaction => {
                 self.redact_object_for_event(event)?;
                 if let Some(redacted_ref) = &event.redacts {
                     self.redact_event(redacted_ref)?;

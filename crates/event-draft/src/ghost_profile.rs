@@ -212,7 +212,7 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(event.kind, EventKind::PROFILE_CREATE);
+        assert_eq!(event.kind, EventKind::ProfileCreate);
         assert_eq!(
             event.payload["object"]["profile_fields"]["managed_by_applet"],
             "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"

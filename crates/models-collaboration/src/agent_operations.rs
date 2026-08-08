@@ -900,7 +900,7 @@ pub struct AgentDeactivateRequestBody {
 impl AgentDeactivateRequestBody {
     pub fn validate(&self) -> Result<()> {
         let event = &self.lifecycle_event.event;
-        if event.kind.as_str() != EventKind::SELF_AGENT_DEACTIVATE {
+        if event.kind != EventKind::SelfAgentDeactivate {
             return Err(Error::Protocol(
                 "agent deactivation lifecycle_event must be ak.self.agent.deactivate".to_owned(),
             ));
@@ -929,14 +929,14 @@ impl AgentGrantAttachRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.requested_scope_disclosure.validate()?;
         let event = &self.grant_event.event;
-        if event.kind.as_str() != EventKind::CAPABILITY_GRANT {
+        if event.kind != EventKind::CapabilityGrant {
             return Err(Error::Protocol(
                 "Agent grant attach requires an ak.capability.grant Event".to_owned(),
             ));
         }
         event.validate_proof_bindings()?;
         let payload: crate::events_payloads::capability::CapabilityGrantPayload =
-            event.payload_as()?;
+            decode_payload_after_kind_validation(event)?;
         let grant = &payload.grant;
         let subject = match &grant.subject {
             CapabilitySubject::Did(subject) => subject,

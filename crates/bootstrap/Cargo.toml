@@ -13,6 +13,7 @@ version.workspace = true
 
 [dependencies]
 arkret-canonical = {workspace = true}
+arkret-event-draft = {workspace = true}
 arkret-lattice-registry = {workspace = true}
 arkret-models-collaboration = {workspace = true}
 arkret-models-identity = {workspace = true}

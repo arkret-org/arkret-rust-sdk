@@ -4,7 +4,7 @@ use arkret_wire::{Did, Error, EventId, EventKind, RealmId, Result, SchemaId, Typ
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 /// Verdict on a moderation appeal (decision payload).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppealVerdict {
     /// Original decision stands.
@@ -46,6 +46,7 @@ pub struct AppealSubmitPayload {
 
 /// `ak.moderation.appeal.review` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppealReviewPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
@@ -58,6 +59,7 @@ pub struct AppealReviewPayload {
 
 /// `ak.moderation.appeal.decision` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppealDecisionPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
@@ -73,6 +75,7 @@ pub struct AppealDecisionPayload {
 
 /// `ak.moderation.appeal.close` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppealClosePayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
@@ -85,9 +88,13 @@ pub struct AppealClosePayload {
     pub close_reason: Option<String>,
 }
 
-/// `ak.schema.moderation_appeal.v1` payload — `oneOf` of the four variants.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
+/// Closed in-memory union of the four moderation appeal payloads.
+///
+/// Wire decoding is selected by the event-kind marker and targets the
+/// corresponding concrete payload type. The union deliberately has no
+/// untagged `Deserialize` implementation, so callers cannot recover the
+/// discriminator by trial-deserializing payload shapes.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModerationAppealPayload {
     Submit(AppealSubmitPayload),
     Review(AppealReviewPayload),
@@ -98,12 +105,12 @@ pub enum ModerationAppealPayload {
 impl ModerationAppealPayload {
     pub const SCHEMA: &'static str = SchemaId::MODERATION_APPEAL_V1;
     /// Companion event kind this payload variant is submitted on.
-    pub fn event_kind(&self) -> &'static str {
+    pub const fn event_kind(&self) -> EventKind {
         match self {
-            ModerationAppealPayload::Submit(_) => EventKind::MODERATION_APPEAL_SUBMIT,
-            ModerationAppealPayload::Review(_) => EventKind::MODERATION_APPEAL_REVIEW,
-            ModerationAppealPayload::Decision(_) => EventKind::MODERATION_APPEAL_DECISION,
-            ModerationAppealPayload::Close(_) => EventKind::MODERATION_APPEAL_CLOSE,
+            ModerationAppealPayload::Submit(_) => EventKind::ModerationAppealSubmit,
+            ModerationAppealPayload::Review(_) => EventKind::ModerationAppealReview,
+            ModerationAppealPayload::Decision(_) => EventKind::ModerationAppealDecision,
+            ModerationAppealPayload::Close(_) => EventKind::ModerationAppealClose,
         }
     }
 

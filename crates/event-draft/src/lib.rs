@@ -32,19 +32,23 @@ pub use agent::{
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
 pub use device::build_device_authorize_event_at;
-pub use event_payload::{EventPayloadExt, MessageEventPayload};
+pub use event_payload::{
+    EVENT_KINDS_WITHOUT_RUST_PAYLOAD, EVENT_PAYLOAD_BINDINGS,
+    EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT, EventPayloadBinding, EventPayloadExt, EventSpec,
+    MessageEventPayload,
+};
 pub use ghost_profile::GhostActorProfileRequest;
 pub use operation::{
     CausalRef, MlsEnvelopeOperationExt, MlsWelcomeTargetExt, Operation, OperationEnvelope,
     OperationEnvelopeBuilder, OperationEventConversion, OperationSignature,
 };
-pub use payloads::{StrandCreateObject, StrandTracksUpdatePayload};
+pub use payloads::StrandCreateObject;
 pub use rank::{
     ContainerRebalanceAssignment, container_rebalance_assignments, rank_between, rank_exhausted,
 };
 pub use registry::{
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
-    EventDraftKindValidation, event_draft_kind_conformance_vectors, required_fields_for_event_kind,
+    EventDraftKindValidation, event_draft_kind_conformance_vectors,
 };
 
 /// Result alias for this crate's fallible drafting operations.

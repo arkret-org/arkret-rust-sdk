@@ -1,8 +1,7 @@
 use std::sync::OnceLock;
 
 #[cfg(test)]
-use arkret_wire::EventKind;
-use arkret_wire::SchemaId;
+use arkret_wire::{EventKind, SchemaId};
 
 use super::*;
 
@@ -135,9 +134,6 @@ fn event_payload_validator_catalog_from_bundle(
     bundle: &SpecArtifactBundle,
     registry: ProtocolSchemaRegistry,
 ) -> Result<EventPayloadValidatorCatalog> {
-    let event_payload_schema = registry
-        .schema(SchemaId::EVENT_PAYLOAD_V1)
-        .ok_or_else(|| Error::Protocol("missing event payload schema artifact".to_owned()))?;
     let entries = bundle
         .event_kind_registry
         .get("event_kinds")
@@ -155,15 +151,18 @@ fn event_payload_validator_catalog_from_bundle(
         if !events::is_standard_event_kind(event_kind) {
             continue;
         }
-        let Some(payload_schema_id) = payload_schema_ref_for_event_entry(
-            entry,
-            event_payload_schema,
-            &bundle.schema_registry,
-        ) else {
-            continue;
-        };
-        let required_fields =
-            required_fields_for_event_kind(event_kind, &registry, &payload_schema_id);
+        let payload_schema_id =
+            payload_schema_ref_for_event_entry(entry, &bundle.schema_registry).ok_or_else(|| {
+                Error::Protocol(format!(
+                    "active standard event kind '{event_kind}' is missing a resolvable payload_schema_ref"
+                ))
+            })?;
+        let required_fields = required_fields_for_schema_ref(&registry, &payload_schema_id)
+            .ok_or_else(|| {
+                Error::Protocol(format!(
+                    "event kind '{event_kind}' payload_schema_ref '{payload_schema_id}' does not resolve"
+                ))
+            })?;
         rules.insert(
             event_kind.to_owned(),
             EventPayloadSchemaRule {
@@ -178,12 +177,8 @@ fn event_payload_validator_catalog_from_bundle(
 
 pub(super) fn payload_schema_ref_for_event_entry(
     entry: &Value,
-    event_payload_schema: &Value,
     schema_registry: &Value,
 ) -> Option<String> {
-    if let Some(schema_id) = entry.get("payload_schema").and_then(Value::as_str) {
-        return Some(schema_id.to_owned());
-    }
     if let Some(schema_ref) = entry.get("payload_schema_ref").and_then(Value::as_str) {
         let (file, fragment) = schema_ref
             .split_once('#')
@@ -202,240 +197,7 @@ pub(super) fn payload_schema_ref_for_event_entry(
             None => schema_id.to_owned(),
         });
     }
-    let event_kind = entry.get("event_kind").and_then(Value::as_str)?;
-    let def_name = payload_def_name_for_event_kind(event_kind, event_payload_schema)?;
-    Some(format!(
-        "{schemaid_event_payload_v1}#/$defs/{def_name}",
-        schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
-    ))
-}
-
-fn payload_def_name_for_event_kind(
-    event_kind: &str,
-    event_payload_schema: &Value,
-) -> Option<String> {
-    let defs = event_payload_schema
-        .get("$defs")
-        .and_then(Value::as_object)?;
-    for candidate in payload_def_candidates(event_kind) {
-        if defs.contains_key(&candidate) {
-            return Some(candidate);
-        }
-    }
-    if generic_standard_payload_fallback_allowed(event_kind)
-        && defs.contains_key("generic_standard_payload")
-    {
-        Some("generic_standard_payload".to_owned())
-    } else {
-        None
-    }
-}
-
-fn generic_standard_payload_fallback_allowed(event_kind: &str) -> bool {
-    matches!(
-        event_kind,
-        "ak.attestation.range_completeness"
-            | "ak.audit.erasure_receipt"
-            | "ak.circle.archive"
-            | "ak.circle.restore"
-            | "ak.circle.tombstone"
-            | "ak.circle.update"
-            | "ak.did.proof"
-            | "ak.key.verification.accept"
-            | "ak.key.verification.cancel"
-            | "ak.key.verification.done"
-            | "ak.key.verification.key"
-            | "ak.key.verification.mac"
-            | "ak.key.verification.ready"
-            | "ak.key.verification.request"
-            | "ak.key.verification.start"
-            | "ak.moderation.appeal.close"
-            | "ak.moderation.appeal.decision"
-            | "ak.moderation.appeal.review"
-            | "ak.moderation.appeal.submit"
-            | "ak.presence"
-            | "ak.realm.asset_privacy_policy"
-            | "ak.realm.media_service"
-            | "ak.realm.moderation_policy"
-            | "ak.realm.plaintext_visible_services"
-            | "ak.realm.policy"
-            | "ak.realm.policy_server"
-            | "ak.realm.preview_policy"
-            | "ak.realm.schema"
-            | "ak.realm.upgrade"
-            | "ak.realm_key.request"
-            | "ak.receipt.read"
-            | "ak.secret.request"
-            | "ak.secret.send"
-            | "ak.self.agent.deactivate"
-            | "ak.self.agent.pause"
-            | "ak.self.agent.resume"
-            | "ak.self.moderation.report"
-            | "ak.typing"
-    )
-}
-
-fn payload_def_candidates(event_kind: &str) -> Vec<String> {
-    let suffix = event_kind.strip_prefix("ak.").unwrap_or(event_kind);
-    let exact = format!("{}_payload", suffix.replace('.', "_"));
-    let parts = suffix.split('.').collect::<Vec<_>>();
-    let mut candidates = Vec::new();
-    match parts.as_slice() {
-        ["space", "archive" | "restore"] => {
-            candidates.push("space_state_transition_payload".to_owned());
-        }
-        ["space", "tombstone"] => candidates.push("space_object_tombstone_payload".to_owned()),
-        _ => {}
-    }
-    candidates.push(exact);
-    match parts.as_slice() {
-        ["space", "create"] => candidates.push("space_create_payload".to_owned()),
-        ["space", "child"] => candidates.push("space_child_payload".to_owned()),
-        ["space", "parent"] => candidates.push("space_parent_payload".to_owned()),
-        ["realm", "inheritance_policy"] => {
-            candidates.push("realm_inheritance_policy_payload".to_owned());
-        }
-        ["realm", "history_visibility"] => {
-            candidates.push("history_visibility_payload".to_owned());
-        }
-        ["realm", "history_sharing_policy"] => {
-            candidates.push("history_sharing_policy_payload".to_owned());
-        }
-        ["realm", "read_receipt_policy"] => {
-            candidates.push("read_receipt_policy_payload".to_owned());
-        }
-        ["realm", "disappearing_policy"] => {
-            candidates.push("realm_disappearing_policy_payload".to_owned());
-        }
-        ["realm", "search_policy"] => {
-            candidates.push("realm_search_policy_payload".to_owned());
-        }
-        ["space", "freeze"] => candidates.push("space_freeze_payload".to_owned()),
-        ["space", "destroy"] => candidates.push("space_destroy_payload".to_owned()),
-        ["space", "update"] => candidates.push("space_patch_payload".to_owned()),
-        ["realm", "update"] => candidates.push("object_patch_payload".to_owned()),
-        ["strand", "create"] => candidates.push("strand_create_payload".to_owned()),
-        ["strand", "move"] => candidates.push("strand_move_payload".to_owned()),
-        ["strand", "reorder"] => candidates.push("strand_reorder_payload".to_owned()),
-        ["strand", "update"] => candidates.push("strand_patch_payload".to_owned()),
-        ["strand", "archive" | "restore"] => {
-            candidates.push("object_lifecycle_payload".to_owned());
-        }
-        ["strand", "track", "enable" | "disable" | "set_primary"] => {
-            candidates.push("state_payload".to_owned());
-        }
-        ["strand", "track" | "tracks", "update"] => {
-            candidates.push("generic_standard_payload".to_owned());
-        }
-        ["message", "create"] => candidates.push("message_create_payload".to_owned()),
-        ["message", "revise"] => candidates.push("message_revise_payload".to_owned()),
-        ["message", "redact"] | ["redaction"] => {
-            candidates.push("message_redact_payload".to_owned());
-        }
-        ["reaction", "add" | "remove"] => candidates.push("reaction_payload".to_owned()),
-        ["rsvp", "set"] => candidates.push("rsvp_set_payload".to_owned()),
-        ["pin", "add"] => candidates.push("pin_add_payload".to_owned()),
-        ["pin", "remove"] => candidates.push("pin_remove_payload".to_owned()),
-        ["pin", "reorder"] => candidates.push("pin_reorder_payload".to_owned()),
-        ["member", "state"] => candidates.push("membership_payload".to_owned()),
-        ["morph", "create"] => candidates.push("morph_create_payload".to_owned()),
-        ["morph", "update"] => candidates.push("morph_update_payload".to_owned()),
-        ["morph", "archive" | "restore"] => {
-            candidates.push("object_lifecycle_payload".to_owned());
-        }
-        ["relation", "create"] => candidates.push("relation_create_payload".to_owned()),
-        ["relation", "update"] => candidates.push("relation_update_payload".to_owned()),
-        ["relation", "delete"] => candidates.push("object_lifecycle_payload".to_owned()),
-        ["container", "move_item"] => candidates.push("container_move_item_payload".to_owned()),
-        ["container", "rebalance"] => candidates.push("container_rebalance_payload".to_owned()),
-        ["view", "create" | "update" | "reconcile"] => candidates.push("view_payload".to_owned()),
-        // Applet interop-session events resolve through the `exact`
-        // candidate above, which the spec event-payload schema defines
-        // directly. No family override is needed.
-        // `ak.applet.registration` resolves through the `exact` candidate above
-        // (`applet_registration_payload`, defined directly in the spec
-        // event-payload schema) — it MUST NOT fall back to the generic shape.
-        ["actor" | "applet" | "handle", "discovery"] => {
-            candidates.push("resource_discovery_state_payload".to_owned());
-        }
-        ["organization", "discovery"] => {
-            candidates.push("organization_discovery_state_payload".to_owned());
-        }
-        ["organization", "moderation_policy"] => {
-            candidates.push("organization_moderation_policy_state_payload".to_owned());
-        }
-        ["did", "proof"] => candidates.push("did_proof_state_payload".to_owned()),
-        ["identity", "disclosure_policy"] => {
-            candidates.push("identity_disclosure_policy_state_payload".to_owned());
-        }
-        ["identity", "disclosure_receipt"] => {
-            candidates.push("identity_disclosure_receipt_state_payload".to_owned());
-        }
-        ["identity", "presentation_request"] => {
-            candidates.push("identity_presentation_request_state_payload".to_owned());
-        }
-        ["identity", "presentation_response"] => {
-            candidates.push("identity_presentation_response_state_payload".to_owned());
-        }
-        ["schema", "define"] => candidates.push("schema_define_state_payload".to_owned()),
-        ["schema", "update"] => candidates.push("schema_update_state_payload".to_owned()),
-        ["policy", "set"] => candidates.push("policy_set_state_payload".to_owned()),
-        ["policy", "action"] => candidates.push("policy_action_state_payload".to_owned()),
-        ["sovereign", "did_policy"] => {
-            candidates.push("sovereign_did_policy_state_payload".to_owned());
-        }
-        ["capability", "grant" | "delegate" | "derived"] => {
-            candidates.push("capability_grant_payload".to_owned());
-        }
-        ["capability", "revoke"] => candidates.push("capability_revoke_payload".to_owned()),
-        ["session", "grant"] => candidates.push("session_grant_payload".to_owned()),
-        ["consent", "grant"] => candidates.push("consent_grant_payload".to_owned()),
-        ["consent", "revoke"] => candidates.push("consent_revoke_payload".to_owned()),
-        ["device", "authorize"] => candidates.push("device_authorize_payload".to_owned()),
-        ["device", "revoke"] => candidates.push("device_revoke_payload".to_owned()),
-        ["device", "authorized"] => candidates.push("device_authorized_payload".to_owned()),
-        ["device", "revoked"] => candidates.push("device_revoked_payload".to_owned()),
-        ["device", "list_update"] => candidates.push("device_list_update_payload".to_owned()),
-        ["mls", "proposal"] => candidates.push("mls_proposal_payload".to_owned()),
-        ["mls", "genesis"] => candidates.push("mls_genesis_payload".to_owned()),
-        ["mls", "commit"] => candidates.push("mls_commit_payload".to_owned()),
-        ["mls", "commit_failed"] => candidates.push("mls_commit_failed_payload".to_owned()),
-        ["mls", "welcome"] => candidates.push("mls_welcome_payload".to_owned()),
-        ["mls", "keypackage"] => candidates.push("mls_keypackage_payload".to_owned()),
-        ["realm_key", "share"] => candidates.push("realm_key_share_payload".to_owned()),
-        ["realm_key", "withheld"] => candidates.push("realm_key_withheld_payload".to_owned()),
-        ["realm_key", "share_audit"] => candidates.push("realm_key_share_audit_payload".to_owned()),
-        ["moderation", "report"] => candidates.push("moderation_report_payload".to_owned()),
-        ["audit", "accessed" | "ryw_receipt"] => candidates.push("audit_payload".to_owned()),
-        ["call", "signal"] => candidates.push("call_payload".to_owned()),
-        ["invite", "create"] => candidates.push("invite_create_payload".to_owned()),
-        ["invite", "third_party"] => {
-            candidates.push("invite_third_party_create_payload".to_owned());
-        }
-        ["invite", "accept"] => candidates.push("invite_accept_payload".to_owned()),
-        ["invite", "cancel"] => candidates.push("invite_cancel_payload".to_owned()),
-        ["invite", "revoke"] => candidates.push("invite_revoke_payload".to_owned()),
-        ["invite", "claim"] => candidates.push("invite_claim_payload".to_owned()),
-        ["profile", "create"] => candidates.push("actor_profile_create_payload".to_owned()),
-        ["profile", "update" | "realm_override"] => {
-            candidates.push("object_patch_payload".to_owned());
-        }
-        ["space", ..]
-        | ["organization", ..]
-        | ["actor", ..]
-        | ["handle", ..]
-        | ["identity", ..]
-        | ["schema", ..]
-        | ["policy", ..]
-        | ["account", ..]
-        | ["profile", ..]
-        | ["applet", ..]
-        | ["mimi", ..]
-        | ["sovereign", ..] => candidates.push("state_payload".to_owned()),
-        _ => {}
-    }
-    candidates.dedup();
-    candidates
+    None
 }
 
 fn required_fields_for_schema_ref(
@@ -453,14 +215,6 @@ fn required_fields_for_schema_ref(
             .map(str::to_owned)
             .collect(),
     )
-}
-
-fn required_fields_for_event_kind(
-    _event_kind: &str,
-    registry: &ProtocolSchemaRegistry,
-    schema_ref: &str,
-) -> Vec<String> {
-    required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -621,7 +375,7 @@ mod tests {
         let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
         catalog
             .validate_payload(
-                EventKind::STRAND_MOVE,
+                EventKind::StrandMove.as_str(),
                 &json!({
                     "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
                     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
@@ -633,7 +387,7 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    EventKind::STRAND_MOVE,
+                    EventKind::StrandMove.as_str(),
                     &json!({
                         "board_space_id": "not-a-space-id",
                         "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
@@ -646,7 +400,7 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    EventKind::STRAND_MOVE,
+                    EventKind::StrandMove.as_str(),
                     &json!({
                         "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
                         "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
@@ -660,26 +414,8 @@ mod tests {
         );
     }
 
-    /// Active standard event kinds whose content shape is validated by a
-    /// dedicated sibling operation / content schema rather than an
-    /// `event-payload.schema.json#/$defs/*` entry, so the SDK event-payload
-    /// catalog legitimately carries no validator rule for them:
-    ///
-    /// - `ak.read_cursor.advance` — `read-cursor-operations.schema.json` (actor-private,
-    ///   `reducer_input:false`)
-    ///
-    /// Any *new* active standard kind that neither resolves to an event-payload
-    /// def nor is added here MUST make [`catalog_covers_every_active_standard_kind`]
-    /// fail closed, forcing an explicit wiring decision.
-    const KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR: &[&str] = &["ak.read_cursor.advance"];
-
-    /// D6 fail-closed guard: every active standard event kind in the spec
-    /// registry either resolves to an explicit payload validator (via
-    /// [`payload_def_candidates`] or an explicit `payload_schema`) or appears in
-    /// the documented [`KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR`] exception list.
-    /// A newly registered kind that is silently missed by the manual candidate
-    /// table trips this assertion instead of drifting into an unvalidated
-    /// payload surface.
+    /// Every active standard event kind must resolve through its explicit
+    /// registry `payload_schema_ref`; there is no naming fallback or exception.
     #[test]
     fn catalog_covers_every_active_standard_kind() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
@@ -706,25 +442,15 @@ mod tests {
             }
         }
 
-        let expected: BTreeSet<String> = KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR
-            .iter()
-            .map(|k| (*k).to_owned())
-            .collect();
-
         assert_eq!(
-            missing, expected,
-            "active standard kinds without a payload validator drifted from the documented \
-             exception set; wire the new kind into payload_def_candidates or add it to \
-             KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR with a rationale"
+            missing,
+            BTreeSet::new(),
+            "active standard kinds without an explicit payload validator"
         );
     }
 
-    /// F-04 full-assertion guard (part 1): active standard kinds whose payload
-    /// the manual [`payload_def_candidates`] table intentionally resolves to the
-    /// loose `generic_standard_payload` shape — either through the explicit
-    /// [`generic_standard_payload_fallback_allowed`] allow-list or a family arm
-    /// that pushes the `generic_standard_payload` candidate directly (for
-    /// example `ak.strand.tracks.update`).
+    /// Active standard kinds whose explicit registry ref selects the loose
+    /// `generic_standard_payload` shape.
     ///
     /// Every entry is a deliberate "no dedicated event-payload def" decision. A
     /// *new* active standard kind that silently inherits this loose shape must be
@@ -732,41 +458,19 @@ mod tests {
     /// [`every_active_standard_kind_resolves_to_dedicated_or_documented_catch_all`]
     /// forces — so the hand-maintained match table cannot quietly drift a new
     /// kind onto an under-specified payload surface.
-    const KINDS_USING_GENERIC_STANDARD_PAYLOAD: &[&str] = &[
-        "ak.attestation.range_completeness",
-        "ak.audit.erasure_receipt",
-        "ak.circle.archive",
-        "ak.circle.restore",
-        "ak.circle.tombstone",
-        "ak.circle.update",
-        "ak.moderation.appeal.close",
-        "ak.moderation.appeal.decision",
-        "ak.moderation.appeal.review",
-        "ak.moderation.appeal.submit",
-        "ak.realm.asset_privacy_policy",
-        "ak.realm.media_service",
-        "ak.realm.moderation_policy",
-        "ak.realm.plaintext_visible_services",
-        "ak.realm.policy",
-        "ak.realm.preview_policy",
-        "ak.realm.schema",
-        "ak.realm.upgrade",
-        "ak.self.agent.deactivate",
-        "ak.self.agent.pause",
-        "ak.self.agent.resume",
-        "ak.self.moderation.report",
-        "ak.strand.tracks.update",
-    ];
+    const KINDS_USING_GENERIC_STANDARD_PAYLOAD: &[EventKind] = &[];
 
     /// F-04 full-assertion guard (part 2): active standard kinds validated only
-    /// against the generic `state_payload` state-transition shape, reached via a
-    /// broad family arm in [`payload_def_candidates`] (`["space", ..]`,
-    /// `["organization", ..]`, `["identity", ..]`, `["policy", ..]`, `["schema",
-    /// ..]`, `["actor", ..]`, `["handle", ..]`, `["sovereign", ..]`, plus the
-    /// `["strand", "track", ...]` state arm). Same fail-closed contract as the
-    /// generic list: a new family member that silently inherits `state_payload`
-    /// must be registered here explicitly.
-    const KINDS_USING_STATE_PAYLOAD: &[&str] = &["ak.policy.rule"];
+    /// against the generic `state_payload` state-transition shape.
+    const KINDS_USING_STATE_PAYLOAD: &[EventKind] = &[
+        EventKind::RealmAssetPrivacyPolicy,
+        EventKind::RealmDiscovery,
+        EventKind::RealmJoinRule,
+        EventKind::RealmMediaService,
+        EventKind::RealmModerationPolicy,
+        EventKind::RealmPolicy,
+        EventKind::RealmSchema,
+    ];
 
     /// F-04 residual closed: beyond [`catalog_covers_every_active_standard_kind`]
     /// (which fails closed when a kind resolves to *no* validator), this test
@@ -833,25 +537,25 @@ mod tests {
 
         let expected_generic: BTreeSet<String> = KINDS_USING_GENERIC_STANDARD_PAYLOAD
             .iter()
-            .map(|k| (*k).to_owned())
+            .map(|kind| kind.as_str().to_owned())
             .collect();
         let expected_state: BTreeSet<String> = KINDS_USING_STATE_PAYLOAD
             .iter()
-            .map(|k| (*k).to_owned())
+            .map(|kind| kind.as_str().to_owned())
             .collect();
 
         assert_eq!(
             generic, expected_generic,
             "active standard kinds resolving to the loose `generic_standard_payload` shape \
              drifted from the documented KINDS_USING_GENERIC_STANDARD_PAYLOAD set; either wire \
-             the new kind to a dedicated `*_payload` def in payload_def_candidates or register \
+             the new kind to a dedicated `*_payload` def in the registry or register \
              it here with a rationale"
         );
         assert_eq!(
             state, expected_state,
             "active standard kinds resolving to the loose `state_payload` shape drifted from the \
              documented KINDS_USING_STATE_PAYLOAD set; either wire the new kind to a dedicated \
-             `*_payload` def in payload_def_candidates or register it here with a rationale"
+             `*_payload` def in the registry or register it here with a rationale"
         );
     }
 
@@ -894,14 +598,14 @@ mod tests {
     fn catalog_reports_registered_payload_validators() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
 
-        assert!(catalog.has_payload_validator(EventKind::REALM_KEY_SHARE));
+        assert!(catalog.has_payload_validator(EventKind::RealmKeyShare.as_str()));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
     }
 
     #[test]
     fn selector_claim_resolves_to_its_registered_schema() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
-        let rule = &catalog.rules[EventKind::AGENT_SELECTOR_CLAIM];
+        let rule = &catalog.rules[EventKind::AgentSelectorClaim.as_str()];
 
         assert_eq!(rule.payload_schema_id, SchemaId::AGENT_SELECTOR_CLAIM_V1);
         assert!(
@@ -912,7 +616,7 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    EventKind::AGENT_SELECTOR_CLAIM,
+                    EventKind::AgentSelectorClaim.as_str(),
                     &json!({"schema": SchemaId::AGENT_SELECTOR_CLAIM_V1})
                 )
                 .is_err(),
@@ -921,25 +625,44 @@ mod tests {
     }
 
     #[test]
-    fn new_unmatched_event_kind_does_not_fall_back_to_generic_payload() {
-        let event_payload_schema = json!({
-            "$defs": {
-                "generic_standard_payload": {},
-                "state_payload": {}
-            }
+    fn payload_schema_resolution_requires_the_canonical_ref_carrier() {
+        let schema_registry = json!({
+            "schemas": [{
+                "file": "schemas/event-payload.schema.json",
+                "schema_id": SchemaId::EVENT_PAYLOAD_V1
+            }]
         });
-
         assert_eq!(
-            payload_def_name_for_event_kind("ak.realm.new_policy", &event_payload_schema),
-            None
+            payload_schema_ref_for_event_entry(
+                &json!({
+                    "event_kind": EventKind::MessageCreate.as_str(),
+                    "payload_schema_ref": "schemas/event-payload.schema.json#/$defs/message_create_payload"
+                }),
+                &schema_registry,
+            ),
+            Some(format!(
+                "{}#/$defs/message_create_payload",
+                SchemaId::EVENT_PAYLOAD_V1
+            ))
         );
         assert_eq!(
-            payload_def_name_for_event_kind("ak.realm.policy", &event_payload_schema),
-            Some("generic_standard_payload".to_owned())
+            payload_schema_ref_for_event_entry(
+                &json!({
+                    "event_kind": EventKind::MessageCreate.as_str(),
+                    "payload_schema": SchemaId::EVENT_PAYLOAD_V1
+                }),
+                &schema_registry,
+            ),
+            None,
+            "the removed payload_schema carrier must not regain precedence"
         );
         assert_eq!(
-            payload_def_name_for_event_kind("ak.account.status", &event_payload_schema),
-            Some("state_payload".to_owned())
+            payload_schema_ref_for_event_entry(
+                &json!({"event_kind": EventKind::MessageCreate.as_str()}),
+                &schema_registry,
+            ),
+            None,
+            "missing refs must not fall back to a guessed def name"
         );
     }
 

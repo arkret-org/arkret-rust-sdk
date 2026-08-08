@@ -23,7 +23,7 @@
 //!         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?,
 //!     },
 //!     Did::new("did:webvh:z6mkfixture:alice.example")?,
-//!     EventKind::MESSAGE_CREATE,
+//!     EventKind::MessageCreate,
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
@@ -67,10 +67,10 @@ pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
     AppletBridgeErrorBuilder, CausalRef, ContainerRebalanceAssignment,
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
-    EventDraftKindValidation, EventPayloadExt, GhostActorProfileRequest, MessageEventPayload,
-    MlsEnvelopeOperationExt, Operation, OperationEnvelope, OperationEnvelopeBuilder,
-    OperationEventConversion, OperationSignature, RsvpAuthoring, RsvpResponseBranch,
-    StrandCreateObject, StrandTracksUpdatePayload, accountability_grant_event,
+    EventDraftKindValidation, EventPayloadExt, EventSpec, GhostActorProfileRequest,
+    MessageEventPayload, MlsEnvelopeOperationExt, Operation, OperationEnvelope,
+    OperationEnvelopeBuilder, OperationEventConversion, OperationSignature, RsvpAuthoring,
+    RsvpResponseBranch, StrandCreateObject, accountability_grant_event,
     container_rebalance_assignments, event_draft_kind_conformance_vectors, operations,
     rank_between, rank_exhausted,
 };
@@ -560,7 +560,7 @@ pub mod calendar {
             }
         }
         let mut event = Event::new(
-            EventKind::RSVP_SET,
+            EventKind::RsvpSet.to_string(),
             scope_ref,
             actor_id,
             actor_seq,

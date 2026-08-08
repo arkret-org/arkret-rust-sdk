@@ -259,7 +259,7 @@ mod tests {
         let catalog =
             arkret_schema::event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         catalog
-            .validate_payload(EventKind::ACCOUNT_DATA_SET, &value)
+            .validate_payload(EventKind::AccountDataSet.as_str(), &value)
             .unwrap();
     }
 

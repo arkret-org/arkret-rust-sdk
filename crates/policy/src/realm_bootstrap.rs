@@ -10,30 +10,31 @@
 //! controller holds effective `ak.realm.owner`
 //! (`models/realm-and-space.md` section 2.5).
 
+use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{
     RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmCreatePayload,
     RealmOwnerTransferPayload, RealmProfile, RealmPurpose,
 };
 use arkret_wire::{
     AuthorizationRef, Did, Error, Event, EventId, EventKind, Hash, Hlc, REALM_AUTHORITY_ROOT_CELL,
-    Result, ScopeRef,
+    Result, ScopeRef, event_spec,
 };
 use serde::{Deserialize, Serialize};
 
 /// Closed set of initial Realm facets that may follow the create Event.
-pub fn is_realm_bootstrap_followup_kind(kind: &str) -> bool {
+pub fn is_realm_bootstrap_followup_kind(kind: &EventKind) -> bool {
     matches!(
         kind,
-        EventKind::REALM_PROFILE
-            | EventKind::MEMBER_STATE
-            | EventKind::REALM_HISTORY_VISIBILITY
-            | EventKind::REALM_HISTORY_SHARING_POLICY
-            | EventKind::REALM_POLICY_BUNDLE
-            | EventKind::REALM_DISCOVERY
-            | EventKind::REALM_JOIN_RULE
-            | EventKind::REALM_DELIVERY_BINDING_POLICY
-            | EventKind::REALM_PLAINTEXT_VISIBLE_SERVICES
-            | EventKind::REALM_ALIAS
+        EventKind::RealmProfile
+            | EventKind::MemberState
+            | EventKind::RealmHistoryVisibility
+            | EventKind::RealmHistorySharingPolicy
+            | EventKind::RealmPolicyBundle
+            | EventKind::RealmDiscovery
+            | EventKind::RealmJoinRule
+            | EventKind::RealmDeliveryBindingPolicy
+            | EventKind::RealmPlaintextVisibleServices
+            | EventKind::RealmAlias
     )
 }
 
@@ -76,7 +77,7 @@ impl RealmAuthorityRootValue {
 }
 
 fn build_realm_authority_event<T: Serialize>(
-    kind: &'static str,
+    kind: EventKind,
     scope_ref: ScopeRef,
     actor_id: Did,
     actor_seq: u64,
@@ -84,7 +85,7 @@ fn build_realm_authority_event<T: Serialize>(
     payload: &T,
 ) -> Result<Event> {
     let mut event = Event::new(
-        kind,
+        kind.to_string(),
         scope_ref,
         actor_id,
         actor_seq,
@@ -129,7 +130,7 @@ pub fn build_realm_owner_transfer_event(
         ));
     }
     build_realm_authority_event(
-        EventKind::REALM_OWNER_TRANSFER,
+        EventKind::RealmOwnerTransfer,
         scope_ref,
         actor_id,
         actor_seq,
@@ -148,7 +149,7 @@ pub fn build_realm_authority_reset_event(
 ) -> Result<Event> {
     if scope_ref.realm_id() != &payload.realm_id
         || payload.patch.authority_generation == 0
-        || payload.destructive_confirmation != EventKind::REALM_AUTHORITY_RESET
+        || payload.destructive_confirmation != arkret_wire::event_kind_str::REALM_AUTHORITY_RESET
         || !payload
             .expected_state_digest
             .as_str()
@@ -159,7 +160,7 @@ pub fn build_realm_authority_reset_event(
         ));
     }
     build_realm_authority_event(
-        EventKind::REALM_AUTHORITY_RESET,
+        EventKind::RealmAuthorityReset,
         scope_ref,
         actor_id,
         actor_seq,
@@ -189,7 +190,7 @@ pub fn build_realm_authority_basis_update_event(
     }
     crate::require_registry_basis(Some(&payload.patch.capability_action_registry_digest))?;
     build_realm_authority_event(
-        EventKind::REALM_AUTHORITY_BASIS_UPDATE,
+        EventKind::RealmAuthorityBasisUpdate,
         scope_ref,
         actor_id,
         actor_seq,
@@ -231,7 +232,7 @@ impl RealmAuthorityRootProof {
 /// predecessor the Event must descend from. Returning it here keeps callers
 /// from inventing their own binding.
 pub fn staged_root_authorization(create: &Event) -> Result<RealmAuthorityRootProof> {
-    if create.kind.as_str() != EventKind::REALM_CREATE {
+    if create.kind != EventKind::RealmCreate {
         return Err(Error::Protocol(
             "staged Realm authority-root proof must bind an ak.realm.create Event".to_owned(),
         ));
@@ -290,13 +291,13 @@ pub fn validate_realm_bootstrap_unit(
     let Some(create) = events.first() else {
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     };
-    if create.kind.as_str() != EventKind::REALM_CREATE {
+    if create.kind != EventKind::RealmCreate {
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     }
     // PCR bootstrap is a distinct, exactly-two-Event protocol unit.
     if events
         .get(1)
-        .is_some_and(|event| event.kind.as_str() == EventKind::DEVICE_AUTHORIZE)
+        .is_some_and(|event| event.kind == EventKind::DeviceAuthorize)
     {
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     }
@@ -345,7 +346,7 @@ pub fn validate_realm_bootstrap_unit(
         });
     }
     let payload: RealmCreatePayload = create
-        .payload_as()
+        .typed_payload::<event_spec::RealmCreate>()
         .map_err(|_| RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;
     if payload.object.purpose != RealmPurpose::Collaboration
         || payload.object.genesis_salt.is_none()
@@ -357,37 +358,37 @@ pub fn validate_realm_bootstrap_unit(
     for followup in &events[1..] {
         if followup.actor_id.as_str() != actor_id
             || followup.realm_id.as_str() != realm_id
-            || !is_realm_bootstrap_followup_kind(followup.kind.as_str())
+            || !is_realm_bootstrap_followup_kind(&followup.kind)
         {
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
         }
-        let slot = match followup.kind.as_str() {
-            EventKind::REALM_PROFILE => 1,
-            EventKind::REALM_POLICY_BUNDLE => 2,
-            EventKind::REALM_JOIN_RULE => 3,
-            EventKind::REALM_HISTORY_VISIBILITY => 4,
-            EventKind::REALM_HISTORY_SHARING_POLICY => 5,
-            EventKind::REALM_DISCOVERY => 6,
-            EventKind::REALM_ALIAS => 7,
-            EventKind::REALM_PLAINTEXT_VISIBLE_SERVICES => 8,
-            EventKind::REALM_DELIVERY_BINDING_POLICY => 9,
-            EventKind::MEMBER_STATE => 10,
+        let slot = match &followup.kind {
+            EventKind::RealmProfile => 1,
+            EventKind::RealmPolicyBundle => 2,
+            EventKind::RealmJoinRule => 3,
+            EventKind::RealmHistoryVisibility => 4,
+            EventKind::RealmHistorySharingPolicy => 5,
+            EventKind::RealmDiscovery => 6,
+            EventKind::RealmAlias => 7,
+            EventKind::RealmPlaintextVisibleServices => 8,
+            EventKind::RealmDeliveryBindingPolicy => 9,
+            EventKind::MemberState => 10,
             _ => return Err(RealmBootstrapValidationError::OutOfOrderBootstrap),
         };
-        if slot <= previous_slot || !present.insert(followup.kind.as_str()) {
+        if slot <= previous_slot || !present.insert(followup.kind.clone()) {
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
         }
         previous_slot = slot;
-        match followup.kind.as_str() {
-            EventKind::REALM_PROFILE => {
+        match &followup.kind {
+            EventKind::RealmProfile => {
                 let profile: RealmProfile = followup
-                    .payload_as()
+                    .typed_payload::<event_spec::RealmProfile>()
                     .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
                 profile
                     .to_value()
                     .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
             }
-            EventKind::MEMBER_STATE => {
+            EventKind::MemberState => {
                 let subject = followup
                     .payload
                     .get("actor_id")
@@ -425,30 +426,30 @@ pub fn validate_realm_bootstrap_unit(
         })?;
     }
     for required in [
-        EventKind::REALM_PROFILE,
-        EventKind::REALM_POLICY_BUNDLE,
-        EventKind::REALM_JOIN_RULE,
-        EventKind::REALM_HISTORY_VISIBILITY,
-        EventKind::REALM_DISCOVERY,
-        EventKind::REALM_DELIVERY_BINDING_POLICY,
-        EventKind::MEMBER_STATE,
+        EventKind::RealmProfile,
+        EventKind::RealmPolicyBundle,
+        EventKind::RealmJoinRule,
+        EventKind::RealmHistoryVisibility,
+        EventKind::RealmDiscovery,
+        EventKind::RealmDeliveryBindingPolicy,
+        EventKind::MemberState,
     ] {
-        if !present.contains(required) {
+        if !present.contains(&required) {
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
         }
     }
     let visibility_requires_sharing = events.iter().any(|event| {
-        event.kind.as_str() == EventKind::REALM_HISTORY_VISIBILITY
+        event.kind == EventKind::RealmHistoryVisibility
             && event
                 .payload
                 .get("value")
                 .and_then(serde_json::Value::as_str)
                 == Some("restricted")
     });
-    if visibility_requires_sharing && !present.contains(EventKind::REALM_HISTORY_SHARING_POLICY) {
+    if visibility_requires_sharing && !present.contains(&EventKind::RealmHistorySharingPolicy) {
         return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
     }
-    if !visibility_requires_sharing && present.contains(EventKind::REALM_HISTORY_SHARING_POLICY) {
+    if !visibility_requires_sharing && present.contains(&EventKind::RealmHistorySharingPolicy) {
         return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
     }
     Ok(ValidatedRealmBootstrap {
@@ -485,9 +486,9 @@ mod tests {
     const ACTOR: &str = "did:web:founder.example";
     const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 
-    fn event(kind: &str, payload: serde_json::Value) -> Event {
+    fn event(kind: EventKind, payload: serde_json::Value) -> Event {
         Event::new_at(
-            kind,
+            kind.to_string(),
             ScopeRef::Realm {
                 realm_id: RealmId::new(REALM).unwrap(),
             },
@@ -502,7 +503,7 @@ mod tests {
 
     fn create() -> Event {
         event(
-            EventKind::REALM_CREATE,
+            EventKind::RealmCreate,
             json!({"object": {
                 "schema": "ak.schema.realm_genesis.v1",
                 "purpose": "collaboration",
@@ -524,25 +525,25 @@ mod tests {
         vec![
             create(),
             event(
-                EventKind::REALM_PROFILE,
+                EventKind::RealmProfile,
                 json!({"schema": "ak.schema.realm_profile.v1", "title": "Realm"}),
             ),
             event(
-                EventKind::REALM_POLICY_BUNDLE,
+                EventKind::RealmPolicyBundle,
                 json!({"policy_revision": 1, "content_scheme": "mls_exporter_aead_v1"}),
             ),
-            event(EventKind::REALM_JOIN_RULE, json!({"value": "invite"})),
+            event(EventKind::RealmJoinRule, json!({"value": "invite"})),
             event(
-                EventKind::REALM_HISTORY_VISIBILITY,
+                EventKind::RealmHistoryVisibility,
                 json!({"value": "joined"}),
             ),
-            event(EventKind::REALM_DISCOVERY, json!({"value": "invite_only"})),
+            event(EventKind::RealmDiscovery, json!({"value": "invite_only"})),
             event(
-                EventKind::REALM_DELIVERY_BINDING_POLICY,
+                EventKind::RealmDeliveryBindingPolicy,
                 json!({"allow_unroutable_members": false}),
             ),
             event(
-                EventKind::MEMBER_STATE,
+                EventKind::MemberState,
                 json!({
                     "realm_id": REALM,
                     "actor_id": ACTOR,
@@ -560,7 +561,7 @@ mod tests {
         // payload alone, which is exactly what
         // validate_realm_bootstrap_unit re-derives for cas_register follow-ups.
         event(
-            EventKind::REALM_HISTORY_SHARING_POLICY,
+            EventKind::RealmHistorySharingPolicy,
             json!({"value": {"version": 1}}),
         )
     }
@@ -631,7 +632,7 @@ mod tests {
         // create. It is not a bootstrap follow-up kind, so it now fails as an
         // out-of-order unit rather than being recognised as an authority root.
         let legacy = event(
-            EventKind::CAPABILITY_GRANT,
+            EventKind::CapabilityGrant,
             json!({"grant_id": "ak:grant:Afem1axK6Ho0B34c6nJmfQQSdTdBuUP71SImgXFgosPC"}),
         );
         assert_eq!(
@@ -735,7 +736,7 @@ mod tests {
             transfer,
         )
         .unwrap();
-        assert_eq!(event.kind.as_str(), EventKind::REALM_OWNER_TRANSFER);
+        assert_eq!(event.kind, EventKind::RealmOwnerTransfer);
         assert_eq!(
             event.authorization_ref.as_deref(),
             Some(REALM_AUTHORITY_ROOT_CELL)
@@ -745,7 +746,7 @@ mod tests {
             "realm_id": REALM,
             "expected_state_digest": format!("sha256:{}", "2".repeat(64)),
             "patch": {"authority_generation": 1},
-            "destructive_confirmation": EventKind::REALM_AUTHORITY_RESET
+            "destructive_confirmation": EventKind::RealmAuthorityReset
         }))
         .unwrap();
         let event = build_realm_authority_reset_event(
@@ -756,7 +757,7 @@ mod tests {
             reset,
         )
         .unwrap();
-        assert_eq!(event.kind.as_str(), EventKind::REALM_AUTHORITY_RESET);
+        assert_eq!(event.kind, EventKind::RealmAuthorityReset);
         assert_eq!(
             event.authorization_ref.as_deref(),
             Some(REALM_AUTHORITY_ROOT_CELL)
@@ -779,7 +780,7 @@ mod tests {
             basis,
         )
         .unwrap();
-        assert_eq!(event.kind.as_str(), EventKind::REALM_AUTHORITY_BASIS_UPDATE);
+        assert_eq!(event.kind, EventKind::RealmAuthorityBasisUpdate);
         assert_eq!(
             event.authorization_ref.as_deref(),
             Some(REALM_AUTHORITY_ROOT_CELL)

@@ -347,7 +347,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         .unwrap();
     catalog
         .validate_payload(
-            EventKind::REALM_HISTORY_VISIBILITY,
+            EventKind::RealmHistoryVisibility.as_str(),
             &shared.to_value().unwrap(),
         )
         .unwrap();
@@ -389,7 +389,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         .unwrap();
     catalog
         .validate_payload(
-            EventKind::REALM_HISTORY_SHARING_POLICY,
+            EventKind::RealmHistorySharingPolicy.as_str(),
             &history_policy_value,
         )
         .unwrap();

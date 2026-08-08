@@ -140,35 +140,33 @@ fn patch_event_family_maps_to_canonical_payloads() {
     assert_eq!(
         catalog.rules["ak.strand.tracks.update"].payload_schema_id,
         format!(
-            "{schemaid_event_payload_v1}#/$defs/generic_standard_payload",
+            "{schemaid_event_payload_v1}#/$defs/strand_patch_payload",
             schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
         ),
-        "ak.strand.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
+        "ak.strand.tracks.update must share the canonical strand patch payload"
     );
     catalog
         .validate_payload(
             "ak.strand.tracks.update",
             &json!({
-                "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
-                "tracks": {
-                    "main": { "title": "Main", "rank": "a0" }
-                }
+                "target_ref": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "patch": { "tracks.main.is_primary": { "$op": "set", "value": true } }
             }),
         )
         .unwrap_or_else(|err| {
-            panic!("ak.strand.tracks.update should accept track payloads: {err}")
+            panic!("ak.strand.tracks.update should accept strand patch payloads: {err}")
         });
     assert!(
         catalog
             .validate_payload(
                 "ak.strand.tracks.update",
                 &json!({
-                    "type": "ak.strand.tracks.update",
-                    "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
+                    "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                    "tracks": { "main": { "title": "Main", "rank": "a0" } }
                 }),
             )
             .is_err(),
-        "ak.strand.tracks.update must still reject the retired type discriminator"
+        "ak.strand.tracks.update must reject the retired track-table payload"
     );
     assert!(
         catalog
@@ -242,21 +240,21 @@ fn invite_create_payload_shape_is_enforced() {
     });
 
     assert_eq!(
-        catalog.rules[EventKind::INVITE_CREATE].payload_schema_id,
+        catalog.rules[EventKind::InviteCreate.as_str()].payload_schema_id,
         format!(
             "{schemaid_event_payload_v1}#/$defs/invite_create_payload",
             schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
         )
     );
     assert!(
-        catalog.rules[EventKind::INVITE_CREATE]
+        catalog.rules[EventKind::InviteCreate.as_str()]
             .required_fields
             .iter()
             .any(|field| field == "invitee"),
         "ak.invite.create must require invitee"
     );
     catalog
-        .validate_payload(EventKind::INVITE_CREATE, &payload)
+        .validate_payload(EventKind::InviteCreate.as_str(), &payload)
         .unwrap_or_else(|err| panic!("ak.invite.create should accept directed invite: {err}"));
 
     let mut producer_selected_invite_id = payload.clone();
@@ -264,7 +262,10 @@ fn invite_create_payload_shape_is_enforced() {
         json!("ak:invite:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19");
     assert!(
         catalog
-            .validate_payload(EventKind::INVITE_CREATE, &producer_selected_invite_id)
+            .validate_payload(
+                EventKind::InviteCreate.as_str(),
+                &producer_selected_invite_id,
+            )
             .is_err(),
         "ak.invite.create must reject producer-selected invite_id"
     );
@@ -276,7 +277,7 @@ fn invite_create_payload_shape_is_enforced() {
         .remove("expires_at");
     assert!(
         catalog
-            .validate_payload(EventKind::INVITE_CREATE, &missing_expires_at)
+            .validate_payload(EventKind::InviteCreate.as_str(), &missing_expires_at)
             .is_err(),
         "ak.invite.create must reject directed invite payloads without expires_at"
     );

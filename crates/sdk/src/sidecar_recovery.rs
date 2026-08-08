@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::agent_operations::{
     AgentSidecarContextRef, AgentSidecarRelationContextRef, AgentSidecarStrandContextRef,
     AgentSidecarView,
@@ -7,7 +8,7 @@ use arkret_models_collaboration::agent_operations::{
 use arkret_models_collaboration::sidecar_operations::{
     SidecarContextAttachPayload, SidecarContextRef,
 };
-use arkret_wire::{Error, Event, EventId, EventKind, Result, ScopeRef, SidecarId};
+use arkret_wire::{Error, Event, EventId, EventKind, Result, ScopeRef, SidecarId, event_spec};
 
 /// A controller-local source-context locator recovered from complete accepted
 /// native Sidecar history. It is not a wire projection and must never be uploaded.
@@ -55,9 +56,7 @@ pub fn recover_agent_sidecar_context_locators(
         if event.kind != EventKind::SidecarContextAttach {
             continue;
         }
-        let Ok(payload) =
-            event.typed_payload::<SidecarContextAttachPayload>(EventKind::SIDECAR_CONTEXT_ATTACH)
-        else {
+        let Ok(payload) = event.typed_payload::<event_spec::SidecarContextAttach>() else {
             continue;
         };
         let Some(sidecar) = sidecars_by_id.get(&payload.sidecar_id) else {

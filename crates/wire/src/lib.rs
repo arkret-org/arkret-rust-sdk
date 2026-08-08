@@ -125,7 +125,8 @@ pub use generated::{
     PROOF_CONTEXTS, ProfileId, ProofContextDescriptor, ProofContextId,
     REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
     SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor,
-    ServiceOperationDescriptor, ServiceOperationId, TrackName, operation_error_mapping,
+    ServiceOperationDescriptor, ServiceOperationId, TrackName, event_kind_str, event_spec,
+    operation_error_mapping,
 };
 pub use genesis_salt::GenesisSalt;
 pub use http_signature::HttpMessageSignature;

@@ -86,7 +86,7 @@ pub(crate) fn validate_realm_create_projection(
     event: &Event,
     effects: &[ProjectionEffect],
 ) -> Result<()> {
-    if event.kind != EventKind::REALM_CREATE {
+    if event.kind != EventKind::RealmCreate {
         return Err(Error::Protocol(
             "realm create projection requires ak.realm.create".to_owned(),
         ));

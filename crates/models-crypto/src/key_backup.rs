@@ -11,9 +11,9 @@ use arkret_wire::{
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
     CbaProofBundle, ControlProposalAck, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
-    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RealmId, ReasonCode, ReceiptId,
-    RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId, TypedTrustDomainId,
-    XExtensionMap,
+    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId,
+    ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId,
+    TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -703,6 +703,78 @@ pub struct KeyBackup {
 
 impl KeyBackup {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_V1;
+
+    /// Canonical signature input for a fully formed backup envelope.
+    ///
+    /// The wire signature covers the entire envelope, including the remaining
+    /// `auth_data` metadata, with only `auth_data.signature` omitted.
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        if self.auth_data.is_none() {
+            return Err(Error::Protocol(
+                "key backup auth_data is required".to_owned(),
+            ));
+        }
+        self.signature_independent_payload_bytes()
+    }
+
+    /// Validate a signed wire envelope and compute its exact signature input
+    /// without normalizing optional-field presence through a deserialize /
+    /// reserialize round trip.
+    pub fn signing_payload_bytes_from_wire(wire: &Value) -> Result<Vec<u8>> {
+        serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
+            Error::Protocol(format!("invalid signed key backup envelope: {error}"))
+        })?;
+        key_backup_signature_independent_wire_bytes(wire, true)
+    }
+
+    /// Compute the exact authoring transcript before a signature is attached.
+    /// The auth envelope must already exist and must not carry any signature
+    /// member, preventing a producer from accidentally signing stale proof
+    /// material.
+    pub fn unsigned_signing_payload_bytes_from_wire(wire: &Value) -> Result<Vec<u8>> {
+        let auth_data = wire
+            .get("auth_data")
+            .and_then(Value::as_object)
+            .ok_or_else(|| Error::Protocol("key backup auth_data is required".to_owned()))?;
+        if auth_data.contains_key("signature") {
+            return Err(Error::Protocol(
+                "unsigned key backup auth_data must omit signature".to_owned(),
+            ));
+        }
+        Ok(arkret_canonical::canonical_json_bytes(wire)?)
+    }
+
+    /// Canonical envelope bytes with a present signature omitted. This is also
+    /// defined for an unsigned envelope and is the stable predecessor-digest
+    /// input used by backup-series chaining.
+    pub fn signature_independent_payload_bytes(&self) -> Result<Vec<u8>> {
+        let mut unsigned = serde_json::to_value(self).map_err(|error| {
+            Error::Protocol(format!("failed to serialize key backup envelope: {error}"))
+        })?;
+        if let Some(auth_data) = unsigned.get_mut("auth_data").and_then(Value::as_object_mut) {
+            auth_data.remove("signature");
+        }
+        Ok(arkret_canonical::canonical_json_bytes(&unsigned)?)
+    }
+
+    /// Digest used by a successor envelope's `supersedes_digest`.
+    pub fn signature_independent_digest(&self) -> Result<String> {
+        Ok(arkret_canonical::sha256_digest(
+            self.signature_independent_payload_bytes()?,
+        ))
+    }
+
+    /// Compute a predecessor digest from its exact wire shape after validating
+    /// that it is a key-backup envelope.
+    pub fn signature_independent_digest_from_wire(wire: &Value) -> Result<String> {
+        serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
+            Error::Protocol(format!("invalid key backup predecessor envelope: {error}"))
+        })?;
+        Ok(arkret_canonical::sha256_digest(
+            key_backup_signature_independent_wire_bytes(wire, false)?,
+        ))
+    }
+
     pub fn is_first_did_recovery_backup(&self) -> bool {
         self.backup_kind == BackupKind::DidRecovery && self.series_seq == 0
     }
@@ -744,6 +816,28 @@ impl KeyBackup {
             contents: self.contents.clone(),
         }
     }
+}
+
+fn key_backup_signature_independent_wire_bytes(
+    wire: &Value,
+    require_signature: bool,
+) -> Result<Vec<u8>> {
+    let mut unsigned = wire.clone();
+    let auth_data = unsigned.get_mut("auth_data").and_then(Value::as_object_mut);
+    if require_signature && auth_data.is_none() {
+        return Err(Error::Protocol(
+            "key backup auth_data is required".to_owned(),
+        ));
+    }
+    if let Some(auth_data) = auth_data {
+        let signature = auth_data.remove("signature");
+        if require_signature && signature.is_none() {
+            return Err(Error::Protocol(
+                "key backup auth_data signature is required".to_owned(),
+            ));
+        }
+    }
+    Ok(arkret_canonical::canonical_json_bytes(&unsigned)?)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1333,6 +1427,28 @@ pub struct RecoveryPolicy {
 
 impl RecoveryPolicy {
     pub const SCHEMA: &'static str = SchemaId::RECOVERY_POLICY_V1;
+    pub const SIGNATURE_TYPE: &'static str = RECOVERY_POLICY_SIGNATURE_TYPE;
+
+    /// Canonical detached-signature transcript shared by policy producers and
+    /// verifiers. `signed_fields` names the projected policy members; the
+    /// ordered declaration is also bound into the outer transcript.
+    pub fn signature_transcript_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let policy = serde_json::to_value(self).map_err(|error| {
+            Error::Protocol(format!("failed to serialize recovery policy: {error}"))
+        })?;
+        let mut signed_payload = serde_json::Map::new();
+        for field in &self.auth_data.signed_fields {
+            let value = policy.get(field).cloned().unwrap_or(Value::Null);
+            signed_payload.insert(field.clone(), value);
+        }
+        Ok(arkret_canonical::canonical_json_bytes(&json!({
+            "type": Self::SIGNATURE_TYPE,
+            "signed_fields": &self.auth_data.signed_fields,
+            "payload": Value::Object(signed_payload),
+        }))?)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.schema != "ak.schema.recovery_policy.v1" {
             return Err(Error::Protocol(
@@ -1438,6 +1554,11 @@ impl RecoveryPolicy {
             .iter()
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
+        if signed_fields.len() != self.auth_data.signed_fields.len() {
+            return Err(Error::Protocol(
+                "recovery policy auth_data signed_fields must be unique".to_owned(),
+            ));
+        }
         let required_signed_fields = [
             "schema",
             "policy_id",
@@ -1730,7 +1851,7 @@ pub struct RecoveryPolicyPublishRequest {
 
 impl RecoveryPolicyPublishRequest {
     pub fn policy_payload(&self) -> Result<RecoveryPolicySetPayload> {
-        if self.event.kind.as_str() != EventKind::POLICY_SET {
+        if self.event.kind != EventKind::PolicySet {
             return Err(Error::Protocol(
                 "recovery policy publication Event kind must be ak.policy.set".to_owned(),
             ));

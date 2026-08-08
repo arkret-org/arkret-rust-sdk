@@ -220,7 +220,7 @@ impl Client {
             // its receipts.
             let first = events.first();
             let collect_anchor_receipts = anchor_unit_requires_precollected_receipts(
-                first.map(|event| event.kind.as_str()),
+                first.map(|event| &event.kind),
                 first.is_some_and(|event| {
                     event
                         .executed_by
@@ -928,15 +928,15 @@ fn initial_submission_context(events: &[Event]) -> Result<EventSubmitContext> {
 }
 
 fn anchor_unit_requires_precollected_receipts(
-    first_kind: Option<&str>,
+    first_kind: Option<&arkret_wire::EventKind>,
     delegated_genesis: bool,
 ) -> Result<bool> {
-    if first_kind == Some(arkret_wire::EventKind::REALM_CREATE) && delegated_genesis {
+    if first_kind == Some(&arkret_wire::EventKind::RealmCreate) && delegated_genesis {
         return Err(Error::Protocol(
             "delegated Realm genesis requires an explicit local proposal authority".to_owned(),
         ));
     }
-    Ok(first_kind.is_some_and(|kind| kind != arkret_wire::EventKind::REALM_CREATE))
+    Ok(first_kind.is_some_and(|kind| kind != &arkret_wire::EventKind::RealmCreate))
 }
 
 #[cfg(test)]
@@ -947,17 +947,21 @@ mod initial_submission_tests {
     fn realm_genesis_receipts_are_minted_during_atomic_ingress() {
         assert!(
             !anchor_unit_requires_precollected_receipts(
-                Some(arkret_wire::EventKind::REALM_CREATE),
+                Some(&arkret_wire::EventKind::RealmCreate),
                 false,
             )
             .unwrap()
         );
         assert!(
-            anchor_unit_requires_precollected_receipts(Some("ak.device.reanchor"), false).unwrap()
+            anchor_unit_requires_precollected_receipts(
+                Some(&arkret_wire::EventKind::DeviceReanchor),
+                false,
+            )
+            .unwrap()
         );
         assert!(
             anchor_unit_requires_precollected_receipts(
-                Some(arkret_wire::EventKind::REALM_CREATE),
+                Some(&arkret_wire::EventKind::RealmCreate),
                 true,
             )
             .is_err(),

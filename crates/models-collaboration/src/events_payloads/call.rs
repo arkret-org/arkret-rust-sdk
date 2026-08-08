@@ -235,6 +235,31 @@ pub enum RecordingCaptureKind {
     Transcript,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct VisibleCaptureNotice;
+
+impl Serialize for VisibleCaptureNotice {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> Deserialize<'de> for VisibleCaptureNotice {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if bool::deserialize(deserializer)? {
+            Ok(Self)
+        } else {
+            Err(serde::de::Error::custom("visible_notice must be true"))
+        }
+    }
+}
+
 /// Typed payload for `ak.call.recording.start`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -244,41 +269,49 @@ pub struct RecordingStartPayload {
     pub recording_agent: Did,
     pub capture_kind: RecordingCaptureKind,
     pub mode: RecordingMode,
-    pub visible_notice: bool,
+    pub visible_notice: VisibleCaptureNotice,
     pub result: RecordingStartResult,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecordingStartResult {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recording_start_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transcript_start_event_id: Option<EventId>,
     pub retention: CallRecordingRetention,
 }
 
-impl RecordingStartPayload {
-    pub fn validate(&self, event_id: &EventId) -> std::result::Result<(), &'static str> {
-        if !self.visible_notice || self.result.retention.consent_confirmed != Some(true) {
-            return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
+impl<'de> Deserialize<'de> for RecordingStartResult {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            retention: CallRecordingRetention,
         }
-        let valid_ref = match self.capture_kind {
-            RecordingCaptureKind::Recording => {
-                self.result.recording_start_event_id.as_ref() == Some(event_id)
-                    && self.result.transcript_start_event_id.is_none()
-            }
-            RecordingCaptureKind::Transcript => {
-                self.result.transcript_start_event_id.as_ref() == Some(event_id)
-                    && self.result.recording_start_event_id.is_none()
-            }
-        };
-        if !valid_ref {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
+
+        let wire = Wire::deserialize(deserializer)?;
+        if wire.retention.consent_confirmed != Some(true) {
+            return Err(serde::de::Error::custom(
+                "recording start retention.consent_confirmed must be true",
+            ));
+        }
+        Ok(Self {
+            retention: wire.retention,
+        })
+    }
+}
+
+impl RecordingStartPayload {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.result.retention.consent_confirmed != Some(true) {
+            return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
         }
         Ok(())
     }
 }
+
+pub type CallRecordingStartPayload = RecordingStartPayload;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -655,6 +688,158 @@ pub enum CallTranscriptState {
     Failed,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallSummaryFinalState {
+    Ended,
+    Missed,
+    Failed,
+    Cancelled,
+}
+
+fn deserialize_present_nullable<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
+}
+
+fn deserialize_present_nullable_timestamp<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<Option<DateTime<Utc>>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    arkret_canonical::serde_helpers::optional_canonical_timestamp::deserialize(deserializer)
+        .map(Some)
+}
+
+fn serialize_optional_nullable_timestamp<S>(
+    value: &Option<Option<DateTime<Utc>>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match value {
+        Some(inner) => arkret_canonical::serde_helpers::optional_canonical_timestamp::serialize(
+            inner, serializer,
+        ),
+        None => serializer.serialize_none(),
+    }
+}
+
+/// Counterpart for `event-payload.schema.json#/$defs/call_summary_payload`.
+#[derive(Clone, Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallSummaryPayload {
+    pub call_id: CallId,
+    pub final_state: CallSummaryFinalState,
+    pub mode: CallMode,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_nullable_timestamp"
+    )]
+    pub started_at: Option<Option<DateTime<Utc>>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_nullable_timestamp"
+    )]
+    pub ended_at: Option<Option<DateTime<Utc>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<Option<u64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peak_participant_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub distinct_participant_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recording_state: Option<CallRecordingState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_state: Option<CallTranscriptState>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CallSummaryPayloadWire {
+    call_id: CallId,
+    final_state: CallSummaryFinalState,
+    mode: CallMode,
+    #[serde(default, deserialize_with = "deserialize_present_nullable_timestamp")]
+    started_at: Option<Option<DateTime<Utc>>>,
+    #[serde(default, deserialize_with = "deserialize_present_nullable_timestamp")]
+    ended_at: Option<Option<DateTime<Utc>>>,
+    #[serde(default, deserialize_with = "deserialize_present_nullable")]
+    duration_ms: Option<Option<u64>>,
+    peak_participant_count: Option<u64>,
+    distinct_participant_count: Option<u64>,
+    recording_state: Option<CallRecordingState>,
+    transcript_state: Option<CallTranscriptState>,
+}
+
+impl CallSummaryPayload {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.final_state != CallSummaryFinalState::Ended
+            && matches!(self.ended_at, Some(Some(_)))
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        if matches!(
+            self.final_state,
+            CallSummaryFinalState::Missed | CallSummaryFinalState::Cancelled
+        ) && matches!(self.started_at, Some(Some(_)))
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        match (&self.started_at, &self.ended_at, self.duration_ms) {
+            (Some(Some(started_at)), Some(Some(ended_at)), Some(Some(duration_ms))) => {
+                let elapsed_ms = ended_at
+                    .signed_duration_since(started_at.to_owned())
+                    .num_milliseconds();
+                if elapsed_ms < 0 || u64::try_from(elapsed_ms).ok() != Some(duration_ms) {
+                    return Err(ErrorCode::SCHEMA_VIOLATION);
+                }
+            }
+            (Some(Some(_)), Some(Some(_)), None | Some(None)) => {}
+            (_, _, Some(Some(_))) => return Err(ErrorCode::SCHEMA_VIOLATION),
+            _ => {}
+        }
+        let peak_participant_count = self.peak_participant_count.unwrap_or(0);
+        let distinct_participant_count = self.distinct_participant_count.unwrap_or(0);
+        if peak_participant_count > 1_000 || distinct_participant_count < peak_participant_count {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for CallSummaryPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = CallSummaryPayloadWire::deserialize(deserializer)?;
+        let payload = Self {
+            call_id: wire.call_id,
+            final_state: wire.final_state,
+            mode: wire.mode,
+            started_at: wire.started_at,
+            ended_at: wire.ended_at,
+            duration_ms: wire.duration_ms,
+            peak_participant_count: wire.peak_participant_count,
+            distinct_participant_count: wire.distinct_participant_count,
+            recording_state: wire.recording_state,
+            transcript_state: wire.transcript_state,
+        };
+        payload.validate().map_err(serde::de::Error::custom)?;
+        Ok(payload)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallTranscriptTransition {
@@ -864,9 +1049,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn recording_start_requires_event_bound_consent_result() {
-        let event_id =
-            EventId::new("ak:event:AQ_TuICTz2cVFhqtuEZTue46AK_LsqKsKlTPixxkuedX").unwrap();
+    fn recording_start_requires_pre_capture_consent_without_event_identity_cycle() {
         let value = json!({
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "recording_id": "capture-1",
@@ -875,13 +1058,12 @@ mod tests {
             "mode": "audio_video",
             "visible_notice": true,
             "result": {
-                "recording_start_event_id": event_id,
                 "retention": {"consent_confirmed": true}
             }
         });
         let payload: RecordingStartPayload = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(payload.mode, RecordingMode::AudioVideo);
-        payload.validate(&event_id).unwrap();
+        payload.validate().unwrap();
 
         let mut missing_result = value.clone();
         missing_result.as_object_mut().unwrap().remove("result");
@@ -893,11 +1075,21 @@ mod tests {
 
         let mut missing_consent = value;
         missing_consent["result"]["retention"]["consent_confirmed"] = json!(false);
-        let payload: RecordingStartPayload = serde_json::from_value(missing_consent).unwrap();
-        assert_eq!(
-            payload.validate(&event_id),
-            Err(ReasonCode::RECORDING_CONSENT_REQUIRED)
-        );
+        assert!(serde_json::from_value::<RecordingStartPayload>(missing_consent).is_err());
+
+        let cyclic_identity = json!({
+            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
+            "recording_id": "capture-1",
+            "recording_agent": "did:webvh:z6mkfixture:recorder.example",
+            "capture_kind": "recording",
+            "mode": "audio_video",
+            "visible_notice": true,
+            "result": {
+                "recording_start_event_id": "ak:event:AQ_TuICTz2cVFhqtuEZTue46AK_LsqKsKlTPixxkuedX",
+                "retention": {"consent_confirmed": true}
+            }
+        });
+        assert!(serde_json::from_value::<RecordingStartPayload>(cyclic_identity).is_err());
     }
 
     #[test]

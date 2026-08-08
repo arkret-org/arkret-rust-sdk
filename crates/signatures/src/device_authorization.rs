@@ -3,10 +3,13 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
+use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, SignatureMaterial,
 };
-use arkret_wire::{FederatedCurrentDeviceProjection, FederatedDeviceSigningKeyEvidence};
+use arkret_wire::{
+    FederatedCurrentDeviceProjection, FederatedDeviceSigningKeyEvidence, event_spec,
+};
 
 use crate::{
     Error, PublicKeyMaterial, Result, verify_detached_ed25519_signature,
@@ -79,7 +82,8 @@ pub fn replay_federated_device_authorization(
         let event_bytes = canonical::canonical_json_bytes(&event.digest_payload()?)?;
         match event.kind.as_str() {
             "ak.device.authorize" => {
-                let payload: DeviceAuthorizePayload = event.typed_payload("ak.device.authorize")?;
+                let payload: DeviceAuthorizePayload =
+                    event.typed_payload::<event_spec::DeviceAuthorize>()?;
                 verify_device_authorize_possession(&payload)?;
                 let candidate_key = did_key_public_key(payload.device_public_key.as_str())?;
                 let event_proof_key = match payload.authorization_binding_kind {

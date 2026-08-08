@@ -111,7 +111,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         || successor.actor_id != create.actor_id
         || successor.actor_seq != 2
         || successor.prev_refs != vec![authorize.event_id.clone()]
-        || successor.kind != EventKind::POLICY_SET
+        || successor.kind != EventKind::PolicySet
     {
         return Err(Error::Protocol(
             "self principal first successor must be the actor_seq=2 recovery policy Event"

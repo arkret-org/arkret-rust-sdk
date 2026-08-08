@@ -1,5 +1,5 @@
-use arkret_models_collaboration::events_payloads::MessageCreatePayload;
-use arkret_wire::{EventKind, MessageId};
+use arkret_event_draft::EventPayloadExt;
+use arkret_wire::{MessageId, event_spec};
 
 use super::super::*;
 use super::RealmState;
@@ -145,7 +145,7 @@ impl RealmState {
     }
 
     pub(super) fn create_message(&mut self, event: &Event) -> Result<()> {
-        event.typed_payload::<MessageCreatePayload>(EventKind::MESSAGE_CREATE)?;
+        event.typed_payload::<event_spec::MessageCreate>()?;
         let message_id = MessageId::from_event_id(&event.event_id).to_string();
         self.messages
             .entry(message_id.clone())

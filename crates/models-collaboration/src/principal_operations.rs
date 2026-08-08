@@ -5,6 +5,7 @@ use arkret_wire::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
 use crate::events_payloads::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceOrPrincipalRef,
     RealmCreatePayload, RealmPurpose, device_authorize_payload_digest,
@@ -63,7 +64,7 @@ impl PcrGenesisSubmitRequestBody {
             ));
         }
 
-        let create_payload: RealmCreatePayload = create.payload_as()?;
+        let create_payload: RealmCreatePayload = decode_payload_after_kind_validation(create)?;
         let descriptor = create_payload
             .object
             .founding_device_descriptor
@@ -84,7 +85,8 @@ impl PcrGenesisSubmitRequestBody {
             &authorize_payload_value,
             canonical::DigestSuite::Sha256,
         )?;
-        let authorize_payload: DeviceAuthorizePayload = authorize.payload_as()?;
+        let authorize_payload: DeviceAuthorizePayload =
+            decode_payload_after_kind_validation(authorize)?;
         let expected_authorize_verification_method =
             format!("{}#{}", self.principal_id, descriptor.device_id);
         let authorized_by_root = matches!(
@@ -131,10 +133,9 @@ impl PcrGenesisSubmitOutcome {
     pub fn validate_against(&self, request: &PcrGenesisSubmitRequestBody) -> Result<()> {
         request.validate()?;
         let scope = self.receipt.pcr_genesis_scope()?;
-        let descriptor = request
-            .genesis_unit
-            .create()
-            .payload_as::<RealmCreatePayload>()?
+        let create_payload: RealmCreatePayload =
+            decode_payload_after_kind_validation(request.genesis_unit.create())?;
+        let descriptor = create_payload
             .object
             .founding_device_descriptor
             .ok_or_else(|| {

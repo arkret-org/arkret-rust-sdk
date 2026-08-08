@@ -92,7 +92,7 @@ impl AppletBridgeErrorBuilder {
             retry_after_ms: self.retriable.then_some(self.retry_after_ms).flatten(),
         };
         Ok(Event::new(
-            EventKind::APPLET_BRIDGE_ERROR,
+            EventKind::AppletBridgeError.to_string(),
             ScopeRef::Realm {
                 realm_id: self.realm_id,
             },
@@ -135,7 +135,7 @@ mod tests {
         .build(1, Hlc::new("01970e589d21-0004-a13f9c2e").unwrap())
         .unwrap();
 
-        assert_eq!(event.kind, EventKind::APPLET_BRIDGE_ERROR);
+        assert_eq!(event.kind, EventKind::AppletBridgeError);
         assert_eq!(event.payload["realm_id"], realm().as_str());
         assert_eq!(event.payload["error_class"], "external_network");
         assert_eq!(event.payload["visibility_scope"], "realm_admins");

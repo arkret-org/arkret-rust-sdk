@@ -26,7 +26,7 @@ pub fn build_agent_key_authorize_event(
     hlc: Hlc,
 ) -> Result<Event> {
     let mut event = Event::new(
-        EventKind::AGENT_KEY_AUTHORIZE,
+        EventKind::AgentKeyAuthorize.to_string(),
         scope_ref,
         agent_actor_id,
         actor_seq,
@@ -51,7 +51,7 @@ pub fn build_agent_key_revoke_event(
     hlc: Hlc,
 ) -> Result<Event> {
     let mut event = Event::new(
-        EventKind::AGENT_KEY_REVOKE,
+        EventKind::AgentKeyRevoke.to_string(),
         scope_ref,
         agent_actor_id,
         actor_seq,
@@ -65,7 +65,7 @@ pub fn build_agent_key_revoke_event(
 }
 
 struct AgentLifecycleEventInput {
-    kind: &'static str,
+    kind: EventKind,
     payload: Value,
     agent_id: Did,
     controller_id: Did,
@@ -78,7 +78,7 @@ struct AgentLifecycleEventInput {
 
 fn build_agent_lifecycle_event(input: AgentLifecycleEventInput) -> Result<Event> {
     let mut event = Event::new_at(
-        input.kind,
+        input.kind.to_string(),
         input.principal_control_scope_ref,
         input.agent_id.clone(),
         input.actor_seq,
@@ -113,7 +113,7 @@ pub fn build_agent_pause_event(
         reason,
     })?;
     build_agent_lifecycle_event(AgentLifecycleEventInput {
-        kind: EventKind::SELF_AGENT_PAUSE,
+        kind: EventKind::SelfAgentPause,
         payload,
         agent_id,
         controller_id,
@@ -147,7 +147,7 @@ pub fn build_agent_resume_event(
         reason: None,
     })?;
     build_agent_lifecycle_event(AgentLifecycleEventInput {
-        kind: EventKind::SELF_AGENT_RESUME,
+        kind: EventKind::SelfAgentResume,
         payload,
         agent_id,
         controller_id,
@@ -191,7 +191,7 @@ pub fn build_agent_deactivate_event(
         reason,
     })?;
     build_agent_lifecycle_event(AgentLifecycleEventInput {
-        kind: EventKind::SELF_AGENT_DEACTIVATE,
+        kind: EventKind::SelfAgentDeactivate,
         payload,
         agent_id,
         controller_id,
@@ -313,7 +313,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(event.kind.as_str(), EventKind::AGENT_KEY_AUTHORIZE);
+        assert_eq!(event.kind, EventKind::AgentKeyAuthorize);
         assert_eq!(event.actor_id, agent_id);
         assert_eq!(event.executed_by, Some(controller_id));
         assert_eq!(event.payload["key_id"], "runtime-key-1");
@@ -431,7 +431,7 @@ mod tests {
             changed_at,
         )
         .unwrap();
-        assert_eq!(pause.kind.as_str(), EventKind::SELF_AGENT_PAUSE);
+        assert_eq!(pause.kind, EventKind::SelfAgentPause);
         assert_eq!(
             project(&pause),
             vec![transition_write(
@@ -457,7 +457,7 @@ mod tests {
             changed_at,
         )
         .unwrap();
-        assert_eq!(resume.kind.as_str(), EventKind::SELF_AGENT_RESUME);
+        assert_eq!(resume.kind, EventKind::SelfAgentResume);
         assert_eq!(
             project(&resume),
             vec![transition_write(
@@ -479,7 +479,7 @@ mod tests {
             changed_at,
         )
         .unwrap();
-        assert_eq!(deactivate.kind.as_str(), EventKind::SELF_AGENT_DEACTIVATE);
+        assert_eq!(deactivate.kind, EventKind::SelfAgentDeactivate);
         assert_eq!(
             project(&deactivate),
             vec![transition_write(

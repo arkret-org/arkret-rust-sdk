@@ -69,8 +69,9 @@ impl RealmSetDefaultStrandPayload {
 // `StrandWatchLevel` enum / nullable `level` clear path and the
 // `level_public`/`expected_value` CAS fields; `additionalProperties:false`).
 
-/// Payload for `ak.strand.update`.
+/// Shared payload for `ak.strand.update` and `ak.strand.tracks.update`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StrandPatchPayload {
     pub target_ref: StrandId,
     pub patch: Patch,

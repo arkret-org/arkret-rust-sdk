@@ -63,11 +63,12 @@ def rust_slice(values: list[str] | None) -> str:
 
 
 def event_kind_slice(values: list[str] | None) -> str:
-    """Event-kind list rendered as `EventKind::*` references, never raw literals."""
+    """Event-kind wire list rendered from the generated single-literal domain."""
     return (
         "&["
         + ", ".join(
-            f"EventKind::{associated_name(value, ('ak.',))}" for value in (values or [])
+            f"event_kind_str::{associated_name(value, ('ak.',))}"
+            for value in (values or [])
         )
         + "]"
     )
@@ -2092,7 +2093,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
     lines = header(loaded, counts)
     lines.extend(
         [
-            "use arkret_wire::{CapabilityActionId, EventKind, SchemaId};",
+            "use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};",
             "use serde::{Deserialize, Serialize};",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",

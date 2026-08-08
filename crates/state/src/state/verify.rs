@@ -644,7 +644,7 @@ pub(super) fn recovery_capability_is_active(
             && grant
                 .actions
                 .iter()
-                .any(|action| action == arkret_wire::EventKind::STATE_CONFLICT_RECOVERY)
+                .any(|action| action == arkret_wire::event_kind_str::STATE_CONFLICT_RECOVERY)
             && grant.has_resources()
     })
 }

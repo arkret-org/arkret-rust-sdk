@@ -16,7 +16,7 @@ pub fn accountability_grant_event(
 ) -> Result<Event> {
     let payload_value = serde_json::to_value(payload)?;
     let mut event = Event::new(
-        EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
+        EventKind::IdentityAccountabilityGrant.to_string(),
         scope_ref,
         payload.issuer.clone(),
         actor_seq,

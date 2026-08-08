@@ -3,6 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
 use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
@@ -13,7 +14,7 @@ use arkret_state::{
 use arkret_wire::{
     AuthorizationRef, CellRef, Did, EncryptionProfile, Error, Event, EventId, EventKind, EventRef,
     Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result,
-    SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId,
+    SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId, event_spec,
 };
 use chrono::{DateTime, Utc};
 
@@ -104,7 +105,7 @@ pub fn materialize_managed_agent_pcr_control(
     // genesis Event" is a question only the reducer contract can answer.
     let mut creates = Vec::new();
     for event in events {
-        if event.kind != EventKind::REALM_CREATE {
+        if event.kind != EventKind::RealmCreate {
             continue;
         }
         let effects = direct_projection(event, project)?;
@@ -140,7 +141,7 @@ pub fn materialize_managed_agent_pcr_control(
     let authorization_ref = create.authorization_ref.clone().ok_or_else(|| {
         Error::Protocol("managed Agent PCR create Event omits authorization_ref".to_owned())
     })?;
-    let payload: RealmCreatePayload = create.payload_as()?;
+    let payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let object = payload.object;
     if object.purpose
         != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl
@@ -400,7 +401,7 @@ impl ManagedAgentPcrGenesisAuthority {
     /// Acceptance is deliberately not inferred by this pure materializer; the
     /// caller must establish the appropriate protocol context.
     pub fn from_delegated_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
-        if create.kind != EventKind::REALM_CREATE {
+        if create.kind != EventKind::RealmCreate {
             return Err(Error::Protocol(
                 "managed Agent PCR genesis authority requires ak.realm.create".to_owned(),
             ));

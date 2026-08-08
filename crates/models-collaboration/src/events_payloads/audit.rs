@@ -1,6 +1,7 @@
 //! Audit access, binding, session, and release event payloads.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Deref;
 
 use arkret_wire::{
     AppletIdentifier, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, Did, DidUrl,
@@ -236,12 +237,13 @@ impl AuditSessionStage {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_payload`.
+/// Counterpart for the shared
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_contract`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditSessionPayload {
-    pub session_id: AuditSessionId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<AuditSessionId>,
     pub binding_id: AuditBindingId,
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
@@ -299,10 +301,142 @@ pub struct AuditSessionPayload {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-pub type AuditSessionAuthorizePayload = AuditSessionPayload;
-pub type AuditSessionClosePayload = AuditSessionPayload;
-pub type AuditSessionNoticePayload = AuditSessionPayload;
-pub type AuditSessionRequestPayload = AuditSessionPayload;
+impl AuditSessionPayload {
+    fn validate_collections(&self) -> std::result::Result<(), &'static str> {
+        if self.target_refs.as_ref().is_some_and(Vec::is_empty) {
+            return Err("audit session target_refs must be non-empty when present");
+        }
+        if self
+            .target_refs
+            .as_ref()
+            .is_some_and(|values| values.iter().collect::<BTreeSet<_>>().len() != values.len())
+        {
+            return Err("audit session target_refs must be unique");
+        }
+        if self
+            .release_refs
+            .as_ref()
+            .is_some_and(|values| values.iter().collect::<BTreeSet<_>>().len() != values.len())
+        {
+            return Err("audit session release_refs must be unique");
+        }
+        Ok(())
+    }
+}
+
+macro_rules! audit_session_payload {
+    ($name:ident, $validator:ident) => {
+        #[derive(Clone, Debug, Serialize)]
+        #[serde(transparent)]
+        pub struct $name(AuditSessionPayload);
+
+        impl $name {
+            pub fn new(payload: AuditSessionPayload) -> std::result::Result<Self, &'static str> {
+                payload.validate_collections()?;
+                $validator(&payload)?;
+                Ok(Self(payload))
+            }
+
+            pub fn into_inner(self) -> AuditSessionPayload {
+                self.0
+            }
+        }
+
+        impl Deref for $name {
+            type Target = AuditSessionPayload;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                Self::new(AuditSessionPayload::deserialize(deserializer)?)
+                    .map_err(serde::de::Error::custom)
+            }
+        }
+    };
+}
+
+fn validate_audit_session_request(
+    payload: &AuditSessionPayload,
+) -> std::result::Result<(), &'static str> {
+    if payload.session_state != AuditSessionStage::Request
+        || payload.session_id.is_some()
+        || payload.requested_by.is_none()
+        || payload.purpose_kind.is_none()
+        || payload.legal_basis_ref.is_none()
+        || payload.requested_release_mode.is_none()
+        || payload.request_digest.is_none()
+        || (payload.requested_epoch_range.is_none() && payload.target_refs.is_none())
+    {
+        return Err("invalid audit session request payload shape");
+    }
+    Ok(())
+}
+
+fn validate_audit_session_authorize(
+    payload: &AuditSessionPayload,
+) -> std::result::Result<(), &'static str> {
+    if payload.session_state != AuditSessionStage::Authorize
+        || payload.session_id.is_none()
+        || payload.request_ref.is_none()
+        || payload.approver_actor_id.is_none()
+        || payload.approved_recipient_audit_actor_id.is_none()
+        || payload.approved_recipient_public_key_ref.is_none()
+        || payload.approved_release_mode.is_none()
+        || payload.notice_policy.is_none()
+        || payload.expires_at.is_none()
+        || (payload.approved_epoch_range.is_none() && payload.target_refs.is_none())
+    {
+        return Err("invalid audit session authorize payload shape");
+    }
+    Ok(())
+}
+
+fn validate_audit_session_notice(
+    payload: &AuditSessionPayload,
+) -> std::result::Result<(), &'static str> {
+    if payload.session_state != AuditSessionStage::Notice
+        || payload.session_id.is_none()
+        || payload.authorize_ref.is_none()
+        || payload.service_id.is_none()
+        || payload.purpose_kind.is_none()
+        || payload.approved_release_mode.is_none()
+        || payload.approver_actor_id.is_none()
+        || payload.member_notice_digest.is_none()
+        || (payload.approved_epoch_range.is_none() && payload.target_refs.is_none())
+    {
+        return Err("invalid audit session notice payload shape");
+    }
+    Ok(())
+}
+
+fn validate_audit_session_close(
+    payload: &AuditSessionPayload,
+) -> std::result::Result<(), &'static str> {
+    if payload.session_state != AuditSessionStage::Close
+        || payload.session_id.is_none()
+        || payload.closer_actor_id.is_none()
+        || payload.close_reason.is_none()
+        || payload.release_refs.is_none()
+    {
+        return Err("invalid audit session close payload shape");
+    }
+    Ok(())
+}
+
+audit_session_payload!(AuditSessionRequestPayload, validate_audit_session_request);
+audit_session_payload!(
+    AuditSessionAuthorizePayload,
+    validate_audit_session_authorize
+);
+audit_session_payload!(AuditSessionNoticePayload, validate_audit_session_notice);
+audit_session_payload!(AuditSessionClosePayload, validate_audit_session_close);
 
 #[cfg(test)]
 mod tests {
@@ -331,11 +465,17 @@ mod tests {
                 "realm_id": "ak:realm:Af5xbAMRUJoaDWcTzj2s9sJIxCGFCD2cO1gheRFGhJSi"
             },
             "session_state": "authorize",
+            "request_ref": "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "approver_actor_id": "did:webvh:z6mkfixture:approver.example",
             "approved_recipient_audit_actor_id": "did:webvh:z6mkfixture:auditor.example",
             "approved_recipient_public_key_ref": "did:webvh:z6mkfixture:auditor.example#audit-1",
-            "occurred_at": "2026-07-22T10:05:00.000Z"
+            "approved_release_mode": "targeted_evidence_release",
+            "target_refs": ["ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB"],
+            "notice_policy": {},
+            "occurred_at": "2026-07-22T10:05:00.000Z",
+            "expires_at": "2026-07-22T11:05:00.000Z"
         });
-        let payload: AuditSessionPayload = serde_json::from_value(value.clone()).unwrap();
+        let payload: AuditSessionAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(payload).unwrap(), value);
     }
 }

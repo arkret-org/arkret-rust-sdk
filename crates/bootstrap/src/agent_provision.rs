@@ -55,7 +55,7 @@ pub fn build_agent_provision_event_draft(
     };
     payload.validate()?;
     let mut event = Event::new_at(
-        EventKind::AGENT_PROVISION,
+        EventKind::AgentProvision.to_string(),
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),
         },

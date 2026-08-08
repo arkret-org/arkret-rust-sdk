@@ -1,6 +1,6 @@
 use arkret_canonical::canonical;
-use arkret_event_draft::{StrandCreateObject, StrandTracksUpdatePayload};
-use arkret_models_collaboration::events_payloads::ObjectCreatePayload;
+use arkret_event_draft::StrandCreateObject;
+use arkret_models_collaboration::events_payloads::{ObjectCreatePayload, StrandPatchPayload};
 use arkret_models_collaboration::objects::profiles::StrandTrackConfig;
 use arkret_schema::event_payload_validator_catalog;
 use arkret_wire::{Did, Patch, RealmId, SchemaId, StrandId};
@@ -25,23 +25,23 @@ fn object_create_payload_wraps_strand_draft() {
 }
 
 #[test]
-fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
+fn strand_tracks_update_uses_shared_strand_patch_payload() {
     let strand_id =
         StrandId::new("ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
     let patch: Patch = serde_json::from_value(json!({
         "tracks.discussion.is_primary": {"$op": "set", "value": true}
     }))
     .unwrap();
-    let payload = StrandTracksUpdatePayload::with_patch(strand_id, patch)
+    let payload = StrandPatchPayload::for_strand(strand_id, patch)
         .unwrap()
         .to_value()
         .unwrap();
 
     assert_eq!(
-        payload["strand_id"],
+        payload["target_ref"],
         "ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1"
     );
-    assert!(payload.get("target_ref").is_none());
+    assert!(payload.get("strand_id").is_none());
     assert!(payload.get("patch").is_some());
     event_payload_validator_catalog()
         .unwrap()

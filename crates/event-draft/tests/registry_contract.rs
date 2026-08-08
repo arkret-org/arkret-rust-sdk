@@ -1,6 +1,6 @@
 use arkret_event_draft::{
     CausalRef, EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
-    event_draft_kind_conformance_vectors, required_fields_for_event_kind,
+    event_draft_kind_conformance_vectors,
 };
 use arkret_wire::{Did, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef};
 use serde_json::json;
@@ -74,8 +74,10 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
 #[test]
 fn event_draft_kind_registry_accepts_only_canonical_kinds() {
     let registry = EventDraftKindRegistry::default();
-    let canonical = registry.canonicalize(EventKind::MESSAGE_CREATE).unwrap();
-    assert_eq!(canonical.canonical_kind, EventKind::MESSAGE_CREATE);
+    let canonical = registry
+        .canonicalize(EventKind::MessageCreate.as_str())
+        .unwrap();
+    assert_eq!(canonical.canonical_kind, EventKind::MessageCreate.as_str());
     assert!(registry.canonicalize("message_create").is_err());
     assert!(registry.canonicalize("ak.task.move").is_err());
     assert!(registry.canonicalize("ak.relation.move").is_err());
@@ -99,14 +101,14 @@ fn event_draft_kind_registry_rejects_removed_strand_alias_kinds() {
 }
 
 #[test]
-fn event_draft_kind_registry_drives_envelope_semantics() {
+fn event_draft_kind_registry_validates_kind_and_payload_container() {
     let registry = EventDraftKindRegistry::default();
     let envelope = OperationEnvelope {
         operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
         scope_ref: scope_ref(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        kind: EventKind::MESSAGE_CREATE.to_owned(),
+        kind: EventKind::MessageCreate.to_string(),
         target_ref: None,
         causal: CausalRef {
             deps: Vec::new(),
@@ -123,10 +125,10 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
     };
 
     let validation = registry.validate_envelope(&envelope).unwrap();
-    assert_eq!(validation.canonical_kind, EventKind::MESSAGE_CREATE);
-    let mut missing_strand = envelope;
-    missing_strand.payload = json!({"track_name": "discussion"});
-    assert!(registry.validate_envelope(&missing_strand).is_err());
+    assert_eq!(validation.canonical_kind, EventKind::MessageCreate.as_str());
+    let mut scalar_payload = envelope;
+    scalar_payload.payload = json!("not an object");
+    assert!(registry.validate_envelope(&scalar_payload).is_err());
 }
 
 #[test]
@@ -137,7 +139,7 @@ fn operation_envelope_builder_covers_every_registered_event_kind() {
     let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
 
     for (index, kind) in EventKind::ALL.iter().enumerate() {
-        let mut builder = OperationEnvelopeBuilder::new(
+        let builder = OperationEnvelopeBuilder::new(
             OperationId::new(format!("ak:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             scope_ref.clone(),
             actor_id.clone(),
@@ -145,9 +147,6 @@ fn operation_envelope_builder_covers_every_registered_event_kind() {
             index as u64 + 1,
             hlc.clone(),
         );
-        for field in required_fields_for_event_kind(kind.as_str()) {
-            builder = builder.with_payload_field(field, json!("value"));
-        }
         let envelope = builder.build(&registry).unwrap();
         assert_eq!(envelope.kind, kind.as_str());
         registry.validate_envelope(&envelope).unwrap();
@@ -155,27 +154,19 @@ fn operation_envelope_builder_covers_every_registered_event_kind() {
 }
 
 #[test]
-fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
+fn operation_envelope_builder_requires_registered_kind_and_object_payload() {
     let registry = EventDraftKindRegistry::default();
     let builder = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         scope_ref(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        EventKind::MESSAGE_CREATE,
+        EventKind::MessageCreate.as_str(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     );
 
-    assert!(builder.clone().build(&registry).is_err());
-    let envelope = builder
-        .with_payload_field(
-            "strand_id",
-            json!("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"),
-        )
-        .with_payload_field("track_name", json!("discussion"))
-        .build(&registry)
-        .unwrap();
-    assert_eq!(envelope.kind, EventKind::MESSAGE_CREATE);
+    let envelope = builder.build(&registry).unwrap();
+    assert_eq!(envelope.kind, EventKind::MessageCreate.as_str());
 
     let unknown = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),

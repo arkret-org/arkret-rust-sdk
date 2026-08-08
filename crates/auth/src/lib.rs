@@ -226,10 +226,10 @@ pub struct SessionPrincipalBinding {
 /// Returns `true` when `event_kind` MUST be pinned to a principal
 /// control Realm per `key-management.md` §4.1. Resolvers and federation
 /// peers MUST refuse these events in any other Realm.
-pub fn is_principal_control_event(event_kind: &str) -> bool {
+pub fn is_principal_control_event(event_kind: &EventKind) -> bool {
     matches!(
         event_kind,
-        EventKind::DEVICE_AUTHORIZE | EventKind::DEVICE_REVOKE
+        EventKind::DeviceAuthorize | EventKind::DeviceRevoke
     )
 }
 
@@ -238,7 +238,7 @@ pub fn is_principal_control_event(event_kind: &str) -> bool {
 /// `event_kind` MUST live in the principal control Realm but the
 /// `realm_id` does not match.
 pub fn assert_control_realm_pinning(
-    event_kind: &str,
+    event_kind: &EventKind,
     principal_id: &Did,
     realm_id: &str,
 ) -> Result<()> {

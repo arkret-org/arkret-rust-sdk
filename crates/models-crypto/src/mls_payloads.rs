@@ -6,8 +6,8 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    CircleId, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, RealmId, Result,
-    SidecarId, canonical,
+    CircleId, Error, EventId, Hash, MlsGroupId, NonEmptyString, RealmId, Result, SidecarId,
+    canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -784,7 +784,7 @@ impl MlsCommitPayload {
     }
 
     pub fn event_kind(&self) -> &'static str {
-        EventKind::MLS_COMMIT
+        arkret_wire::event_kind_str::MLS_COMMIT
     }
 
     pub fn mls_group_id(&self) -> &str {

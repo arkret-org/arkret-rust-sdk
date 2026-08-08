@@ -86,6 +86,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # models-integration; behavior depending on data is the correct direction.
     "arkret-policy": _WIRE
     | {
+        "arkret-event-draft",
         "arkret-schema",
         "arkret-models-identity",
         "arkret-models-crypto",
@@ -98,11 +99,17 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # frozen R2 rule forbids the policy -> state direction, which still holds:
     # arkret-policy has no state edge, so this stays acyclic.
     "arkret-state": _WIRE
-    | {"arkret-models-crypto", "arkret-models-collaboration", "arkret-policy"},
+    | {
+        "arkret-event-draft",
+        "arkret-models-crypto",
+        "arkret-models-collaboration",
+        "arkret-policy",
+    },
     "arkret-lattice-registry": _WIRE
     | {"arkret-models-collaboration", "arkret-schema", "arkret-state"},
     "arkret-bootstrap": {
         "arkret-canonical",
+        "arkret-event-draft",
         "arkret-lattice-registry",
         "arkret-models-collaboration",
         "arkret-models-identity",
@@ -119,6 +126,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # digest and its inclusion proof verifies; both are owned by arkret-state.
     "arkret-signatures": _WIRE
     | {
+        "arkret-event-draft",
         "arkret-models-identity",
         "arkret-models-crypto",
         "arkret-models-collaboration",

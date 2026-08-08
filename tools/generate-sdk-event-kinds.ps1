@@ -159,7 +159,6 @@ foreach ($k in $arr) {
         }
         ReducerInput = [bool]$row.reducer_input
         Admission = if ($null -eq $row.admission) { $null } else { [string]$row.admission }
-        PayloadSchema = if ($null -eq $row.payload_schema) { $null } else { [string]$row.payload_schema }
         PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
         CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
         CellSubjectRule = $row.cell_subject
@@ -501,7 +500,6 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub wire_scope: EventWireScope,"
 & $add "    pub reducer_input: bool,"
 & $add "    pub admission: Option<&'static str>,"
-& $add "    pub payload_schema: Option<&'static str>,"
 & $add "    pub payload_schema_ref: Option<&'static str>,"
 & $add "    pub cell_writes: &'static [EventCellWriteDescriptor],"
 & $add "    pub cell_family: Option<&'static str>,"
@@ -514,6 +512,17 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub bottom: Option<&'static str>,"
 & $add "    pub plane: Option<&'static str>,"
 & $add "    pub sealed: bool,"
+& $add "}"
+& $add ""
+& $add "/// Canonical wire strings for active standard Event kinds."
+& $add "///"
+& $add "/// Each registry wire literal is emitted exactly once in this module;"
+& $add "/// typed code uses [`EventKind`] variants and string boundaries use these constants."
+& $add "pub mod event_kind_str {"
+foreach ($e in $entries) {
+    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
+    & $add "    pub const ${associatedName}: &'static str = `"$($e.Kind)`";"
+}
 & $add "}"
 & $add ""
 & $add '/// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in'
@@ -546,16 +555,12 @@ foreach ($e in $entries) {
 }
 & $add "    ];"
 & $add ""
-foreach ($e in $entries) {
-    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
-    & $add "    pub const ${associatedName}: &'static str = `"$($e.Kind)`";"
-}
-& $add ""
 & $add "    /// Canonical wire-form string for this kind."
-& $add "    pub fn as_str(&self) -> &str {"
+& $add "    pub const fn as_str(&self) -> &str {"
 & $add "        match self {"
 foreach ($e in $entries) {
-    & $add "            Self::$($e.Variant) => `"$($e.Kind)`","
+    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
+    & $add "            Self::$($e.Variant) => event_kind_str::$associatedName,"
 }
 & $add "            Self::Unknown(raw) => raw.as_str(),"
 & $add "        }"
@@ -566,7 +571,8 @@ foreach ($e in $entries) {
 & $add "    pub fn from_wire(value: &str) -> Self {"
 & $add "        match value {"
 foreach ($e in $entries) {
-    & $add "            `"$($e.Kind)`" => Self::$($e.Variant),"
+    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
+    & $add "            event_kind_str::$associatedName => Self::$($e.Variant),"
 }
 & $add "            _ => Self::Unknown(value.to_owned()),"
 & $add "        }"
@@ -589,8 +595,9 @@ foreach ($e in $entries) {
 & $add "    /// Registry metadata for a standard kind."
 & $add "    pub fn descriptor(&self) -> Option<&'static EventKindDescriptor> {"
 & $add "        EVENT_KIND_DESCRIPTORS"
-& $add "            .iter()"
-& $add "            .find(|descriptor| descriptor.kind == self.as_str())"
+& $add "            .binary_search_by_key(&self.as_str(), |descriptor| descriptor.kind)"
+& $add "            .ok()"
+& $add "            .map(|index| &EVENT_KIND_DESCRIPTORS[index])"
 & $add "    }"
 & $add ""
 & $add "    /// Raw registry category, distinct from the product EventProductClass projection."
@@ -692,6 +699,27 @@ foreach ($e in $entries) {
 & $add "    }"
 & $add "}"
 & $add ""
+& $add "/// Zero-sized markers for the active standard Event kinds."
+& $add "///"
+& $add "/// Payload bindings live in ``arkret-event-draft`` so this low-level wire"
+& $add "/// crate does not depend on the higher-level payload model crates."
+& $add "pub mod event_spec {"
+& $add "    use super::{EventKind, event_kind_str};"
+& $add ""
+foreach ($e in $entries) {
+    & $add "    /// Marker for ``$($e.Kind)``."
+    & $add "    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]"
+    & $add "    pub struct $($e.Variant);"
+    & $add ""
+    & $add "    impl $($e.Variant) {"
+    & $add "        pub const KIND: EventKind = EventKind::$($e.Variant);"
+    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
+    & $add "        pub const KIND_STR: &'static str = event_kind_str::$associatedName;"
+    & $add "    }"
+    & $add ""
+}
+& $add "}"
+& $add ""
 & $add "/// Active standard event-kind values from the registry."
 & $add "pub const REGISTERED_EVENT_KINDS: &[EventKind] = &["
 foreach ($e in $entries) {
@@ -701,7 +729,8 @@ foreach ($e in $entries) {
 & $add ""
 & $add "pub const REGISTERED_EVENT_KIND_WIRE_VALUES: &[&str] = &["
 foreach ($e in $entries) {
-    & $add "    `"$($e.Kind)`","
+    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
+    & $add "    event_kind_str::$associatedName,"
 }
 & $add "];"
 & $add ""
@@ -726,9 +755,9 @@ foreach ($entry in $cellFamilyPlanes) {
 & $add "/// Complete metadata rows for active standard event kinds."
 & $add "pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &["
 foreach ($e in $entries) {
+    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
     $reducerInput = $e.ReducerInput.ToString().ToLowerInvariant()
     $admission = if ($null -eq $e.Admission) { "None" } else { "Some(`"$($e.Admission)`")" }
-    $payloadSchema = if ($null -eq $e.PayloadSchema) { "None" } else { "Some(`"$($e.PayloadSchema)`")" }
     $payloadSchemaRef = if ($null -eq $e.PayloadSchemaRef) { "None" } else { "Some(`"$($e.PayloadSchemaRef)`")" }
     $cellFamily = if ($null -eq $e.CellFamily) {
         "None"
@@ -744,12 +773,11 @@ foreach ($e in $entries) {
     $plane = if ($null -eq $e.Plane) { "None" } else { "Some(`"$($e.Plane)`")" }
     $sealed = if ($e.Sealed) { "true" } else { "false" }
     & $add "    EventKindDescriptor {"
-    & $add "        kind: `"$($e.Kind)`","
+    & $add "        kind: event_kind_str::$associatedName,"
     & $add "        category: EventRegistryCategory::$($e.CategoryVariant),"
     & $add "        wire_scope: EventWireScope::$($e.WireScopeVariant),"
     & $add "        reducer_input: $reducerInput,"
     & $add "        admission: $admission,"
-    & $add "        payload_schema: $payloadSchema,"
     & $add "        payload_schema_ref: $payloadSchemaRef,"
     if ($e.CellWrites.Count -eq 0) {
         & $add "        cell_writes: &[],"
@@ -801,6 +829,14 @@ foreach ($e in $entries) {
 & $add "#[cfg(test)]"
 & $add "mod tests {"
 & $add "    use super::*;"
+& $add ""
+& $add "    #[test]"
+& $add "    fn every_standard_kind_resolves_through_the_sorted_descriptor_table() {"
+& $add "        assert!(EVENT_KIND_DESCRIPTORS.windows(2).all(|pair| pair[0].kind < pair[1].kind));"
+& $add "        for kind in EventKind::ALL {"
+& $add "            assert_eq!(kind.descriptor().map(|descriptor| descriptor.kind), Some(kind.as_str()));"
+& $add "        }"
+& $add "    }"
 & $add ""
 & $add "    #[test]"
 & $add "    fn every_registered_cell_family_uses_its_generated_plane() {"
