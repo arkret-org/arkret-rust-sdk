@@ -411,15 +411,10 @@ fn self_principal_bootstrap_state_root(
         .get("object")
         .and_then(Value::as_object)
         .ok_or_else(|| Error::Protocol("bootstrap Realm object is missing".to_owned()))?;
-    let created_by = object
-        .get("created_by")
-        .and_then(Value::as_str)
-        .ok_or_else(|| Error::Protocol("bootstrap Realm created_by is missing".to_owned()))?;
-    if created_by != create.actor_id.as_str() {
-        return Err(Error::Protocol(
-            "bootstrap Realm created_by differs from actor_id".to_owned(),
-        ));
-    }
+    // `created_by` is reducer-derived from the signed create envelope's
+    // `actor_id`; it is not repeated in the closed Realm genesis payload.
+    // Requiring a payload echo here would make the seal builder reject the
+    // canonical wire shape (and would reintroduce two competing authorities).
     if !object.contains_key("notary") {
         return Err(Error::Protocol(
             "bootstrap Realm notary is missing".to_owned(),

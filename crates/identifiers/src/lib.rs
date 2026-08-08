@@ -198,8 +198,9 @@ macro_rules! uuid_id_type {
     };
 }
 
-/// Numeric digest-suite code carried in byte zero of every Event-derived id.
-/// Codes are immutable registry values, not enum ordinals inferred at runtime.
+/// Numeric digest-suite code carried in the low nibble of every Event-derived
+/// token header. Codes are immutable registry values, not enum ordinals
+/// inferred at runtime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum EventDigestSuiteCode {
@@ -232,6 +233,23 @@ impl EventDigestSuiteCode {
             Self::Blake3 => arkret_canonical::DigestSuite::Blake3,
         }
     }
+}
+
+/// Event and Event-derived token headers reserve the high nibble as zero. Realm
+/// tokens reuse that position for their derivation class, which is what makes a
+/// class-zero Collaboration Realm a byte-for-byte retype of its create Event.
+pub const EVENT_RESERVED_HIGH_NIBBLE: u8 = 0x0;
+const IDENTITY_HEADER_HIGH_NIBBLE_SHIFT: u8 = 4;
+const DIGEST_SUITE_LOW_NIBBLE_MASK: u8 = 0x0F;
+
+fn event_digest_suite_from_header(header: u8) -> Result<EventDigestSuiteCode> {
+    let reserved = header >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT;
+    if reserved != EVENT_RESERVED_HIGH_NIBBLE {
+        return Err(IdentifierError::InvalidId(format!(
+            "Event reserved header nibble must be zero, got 0x{reserved:x}"
+        )));
+    }
+    EventDigestSuiteCode::try_from(header & DIGEST_SUITE_LOW_NIBBLE_MASK)
 }
 
 impl TryFrom<u8> for EventDigestSuiteCode {
@@ -293,7 +311,8 @@ pub fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
 ///
 /// Returns `None` unless `value` carries `prefix`, decodes to exactly 33
 /// octets, re-encodes byte-for-byte to the same canonical unpadded Base64URL
-/// spelling, and leads with an active digest suite code.
+/// spelling, has a zero Event reserved nibble, and carries an active digest
+/// suite code in the low nibble.
 pub fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix(prefix)?;
     if payload.len() != 44
@@ -309,7 +328,7 @@ pub fn decode_event_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     if URL_SAFE_NO_PAD.encode(bytes) != payload {
         return None;
     }
-    EventDigestSuiteCode::try_from(bytes[0]).ok()?;
+    event_digest_suite_from_header(bytes[0]).ok()?;
     Some(bytes)
 }
 
@@ -335,7 +354,7 @@ macro_rules! event_token_id_type {
             }
 
             pub fn digest_suite_code(&self) -> EventDigestSuiteCode {
-                EventDigestSuiteCode::try_from(self.token_bytes()[0])
+                event_digest_suite_from_header(self.token_bytes()[0])
                     .expect("validated Event-derived id carries an active suite code")
             }
 
@@ -883,8 +902,8 @@ fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
     if URL_SAFE_NO_PAD.encode(bytes) != payload {
         return None;
     }
-    RealmDerivationClass::try_from(bytes[0] >> 4).ok()?;
-    let suite = EventDigestSuiteCode::try_from(bytes[0] & 0x0f).ok()?;
+    RealmDerivationClass::try_from(bytes[0] >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT).ok()?;
+    let suite = EventDigestSuiteCode::try_from(bytes[0] & DIGEST_SUITE_LOW_NIBBLE_MASK).ok()?;
     if suite != EventDigestSuiteCode::Sha256 {
         return None;
     }
@@ -917,12 +936,12 @@ impl RealmId {
     }
 
     pub fn derivation_class(&self) -> RealmDerivationClass {
-        RealmDerivationClass::try_from(self.token_bytes()[0] >> 4)
+        RealmDerivationClass::try_from(self.token_bytes()[0] >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT)
             .expect("validated Realm id carries a registered derivation class")
     }
 
     pub fn digest_suite_code(&self) -> EventDigestSuiteCode {
-        EventDigestSuiteCode::try_from(self.token_bytes()[0] & 0x0f)
+        EventDigestSuiteCode::try_from(self.token_bytes()[0] & DIGEST_SUITE_LOW_NIBBLE_MASK)
             .expect("validated Realm id carries an active digest suite")
     }
 
@@ -1016,14 +1035,16 @@ impl MessageId {
 impl EventId {
     /// Construct from the canonical binary token used by database/wire codecs.
     pub fn from_token_bytes(token: [u8; 33]) -> Result<Self> {
-        EventDigestSuiteCode::try_from(token[0])?;
+        event_digest_suite_from_header(token[0])?;
         Ok(Self(encode_event_token(Self::KIND_PREFIX, token)))
     }
 
-    /// Encode the complete cryptographic identity as suite byte plus digest.
+    /// Encode the complete cryptographic identity as a zero reserved nibble,
+    /// suite nibble, and full digest.
     pub fn from_identity(identity: EventIdentityKey) -> Self {
         let mut token = [0_u8; 33];
-        token[0] = identity.suite.as_u8();
+        token[0] = (EVENT_RESERVED_HIGH_NIBBLE << IDENTITY_HEADER_HIGH_NIBBLE_SHIFT)
+            | identity.suite.as_u8();
         token[1..].copy_from_slice(&identity.digest);
         Self::from_token_bytes(token).expect("EventIdentityKey has an active suite code")
     }
@@ -1640,6 +1661,14 @@ mod tests {
         let mut unknown_suite = valid.token_bytes();
         unknown_suite[0] = 0x03;
         assert!(EventId::new(encode_event_token("ak:event:", unknown_suite)).is_err());
+
+        let mut nonzero_reserved_nibble = valid.token_bytes();
+        nonzero_reserved_nibble[0] = 0x11;
+        assert!(EventId::new(encode_event_token("ak:event:", nonzero_reserved_nibble)).is_err());
+        assert!(
+            MessageId::new(encode_event_token("ak:message:", nonzero_reserved_nibble)).is_err(),
+            "every Event-derived kind must reject a non-zero Event reserved nibble"
+        );
 
         let mut invalid_alphabet = valid.as_str().to_owned();
         invalid_alphabet.pop();

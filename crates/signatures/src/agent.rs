@@ -433,7 +433,9 @@ pub fn agent_runtime_key_binding_digest_from_digests(
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::events_payloads::agent::AgentKeyScope;
+    use arkret_models_collaboration::events_payloads::agent::{
+        AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
+    };
     use arkret_wire::{
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
@@ -672,7 +674,7 @@ mod tests {
                 &requested_scope,
             )
             .unwrap(),
-            requested_scope,
+            requested_scope: requested_scope.clone(),
             verifier_did: service_id.clone(),
             audience: NonEmptyString::new(
                 arkret_wire::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
@@ -696,21 +698,6 @@ mod tests {
         let mut tampered_disclosure = disclosure.clone();
         tampered_disclosure.requested_scope.actions.clear();
         assert!(tampered_disclosure.validate().is_err());
-        let authorize_event = Event::new(
-            EventKind::AGENT_KEY_AUTHORIZE,
-            arkret_wire::ScopeRef::Realm {
-                realm_id: RealmId::from_event_id(&EventId::from_digest(
-                    arkret_canonical::DigestSuite::Sha256,
-                    [0x41; 32],
-                )),
-            },
-            agent_id.clone(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            json!({}),
-        )
-        .unwrap();
-        let authorize_event_id = authorize_event.event_id.clone();
         let bootstrap = AgentPairingBootstrap {
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id,
@@ -725,6 +712,61 @@ mod tests {
         let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap, endpoint_device_id)
             .proof_created_at(issued_at)
             .proof_expires_at(issued_at + chrono::Duration::minutes(5));
+        let runtime_public_key: PublicKey =
+            serde_json::from_value(builder.public_key().unwrap()).unwrap();
+        let agent_key_id = NonEmptyString::new(verification_method.to_string()).unwrap();
+        let binding_core = super::super::agent_evidence::prepare_agent_signing_key_binding_core(
+            agent_id.clone(),
+            agent_key_id.clone(),
+            verification_method.clone(),
+            &runtime_public_key,
+            issued_at,
+            None,
+            controller_id.clone(),
+        )
+        .unwrap();
+        let binding_core_digest =
+            super::super::agent_evidence::agent_signing_key_binding_core_digest(&binding_core)
+                .unwrap();
+        let authorize_payload = AgentKeyAuthorizePayload {
+            agent_id: agent_id.clone(),
+            key_id: agent_key_id.clone(),
+            verification_method: verification_method.clone(),
+            public_key_digest: binding_core.public_key_digest.clone(),
+            signing_key_binding_digest: binding_core_digest,
+            accountable_principal_id: controller_id.clone(),
+            agent_key_scope: requested_scope.clone(),
+            audience: vec!["https://arkret.example".to_owned()],
+            issued_at,
+            expires_at: None,
+            approval_evidence: AgentKeyApprovalEvidence {
+                kind: AgentKeyApprovalEvidenceKind::PairingRequest,
+                evidence_ref: None,
+                request_canonical_digest: None,
+                pairing_request_id: Some(
+                    arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),
+                ),
+                approved_by: Some(controller_id.clone()),
+            },
+            supersedes: Vec::new(),
+            revocation_check_ref: None,
+            runtime_attestation: None,
+        };
+        let authorize_event = Event::new(
+            EventKind::AGENT_KEY_AUTHORIZE,
+            arkret_wire::ScopeRef::Realm {
+                realm_id: RealmId::from_event_id(&EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [0x41; 32],
+                )),
+            },
+            agent_id.clone(),
+            1,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            serde_json::to_value(authorize_payload).unwrap(),
+        )
+        .unwrap();
+        let authorize_event_id = authorize_event.event_id.clone();
 
         let approval = builder.build_approval_request().unwrap();
         let pairing = builder
@@ -732,7 +774,7 @@ mod tests {
                 disclosure,
                 super::super::agent_evidence::build_agent_signing_key_binding(
                     agent_id.clone(),
-                    NonEmptyString::new(verification_method.to_string()).unwrap(),
+                    agent_key_id,
                     verification_method.clone(),
                     signing_key.verifying_key().to_bytes(),
                     authorize_event_id,

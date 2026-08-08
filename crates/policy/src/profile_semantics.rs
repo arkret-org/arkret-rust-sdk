@@ -401,11 +401,11 @@ mod tests {
             &["ak.profile.candidate.join_policy.v1"],
             &ProfileSemanticSurface {
                 operations: vec![
-                    "ak.self.realm.join_application.audit.query.list".to_owned(),
+                    "ak.self.realm.join_application.audit.read.list".to_owned(),
                     "ak.self.realm.join_application.command.cancel".to_owned(),
                     "ak.self.realm.join_application.command.review".to_owned(),
                     "ak.self.realm.join_application.command.submit".to_owned(),
-                    "ak.self.realm.join_application.query.list".to_owned(),
+                    "ak.self.realm.join_application.read.list".to_owned(),
                     "ak.self.realm.join_application.resource.get".to_owned(),
                 ],
                 schemas: vec!["ak.schema.join_policy_operations.v1".to_owned()],

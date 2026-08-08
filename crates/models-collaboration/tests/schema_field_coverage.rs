@@ -141,6 +141,14 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "content_scheme": "mls_exporter_aead_v1",
             "content_encryption_floor": "e2ee_required",
             "metadata_encryption_floor": "e2ee_required",
+            "federation_policy": "restricted",
+            "sync_endpoints": [{
+                "did": "did:webvh:z6mkfixture:sync.example",
+                "endpoint": "https://sync.example/_arkret",
+                "role": "primary",
+                "service_kind": "principal_server",
+                "plaintext_visible": false
+            }],
             "aad_visibility": { "event_id": "routing_digest" },
             "durability_policy": { "mode": "none" },
             "mls_send_pause": "advisory",
@@ -170,6 +178,20 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "witnessed_min_attestations": 1,
                 "witness_independence": "distinct_did"
             },
+            "revocation_freshness_window_ms": 60000,
+            "recovery_witness_freshness_window_ms": 60000,
+            "proposal_intake_sla_ms": 60000,
+            "proposal_decision_window_ms": 30000,
+            "proposal_absolute_deadline_ms": 90000,
+            "max_proposal_defers": 2,
+            "seal_compaction_max_interval_ms": 300000,
+            "max_authority_lifetime_ms": 86400000,
+            "bottom_escalation_after_ms": 60000,
+            "cell_lattices": [{
+                "cell_family": "ak.component.strand.tracks.v1",
+                "lattice": "cas_register",
+                "bottom": "reject"
+            }],
             "preauth": { "require_consent": true },
             "allowed_third_party_invite_verification_service_ids": [
                 "did:web:verification.example"
