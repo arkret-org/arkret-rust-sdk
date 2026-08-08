@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.17;
-//! sha256=47a03dfb2ab304ab0235305006198c5e11846d3d52dfc8eb9e26f39f57310fe8 Entries: registered=225
+//! Input: registry/operation-registry.json; version=2026-08-08.18;
+//! sha256=7bed75e04ac1fcbed491860b8a1134be6b863f881af53a8f3fc74b7a902644d6 Entries: registered=226
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,7 @@ pub enum ServiceOperationId {
     PeerAccountStatusCommandSubmit,
     PeerAccountStatusReadAuthoringBasis,
     PeerContactsCommandSubmit,
+    PeerDeviceBootstrapCommandDecide,
     PeerErasureReceiptCommandSubmit,
     PeerErasureReceiptResourceGet,
     PeerEventsCommandSubmit,
@@ -300,6 +301,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
@@ -568,6 +570,7 @@ impl ServiceOperationId {
         Self::PeerAccountStatusCommandSubmit,
         Self::PeerAccountStatusReadAuthoringBasis,
         Self::PeerContactsCommandSubmit,
+        Self::PeerDeviceBootstrapCommandDecide,
         Self::PeerErasureReceiptCommandSubmit,
         Self::PeerErasureReceiptResourceGet,
         Self::PeerEventsCommandSubmit,
@@ -840,6 +843,8 @@ impl ServiceOperationId {
     pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS: &'static str =
         "ak.peer.account_status.read.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
+    pub const PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE: &'static str =
+        "ak.peer.device_bootstrap.command.decide";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT: &'static str =
         "ak.peer.erasure_receipt.command.submit";
     pub const PEER_ERASURE_RECEIPT_RESOURCE_GET: &'static str =
@@ -1188,6 +1193,7 @@ impl ServiceOperationId {
                 Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
+            Self::PeerDeviceBootstrapCommandDecide => Self::PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE,
             Self::PeerErasureReceiptCommandSubmit => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
             Self::PeerErasureReceiptResourceGet => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
@@ -1536,6 +1542,9 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusReadAuthoringBasis)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
+            Self::PEER_DEVICE_BOOTSTRAP_COMMAND_DECIDE => {
+                Some(Self::PeerDeviceBootstrapCommandDecide)
+            }
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT => {
                 Some(Self::PeerErasureReceiptCommandSubmit)
             }
@@ -3251,6 +3260,32 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerDeviceBootstrapCommandDecide,
+        http_method: "POST",
+        http_path: "/_arkret/peer/device-bootstrap-decisions",
+        grpc: Some("PeerDeviceBootstrap/Decide"),
+        mq: Some("peer.device_bootstrap.command.decide"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/principal-operations.schema.json#/$defs/device_bootstrap_decision_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/principal-operations.schema.json#/$defs/device_bootstrap_decision_outcome",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.peer.device_bootstrap.command.decide\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
+        ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("principal_server_local_terminal_bootstrap_decision_tombstone_only"),
         }),
     },
     ServiceOperationDescriptor {

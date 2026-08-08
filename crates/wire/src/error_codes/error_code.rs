@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-08.6;
-//! sha256=116212dfe0e795dc99e709d05c9dc9be2b73543f884344568761d16c3b36b2e7 Entries: error_codes=277
+//! Input: registry/error-code-registry.json; version=2026-08-08.7;
+//! sha256=e4d461da5f862e0d479a9d6dfdd57967e94762bddf027bc8552e5262d5935194 Entries: error_codes=279
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,8 @@ pub enum ErrorCode {
     BlobExpired,
     BlobPresignInvalid,
     BlobQuotaExceeded,
+    BootstrapDecisionConflict,
+    BootstrapDecisionIndeterminate,
     BootstrapIdempotencyConflict,
     BootstrapTransactionCancelled,
     BootstrapTransactionExpired,
@@ -363,6 +365,8 @@ impl ErrorCode {
         Self::BlobExpired,
         Self::BlobPresignInvalid,
         Self::BlobQuotaExceeded,
+        Self::BootstrapDecisionConflict,
+        Self::BootstrapDecisionIndeterminate,
         Self::BootstrapIdempotencyConflict,
         Self::BootstrapTransactionCancelled,
         Self::BootstrapTransactionExpired,
@@ -647,6 +651,8 @@ impl ErrorCode {
     pub const BLOB_EXPIRED: &'static str = "blob_expired";
     pub const BLOB_PRESIGN_INVALID: &'static str = "blob_presign_invalid";
     pub const BLOB_QUOTA_EXCEEDED: &'static str = "blob_quota_exceeded";
+    pub const BOOTSTRAP_DECISION_CONFLICT: &'static str = "bootstrap_decision_conflict";
+    pub const BOOTSTRAP_DECISION_INDETERMINATE: &'static str = "bootstrap_decision_indeterminate";
     pub const BOOTSTRAP_IDEMPOTENCY_CONFLICT: &'static str = "bootstrap_idempotency_conflict";
     pub const BOOTSTRAP_TRANSACTION_CANCELLED: &'static str = "bootstrap_transaction_cancelled";
     pub const BOOTSTRAP_TRANSACTION_EXPIRED: &'static str = "bootstrap_transaction_expired";
@@ -957,6 +963,8 @@ impl ErrorCode {
             Self::BlobExpired => "blob_expired",
             Self::BlobPresignInvalid => "blob_presign_invalid",
             Self::BlobQuotaExceeded => "blob_quota_exceeded",
+            Self::BootstrapDecisionConflict => "bootstrap_decision_conflict",
+            Self::BootstrapDecisionIndeterminate => "bootstrap_decision_indeterminate",
             Self::BootstrapIdempotencyConflict => "bootstrap_idempotency_conflict",
             Self::BootstrapTransactionCancelled => "bootstrap_transaction_cancelled",
             Self::BootstrapTransactionExpired => "bootstrap_transaction_expired",
@@ -1257,6 +1265,8 @@ impl ErrorCode {
             "blob_expired" => Some(Self::BlobExpired),
             "blob_presign_invalid" => Some(Self::BlobPresignInvalid),
             "blob_quota_exceeded" => Some(Self::BlobQuotaExceeded),
+            "bootstrap_decision_conflict" => Some(Self::BootstrapDecisionConflict),
+            "bootstrap_decision_indeterminate" => Some(Self::BootstrapDecisionIndeterminate),
             "bootstrap_idempotency_conflict" => Some(Self::BootstrapIdempotencyConflict),
             "bootstrap_transaction_cancelled" => Some(Self::BootstrapTransactionCancelled),
             "bootstrap_transaction_expired" => Some(Self::BootstrapTransactionExpired),
@@ -1873,6 +1883,22 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The blob operation exceeds actor, Realm, organization, or deployment storage/bandwidth quota.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::BootstrapDecisionConflict,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "service_call",
+        applies_to: &[],
+        description: "A Principal Server already has an immutable accepted, cancelled or expired device-bootstrap decision whose authority, transaction or founding binding differs from the canonical S2S request. The stored decision remains authoritative and the request performs zero Event, tombstone or credential writes.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::BootstrapDecisionIndeterminate,
+        http_status: 503,
+        http_status_by_context: &[],
+        scope: "service_call",
+        applies_to: &[],
+        description: "The Principal Server cannot prove the durable device-bootstrap decision because its transactional storage result or required decision record is unavailable. The Account Authority MUST leave its four-state transaction unchanged (normally pending), MUST NOT infer cancellation or expiry from a directory miss, and MUST retry with the exact same request identity and canonical bytes.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BootstrapIdempotencyConflict,

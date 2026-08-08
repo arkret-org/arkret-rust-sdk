@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-06;
-//! sha256=295155b12cd025c068875e0566355623180545bdf233c9f264058a6295176d26 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-08.1;
+//! sha256=d29286b035f5f88c256ba2e21cf745c4d80bf718c05cf3725339a82e54df20a1 Input: registry/
 //! exporter-label-registry.json; version=2026-08-08;
 //! sha256=065f7fc5f29a97a542f54805b594d8d702b3f7f41bd072135f225508fb9e5768 Input: registry/
 //! digest-suite-registry.json; version=2026-08-08.2;
@@ -14,7 +14,7 @@
 //! sha256=2c73b41567acd7880abcb4f73a2b09f28805517f41531ef9bfa9a1d018d63ac3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=37, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=38, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -31,6 +31,7 @@ pub enum ProofContextId {
     AuthorizationLeaseProofV1,
     ControlProposalAuthorityAckProofV1,
     ControlProposalDecisionProofV1,
+    DeviceBootstrapDecisionReceiptProofV1,
     DidContinuityProofV1,
     DidKeyLogEntryProofV1,
     DidWebvhWitnessReceiptProofV1,
@@ -72,6 +73,7 @@ impl ProofContextId {
         Self::AuthorizationLeaseProofV1,
         Self::ControlProposalAuthorityAckProofV1,
         Self::ControlProposalDecisionProofV1,
+        Self::DeviceBootstrapDecisionReceiptProofV1,
         Self::DidContinuityProofV1,
         Self::DidKeyLogEntryProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
@@ -117,6 +119,8 @@ impl ProofContextId {
         "ak.control-proposal-authority-ack-proof-v1";
     pub const CONTROL_PROPOSAL_DECISION_PROOF_V1: &'static str =
         "ak.control-proposal-decision-proof-v1";
+    pub const DEVICE_BOOTSTRAP_DECISION_RECEIPT_PROOF_V1: &'static str =
+        "ak.device-bootstrap-decision-receipt-proof-v1";
     pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
     pub const DID_KEY_LOG_ENTRY_PROOF_V1: &'static str = "ak.did-key-log-entry-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
@@ -174,6 +178,9 @@ impl ProofContextId {
                 Self::CONTROL_PROPOSAL_AUTHORITY_ACK_PROOF_V1
             }
             Self::ControlProposalDecisionProofV1 => Self::CONTROL_PROPOSAL_DECISION_PROOF_V1,
+            Self::DeviceBootstrapDecisionReceiptProofV1 => {
+                Self::DEVICE_BOOTSTRAP_DECISION_RECEIPT_PROOF_V1
+            }
             Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
             Self::DidKeyLogEntryProofV1 => Self::DID_KEY_LOG_ENTRY_PROOF_V1,
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
@@ -236,6 +243,9 @@ impl ProofContextId {
                 Some(Self::ControlProposalAuthorityAckProofV1)
             }
             Self::CONTROL_PROPOSAL_DECISION_PROOF_V1 => Some(Self::ControlProposalDecisionProofV1),
+            Self::DEVICE_BOOTSTRAP_DECISION_RECEIPT_PROOF_V1 => {
+                Some(Self::DeviceBootstrapDecisionReceiptProofV1)
+            }
             Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
             Self::DID_KEY_LOG_ENTRY_PROOF_V1 => Some(Self::DidKeyLogEntryProofV1),
             Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
@@ -533,6 +543,21 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         object_family: "control_proposal_decision",
         binding_fields: &["payload_digest", "verification_method", "created_at"],
         schema_ref: "schemas/control-proposal-decision.schema.json#/$defs/proposal_decision",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::DeviceBootstrapDecisionReceiptProofV1,
+        context: "ak.device-bootstrap-decision-receipt-proof-v1",
+        object_family: "device_bootstrap_decision_receipt",
+        binding_fields: &[
+            "payload_digest",
+            "principal_server_id",
+            "account_authority_id",
+            "transaction_id",
+            "verification_method",
+            "created_at",
+            "audience",
+        ],
+        schema_ref: "schemas/principal-operations.schema.json#/$defs/device_bootstrap_decision_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidContinuityProofV1,

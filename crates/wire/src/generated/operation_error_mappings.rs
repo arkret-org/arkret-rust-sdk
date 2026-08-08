@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-08.17;
-//! sha256=47a03dfb2ab304ab0235305006198c5e11846d3d52dfc8eb9e26f39f57310fe8 Input: registry/
-//! operations-error-mapping.json; version=2026-08-08.7;
-//! sha256=6874a856231b799233692c61b45495e556eaa4f2e779687b8318bc575be9e316 Input: registry/
-//! error-code-registry.json; version=2026-08-08.6;
-//! sha256=116212dfe0e795dc99e709d05c9dc9be2b73543f884344568761d16c3b36b2e7 Entries: operations=225
+//! Input: registry/operation-registry.json; version=2026-08-08.18;
+//! sha256=7bed75e04ac1fcbed491860b8a1134be6b863f881af53a8f3fc74b7a902644d6 Input: registry/
+//! operations-error-mapping.json; version=2026-08-08.8;
+//! sha256=c3ed8fd707f0c3b1db9c4635dd3bfe604a16d47fd54510af724b7f6a16f0d3f3 Input: registry/
+//! error-code-registry.json; version=2026-08-08.7;
+//! sha256=e4d461da5f862e0d479a9d6dfdd57967e94762bddf027bc8552e5262d5935194 Entries: operations=226
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -433,6 +433,13 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerDeviceBootstrapCommandDecide,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapDecisionConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapDecisionIndeterminate),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1078,6 +1085,9 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::StaleSealRef),
             OperationSpecificError::ErrorCode(ErrorCode::SealRefUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::RealmFrozen),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionCancelled),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapTransactionExpired),
+            OperationSpecificError::ErrorCode(ErrorCode::BootstrapDecisionConflict),
             OperationSpecificError::ErrorCode(ErrorCode::Quarantine),
         ],
     },

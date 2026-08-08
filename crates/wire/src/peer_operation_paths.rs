@@ -2,6 +2,7 @@
 
 pub const PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS: &str =
     "/_arkret/peer/account-status/authoring-basis";
+pub const PATH_PEER_DEVICE_BOOTSTRAP_DECISIONS: &str = "/_arkret/peer/device-bootstrap-decisions";
 pub const PATH_PEER_MLS_GROUP_STATE_MATERIAL: &str = "/_arkret/peer/mls/group-state-material";
 
 #[cfg(test)]
@@ -16,6 +17,12 @@ mod tests {
                 .descriptor()
                 .http_path,
             PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS
+        );
+        assert_eq!(
+            ServiceOperationId::PeerDeviceBootstrapCommandDecide
+                .descriptor()
+                .http_path,
+            PATH_PEER_DEVICE_BOOTSTRAP_DECISIONS
         );
         assert_eq!(
             ServiceOperationId::PeerMlsReadGroupStateMaterial
