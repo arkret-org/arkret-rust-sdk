@@ -21,7 +21,7 @@
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
 #[cfg(test)]
-use arkret_wire::DeviceId;
+use arkret_wire::{DeviceId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1};
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;

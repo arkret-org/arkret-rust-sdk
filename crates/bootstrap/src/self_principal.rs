@@ -87,9 +87,11 @@ pub fn build_self_principal_pcr_create(
         ScopeRef::RealmGenesis,
         input.principal_id,
         payload,
-    )?
+    )
+    .map_err(|error| Error::Protocol(error.to_string()))?
     .with_ref(input.did_inception_ref)
-    .author(0, input.hlc, created_at)?;
+    .author(0, input.hlc, created_at)
+    .map_err(|error| Error::Protocol(error.to_string()))?;
     validate_self_principal_pcr_create(&event, false, project)?;
     Ok(event)
 }

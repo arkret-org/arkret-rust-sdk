@@ -284,7 +284,11 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
             "call_id": "ak:call:AcsFZ3o2tOdN3EFpNceeLV-aI3jZkB9S34_4YIwJ5DLy",
             "signal_kind": "candidate",
             "seq": 1,
-            "data": {"candidate": "opaque"}
+            "data": {
+                "candidates": [{
+                    "candidate": "candidate:1 1 UDP 2122260223 192.0.2.1 54400 typ host"
+                }]
+            }
         }))
         .expect("call signal accepts every declared field");
     assert_profile_matches_schema("schemas/call-signal-plaintext.schema.json", &call);

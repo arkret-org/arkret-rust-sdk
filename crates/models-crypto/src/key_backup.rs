@@ -838,7 +838,7 @@ impl UnsignedKeyBackup {
             "signed_fields".to_owned(),
             serde_json::to_value(self.envelope.expected_signed_fields())?,
         );
-        for (key, value) in &self.auth_data.extra {
+        for (key, value) in self.auth_data.extra.iter() {
             auth_data.insert(key.clone(), value.clone());
         }
         object.insert("auth_data".to_owned(), Value::Object(auth_data));

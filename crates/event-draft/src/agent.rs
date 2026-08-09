@@ -191,10 +191,11 @@ mod tests {
     use arkret_schema::{or_set_dot, project_registered_cell_writes};
     use arkret_wire::cell::composite_subject;
     use arkret_wire::{
-        CellRef, EventId, Hash, LatticeOp, LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
+        CellRef, EventId, EventKind, Hash, LatticeOp, LatticeOpType, ProjectedCellWrite,
+        ProjectedOp, RealmId,
     };
     use chrono::TimeZone;
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     use super::*;
 

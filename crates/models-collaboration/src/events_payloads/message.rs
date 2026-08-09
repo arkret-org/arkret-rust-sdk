@@ -338,6 +338,12 @@ pub enum ContentBlockKind {
     AudienceMention,
 }
 
+impl std::fmt::Display for ContentBlockKind {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 impl ContentBlockKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
@@ -582,7 +588,7 @@ impl ContentBlock {
                 summary
             }
         };
-        let block = Self::new(CONTENT_KIND_LONG_TEXT, fallback)
+        let block = Self::new(ContentBlockKind::LongText, fallback)
             .with_field("format", Value::String(format.as_str().to_owned()))
             .with_field("body_kind", Value::String(body_kind.as_str().to_owned()))
             .with_field("blob_ref", Value::String(blob_ref.into()))

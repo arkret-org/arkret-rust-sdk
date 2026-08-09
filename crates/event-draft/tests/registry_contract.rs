@@ -1,5 +1,5 @@
 use arkret_event_draft::{
-    CausalRef, EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
+    EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
     event_draft_kind_conformance_vectors,
 };
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
@@ -33,24 +33,21 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         proof_purpose: None,
         jws: "sig-a".to_owned(),
     };
-    let envelope = OperationEnvelope {
-        operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
-            .unwrap(),
-        scope_ref: scope_ref(),
-        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        kind: EventKind::MessageCreate,
-        target_ref: Some("ak:thread:general".to_owned()),
-        causal: CausalRef {
-            deps: vec![
-                OperationId::new("ak:operation:01904100-0000-7000-8000-5f8278b99124").unwrap(),
-            ],
-            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            actor_seq: 7,
+    let envelope: OperationEnvelope = serde_json::from_value(json!({
+        "operation_id": "ak:operation:01904100-0000-7000-8000-0198d483044c",
+        "scope_ref": scope_ref(),
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "kind": EventKind::MessageCreate,
+        "target_ref": "ak:thread:general",
+        "causal": {
+            "deps": ["ak:operation:01904100-0000-7000-8000-5f8278b99124"],
+            "hlc": "01970e589d21-0004-a13f9c2e",
+            "actor_seq": 7
         },
-        payload: json!({"body": "hello"}),
-        authz_ref: None,
-        proofs: vec![proof.clone()],
-    };
+        "payload": {"body": "hello"},
+        "proofs": [proof.clone()]
+    }))
+    .unwrap();
     let mut different_proof = envelope.clone();
     different_proof.proofs = vec![Proof {
         jws: "sig-b".to_owned(),
@@ -106,31 +103,30 @@ fn event_draft_kind_registry_rejects_removed_strand_alias_kinds() {
 #[test]
 fn event_draft_kind_registry_validates_kind_and_payload_container() {
     let registry = EventDraftKindRegistry::default();
-    let envelope = OperationEnvelope {
-        operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
-            .unwrap(),
-        scope_ref: scope_ref(),
-        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        kind: EventKind::MessageCreate,
-        target_ref: None,
-        causal: CausalRef {
-            deps: Vec::new(),
-            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            actor_seq: 1,
+    let envelope: OperationEnvelope = serde_json::from_value(json!({
+        "operation_id": "ak:operation:01904100-0000-7000-8000-0198d483044c",
+        "scope_ref": scope_ref(),
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "kind": EventKind::MessageCreate,
+        "causal": {
+            "deps": [],
+            "hlc": "01970e589d21-0004-a13f9c2e",
+            "actor_seq": 1
         },
-        payload: json!({
+        "payload": {
             "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
             "track_name": "discussion",
             "content": {"kind": "ak.content.text", "body": "hello"}
-        }),
-        authz_ref: None,
-        proofs: Vec::new(),
-    };
+        },
+        "proofs": []
+    }))
+    .unwrap();
 
     let validation = registry.validate_envelope(&envelope).unwrap();
     assert_eq!(validation.canonical_kind, EventKind::MessageCreate.as_str());
-    let mut scalar_payload = envelope;
-    scalar_payload.payload = json!("not an object");
+    let mut scalar_value = serde_json::to_value(envelope).unwrap();
+    scalar_value["payload"] = json!("not an object");
+    let scalar_payload: OperationEnvelope = serde_json::from_value(scalar_value).unwrap();
     assert!(registry.validate_envelope(&scalar_payload).is_err());
 }
 
@@ -152,7 +148,7 @@ fn operation_envelope_builder_derives_kind_from_typed_payload() {
     );
 
     let envelope = builder.build(&registry).unwrap();
-    assert_eq!(envelope.kind, EventKind::MessageCreate);
+    assert_eq!(envelope.kind(), &EventKind::MessageCreate);
 }
 
 #[test]

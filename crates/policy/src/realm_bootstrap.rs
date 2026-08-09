@@ -83,12 +83,14 @@ fn build_realm_authority_event<K: EventSpec>(
     hlc: Hlc,
     payload: K::Payload,
 ) -> Result<Event> {
-    Ok(TypedEventDraft::<K>::new(scope_ref, actor_id, payload)?
+    Ok(TypedEventDraft::<K>::new(scope_ref, actor_id, payload)
+        .map_err(|error| Error::Protocol(error.to_string()))?
         .with_authorization_ref(
             AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
                 .expect("realm authority-root constant must be a valid authorization reference"),
         )
-        .author_now(actor_seq, hlc)?)
+        .author_now(actor_seq, hlc)
+        .map_err(|error| Error::Protocol(error.to_string()))?)
 }
 
 /// Build an unsigned `ak.realm.owner.transfer` Event with the mandatory root
@@ -331,7 +333,7 @@ pub fn validate_realm_bootstrap_unit(
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     }
     let mut previous_slot = 0_usize;
-    let mut present = std::collections::BTreeSet::new();
+    let mut present = std::collections::HashSet::new();
     for followup in &events[1..] {
         if followup.actor_id.as_str() != actor_id
             || followup.realm_id.as_str() != realm_id

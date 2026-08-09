@@ -2005,16 +2005,17 @@ mod tests {
         }
 
         let event = rsvp_event(Value::Null);
+        let projected = ProjectedEventInput::from(&event);
         assert!(matches!(
             component_value(
-                &event,
+                &projected,
                 &json!("envelope.event_id"),
                 EventKind::RsvpSet.as_str(),
             ),
             Err(EventCellContractError::SubjectDerivation { .. })
         ));
         assert!(matches!(
-            component_value(&event, &json!("actor_id"), EventKind::RsvpSet.as_str(),),
+            component_value(&projected, &json!("actor_id"), EventKind::RsvpSet.as_str(),),
             Err(EventCellContractError::SubjectDerivation { .. })
         ));
 
@@ -2038,7 +2039,7 @@ mod tests {
             }
         });
         assert_eq!(
-            component_value(&event, &envelope_select, EventKind::RsvpSet.as_str(),).unwrap(),
+            component_value(&projected, &envelope_select, EventKind::RsvpSet.as_str(),).unwrap(),
             json!("did:webvh:z6mkfixture:alice.example")
         );
     }
@@ -2279,9 +2280,10 @@ mod tests {
             "field": "payload.accountability_scope",
             "context": "ak.accountability-scope-set-v1-wrong"
         });
+        let projected = ProjectedEventInput::from(&event);
         assert!(matches!(
             component_value(
-                &event,
+                &projected,
                 &descriptor,
                 EventKind::IdentityAccountabilityGrant.as_str()
             ),
@@ -3241,7 +3243,7 @@ mod tests {
 
     #[test]
     fn direct_conversation_founding_is_the_only_basis_free_data_context() {
-        let mut event = realm_facet(EventKind::STRAND_CREATE, json!({}));
+        let mut event = realm_facet(EventKind::StrandCreate, json!({}));
         event.seal_basis = None;
 
         validate_plane(
@@ -3377,8 +3379,9 @@ mod or_set_dot_vector_tests {
             "proofs": []
         }))
         .unwrap();
+        let projected = ProjectedEventInput::from(&event);
         let error = or_set_tag(
-            &event,
+            &projected,
             &json!({}),
             Some(&json!({"envelope_field": "event_id"})),
             event.kind.as_str(),

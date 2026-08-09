@@ -688,19 +688,19 @@ mod tests {
 
     #[cfg(feature = "embedded-artifacts")]
     #[test]
-    fn realm_join_rule_and_discovery_use_closed_payloads() {
+    fn realm_join_rule_and_discovery_share_the_closed_state_payload() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.join_rule"].payload_schema_id,
             format!(
-                "{schemaid_event_payload_v1}#/$defs/realm_join_rule_payload",
+                "{schemaid_event_payload_v1}#/$defs/state_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
         assert_eq!(
             catalog.rules["ak.realm.discovery"].payload_schema_id,
             format!(
-                "{schemaid_event_payload_v1}#/$defs/realm_discovery_payload",
+                "{schemaid_event_payload_v1}#/$defs/state_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
@@ -729,10 +729,17 @@ mod tests {
                 .validate_payload("ak.realm.discovery", &json!({"value": value}))
                 .unwrap();
         }
+        // The registry intentionally binds both kinds to the shared state
+        // envelope. Kind-specific enum closure belongs to the typed payload
+        // model; the catalog validates only this referenced wire shape.
+        catalog
+            .validate_payload("ak.realm.join_rule", &json!({"value": "open"}))
+            .unwrap();
+        catalog
+            .validate_payload("ak.realm.discovery", &json!({"value": 1}))
+            .unwrap();
         for (kind, payload) in [
-            ("ak.realm.join_rule", json!({"value": "open"})),
-            ("ak.realm.discovery", json!({"value": "private"})),
-            ("ak.realm.join_rule", json!({"value": 1})),
+            ("ak.realm.join_rule", json!({})),
             (
                 "ak.realm.discovery",
                 json!({"value": "listed", "unexpected": true}),

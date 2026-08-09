@@ -104,7 +104,7 @@ impl AppletBridgeErrorBuilder {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{AppletId, AppletIdentifier};
+    use arkret_wire::{AppletId, AppletIdentifier, EventKind};
     use serde_json::json;
 
     use super::*;

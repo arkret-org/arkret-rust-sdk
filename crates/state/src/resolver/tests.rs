@@ -106,7 +106,7 @@ fn realm_create_sets_the_single_canonical_reducer_profile() {
     let mut state = RealmState::new(realm_id());
     state
         .apply_event(&event(
-            "ak.realm.create",
+            EventKind::RealmCreate,
             1,
             json!({"object": {"reducer_profile": arkret_wire::CORE_REDUCER_PROFILE}}),
         ))
@@ -120,7 +120,7 @@ fn realm_upgrade_rejects_an_unregistered_edge_without_mutating_profile() {
     let before = state.reducer_profile.clone();
     let error = state
         .apply_event(&event(
-            "ak.realm.upgrade",
+            EventKind::RealmUpgrade,
             1,
             json!({"target_reducer_profile": "ak.reducer.future.v2"}),
         ))
@@ -286,7 +286,7 @@ fn space_restore_rejected_when_tombstoned() {
 
 fn strand_create_event(seq: u64) -> Event {
     event(
-        EventKind::StrandCreate.to_string(),
+        EventKind::StrandCreate,
         seq,
         json!({
             "object": {
@@ -604,7 +604,7 @@ fn strand_update_rejected_when_archived() {
     );
     archive.prev_refs.push(create.event_id.clone());
     let mut update = event(
-        EventKind::StrandUpdate.to_string(),
+        EventKind::StrandUpdate,
         3,
         json!({ "target_ref": strand_id, "patch": { "metadata": {"title": "New title"} } }),
     );
@@ -657,7 +657,7 @@ fn strand_events_create_update_and_default_view_relation() {
     let view_ref = "ak:view:AZFOTfHDWaNQpQFbd0YLjIJoV68u4p8EclMLP4vbnVS4";
 
     let create = arkret_wire::test_support::raw_event(
-        EventKind::StrandCreate,
+        EventKind::StrandCreate.as_str(),
         scope_ref(),
         actor_id(),
         1,
@@ -682,7 +682,7 @@ fn strand_events_create_update_and_default_view_relation() {
     let strand_id_owned = arkret_wire::StrandId::from_event_id(&create.event_id);
     let strand_id = strand_id_owned.as_str();
     let mut update = arkret_wire::test_support::raw_event(
-        EventKind::StrandUpdate,
+        EventKind::StrandUpdate.as_str(),
         scope_ref(),
         actor_id(),
         2,
@@ -700,7 +700,7 @@ fn strand_events_create_update_and_default_view_relation() {
     .unwrap();
     update.prev_refs.push(create.event_id.clone());
     let mut relation = arkret_wire::test_support::raw_event(
-        EventKind::RelationCreate.to_string(),
+        EventKind::RelationCreate.as_str(),
         scope_ref(),
         actor_id(),
         3,
@@ -767,12 +767,12 @@ fn realm_state_sorts_events_by_hlc() {
 #[test]
 fn member_state_conflict_prefers_ban_semantics() {
     let leave = event(
-        "ak.member.state",
+        EventKind::MemberState,
         4,
         json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "leave" }),
     );
     let mut ban = event(
-        "ak.member.state",
+        EventKind::MemberState,
         5,
         json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "ban" }),
     );
@@ -793,12 +793,12 @@ fn member_state_conflict_prefers_ban_semantics() {
 #[test]
 fn capability_rebind_uses_deterministic_lww_order() {
     let revoke = event(
-        "ak.capability.revoke",
+        EventKind::CapabilityRevoke,
         1,
         json!({ "grant_id": "cap-chan-post" }),
     );
     let grant = event(
-        "ak.capability.grant",
+        EventKind::CapabilityGrant,
         2,
         json!({
             "grant_id": "cap-chan-post",
@@ -822,7 +822,7 @@ fn capability_rebind_uses_deterministic_lww_order() {
 #[test]
 fn message_revision_redaction_and_reaction_converge() {
     let base = event(
-        "ak.message.create",
+        EventKind::MessageCreate,
         1,
         json!({
             "strand_id": "ak:strand:ARkwFWDTPrObvpqVAL9kBsWkK8GrMr5FDO--3PcMFEwU",
@@ -832,7 +832,7 @@ fn message_revision_redaction_and_reaction_converge() {
     );
     let message_id = MessageId::from_event_id(&base.event_id).to_string();
     let mut revise = event(
-        "ak.message.revise",
+        EventKind::MessageRevise,
         2,
         json!({
             "target_message_id": message_id,
@@ -841,7 +841,7 @@ fn message_revision_redaction_and_reaction_converge() {
     );
     revise.prev_refs.push(base.event_id.clone());
     let mut reaction_add = event(
-        "ak.reaction.add",
+        EventKind::ReactionAdd,
         3,
         json!({ "message_id": message_id, "reaction_key": "+1" }),
     );
@@ -982,7 +982,7 @@ fn reducer_convergence_is_order_independent() {
 
 fn redaction_event(seq: u64, object_ref: &str) -> Event {
     let mut ev = event(
-        "ak.redaction",
+        EventKind::Redaction,
         seq,
         json!({
             "target_event_id": test_event_id(0xdeadbeef + seq),
@@ -1103,7 +1103,7 @@ fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
 
 fn realm_organization_event(seq: u64, organization_id: &str, relationship: &str) -> Event {
     event(
-        "ak.realm.organization",
+        EventKind::RealmOrganization,
         seq,
         json!({
             "organization_id": organization_id,

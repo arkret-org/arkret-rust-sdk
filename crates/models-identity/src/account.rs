@@ -719,7 +719,9 @@ pub struct IdentityCreationControlProof {
 impl IdentityCreationControlProof {
     pub fn validate_shape(&self) -> Result<()> {
         validate_identity_creation_control_proof_body(&self.unsigned_body())?;
-        arkret_wire::Base64UrlString::new(self.signature.clone()).map_err(Into::into)
+        arkret_wire::Base64UrlString::new(self.signature.clone())
+            .map(|_| ())
+            .map_err(|error| Error::Protocol(error.to_owned()))
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {

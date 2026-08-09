@@ -1579,8 +1579,10 @@ impl CapabilityGrantBuilder {
             self.scope_ref,
             self.actor_id,
             payload,
-        )?
+        )
+        .map_err(|error| Error::Protocol(error.to_string()))?
         .author_now(actor_seq, hlc)
+        .map_err(|error| Error::Protocol(error.to_string()))
     }
 }
 
@@ -1596,8 +1598,10 @@ pub fn build_capability_relinquish_event(
 ) -> Result<crate::Event> {
     arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityRelinquish>::new(
         scope_ref, subject, payload,
-    )?
+    )
+    .map_err(|error| Error::Protocol(error.to_string()))?
     .author_now(actor_seq, hlc)
+    .map_err(|error| Error::Protocol(error.to_string()))
 }
 
 #[cfg(test)]
