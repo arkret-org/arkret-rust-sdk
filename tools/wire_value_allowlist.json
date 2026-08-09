@@ -1084,17 +1084,6 @@
       "spec_pointer": "event-payload.schema.json#/$defs/object_snapshot/additionalProperties"
     },
     {
-      "finding": "crates/models-collaboration/src/events_payloads/object.rs::ObjectStageSetPayload.extra",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "BTreeMap<String, Value>",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "crates/models-collaboration/src/events_payloads/space.rs::SpaceCreatePayload.initial_relations",
       "classification": "open_json",
       "lifecycle": "retained_boundary",

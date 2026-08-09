@@ -1,7 +1,6 @@
 use arkret_wire::{
-    Audience, Base64UrlString, DeviceId, Did, Event, EventId, Hash, IdempotencyKey, PayloadProof,
-    PayloadProofPurpose, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
-    ReservationHandle, SessionGrantId,
+    Base64UrlString, ControlProposalAck, DeviceId, Did, Event, EventId, Hash, IdempotencyKey,
+    ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, ReservationHandle,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -196,6 +195,8 @@ pub struct ContactCommitRequestBody {
     pub reservation_handle: ReservationHandle,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub signed_event: Event,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_proposal_ack: Option<ControlProposalAck>,
 }
 
 string_marker!(ContactCommitPhase, Commit, "commit");

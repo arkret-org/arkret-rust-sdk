@@ -42,6 +42,7 @@ fn strand_tracks_update_uses_shared_strand_patch_payload() {
         "ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1"
     );
     assert!(payload.get("strand_id").is_none());
+    assert!(payload.get("tracks").is_none());
     assert!(payload.get("patch").is_some());
     event_payload_validator_catalog()
         .unwrap()

@@ -55,12 +55,9 @@ fn session_grant_payload(now: DateTime<Utc>, device_id: &DeviceId) -> SessionGra
             jkt: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
         },
         credential_class: SessionGrantCredentialClass::Standard,
-        holder_binding: Some(
-            arkret_models_identity::SessionGrantHolderBinding::HumanDevice {
-                device_binding: device_id.to_string(),
-            },
-        ),
-        recovery_binding: None,
+        holder_binding: arkret_models_identity::SessionGrantHolderBinding::HumanDevice {
+            device_binding: device_id.to_string(),
+        },
         device_binding: None,
         proof_kind: None,
         scope_details: None,

@@ -35,6 +35,11 @@ pub enum EventCellContractContext {
     /// no accepted Seal yet, so the control write MUST use the spec's
     /// bootstrap exception and carry no CBA basis fields.
     OrdinaryRealmBootstrap,
+    /// The exact three-Event Direct Conversation founding unit. Its peer join
+    /// is a basis-free control write and its initial Strand is the one
+    /// registered basis-free data write because the same not-yet-created
+    /// genesis Seal atomically covers all three Events.
+    DirectConversationFounding,
 }
 
 /// Failure while matching an Event against its generated registry contract.
@@ -1243,6 +1248,9 @@ fn validate_plane(
             event.seal_basis.is_none() && event.seal_ref.is_some() && event.auth_context.is_some()
         }
         (Some("control"), EventCellContractContext::OrdinaryRealmBootstrap) => {
+            event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none()
+        }
+        (Some("control" | "data"), EventCellContractContext::DirectConversationFounding) => {
             event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none()
         }
         _ => false,
@@ -3224,6 +3232,46 @@ mod tests {
             validate_registered_cell_writes_in_context(
                 &event,
                 EventCellContractContext::OrdinaryRealmBootstrap,
+            )
+            .unwrap_err()
+            .reason_code(),
+            "plane_cross_write"
+        );
+    }
+
+    #[test]
+    fn direct_conversation_founding_is_the_only_basis_free_data_context() {
+        let mut event = realm_facet(EventKind::STRAND_CREATE, json!({}));
+        event.seal_basis = None;
+
+        validate_plane(
+            &event,
+            Some("data"),
+            EventCellContractContext::DirectConversationFounding,
+        )
+        .unwrap();
+        assert_eq!(
+            validate_plane(
+                &event,
+                Some("data"),
+                EventCellContractContext::OrdinaryRealmBootstrap,
+            )
+            .unwrap_err()
+            .reason_code(),
+            "plane_cross_write"
+        );
+
+        event.seal_basis = Some(arkret_wire::SealBasis {
+            leaves: vec![arkret_wire::SealId::new(
+                "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+            .unwrap()],
+        });
+        assert_eq!(
+            validate_plane(
+                &event,
+                Some("data"),
+                EventCellContractContext::DirectConversationFounding,
             )
             .unwrap_err()
             .reason_code(),

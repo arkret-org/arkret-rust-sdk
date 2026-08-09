@@ -615,6 +615,8 @@ pub struct RealmPolicyServerPolicySource {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_server_declaration`.
 pub struct RealmPolicyServerDeclarationPayload {
     pub policy_server_did: Did,
     pub policy_server_url: String,
@@ -639,6 +641,8 @@ pub struct RealmPolicyServerDeclarationPayload {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_server_tombstone`.
 pub struct RealmPolicyServerTombstonePayload {
     pub tombstone: bool,
 }
@@ -665,6 +669,9 @@ pub enum RealmPolicyServerPayload {
     Tombstone(RealmPolicyServerTombstonePayload),
 }
 
+/// Wire counterpart:
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.
+///
 /// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.
 ///
 /// `realm.schema.json` is a closed object with no `alias` property, and
@@ -679,6 +686,8 @@ pub struct RealmAliasDeclarationPayload {
 /// `ak.realm.alias` durable value tombstone: releases the alias without
 /// erasing cell history. Effective resolution then treats the Realm as
 /// addressable only by `realm_id`.
+/// Wire counterpart:
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_tombstone`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

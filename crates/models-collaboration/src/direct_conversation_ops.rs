@@ -648,11 +648,19 @@ fn validate_contact_basis_evidence_bundle_shape(
                     "normal Contact basis requires one request receipt",
                 ));
             };
+            let request_acceptance_receipt_digest_actual =
+                Hash::new(arkret_canonical::canonical_sha256(request).map_err(protocol_error)?)
+                    .map_err(protocol_error)?;
+            let response_request_receipt_digest = Hash::new(
+                arkret_canonical::canonical_sha256(&response.request_receipt)
+                    .map_err(protocol_error)?,
+            )
+            .map_err(protocol_error)?;
             if bundle.glare_concurrency_attestations.is_some()
                 || &request.core.request_event_ref != request_event_ref
-                || &request.receipt_digest != request_acceptance_receipt_digest
+                || &request_acceptance_receipt_digest_actual != request_acceptance_receipt_digest
                 || response.basis_id != bundle.basis_id
-                || response.request_receipt.receipt_digest != request.receipt_digest
+                || response_request_receipt_digest != request_acceptance_receipt_digest_actual
             {
                 return Err(protocol_error("normal Contact basis evidence mismatch"));
             }
@@ -669,21 +677,30 @@ fn validate_contact_basis_evidence_bundle_shape(
                 .iter()
                 .map(|request| {
                     (
-                        &request.request_event_ref,
-                        &request.request_acceptance_receipt_digest,
+                        request.request_event_ref.clone(),
+                        request.request_acceptance_receipt_digest.clone(),
                     )
                 })
                 .collect::<std::collections::BTreeSet<_>>();
             let actual = bundle
                 .request_receipts
                 .iter()
-                .map(|receipt| (&receipt.core.request_event_ref, &receipt.receipt_digest))
-                .collect::<std::collections::BTreeSet<_>>();
+                .map(|receipt| {
+                    Ok((
+                        receipt.core.request_event_ref.clone(),
+                        Hash::new(arkret_canonical::canonical_sha256(receipt)?)?,
+                    ))
+                })
+                .collect::<arkret_wire::Result<std::collections::BTreeSet<_>>>()?;
             let receipt_digests = bundle
                 .request_receipts
                 .iter()
-                .map(|receipt| &receipt.receipt_digest)
-                .collect::<std::collections::BTreeSet<_>>();
+                .map(|receipt| {
+                    let digest =
+                        arkret_canonical::canonical_sha256(receipt).map_err(protocol_error)?;
+                    Hash::new(digest).map_err(protocol_error)
+                })
+                .collect::<arkret_wire::Result<std::collections::BTreeSet<_>>>()?;
             if expected != actual
                 || attestations.iter().any(|attestation| {
                     attestation.complete_through == 0
@@ -691,6 +708,7 @@ fn validate_contact_basis_evidence_bundle_shape(
                         || attestation
                             .request_receipt_digests
                             .iter()
+                            .cloned()
                             .collect::<std::collections::BTreeSet<_>>()
                             != receipt_digests
                         || !bundle.request_receipts.iter().all(|receipt| {
