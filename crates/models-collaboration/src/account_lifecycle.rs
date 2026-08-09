@@ -611,14 +611,14 @@ impl AccountRegisterRequestBody {
         }
         if let Some(identity_creation) = &self.identity_creation {
             identity_creation.validate()?;
-            if identity_creation.control_proof.principal_id != self.principal_id
-                || self.device_id.as_ref().is_some_and(|device_id| {
-                    device_id != &identity_creation.initial_session.device_id
-                })
-            {
+            if self.device_id.is_some() {
                 return Err(arkret_wire::Error::Protocol(
-                    "account register identity creation does not match principal or device"
-                        .to_owned(),
+                    "top-level device_id is not used by identity creation".to_owned(),
+                ));
+            }
+            if identity_creation.control_proof.principal_id != self.principal_id {
+                return Err(arkret_wire::Error::Protocol(
+                    "account register identity creation does not match principal".to_owned(),
                 ));
             }
         }
@@ -681,23 +681,45 @@ impl AccountRegisterOutcome {
                 )
             })?;
             let initial = &identity_creation.initial_session;
-            if grant.principal_id != request.principal_id
-                || grant.device_id.as_ref() != Some(&initial.device_id)
-                || grant.session_public_key != initial.session_public_key
-                || grant.audience != initial.audience
-                || grant
-                    .granted_scope
-                    .iter()
-                    .any(|scope| !initial.requested_scope.contains(scope))
-                || receipt_scope.principal_id != request.principal_id
-                || receipt_scope.realm_id != identity_creation.control_proof.pcr_realm_id
-                || receipt_scope.accepted_device_id != initial.device_id
-                || receipt_scope.audience != identity_creation.control_proof.audience
-            {
-                return Err(arkret_wire::Error::Protocol(
-                    "initial session grant outcome does not match its registration request"
-                        .to_owned(),
-                ));
+            let constraints = [
+                (
+                    "grant principal_id",
+                    grant.principal_id == request.principal_id,
+                ),
+                (
+                    "grant device_id",
+                    grant.device_id.as_ref() == Some(&initial.device_id),
+                ),
+                (
+                    "grant session_public_key",
+                    grant.session_public_key == initial.session_public_key,
+                ),
+                ("grant audience", grant.audience == initial.audience),
+                (
+                    "grant scope ceiling",
+                    grant
+                        .granted_scope
+                        .iter()
+                        .all(|scope| initial.requested_scope.contains(scope)),
+                ),
+                (
+                    "receipt principal_id",
+                    receipt_scope.principal_id == request.principal_id,
+                ),
+                (
+                    "receipt realm_id",
+                    receipt_scope.realm_id == identity_creation.control_proof.pcr_realm_id,
+                ),
+                (
+                    "receipt accepted_device_id",
+                    receipt_scope.accepted_device_id == initial.device_id,
+                ),
+            ];
+            if let Some((constraint, _)) = constraints.iter().find(|(_, valid)| !valid) {
+                return Err(arkret_wire::Error::Protocol(format!(
+                    "initial session grant outcome does not match its registration request: \
+                         {constraint}"
+                )));
             }
         }
         Ok(())
