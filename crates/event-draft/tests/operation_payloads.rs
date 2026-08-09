@@ -25,7 +25,7 @@ fn object_create_payload_wraps_strand_draft() {
 }
 
 #[test]
-fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
+fn strand_tracks_update_payload_uses_target_ref_and_patch() {
     let strand_id =
         StrandId::new("ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
     let patch: Patch = serde_json::from_value(json!({
@@ -38,10 +38,11 @@ fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
         .unwrap();
 
     assert_eq!(
-        payload["strand_id"],
+        payload["target_ref"],
         "ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1"
     );
-    assert!(payload.get("target_ref").is_none());
+    assert!(payload.get("strand_id").is_none());
+    assert!(payload.get("tracks").is_none());
     assert!(payload.get("patch").is_some());
     event_payload_validator_catalog()
         .unwrap()

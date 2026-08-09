@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/track-name-registry.json; version=2026-08-09.5;
-//! sha256=f5f23140c142ded34825da7f27a1d3a9d2c2ecfda676a1ddbb729942b4b4a589 Input: registry/
-//! binding-kind-registry.json; version=2026-08-09.5;
-//! sha256=25a13b80307f3c9ae92b68be73d4ff4189c29635b630a3f7a046e3e848dffacb Input: registry/
+//! Input: registry/track-name-registry.json; version=2026-08-09.6;
+//! sha256=f0ae5c59e0055174148a7aa4934b9336479a57845a875ce5e7fd996ff89fe3c0 Input: registry/
+//! binding-kind-registry.json; version=2026-08-09.6;
+//! sha256=3e7e444a8cb96fdc9718c608dce8bfff76368bf2e481743a24d9378f2b5a83af Input: registry/
 //! authority-set-policy-registry.json; version=2026-08-09.1;
-//! sha256=6d57556e8dcb20cc5b6780ea768ee05b206d4503236526a52e92bf0ef3169edb Entries: track_names=2,
+//! sha256=2fac2bf6e75181b5aa1fadf2f86f35e8070a3936fcc254cfe4fc5c5d5deb6759 Entries: track_names=2,
 //! binding_kinds=3, authority_policy_kinds=2, authority_source_kinds=2
 
 use serde::{Deserialize, Serialize};

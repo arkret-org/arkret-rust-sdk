@@ -325,7 +325,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
             candidates.push("state_payload".to_owned());
         }
         ["strand", "track" | "tracks", "update"] => {
-            candidates.push("generic_standard_payload".to_owned());
+            candidates.push("strand_patch_payload".to_owned());
         }
         ["message", "create"] => candidates.push("message_create_payload".to_owned()),
         ["message", "revise"] => candidates.push("message_revise_payload".to_owned()),
@@ -663,15 +663,11 @@ mod tests {
     /// Active standard event kinds whose content shape is validated by a
     /// dedicated sibling operation / content schema rather than an
     /// `event-payload.schema.json#/$defs/*` entry, so the SDK event-payload
-    /// catalog legitimately carries no validator rule for them:
-    ///
-    /// - `ak.read_cursor.advance` — `read-cursor-operations.schema.json` (actor-private,
-    ///   `reducer_input:false`)
-    ///
-    /// Any *new* active standard kind that neither resolves to an event-payload
-    /// def nor is added here MUST make [`catalog_covers_every_active_standard_kind`]
-    /// fail closed, forcing an explicit wiring decision.
-    const KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR: &[&str] = &["ak.read_cursor.advance"];
+    /// catalog legitimately carries no validator rule for them. The current
+    /// registry binds every active kind explicitly, so this set is empty.
+    /// Any future exception MUST be documented here and reviewed as a protocol
+    /// surface regression.
+    const KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR: &[&str] = &[];
 
     /// D6 fail-closed guard: every active standard event kind in the spec
     /// registry either resolves to an explicit payload validator (via
@@ -723,50 +719,31 @@ mod tests {
     /// the manual [`payload_def_candidates`] table intentionally resolves to the
     /// loose `generic_standard_payload` shape — either through the explicit
     /// [`generic_standard_payload_fallback_allowed`] allow-list or a family arm
-    /// that pushes the `generic_standard_payload` candidate directly (for
-    /// example `ak.strand.tracks.update`).
+    /// that pushes the `generic_standard_payload` candidate directly.
     ///
-    /// Every entry is a deliberate "no dedicated event-payload def" decision. A
-    /// *new* active standard kind that silently inherits this loose shape must be
-    /// added here with a rationale, which is exactly what
+    /// Every entry would be a deliberate "no dedicated event-payload def"
+    /// decision. The current registry binds every active kind to a non-generic
+    /// payload schema, so this set is empty. A future kind that silently
+    /// inherits the loose shape must be added here with a rationale, which is exactly what
     /// [`every_active_standard_kind_resolves_to_dedicated_or_documented_catch_all`]
     /// forces — so the hand-maintained match table cannot quietly drift a new
     /// kind onto an under-specified payload surface.
-    const KINDS_USING_GENERIC_STANDARD_PAYLOAD: &[&str] = &[
-        "ak.attestation.range_completeness",
-        "ak.audit.erasure_receipt",
-        "ak.circle.archive",
-        "ak.circle.restore",
-        "ak.circle.tombstone",
-        "ak.circle.update",
-        "ak.moderation.appeal.close",
-        "ak.moderation.appeal.decision",
-        "ak.moderation.appeal.review",
-        "ak.moderation.appeal.submit",
-        "ak.realm.asset_privacy_policy",
-        "ak.realm.media_service",
-        "ak.realm.moderation_policy",
-        "ak.realm.plaintext_visible_services",
-        "ak.realm.policy",
-        "ak.realm.preview_policy",
-        "ak.realm.schema",
-        "ak.realm.upgrade",
-        "ak.self.agent.deactivate",
-        "ak.self.agent.pause",
-        "ak.self.agent.resume",
-        "ak.self.moderation.report",
-        "ak.strand.tracks.update",
-    ];
+    const KINDS_USING_GENERIC_STANDARD_PAYLOAD: &[&str] = &[];
 
     /// F-04 full-assertion guard (part 2): active standard kinds validated only
-    /// against the generic `state_payload` state-transition shape, reached via a
-    /// broad family arm in [`payload_def_candidates`] (`["space", ..]`,
-    /// `["organization", ..]`, `["identity", ..]`, `["policy", ..]`, `["schema",
-    /// ..]`, `["actor", ..]`, `["handle", ..]`, `["sovereign", ..]`, plus the
-    /// `["strand", "track", ...]` state arm). Same fail-closed contract as the
-    /// generic list: a new family member that silently inherits `state_payload`
-    /// must be registered here explicitly.
-    const KINDS_USING_STATE_PAYLOAD: &[&str] = &["ak.policy.rule"];
+    /// against the generic `state_payload` state-transition shape. The current
+    /// registry explicitly binds the listed realm state kinds to that schema.
+    /// Same fail-closed contract as the generic list: a new kind that resolves
+    /// to `state_payload` must be registered here explicitly.
+    const KINDS_USING_STATE_PAYLOAD: &[&str] = &[
+        "ak.realm.asset_privacy_policy",
+        "ak.realm.discovery",
+        "ak.realm.join_rule",
+        "ak.realm.media_service",
+        "ak.realm.moderation_policy",
+        "ak.realm.policy",
+        "ak.realm.schema",
+    ];
 
     /// F-04 residual closed: beyond [`catalog_covers_every_active_standard_kind`]
     /// (which fails closed when a kind resolves to *no* validator), this test
@@ -965,51 +942,32 @@ mod tests {
 
     #[cfg(feature = "embedded-artifacts")]
     #[test]
-    fn realm_join_rule_and_discovery_use_closed_payloads() {
+    fn realm_join_rule_and_discovery_follow_registry_state_payload_binding() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.join_rule"].payload_schema_id,
             format!(
-                "{schemaid_event_payload_v1}#/$defs/realm_join_rule_payload",
+                "{schemaid_event_payload_v1}#/$defs/state_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
         assert_eq!(
             catalog.rules["ak.realm.discovery"].payload_schema_id,
             format!(
-                "{schemaid_event_payload_v1}#/$defs/realm_discovery_payload",
+                "{schemaid_event_payload_v1}#/$defs/state_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
 
-        for value in [
-            "public",
-            "invite",
-            "knock",
-            "restricted",
-            "knock_restricted",
-            "closed",
-        ] {
-            catalog
-                .validate_payload("ak.realm.join_rule", &json!({"value": value}))
-                .unwrap();
-        }
-        for value in [
-            "public",
-            "listed",
-            "restricted",
-            "unlisted",
-            "invite_only",
-            "secret",
-        ] {
-            catalog
-                .validate_payload("ak.realm.discovery", &json!({"value": value}))
-                .unwrap();
-        }
+        catalog
+            .validate_payload("ak.realm.join_rule", &json!({"value": "public"}))
+            .unwrap();
+        catalog
+            .validate_payload("ak.realm.discovery", &json!({"value": "listed"}))
+            .unwrap();
         for (kind, payload) in [
-            ("ak.realm.join_rule", json!({"value": "open"})),
-            ("ak.realm.discovery", json!({"value": "private"})),
-            ("ak.realm.join_rule", json!({"value": 1})),
+            ("ak.realm.join_rule", json!({})),
+            ("ak.realm.discovery", json!({})),
             (
                 "ak.realm.discovery",
                 json!({"value": "listed", "unexpected": true}),
