@@ -22,6 +22,10 @@
 use std::collections::BTreeSet;
 
 use arkret_models_collaboration::event_query::EventsQueryPostRequestBody;
+use arkret_models_collaboration::http_bodies::{
+    EventView, RedactedEventView, ReferenceLockedEventStub,
+};
+use arkret_wire::EventKind;
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -97,6 +101,47 @@ fn events_query_post_request_body_matches_its_schema_definition() {
         "EventsQueryPostRequestBody",
         &fully_populated,
     );
+}
+
+#[test]
+fn event_read_projection_rows_match_their_schema_definitions() {
+    let redacted: RedactedEventView = serde_json::from_value(json!({
+        "view_kind": "redacted_event_view",
+        "event_id": "ak:event:AZk4PXzJ6MpkxXnYTUmgXzeIYNd0Wfnz3N0hwLHNV6Xq",
+        "kind": EventKind::MessageCreate.as_str(),
+        "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
+        "created_at": "2026-08-09T00:00:00.000Z",
+        "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "payload_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "redaction_reason": "policy_hidden",
+        "hidden_fields": ["payload.body"],
+        "inclusion_proof": {"root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        "reducer_input": false
+    }))
+    .expect("every RedactedEventView field is accepted");
+    assert_dto_matches_schema(SERVICE_OPERATION_DTOS, "RedactedEventView", &redacted);
+
+    let locked: ReferenceLockedEventStub = serde_json::from_value(json!({
+        "view_kind": "reference_locked_event_stub",
+        "status": "locked",
+        "event_id": "ak:event:AZk4PXzJ6MpkxXnYTUmgXzeIYNd0Wfnz3N0hwLHNV6Xq",
+        "kind": EventKind::MessageCreate.as_str(),
+        "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
+        "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reason_code": "reference_locked",
+        "inclusion_proof": {"root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        "reducer_input": false
+    }))
+    .expect("every ReferenceLockedEventStub field is accepted");
+    assert_dto_matches_schema(SERVICE_OPERATION_DTOS, "ReferenceLockedEventStub", &locked);
+
+    let event_view: EventView = serde_json::from_value(json!({
+        "event": locked,
+        "visibility": {"history_visibility": "joined"},
+        "receipts": [{"receipt": "visible"}]
+    }))
+    .expect("every EventView field is accepted");
+    assert_dto_matches_schema(SERVICE_OPERATION_DTOS, "EventView", &event_view);
 }
 
 /// Guard the guard: a DTO behind its schema must fail the comparison rather

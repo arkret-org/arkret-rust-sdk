@@ -317,9 +317,10 @@ pub struct EventSealSubmitOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventView {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub event: Event,
+    pub event: EventReadRow,
     /// Spec-loose object: `service-operation-dtos.schema.json` declares
     /// `visibility` without property constraints.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1500,21 +1501,253 @@ pub struct AccountOidcCallbackOutcome {
 #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
 pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EventReadRow {
+    Event(Event),
+    Redacted(RedactedEventView),
+    ReferenceLocked(ReferenceLockedEventStub),
+}
+
+impl EventReadRow {
+    pub fn event(&self) -> Option<&Event> {
+        match self {
+            Self::Event(event) => Some(event),
+            Self::Redacted(_) | Self::ReferenceLocked(_) => None,
+        }
+    }
+
+    pub fn into_event(self) -> Option<Event> {
+        match self {
+            Self::Event(event) => Some(event),
+            Self::Redacted(_) | Self::ReferenceLocked(_) => None,
+        }
+    }
+}
+
+impl From<Event> for EventReadRow {
+    fn from(event: Event) -> Self {
+        Self::Event(event)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum RedactedEventViewKind {
+    RedactedEventView,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum EventRedactionReason {
+    ReferenceLocked,
+    HistoryNotVisible,
+    PolicyHidden,
+    Redacted,
+    RetentionPruned,
+    Unknown,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+pub struct HiddenEventField(String);
+
+impl HiddenEventField {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let valid = matches!(value.as_str(), "payload" | "proofs" | "unsigned")
+            || value.strip_prefix("payload.").is_some_and(|path| {
+                !path.is_empty()
+                    && path.split('.').all(|segment| {
+                        !segment.is_empty()
+                            && segment.bytes().all(|byte| {
+                                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'
+                            })
+                    })
+            });
+        if !valid {
+            return Err(Error::Protocol(
+                "hidden event field must be payload, payload.<field path>, proofs, or unsigned"
+                    .to_owned(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for HiddenEventField {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl From<HiddenEventField> for String {
+    fn from(value: HiddenEventField) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct HiddenEventFields(Vec<HiddenEventField>);
+
+impl HiddenEventFields {
+    pub fn new(fields: Vec<HiddenEventField>) -> Result<Self> {
+        let unique = fields.iter().collect::<std::collections::BTreeSet<_>>();
+        if unique.len() != fields.len() {
+            return Err(Error::Protocol(
+                "hidden_fields must not contain duplicates".to_owned(),
+            ));
+        }
+        Ok(Self(fields))
+    }
+
+    pub fn as_slice(&self) -> &[HiddenEventField] {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> Vec<HiddenEventField> {
+        self.0
+    }
+}
+
+impl TryFrom<Vec<HiddenEventField>> for HiddenEventFields {
+    type Error = Error;
+
+    fn try_from(fields: Vec<HiddenEventField>) -> Result<Self> {
+        Self::new(fields)
+    }
+}
+
+impl<'de> Deserialize<'de> for HiddenEventFields {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let fields = Vec::<HiddenEventField>::deserialize(deserializer)?;
+        Self::new(fields).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct RedactedEventView {
+    pub view_kind: RedactedEventViewKind,
+    pub event_id: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub kind: arkret_wire::EventKind,
+    pub realm_id: RealmId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    pub event_digest: Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload_digest: Option<Hash>,
+    pub redaction_reason: EventRedactionReason,
+    pub hidden_fields: HiddenEventFields,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub inclusion_proof: Option<BTreeMap<String, Value>>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
+    pub reducer_input: ReducerInputFalse,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ReferenceLockedEventStubKind {
+    ReferenceLockedEventStub,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ReferenceLockedEventStatus {
+    Locked,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ReferenceLockedReasonCode {
+    ReferenceLocked,
+    HistoryNotVisible,
+    PolicyHidden,
+    NotFoundOrUnauthorized,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ReducerInputFalse;
+
+impl Serialize for ReducerInputFalse {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> Deserialize<'de> for ReducerInputFalse {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if bool::deserialize(deserializer)? {
+            return Err(serde::de::Error::custom("reducer_input must be false"));
+        }
+        Ok(Self)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ReferenceLockedEventStub {
+    pub view_kind: ReferenceLockedEventStubKind,
+    pub status: ReferenceLockedEventStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
+    pub kind: Option<arkret_wire::EventKind>,
+    pub realm_id: RealmId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_digest: Option<Hash>,
+    pub reason_code: ReferenceLockedReasonCode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub inclusion_proof: Option<BTreeMap<String, Value>>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
+    pub reducer_input: ReducerInputFalse,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventsQueryOutcome {
-    #[serde(default)]
+    // Required by the schema; an absent array is not an empty result page.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub events: Vec<Event>,
+    pub events: Vec<EventReadRow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prev_cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub snapshot_bootstrap: Option<SnapshotBootstrap>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_cursor: Option<String>,
-    #[serde(default)]
-    pub has_more: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub range_completeness: Option<EventsRangeCompleteness>,
 }

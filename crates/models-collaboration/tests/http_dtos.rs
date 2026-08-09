@@ -1,12 +1,13 @@
 use arkret_models_collaboration::http_bodies::{
-    EventsQueryOutcome, EventsSubscribeFrame, EventsSubscribeFrameKind, MimiRoomUpdateRequestBody,
-    MimiSubmitMessageRequestBody,
+    EventReadRow, EventRedactionReason, EventView, EventsQueryOutcome, EventsSubscribeFrame,
+    EventsSubscribeFrameKind, MimiRoomUpdateRequestBody, MimiSubmitMessageRequestBody,
+    ReferenceLockedReasonCode,
 };
 use arkret_models_collaboration::objects::mimi::{
     MimiCiphertext, MimiOpaquePayload, MimiRoomUpdate,
 };
 use arkret_models_collaboration::session_grant_bodies::SessionLoginOutcome;
-use arkret_wire::{Base64UrlString, DeviceId, Did, Hash, MlsGroupId, NonEmptyString};
+use arkret_wire::{Base64UrlString, DeviceId, Did, EventKind, Hash, MlsGroupId, NonEmptyString};
 use serde_json::json;
 
 fn did(name: &str) -> Did {
@@ -161,6 +162,92 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
     assert_eq!(value["events"], json!([]));
     assert_eq!(value["has_more"], json!(false));
     assert!(value.get("next_cursor").is_none());
+
+    assert!(
+        serde_json::from_value::<EventsQueryOutcome>(json!({"has_more": false})).is_err(),
+        "events is a required result-page field"
+    );
+}
+
+#[test]
+fn event_read_row_deserializes_closed_projection_variants() {
+    let redacted: EventReadRow = serde_json::from_value(json!({
+        "view_kind": "redacted_event_view",
+        "event_id": "ak:event:AZk4PXzJ6MpkxXnYTUmgXzeIYNd0Wfnz3N0hwLHNV6Xq",
+        "kind": EventKind::MessageCreate.as_str(),
+        "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
+        "created_at": "2026-08-09T00:00:00.000Z",
+        "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "payload_digest": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "redaction_reason": "policy_hidden",
+        "hidden_fields": ["payload.body", "proofs"],
+        "inclusion_proof": {"root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        "reducer_input": false
+    }))
+    .unwrap();
+    let EventReadRow::Redacted(view) = redacted else {
+        panic!("expected redacted event view");
+    };
+    assert_eq!(view.redaction_reason, EventRedactionReason::PolicyHidden);
+    assert_eq!(view.hidden_fields.as_slice()[0].as_str(), "payload.body");
+
+    let locked: EventReadRow = serde_json::from_value(json!({
+        "view_kind": "reference_locked_event_stub",
+        "status": "locked",
+        "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
+        "reason_code": "not_found_or_unauthorized",
+        "reducer_input": false
+    }))
+    .unwrap();
+    let EventReadRow::ReferenceLocked(stub) = locked else {
+        panic!("expected reference-locked event stub");
+    };
+    assert_eq!(
+        stub.reason_code,
+        ReferenceLockedReasonCode::NotFoundOrUnauthorized
+    );
+    assert!(stub.event_id.is_none());
+}
+
+#[test]
+fn event_read_row_rejects_non_closed_projection_shapes() {
+    let duplicate_hidden_fields = json!({
+        "view_kind": "redacted_event_view",
+        "event_id": "ak:event:AZk4PXzJ6MpkxXnYTUmgXzeIYNd0Wfnz3N0hwLHNV6Xq",
+        "kind": EventKind::MessageCreate.as_str(),
+        "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
+        "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "redaction_reason": "redacted",
+        "hidden_fields": ["payload", "payload"],
+        "reducer_input": false
+    });
+    assert!(serde_json::from_value::<EventReadRow>(duplicate_hidden_fields).is_err());
+
+    let reducer_input = json!({
+        "view_kind": "reference_locked_event_stub",
+        "status": "locked",
+        "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
+        "reason_code": "reference_locked",
+        "reducer_input": true
+    });
+    assert!(serde_json::from_value::<EventReadRow>(reducer_input).is_err());
+}
+
+#[test]
+fn event_view_uses_the_same_closed_event_read_row_union() {
+    let view: EventView = serde_json::from_value(json!({
+        "event": {
+            "view_kind": "reference_locked_event_stub",
+            "status": "locked",
+            "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
+            "reason_code": "history_not_visible",
+            "reducer_input": false
+        },
+        "visibility": {"history_visibility": "joined"},
+        "receipts": []
+    }))
+    .unwrap();
+    assert!(matches!(view.event, EventReadRow::ReferenceLocked(_)));
 }
 
 #[test]
