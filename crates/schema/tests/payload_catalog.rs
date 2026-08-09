@@ -140,35 +140,35 @@ fn patch_event_family_maps_to_canonical_payloads() {
     assert_eq!(
         catalog.rules["ak.strand.tracks.update"].payload_schema_id,
         format!(
-            "{schemaid_event_payload_v1}#/$defs/generic_standard_payload",
+            "{schemaid_event_payload_v1}#/$defs/strand_patch_payload",
             schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
         ),
-        "ak.strand.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
+        "ak.strand.tracks.update must use the canonical Strand patch payload"
     );
     catalog
         .validate_payload(
             "ak.strand.tracks.update",
             &json!({
-                "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
-                "tracks": {
-                    "main": { "title": "Main", "rank": "a0" }
+                "target_ref": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "patch": {
+                    "tracks.discussion.enabled": { "$op": "set", "value": true }
                 }
             }),
         )
         .unwrap_or_else(|err| {
-            panic!("ak.strand.tracks.update should accept track payloads: {err}")
+            panic!("ak.strand.tracks.update should accept Strand patch payloads: {err}")
         });
     assert!(
         catalog
             .validate_payload(
                 "ak.strand.tracks.update",
                 &json!({
-                    "type": "ak.strand.tracks.update",
-                    "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
+                    "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                    "tracks": {}
                 }),
             )
             .is_err(),
-        "ak.strand.tracks.update must still reject the retired type discriminator"
+        "ak.strand.tracks.update must reject retired strand_id/tracks payloads"
     );
     assert!(
         catalog
