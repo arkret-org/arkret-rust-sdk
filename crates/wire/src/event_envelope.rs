@@ -403,14 +403,15 @@ pub struct Event {
 /// Minimal accepted-Event facts needed by the registry effect projector.
 ///
 /// This is deliberately not an authorable Event and carries no proofs,
-/// requirements, authorization context, or unsigned data. Receiver projection
-/// code can therefore evaluate a persisted projection record without
-/// fabricating a new signed [`Event`].
+/// requirements, or unsigned data. It preserves the accepted authorization
+/// reference needed by registry effects without fabricating a new signed
+/// [`Event`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProjectedEventInput {
     pub kind: EventKind,
     pub event_id: EventId,
     pub actor_id: Did,
+    pub authorization_ref: Option<AuthorizationRef>,
     pub actor_seq: u64,
     pub realm_id: RealmId,
     pub created_at: DateTime<Utc>,
@@ -427,6 +428,7 @@ impl From<&Event> for ProjectedEventInput {
             kind: event.kind.clone(),
             event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),
+            authorization_ref: event.authorization_ref.clone(),
             actor_seq: event.actor_seq,
             realm_id: event.realm_id.clone(),
             created_at: event.created_at,

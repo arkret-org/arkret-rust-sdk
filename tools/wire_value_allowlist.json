@@ -256,7 +256,7 @@
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "serde_json::Value",
+      "authority": "serde_json::Map<String, serde_json::Value>",
       "owner_repository": "coauth",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",

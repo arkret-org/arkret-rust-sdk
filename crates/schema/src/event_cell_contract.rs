@@ -974,6 +974,10 @@ fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<
         "event_id" => Some(Value::String(event.event_id.as_str().to_owned())),
         "kind" => Some(Value::String(event.kind.as_str().to_owned())),
         "actor_id" => Some(Value::String(event.actor_id.as_str().to_owned())),
+        "authorization_ref" => event
+            .authorization_ref
+            .as_ref()
+            .and_then(|value| serde_json::to_value(value).ok()),
         "actor_seq" => Some(Value::Number(event.actor_seq.into())),
         "realm_id" => Some(Value::String(event.realm_id.as_str().to_owned())),
         "created_at" => Some(Value::String(arkret_canonical::format_timestamp_canonical(

@@ -5,10 +5,10 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    Audience, CriticalExtension, DeviceMessageId, Did, Event, EventId, EventKind, EventRef,
-    EventRequirements, FeatureRef, GrantId, Hash, Hlc, OperationId, OperationKind, Precondition,
-    ProfileRef, Proof, ProofBindingRequirements, RealmId, ScopeRef, SealBasis, SealId,
-    SignatureBindingPayload, canonical,
+    Audience, AuthorizationRef, CriticalExtension, DeviceMessageId, Did, Event, EventId, EventKind,
+    EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc, OperationId, OperationKind,
+    Precondition, ProfileRef, Proof, ProofBindingRequirements, RealmId, ScopeRef, SealBasis,
+    SealId, SignatureBindingPayload, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,8 @@ pub struct ProjectionContext {
     pub seal_basis: Option<SealBasis>,
     pub hlc: Option<Hlc>,
     pub executed_by: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_ref: Option<AuthorizationRef>,
     pub accepted_scope_ref: ScopeRef,
 }
 
@@ -94,6 +96,7 @@ impl ProjectedEventOperation {
                 seal_basis: event.seal_basis.clone(),
                 hlc: event.hlc.clone(),
                 executed_by: event.executed_by.clone(),
+                authorization_ref: event.authorization_ref.clone(),
                 accepted_scope_ref: event.scope_ref.clone(),
             },
         })
@@ -125,6 +128,7 @@ impl ProjectedEventOperation {
             kind: self.event_kind.clone(),
             event_id: self.context.event_id.clone(),
             actor_id: self.context.sender.clone(),
+            authorization_ref: self.context.authorization_ref.clone(),
             actor_seq: self.context.actor_seq,
             realm_id: self.realm_id.clone(),
             created_at: self.created_at,
