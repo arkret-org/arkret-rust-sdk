@@ -18,7 +18,8 @@ pub enum RealmJoinRuleValue {
     Closed,
 }
 
-/// Strong payload for `ak.realm.join_rule`.
+/// Strong payload for `ak.realm.join_rule`, whose wire schema is
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/state_payload`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -50,7 +51,8 @@ pub enum RealmDiscoveryValue {
     Secret,
 }
 
-/// Strong payload for `ak.realm.discovery`.
+/// Strong payload for `ak.realm.discovery`, whose wire schema is
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/state_payload`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

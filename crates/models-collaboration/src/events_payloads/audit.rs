@@ -237,7 +237,7 @@ impl AuditSessionStage {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_contract`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditSessionPayload {

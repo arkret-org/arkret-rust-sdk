@@ -143,10 +143,12 @@ def scan_file(path: Path, source_root: Path) -> list[DenySite]:
             if closing != -1:
                 body = source[opening + 1 : closing]
                 flatten_extra = bool(FLATTEN_RE.search(body))
-        # `preceding_docs` walks backward from the declaration over the derive
-        # and doc lines, so it must receive the decl position, not the block
-        # start (which would exclude the doc comments themselves).
-        docs = preceding_docs(source, decl_start)
+        # TYPE_DECL_RE starts at the `struct` / `enum` token, after a possible
+        # `pub ` prefix on the same line. Start at the declaration line so
+        # `preceding_docs` does not see that prefix as an intervening code line
+        # and discard an explicit schema pointer above the type.
+        decl_line_start = source.rfind("\n", 0, decl_start) + 1
+        docs = preceding_docs(source, decl_line_start)
         pointer_match = POINTER_RE.search(docs)
         pointer = normalize_pointer(pointer_match.group(1)) if pointer_match else None
         line = source.count("\n", 0, match.start()) + 1

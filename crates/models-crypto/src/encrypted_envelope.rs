@@ -146,6 +146,7 @@ pub struct EncryptedEnvelopeKeyRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
 pub struct EncryptedEnvelope {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub scheme: EncryptedPayloadScheme,

@@ -71,14 +71,3 @@ pub struct ObjectSnapshot {
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_stage_set_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectStageSetPayload {
-    pub stage: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_stage: Option<String>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}

@@ -115,7 +115,7 @@
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/audit.rs::AuditSessionPayload.notice_policy",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_session_payload/properties/notice_policy",
+      "spec_pointer": "event-payload.schema.json#/$defs/audit_session_contract/properties/notice_policy",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
@@ -127,15 +127,15 @@
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/join_policy.rs::JoinPolicyPayload.extra",
-      "spec_pointer": "event-payload.schema.json#/$defs/join_policy_payload/additionalProperties",
+      "spec_pointer": "event-payload.schema.json#/$defs/join_policy_component/additionalProperties",
       "classification": "open_json",
       "reason": "The exact Spec object permits arbitrary additional properties."
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/join_policy.rs::JoinPolicyPayloadGatesItem.extra",
-      "spec_pointer": "event-payload.schema.json#/$defs/join_policy_payload/additionalProperties",
+      "spec_pointer": "event-payload.schema.json#/$defs/join_policy_component/properties/gates/items/additionalProperties",
       "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+      "reason": "Each join-policy gate item explicitly permits arbitrary additional properties."
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/key_backup.rs::KeyBackupActiveSeries.extra",
@@ -181,19 +181,13 @@
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/object.rs::ObjectCreatePayload.initial_relations",
-      "spec_pointer": "event-payload.schema.json#/$defs/object_create_payload/properties/initial_relations",
+      "spec_pointer": "event-payload.schema.json#/$defs/morph_create_payload/properties/initial_relations",
       "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+      "reason": "The concrete Morph create boundary represented by this generic helper permits an array of open relation objects; Space and Strand create declare the same field shape."
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/object.rs::ObjectSnapshot.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/object_snapshot/additionalProperties",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/models-collaboration/src/events_payloads/object.rs::ObjectStageSetPayload.extra",
-      "spec_pointer": "event-payload.schema.json#/$defs/object_stage_set_payload/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },

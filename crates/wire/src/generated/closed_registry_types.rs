@@ -5,7 +5,7 @@
 //! binding-kind-registry.json; version=2026-08-09.6;
 //! sha256=3e7e444a8cb96fdc9718c608dce8bfff76368bf2e481743a24d9378f2b5a83af Input: registry/
 //! authority-set-policy-registry.json; version=2026-08-09.1;
-//! sha256=2fac2bf6e75181b5aa1fadf2f86f35e8070a3936fcc254cfe4fc5c5d5deb6759 Entries: track_names=2,
+//! sha256=6d57556e8dcb20cc5b6780ea768ee05b206d4503236526a52e92bf0ef3169edb Entries: track_names=2,
 //! binding_kinds=3, authority_policy_kinds=2, authority_source_kinds=2
 
 use serde::{Deserialize, Serialize};
