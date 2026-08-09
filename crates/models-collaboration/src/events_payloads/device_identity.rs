@@ -101,6 +101,96 @@ impl DeviceAuthorizePayload {
     /// producer MUST write the same canonical array that enters the
     /// `ak-device-trust-bind-v1` signing input.
     pub fn validate_canonical_algorithms(&self) -> std::result::Result<(), &'static str> {
+        UnsignedDeviceAuthorizePayload::from_signed(self).validate_canonical_algorithms()
+    }
+
+    pub fn validate_wire_constraints(&self) -> std::result::Result<(), &'static str> {
+        UnsignedDeviceAuthorizePayload::from_signed(self).validate_wire_constraints()
+    }
+
+    /// Canonical signing input for
+    /// `ak.device.authorize.payload.device_signature`.
+    ///
+    /// The signature proves possession of the private key corresponding to
+    /// `device_public_key`; authorization is independently established by the
+    /// root anchor or an accepted device.
+    pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
+        UnsignedDeviceAuthorizePayload::from_signed(self).device_possession_signature_input()
+    }
+}
+
+/// Device-authorization payload before the device possession signature exists.
+/// The type is deliberately not serializable.
+#[derive(Clone, Debug)]
+pub struct UnsignedDeviceAuthorizePayload {
+    principal_id: Did,
+    device_id: DeviceId,
+    device_public_key: NonEmptyString,
+    hpke_key: NonEmptyString,
+    algorithms: Vec<NonEmptyString>,
+    device_key_algorithm: Option<NonEmptyString>,
+    authorized_by: DeviceOrPrincipalRef,
+    scopes: Option<Vec<NonEmptyString>>,
+    not_before: DateTime<Utc>,
+    expires_at: Option<NullableTimestamp>,
+    authorization_binding_kind: DeviceAuthorizationBindingKind,
+    recovery_session_id: Option<RecoverySessionId>,
+}
+
+impl UnsignedDeviceAuthorizePayload {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        principal_id: Did,
+        device_id: DeviceId,
+        device_public_key: NonEmptyString,
+        hpke_key: NonEmptyString,
+        algorithms: Vec<NonEmptyString>,
+        device_key_algorithm: Option<NonEmptyString>,
+        authorized_by: DeviceOrPrincipalRef,
+        scopes: Option<Vec<NonEmptyString>>,
+        not_before: DateTime<Utc>,
+        expires_at: Option<NullableTimestamp>,
+        authorization_binding_kind: DeviceAuthorizationBindingKind,
+        recovery_session_id: Option<RecoverySessionId>,
+    ) -> Result<Self> {
+        let payload = Self {
+            principal_id,
+            device_id,
+            device_public_key,
+            hpke_key,
+            algorithms,
+            device_key_algorithm,
+            authorized_by,
+            scopes,
+            not_before,
+            expires_at,
+            authorization_binding_kind,
+            recovery_session_id,
+        };
+        payload
+            .validate_wire_constraints()
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        Ok(payload)
+    }
+
+    fn from_signed(payload: &DeviceAuthorizePayload) -> Self {
+        Self {
+            principal_id: payload.principal_id.clone(),
+            device_id: payload.device_id.clone(),
+            device_public_key: payload.device_public_key.clone(),
+            hpke_key: payload.hpke_key.clone(),
+            algorithms: payload.algorithms.clone(),
+            device_key_algorithm: payload.device_key_algorithm.clone(),
+            authorized_by: payload.authorized_by.clone(),
+            scopes: payload.scopes.clone(),
+            not_before: payload.not_before,
+            expires_at: payload.expires_at.clone(),
+            authorization_binding_kind: payload.authorization_binding_kind,
+            recovery_session_id: payload.recovery_session_id.clone(),
+        }
+    }
+
+    pub fn validate_canonical_algorithms(&self) -> std::result::Result<(), &'static str> {
         if self.algorithms.is_empty() {
             return Err("device_authorize_algorithms_empty");
         }
@@ -131,16 +221,8 @@ impl DeviceAuthorizePayload {
         Ok(())
     }
 
-    /// Canonical signing input for
-    /// `ak.device.authorize.payload.device_signature`.
-    ///
-    /// The signature proves possession of the private key corresponding to
-    /// `device_public_key`; authorization is independently established by the
-    /// root anchor or an accepted device.
     pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
         self.validate_wire_constraints()
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
-        self.validate_canonical_algorithms()
             .map_err(|reason| Error::Protocol(reason.to_owned()))?;
         let device_key_algorithm = self.device_key_algorithm.as_deref().ok_or_else(|| {
             Error::Protocol("device_authorize_device_key_algorithm_required".to_owned())
@@ -178,6 +260,26 @@ impl DeviceAuthorizePayload {
         let mut out = binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX.to_vec();
         out.extend_from_slice(&canonical::canonical_json_bytes(&body)?);
         Ok(out)
+    }
+
+    pub fn attach_signature(self, signature: Base64UrlString) -> Result<DeviceAuthorizePayload> {
+        let signature = NonEmptyString::new(signature.into_string())
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        Ok(DeviceAuthorizePayload {
+            principal_id: self.principal_id,
+            device_id: self.device_id,
+            device_public_key: self.device_public_key,
+            hpke_key: self.hpke_key,
+            algorithms: self.algorithms,
+            device_key_algorithm: self.device_key_algorithm,
+            authorized_by: self.authorized_by,
+            scopes: self.scopes,
+            not_before: self.not_before,
+            expires_at: self.expires_at,
+            authorization_binding_kind: self.authorization_binding_kind,
+            device_signature: SignatureMaterial::NonEmptyString(signature),
+            recovery_session_id: self.recovery_session_id,
+        })
     }
 }
 

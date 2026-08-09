@@ -5,10 +5,11 @@ use std::collections::BTreeMap;
 use arkret_canonical::canonical;
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{
-    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, SignatureMaterial,
+    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceReanchorPayload,
+    DeviceRevokePayload, SignatureMaterial,
 };
 use arkret_wire::{
-    FederatedCurrentDeviceProjection, FederatedDeviceSigningKeyEvidence, event_spec,
+    EventKind, FederatedCurrentDeviceProjection, FederatedDeviceSigningKeyEvidence, event_spec,
 };
 
 use crate::{
@@ -80,8 +81,8 @@ pub fn replay_federated_device_authorization(
     let mut replayed_generation = None;
     for event in evidence.authorization_chain.iter().skip(1) {
         let event_bytes = canonical::canonical_json_bytes(&event.digest_payload()?)?;
-        match event.kind.as_str() {
-            "ak.device.authorize" => {
+        match &event.kind {
+            EventKind::DeviceAuthorize => {
                 let payload: DeviceAuthorizePayload =
                     event.typed_payload::<event_spec::DeviceAuthorize>()?;
                 verify_device_authorize_possession(&payload)?;
@@ -126,7 +127,7 @@ pub fn replay_federated_device_authorization(
                 accepted_keys.insert(payload.device_id.to_string(), candidate_key);
                 expecting_root_authorize = false;
             }
-            "ak.device.revoke" | "ak.device.list.update" | "ak.device.reanchor" => {
+            EventKind::DeviceRevoke | EventKind::DeviceListUpdate | EventKind::DeviceReanchor => {
                 let event_proof_key = resolve_control_event_proof_key(event, &accepted_keys)?;
                 verify_ed25519_detached_jws_proof(
                     &event.proofs[0],
@@ -134,28 +135,14 @@ pub fn replay_federated_device_authorization(
                     &event.actor_id,
                     &event_proof_key,
                 )?;
-                if event.kind.as_str() == "ak.device.revoke" {
-                    let revoked = event
-                        .payload
-                        .get("device_id")
-                        .and_then(serde_json::Value::as_str)
-                        .ok_or_else(|| {
-                            Error::Protocol("device revoke omits device_id".to_owned())
-                        })?;
-                    accepted_keys.remove(revoked);
-                } else if event.kind.as_str() == "ak.device.reanchor" {
-                    replayed_generation = Some(
-                        event
-                            .payload
-                            .get("new_device_generation")
-                            .and_then(serde_json::Value::as_str)
-                            .ok_or_else(|| {
-                                Error::Protocol(
-                                    "device reanchor omits new_device_generation".to_owned(),
-                                )
-                            })?
-                            .to_owned(),
-                    );
+                if event.kind == EventKind::DeviceRevoke {
+                    let payload: DeviceRevokePayload =
+                        event.typed_payload::<event_spec::DeviceRevoke>()?;
+                    accepted_keys.remove(payload.device_id.as_str());
+                } else if event.kind == EventKind::DeviceReanchor {
+                    let payload: DeviceReanchorPayload =
+                        event.typed_payload::<event_spec::DeviceReanchor>()?;
+                    replayed_generation = Some(payload.new_device_generation.to_string());
                     accepted_keys.clear();
                     expecting_root_authorize = true;
                 }

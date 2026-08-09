@@ -5,10 +5,10 @@ use std::collections::BTreeMap;
 use arkret_models_integration::{
     AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope, AppletIdentifier,
 };
-use arkret_wire::{Did, Event, EventKind, Hlc, NonEmptyString, RealmId, ScopeRef};
+use arkret_wire::{Did, Event, Hlc, NonEmptyString, RealmId, ScopeRef};
 use serde_json::Value;
 
-use crate::{EventDraftError, Result};
+use crate::{EventDraftError, Result, TypedEventDraft};
 
 /// Draft builder for the canonical `ak.applet.bridge_error` Event payload.
 #[derive(Clone, Debug)]
@@ -91,16 +91,14 @@ impl AppletBridgeErrorBuilder {
             message: self.message,
             retry_after_ms: self.retriable.then_some(self.retry_after_ms).flatten(),
         };
-        Ok(Event::new(
-            EventKind::AppletBridgeError.to_string(),
+        TypedEventDraft::<arkret_wire::event_spec::AppletBridgeError>::new(
             ScopeRef::Realm {
                 realm_id: self.realm_id,
             },
             self.actor_id,
-            actor_seq,
-            hlc,
-            serde_json::to_value(payload)?,
-        )?)
+            payload,
+        )?
+        .author_now(actor_seq, hlc)
     }
 }
 

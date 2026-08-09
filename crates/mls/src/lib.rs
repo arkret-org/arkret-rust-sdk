@@ -939,7 +939,7 @@ mod tests {
 
     // NOTE: the "projects to repo operation + device-message target"
     // integration test moved to `arkret-event-draft` (tests/mls_projection.rs):
-    // the envelope -> Operation / DeviceMessageTarget projection lives on the
+    // the envelope -> local operation / DeviceMessageTarget projection lives on the
     // event-draft side, which this crate must not depend on. arkret-mls tests
     // only that the MLS group operations emit correct envelope fields.
 

@@ -858,7 +858,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
         let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-        let mut newer_hlc = Event::new(
+        let mut newer_hlc = arkret_wire::test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
                 realm_id: realm_id.clone(),
@@ -871,7 +871,7 @@ mod tests {
         .unwrap();
         newer_hlc.event_id =
             EventId::new("ak:event:AYnTVVCNBa4iXXbFlwzE8SaOYDUUHuMdVacBm9hSHVPf").unwrap();
-        let mut deeper = Event::new(
+        let mut deeper = arkret_wire::test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm { realm_id },
             actor,
@@ -925,7 +925,7 @@ mod tests {
     fn limited_timeline_creates_backfill_gap_and_request() {
         let realm_id =
             RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
-        let event = Event::new(
+        let event = arkret_wire::test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
                 realm_id: realm_id.clone(),

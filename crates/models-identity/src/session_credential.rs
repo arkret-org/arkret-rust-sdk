@@ -399,7 +399,7 @@ pub struct SessionGrantIssuancePreimage {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_optional_non_null"
     )]
-    pub scope_details: Option<Value>,
+    pub scope_details: Option<Map<String, Value>>,
 }
 
 impl SessionGrantIssuancePreimage {
@@ -486,7 +486,7 @@ pub struct SignedSessionGrantClaims {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_optional_non_null"
     )]
-    pub scope_details: Option<Value>,
+    pub scope_details: Option<Map<String, Value>>,
 }
 
 impl SignedSessionGrantClaims {
@@ -553,7 +553,7 @@ fn validate_issuance_fields(
     holder_binding: Option<&SessionGrantHolderBinding>,
     recovery_binding: Option<&SessionGrantRecoveryBinding>,
     device_binding: Option<&SessionGrantDeviceBinding>,
-    scope_details: Option<&Value>,
+    scope_details: Option<&Map<String, Value>>,
 ) -> Result<()> {
     if schema != SESSION_GRANT_ISSUANCE_SCHEMA {
         return Err(Error::Protocol(format!(
@@ -581,11 +581,6 @@ fn validate_issuance_fields(
         ));
     }
     validate_jwk_thumbprint(&cnf.jkt, "session grant cnf.jkt")?;
-    if scope_details.is_some_and(Value::is_null) {
-        return Err(Error::Protocol(
-            "session grant scope_details must be omitted rather than null".to_owned(),
-        ));
-    }
     match (credential_class, holder_binding, recovery_binding) {
         (SessionGrantCredentialClass::RecoveryRestricted, None, Some(binding))
             if binding.policy_version > 0

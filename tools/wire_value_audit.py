@@ -35,13 +35,14 @@ DEFAULT_INVENTORY = ROOT / "tools" / "wire_value_inventory.json"
 VALUE_RE = re.compile(r"(?<![A-Za-z0-9_])(?:serde_json::)?Value(?![A-Za-z0-9_])")
 STRUCT_RE = re.compile(r"\bpub\s+struct\s+([A-Za-z_][A-Za-z0-9_]*)[^;{]*\{")
 FIELD_RE = re.compile(
-    r"\bpub(?:\s*\([^)]*\))?\s+(?:r#)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)\Z",
+    r"\bpub\s+(?:r#)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)\Z",
     re.DOTALL,
 )
 POINTER_RE = re.compile(
     r"`([^`]*(?:spec/v1/artifacts/schemas/)?[A-Za-z0-9_.-]+\.schema\.json(?:#[^`]*)?)`"
 )
 CFG_TEST_RE = re.compile(r"#\s*\[\s*cfg\s*\([^\]]*\btest\b[^\]]*\)\s*\]")
+CFG_DISABLED_RE = re.compile(r"#\s*\[\s*cfg\s*\(\s*any\s*\(\s*\)\s*\)\s*\]")
 TEST_ATTRIBUTE_RE = re.compile(r"#\s*\[\s*test\s*\]")
 JSON_MACRO_RE = re.compile(r"\b(?:serde_json::)?json!\s*([({\[])")
 FUNCTION_RE = re.compile(
@@ -296,8 +297,10 @@ def mask_cfg_test_items(source: str, masked: str) -> tuple[str, str]:
     """Blank complete cfg(test) items while retaining line numbering."""
     chars = list(source)
     masked_chars = list(masked)
-    test_attributes = list(CFG_TEST_RE.finditer(masked)) + list(
-        TEST_ATTRIBUTE_RE.finditer(masked)
+    test_attributes = (
+        list(CFG_TEST_RE.finditer(masked))
+        + list(CFG_DISABLED_RE.finditer(masked))
+        + list(TEST_ATTRIBUTE_RE.finditer(masked))
     )
     for match in reversed(sorted(test_attributes, key=lambda item: item.start())):
         opening = masked.find("{", match.end())
@@ -477,8 +480,14 @@ def scan_file(
             (
                 match.group(1)
                 for _, match in parsed_fields
-                if match.group(1) in DISCRIMINATOR_FIELDS
-                or match.group(1).endswith("_kind")
+                if (
+                    match.group(1) != "schema"
+                    and (
+                        match.group(1) in DISCRIMINATOR_FIELDS
+                        or match.group(1).endswith("_kind")
+                    )
+                    and not VALUE_RE.search(match.group(2))
+                )
             ),
             None,
         )
@@ -535,6 +544,24 @@ def is_rfc_problem_body(fields: set[str], path: str, symbol: str) -> bool:
     )
 
 
+def is_schema_or_conformance_fixture(symbol: str) -> bool:
+    """Recognize exact non-authoring JSON producers retained by the audit scope.
+
+    Schema documents and checked-in conformance/KAT vectors intentionally build
+    JSON syntax trees. They are neither protocol outbound authoring nor a raw
+    discriminator/data API. Keep this symbol-level rather than excluding a
+    directory or whole file so production helpers beside them remain scanned.
+    """
+    normalized = symbol.lower()
+    return (
+        normalized == "built_in_schema_vectors"
+        or normalized.endswith(("_schema_document", "_schema_vectors"))
+        or normalized.startswith("kat_")
+        or normalized.endswith("_kat")
+        or "_kat_" in normalized
+    )
+
+
 def mutation_evidence(source: str) -> Iterable[tuple[int, str, str]]:
     patterns = [
         re.compile(
@@ -575,6 +602,8 @@ def scan_dynamic_file(
             continue
         symbol = function_symbol(functions, match.start())
         if is_rfc_problem_body(fields, relative, symbol):
+            continue
+        if is_schema_or_conformance_fixture(symbol):
             continue
         discriminators = sorted(fields.intersection(DISCRIMINATOR_FIELDS))
         data_fields = sorted(fields.intersection(DATA_FIELDS))
@@ -836,6 +865,18 @@ class SchemaResolver:
             properties = owner.get("properties") if isinstance(owner, dict) else None
             if not isinstance(properties, dict) or field_name not in properties:
                 if pointer and field_name == "extra" and isinstance(owner, dict):
+                    pattern_properties = owner.get("patternProperties")
+                    if isinstance(pattern_properties, dict):
+                        for pattern, pattern_value in pattern_properties.items():
+                            if not pattern.startswith("^x_"):
+                                continue
+                            escaped_pattern = pattern.replace("~", "~0").replace("/", "~1")
+                            return (
+                                "open_map",
+                                normalize_pointer(
+                                    f"{effective_pointer}/patternProperties/{escaped_pattern}"
+                                ),
+                            )
                     additional = owner.get("additionalProperties")
                     if additional is False or owner.get("unevaluatedProperties") is False:
                         return "closed", pointer
@@ -985,7 +1026,7 @@ def report(
         allowed = allowlist.get(field.key)
         allowed_pointer = allowed.get("spec_pointer") if allowed else None
         shape, field_pointer = resolver.field_shape(
-            allowed_pointer or field.spec_pointer, field.struct_name, field.field_name
+            field.spec_pointer or allowed_pointer, field.struct_name, field.field_name
         )
         classification = allowed.get("classification") if allowed else None
         classification = classification or "unclassified"
@@ -1010,9 +1051,13 @@ def report(
                 "data_field": field.field_name,
                 "rust_type": field.rust_type,
                 "spec_pointer": (
-                    allowed.get("spec_pointer")
+                    field_pointer
+                    if field.spec_pointer is not None and shape != "unknown"
+                    else allowed.get("spec_pointer")
                     if allowed is not None and "spec_pointer" in allowed
-                    else field_pointer if shape != "unknown" else None
+                    else field_pointer
+                    if shape != "unknown"
+                    else None
                 ),
                 "schema_shape": shape,
                 "classification": classification,
@@ -1287,34 +1332,51 @@ def refresh_allowlist(
     }
     for entry in report_payload["entries"]:
         key = entry["finding"]
-        if key in merged and "finding" not in merged[key]:
+        existing = merged.get(key)
+        if existing is not None and (
+            "finding" not in existing
+            or existing.get("adjudication") == "manual"
+        ):
             continue
         category = entry["category"]
         has_discriminator = bool(entry.get("discriminator"))
+        data_fields = set(filter(None, (entry.get("data_field") or "").split(",")))
+        has_shape_data = bool(data_fields.intersection(DATA_FIELDS))
+        closed_pair_candidate = (
+            category in {"paired_api", "closed_dispatch"}
+            or (category == "json_authoring" and has_shape_data)
+            or (
+                category == "public_value_field"
+                and entry.get("field") in DATA_FIELDS
+            )
+        )
         is_independent_audit_context = (
             entry["owner_repository"] == "coauth"
             and entry["symbol"] == "NotificationEventLog.audit_context"
         )
         if is_independent_audit_context:
             classification = "independent"
+        elif (
+            category == "public_value_field"
+            and entry.get("schema_shape")
+            in {"open_json", "open_json_container", "open_map"}
+        ):
+            # A resolved open schema is stronger evidence than a sibling field
+            # merely named `kind`/`state`/`schema`; the raw value is not selected
+            # by that discriminator.
+            classification = "open_json"
+        elif existing is not None and existing.get("classification") == "polymorphic_boundary":
+            # Preserve exact, previously adjudicated raw ingress/persistence or
+            # extension boundaries. The exact finding key still provides the
+            # stale ratchet when the code disappears.
+            classification = "polymorphic_boundary"
         elif is_external_adapter_finding(entry):
             classification = "polymorphic_boundary"
-        elif has_discriminator and category in {
-            "public_value_field",
-            "json_authoring",
-            "paired_api",
-            "closed_dispatch",
-        }:
+        elif has_discriminator and closed_pair_candidate:
             classification = "closed_discriminated"
         else:
             classification = "polymorphic_boundary"
-        decision = (
-            "raw"
-            if is_external_adapter_finding(entry)
-            else "closed"
-            if category != "public_value_field"
-            else decision_for_classification(classification)
-        )
+        decision = decision_for_classification(classification)
         if classification == "independent":
             reason = (
                 "Notification audit_context is documented supplementary audit annotation; NotificationEventKind "
@@ -1324,6 +1386,11 @@ def refresh_allowlist(
             reason = (
                 "The discriminator and raw data remain independently representable at this exact production symbol; "
                 "the authoritative SDK discriminated type must replace the pairing."
+            )
+        elif classification == "open_json":
+            reason = (
+                "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; "
+                "a sibling discriminator does not select its shape."
             )
         elif is_external_adapter_finding(entry):
             reason = (

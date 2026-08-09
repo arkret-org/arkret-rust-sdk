@@ -1,7 +1,7 @@
 //! MLS transport-envelope projection bindings.
 //!
 //! These integration tests moved here from `arkret-mls` when the OpenMLS
-//! isolation layer was split out: the envelope -> repo-`Operation` and
+//! isolation layer was split out: the envelope -> typed local draft and
 //! envelope -> `DeviceMessageTarget` projections live on the event-draft side
 //! (`MlsEnvelopeOperationExt` / `MlsWelcomeTargetExt`), which owns the drafting
 //! and to-device wire shapes. `arkret-mls` must not depend on this crate, so it
@@ -63,10 +63,10 @@ fn commit_envelope_projects_to_mls_commit_operation() {
         .unwrap();
 
     assert_eq!(op.object_kind, "mls_commit");
-    let object_id = op.object_id.unwrap();
+    let object_id = op.object_id.as_deref().unwrap();
     assert!(object_id.contains("Zml4dHVyZS1yZWFsbQ"));
     assert_eq!(object_id, "Zml4dHVyZS1yZWFsbQ:7");
-    assert_eq!(op.payload["epoch"], 7);
+    assert_eq!(op.payload.epoch, 7);
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn proposal_envelope_projects_to_mls_proposal_operation() {
         .unwrap();
 
     assert_eq!(op.object_kind, "mls_proposal");
-    assert_eq!(op.payload["proposal_type"], "add");
+    assert_eq!(op.payload.proposal_type, "add");
 }
 
 #[test]

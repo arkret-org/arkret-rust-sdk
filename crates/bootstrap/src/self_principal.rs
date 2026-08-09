@@ -78,23 +78,18 @@ pub fn build_self_principal_pcr_create(
         input.capability_action_registry_digest.clone(),
     )?;
 
-    let payload = payload_map(&RealmCreatePayload::new(genesis))?;
-    let mut event = Event::new_at(
-        EventKind::RealmCreate.to_string(),
+    let payload = RealmCreatePayload::new(genesis);
+    let event = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RealmCreate>::new(
         // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
         // carries no realm_id. For a PCR the id is subject-derived from the
         // principal DID rather than from this Event, but the wire shape is the
         // same closed `realm_genesis` scope for every ak.realm.create.
         ScopeRef::RealmGenesis,
         input.principal_id,
-        0,
-        input.hlc,
-        Value::Object(payload.into_iter().collect()),
-        created_at,
-    )?;
-    event.refs = vec![input.did_inception_ref];
-    event.requirements = EventRequirements::default();
-    event.refresh_content_bound_identity()?;
+        payload,
+    )?
+    .with_ref(input.did_inception_ref)
+    .author(0, input.hlc, created_at)?;
     validate_self_principal_pcr_create(&event, false, project)?;
     Ok(event)
 }

@@ -400,6 +400,45 @@ pub struct Event {
     pub requirements: EventRequirements,
 }
 
+/// Minimal accepted-Event facts needed by the registry effect projector.
+///
+/// This is deliberately not an authorable Event and carries no proofs,
+/// requirements, authorization context, or unsigned data. Receiver projection
+/// code can therefore evaluate a persisted projection record without
+/// fabricating a new signed [`Event`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProjectedEventInput {
+    pub kind: EventKind,
+    pub event_id: EventId,
+    pub actor_id: Did,
+    pub actor_seq: u64,
+    pub realm_id: RealmId,
+    pub created_at: DateTime<Utc>,
+    pub payload: BTreeMap<String, Value>,
+    pub refs: Vec<EventRef>,
+    pub preconditions: Vec<Precondition>,
+    pub seal_ref: Option<SealId>,
+    pub seal_basis: Option<SealBasis>,
+}
+
+impl From<&Event> for ProjectedEventInput {
+    fn from(event: &Event) -> Self {
+        Self {
+            kind: event.kind.clone(),
+            event_id: event.event_id.clone(),
+            actor_id: event.actor_id.clone(),
+            actor_seq: event.actor_seq,
+            realm_id: event.realm_id.clone(),
+            created_at: event.created_at,
+            payload: event.payload.clone(),
+            refs: event.refs.clone(),
+            preconditions: event.preconditions.clone(),
+            seal_ref: event.seal_ref.clone(),
+            seal_basis: event.seal_basis.clone(),
+        }
+    }
+}
+
 /// Portable PCR-anchored authorization evidence for an active device key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -481,7 +520,7 @@ impl FederatedDeviceSigningKeyEvidence {
             ));
         }
         let create = &self.authorization_chain[0];
-        if create.kind.as_str() != "ak.realm.create"
+        if create.kind != EventKind::RealmCreate
             || create.actor_id != self.actor_id
             || create.proofs.len() != 1
             || !create.proofs[0].verification_method.starts_with("did:key:")
@@ -520,7 +559,7 @@ impl FederatedDeviceSigningKeyEvidence {
                 )
             || self.range_completeness_evidence.is_empty()
             || self.range_completeness_evidence.iter().any(|attestation| {
-                attestation.kind.as_str() != "ak.attestation.range_completeness"
+                attestation.kind != EventKind::AttestationRangeCompleteness
                     || attestation.realm_id != create.realm_id
             })
         {
@@ -543,8 +582,8 @@ impl FederatedDeviceSigningKeyEvidence {
                         .to_owned(),
                 ));
             }
-            match event.kind.as_str() {
-                "ak.device.authorize" => {
+            match &event.kind {
+                EventKind::DeviceAuthorize => {
                     let device_id = event
                         .payload
                         .get("device_id")
@@ -597,7 +636,7 @@ impl FederatedDeviceSigningKeyEvidence {
                         target_authorize = Some(event);
                     }
                 }
-                "ak.device.revoke" => {
+                EventKind::DeviceRevoke => {
                     let device_id = event
                         .payload
                         .get("device_id")
@@ -607,7 +646,7 @@ impl FederatedDeviceSigningKeyEvidence {
                         })?;
                     accepted_device_ids.remove(device_id);
                 }
-                "ak.device.reanchor" => {
+                EventKind::DeviceReanchor => {
                     if !event.proofs[0].verification_method.starts_with("did:key:") {
                         return Err(Error::Protocol(
                             "device reanchor must carry an identity-root proof".to_owned(),
@@ -617,7 +656,7 @@ impl FederatedDeviceSigningKeyEvidence {
                     expecting_root_authorize = true;
                     target_authorize = None;
                 }
-                "ak.device.list.update" => {}
+                EventKind::DeviceListUpdate => {}
                 _ => {
                     return Err(Error::Protocol(
                         "authorization_chain contains a non-device-control Event".to_owned(),
@@ -1476,7 +1515,7 @@ impl Event {
     ///
     /// `realm_id` is taken from `scope_ref` so the envelope cannot be built
     /// with a Realm that disagrees with its own signed scope.
-    pub fn new(
+    pub(crate) fn new(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: Did,
@@ -1501,7 +1540,7 @@ impl Event {
     /// the Event wire profile before it is stored on the typed envelope. This
     /// is the deterministic authoring entry point for callers that need an
     /// object timestamp and its containing Event to share one exact instant.
-    pub fn new_at(
+    pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: Did,
@@ -1522,7 +1561,7 @@ impl Event {
     /// placeholder id, computes the digest over the preimage — which excludes
     /// `event_id` — and then stamps the derived id.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_with_derived_id_at(
+    pub(crate) fn new_with_derived_id_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: Did,

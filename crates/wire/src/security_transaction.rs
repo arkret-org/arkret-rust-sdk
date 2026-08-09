@@ -6,6 +6,8 @@
 //! Recovery is additionally discriminated by identity model. This is not a
 //! general Saga/Plan DSL.
 
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -216,13 +218,20 @@ pub struct PreparedEventUnit {
     pub destination_service_id: Did,
     pub audience: Did,
     pub request_schema: String,
-    pub request: Value,
+    pub request: BTreeMap<String, Value>,
     pub canonical_request_base64url: String,
     pub request_digest: Hash,
 }
 
 impl PreparedEventUnit {
-    pub fn new(destination_service_id: Did, request: Value) -> Result<Self> {
+    pub fn new<T: Serialize>(destination_service_id: Did, request: T) -> Result<Self> {
+        let request = serde_json::to_value(request)?;
+        let Value::Object(request) = request else {
+            return Err(Error::Protocol(
+                "prepared Event unit request must be a JSON object".to_owned(),
+            ));
+        };
+        let request = request.into_iter().collect::<BTreeMap<_, _>>();
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&request)?;
         Ok(Self {
             operation_id: "ak.self.events.command.submit".to_owned(),
@@ -787,28 +796,113 @@ impl<A: Serialize> ClientStepAttestation<A> {
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
-        let value = serde_json::to_value(self)?;
-        let object = value.as_object().ok_or_else(|| {
-            Error::Protocol("client step attestation must serialize as an object".to_owned())
-        })?;
-        let projection = CLIENT_STEP_ATTESTATION_SIGNED_FIELDS
-            .iter()
-            .map(|field| {
-                object
-                    .get(*field)
-                    .cloned()
-                    .map(|value| ((*field).to_owned(), value))
-                    .ok_or_else(|| {
-                        Error::Protocol(format!(
-                            "client step attestation is missing signed field {field}"
-                        ))
-                    })
-            })
-            .collect::<Result<serde_json::Map<String, Value>>>()?;
-        Ok(arkret_canonical::canonical::canonical_json_bytes(
-            &Value::Object(projection),
-        )?)
+        client_step_attestation_signing_bytes(
+            self.step,
+            &self.output_ref,
+            &self.transaction_id,
+            &self.transaction_request_digest,
+            &self.prepared_plan_digest,
+            &self.attestation_digest,
+        )
     }
+}
+
+/// Client-step attestation before the detached JWS exists. This state is not
+/// serializable and owns the one canonical transcript used by producers.
+#[derive(Clone, Debug)]
+pub struct UnsignedClientStepAttestation<A> {
+    step: SecurityTransactionStep,
+    output_ref: String,
+    transaction_id: TransactionId,
+    transaction_request_digest: Hash,
+    prepared_plan_digest: Hash,
+    attestation_digest: Hash,
+    artifact: A,
+    verification_method: DidUrl,
+}
+
+impl<A: Serialize> UnsignedClientStepAttestation<A> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        step: SecurityTransactionStep,
+        output_ref: String,
+        transaction_id: TransactionId,
+        transaction_request_digest: Hash,
+        prepared_plan_digest: Hash,
+        attestation_digest: Hash,
+        artifact: A,
+        verification_method: DidUrl,
+    ) -> Result<Self> {
+        validate_step_output_ref("client_attestation.output_ref", &output_ref)?;
+        let artifact_bytes = arkret_canonical::canonical::canonical_json_bytes(&artifact)?;
+        arkret_canonical::canonical::verify_digest(&artifact_bytes, attestation_digest.as_str())?;
+        Ok(Self {
+            step,
+            output_ref,
+            transaction_id,
+            transaction_request_digest,
+            prepared_plan_digest,
+            attestation_digest,
+            artifact,
+            verification_method,
+        })
+    }
+
+    pub fn signing_bytes(&self) -> Result<Vec<u8>> {
+        client_step_attestation_signing_bytes(
+            self.step,
+            &self.output_ref,
+            &self.transaction_id,
+            &self.transaction_request_digest,
+            &self.prepared_plan_digest,
+            &self.attestation_digest,
+        )
+    }
+
+    pub fn attach_signature(
+        self,
+        signature: crate::NonEmptyString,
+    ) -> Result<ClientStepAttestation<A>> {
+        let attestation = ClientStepAttestation {
+            step: self.step,
+            output_ref: self.output_ref,
+            transaction_id: self.transaction_id,
+            transaction_request_digest: self.transaction_request_digest,
+            prepared_plan_digest: self.prepared_plan_digest,
+            attestation_digest: self.attestation_digest,
+            artifact: self.artifact,
+            auth_data: ClientStepAttestationAuthData {
+                verification_method: self.verification_method,
+                signature_algorithm: "Ed25519".to_owned(),
+                signature: signature.into_string(),
+                signed_fields: CLIENT_STEP_ATTESTATION_SIGNED_FIELDS
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect(),
+            },
+        };
+        attestation.validate_structural()?;
+        Ok(attestation)
+    }
+}
+
+fn client_step_attestation_signing_bytes(
+    step: SecurityTransactionStep,
+    output_ref: &str,
+    transaction_id: &TransactionId,
+    transaction_request_digest: &Hash,
+    prepared_plan_digest: &Hash,
+    attestation_digest: &Hash,
+) -> Result<Vec<u8>> {
+    let value = serde_json::json!({
+        "step": step,
+        "output_ref": output_ref,
+        "transaction_id": transaction_id,
+        "transaction_request_digest": transaction_request_digest,
+        "prepared_plan_digest": prepared_plan_digest,
+        "attestation_digest": attestation_digest,
+    });
+    Ok(arkret_canonical::canonical::canonical_json_bytes(&value)?)
 }
 
 fn validate_opaque_ref(name: &str, value: &str) -> Result<()> {
@@ -888,7 +982,7 @@ impl PreparedEventUnit {
         coordinator_service_id: &Did,
     ) -> Result<EventsSubmitBatchRequestBody> {
         self.validate_structural(coordinator_service_id)?;
-        serde_json::from_value(self.request.clone()).map_err(|error| {
+        serde_json::from_value(serde_json::to_value(&self.request)?).map_err(|error| {
             Error::Protocol(format!(
                 "prepared Event unit is not a typed EventsSubmitBatchRequestBody: {error}"
             ))
@@ -1263,9 +1357,13 @@ impl SecurityTransaction {
             let prepared_backups = plan_rotation
                 .encrypted_backup_material
                 .value
-                .as_array()
-                .cloned()
-                .unwrap_or_else(|| vec![plan_rotation.encrypted_backup_material.value.clone()]);
+                .get("backups")
+                .and_then(Value::as_array)
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "security-rotation public material must contain a backups array".to_owned(),
+                    )
+                })?;
             let expected_kind = match binding_rotation.backup_kind {
                 BackupRotationKind::SecretStorage => "secret_storage",
                 BackupRotationKind::MlsHistory => "mls_history",
@@ -1397,8 +1495,8 @@ mod tests {
             BackupRotationKind::SecretStorage => "secret_storage",
             BackupRotationKind::MlsHistory => "mls_history",
         };
-        let value = Value::Array(
-            binding
+        let value = json!({
+            "backups": binding
                 .new_backups
                 .iter()
                 .map(|backup| {
@@ -1410,15 +1508,9 @@ mod tests {
                         "series_id": binding.new_series_id,
                     })
                 })
-                .collect(),
-        );
-        let bytes = arkret_canonical::canonical::canonical_json_bytes(&value).unwrap();
-        CanonicalPublicMaterial {
-            canonical_encoding: CanonicalEncoding::CanonicalJson,
-            value,
-            canonical_bytes_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
-            digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes)).unwrap(),
-        }
+                .collect::<Vec<_>>()
+        });
+        CanonicalPublicMaterial::canonical_json(value).unwrap()
     }
 
     fn event_unit(coordinator: &Did, kind: &str) -> PreparedEventUnit {
@@ -1486,9 +1578,11 @@ mod tests {
     }
 
     fn prepared_event_id(unit: &PreparedEventUnit) -> EventId {
-        serde_json::from_value::<EventsSubmitBatchRequestBody>(unit.request.clone())
-            .unwrap()
-            .events[0]
+        serde_json::from_value::<EventsSubmitBatchRequestBody>(
+            serde_json::to_value(&unit.request).unwrap(),
+        )
+        .unwrap()
+        .events[0]
             .event
             .event_id
             .clone()
@@ -1738,7 +1832,8 @@ mod tests {
             .encrypted_backup_material
             .value
             .clone();
-        value[0]["actor_id"] = json!("did:webvh:z6mkfixture:mallory.example");
+        value.get_mut("backups").unwrap()[0]["actor_id"] =
+            json!("did:webvh:z6mkfixture:mallory.example");
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&value).unwrap();
         wrong_backup.backup_rotations[0].encrypted_backup_material = CanonicalPublicMaterial {
             canonical_encoding: CanonicalEncoding::CanonicalJson,

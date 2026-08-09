@@ -78,6 +78,18 @@ pub struct RangeCompletenessAttestation {
 
 impl RangeCompletenessAttestation {
     pub const SCHEMA: &'static str = SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1;
+
+    /// Canonical proof transcript. Proofs are detached from the payload they
+    /// authenticate, so every producer and verifier must use this single
+    /// omission rule instead of editing serialized JSON independently.
+    pub fn proof_payload_bytes(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            Error::Protocol("range completeness attestation must serialize as an object".to_owned())
+        })?;
+        object.remove("proofs");
+        Ok(canonical::canonical_json_bytes(&value)?)
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/cell_lattice`.

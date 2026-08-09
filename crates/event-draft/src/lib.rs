@@ -1,7 +1,7 @@
 //! Arkret v1 client-side event drafting.
 //!
 //! Owner of the SDK-local drafting layer that sits *in front of* the wire
-//! Event Envelope: the local [`Operation`] draft record, the
+//! Event Envelope: typed Event drafts, the local MLS scheduler draft,
 //! [`OperationEnvelope`] + registry-backed [`OperationEnvelopeBuilder`],
 //! the draft-to-event conversion ([`OperationEventConversion`]), the
 //! event-draft kind registry, LexoRank-style rank interval arithmetic, and
@@ -16,6 +16,7 @@ mod agent;
 mod applet;
 mod calendar;
 mod device;
+mod device_message;
 mod event_payload;
 mod ghost_profile;
 mod operation;
@@ -23,6 +24,10 @@ pub mod operations;
 mod payloads;
 mod rank;
 mod registry;
+#[cfg(feature = "test-support")]
+#[doc(hidden)]
+pub mod test_support;
+mod typed_event_draft;
 
 pub use accountability::accountability_grant_event;
 pub use agent::{
@@ -32,15 +37,19 @@ pub use agent::{
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
 pub use device::build_device_authorize_event_at;
+pub use device_message::{
+    DeviceMessageSpec, TypedDeviceMessageTarget, device_message_kind, device_message_spec,
+};
 pub use event_payload::{
     EVENT_KINDS_WITHOUT_RUST_PAYLOAD, EVENT_PAYLOAD_BINDINGS,
     EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT, EventPayloadBinding, EventPayloadExt, EventSpec,
-    MessageEventPayload,
+    MessageEventPayload, ResolvedStateEventPayloadExt,
 };
 pub use ghost_profile::GhostActorProfileRequest;
 pub use operation::{
-    CausalRef, MlsEnvelopeOperationExt, MlsWelcomeTargetExt, Operation, OperationEnvelope,
-    OperationEnvelopeBuilder, OperationEventConversion, OperationSignature,
+    CausalRef, LocalOperationDraft, LocalOperationSpec, MlsEnvelopeOperationExt,
+    MlsWelcomeTargetExt, OperationEnvelope, OperationEnvelopeBuilder, OperationEventConversion,
+    OperationSignature, ProjectedEventOperation, ProjectionContext, local_operation_spec,
 };
 pub use payloads::StrandCreateObject;
 pub use rank::{
@@ -49,6 +58,9 @@ pub use rank::{
 pub use registry::{
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
     EventDraftKindValidation, event_draft_kind_conformance_vectors,
+};
+pub use typed_event_draft::{
+    ExtensionPayloadValidator, TypedEventDraft, ValidatedExtensionPayload,
 };
 
 /// Result alias for this crate's fallible drafting operations.

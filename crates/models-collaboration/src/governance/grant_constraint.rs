@@ -46,6 +46,21 @@ pub enum GrantConstraintKind {
     Confidentiality,
 }
 
+impl GrantConstraintKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Temporal => "temporal",
+            Self::FieldAccess => "field_access",
+            Self::KindRestriction => "kind_restriction",
+            Self::ScopeLimitation => "scope_limitation",
+            Self::AuthorityControl => "authority_control",
+            Self::Quota => "quota",
+            Self::ClaimBased => "claim_based",
+            Self::Confidentiality => "confidentiality",
+        }
+    }
+}
+
 /// Grant constraint effect from `grant-constraint.schema.json`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

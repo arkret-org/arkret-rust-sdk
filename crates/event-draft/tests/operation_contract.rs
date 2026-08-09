@@ -1,8 +1,12 @@
 use arkret_event_draft::{
-    EventDraftKindRegistry, Operation, OperationEnvelopeBuilder, OperationEventConversion,
+    EventDraftKindRegistry, OperationEnvelopeBuilder, OperationEventConversion,
 };
 use arkret_identifiers::{Did, Hlc, OperationId, RealmId};
-use arkret_wire::{Audience, DidUrl, EventKind, Hash, Proof, ProofBindingRequirements, ScopeRef};
+use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
+use arkret_wire::{
+    Audience, DidUrl, EventKind, Hash, Proof, ProofBindingRequirements, ScopeRef, StrandId,
+    event_spec,
+};
 use chrono::Utc;
 use serde_json::json;
 
@@ -16,45 +20,24 @@ fn test_scope() -> ScopeRef {
     }
 }
 
-#[test]
-fn operation_serializes_protocol_field_names() {
-    let mut operation = Operation::create(
-        OperationId::new("ak:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
-        RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
-        "morph",
-        json!({"id":"ak:morph:AdDdo41xqpK3J2_u26PQlGHCNJzU-Sym3p-LwW-bZmbb"}),
-    );
-    operation.object_id = Some("ak:morph:AdDdo41xqpK3J2_u26PQlGHCNJzU-Sym3p-LwW-bZmbb".to_owned());
-
-    let value = serde_json::to_value(operation).unwrap();
-
-    assert_eq!(value["record_kind"], "operation");
-    assert!(value.get("type").is_none());
-    assert_eq!(value["operation_kind"], "create");
-    assert_eq!(
-        value["object_id"],
-        "ak:morph:AdDdo41xqpK3J2_u26PQlGHCNJzU-Sym3p-LwW-bZmbb"
-    );
-    assert_eq!(value["object_kind"], "morph");
-    assert!(value.get("target_object_id").is_none());
-    assert_eq!(value["schema"], Operation::SCHEMA);
+fn message_payload() -> MessageCreatePayload {
+    MessageCreatePayload::with_content(
+        StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
+        "discussion",
+        ContentBlock::text("hello"),
+    )
 }
 
 #[test]
 fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding() {
-    let mut operation = OperationEnvelopeBuilder::new(
+    let mut operation = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
         test_scope(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        EventKind::MessageCreate.to_string(),
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        message_payload(),
     )
-    .with_payload(json!({
-        "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
-        "track_name": "discussion",
-        "content": {"kind": "ak.content.text", "body": "hello"}
-    }))
     .build(&EventDraftKindRegistry::default())
     .unwrap();
     let digest = operation.operation_digest().unwrap();
@@ -88,24 +71,20 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
 
 #[test]
 fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
-    let operation = OperationEnvelopeBuilder::new(
+    let operation = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
         test_scope(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        EventKind::MessageCreate.to_string(),
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-    )
-    .with_payload(json!({
-        "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
-        "track_name": "discussion",
-        "content": {"kind": "ak.content.text", "body": "hello"}
-    }))
-    .build(&EventDraftKindRegistry::default())
-    .unwrap();
+        message_payload(),
+    );
 
     let event = operation
-        .into_event_envelope(OperationEventConversion::default())
+        .into_event_envelope(
+            &EventDraftKindRegistry::default(),
+            OperationEventConversion::default(),
+        )
         .unwrap();
     assert_eq!(event.kind, EventKind::MessageCreate);
     assert_eq!(event.actor_seq, 7);

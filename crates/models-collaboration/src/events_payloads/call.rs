@@ -707,7 +707,7 @@ where
     Option::<T>::deserialize(deserializer).map(Some)
 }
 
-fn deserialize_present_nullable_timestamp<'de, D>(
+fn deserialize_present_nullable_canonical_timestamp<'de, D>(
     deserializer: D,
 ) -> std::result::Result<Option<Option<DateTime<Utc>>>, D::Error>
 where
@@ -717,7 +717,7 @@ where
         .map(Some)
 }
 
-fn serialize_optional_nullable_timestamp<S>(
+fn serialize_optional_nullable_canonical_timestamp<S>(
     value: &Option<Option<DateTime<Utc>>>,
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error>
@@ -742,13 +742,13 @@ pub struct CallSummaryPayload {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_nullable_timestamp"
+        serialize_with = "serialize_optional_nullable_canonical_timestamp"
     )]
     pub started_at: Option<Option<DateTime<Utc>>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_nullable_timestamp"
+        serialize_with = "serialize_optional_nullable_canonical_timestamp"
     )]
     pub ended_at: Option<Option<DateTime<Utc>>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -769,9 +769,15 @@ struct CallSummaryPayloadWire {
     call_id: CallId,
     final_state: CallSummaryFinalState,
     mode: CallMode,
-    #[serde(default, deserialize_with = "deserialize_present_nullable_timestamp")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_present_nullable_canonical_timestamp"
+    )]
     started_at: Option<Option<DateTime<Utc>>>,
-    #[serde(default, deserialize_with = "deserialize_present_nullable_timestamp")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_present_nullable_canonical_timestamp"
+    )]
     ended_at: Option<Option<DateTime<Utc>>>,
     #[serde(default, deserialize_with = "deserialize_present_nullable")]
     duration_ms: Option<Option<u64>>,

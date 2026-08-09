@@ -614,6 +614,60 @@ impl MlsWelcomeClaimEnvelope {
     }
 }
 
+/// Welcome-claim authoring state before the requester signature exists.
+/// The existing signing-input model owns the canonical transcript fields;
+/// this wrapper makes attachment of a real signature the only transition to
+/// the outbound envelope.
+#[derive(Clone, Debug)]
+pub struct UnsignedMlsWelcomeClaimEnvelope {
+    signing_input: MlsWelcomeClaimEnvelopeSigningInput,
+}
+
+impl UnsignedMlsWelcomeClaimEnvelope {
+    pub fn new(signing_input: MlsWelcomeClaimEnvelopeSigningInput) -> Self {
+        Self { signing_input }
+    }
+
+    pub fn signing_input(&self) -> &MlsWelcomeClaimEnvelopeSigningInput {
+        &self.signing_input
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        Ok(canonical::canonical_json_bytes(&self.signing_input)?)
+    }
+
+    pub fn attach_signature(
+        self,
+        kid: NonEmptyString,
+        sig: Base64UrlString,
+    ) -> Result<MlsWelcomeClaimEnvelope> {
+        let input = self.signing_input;
+        let envelope = MlsWelcomeClaimEnvelope {
+            keypackage_ref: input.keypackage_ref,
+            keypackage_digest: input.keypackage_digest,
+            intended_realm_id: input.intended_realm_id,
+            claim_id: input.claim_id,
+            requester_did: input.requester_did,
+            trust_binding: input.trust_binding,
+            nonce: input.nonce,
+            welcome_digest: input.welcome_digest,
+            created_at: input.created_at,
+            signature: KeyOperationSignature {
+                kid,
+                signature_algorithm: Some(
+                    NonEmptyString::new("Ed25519")
+                        .expect("the fixed signature algorithm is non-empty"),
+                ),
+                sig,
+            },
+        };
+        envelope
+            .validate_signature_shape()
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        Ok(envelope)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MlsWelcomePayload {
     pub mls_group_id: MlsGroupId,

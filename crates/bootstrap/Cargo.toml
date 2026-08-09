@@ -31,6 +31,7 @@ serde_json = {workspace = true}
 # dev-only arrangement arkret-state and arkret-models-collaboration use.
 [dev-dependencies]
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+arkret-wire = {workspace = true,features = ["test-support"]}
 
 [lints]
 workspace = true

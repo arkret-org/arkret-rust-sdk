@@ -13,6 +13,9 @@ version.workspace = true
 
 [features]
 default = []
+# Raw Event fixture constructors for tests and dedicated conformance crates.
+# Production consumers must author standard Events through arkret-event-draft.
+test-support = []
 # OpenAPI `ToSchema` derives on the shared wire primitives. Off by default so
 # the data-layer graph stays framework-free; service crates opt in. Forwards to
 # the identifier newtypes and enables salvo-oapi's chrono schemas for the
@@ -41,3 +44,11 @@ sha2 = {workspace = true}
 
 [lints]
 workspace = true
+
+[[test]]
+name = "event_envelope_contract"
+required-features = ["test-support"]
+
+[[test]]
+name = "proof_contract"
+required-features = ["test-support"]

@@ -28,7 +28,7 @@ pub fn compute_seal_id(canonical_bytes: &[u8]) -> Result<SealId> {
 ///
 /// Seal is not an Event Envelope, so its signature uses the generic
 /// `payload_digest` member rather than the Event-only `event_digest`
-/// (`seal.schema.json` `$defs.signature`).
+/// (`seal.schema.json#/$defs/signature`).
 ///
 /// This is the single Rust implementation of
 /// `seal.schema.json#/$defs/signature`; a second, incompatible copy used to

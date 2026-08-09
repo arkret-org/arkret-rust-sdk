@@ -197,6 +197,7 @@ pub const CONTENT_KIND_POLL: &str = "ak.content.poll";
 pub const CONTENT_KIND_POLL_RESPONSE: &str = "ak.content.poll.response";
 pub const CONTENT_KIND_POLL_CLOSE: &str = "ak.content.poll.close";
 pub const CONTENT_KIND_AUDIENCE_MENTION: &str = "ak.content.audience_mention";
+const LEGACY_CONTENT_KIND_AUDIENCE_MENTION: &str = "audience_mention";
 
 pub const MEDIA_CONTENT_KINDS: [&str; 4] = [
     CONTENT_KIND_IMAGE,
@@ -208,7 +209,7 @@ pub const MEDIA_CONTENT_KINDS: [&str; 4] = [
 /// Extensible ContentBlock used by message, Strand, and Morph content fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContentBlock {
-    pub kind: String,
+    pub kind: ContentBlockKind,
     pub body: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub parts: Vec<ContentBlock>,
@@ -225,9 +226,9 @@ impl MlsPayloadType for MessageMetadata {
 }
 
 impl ContentBlock {
-    pub fn new(kind: impl Into<String>, body: impl Into<String>) -> Self {
+    pub fn new(kind: ContentBlockKind, body: impl Into<String>) -> Self {
         Self {
-            kind: kind.into(),
+            kind,
             body: body.into(),
             parts: Vec::new(),
             extra: BTreeMap::new(),
@@ -235,7 +236,7 @@ impl ContentBlock {
     }
 
     pub fn text(body: impl Into<String>) -> Self {
-        Self::new(CONTENT_KIND_TEXT, body)
+        Self::new(ContentBlockKind::Text, body)
     }
 
     pub fn from_value(value: Value) -> Result<Self> {
@@ -276,19 +277,19 @@ impl ContentBlock {
             .map_err(|err| Error::Protocol(format!("content block serialize: {err}")))
     }
 
-    pub fn parsed_kind(&self) -> Option<ContentBlockKind> {
-        ContentBlockKind::parse(&self.kind)
+    pub fn parsed_kind(&self) -> ContentBlockKind {
+        self.kind
     }
 
     pub fn is_media(&self) -> bool {
-        self.parsed_kind().is_some_and(|kind| kind.is_media())
+        self.kind.is_media()
     }
 
     pub fn first_media_block(&self) -> Option<&ContentBlock> {
         if self.is_media() {
             return Some(self);
         }
-        if self.kind != CONTENT_KIND_COMPOSITE {
+        if self.kind != ContentBlockKind::Composite {
             return None;
         }
         self.parts.iter().find(|part| part.is_media())
@@ -319,7 +320,7 @@ impl ContentBlock {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContentBlockKind {
     Composite,
     Text,
@@ -353,7 +354,9 @@ impl ContentBlockKind {
             CONTENT_KIND_POLL => Some(Self::Poll),
             CONTENT_KIND_POLL_RESPONSE => Some(Self::PollResponse),
             CONTENT_KIND_POLL_CLOSE => Some(Self::PollClose),
-            "audience_mention" | CONTENT_KIND_AUDIENCE_MENTION => Some(Self::AudienceMention),
+            LEGACY_CONTENT_KIND_AUDIENCE_MENTION | CONTENT_KIND_AUDIENCE_MENTION => {
+                Some(Self::AudienceMention)
+            }
             _ => None,
         }
     }
@@ -373,12 +376,32 @@ impl ContentBlockKind {
             Self::Poll => CONTENT_KIND_POLL,
             Self::PollResponse => CONTENT_KIND_POLL_RESPONSE,
             Self::PollClose => CONTENT_KIND_POLL_CLOSE,
-            Self::AudienceMention => "audience_mention",
+            Self::AudienceMention => CONTENT_KIND_AUDIENCE_MENTION,
         }
     }
 
     pub fn is_media(&self) -> bool {
         matches!(self, Self::Image | Self::Video | Self::Audio | Self::File)
+    }
+}
+
+impl Serialize for ContentBlockKind {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ContentBlockKind {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::parse(&value)
+            .ok_or_else(|| serde::de::Error::custom("unsupported content block kind"))
     }
 }
 
@@ -579,7 +602,7 @@ impl ContentBlock {
     /// the full Event would otherwise exceed the 1 MiB envelope limit, and only a full-Event size
     /// validator can prove that exception.
     pub fn validate_long_text(&self) -> Result<()> {
-        if self.kind != CONTENT_KIND_LONG_TEXT {
+        if self.kind != ContentBlockKind::LongText {
             return Err(Error::Protocol(format!(
                 "expected {CONTENT_KIND_LONG_TEXT}, got {}",
                 self.kind
@@ -757,7 +780,7 @@ impl ContentBlock {
 
     /// Validate that an `ak.content.text` block stays inside the inline boundary.
     pub fn validate_inline_text(&self) -> Result<()> {
-        if self.kind != CONTENT_KIND_TEXT {
+        if self.kind != ContentBlockKind::Text {
             return Err(Error::Protocol(format!(
                 "expected {CONTENT_KIND_TEXT}, got {}",
                 self.kind
@@ -1121,47 +1144,22 @@ pub fn validate_content_block(block: &Value) -> ContentBlockValidationResult<()>
             "content block must be a JSON object",
         ));
     };
-    let Some(block_kind) = object.get("kind").and_then(Value::as_str) else {
-        return Err(ContentBlockValidationError::new(
-            "content block requires kind",
-        ));
-    };
     if object.contains_key("blocks") {
         return Err(ContentBlockValidationError::new(
             "content.blocks is not permitted; use content.parts",
         ));
     }
-    let Some(block_kind) = ContentBlockKind::parse(block_kind) else {
-        return Err(ContentBlockValidationError::new(
-            "unsupported content block type",
-        ));
-    };
-    match block_kind {
+    let parsed = ContentBlock::from_value(block.clone())
+        .map_err(|_| ContentBlockValidationError::new("content block is invalid"))?;
+    match parsed.kind {
         ContentBlockKind::Composite => validate_composite_content_block(block),
         ContentBlockKind::Text | ContentBlockKind::FormattedText => {
-            if !content_block_has_text(block) {
-                return Err(ContentBlockValidationError::new(
-                    "text content block requires text",
-                ));
-            }
-            Ok(())
+            validate_text_content_block(block)
         }
         ContentBlockKind::LongText => ContentBlock::from_value(block.clone())
             .and_then(|parsed| parsed.validate_long_text())
             .map_err(|_| ContentBlockValidationError::new("long text content block is invalid")),
-        ContentBlockKind::Code => {
-            if block
-                .get("text")
-                .or_else(|| block.get("body"))
-                .and_then(Value::as_str)
-                .is_none_or(str::is_empty)
-            {
-                return Err(ContentBlockValidationError::new(
-                    "code content block requires text",
-                ));
-            }
-            Ok(())
-        }
+        ContentBlockKind::Code => validate_code_content_block(block),
         ContentBlockKind::Image
         | ContentBlockKind::Video
         | ContentBlockKind::Audio
@@ -1169,24 +1167,49 @@ pub fn validate_content_block(block: &Value) -> ContentBlockValidationResult<()>
         ContentBlockKind::Location => validate_location_content_block(block),
         ContentBlockKind::Poll => validate_poll_content_block(block),
         ContentBlockKind::PollResponse => validate_poll_response_content_block(block),
-        ContentBlockKind::PollClose => {
-            if block
-                .get("poll_id")
-                .and_then(Value::as_str)
-                .is_none_or(|value| value.trim().is_empty())
-            {
-                return Err(ContentBlockValidationError::new(
-                    "poll close content block requires poll_id",
-                ));
-            }
-            Ok(())
-        }
+        ContentBlockKind::PollClose => validate_poll_close_content_block(block),
         ContentBlockKind::AudienceMention => {
             serde_json::from_value::<AudienceMention>(block.clone())
                 .map(|_| ())
                 .map_err(|_| ContentBlockValidationError::new("audience mention is invalid"))
         }
     }
+}
+
+fn validate_text_content_block(block: &Value) -> ContentBlockValidationResult<()> {
+    if !content_block_has_text(block) {
+        return Err(ContentBlockValidationError::new(
+            "text content block requires text",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_code_content_block(block: &Value) -> ContentBlockValidationResult<()> {
+    if block
+        .get("text")
+        .or_else(|| block.get("body"))
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        return Err(ContentBlockValidationError::new(
+            "code content block requires text",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_poll_close_content_block(block: &Value) -> ContentBlockValidationResult<()> {
+    if block
+        .get("poll_id")
+        .and_then(Value::as_str)
+        .is_none_or(|value| value.trim().is_empty())
+    {
+        return Err(ContentBlockValidationError::new(
+            "poll close content block requires poll_id",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_composite_content_block(block: &Value) -> ContentBlockValidationResult<()> {

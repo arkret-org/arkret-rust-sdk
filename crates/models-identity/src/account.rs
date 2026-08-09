@@ -293,16 +293,33 @@ pub struct AccountHandoffAuthenticationProof {
 
 impl AccountHandoffAuthenticationProof {
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("account handoff proof serializes as an object")
-            .remove("signature");
-        let mut bytes = ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN
-            .as_bytes()
-            .to_vec();
-        bytes.extend(canonical::canonical_json_bytes(&value)?);
-        Ok(bytes)
+        account_handoff_proof_signing_bytes(&serde_json::json!({
+            "proof_kind": self.proof_kind,
+            "challenge": &self.challenge,
+            "request_canonical_digest": &self.request_canonical_digest,
+            "audience": &self.audience,
+            "issuer": &self.issuer,
+            "client_id": &self.client_id,
+            "redirect_uri": &self.redirect_uri,
+            "state": &self.state,
+            "nonce": &self.nonce,
+            "authorization_code": &self.authorization_code,
+            "code_verifier": &self.code_verifier,
+        }))
+    }
+
+    fn unsigned_proof(&self) -> UnsignedAccountHandoffAuthenticationProof {
+        UnsignedAccountHandoffAuthenticationProof {
+            challenge: self.challenge.clone(),
+            audience: self.audience.clone(),
+            issuer: self.issuer.clone(),
+            client_id: self.client_id.clone(),
+            redirect_uri: self.redirect_uri.clone(),
+            state: self.state.clone(),
+            nonce: self.nonce.clone(),
+            authorization_code: self.authorization_code.clone(),
+            code_verifier: self.code_verifier.clone(),
+        }
     }
 }
 
@@ -316,16 +333,140 @@ pub struct AccountHandoffRequestBody {
 
 impl AccountHandoffRequestBody {
     pub fn canonical_request_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        let proof = value
-            .as_object_mut()
-            .and_then(|object| object.get_mut("proof"))
-            .and_then(Value::as_object_mut)
-            .expect("account handoff request proof serializes as an object");
-        proof.remove("request_canonical_digest");
-        proof.remove("signature");
-        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+        account_handoff_request_digest(&self.request_id, &self.proof.unsigned_proof())
     }
+}
+
+/// OIDC handoff proof members before the request digest and holder signature
+/// have been derived. This authoring type is intentionally not serializable.
+#[derive(Clone, Debug)]
+pub struct UnsignedAccountHandoffAuthenticationProof {
+    pub challenge: String,
+    pub audience: Did,
+    pub issuer: String,
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub state: String,
+    pub nonce: String,
+    pub authorization_code: String,
+    pub code_verifier: String,
+}
+
+/// Non-serializable account-handoff request authoring state.
+#[derive(Clone, Debug)]
+pub struct UnsignedAccountHandoffRequestBody {
+    request_id: RequestId,
+    proof: UnsignedAccountHandoffAuthenticationProof,
+}
+
+impl UnsignedAccountHandoffRequestBody {
+    pub fn new(
+        request_id: RequestId,
+        proof: UnsignedAccountHandoffAuthenticationProof,
+    ) -> Result<Self> {
+        for (name, value) in [
+            ("challenge", proof.challenge.as_str()),
+            ("issuer", proof.issuer.as_str()),
+            ("client_id", proof.client_id.as_str()),
+            ("redirect_uri", proof.redirect_uri.as_str()),
+            ("state", proof.state.as_str()),
+            ("nonce", proof.nonce.as_str()),
+            ("authorization_code", proof.authorization_code.as_str()),
+            ("code_verifier", proof.code_verifier.as_str()),
+        ] {
+            if value.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "account handoff proof {name} must not be empty"
+                )));
+            }
+        }
+        Ok(Self { request_id, proof })
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        account_handoff_request_digest(&self.request_id, &self.proof)
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let request_canonical_digest = self.canonical_request_digest()?;
+        account_handoff_proof_signing_bytes(&account_handoff_unsigned_proof_value(
+            &self.proof,
+            &request_canonical_digest,
+        ))
+    }
+
+    pub fn attach_signature(
+        self,
+        signature: arkret_wire::Base64UrlString,
+    ) -> Result<AccountHandoffRequestBody> {
+        let request_canonical_digest = self.canonical_request_digest()?;
+        Ok(AccountHandoffRequestBody {
+            request_id: self.request_id,
+            proof: AccountHandoffAuthenticationProof {
+                proof_kind: AccountHandoffAuthenticationProofKind::OidcCodeExchange,
+                challenge: self.proof.challenge,
+                request_canonical_digest,
+                audience: self.proof.audience,
+                issuer: self.proof.issuer,
+                client_id: self.proof.client_id,
+                redirect_uri: self.proof.redirect_uri,
+                state: self.proof.state,
+                nonce: self.proof.nonce,
+                authorization_code: self.proof.authorization_code,
+                code_verifier: self.proof.code_verifier,
+                signature: signature.into_string(),
+            },
+        })
+    }
+}
+
+fn account_handoff_request_digest(
+    request_id: &RequestId,
+    proof: &UnsignedAccountHandoffAuthenticationProof,
+) -> Result<Hash> {
+    let value = serde_json::json!({
+        "request_id": request_id,
+        "proof": {
+            "proof_kind": AccountHandoffAuthenticationProofKind::OidcCodeExchange,
+            "challenge": &proof.challenge,
+            "audience": &proof.audience,
+            "issuer": &proof.issuer,
+            "client_id": &proof.client_id,
+            "redirect_uri": &proof.redirect_uri,
+            "state": &proof.state,
+            "nonce": &proof.nonce,
+            "authorization_code": &proof.authorization_code,
+            "code_verifier": &proof.code_verifier,
+        }
+    });
+    Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+}
+
+fn account_handoff_unsigned_proof_value(
+    proof: &UnsignedAccountHandoffAuthenticationProof,
+    request_canonical_digest: &Hash,
+) -> Value {
+    serde_json::json!({
+        "proof_kind": AccountHandoffAuthenticationProofKind::OidcCodeExchange,
+        "challenge": &proof.challenge,
+        "request_canonical_digest": request_canonical_digest,
+        "audience": &proof.audience,
+        "issuer": &proof.issuer,
+        "client_id": &proof.client_id,
+        "redirect_uri": &proof.redirect_uri,
+        "state": &proof.state,
+        "nonce": &proof.nonce,
+        "authorization_code": &proof.authorization_code,
+        "code_verifier": &proof.code_verifier,
+    })
+}
+
+fn account_handoff_proof_signing_bytes(value: &Value) -> Result<Vec<u8>> {
+    let mut bytes = ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN
+        .as_bytes()
+        .to_vec();
+    bytes.extend(canonical::canonical_json_bytes(value)?);
+    Ok(bytes)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -577,29 +718,156 @@ pub struct IdentityCreationControlProof {
 
 impl IdentityCreationControlProof {
     pub fn validate_shape(&self) -> Result<()> {
-        if self.purpose != IdentityBindingPurpose::AccountBindingAndPcrGenesis
-            || self.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
-            || self.lease_fence == 0
-            || self.expires_at <= self.issued_at
-        {
-            return Err(Error::Protocol(
-                "identity creation control proof has an invalid PCR genesis binding".to_owned(),
-            ));
-        }
-        Ok(())
+        validate_identity_creation_control_proof_body(&self.unsigned_body())?;
+        arkret_wire::Base64UrlString::new(self.signature.clone()).map_err(Into::into)
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        self.validate_shape()?;
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("identity creation proof serializes as an object")
-            .remove("signature");
-        let mut bytes = IDENTITY_CREATION_CONTROL_PROOF_DOMAIN.as_bytes().to_vec();
-        bytes.extend(canonical::canonical_json_bytes(&value)?);
-        Ok(bytes)
+        identity_creation_control_proof_signing_bytes(&self.unsigned_body())
     }
+
+    fn unsigned_body(&self) -> UnsignedIdentityCreationControlProofBody {
+        UnsignedIdentityCreationControlProofBody {
+            challenge_id: self.challenge_id.clone(),
+            challenge: self.challenge.clone(),
+            purpose: self.purpose,
+            principal_id: self.principal_id.clone(),
+            operation_digest: self.operation_digest.clone(),
+            pcr_realm_id: self.pcr_realm_id.clone(),
+            realm_create_payload_digest: self.realm_create_payload_digest.clone(),
+            founding_authorize_payload_digest: self.founding_authorize_payload_digest.clone(),
+            initial_session_request_digest: self.initial_session_request_digest.clone(),
+            genesis_unit_kinds: self.genesis_unit_kinds,
+            identity_creation_lease_id: self.identity_creation_lease_id.clone(),
+            lease_fence: self.lease_fence,
+            dpop_jkt: self.dpop_jkt.clone(),
+            audience: self.audience.clone(),
+            origin: self.origin.clone(),
+            trust_domain: self.trust_domain.clone(),
+            issued_at: self.issued_at,
+            expires_at: self.expires_at,
+            verification_key_multibase: self.verification_key_multibase.clone(),
+        }
+    }
+}
+
+/// Identity-creation control members before the cold-root signature exists.
+#[derive(Clone, Debug)]
+pub struct UnsignedIdentityCreationControlProofBody {
+    pub challenge_id: String,
+    pub challenge: String,
+    pub purpose: IdentityBindingPurpose,
+    pub principal_id: Did,
+    pub operation_digest: Hash,
+    pub pcr_realm_id: RealmId,
+    pub realm_create_payload_digest: Hash,
+    pub founding_authorize_payload_digest: Hash,
+    pub initial_session_request_digest: Hash,
+    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
+    pub identity_creation_lease_id: String,
+    pub lease_fence: u64,
+    pub dpop_jkt: String,
+    pub audience: Did,
+    pub origin: String,
+    pub trust_domain: TypedTrustDomainId,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub verification_key_multibase: String,
+}
+
+/// Non-serializable cold-root authoring state.
+#[derive(Clone, Debug)]
+pub struct UnsignedIdentityCreationControlProof {
+    body: UnsignedIdentityCreationControlProofBody,
+}
+
+impl UnsignedIdentityCreationControlProof {
+    pub fn new(body: UnsignedIdentityCreationControlProofBody) -> Result<Self> {
+        validate_identity_creation_control_proof_body(&body)?;
+        Ok(Self { body })
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        identity_creation_control_proof_signing_bytes(&self.body)
+    }
+
+    pub fn attach_signature(
+        self,
+        signature: arkret_wire::Base64UrlString,
+    ) -> Result<IdentityCreationControlProof> {
+        let body = self.body;
+        let proof = IdentityCreationControlProof {
+            proof_kind: IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+            challenge_id: body.challenge_id,
+            challenge: body.challenge,
+            purpose: body.purpose,
+            principal_id: body.principal_id,
+            operation_digest: body.operation_digest,
+            pcr_realm_id: body.pcr_realm_id,
+            realm_create_payload_digest: body.realm_create_payload_digest,
+            founding_authorize_payload_digest: body.founding_authorize_payload_digest,
+            initial_session_request_digest: body.initial_session_request_digest,
+            genesis_unit_kinds: body.genesis_unit_kinds,
+            identity_creation_lease_id: body.identity_creation_lease_id,
+            lease_fence: body.lease_fence,
+            dpop_jkt: body.dpop_jkt,
+            audience: body.audience,
+            origin: body.origin,
+            trust_domain: body.trust_domain,
+            issued_at: body.issued_at,
+            expires_at: body.expires_at,
+            verification_key_multibase: body.verification_key_multibase,
+            signature: signature.into_string(),
+        };
+        proof.validate_shape()?;
+        Ok(proof)
+    }
+}
+
+fn validate_identity_creation_control_proof_body(
+    body: &UnsignedIdentityCreationControlProofBody,
+) -> Result<()> {
+    if body.purpose != IdentityBindingPurpose::AccountBindingAndPcrGenesis
+        || body.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
+        || body.lease_fence == 0
+        || body.expires_at <= body.issued_at
+    {
+        return Err(Error::Protocol(
+            "identity creation control proof has an invalid PCR genesis binding".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn identity_creation_control_proof_signing_bytes(
+    body: &UnsignedIdentityCreationControlProofBody,
+) -> Result<Vec<u8>> {
+    validate_identity_creation_control_proof_body(body)?;
+    let value = serde_json::json!({
+        "proof_kind": IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+        "challenge_id": &body.challenge_id,
+        "challenge": &body.challenge,
+        "purpose": body.purpose,
+        "principal_id": &body.principal_id,
+        "operation_digest": &body.operation_digest,
+        "pcr_realm_id": &body.pcr_realm_id,
+        "realm_create_payload_digest": &body.realm_create_payload_digest,
+        "founding_authorize_payload_digest": &body.founding_authorize_payload_digest,
+        "initial_session_request_digest": &body.initial_session_request_digest,
+        "genesis_unit_kinds": body.genesis_unit_kinds,
+        "identity_creation_lease_id": &body.identity_creation_lease_id,
+        "lease_fence": body.lease_fence,
+        "dpop_jkt": &body.dpop_jkt,
+        "audience": &body.audience,
+        "origin": &body.origin,
+        "trust_domain": &body.trust_domain,
+        "issued_at": canonical::format_timestamp_canonical(body.issued_at),
+        "expires_at": canonical::format_timestamp_canonical(body.expires_at),
+        "verification_key_multibase": &body.verification_key_multibase,
+    });
+    let mut bytes = IDENTITY_CREATION_CONTROL_PROOF_DOMAIN.as_bytes().to_vec();
+    bytes.extend(canonical::canonical_json_bytes(&value)?);
+    Ok(bytes)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

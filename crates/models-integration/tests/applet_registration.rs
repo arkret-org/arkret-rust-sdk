@@ -255,7 +255,7 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
 #[test]
 fn install_commit_uses_only_caller_signed_formal_events() {
     let scope = ScopeRef::Realm { realm_id: realm() };
-    let registration_event = Event::new(
+    let registration_event = arkret_wire::test_support::raw_event(
         "ak.applet.registration",
         scope.clone(),
         did("admin"),
@@ -264,7 +264,7 @@ fn install_commit_uses_only_caller_signed_formal_events() {
         json!({"applet_id": "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"}),
     )
     .unwrap();
-    let capability_grant_event = Event::new(
+    let capability_grant_event = arkret_wire::test_support::raw_event(
         "ak.capability.grant",
         scope.clone(),
         did("admin"),

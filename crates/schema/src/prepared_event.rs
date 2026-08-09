@@ -189,7 +189,7 @@ mod tests {
 
     fn message_event() -> Event {
         let actor = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
-        let mut event = Event::new(
+        let mut event = arkret_wire::test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")

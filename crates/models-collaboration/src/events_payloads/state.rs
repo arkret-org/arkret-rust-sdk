@@ -126,6 +126,8 @@ validated_string_newtype!(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StatePayload {
+    /// Spec-declared open state value. `state` is lifecycle metadata and does
+    /// not discriminate this value's shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -191,6 +193,8 @@ pub struct OrganizationModerationPolicyStatePayload {
     pub organization_did: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub organization_id: Option<NonEmptyString>,
+    /// Spec-declared open moderation-policy value. `state` is independent status
+    /// metadata, not a discriminator for this value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -246,6 +250,8 @@ pub struct PolicyActionStatePayload {
     pub policy_id: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action_id: Option<NonEmptyString>,
+    /// Spec-declared open action result. `state` is independent status
+    /// metadata, not a discriminator for this value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

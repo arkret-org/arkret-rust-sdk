@@ -600,6 +600,44 @@ pub struct KeyVerificationContent {
     pub extra: BTreeMap<String, Value>,
 }
 
+impl KeyVerificationContent {
+    /// Start one key-verification device-message content object.
+    ///
+    /// The selected device-message marker determines which additional fields
+    /// are required before sending; the typed target builder validates that
+    /// branch and rejects an incomplete content object.
+    pub fn new(transaction_id: DeviceMessageTransactionId, from_device: DeviceId) -> Self {
+        Self {
+            transaction_id,
+            from_device,
+            methods: None,
+            method: None,
+            timestamp: None,
+            expires_at: None,
+            purpose: None,
+            pairing_code: None,
+            new_device_pubkey: None,
+            challenge_signature: None,
+            gate_audience: None,
+            request_canonical_digest: None,
+            device_metadata: None,
+            key_agreement_protocols: None,
+            hashes: None,
+            message_authentication_codes: None,
+            short_authentication_string: None,
+            commitment: None,
+            key: None,
+            mac: None,
+            keys: None,
+            verified_keys: None,
+            signatures: None,
+            code: None,
+            reason: None,
+            extra: BTreeMap::new(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyVerificationPurpose {

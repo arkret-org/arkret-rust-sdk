@@ -23,7 +23,7 @@ fn strong_ref(seed: u8) -> EventId {
 
 #[test]
 fn event_new_sets_required_event_id() {
-    let event = Event::new(
+    let event = arkret_wire::test_support::raw_event(
         "ak.message.create",
         ScopeRef::Realm {
             realm_id: realm_id(),
@@ -178,7 +178,7 @@ fn auth_context_rejects_a_producer_selected_capability_list() {
 /// implementation reproduces, so valid signatures verified as invalid.
 #[test]
 fn event_digest_preimage_agrees_with_typed_digest_payload() {
-    let event = Event::new(
+    let event = arkret_wire::test_support::raw_event(
         "ak.message.create",
         ScopeRef::Realm {
             realm_id: realm_id(),

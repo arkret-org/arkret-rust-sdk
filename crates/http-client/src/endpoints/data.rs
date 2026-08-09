@@ -513,7 +513,7 @@ impl Client {
     /// `/_arkret/self/keys/backups/{backup_id}`). The envelope's
     /// The caller owns the stable idempotency key and MUST reuse it only for
     /// byte-identical retries of the same backup body.
-    pub async fn put_key_backup(
+    pub(crate) async fn put_key_backup(
         &self,
         backup_id: &BackupId,
         body: &KeyBackup,

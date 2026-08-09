@@ -36,8 +36,8 @@ pub struct PresentedClaim {
     pub claim_id: String,
     pub subject: Did,
     pub issuer: Did,
-    pub claim_kind: String,
-    pub value: BTreeMap<String, Value>,
+    claim_kind: AuthClaimKind,
+    value: BTreeMap<String, Value>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -61,18 +61,18 @@ impl PresentedClaim {
         value.into_iter().collect()
     }
 
-    pub fn new(
+    fn new(
         claim_id: impl Into<String>,
         subject: Did,
         issuer: Did,
-        claim_kind: impl Into<String>,
+        claim_kind: AuthClaimKind,
         value: BTreeMap<String, Value>,
     ) -> Self {
         Self {
             claim_id: claim_id.into(),
             subject,
             issuer,
-            claim_kind: claim_kind.into(),
+            claim_kind,
             value,
             issued_at: Utc::now(),
             refreshed_at: None,
@@ -80,6 +80,18 @@ impl PresentedClaim {
             revoked_at: None,
             disclosed_fields: BTreeSet::new(),
         }
+    }
+
+    pub fn claim_kind(&self) -> AuthClaimKind {
+        self.claim_kind
+    }
+
+    pub fn value(&self) -> &BTreeMap<String, Value> {
+        &self.value
+    }
+
+    pub(crate) fn replace_disclosed_value(&mut self, value: BTreeMap<String, Value>) {
+        self.value = value;
     }
 
     pub fn verified_handle(
@@ -92,7 +104,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimKind::VerifiedHandle.as_str(),
+            AuthClaimKind::VerifiedHandle,
             Self::object(serde_json::json!({ "handle": handle.into() })),
         )
     }
@@ -107,7 +119,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimKind::EmailDomain.as_str(),
+            AuthClaimKind::EmailDomain,
             Self::object(serde_json::json!({ "domain": domain.into() })),
         )
     }
@@ -123,7 +135,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimKind::OrganizationMembership.as_str(),
+            AuthClaimKind::OrganizationMembership,
             Self::object(serde_json::json!({ "organization": organization, "roles": roles })),
         )
     }
@@ -139,7 +151,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimKind::DeviceTrust.as_str(),
+            AuthClaimKind::DeviceTrust,
             Self::object(
                 serde_json::json!({ "device_id": device_id, "trust_state": trust_state.into() }),
             ),
@@ -157,7 +169,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimKind::GuardianController.as_str(),
+            AuthClaimKind::GuardianController,
             Self::object(serde_json::json!({ "guardian": guardian, "controller": controller })),
         )
     }
@@ -172,7 +184,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimKind::MfaLevel.as_str(),
+            AuthClaimKind::MfaLevel,
             Self::object(serde_json::json!({ "level": level.into() })),
         )
     }
@@ -187,26 +199,32 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimKind::RiskLevel.as_str(),
+            AuthClaimKind::RiskLevel,
             Self::object(serde_json::json!({ "level": level.into() })),
         )
     }
 }
 
-impl From<arkret_models_identity::DirectoryPresentedClaim> for PresentedClaim {
-    fn from(claim: arkret_models_identity::DirectoryPresentedClaim) -> Self {
-        Self {
+impl TryFrom<arkret_models_identity::DirectoryPresentedClaim> for PresentedClaim {
+    type Error = Error;
+
+    fn try_from(claim: arkret_models_identity::DirectoryPresentedClaim) -> Result<Self> {
+        let claim_kind =
+            serde_json::from_value(Value::String(claim.claim_kind)).map_err(|error| {
+                Error::Protocol(format!("unsupported presented claim kind: {error}"))
+            })?;
+        Ok(Self {
             claim_id: claim.claim_id,
             subject: claim.subject,
             issuer: claim.issuer,
-            claim_kind: claim.claim_kind,
+            claim_kind,
             value: claim.value,
             issued_at: claim.issued_at,
             refreshed_at: claim.refreshed_at,
             expires_at: claim.expires_at,
             revoked_at: claim.revoked_at,
             disclosed_fields: claim.disclosed_fields,
-        }
+        })
     }
 }
 
@@ -216,7 +234,7 @@ impl From<PresentedClaim> for arkret_models_identity::DirectoryPresentedClaim {
             claim_id: claim.claim_id,
             subject: claim.subject,
             issuer: claim.issuer,
-            claim_kind: claim.claim_kind,
+            claim_kind: claim.claim_kind.as_str().to_owned(),
             value: claim.value,
             issued_at: claim.issued_at,
             refreshed_at: claim.refreshed_at,
@@ -478,7 +496,7 @@ pub fn validate_presentation(
         let mut matched = false;
         for claim in claims
             .iter()
-            .filter(|claim| claim.claim_kind == requirement.claim_kind)
+            .filter(|claim| claim.claim_kind.as_str() == requirement.claim_kind)
         {
             match validate_presented_claim(request, requirement, claim, revoked_claim_ids, now) {
                 Ok(()) => {
@@ -488,7 +506,7 @@ pub fn validate_presentation(
                 }
                 Err(reason) => rejected_claims.push(RejectedClaim {
                     claim_id: claim.claim_id.clone(),
-                    claim_kind: claim.claim_kind.clone(),
+                    claim_kind: claim.claim_kind.as_str().to_owned(),
                     reason,
                 }),
             }

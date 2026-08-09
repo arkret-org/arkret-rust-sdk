@@ -5,11 +5,10 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload, AgentSidecarExposureAck,
 };
-use arkret_wire::{Did, DidUrl, Event, EventKind, Hlc, ScopeRef};
+use arkret_wire::{Did, DidUrl, Event, Hlc, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
-use serde_json::Value;
 
-use crate::Result;
+use crate::{EventSpec, Result, TypedEventDraft};
 
 /// Build an unsigned controller-executed `ak.agent.key.authorize` Event draft.
 // Every parameter is a distinct protocol-required binding on the authorize
@@ -25,18 +24,14 @@ pub fn build_agent_key_authorize_event(
     actor_seq: u64,
     hlc: Hlc,
 ) -> Result<Event> {
-    let mut event = Event::new(
-        EventKind::AgentKeyAuthorize.to_string(),
+    TypedEventDraft::<event_spec::AgentKeyAuthorize>::new(
         scope_ref,
         agent_actor_id,
-        actor_seq,
-        hlc,
-        serde_json::to_value(payload)?,
-    )?;
-    event.executed_by = Some(controller_id);
-    event.authorization_ref = Some(controller_authorization_ref.into());
-    event.refresh_content_bound_identity()?;
-    Ok(event)
+        payload.clone(),
+    )?
+    .with_executed_by(controller_id)
+    .with_authorization_ref(controller_authorization_ref.into())
+    .author_now(actor_seq, hlc)
 }
 
 /// Build an unsigned controller-executed `ak.agent.key.revoke` Event draft.
@@ -50,23 +45,14 @@ pub fn build_agent_key_revoke_event(
     actor_seq: u64,
     hlc: Hlc,
 ) -> Result<Event> {
-    let mut event = Event::new(
-        EventKind::AgentKeyRevoke.to_string(),
-        scope_ref,
-        agent_actor_id,
-        actor_seq,
-        hlc,
-        serde_json::to_value(payload)?,
-    )?;
-    event.executed_by = Some(controller_id);
-    event.authorization_ref = Some(controller_authorization_ref.into());
-    event.refresh_content_bound_identity()?;
-    Ok(event)
+    TypedEventDraft::<event_spec::AgentKeyRevoke>::new(scope_ref, agent_actor_id, payload.clone())?
+        .with_executed_by(controller_id)
+        .with_authorization_ref(controller_authorization_ref.into())
+        .author_now(actor_seq, hlc)
 }
 
-struct AgentLifecycleEventInput {
-    kind: EventKind,
-    payload: Value,
+struct AgentLifecycleEventInput<P> {
+    payload: P,
     agent_id: Did,
     controller_id: Did,
     principal_control_scope_ref: ScopeRef,
@@ -76,20 +62,17 @@ struct AgentLifecycleEventInput {
     status_changed_at: DateTime<Utc>,
 }
 
-fn build_agent_lifecycle_event(input: AgentLifecycleEventInput) -> Result<Event> {
-    let mut event = Event::new_at(
-        input.kind.to_string(),
+fn build_agent_lifecycle_event<K: EventSpec>(
+    input: AgentLifecycleEventInput<K::Payload>,
+) -> Result<Event> {
+    TypedEventDraft::<K>::new(
         input.principal_control_scope_ref,
         input.agent_id.clone(),
-        input.actor_seq,
-        input.hlc,
         input.payload,
-        input.status_changed_at,
-    )?;
-    event.executed_by = Some(input.controller_id);
-    event.authorization_ref = Some(input.controller_authorization_ref.into());
-    event.refresh_content_bound_identity()?;
-    Ok(event)
+    )?
+    .with_executed_by(input.controller_id)
+    .with_authorization_ref(input.controller_authorization_ref.into())
+    .author(input.actor_seq, input.hlc, input.status_changed_at)
 }
 
 /// Build an unsigned controller-executed `ak.self.agent.pause` Event draft.
@@ -104,16 +87,15 @@ pub fn build_agent_pause_event(
     hlc: Hlc,
     status_changed_at: DateTime<Utc>,
 ) -> Result<Event> {
-    let payload = serde_json::to_value(AgentPausePayload {
+    let payload = AgentPausePayload {
         agent_id: agent_id.clone(),
         controller_id: controller_id.clone(),
         transition: "pause".to_owned(),
         previous_status: "active".to_owned(),
         status_changed_at,
         reason,
-    })?;
-    build_agent_lifecycle_event(AgentLifecycleEventInput {
-        kind: EventKind::SelfAgentPause,
+    };
+    build_agent_lifecycle_event::<event_spec::SelfAgentPause>(AgentLifecycleEventInput {
         payload,
         agent_id,
         controller_id,
@@ -137,7 +119,7 @@ pub fn build_agent_resume_event(
     hlc: Hlc,
     status_changed_at: DateTime<Utc>,
 ) -> Result<Event> {
-    let payload = serde_json::to_value(AgentResumePayload {
+    let payload = AgentResumePayload {
         agent_id: agent_id.clone(),
         controller_id: controller_id.clone(),
         transition: "resume".to_owned(),
@@ -145,9 +127,8 @@ pub fn build_agent_resume_event(
         status_changed_at,
         sidecar_exposure_ack,
         reason: None,
-    })?;
-    build_agent_lifecycle_event(AgentLifecycleEventInput {
-        kind: EventKind::SelfAgentResume,
+    };
+    build_agent_lifecycle_event::<event_spec::SelfAgentResume>(AgentLifecycleEventInput {
         payload,
         agent_id,
         controller_id,
@@ -182,16 +163,15 @@ pub fn build_agent_deactivate_event(
             ));
         }
     };
-    let payload = serde_json::to_value(AgentDeactivatePayload {
+    let payload = AgentDeactivatePayload {
         agent_id: agent_id.clone(),
         controller_id: controller_id.clone(),
         transition: "deactivate".to_owned(),
         previous_status: previous_status.to_owned(),
         status_changed_at,
         reason,
-    })?;
-    build_agent_lifecycle_event(AgentLifecycleEventInput {
-        kind: EventKind::SelfAgentDeactivate,
+    };
+    build_agent_lifecycle_event::<event_spec::SelfAgentDeactivate>(AgentLifecycleEventInput {
         payload,
         agent_id,
         controller_id,

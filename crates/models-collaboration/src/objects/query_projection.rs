@@ -356,6 +356,10 @@ pub struct DocumentMorphProjectionOutcome {
     pub frontier: Option<StateFrontier>,
 }
 
+/// `view.schema.json#/$defs/document_morph_projection_outcome/properties/document`.
+///
+/// `body` is intentionally unconstrained JSON and `morph_kind` is an open
+/// registry string; the Spec does not define a closed discriminated union here.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocumentMorphProjection {
     pub morph_id: MorphId,

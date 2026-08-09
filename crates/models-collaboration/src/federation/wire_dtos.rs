@@ -1,7 +1,7 @@
 //! Federation realm-membership and actor-verification wire DTOs.
 //!
 //! Transaction / push / pull bodies that bind
-//! `arkret_event_draft::Operation` are owned by `arkret-event-draft`, which
+//! `arkret_event_draft::ProjectedEventOperation` are owned by `arkret-event-draft`, which
 //! keeps this model crate free of behavior dependencies.
 
 use arkret_wire::{Did, Hash, RealmId};
@@ -42,6 +42,28 @@ pub struct FederationVerifyActorRequestBody {
     pub purpose: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
+}
+
+impl FederationVerifyActorRequestBody {
+    pub fn actor_signature_transcript_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        let mut unsigned = serde_json::to_value(self)?;
+        let object = unsigned.as_object_mut().ok_or_else(|| {
+            arkret_canonical::CanonicalError::Protocol(
+                "federation verify-actor request must serialize as an object".to_owned(),
+            )
+        })?;
+        object.remove("signature");
+        let request_binding_digest = arkret_canonical::canonical_sha256(&unsigned)?;
+        arkret_canonical::canonical_json_bytes(&serde_json::json!({
+            "type": "ak.federation.verify_actor.signature.v1",
+            "actor_id": self.actor_id.as_str(),
+            "purpose": self.purpose,
+            "challenge": self.challenge,
+            "signed_payload_digest": self.signed_payload_digest.as_ref().map(|value| value.as_str()),
+            "realm_id": self.realm_id.as_ref().map(|value| value.as_str()),
+            "request_binding_digest": request_binding_digest,
+        }))
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

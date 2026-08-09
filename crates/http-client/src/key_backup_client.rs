@@ -37,7 +37,13 @@ impl KeyBackupClient {
         backup_id: &str,
         record: &KeyBackup,
     ) -> SdkResult<arkret_models_crypto::KeysBackupsReplaceOutcome> {
+        record.validate()?;
         let backup_id = BackupId::new(backup_id.to_owned())?;
+        if backup_id != record.backup_id {
+            return Err(crate::Error::Protocol(
+                "key backup path/body backup_id mismatch".to_owned(),
+            ));
+        }
         let digest = arkret_canonical::canonical_sha256(record)?;
         let idempotency_key = format!("arkret-key-backup-{}", digest.trim_start_matches("sha256:"));
         self.client
@@ -52,7 +58,9 @@ impl KeyBackupClient {
         request: &KeysBackupsUnlockRequestBody,
     ) -> SdkResult<KeyBackup> {
         let backup_id = BackupId::new(backup_id.to_owned())?;
-        self.client.unlock_key_backup(&backup_id, request).await
+        let record = self.client.unlock_key_backup(&backup_id, request).await?;
+        record.validate()?;
+        Ok(record)
     }
 
     /// `GET /_arkret/self/keys/backups` (list current backups for the
@@ -134,7 +142,7 @@ mod tests {
                     enc: None,
                     extra: Default::default(),
                 },
-                key_commitment: None,
+                key_commitment: Some(format!("sha256:{}", "a".repeat(64))),
                 hpke_suite: None,
                 extra: Default::default(),
             },
@@ -148,7 +156,7 @@ mod tests {
                     backup_kind: arkret_models_crypto::BackupKind::SecretStorage,
                     backup_version: "kb_1".to_owned(),
                     created_at,
-                    item_kinds: vec!["recovery_secret".to_owned()],
+                    item_kinds: vec!["private_account_state".to_owned()],
                     managed_principal_bindings: Vec::new(),
                     recipient_method: Some(
                         arkret_models_crypto::KeyBackupRecipientMethod::PassphraseKdf,
@@ -159,7 +167,7 @@ mod tests {
                 extra: Default::default(),
             },
             contents: vec![arkret_models_crypto::KeyBackupContentItem {
-                item_kind: "recovery_secret".to_owned(),
+                item_kind: "private_account_state".to_owned(),
                 realm_id: None,
                 managed_principal_binding: None,
                 mls_group_id: None,
@@ -170,9 +178,8 @@ mod tests {
                 secret_version: Some(1),
                 extra: Default::default(),
             }],
-            ciphertext: "ciphertext".to_owned(),
-            ciphertext_digest:
-                "sha256:2108421084217842908421084210842121084210842178429084210842108421".to_owned(),
+            ciphertext: "Y2lwaGVydGV4dA".to_owned(),
+            ciphertext_digest: arkret_canonical::sha256_digest(b"ciphertext"),
             plaintext_commitment: None,
             auth_data: Some(arkret_models_crypto::KeyBackupAuthData {
                 device_id: arkret_wire::DeviceId::new(
@@ -222,6 +229,7 @@ mod tests {
     #[test]
     fn key_backup_record_round_trips() {
         let record = backup_record();
+        record.validate().unwrap();
         let json = serde_json::to_value(&record).unwrap();
         assert_eq!(json["backup_id"], record.backup_id.as_str());
         assert_eq!(json["backup_kind"], "secret_storage");

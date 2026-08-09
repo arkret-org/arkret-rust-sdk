@@ -362,6 +362,36 @@ event_payload_accessors! {
     event_spec::CapabilityRelinquish => (as_capability_relinquish, CapabilityRelinquishPayload),
 }
 
+/// Marker-checked payload projection for reducer-resolved state records.
+///
+/// The resolved record remains an erased storage/projection boundary, while
+/// domain readers must name the exact Event marker before accessing content.
+pub trait ResolvedStateEventPayloadExt {
+    fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload>;
+}
+
+impl ResolvedStateEventPayloadExt for arkret_models_collaboration::ResolvedStateEvent {
+    fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload> {
+        if self.kind != K::KIND {
+            return Err(Error::PayloadKindMismatch {
+                expected: K::KIND_STR,
+                actual: self.kind.as_str().to_owned(),
+            });
+        }
+        let payload = serde_json::from_value(self.content.clone()).map_err(|source| {
+            Error::PayloadInvalid {
+                kind: K::KIND_STR,
+                reason: source.to_string(),
+            }
+        })?;
+        K::validate_payload(&payload).map_err(|error| Error::PayloadInvalid {
+            kind: K::KIND_STR,
+            reason: error.to_string(),
+        })?;
+        Ok(payload)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;

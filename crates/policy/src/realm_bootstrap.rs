@@ -10,7 +10,7 @@
 //! controller holds effective `ak.realm.owner`
 //! (`models/realm-and-space.md` section 2.5).
 
-use arkret_event_draft::EventPayloadExt;
+use arkret_event_draft::{EventPayloadExt, EventSpec, TypedEventDraft};
 use arkret_models_collaboration::events_payloads::{
     RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmCreatePayload,
     RealmOwnerTransferPayload, RealmProfile, RealmPurpose,
@@ -76,27 +76,19 @@ impl RealmAuthorityRootValue {
     }
 }
 
-fn build_realm_authority_event<T: Serialize>(
-    kind: EventKind,
+fn build_realm_authority_event<K: EventSpec>(
     scope_ref: ScopeRef,
     actor_id: Did,
     actor_seq: u64,
     hlc: Hlc,
-    payload: &T,
+    payload: K::Payload,
 ) -> Result<Event> {
-    let mut event = Event::new(
-        kind.to_string(),
-        scope_ref,
-        actor_id,
-        actor_seq,
-        hlc,
-        serde_json::to_value(payload)?,
-    )?;
-    event.authorization_ref = Some(
-        AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
-            .expect("realm authority-root constant must be a valid authorization reference"),
-    );
-    Ok(event)
+    Ok(TypedEventDraft::<K>::new(scope_ref, actor_id, payload)?
+        .with_authorization_ref(
+            AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
+                .expect("realm authority-root constant must be a valid authorization reference"),
+        )
+        .author_now(actor_seq, hlc)?)
 }
 
 /// Build an unsigned `ak.realm.owner.transfer` Event with the mandatory root
@@ -129,13 +121,8 @@ pub fn build_realm_owner_transfer_event(
             "schema_violation: successor_acceptance must be non-empty".to_owned(),
         ));
     }
-    build_realm_authority_event(
-        EventKind::RealmOwnerTransfer,
-        scope_ref,
-        actor_id,
-        actor_seq,
-        hlc,
-        &payload,
+    build_realm_authority_event::<event_spec::RealmOwnerTransfer>(
+        scope_ref, actor_id, actor_seq, hlc, payload,
     )
 }
 
@@ -159,13 +146,8 @@ pub fn build_realm_authority_reset_event(
             "schema_violation: invalid Realm authority reset payload".to_owned(),
         ));
     }
-    build_realm_authority_event(
-        EventKind::RealmAuthorityReset,
-        scope_ref,
-        actor_id,
-        actor_seq,
-        hlc,
-        &payload,
+    build_realm_authority_event::<event_spec::RealmAuthorityReset>(
+        scope_ref, actor_id, actor_seq, hlc, payload,
     )
 }
 
@@ -189,13 +171,8 @@ pub fn build_realm_authority_basis_update_event(
         ));
     }
     crate::require_registry_basis(Some(&payload.patch.capability_action_registry_digest))?;
-    build_realm_authority_event(
-        EventKind::RealmAuthorityBasisUpdate,
-        scope_ref,
-        actor_id,
-        actor_seq,
-        hlc,
-        &payload,
+    build_realm_authority_event::<event_spec::RealmAuthorityBasisUpdate>(
+        scope_ref, actor_id, actor_seq, hlc, payload,
     )
 }
 
@@ -487,7 +464,7 @@ mod tests {
     const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 
     fn event(kind: EventKind, payload: serde_json::Value) -> Event {
-        Event::new_at(
+        arkret_wire::test_support::raw_event_at(
             kind.to_string(),
             ScopeRef::Realm {
                 realm_id: RealmId::new(REALM).unwrap(),

@@ -45,7 +45,7 @@ pub(super) fn disclose_claim(claim: &PresentedClaim, reveal_fields: &[String]) -
     let mut disclosed = claim.clone();
     disclosed.disclosed_fields = reveal_fields.iter().cloned().collect();
     if reveal_fields.is_empty() {
-        disclosed.value.clear();
+        disclosed.replace_disclosed_value(BTreeMap::new());
         return disclosed;
     }
     if reveal_fields.iter().any(|field| field == "*") {
@@ -53,11 +53,11 @@ pub(super) fn disclose_claim(claim: &PresentedClaim, reveal_fields: &[String]) -
     }
     let mut filtered = BTreeMap::new();
     for field in reveal_fields {
-        if let Some(value) = claim.value.get(field) {
+        if let Some(value) = claim.value().get(field) {
             filtered.insert(field.clone(), value.clone());
         }
     }
-    disclosed.value = filtered;
+    disclosed.replace_disclosed_value(filtered);
     disclosed
 }
 

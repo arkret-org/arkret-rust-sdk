@@ -30,5 +30,8 @@ serde_json = {workspace = true}
 subtle = {workspace = true}
 thiserror = {workspace = true}
 
+[dev-dependencies]
+arkret-wire = {workspace = true,features = ["test-support"]}
+
 [lints]
 workspace = true

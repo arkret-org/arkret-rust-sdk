@@ -47,7 +47,7 @@ mod tests {
     use super::*;
 
     fn event() -> Event {
-        Event::new(
+        arkret_wire::test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")

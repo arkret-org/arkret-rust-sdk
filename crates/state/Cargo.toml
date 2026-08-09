@@ -39,6 +39,7 @@ salvo-oapi = {workspace = true,optional = true}
 thiserror = {workspace = true}
 
 [dev-dependencies]
+arkret-wire = {workspace = true,features = ["test-support"]}
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 
 [lints]

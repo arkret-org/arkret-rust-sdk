@@ -495,14 +495,11 @@ pub fn verify_full_realm_range_completeness_with_suite(
             "attestation Event proof digest is invalid".to_owned(),
         ));
     }
-    let mut unsigned_payload = serde_json::to_value(&payload)
-        .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
-    unsigned_payload
-        .as_object_mut()
-        .expect("typed payload serializes as an object")
-        .remove("proofs");
-    let payload_digest = arkret_canonical::canonical_sha256(&unsigned_payload)
-        .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
+    let payload_digest = arkret_canonical::sha256_digest(
+        payload
+            .proof_payload_bytes()
+            .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?,
+    );
     if payload.proofs.is_empty()
         || payload
             .proofs
@@ -646,13 +643,12 @@ mod tests {
             },
             proofs: Vec::new(),
         };
-        let mut unsigned_payload = serde_json::to_value(&payload).unwrap();
-        unsigned_payload.as_object_mut().unwrap().remove("proofs");
+        let payload_digest =
+            arkret_canonical::sha256_digest(payload.proof_payload_bytes().unwrap());
         payload.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
-            event_digest: Hash::new(arkret_canonical::canonical_sha256(&unsigned_payload).unwrap())
-                .unwrap(),
+            event_digest: Hash::new(payload_digest).unwrap(),
             created_at,
             domain: None,
             audience: None,
@@ -754,20 +750,21 @@ mod tests {
             "root".to_owned(),
             json!(format!("sha256:{}", "ff".repeat(32))),
         );
-        let mut unsigned_payload = Value::Object(
+        let tampered_payload: RangeCompletenessAttestation = serde_json::from_value(Value::Object(
             tampered
                 .payload
                 .clone()
                 .into_iter()
                 .collect::<serde_json::Map<_, _>>(),
-        );
-        unsigned_payload.as_object_mut().unwrap().remove("proofs");
+        ))
+        .unwrap();
         tampered
             .payload
             .get_mut("proofs")
             .and_then(Value::as_array_mut)
-            .unwrap()[0]["event_digest"] =
-            json!(arkret_canonical::canonical_sha256(&unsigned_payload).unwrap());
+            .unwrap()[0]["event_digest"] = json!(arkret_canonical::sha256_digest(
+            tampered_payload.proof_payload_bytes().unwrap()
+        ));
         tampered.proofs[0].event_digest = Hash::new(tampered.event_digest().unwrap()).unwrap();
         assert_eq!(
             verify_full_realm_range_completeness(
@@ -831,20 +828,21 @@ mod tests {
             .and_then(|range| range.get_mut("actor_seq_ranges"))
             .and_then(Value::as_array_mut)
             .unwrap()[0]["from_seq_exclusive"] = json!(0);
-        let mut unsigned_payload = Value::Object(
+        let tampered_payload: RangeCompletenessAttestation = serde_json::from_value(Value::Object(
             proof
                 .payload
                 .clone()
                 .into_iter()
                 .collect::<serde_json::Map<_, _>>(),
-        );
-        unsigned_payload.as_object_mut().unwrap().remove("proofs");
+        ))
+        .unwrap();
         proof
             .payload
             .get_mut("proofs")
             .and_then(Value::as_array_mut)
-            .unwrap()[0]["event_digest"] =
-            json!(arkret_canonical::canonical_sha256(&unsigned_payload).unwrap());
+            .unwrap()[0]["event_digest"] = json!(arkret_canonical::sha256_digest(
+            tampered_payload.proof_payload_bytes().unwrap()
+        ));
         proof.proofs[0].event_digest = Hash::new(proof.event_digest().unwrap()).unwrap();
         assert_eq!(
             verify_full_realm_range_completeness(

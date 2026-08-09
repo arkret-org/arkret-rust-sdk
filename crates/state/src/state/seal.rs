@@ -1052,7 +1052,7 @@ mod tests {
         refs: Vec<EventRef>,
     ) -> Event {
         let created_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
-        let mut event = Event::new_with_derived_id_at(
+        let mut event = arkret_wire::test_support::raw_event_at(
             "ak.member.state",
             ScopeRef::Realm { realm_id: realm() },
             Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),

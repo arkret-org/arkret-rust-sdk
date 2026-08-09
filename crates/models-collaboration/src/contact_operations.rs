@@ -112,6 +112,12 @@ pub struct ContactCurrentProof {
     pub signature: ProtocolSignature,
 }
 
+impl ContactCurrentProof {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        canonical_signing_bytes_without_signature(self)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -666,6 +672,12 @@ pub struct GlareConcurrencyAttestation {
     pub signature: ProtocolSignature,
 }
 
+impl GlareConcurrencyAttestation {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        canonical_signing_bytes_without_signature(self)
+    }
+}
+
 string_marker!(
     PeerContactMirrorReceiptDomain,
     V1,
@@ -695,6 +707,25 @@ pub struct PeerContactMirrorReceipt {
     pub received_at: DateTime<Utc>,
     pub issuer: Did,
     pub signature: ProtocolSignature,
+}
+
+impl PeerContactMirrorReceipt {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        canonical_signing_bytes_without_signature(self)
+    }
+}
+
+fn canonical_signing_bytes_without_signature(
+    value: &impl Serialize,
+) -> arkret_canonical::Result<Vec<u8>> {
+    let mut unsigned = serde_json::to_value(value)?;
+    let object = unsigned.as_object_mut().ok_or_else(|| {
+        arkret_canonical::CanonicalError::Protocol(
+            "signed Contact evidence must serialize as an object".to_owned(),
+        )
+    })?;
+    object.remove("signature");
+    arkret_canonical::canonical_json_bytes(&unsigned)
 }
 
 string_marker!(

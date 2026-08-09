@@ -67,7 +67,7 @@ impl EventDraftKindRegistry {
         &self,
         envelope: &OperationEnvelope,
     ) -> Result<EventDraftKindValidation> {
-        let validation = self.canonicalize(&envelope.kind)?;
+        let validation = self.canonicalize(envelope.kind.as_str())?;
         self.specs.get(&validation.canonical_kind).ok_or_else(|| {
             EventDraftError::Protocol("event draft kind registry is inconsistent".to_owned())
         })?;

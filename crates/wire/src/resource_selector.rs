@@ -15,6 +15,7 @@ use crate::{
 /// Opaque object reference wire scalar (`ak:object:...` and friends).
 pub type ObjectRef = String;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceSelectorKind {
@@ -39,6 +40,7 @@ pub enum ResourceSelectorKind {
     All,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceMatchScope {
@@ -48,6 +50,7 @@ pub enum ResourceMatchScope {
     RealmWide,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct WireResourceSelector {
     pub kind: ResourceSelectorKind,
@@ -92,6 +95,53 @@ pub struct WireResourceSelector {
 }
 
 impl WireResourceSelector {
+    fn for_kind(kind: ResourceSelectorKind, realm_id: Option<RealmId>) -> Self {
+        Self {
+            kind,
+            realm_id,
+            space_id: None,
+            circle_id: None,
+            object_kind: None,
+            object_ref: None,
+            strand_id: None,
+            message_id: None,
+            morph_id: None,
+            morph_kind: None,
+            relation_kind: None,
+            relation_id: None,
+            view_id: None,
+            event_id: None,
+            actor_id: None,
+            schema_ref: None,
+            policy_id: None,
+            invite_id: None,
+            blob_ref: None,
+            match_scope: None,
+        }
+    }
+
+    pub fn realm(realm_id: RealmId) -> Self {
+        Self::for_kind(ResourceSelectorKind::Realm, Some(realm_id))
+    }
+
+    pub fn space(realm_id: RealmId, space_id: SpaceId) -> Self {
+        let mut selector = Self::for_kind(ResourceSelectorKind::Space, Some(realm_id));
+        selector.space_id = Some(space_id);
+        selector
+    }
+
+    pub fn circle(realm_id: RealmId, circle_id: CircleId) -> Self {
+        let mut selector = Self::for_kind(ResourceSelectorKind::Circle, Some(realm_id));
+        selector.circle_id = Some(circle_id);
+        selector
+    }
+
+    pub fn strand(realm_id: RealmId, strand_id: StrandId) -> Self {
+        let mut selector = Self::for_kind(ResourceSelectorKind::Strand, Some(realm_id));
+        selector.strand_id = Some(strand_id);
+        selector
+    }
+
     pub fn validate(&self) -> Result<()> {
         let realm_scoped = matches!(
             self.kind,

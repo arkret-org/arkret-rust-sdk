@@ -656,7 +656,7 @@ fn morph_update_rejected_when_archived() {
 fn strand_events_create_update_and_default_view_relation() {
     let view_ref = "ak:view:AZFOTfHDWaNQpQFbd0YLjIJoV68u4p8EclMLP4vbnVS4";
 
-    let create = Event::new(
+    let create = arkret_wire::test_support::raw_event(
         EventKind::StrandCreate,
         scope_ref(),
         actor_id(),
@@ -681,7 +681,7 @@ fn strand_events_create_update_and_default_view_relation() {
     // Event derives — the same value the reducer will compute.
     let strand_id_owned = arkret_wire::StrandId::from_event_id(&create.event_id);
     let strand_id = strand_id_owned.as_str();
-    let mut update = Event::new(
+    let mut update = arkret_wire::test_support::raw_event(
         EventKind::StrandUpdate,
         scope_ref(),
         actor_id(),
@@ -699,7 +699,7 @@ fn strand_events_create_update_and_default_view_relation() {
     )
     .unwrap();
     update.prev_refs.push(create.event_id.clone());
-    let mut relation = Event::new(
+    let mut relation = arkret_wire::test_support::raw_event(
         EventKind::RelationCreate.to_string(),
         scope_ref(),
         actor_id(),

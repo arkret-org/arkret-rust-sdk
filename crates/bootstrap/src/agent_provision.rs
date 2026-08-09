@@ -1,12 +1,13 @@
 //! Controller-owned managed-agent provisioning Event authoring.
 
+use arkret_event_draft::TypedEventDraft;
 use arkret_models_collaboration::events_payloads::agent::{
     AgentProvisionAccountabilityScope, AgentProvisionPayload, AgentProvisionSchema,
 };
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    Did, DidUrl, Event, EventId, EventKind, Hash, Hlc, ProfileRef, RealmId, Result, SchemaId,
-    ScopeRef, SealBasis,
+    Did, DidUrl, Event, EventId, Hash, Hlc, ProfileRef, RealmId, Result, SchemaId, ScopeRef,
+    SealBasis, event_spec,
 };
 use chrono::{DateTime, Utc};
 
@@ -54,20 +55,17 @@ pub fn build_agent_provision_event_draft(
         created_at,
     };
     payload.validate()?;
-    let mut event = Event::new_at(
-        EventKind::AgentProvision.to_string(),
+    let mut draft = TypedEventDraft::<event_spec::AgentProvision>::new(
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),
         },
         controller_id.clone(),
-        options.actor_seq,
-        options.hlc,
-        serde_json::to_value(payload)?,
-        created_at,
-    )?;
-    event.prev_refs = options.prev_refs;
-    event.seal_basis = options.seal_basis;
-    event.requirements.schema_profile_refs =
-        vec![ProfileRef::new(SchemaId::AGENT_PROVISION_V1).unwrap()];
-    Ok(event)
+        payload,
+    )?
+    .with_prev_refs(options.prev_refs)
+    .with_schema_profile_ref(ProfileRef::new(SchemaId::AGENT_PROVISION_V1).unwrap());
+    if let Some(seal_basis) = options.seal_basis {
+        draft = draft.with_seal_basis(seal_basis);
+    }
+    Ok(draft.author(options.actor_seq, options.hlc, created_at)?)
 }

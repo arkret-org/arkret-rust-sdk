@@ -20,7 +20,7 @@ use arkret_models_collaboration::http_bodies::{
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantIntrospectOutcome, SessionGrantIntrospectRequestBody, SessionGrantOutcome,
     SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
-    SessionGrantRequestProof,
+    UnsignedSessionGrantRequestBody, UnsignedSessionGrantRequestProof,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
@@ -36,7 +36,7 @@ use arkret_models_identity::{
     IdentityBindingChallengeRequestBody, SessionGrantProofKind,
 };
 use arkret_wire::{
-    DeviceId, Did, Hash, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    DeviceId, Did, Hash, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
     PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PayloadSigner,
 };
@@ -81,22 +81,20 @@ where
     }
 
     let expires_at = Utc::now() + Duration::seconds(DID_PROOF_FRESHNESS_WINDOW_SECS);
-    let mut request = SessionGrantRequestBody {
+    let request = UnsignedSessionGrantRequestBody::new(
         principal_id,
-        device_id: Some(device_id),
-        requested_scope: Vec::new(),
-        agent_key_authorization_ref: None,
-        agent_scope_request: None,
-        requested_scope_disclosure: None,
-        dpop_binding_proof: None,
-        applet_authority: None,
-        proof: SessionGrantRequestProof {
+        Some(device_id),
+        Vec::new(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        UnsignedSessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::DidBoundSignature,
             challenge: challenge.to_owned(),
-            request_canonical_digest: Hash::new(format!("sha256:{}", "00".repeat(32)))?,
             audience,
             expires_at: Some(expires_at),
-            signature: String::new(),
             verification_method: None,
             issuer: None,
             client_id: None,
@@ -106,14 +104,15 @@ where
             authorization_code: None,
             code_verifier: None,
         },
-    };
+    )?;
 
     // Prepare the complete intent once, derive the body-bound request identity,
     // then finalize its detached proof exactly once. Transport retry below
     // reuses the resulting canonical body bytes verbatim.
-    request.proof.request_canonical_digest = request.canonical_request_digest()?;
-    let signing_bytes = request.proof.canonical_signing_bytes()?;
-    request.proof.signature = signer.sign_payload(&signing_bytes)?.jws;
+    let signing_bytes = request.canonical_signing_bytes()?;
+    let signature = NonEmptyString::new(signer.sign_payload(&signing_bytes)?.jws)
+        .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+    let request = request.attach_signature(signature)?;
 
     client.auth_issue_session_grant(&request).await
 }

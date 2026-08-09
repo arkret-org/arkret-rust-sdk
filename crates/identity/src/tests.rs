@@ -900,7 +900,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         ))
         .unwrap();
 
-    let event = Event::new(
+    let event = arkret_wire::test_support::raw_event(
         "ak.test.event",
         arkret_wire::ScopeRef::Realm { realm_id: realm() },
         actor,
@@ -946,7 +946,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         ))
         .unwrap();
 
-    let mut event = Event::new(
+    let mut event = arkret_wire::test_support::raw_event(
         "ak.test.event",
         arkret_wire::ScopeRef::Realm { realm_id: realm() },
         controller,

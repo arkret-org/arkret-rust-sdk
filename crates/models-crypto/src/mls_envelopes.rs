@@ -1,7 +1,7 @@
 //! MLS transport envelope wire shapes.
 //!
 //! Proposal / commit / welcome envelopes carried by MLS repo operations
-//! and device-message delivery. The event-draft binding (building a repo `Operation`
+//! and device-message delivery. The event-draft binding (building a local scheduler draft
 //! from one of these envelopes) lives in `arkret-event-draft` as an
 //! extension trait — this crate holds the data shapes and the deterministic
 //! CBOR codec only.

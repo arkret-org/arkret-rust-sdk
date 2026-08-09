@@ -18,7 +18,8 @@
 //! `max_authority_depth` (no constraint ⇒ not delegable).
 
 use arkret_models_collaboration::governance::grant_constraint::{
-    CapabilitySubject, GrantConstraintSubkind,
+    CapabilitySubject, GrantConstraint, GrantConstraintEffect, GrantConstraintKind,
+    GrantConstraintScope, GrantConstraintSubkind,
 };
 use arkret_wire::{AppletId, GrantId, Hash, SchemaId};
 
@@ -717,49 +718,33 @@ pub fn capability_grant_from_resolved_event(
     event: &arkret_models_collaboration::ResolvedStateEvent,
     default_realm_id: Option<RealmId>,
 ) -> Result<arkret_models_collaboration::governance::grant_constraint::CapabilityGrant> {
-    let content = event
-        .content
-        .as_object()
-        .ok_or_else(|| Error::Protocol("capability content must be an object".to_owned()))?;
-    // Canonical event payload shape per event-payload.schema.json
-    // `$defs/capability_grant_payload`: `{grant_id, grant: <artifact>}` —
-    // only the branch embedding the full `capability-grant.schema.json`
-    // artifact is evaluable; the summary branch (grant_id/subject/actions/
-    // resources without `grant`) lacks issuer/proofs/constraints and MUST
-    // NOT mint authority, so it fails closed here.
-    let artifact = content.get("grant").ok_or_else(|| {
-        Error::Protocol(
-            "capability event payload does not embed the grant artifact \
-             ('grant'); summary payloads cannot be evaluated"
-                .to_owned(),
-        )
-    })?;
-    // capability-grant.schema.json: "Implementations MUST reject grants
-    // carrying a top-level 'delegable' field as schema_violation."
-    if artifact.get("delegable").is_some() {
-        return Err(Error::Protocol(
-            "schema_violation: top-level 'delegable' is removed; \
-             express re-granting via an authority_control constraint"
-                .to_owned(),
-        ));
-    }
-    let mut grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant =
-        serde_json::from_value(artifact.clone()).map_err(|err| {
-            Error::Protocol(format!(
-                "schema_violation: invalid capability grant content: {err}"
-            ))
-        })?;
-    if content.get("grant_id").and_then(Value::as_str) != Some(grant.id.as_str()) {
-        return Err(Error::Protocol(format!(
-            "schema_violation: capability event payload grant_id does not match \
-             embedded grant id '{}'",
-            grant.id
-        )));
-    }
-    if grant.realm_id.is_none() {
-        grant.realm_id = default_realm_id;
-    }
-    Ok(grant)
+    use arkret_event_draft::ResolvedStateEventPayloadExt as _;
+
+    let payload = event
+        .typed_payload::<arkret_wire::event_spec::CapabilityGrant>()
+        .map_err(|error| Error::Protocol(format!("schema_violation: {error}")))?;
+    let grant = payload.grant;
+    Ok(
+        arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+            id: arkret_wire::GrantId::from_event_id(&event.source_event_id),
+            schema: grant.schema,
+            realm_id: grant.realm_id.or(default_realm_id),
+            issuer: grant.issuer,
+            subject: grant.subject,
+            actions: grant.actions,
+            resources: grant.resources,
+            capability_action_registry_digest: grant.capability_action_registry_digest,
+            constraints: grant.constraints,
+            issuer_authority_refs: grant.issuer_authority_refs,
+            issued_at: grant.issued_at,
+            not_before: grant.not_before,
+            expires_at: grant.expires_at,
+            updated_by: None,
+            updated_at: None,
+            revoked_by: None,
+            revoked_at: None,
+        },
+    )
 }
 
 // ─── spec grant-constraint → engine constraint projection ─────────────────
@@ -775,81 +760,71 @@ pub fn capability_grant_from_resolved_event(
 /// canonical class derived by this evaluator; pure metadata
 /// (`depends_on_moderation_state`, `x_*` extensions) is ignored.
 pub(crate) fn constraint_entries_from_spec(
-    constraint: &impl Serialize,
+    constraint: &GrantConstraint,
 ) -> Result<Vec<ConstraintEntry>> {
-    let value = serde_json::to_value(constraint)?;
-    let object = value
-        .as_object()
-        .ok_or_else(|| Error::Protocol("grant constraint must be an object".to_owned()))?;
-    let str_field = |name: &str| -> Option<String> {
-        object
-            .get(name)
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned)
-    };
-    let bool_field =
-        |name: &str| -> bool { object.get(name).and_then(Value::as_bool).unwrap_or(false) };
-    let u64_field = |name: &str| -> Option<u64> { object.get(name).and_then(Value::as_u64) };
-    let constraint_kind = str_field("constraint_kind")
-        .ok_or_else(|| Error::Protocol("grant constraint requires constraint_kind".to_owned()))?;
-    let constraint_subkind = str_field("constraint_subkind");
-    let constraint_id = str_field("constraint_id");
-    let declared_evaluation_class = str_field("evaluation_class")
-        .map(|value| parse_evaluation_class(&value))
-        .transpose()?;
-    let reject_unsupported_fields = |fields: &[&str]| -> Result<()> {
-        for field in fields {
-            if object.contains_key(*field) {
-                return Err(Error::Protocol(format!(
-                    "unsupported {constraint_kind} constraint field '{field}' \
-                     (cannot be enforced by this evaluator; failing closed)"
-                )));
-            }
-        }
-        Ok(())
-    };
-
+    let constraint_kind = constraint.constraint_kind;
+    let constraint_subkind = constraint.constraint_subkind;
+    let constraint_id = constraint.constraint_id.clone();
+    let declared_evaluation_class = constraint.evaluation_class.map(|value| match value {
+        arkret_wire::EvaluationClass::Stateless => crate::EvaluationClass::Stateless,
+        arkret_wire::EvaluationClass::GrantLocal => crate::EvaluationClass::GrantLocal,
+        arkret_wire::EvaluationClass::RealmState => crate::EvaluationClass::RealmState,
+        arkret_wire::EvaluationClass::External => crate::EvaluationClass::External,
+    });
     let mut constraints: Vec<Constraint> = Vec::new();
-    match constraint_kind.as_str() {
-        "temporal" => match constraint_subkind.as_deref() {
-            None | Some("window") => {
+    match constraint_kind {
+        GrantConstraintKind::Temporal => match constraint_subkind {
+            None | Some(GrantConstraintSubkind::Window) => {
                 constraints.push(Constraint::Temporal {
-                    not_before: datetime_field(object, "not_before")?,
-                    expires_at: datetime_field(object, "expires_at")?,
-                    recurrence: object
-                        .get("recurrence")
+                    not_before: constraint.not_before,
+                    expires_at: constraint.expires_at,
+                    recurrence: constraint
+                        .recurrence
+                        .as_ref()
                         .map(|value| {
-                            serde_json::from_value::<Recurrence>(value.clone()).map_err(|err| {
-                                Error::Protocol(format!("invalid recurrence: {err}"))
-                            })
+                            serde_json::from_value::<Recurrence>(serde_json::to_value(value)?)
+                                .map_err(|err| {
+                                    Error::Protocol(format!("invalid recurrence: {err}"))
+                                })
                         })
                         .transpose()?,
                 });
             }
-            Some("edit_window") | Some("redact_window") => {
+            Some(GrantConstraintSubkind::EditWindow | GrantConstraintSubkind::RedactWindow) => {
                 constraints.push(Constraint::EditWindow {
-                    applies_to_actions: string_list(object, "applies_to_actions"),
-                    message_edit_window: duration_field(object, "message_edit_window")?,
-                    message_redact_window: duration_field(object, "message_redact_window")?,
-                    redact_after_window_allowed: bool_field("redact_after_window_allowed"),
+                    applies_to_actions: constraint.applies_to_actions.clone(),
+                    message_edit_window: optional_duration(
+                        constraint.message_edit_window.as_deref(),
+                    )?,
+                    message_redact_window: optional_duration(
+                        constraint.message_redact_window.as_deref(),
+                    )?,
+                    redact_after_window_allowed: constraint
+                        .redact_after_window_allowed
+                        .unwrap_or(false),
                 });
             }
             Some(other) => {
                 return Err(Error::Protocol(format!(
-                    "unsupported temporal constraint constraint_subkind '{other}'"
+                    "unsupported temporal constraint constraint_subkind '{other:?}'"
                 )));
             }
         },
-        "field_access" => {
+        GrantConstraintKind::FieldAccess => {
             // Named conditions (constraint-schema.md §4.1) are not evaluated
             // by this engine; per the spec they MUST fail closed.
-            reject_unsupported_fields(&["condition", "sensitive_fields", "sensitive_handling"])?;
-            let effect = constraint_effect(str_field("effect").as_deref());
+            if constraint.condition.is_some()
+                || !constraint.sensitive_fields.is_empty()
+                || constraint.sensitive_handling.is_some()
+            {
+                return Err(Error::Protocol("unsupported field_access condition/sensitive fields (cannot be enforced; failing closed)".to_owned()));
+            }
+            let effect = constraint_effect(constraint.effect);
             let denied_effect = match effect {
                 ConstraintEffect::Allow => ConstraintEffect::Deny,
                 other => other,
             };
-            let allowed_write = string_list(object, "allowed_write_fields");
+            let allowed_write = constraint.allowed_write_fields.clone();
             if !allowed_write.is_empty() {
                 constraints.push(Constraint::FieldAccess {
                     effect: ConstraintEffect::Allow,
@@ -857,7 +832,7 @@ pub(crate) fn constraint_entries_from_spec(
                     fields: allowed_write,
                 });
             }
-            let denied_write = string_list(object, "denied_write_fields");
+            let denied_write = constraint.denied_write_fields.clone();
             if !denied_write.is_empty() {
                 constraints.push(Constraint::FieldAccess {
                     effect: denied_effect.clone(),
@@ -865,7 +840,7 @@ pub(crate) fn constraint_entries_from_spec(
                     fields: denied_write,
                 });
             }
-            let allowed_read = string_list(object, "allowed_read_fields");
+            let allowed_read = constraint.allowed_read_fields.clone();
             if !allowed_read.is_empty() {
                 constraints.push(Constraint::FieldAccess {
                     effect: ConstraintEffect::Allow,
@@ -873,7 +848,7 @@ pub(crate) fn constraint_entries_from_spec(
                     fields: allowed_read,
                 });
             }
-            let denied_read = string_list(object, "denied_read_fields");
+            let denied_read = constraint.denied_read_fields.clone();
             if !denied_read.is_empty() {
                 constraints.push(Constraint::FieldAccess {
                     effect: denied_effect,
@@ -882,69 +857,74 @@ pub(crate) fn constraint_entries_from_spec(
                 });
             }
         }
-        "kind_restriction" => {
-            reject_unsupported_fields(&["allowed_space_kinds", "denied_space_kinds"])?;
+        GrantConstraintKind::KindRestriction => {
+            if !constraint.allowed_space_kinds.is_empty()
+                || !constraint.denied_space_kinds.is_empty()
+            {
+                return Err(Error::Protocol(
+                    "unsupported space kind restriction (cannot be enforced; failing closed)"
+                        .to_owned(),
+                ));
+            }
             constraints.push(Constraint::KindRestriction {
-                allowed_object_kinds: optional_string_list(object, "allowed_object_kinds"),
-                denied_object_kinds: optional_string_list(object, "denied_object_kinds"),
-                allowed_morph_kinds: optional_string_list(object, "allowed_morph_kinds"),
-                denied_morph_kinds: optional_string_list(object, "denied_morph_kinds"),
-                allowed_facets: facet_list(object, "allowed_facets")?,
-                denied_facets: facet_list(object, "denied_facets")?,
+                allowed_object_kinds: nonempty_option(&constraint.allowed_object_kinds),
+                denied_object_kinds: nonempty_option(&constraint.denied_object_kinds),
+                allowed_morph_kinds: nonempty_option(&constraint.allowed_morph_kinds),
+                denied_morph_kinds: nonempty_option(&constraint.denied_morph_kinds),
+                allowed_facets: constraint.allowed_facets.clone(),
+                denied_facets: constraint.denied_facets.clone(),
                 scope_limitation: None,
             });
         }
-        "scope_limitation" => {
-            reject_unsupported_fields(&[
-                "allowed_space_ids",
-                "denied_space_ids",
-                "allowed_data_labels",
-                "allowed_endpoints",
-                "blob_presign_scope",
-            ])?;
-            if let Some(circle_ids) = object.get("allowed_circle_ids") {
-                let allowed_circle_ids: std::collections::BTreeSet<arkret_wire::CircleId> =
-                    serde_json::from_value(circle_ids.clone()).map_err(|err| {
-                        Error::Protocol(format!("invalid allowed_circle_ids: {err}"))
-                    })?;
+        GrantConstraintKind::ScopeLimitation => {
+            if !constraint.allowed_space_ids.is_empty()
+                || !constraint.denied_space_ids.is_empty()
+                || !constraint.allowed_data_labels.is_empty()
+                || !constraint.allowed_endpoints.is_empty()
+                || constraint.blob_presign_scope.is_some()
+            {
+                return Err(Error::Protocol(
+                    "unsupported scope limitation field (cannot be enforced; failing closed)"
+                        .to_owned(),
+                ));
+            }
+            if !constraint.allowed_circle_ids.is_empty() {
+                let allowed_circle_ids = constraint.allowed_circle_ids.iter().cloned().collect();
                 constraints.push(Constraint::AllowedCircleIds { allowed_circle_ids });
             }
-            if let Some(session_ids) = object.get("allowed_session_ids") {
-                let allowed_session_ids: std::collections::BTreeSet<String> =
-                    serde_json::from_value(session_ids.clone()).map_err(|err| {
-                        Error::Protocol(format!("invalid allowed_session_ids: {err}"))
-                    })?;
+            if !constraint.allowed_session_ids.is_empty() {
+                let allowed_session_ids = constraint.allowed_session_ids.iter().cloned().collect();
                 constraints.push(Constraint::AllowedSessionIds {
                     allowed_session_ids,
                 });
             }
-            let allowed_relation_kinds = string_list(object, "allowed_relation_kinds");
-            let allowed_view_ids = string_list(object, "allowed_view_ids");
-            let allowed_from = string_list(object, "allowed_from_container_refs");
-            let allowed_to = string_list(object, "allowed_to_container_refs");
+            let allowed_relation_kinds = constraint.allowed_relation_kinds.clone();
+            let allowed_view_ids = constraint.allowed_view_ids.clone();
+            let allowed_from = constraint.allowed_from_container_refs.clone();
+            let allowed_to = constraint.allowed_to_container_refs.clone();
             let has_container_move = !allowed_relation_kinds.is_empty()
                 || !allowed_view_ids.is_empty()
                 || !allowed_from.is_empty()
                 || !allowed_to.is_empty()
-                || object.contains_key("wip_limit_override");
+                || constraint.wip_limit_override.is_some();
             if has_container_move {
                 constraints.push(Constraint::ContainerMove {
                     allowed_relation_kinds,
                     allowed_view_ids,
                     allowed_from_container_refs: allowed_from,
                     allowed_to_container_refs: allowed_to,
-                    wip_limit_override: bool_field("wip_limit_override"),
+                    wip_limit_override: constraint.wip_limit_override.unwrap_or(false),
                 });
             }
             let scope = Constraint::ScopeLimitation {
-                allowed_strand_ids: string_list(object, "allowed_strand_ids"),
-                denied_strand_ids: string_list(object, "denied_strand_ids"),
-                allowed_tracks: string_list(object, "allowed_tracks"),
-                denied_tracks: string_list(object, "denied_tracks"),
-                allowed_view_kinds: string_list(object, "allowed_view_kinds"),
-                allowed_view_renderers: string_list(object, "allowed_view_renderers"),
-                denied_view_kinds: string_list(object, "denied_view_kinds"),
-                denied_view_renderers: string_list(object, "denied_view_renderers"),
+                allowed_strand_ids: constraint.allowed_strand_ids.clone(),
+                denied_strand_ids: constraint.denied_strand_ids.clone(),
+                allowed_tracks: constraint.allowed_tracks.clone(),
+                denied_tracks: constraint.denied_tracks.clone(),
+                allowed_view_kinds: constraint.allowed_view_kinds.clone(),
+                allowed_view_renderers: constraint.allowed_view_renderers.clone(),
+                denied_view_kinds: constraint.denied_view_kinds.clone(),
+                denied_view_renderers: constraint.denied_view_renderers.clone(),
             };
             let scope_is_empty = matches!(
                 &scope,
@@ -970,44 +950,52 @@ pub(crate) fn constraint_entries_from_spec(
                 constraints.push(scope);
             }
         }
-        "authority_control" => match constraint_subkind.as_deref() {
+        GrantConstraintKind::AuthorityControl => match constraint_subkind {
             None => {
-                reject_unsupported_fields(&["applet_id", "executed_by", "registration_epoch"])?;
+                if constraint.applet_id.is_some()
+                    || constraint.executed_by.is_some()
+                    || constraint.registration_epoch.is_some()
+                {
+                    return Err(Error::Protocol("authority_control without applet subkind cannot carry applet binding fields".to_owned()));
+                }
                 constraints.push(Constraint::AuthorityControl {
-                    max_authority_depth: u64_field("max_authority_depth")
+                    max_authority_depth: constraint
+                        .max_authority_depth
                         .map(|depth| u32::try_from(depth).unwrap_or(u32::MAX)),
-                    authority_regrant_allowed: bool_field("authority_regrant_allowed"),
+                    authority_regrant_allowed: constraint
+                        .authority_regrant_allowed
+                        .unwrap_or(false),
                     constraint_subkind: None,
                     applet_id: None,
                     executed_by: None,
                     registration_epoch: None,
                 });
             }
-            Some("applet_authority") => {
-                let applet_id = AppletId::new(str_field("applet_id").ok_or_else(|| {
+            Some(GrantConstraintSubkind::AppletAuthority) => {
+                let applet_id = constraint.applet_id.clone().ok_or_else(|| {
                     Error::Protocol(
                         "authority_control.applet_authority requires applet_id".to_owned(),
                     )
-                })?)
-                .map_err(Error::from)?;
-                let executed_by = Did::new(str_field("executed_by").ok_or_else(|| {
+                })?;
+                let executed_by = constraint.executed_by.clone().ok_or_else(|| {
                     Error::Protocol(
                         "authority_control.applet_authority requires executed_by".to_owned(),
                     )
-                })?)
-                .map_err(Error::from)?;
+                })?;
                 let registration_epoch =
-                    Hash::new(str_field("registration_epoch").ok_or_else(|| {
+                    constraint.registration_epoch.clone().ok_or_else(|| {
                         Error::Protocol(
                             "authority_control.applet_authority requires registration_epoch"
                                 .to_owned(),
                         )
-                    })?)
-                    .map_err(Error::from)?;
+                    })?;
                 constraints.push(Constraint::AuthorityControl {
-                    max_authority_depth: u64_field("max_authority_depth")
+                    max_authority_depth: constraint
+                        .max_authority_depth
                         .map(|depth| u32::try_from(depth).unwrap_or(u32::MAX)),
-                    authority_regrant_allowed: bool_field("authority_regrant_allowed"),
+                    authority_regrant_allowed: constraint
+                        .authority_regrant_allowed
+                        .unwrap_or(false),
                     constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
                     applet_id: Some(applet_id),
                     executed_by: Some(executed_by),
@@ -1016,38 +1004,38 @@ pub(crate) fn constraint_entries_from_spec(
             }
             Some(other) => {
                 return Err(Error::Protocol(format!(
-                    "unsupported authority_control constraint_subkind '{other}'"
+                    "unsupported authority_control constraint_subkind '{other:?}'"
                 )));
             }
         },
-        "quota" => match constraint_subkind.as_deref() {
-            Some("rate") => {
+        GrantConstraintKind::Quota => match constraint_subkind {
+            Some(GrantConstraintSubkind::Rate) => {
                 constraints.push(Constraint::RateLimiting {
-                    max_operations: u64_field("max_operations").ok_or_else(|| {
+                    max_operations: constraint.max_operations.ok_or_else(|| {
                         Error::Protocol("quota.rate constraint requires max_operations".to_owned())
                     })?,
-                    period: duration_field(object, "period")?.ok_or_else(|| {
+                    period: optional_duration(constraint.period.as_deref())?.ok_or_else(|| {
                         Error::Protocol("quota.rate constraint requires period".to_owned())
                     })?,
-                    scope: rate_limit_scope(
-                        str_field("constraint_scope").as_deref(),
-                        "quota.rate",
-                        true,
-                    )?,
+                    scope: rate_limit_scope_typed(constraint.constraint_scope, "quota.rate", true)?,
                 });
             }
-            Some("resource") => {
-                reject_unsupported_fields(&["max_artifact_bytes"])?;
-                let requires_scope = u64_field("max_total_blob_bytes").is_some()
-                    || u64_field("max_resources").is_some();
+            Some(GrantConstraintSubkind::Resource) => {
+                if constraint.max_artifact_bytes.is_some() {
+                    return Err(Error::Protocol(
+                        "unsupported quota.resource max_artifact_bytes".to_owned(),
+                    ));
+                }
+                let requires_scope =
+                    constraint.max_total_blob_bytes.is_some() || constraint.max_resources.is_some();
                 constraints.push(Constraint::ResourceLimit {
-                    blob_max_bytes: u64_field("blob_max_bytes"),
-                    max_total_blob_bytes: u64_field("max_total_blob_bytes"),
-                    max_resources: u64_field("max_resources"),
-                    resource_kind: str_field("resource_kind"),
-                    period: duration_field(object, "period")?,
-                    scope: rate_limit_scope(
-                        str_field("constraint_scope").as_deref(),
+                    blob_max_bytes: constraint.blob_max_bytes,
+                    max_total_blob_bytes: constraint.max_total_blob_bytes,
+                    max_resources: constraint.max_resources,
+                    resource_kind: constraint.resource_kind.clone(),
+                    period: optional_duration(constraint.period.as_deref())?,
+                    scope: rate_limit_scope_typed(
+                        constraint.constraint_scope,
                         "quota.resource",
                         requires_scope,
                     )?,
@@ -1059,112 +1047,69 @@ pub(crate) fn constraint_entries_from_spec(
                 )));
             }
         },
-        "claim_based" => match constraint_subkind.as_deref() {
-            Some("claim") => {
-                let mut trusted_issuers = did_list(object, "trusted_claim_issuers")?;
+        GrantConstraintKind::ClaimBased => match constraint_subkind {
+            Some(GrantConstraintSubkind::Claim) => {
+                let mut trusted_issuers = constraint.trusted_claim_issuers.clone();
                 let mut required_claims = Vec::new();
-                for item in object
-                    .get("required_claims")
-                    .and_then(Value::as_array)
-                    .into_iter()
-                    .flatten()
-                {
-                    let item_object = item.as_object().ok_or_else(|| {
-                        Error::Protocol("required_claims entries must be objects".to_owned())
-                    })?;
-                    if item_object
-                        .get("value_constraints")
-                        .and_then(Value::as_object)
-                        .is_some_and(|map| !map.is_empty())
-                    {
+                for item in &constraint.required_claims {
+                    if !item.value_constraints.is_empty() || !item.extra.is_empty() {
                         return Err(Error::Protocol(
-                            "unsupported required_claims field 'value_constraints' \
+                            "unsupported required_claims value_constraints/extension field \
                              (cannot be enforced by this evaluator; failing closed)"
                                 .to_owned(),
                         ));
                     }
-                    let claim_kind = item_object
-                        .get("claim_kind")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            Error::Protocol("required_claims entry needs claim_kind".to_owned())
-                        })?
-                        .to_owned();
-                    let issuer = item_object
-                        .get("issuer")
-                        .and_then(Value::as_str)
-                        .map(Did::new)
-                        .transpose()?;
+                    let issuer = item.issuer.clone();
                     if let Some(issuer) = &issuer
                         && !trusted_issuers.contains(issuer)
                     {
                         trusted_issuers.push(issuer.clone());
                     }
-                    for trusted in item_object
-                        .get("trusted_issuers")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(Value::as_str)
-                    {
-                        let trusted = Did::new(trusted)?;
-                        if !trusted_issuers.contains(&trusted) {
-                            trusted_issuers.push(trusted);
+                    for trusted in &item.trusted_issuers {
+                        if !trusted_issuers.contains(trusted) {
+                            trusted_issuers.push(trusted.clone());
                         }
                     }
                     required_claims.push(ClaimRequirement {
-                        claim_kind,
+                        claim_kind: item.claim_kind.clone(),
                         issuer,
-                        organization: item_object
-                            .get("organization")
-                            .and_then(Value::as_str)
-                            .map(Did::new)
-                            .transpose()?,
-                        status: item_object
-                            .get("status")
-                            .and_then(Value::as_str)
-                            .map(ToOwned::to_owned),
-                        roles: item_object
-                            .get("roles")
-                            .and_then(Value::as_array)
-                            .map(|roles| {
-                                roles
-                                    .iter()
-                                    .filter_map(Value::as_str)
-                                    .map(ToOwned::to_owned)
-                                    .collect()
-                            }),
+                        organization: item.organization.clone(),
+                        status: item.status.clone(),
+                        roles: (!item.roles.is_empty()).then(|| item.roles.clone()),
                     });
                 }
                 constraints.push(Constraint::ClaimBased {
                     required_claims,
                     trusted_issuers,
-                    claim_refresh_required: bool_field("claim_refresh_required"),
-                    claim_max_age: duration_field(object, "claim_max_age")?,
+                    claim_refresh_required: constraint.claim_refresh_required.unwrap_or(false),
+                    claim_max_age: optional_duration(constraint.claim_max_age.as_deref())?,
                 });
             }
-            Some("approval") => {
+            Some(GrantConstraintSubkind::Approval) => {
                 constraints.push(Constraint::ApprovalWorkflow {
-                    approval_required: bool_field("approval_required"),
-                    approval_actor_ids: if object.contains_key("approval_actor_ids") {
-                        Some(did_list(object, "approval_actor_ids")?)
-                    } else {
-                        None
-                    },
-                    timeout: duration_field(object, "timeout")?,
+                    approval_required: constraint.approval_required.unwrap_or(false),
+                    approval_actor_ids: (!constraint.approval_actor_ids.is_empty())
+                        .then(|| constraint.approval_actor_ids.clone()),
+                    timeout: optional_duration(constraint.timeout.as_deref())?,
                     // The spec approval_mode enum (before_commit /
                     // proposal_then_approve / after_commit_review) describes
                     // timing, not quorum; the engine quorum mode is supplied
                     // by the caller via ApprovalStrandManager.
                     approval_mode: None,
-                    approval_relation: str_field("approval_relation"),
-                    guardian_approval_required: bool_field("guardian_approval_required"),
-                    controller_approval_required: bool_field("controller_approval_required"),
+                    approval_relation: constraint.approval_relation.map(|value| match value {
+                        arkret_models_collaboration::governance::grant_constraint::GrantApprovalRelation::Responsible => "responsible",
+                        arkret_models_collaboration::governance::grant_constraint::GrantApprovalRelation::Controller => "controller",
+                        arkret_models_collaboration::governance::grant_constraint::GrantApprovalRelation::Guardian => "guardian",
+                        arkret_models_collaboration::governance::grant_constraint::GrantApprovalRelation::RealmAdmin => "realm_admin",
+                        arkret_models_collaboration::governance::grant_constraint::GrantApprovalRelation::Custom => "custom",
+                    }.to_owned()),
+                    guardian_approval_required: constraint.guardian_approval_required.unwrap_or(false),
+                    controller_approval_required: constraint.controller_approval_required.unwrap_or(false),
                 });
             }
-            Some("accountability") => {
+            Some(GrantConstraintSubkind::Accountability) => {
                 constraints.push(Constraint::Accountability {
-                    accountability_required: bool_field("accountability_required"),
+                    accountability_required: constraint.accountability_required.unwrap_or(false),
                     responsible_actor: None,
                 });
             }
@@ -1174,21 +1119,22 @@ pub(crate) fn constraint_entries_from_spec(
                 )));
             }
         },
-        "confidentiality" => match constraint_subkind.as_deref() {
-            Some("encryption") => {
+        GrantConstraintKind::Confidentiality => match constraint_subkind {
+            Some(GrantConstraintSubkind::Encryption) => {
                 constraints.push(Constraint::EncryptionRequirement {
-                    encryption_required: bool_field("encryption_required"),
+                    encryption_required: constraint.encryption_required.unwrap_or(false),
                     min_encryption_level: None,
                 });
             }
-            Some("visibility") => {
+            Some(GrantConstraintSubkind::Visibility) => {
                 constraints.push(Constraint::VisibilityControl {
-                    allowed_history_visibility_values: string_list(
-                        object,
-                        "allowed_history_visibility_values",
-                    ),
+                    allowed_history_visibility_values: constraint
+                        .allowed_history_visibility_values
+                        .iter()
+                        .map(|value| value.as_str().to_owned())
+                        .collect(),
                     denied_history_visibility_values: Vec::new(),
-                    redacted_history_allowed: bool_field("redacted_history_allowed"),
+                    redacted_history_allowed: constraint.redacted_history_allowed.unwrap_or(false),
                 });
             }
             other => {
@@ -1198,11 +1144,6 @@ pub(crate) fn constraint_entries_from_spec(
                 )));
             }
         },
-        other => {
-            return Err(Error::Protocol(format!(
-                "unknown grant constraint type: {other}"
-            )));
-        }
     }
 
     let entries: Vec<_> = constraints
@@ -1215,8 +1156,8 @@ pub(crate) fn constraint_entries_from_spec(
         .collect();
 
     validate_declared_evaluation_class(
-        &constraint_kind,
-        constraint_subkind.as_deref(),
+        constraint_kind,
+        constraint_subkind,
         declared_evaluation_class,
         &entries,
     )?;
@@ -1224,21 +1165,9 @@ pub(crate) fn constraint_entries_from_spec(
     Ok(entries)
 }
 
-fn parse_evaluation_class(value: &str) -> Result<crate::EvaluationClass> {
-    match value {
-        "stateless" => Ok(crate::EvaluationClass::Stateless),
-        "grant_local" => Ok(crate::EvaluationClass::GrantLocal),
-        "realm_state" => Ok(crate::EvaluationClass::RealmState),
-        "external" => Ok(crate::EvaluationClass::External),
-        other => Err(Error::Protocol(format!(
-            "unknown evaluation_class '{other}'"
-        ))),
-    }
-}
-
 fn validate_declared_evaluation_class(
-    constraint_kind: &str,
-    constraint_subkind: Option<&str>,
+    constraint_kind: GrantConstraintKind,
+    constraint_subkind: Option<GrantConstraintSubkind>,
     declared: Option<crate::EvaluationClass>,
     entries: &[ConstraintEntry],
 ) -> Result<()> {
@@ -1251,9 +1180,9 @@ fn validate_declared_evaluation_class(
     if declared != canonical {
         return Err(Error::Protocol(format!(
             "evaluation_class mismatch for {}{}: declared {}, canonical {}",
-            constraint_kind,
+            constraint_kind.as_str(),
             constraint_subkind
-                .map(|constraint_subkind| format!(".{constraint_subkind}"))
+                .map(|constraint_subkind| format!(".{constraint_subkind:?}"))
                 .unwrap_or_default(),
             evaluation_class_name(declared),
             evaluation_class_name(canonical)
@@ -1283,12 +1212,12 @@ fn evaluation_class_name(value: crate::EvaluationClass) -> &'static str {
     }
 }
 
-fn constraint_effect(value: Option<&str>) -> ConstraintEffect {
+fn constraint_effect(value: GrantConstraintEffect) -> ConstraintEffect {
     match value {
-        Some("deny") => ConstraintEffect::Deny,
-        Some("quarantine") => ConstraintEffect::Quarantine,
-        Some("require_review") => ConstraintEffect::RequireReview,
-        _ => ConstraintEffect::Allow,
+        GrantConstraintEffect::Allow => ConstraintEffect::Allow,
+        GrantConstraintEffect::Deny => ConstraintEffect::Deny,
+        GrantConstraintEffect::Quarantine => ConstraintEffect::Quarantine,
+        GrantConstraintEffect::RequireReview => ConstraintEffect::RequireReview,
     }
 }
 
@@ -1310,6 +1239,31 @@ fn rate_limit_scope(
         ))),
         None => Ok(GrantRateLimitScope::Global),
     }
+}
+
+fn rate_limit_scope_typed(
+    value: Option<GrantConstraintScope>,
+    constraint: &str,
+    required: bool,
+) -> Result<GrantRateLimitScope> {
+    match value {
+        Some(GrantConstraintScope::PerActor) => Ok(GrantRateLimitScope::PerActor),
+        Some(GrantConstraintScope::PerSpace) => Ok(GrantRateLimitScope::PerSpace),
+        Some(GrantConstraintScope::PerRealm) => Ok(GrantRateLimitScope::PerRealm),
+        Some(GrantConstraintScope::Global) => Ok(GrantRateLimitScope::Global),
+        None if required => Err(Error::Protocol(format!(
+            "{constraint} constraint requires constraint_scope"
+        ))),
+        None => Ok(GrantRateLimitScope::Global),
+    }
+}
+
+fn optional_duration(value: Option<&str>) -> Result<Option<ConstraintDuration>> {
+    value.map(parse_iso8601_duration).transpose()
+}
+
+fn nonempty_option<T: Clone>(values: &[T]) -> Option<Vec<T>> {
+    (!values.is_empty()).then(|| values.to_vec())
 }
 
 fn datetime_field(
@@ -1605,21 +1559,28 @@ impl CapabilityGrantBuilder {
         // Reject anything the spec schema would reject before it reaches the
         // wire (schema_violation semantics).
         GrantProjection::from_wire(&self.grant)?;
-        // Canonical event payload shape per event-payload.schema.json
-        // `$defs/capability_grant_payload`: the cell subject `grant_id` plus
-        // the embedded `capability-grant.schema.json` artifact.
-        let content = serde_json::json!({
-            "grant_id": self.grant.id,
-            "grant": serde_json::to_value(&self.grant)?,
-        });
-        crate::Event::new(
-            arkret_wire::EventKind::CapabilityGrant.to_string(),
+        let payload = arkret_models_collaboration::events_payloads::CapabilityGrantPayload {
+            grant: arkret_models_collaboration::events_payloads::CapabilityGrantCreateBody {
+                schema: self.grant.schema,
+                realm_id: self.grant.realm_id,
+                issuer: self.grant.issuer,
+                subject: self.grant.subject,
+                actions: self.grant.actions,
+                resources: self.grant.resources,
+                capability_action_registry_digest: self.grant.capability_action_registry_digest,
+                constraints: self.grant.constraints,
+                issuer_authority_refs: self.grant.issuer_authority_refs,
+                issued_at: self.grant.issued_at,
+                not_before: self.grant.not_before,
+                expires_at: self.grant.expires_at,
+            },
+        };
+        arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityGrant>::new(
             self.scope_ref,
             self.actor_id,
-            actor_seq,
-            hlc,
-            content,
-        )
+            payload,
+        )?
+        .author_now(actor_seq, hlc)
     }
 }
 
@@ -1633,14 +1594,10 @@ pub fn build_capability_relinquish_event(
     hlc: crate::Hlc,
     payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
 ) -> Result<crate::Event> {
-    crate::Event::new(
-        arkret_wire::EventKind::CapabilityRelinquish.to_string(),
-        scope_ref,
-        subject,
-        actor_seq,
-        hlc,
-        serde_json::to_value(payload)?,
-    )
+    arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityRelinquish>::new(
+        scope_ref, subject, payload,
+    )?
+    .author_now(actor_seq, hlc)
 }
 
 #[cfg(test)]
@@ -1648,6 +1605,11 @@ mod capability_grant_builder_tests {
     use serde_json::json;
 
     use super::*;
+
+    fn constraint_entries_from_spec(value: &Value) -> Result<Vec<ConstraintEntry>> {
+        let constraint: GrantConstraint = serde_json::from_value(value.clone())?;
+        super::constraint_entries_from_spec(&constraint)
+    }
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap()
@@ -1704,16 +1666,11 @@ mod capability_grant_builder_tests {
             .build(1, hlc())
             .unwrap();
         assert_eq!(event.kind, arkret_wire::EventKind::CapabilityGrant);
-        // Canonical capability_grant_payload wrapper: {grant_id, grant}.
-        assert_eq!(
-            event.payload["grant_id"],
-            "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"
-        );
+        // Genesis carries only the grant create body; its GrantId is derived
+        // from the accepted EventId by the reducer.
+        assert!(event.payload.get("grant_id").is_none());
         let artifact = &event.payload["grant"];
-        assert_eq!(
-            artifact["id"],
-            "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"
-        );
+        assert!(artifact.get("id").is_none());
         assert_eq!(artifact["schema"], SchemaId::CAPABILITY_V1);
         assert_eq!(artifact["issuer"], "did:webvh:z6mkfixture:alice.example");
         assert_eq!(artifact["subject"], "did:webvh:z6mkfixture:bob.example");
@@ -1728,23 +1685,20 @@ mod capability_grant_builder_tests {
             "the removed top-level delegable boolean must never reach the wire"
         );
         // Wrapper round-trips back into the core authority form.
+        let source_event_id =
+            arkret_wire::EventId::new("ak:event:AeJsr0sf3TZ_Cuzj2uLddhd-O-Cywvdj8ypnqpVG8zim")
+                .unwrap();
         let event_view = arkret_models_collaboration::ResolvedStateEvent {
-            kind: event.kind.to_string(),
+            kind: event.kind.clone(),
             subject: "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu".to_owned(),
-            source_event_id: arkret_wire::EventId::new(
-                "ak:event:AeJsr0sf3TZ_Cuzj2uLddhd-O-Cywvdj8ypnqpVG8zim",
-            )
-            .unwrap(),
+            source_event_id: source_event_id.clone(),
             actor_id: alice(),
             actor_seq: 1,
             hlc: Some(hlc()),
             content: Value::Object(event.payload.clone().into_iter().collect()),
         };
         let grant = capability_grant_from_resolved_event(&event_view, None).unwrap();
-        assert_eq!(
-            grant.id.as_str(),
-            "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"
-        );
+        assert_eq!(grant.id, GrantId::from_event_id(&source_event_id));
     }
 
     #[test]
@@ -1978,12 +1932,9 @@ mod capability_grant_builder_tests {
     fn resolved_event_with_top_level_delegable_is_schema_violation() {
         let mut artifact = serde_json::to_value(base_grant()).unwrap();
         artifact["delegable"] = json!(true);
-        let content = json!({
-            "grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",
-            "grant": artifact,
-        });
+        let content = json!({"grant": artifact});
         let event = arkret_models_collaboration::ResolvedStateEvent {
-            kind: "ak.capability.grant".to_owned(),
+            kind: arkret_wire::EventKind::CapabilityGrant,
             subject: "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu".to_owned(),
             source_event_id: arkret_wire::EventId::new(
                 "ak:event:AeJsr0sf3TZ_Cuzj2uLddhd-O-Cywvdj8ypnqpVG8zim",

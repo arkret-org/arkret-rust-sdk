@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::operation::OperationEnvelope;
 use crate::registry::{EventDraftKindConformanceVector, event_draft_kind_conformance_vectors};
-pub use crate::{CausalRef, Operation, OperationSignature};
+pub use crate::{CausalRef, LocalOperationDraft, OperationSignature, ProjectedEventOperation};
 use crate::{EventDraftError, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -69,8 +69,8 @@ impl OperationCatalogReport {
     }
 }
 
-pub fn classify_operation_kind(kind: &str) -> OperationSurface {
-    match kind {
+pub fn classify_operation_kind(kind: ServiceOperationId) -> OperationSurface {
+    match kind.as_str() {
         ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE
         | ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT
         | ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC
@@ -172,7 +172,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR
         | ServiceOperationId::SELF_SNAPSHOT_READ_MANIFEST_HEAD
         | ServiceOperationId::PEER_SNAPSHOT_READ_MANIFEST_HEAD => OperationSurface::AccountStream,
-        _ => OperationSurface::Custom(kind.to_owned()),
+        _ => OperationSurface::Custom(kind.as_str().to_owned()),
     }
 }
 
@@ -183,7 +183,7 @@ pub fn operation_catalog() -> OperationCatalogReport {
             let descriptor = kind.descriptor();
             OperationCatalogRow {
                 kind: kind.as_str().to_owned(),
-                surface: classify_operation_kind(kind.as_str()),
+                surface: classify_operation_kind(*kind),
                 schema: descriptor.request_schema_ref.unwrap_or_default().to_owned(),
                 required_content_fields: Vec::new(),
             }
@@ -472,9 +472,9 @@ impl OperationSemanticReducer {
 }
 
 pub fn semantic_effect(operation: &OperationEnvelope) -> OperationSemanticEffect {
-    let event_kind = EventKind::from_wire(&operation.kind);
+    let event_kind = operation.kind.clone();
     let surface = if matches!(event_kind, EventKind::Unknown(_)) {
-        OperationSurface::Custom(operation.kind.clone())
+        OperationSurface::Custom(operation.kind.as_str().to_owned())
     } else {
         OperationSurface::Events
     };
@@ -590,7 +590,7 @@ pub mod protocol {
 
     pub use crate::{
         EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
-        EventDraftKindValidation, Operation, OperationEnvelope, OperationEnvelopeBuilder,
+        EventDraftKindValidation, OperationEnvelope, OperationEnvelopeBuilder,
     };
 }
 
@@ -600,8 +600,6 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::OperationEnvelopeBuilder;
-    use crate::registry::EventDraftKindRegistry;
 
     fn scope() -> ScopeRef {
         ScopeRef::Realm {
@@ -621,24 +619,26 @@ mod tests {
         deps: Vec<&str>,
         authz: bool,
     ) -> OperationEnvelope {
-        let mut builder = OperationEnvelopeBuilder::new(
-            OperationId::new(id).unwrap(),
-            scope(),
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            kind.to_string(),
-            1,
-            Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
-        )
-        .with_payload(payload);
-        for dep in deps {
-            builder = builder.with_dependency(OperationId::new(dep).unwrap());
+        OperationEnvelope {
+            operation_id: OperationId::new(id).unwrap(),
+            scope_ref: scope(),
+            actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            kind,
+            target_ref: None,
+            causal: CausalRef {
+                deps: deps
+                    .into_iter()
+                    .map(|dependency| OperationId::new(dependency).unwrap())
+                    .collect(),
+                hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+                actor_seq: 1,
+            },
+            payload,
+            authz_ref: authz.then(|| {
+                GrantId::new("ak:grant:AWVV4oAZjNs1EhSMEvPRRReMIYv-HGmxji_tuAJttf-q").unwrap()
+            }),
+            proofs: Vec::new(),
         }
-        if authz {
-            builder = builder.with_authz_ref(
-                GrantId::new("ak:grant:AWVV4oAZjNs1EhSMEvPRRReMIYv-HGmxji_tuAJttf-q").unwrap(),
-            );
-        }
-        builder.build(&EventDraftKindRegistry::default()).unwrap()
     }
 
     #[test]

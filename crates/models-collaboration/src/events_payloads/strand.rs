@@ -398,7 +398,7 @@ mod presence_tests {
             StrandWatchLevel::Participating,
             None,
         );
-        let event = Event::new(
+        let event = arkret_wire::test_support::raw_event(
             "ak.strand.watch.set",
             ScopeRef::Realm {
                 realm_id: realm_id(),

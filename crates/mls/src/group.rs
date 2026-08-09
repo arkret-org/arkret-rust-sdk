@@ -256,7 +256,7 @@ pub struct MlsRemoveMemberResult {
 
 // NOTE: `MlsRemoveMemberResult` / `MlsAddMemberResult` / `MlsAddMembersResult`
 // no longer carry `commit_operation` / `welcome_device_message_target`
-// projections. The envelope -> repo-`Operation` and envelope ->
+// projections. The envelope -> local scheduler draft and envelope ->
 // `DeviceMessageTarget` bindings live in `arkret-event-draft`
 // (`MlsEnvelopeOperationExt`, `MlsWelcomeTargetExt`) so this OpenMLS-isolation
 // layer never depends on the drafting / collaboration crates.

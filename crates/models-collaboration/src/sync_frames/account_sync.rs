@@ -5,6 +5,8 @@
 //! ephemeral containers, timelines, and the per-Realm roster entry
 //! carried by account-subscribe frames.
 
+use serde::Serializer;
+
 use crate::internal_prelude::*;
 
 /// Closed action set for account notification projection deltas.
@@ -441,6 +443,188 @@ pub struct DeviceMessageTarget {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub content: BTreeMap<String, Value>,
+}
+
+/// Closed operation set carried by actor-private account-data update messages.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActorPrivateAccountDataOperation {
+    Put,
+    Delete,
+}
+
+/// Account-data delta carried inside an actor-private device update.
+///
+/// `content` is intentionally open JSON because account-data values are an
+/// application-owned extension boundary. The surrounding update variant and
+/// revision contract remain strongly typed.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActorPrivateAccountDataUpdate {
+    pub operation: ActorPrivateAccountDataOperation,
+    pub account_data_key: String,
+    pub revision: u64,
+    pub content: Option<Value>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Read-cursor delta carried inside an actor-private device update.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActorPrivateReadCursorUpdate {
+    pub schema: String,
+    pub actor_id: Did,
+    pub device_id: DeviceId,
+    pub realm_id: RealmId,
+    pub read_scope: ReadCursorScope,
+    pub position: crate::objects::read_receipts::ReadCursorPosition,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Self-describing actor-private update envelope. The wire `type` tag and its
+/// content shape cannot be constructed independently.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
+pub enum ActorPrivateDeviceUpdate {
+    #[serde(rename = "ak.account_data.update")]
+    AccountData {
+        sender_device_id: String,
+        content: ActorPrivateAccountDataUpdate,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        created_at: DateTime<Utc>,
+    },
+    #[serde(rename = "ak.account.blocklist.update")]
+    Blocklist {
+        sender_device_id: String,
+        content: ActorPrivateAccountDataUpdate,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        created_at: DateTime<Utc>,
+    },
+    #[serde(rename = "ak.read_cursor.update")]
+    ReadCursor {
+        sender_device_id: String,
+        content: ActorPrivateReadCursorUpdate,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        created_at: DateTime<Utc>,
+    },
+}
+
+impl ActorPrivateDeviceUpdate {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::AccountData { .. } => "ak.account_data.update",
+            Self::Blocklist { .. } => "ak.account.blocklist.update",
+            Self::ReadCursor { .. } => "ak.read_cursor.update",
+        }
+    }
+
+    pub fn sender_device_id(&self) -> &str {
+        match self {
+            Self::AccountData {
+                sender_device_id, ..
+            }
+            | Self::Blocklist {
+                sender_device_id, ..
+            }
+            | Self::ReadCursor {
+                sender_device_id, ..
+            } => sender_device_id,
+        }
+    }
+
+    pub fn created_at(&self) -> DateTime<Utc> {
+        match self {
+            Self::AccountData { created_at, .. }
+            | Self::Blocklist { created_at, .. }
+            | Self::ReadCursor { created_at, .. } => created_at.to_owned(),
+        }
+    }
+}
+
+/// Projection metadata attached to an MLS Welcome to-device delivery.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsWelcomeProjectionBinding {
+    pub source_event_id: String,
+    pub mls_welcome_id: String,
+    pub key_package_id: String,
+}
+
+/// SDK-owned outbound MLS Welcome device-message envelope. The standard kind
+/// is emitted by the serializer and cannot diverge from the typed payload.
+#[derive(Clone, Debug)]
+pub struct MlsWelcomeProjectedDeviceMessage {
+    pub sender_device_id: String,
+    pub expires_at: DateTime<Utc>,
+    pub content: crate::events_payloads::MlsWelcomePayload,
+    pub unsigned: MlsWelcomeProjectionBinding,
+}
+
+impl Serialize for MlsWelcomeProjectedDeviceMessage {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        struct Wire<'a> {
+            kind: EventKind,
+            sender_device_id: &'a str,
+            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+            expires_at: DateTime<Utc>,
+            content: &'a crate::events_payloads::MlsWelcomePayload,
+            unsigned: &'a MlsWelcomeProjectionBinding,
+        }
+        Wire {
+            kind: EventKind::MlsWelcome,
+            sender_device_id: &self.sender_device_id,
+            expires_at: self.expires_at.to_owned(),
+            content: &self.content,
+            unsigned: &self.unsigned,
+        }
+        .serialize(serializer)
+    }
+}
+
+/// SDK-owned outbound Realm Key Share device-message envelope. The standard
+/// Event kind is emitted atomically with its typed payload.
+#[derive(Clone, Debug)]
+pub struct RealmKeyShareProjectedDeviceMessage {
+    pub sender_device_id: String,
+    pub realm_id: RealmId,
+    pub operation_id: String,
+    pub payload: crate::events_payloads::RealmKeySharePayload,
+}
+
+impl Serialize for RealmKeyShareProjectedDeviceMessage {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        struct Content<'a> {
+            realm_id: &'a RealmId,
+            operation_id: &'a str,
+            payload: &'a crate::events_payloads::RealmKeySharePayload,
+        }
+        #[derive(Serialize)]
+        struct Wire<'a> {
+            kind: EventKind,
+            sender_device_id: &'a str,
+            content: Content<'a>,
+        }
+        Wire {
+            kind: EventKind::RealmKeyShare,
+            sender_device_id: &self.sender_device_id,
+            content: Content {
+                realm_id: &self.realm_id,
+                operation_id: &self.operation_id,
+                payload: &self.payload,
+            },
+        }
+        .serialize(serializer)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

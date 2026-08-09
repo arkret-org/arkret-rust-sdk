@@ -103,15 +103,39 @@ pub enum DraftKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DraftSyncValue {
-    pub target_ref: String,
-    pub kind: DraftKind,
-    pub draft_slot: String,
-    pub content: BTreeMap<String, Value>,
-    pub updated_hlc: String,
-    pub origin_device_id: DeviceId,
-    pub retention_expires_at: String,
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum DraftSyncValue {
+    Message {
+        target_ref: String,
+        draft_slot: String,
+        content: BTreeMap<String, Value>,
+        updated_hlc: String,
+        origin_device_id: DeviceId,
+        retention_expires_at: String,
+    },
+    StrandField {
+        target_ref: String,
+        draft_slot: String,
+        content: BTreeMap<String, Value>,
+        updated_hlc: String,
+        origin_device_id: DeviceId,
+        retention_expires_at: String,
+    },
+}
+
+impl DraftSyncValue {
+    pub fn kind(&self) -> DraftKind {
+        match self {
+            Self::Message { .. } => DraftKind::Message,
+            Self::StrandField { .. } => DraftKind::StrandField,
+        }
+    }
+
+    pub fn content(&self) -> &BTreeMap<String, Value> {
+        match self {
+            Self::Message { content, .. } | Self::StrandField { content, .. } => content,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -3225,9 +3249,8 @@ mod tests {
 
     #[test]
     fn wire_field_names_match_current_spec() {
-        let draft = DraftSyncValue {
+        let draft = DraftSyncValue::Message {
             target_ref: "ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned(),
-            kind: DraftKind::Message,
             draft_slot: "main".to_owned(),
             content: BTreeMap::from([("body".to_owned(), json!("draft"))]),
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),

@@ -10,7 +10,7 @@
 //! allowed, keeping policy free of any dependency on the state runtime.
 
 use arkret_identifiers::Hlc;
-use arkret_wire::{Did, EventId};
+use arkret_wire::{Did, EventId, EventKind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -19,7 +19,7 @@ use serde_json::Value;
 /// tie-break metadata (HLC, actor id / seq, source event id).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedStateEvent {
-    pub kind: String,
+    pub kind: EventKind,
     /// Cell subject derived from the event's typed payload per the spec
     /// event-kind-registry's `cell_subject`. Empty string for singleton
     /// kinds.

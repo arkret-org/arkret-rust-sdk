@@ -38,14 +38,14 @@ pub struct CircleCreatePayload {
 pub struct CircleMemberStatePayload {
     pub circle_id: CircleId,
     pub actor_id: Did,
-    pub membership: MembershipState,
+    pub membership: CircleMembership,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "WirePresence::is_missing")]
-    pub expected_membership: WirePresence<MembershipState>,
+    pub expected_membership: WirePresence<CircleMembership>,
 }
 
 /// Counterpart for
@@ -84,7 +84,7 @@ mod presence_tests {
         assert_eq!(null.expected_membership, WirePresence::Null);
         assert_eq!(
             value.expected_membership,
-            WirePresence::Value(MembershipState::Invite)
+            WirePresence::Value(CircleMembership::Invite)
         );
         assert!(
             serde_json::to_value(missing)
@@ -96,5 +96,22 @@ mod presence_tests {
             serde_json::to_value(null).unwrap()["expected_membership"],
             Value::Null
         );
+    }
+
+    #[test]
+    fn circle_membership_accepts_terminal_states() {
+        for (wire, expected) in [
+            ("leave", CircleMembership::Leave),
+            ("ban", CircleMembership::Ban),
+        ] {
+            let payload: CircleMemberStatePayload = serde_json::from_value(json!({
+                "circle_id": "ak:circle:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j",
+                "actor_id": "did:web:alice.example",
+                "membership": wire
+            }))
+            .unwrap();
+
+            assert_eq!(payload.membership, expected);
+        }
     }
 }

@@ -46,6 +46,7 @@ unicode-normalization = {workspace = true}
 
 [dev-dependencies]
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+arkret-wire = {workspace = true,features = ["test-support"]}
 proptest = {workspace = true,default-features = false,features = ["std"]}
 
 [lints]

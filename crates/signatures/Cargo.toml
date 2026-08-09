@@ -50,6 +50,7 @@ zeroize = {workspace = true,default-features = true}
 [dev-dependencies]
 arkret-identifiers = {workspace = true}
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+arkret-wire = {workspace = true,features = ["test-support"]}
 rand_chacha = {workspace = true}
 serde_json = {workspace = true}
 # SDK-SOTA-03 microbenchmarks (run on demand with `cargo bench`, never in CI).

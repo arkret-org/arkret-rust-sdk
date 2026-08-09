@@ -16,6 +16,8 @@
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value, json};
 
+use super::message::ContentBlock;
+
 /// Placeholder body for a redacted message tombstone. Mirrors the
 /// erasure / retention placeholder style so renderers can fall back to a
 /// human label when they do not special-case the structured marker.
@@ -58,10 +60,8 @@ pub fn redaction_tombstone_message_value(
     }
     object.insert(
         "content".to_owned(),
-        json!({
-            "kind": "ak.content.text",
-            "body": REDACTED_MESSAGE_PLACEHOLDER,
-        }),
+        serde_json::to_value(ContentBlock::text(REDACTED_MESSAGE_PLACEHOLDER))
+            .expect("typed content block serialization is infallible"),
     );
     object.insert("encrypted".to_owned(), json!(false));
     object.insert("decryption_state".to_owned(), json!("plaintext"));

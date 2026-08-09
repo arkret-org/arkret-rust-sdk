@@ -172,7 +172,7 @@ mod tests {
     use super::*;
 
     fn event(kind: &str, actor: &str, suffix: &str) -> Event {
-        Event::new(
+        arkret_wire::test_support::raw_event(
             kind,
             ScopeRef::Realm {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn applet_delegation_applies_all_signed_envelope_fields() {
-        let mut event = Event::new(
+        let mut event = arkret_wire::test_support::raw_event(
             "ak.profile.create",
             ScopeRef::Realm {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")

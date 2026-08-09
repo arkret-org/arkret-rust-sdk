@@ -59,7 +59,7 @@ impl SessionGrantRequestBody {
             .expect("session grant proof serializes as an object");
         proof.remove("request_canonical_digest");
         proof.remove("signature");
-        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+        session_grant_request_digest(&value)
     }
 }
 
@@ -143,8 +143,225 @@ impl SessionGrantRequestProof {
             .as_object_mut()
             .expect("session grant proof serializes as an object")
             .remove("signature");
-        canonical::canonical_json_bytes(&value).map_err(Into::into)
+        session_grant_proof_signing_bytes(&value)
     }
+}
+
+/// Signature-proof members before the self-referential request digest and
+/// detached signature have been derived. This type is not serializable.
+#[derive(Clone, Debug)]
+pub struct UnsignedSessionGrantRequestProof {
+    pub proof_kind: SessionGrantProofKind,
+    pub challenge: String,
+    pub audience: Did,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub verification_method: Option<DidUrl>,
+    pub issuer: Option<String>,
+    pub client_id: Option<String>,
+    pub redirect_uri: Option<String>,
+    pub state: Option<String>,
+    pub nonce: Option<String>,
+    pub authorization_code: Option<String>,
+    pub code_verifier: Option<String>,
+}
+
+/// Non-serializable session-grant authoring state. Only
+/// [`Self::attach_signature`] can produce the outbound wire request.
+#[derive(Clone, Debug)]
+pub struct UnsignedSessionGrantRequestBody {
+    pub principal_id: Did,
+    pub device_id: Option<DeviceId>,
+    pub requested_scope: Vec<String>,
+    pub agent_key_authorization_ref: Option<String>,
+    pub agent_scope_request: Option<SessionGrantAgentScopeRequest>,
+    pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
+    pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
+    pub applet_authority: Option<SessionGrantAppletDelegation>,
+    pub proof: UnsignedSessionGrantRequestProof,
+}
+
+impl UnsignedSessionGrantRequestBody {
+    pub fn new(
+        principal_id: Did,
+        device_id: Option<DeviceId>,
+        requested_scope: Vec<String>,
+        agent_key_authorization_ref: Option<String>,
+        agent_scope_request: Option<SessionGrantAgentScopeRequest>,
+        requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
+        dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
+        applet_authority: Option<SessionGrantAppletDelegation>,
+        proof: UnsignedSessionGrantRequestProof,
+    ) -> Result<Self> {
+        if proof.challenge.is_empty() {
+            return Err(Error::Protocol(
+                "session grant proof challenge must not be empty".to_owned(),
+            ));
+        }
+        let agent = proof.proof_kind == SessionGrantProofKind::AgentKeyProof;
+        if agent
+            != (device_id.is_some()
+                && agent_key_authorization_ref.is_some()
+                && agent_scope_request.is_some()
+                && dpop_binding_proof.is_some()
+                && proof.verification_method.is_some())
+        {
+            return Err(Error::Protocol(
+                "agent_key_proof session grant requires its complete agent binding".to_owned(),
+            ));
+        }
+        if !agent
+            && (agent_key_authorization_ref.is_some()
+                || agent_scope_request.is_some()
+                || requested_scope_disclosure.is_some()
+                || proof.verification_method.is_some())
+        {
+            return Err(Error::Protocol(
+                "human session grant must omit agent-only binding fields".to_owned(),
+            ));
+        }
+        let oidc = proof.proof_kind == SessionGrantProofKind::OidcCodeExchange;
+        let oidc_complete = proof.issuer.is_some()
+            && proof.client_id.is_some()
+            && proof.redirect_uri.is_some()
+            && proof.state.is_some()
+            && proof.nonce.is_some()
+            && proof.authorization_code.is_some()
+            && proof.code_verifier.is_some();
+        if oidc != oidc_complete {
+            return Err(Error::Protocol(
+                "oidc_code_exchange session grant requires exactly its OIDC fields".to_owned(),
+            ));
+        }
+        Ok(Self {
+            principal_id,
+            device_id,
+            requested_scope,
+            agent_key_authorization_ref,
+            agent_scope_request,
+            requested_scope_disclosure,
+            dpop_binding_proof,
+            applet_authority,
+            proof,
+        })
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        session_grant_request_digest(&self.unsigned_request_value())
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let digest = self.canonical_request_digest()?;
+        session_grant_proof_signing_bytes(&self.unsigned_proof_value(Some(&digest)))
+    }
+
+    pub fn attach_signature(self, signature: NonEmptyString) -> Result<SessionGrantRequestBody> {
+        let request_canonical_digest = self.canonical_request_digest()?;
+        Ok(SessionGrantRequestBody {
+            principal_id: self.principal_id,
+            device_id: self.device_id,
+            requested_scope: self.requested_scope,
+            agent_key_authorization_ref: self.agent_key_authorization_ref,
+            agent_scope_request: self.agent_scope_request,
+            requested_scope_disclosure: self.requested_scope_disclosure,
+            dpop_binding_proof: self.dpop_binding_proof,
+            applet_authority: self.applet_authority,
+            proof: SessionGrantRequestProof {
+                proof_kind: self.proof.proof_kind,
+                challenge: self.proof.challenge,
+                request_canonical_digest,
+                audience: self.proof.audience,
+                expires_at: self.proof.expires_at,
+                signature: signature.into_string(),
+                verification_method: self.proof.verification_method,
+                issuer: self.proof.issuer,
+                client_id: self.proof.client_id,
+                redirect_uri: self.proof.redirect_uri,
+                state: self.proof.state,
+                nonce: self.proof.nonce,
+                authorization_code: self.proof.authorization_code,
+                code_verifier: self.proof.code_verifier,
+            },
+        })
+    }
+
+    fn unsigned_request_value(&self) -> Value {
+        let mut value = serde_json::json!({
+            "principal_id": &self.principal_id,
+            "device_id": &self.device_id,
+            "requested_scope": &self.requested_scope,
+            "agent_key_authorization_ref": &self.agent_key_authorization_ref,
+            "agent_scope_request": &self.agent_scope_request,
+            "requested_scope_disclosure": &self.requested_scope_disclosure,
+            "dpop_binding_proof": &self.dpop_binding_proof,
+            "applet_authority": &self.applet_authority,
+            "proof": self.unsigned_proof_value(None),
+        });
+        let object = value
+            .as_object_mut()
+            .expect("unsigned session grant request is an object");
+        if self.requested_scope.is_empty() {
+            object.remove("requested_scope");
+        }
+        for field in [
+            "device_id",
+            "agent_key_authorization_ref",
+            "agent_scope_request",
+            "requested_scope_disclosure",
+            "dpop_binding_proof",
+            "applet_authority",
+        ] {
+            if object.get(field).is_some_and(Value::is_null) {
+                object.remove(field);
+            }
+        }
+        value
+    }
+
+    fn unsigned_proof_value(&self, digest: Option<&Hash>) -> Value {
+        let mut value = serde_json::json!({
+            "proof_kind": self.proof.proof_kind,
+            "challenge": &self.proof.challenge,
+            "request_canonical_digest": digest,
+            "audience": &self.proof.audience,
+            "expires_at": self.proof.expires_at.map(canonical::format_timestamp_canonical),
+            "verification_method": &self.proof.verification_method,
+            "issuer": &self.proof.issuer,
+            "client_id": &self.proof.client_id,
+            "redirect_uri": &self.proof.redirect_uri,
+            "state": &self.proof.state,
+            "nonce": &self.proof.nonce,
+            "authorization_code": &self.proof.authorization_code,
+            "code_verifier": &self.proof.code_verifier,
+        });
+        let object = value
+            .as_object_mut()
+            .expect("unsigned session grant proof is an object");
+        for field in [
+            "request_canonical_digest",
+            "expires_at",
+            "verification_method",
+            "issuer",
+            "client_id",
+            "redirect_uri",
+            "state",
+            "nonce",
+            "authorization_code",
+            "code_verifier",
+        ] {
+            if object.get(field).is_some_and(Value::is_null) {
+                object.remove(field);
+            }
+        }
+        value
+    }
+}
+
+fn session_grant_request_digest(value: &Value) -> Result<Hash> {
+    Hash::new(canonical::canonical_sha256(value)?).map_err(Into::into)
+}
+
+fn session_grant_proof_signing_bytes(value: &Value) -> Result<Vec<u8>> {
+    canonical::canonical_json_bytes(value).map_err(Into::into)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

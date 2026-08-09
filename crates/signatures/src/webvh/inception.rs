@@ -30,12 +30,12 @@ use std::collections::BTreeSet;
 
 use arkret_canonical::base64url::base64url_encode;
 use arkret_canonical::multibase::decode_ed25519_multibase;
-use arkret_models_identity::IdentityCreationControlProof;
 use arkret_models_identity::identity::DidOperationSubmitRequestBody;
 use arkret_models_identity::service_identity::{
     CanonicalServiceUrl, ServiceRegistrationKey, ServiceWebvhInceptionOperation,
     service_registration_local_id,
 };
+use arkret_models_identity::{IdentityCreationControlProof, UnsignedIdentityCreationControlProof};
 use arkret_wire::{Did, Hash, ServiceKind};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
@@ -309,15 +309,18 @@ pub fn verify_identity_creation_control_proof(
 /// Sign an identity-creation control transcript with a borrowed cold root.
 /// The caller remains responsible for zeroizing and never persisting the seed.
 pub fn sign_identity_creation_control_proof(
-    proof: &mut IdentityCreationControlProof,
+    proof: UnsignedIdentityCreationControlProof,
     root_seed: &[u8; SECRET_KEY_LENGTH],
-) -> Result<(), WebvhInceptionError> {
+) -> Result<IdentityCreationControlProof, WebvhInceptionError> {
     let signing_bytes = proof
         .canonical_signing_bytes()
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let signature = SigningKey::from_bytes(root_seed).sign(&signing_bytes);
-    proof.signature = base64url_encode(signature.to_bytes());
-    Ok(())
+    let signature = arkret_wire::Base64UrlString::new(base64url_encode(signature.to_bytes()))
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    proof
+        .attach_signature(signature)
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))
 }
 
 /// Inputs for one canonical principal root rotation. `previous_entries` must

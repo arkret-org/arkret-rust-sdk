@@ -19,7 +19,7 @@ use arkret_wire::EventCellRule;
 pub use arkret_wire::NULL_SUBJECT as NULL_CELL_SUBJECT;
 use arkret_wire::{
     CellRef, Event, EventId, EventKind, LatticeOp, LatticeOpType, ObservedRemoveMatch, PredicateOp,
-    ProjectedCellWrite, ProjectedOp,
+    ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -139,6 +139,27 @@ pub fn project_registered_cell_writes(
 /// an Event cannot partially apply its registered write set.
 pub fn project_registered_cell_writes_with_pre_state(
     event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+    frozen_pre_state: &FrozenPreState,
+) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
+    project_registered_operation_writes_with_pre_state(
+        &ProjectedEventInput::from(event),
+        digest_suite,
+        frozen_pre_state,
+    )
+}
+
+/// Project registry-declared writes from an accepted projection record without
+/// reconstructing or re-admitting a synthetic signed Event.
+pub fn project_registered_operation_writes(
+    event: &ProjectedEventInput,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
+    project_registered_operation_writes_with_pre_state(event, digest_suite, &FrozenPreState::new())
+}
+
+fn project_registered_operation_writes_with_pre_state(
+    event: &ProjectedEventInput,
     digest_suite: arkret_canonical::DigestSuite,
     frozen_pre_state: &FrozenPreState,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
@@ -282,7 +303,7 @@ pub fn project_registered_cell_writes_with_pre_state(
 }
 
 fn validate_pre_state_requirements(
-    event: &Event,
+    event: &ProjectedEventInput,
     row: &Value,
     frozen_pre_state: &FrozenPreState,
     kind: &str,
@@ -428,7 +449,7 @@ fn require_lattice(
 }
 
 /// Canonical dot for the write at `write_index` of this Event.
-fn dot_for(event: &Event, write_index: usize) -> String {
+fn dot_for(event: &ProjectedEventInput, write_index: usize) -> String {
     or_set_dot(event.event_id.as_str(), write_index)
 }
 
@@ -438,7 +459,7 @@ fn dot_for(event: &Event, write_index: usize) -> String {
 /// registry rule, so a registry that named some other field cannot silently
 /// redirect which cell a recovery may reset.
 fn conflict_recovery_cell(
-    event: &Event,
+    event: &ProjectedEventInput,
     cell_ref_rule: &Value,
     kind: &str,
 ) -> Result<CellRef, EventCellContractError> {
@@ -473,7 +494,7 @@ fn conflict_recovery_cell(
 /// `head_eq null` asserts the *initial* state (the settled value of an absent
 /// cell is `null`), so it is likewise a chain head rather than a predecessor
 /// value.
-fn cas_register_predecessor(event: &Event, cell: &CellRef) -> Option<Value> {
+fn cas_register_predecessor(event: &ProjectedEventInput, cell: &CellRef) -> Option<Value> {
     event
         .preconditions
         .iter()
@@ -489,7 +510,7 @@ fn cas_register_predecessor(event: &Event, cell: &CellRef) -> Option<Value> {
 // the same arity behind a constructor.
 #[allow(clippy::too_many_arguments)]
 fn derive_effect_ops(
-    event: &Event,
+    event: &ProjectedEventInput,
     write: &Value,
     projection: &Value,
     lattice: &str,
@@ -813,7 +834,7 @@ pub fn or_set_dot(event_id: &str, write_index: usize) -> String {
 /// single Event writes several `or_set` targets, so it cannot identify an
 /// element.
 fn or_set_tag(
-    event: &Event,
+    event: &ProjectedEventInput,
     write: &Value,
     source: Option<&Value>,
     kind: &str,
@@ -881,7 +902,7 @@ fn is_or_set_remove(projection_kind: &str) -> bool {
 }
 
 fn effect_source_value(
-    event: &Event,
+    event: &ProjectedEventInput,
     write: &Value,
     source: &Value,
     kind: &str,
@@ -931,11 +952,7 @@ fn effect_source_value(
         if field == "realm_id" {
             return Ok(Value::String(event.realm_id.to_string()));
         }
-        let envelope = serde_json::to_value(event)
-            .map_err(|error| effect_set_error(kind, &error.to_string()))?;
-        return envelope
-            .get(field)
-            .cloned()
+        return projected_envelope_value(event, field)
             .ok_or_else(|| effect_set_error(kind, &format!("envelope field {field} is missing")));
     }
     if let Some(value) = source.get("const") {
@@ -947,8 +964,30 @@ fn effect_source_value(
     ))
 }
 
+fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<Value> {
+    match field {
+        "event_id" => Some(Value::String(event.event_id.as_str().to_owned())),
+        "kind" => Some(Value::String(event.kind.as_str().to_owned())),
+        "actor_id" => Some(Value::String(event.actor_id.as_str().to_owned())),
+        "actor_seq" => Some(Value::Number(event.actor_seq.into())),
+        "realm_id" => Some(Value::String(event.realm_id.as_str().to_owned())),
+        "created_at" => Some(Value::String(arkret_canonical::format_timestamp_canonical(
+            event.created_at,
+        ))),
+        "seal_ref" => event
+            .seal_ref
+            .as_ref()
+            .and_then(|value| serde_json::to_value(value).ok()),
+        "seal_basis" => event
+            .seal_basis
+            .as_ref()
+            .and_then(|value| serde_json::to_value(value).ok()),
+        _ => None,
+    }
+}
+
 fn condition_matches(
-    event: &Event,
+    event: &ProjectedEventInput,
     condition: Option<&Value>,
     kind: &str,
 ) -> Result<bool, EventCellContractError> {
@@ -1047,11 +1086,15 @@ fn derive_value_projection(
     rule: EventCellRule,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Value, EventCellContractError> {
-    derive_value_projection_value(event, &rule.to_json_value(), digest_suite)
+    derive_value_projection_value(
+        &ProjectedEventInput::from(event),
+        &rule.to_json_value(),
+        digest_suite,
+    )
 }
 
 fn derive_value_projection_value(
-    event: &Event,
+    event: &ProjectedEventInput,
     rule: &Value,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Value, EventCellContractError> {
@@ -1087,10 +1130,9 @@ fn derive_value_projection_value(
         } else if let Some(path) = member.get("envelope_field").and_then(Value::as_str) {
             match path {
                 "actor_id" => Some(Value::String(event.actor_id.as_str().to_owned())),
-                "created_at" => Some(Value::String(
-                    arkret_canonical::canonical::normalize_timestamp_canonical(event.created_at)
-                        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-                )),
+                "created_at" => Some(Value::String(arkret_canonical::format_timestamp_canonical(
+                    event.created_at,
+                ))),
                 "realm_id" => Some(Value::String(event.realm_id.as_str().to_owned())),
                 _ => None,
             }
@@ -1124,7 +1166,7 @@ fn derive_value_projection_value(
 
 /// Compute a `digest_of` member over its declared input encoding.
 fn member_digest(
-    event: &Event,
+    event: &ProjectedEventInput,
     digest_of: &Value,
     kind: &str,
     digest_suite: arkret_canonical::DigestSuite,
@@ -1221,11 +1263,11 @@ fn derive_subject(
     rule: Option<EventCellRule>,
 ) -> Result<String, EventCellContractError> {
     let rule = rule.map(EventCellRule::to_json_value);
-    derive_subject_value(event, rule.as_ref())
+    derive_subject_value(&ProjectedEventInput::from(event), rule.as_ref())
 }
 
 fn derive_subject_value(
-    event: &Event,
+    event: &ProjectedEventInput,
     rule: Option<&Value>,
 ) -> Result<String, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
@@ -1424,7 +1466,7 @@ fn retype_event_id(
 }
 
 fn derive_composite(
-    event: &Event,
+    event: &ProjectedEventInput,
     components: &[Value],
     kind: &str,
 ) -> Result<String, EventCellContractError> {
@@ -1439,7 +1481,7 @@ fn derive_composite(
 /// Resolve one composite component: either a plain field path or a
 /// discriminated `select` (`conformance/encoding.md` §9.5.1).
 fn component_value(
-    event: &Event,
+    event: &ProjectedEventInput,
     component: &Value,
     kind: &str,
 ) -> Result<Value, EventCellContractError> {
@@ -1458,7 +1500,7 @@ fn component_value(
 }
 
 fn string_set_digest_component_value(
-    event: &Event,
+    event: &ProjectedEventInput,
     component: &Value,
     kind: &str,
 ) -> Result<Value, EventCellContractError> {
@@ -1544,7 +1586,7 @@ fn string_set_digest_component_value(
 /// an `effective_scope` with `kind="circle"` is required by schema to carry
 /// `realm_id` as well, which is exactly the `realm` branch's value field.
 fn select_field_path(
-    event: &Event,
+    event: &ProjectedEventInput,
     component: &Value,
     kind: &str,
 ) -> Result<String, EventCellContractError> {
@@ -1599,11 +1641,11 @@ fn select_field_path(
 }
 
 /// The complete signed payload as one JSON object.
-fn payload_root(event: &Event) -> Value {
+fn payload_root(event: &ProjectedEventInput) -> Value {
     Value::Object(event.payload.clone().into_iter().collect())
 }
 
-fn field_value<'a>(event: &'a Event, path: &str) -> Option<&'a Value> {
+fn field_value<'a>(event: &'a ProjectedEventInput, path: &str) -> Option<&'a Value> {
     let path = path.strip_prefix("payload.")?;
     let mut segments = path.split('.');
     let first = segments.next()?;
@@ -1622,14 +1664,14 @@ fn field_value<'a>(event: &'a Event, path: &str) -> Option<&'a Value> {
 /// invitee who submitted the acceptance. The namespace and set are closed: v1
 /// accepts only the explicit `envelope.actor_id` source and never guesses from
 /// a bare name or payload-first fallback.
-fn envelope_field(event: &Event, path: &str) -> Option<String> {
+fn envelope_field(event: &ProjectedEventInput, path: &str) -> Option<String> {
     match path {
         "envelope.actor_id" => Some(event.actor_id.as_str().to_owned()),
         _ => None,
     }
 }
 
-fn subject_field_value<'a>(event: &'a Event, path: &str) -> Option<Cow<'a, Value>> {
+fn subject_field_value<'a>(event: &'a ProjectedEventInput, path: &str) -> Option<Cow<'a, Value>> {
     field_value(event, path)
         .map(Cow::Borrowed)
         .or_else(|| envelope_field(event, path).map(|value| Cow::Owned(Value::String(value))))
@@ -1841,6 +1883,20 @@ mod tests {
                 )],
             );
         }
+    }
+
+    #[test]
+    fn projection_input_reuses_the_event_effect_grammar() {
+        let event = conflict_recovery_event(
+            "ak:cell:ak.component.realm.policy.v1:null",
+            json!({"policy_revision": 8}),
+        );
+        let input = ProjectedEventInput::from(&event);
+        assert_eq!(
+            project_registered_operation_writes(&input, arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+            project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256).unwrap()
+        );
     }
 
     #[test]

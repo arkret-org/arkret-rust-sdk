@@ -11,10 +11,11 @@
 use arkret_models_collaboration::agent_operations::AgentRequestedScopeDisclosure;
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantAgentScopeRequest, SessionGrantAppletDelegation, SessionGrantDpopBindingProof,
-    SessionGrantRequestBody, SessionGrantRequestProof,
+    SessionGrantRequestBody, SessionGrantRequestProof, UnsignedSessionGrantRequestBody,
+    UnsignedSessionGrantRequestProof,
 };
 use arkret_models_identity::SessionGrantProofKind;
-use arkret_wire::{DeviceId, Did, DidUrl, Hash};
+use arkret_wire::{DeviceId, Did, DidUrl, Hash, NonEmptyString};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -77,7 +78,7 @@ pub fn agent_key_proof_signing_input_for_session_grant(
 ) -> crate::Result<AgentKeyProofSigningInput> {
     let challenge = challenge.into();
     let nonce = nonce.into();
-    let mut body = agent_key_proof_unsigned_session_grant_request(
+    let body = agent_key_proof_unsigned_session_grant_request(
         principal_id.clone(),
         device_id.clone(),
         requested_scope.to_vec(),
@@ -91,8 +92,7 @@ pub fn agent_key_proof_signing_input_for_session_grant(
         audience.clone(),
         expires_at,
     )?;
-    let request_canonical_digest = agent_key_proof_request_binding_digest(&body)?;
-    body.proof.request_canonical_digest = request_canonical_digest.clone();
+    let request_canonical_digest = body.canonical_request_digest()?;
     Ok(AgentKeyProofSigningInput {
         audience,
         challenge,
@@ -136,7 +136,7 @@ pub fn agent_key_proof_session_grant_request(
         audience.clone(),
         expires_at,
     )?;
-    let mut request = agent_key_proof_unsigned_session_grant_request(
+    let request = agent_key_proof_unsigned_session_grant_request(
         principal_id,
         device_id,
         requested_scope,
@@ -150,9 +150,14 @@ pub fn agent_key_proof_session_grant_request(
         audience,
         expires_at,
     )?;
-    request.proof.request_canonical_digest = signing_input.request_canonical_digest;
-    request.proof.signature = signature.into();
-    Ok(request)
+    if request.canonical_request_digest()? != signing_input.request_canonical_digest {
+        return Err(crate::AuthError::Protocol(
+            "agent session grant request digest changed during signing".to_owned(),
+        ));
+    }
+    let signature = NonEmptyString::new(signature.into())
+        .map_err(|reason| crate::AuthError::Protocol(reason.to_owned()))?;
+    Ok(request.attach_signature(signature)?)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -169,24 +174,21 @@ fn agent_key_proof_unsigned_session_grant_request(
     nonce: impl Into<String>,
     audience: Did,
     expires_at: DateTime<Utc>,
-) -> crate::Result<SessionGrantRequestBody> {
-    let request_canonical_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
-    Ok(SessionGrantRequestBody {
+) -> crate::Result<UnsignedSessionGrantRequestBody> {
+    Ok(UnsignedSessionGrantRequestBody::new(
         principal_id,
-        device_id: Some(device_id),
+        Some(device_id),
         requested_scope,
-        agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
-        agent_scope_request: Some(agent_scope_request),
+        Some(agent_key_authorization_ref.into()),
+        Some(agent_scope_request),
         requested_scope_disclosure,
-        dpop_binding_proof: Some(dpop_binding_proof),
-        applet_authority: None,
-        proof: SessionGrantRequestProof {
+        Some(dpop_binding_proof),
+        None,
+        UnsignedSessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::AgentKeyProof,
             challenge: challenge.into(),
-            request_canonical_digest,
             audience,
             expires_at: Some(expires_at),
-            signature: String::new(),
             verification_method: Some(verification_method),
             issuer: None,
             client_id: None,
@@ -196,7 +198,7 @@ fn agent_key_proof_unsigned_session_grant_request(
             authorization_code: None,
             code_verifier: None,
         },
-    })
+    )?)
 }
 
 /// Shared signature-carrying proof fields for the signature-based session-grant
@@ -286,7 +288,6 @@ pub fn oidc_session_grant_request(
     device_id: Option<DeviceId>,
     requested_scope: Vec<String>,
     challenge: impl Into<String>,
-    request_canonical_digest: Hash,
     audience: Did,
     issuer: impl Into<String>,
     client_id: impl Into<String>,
@@ -295,23 +296,21 @@ pub fn oidc_session_grant_request(
     nonce: impl Into<String>,
     authorization_code: impl Into<String>,
     code_verifier: impl Into<String>,
-) -> SessionGrantRequestBody {
-    SessionGrantRequestBody {
+) -> crate::Result<UnsignedSessionGrantRequestBody> {
+    Ok(UnsignedSessionGrantRequestBody::new(
         principal_id,
         device_id,
         requested_scope,
-        agent_key_authorization_ref: None,
-        agent_scope_request: None,
-        requested_scope_disclosure: None,
-        dpop_binding_proof: None,
-        applet_authority: None,
-        proof: SessionGrantRequestProof {
+        None,
+        None,
+        None,
+        None,
+        None,
+        UnsignedSessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::OidcCodeExchange,
             challenge: challenge.into(),
-            request_canonical_digest,
             audience,
             expires_at: None,
-            signature: String::new(),
             verification_method: None,
             issuer: Some(issuer.into()),
             client_id: Some(client_id.into()),
@@ -321,7 +320,7 @@ pub fn oidc_session_grant_request(
             authorization_code: Some(authorization_code.into()),
             code_verifier: Some(code_verifier.into()),
         },
-    }
+    )?)
 }
 
 /// Build the holder-signed session request used immediately after account
@@ -334,24 +333,21 @@ pub fn pre_registration_handoff_session_grant_request(
     challenge: impl Into<String>,
     audience: Did,
     expires_at: DateTime<Utc>,
-) -> crate::Result<SessionGrantRequestBody> {
-    let placeholder = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
-    let mut request = SessionGrantRequestBody {
+) -> crate::Result<UnsignedSessionGrantRequestBody> {
+    Ok(UnsignedSessionGrantRequestBody::new(
         principal_id,
-        device_id: Some(device_id),
+        Some(device_id),
         requested_scope,
-        agent_key_authorization_ref: None,
-        agent_scope_request: None,
-        requested_scope_disclosure: None,
-        dpop_binding_proof: None,
-        applet_authority: None,
-        proof: SessionGrantRequestProof {
+        None,
+        None,
+        None,
+        None,
+        None,
+        UnsignedSessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::PreRegistrationHandoff,
             challenge: challenge.into(),
-            request_canonical_digest: placeholder,
             audience,
             expires_at: Some(expires_at),
-            signature: String::new(),
             verification_method: None,
             issuer: None,
             client_id: None,
@@ -361,9 +357,7 @@ pub fn pre_registration_handoff_session_grant_request(
             authorization_code: None,
             code_verifier: None,
         },
-    };
-    request.proof.request_canonical_digest = request.canonical_request_digest()?;
-    Ok(request)
+    )?)
 }
 
 #[cfg(test)]
@@ -492,7 +486,6 @@ mod tests {
             Some(device_id()),
             Vec::new(),
             "oidc-challenge",
-            digest(),
             Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
             "https://issuer.example",
             "client-1",
@@ -501,7 +494,10 @@ mod tests {
             "nonce-1",
             "code-1",
             "verifier-1",
-        );
+        )
+        .unwrap()
+        .attach_signature(NonEmptyString::new("proof-signature").unwrap())
+        .unwrap();
         assert_eq!(
             request.proof.proof_kind,
             SessionGrantProofKind::OidcCodeExchange
@@ -512,7 +508,7 @@ mod tests {
             Some("https://issuer.example")
         );
         assert_eq!(request.proof.authorization_code.as_deref(), Some("code-1"));
-        assert!(request.proof.signature.is_empty());
+        assert_eq!(request.proof.signature, "proof-signature");
     }
 
     #[test]

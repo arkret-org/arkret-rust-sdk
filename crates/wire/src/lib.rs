@@ -65,6 +65,9 @@ pub mod service_kind;
 pub mod signal;
 pub mod signer;
 pub mod string_profiles;
+#[doc(hidden)]
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
 pub mod websocket_binding;
 pub mod wire_presence;
 pub mod wire_strings;
@@ -155,7 +158,8 @@ pub use recovery_authority::{
     CanonicalEncoding, CanonicalPublicMaterial, IssueRecoveryCompletionGrantOutcome,
     IssueRecoveryCompletionGrantRequest, RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS,
     RecoveryCompletionAttestation, RecoveryCompletionAttestationAuthData,
-    RecoveryModelGenerationRef,
+    RecoveryModelGenerationRef, UnsignedRecoveryCompletionAttestation,
+    UnsignedRecoveryCompletionAttestationBody,
 };
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{
@@ -172,8 +176,8 @@ pub use security_transaction::{
     SecurityTransaction, SecurityTransactionBinding, SecurityTransactionContinueRequest,
     SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
     SecurityTransactionResultKind, SecurityTransactionState, SecurityTransactionStep,
-    SecurityTransactionTerminalResult, security_rotation_erase_confirmation_digest,
-    security_rotation_local_commit_digest,
+    SecurityTransactionTerminalResult, UnsignedClientStepAttestation,
+    security_rotation_erase_confirmation_digest, security_rotation_local_commit_digest,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};

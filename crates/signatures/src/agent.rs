@@ -752,7 +752,7 @@ mod tests {
             revocation_check_ref: None,
             runtime_attestation: None,
         };
-        let authorize_event = Event::new(
+        let authorize_event = arkret_wire::test_support::raw_event(
             EventKind::AgentKeyAuthorize.to_string(),
             arkret_wire::ScopeRef::Realm {
                 realm_id: RealmId::from_event_id(&EventId::from_digest(

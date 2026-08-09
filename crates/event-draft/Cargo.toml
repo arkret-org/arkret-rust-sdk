@@ -13,6 +13,7 @@ version.workspace = true
 
 [features]
 default = []
+test-support = ["arkret-wire/test-support"]
 openapi = [
     "dep:salvo-oapi",
     "arkret-identifiers/openapi",
@@ -40,6 +41,7 @@ thiserror = {workspace = true}
 
 [dev-dependencies]
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+arkret-wire = {workspace = true,features = ["test-support"]}
 serde_json = {workspace = true}
 
 [lints]

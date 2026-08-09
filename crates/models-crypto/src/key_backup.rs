@@ -701,19 +701,511 @@ pub struct KeyBackup {
     pub extra: XExtensionMap,
 }
 
+const KEY_BACKUP_SIGNED_FIELD_ORDER: [&str; 14] = [
+    "backup_id",
+    "actor_id",
+    "backup_kind",
+    "backup_version",
+    "series_id",
+    "series_seq",
+    "supersedes",
+    "supersedes_digest",
+    "encryption",
+    "domain_separation",
+    "contents",
+    "ciphertext_digest",
+    "frontier_ref",
+    "recovery_policy_ref",
+];
+
+/// Signing identity for a key-backup envelope before its detached signature is
+/// available. The signature is deliberately absent from this type, so an
+/// unsigned envelope cannot be mistaken for an uploadable [`KeyBackup`].
+#[derive(Clone, Debug)]
+pub struct UnsignedKeyBackupAuthData {
+    pub device_id: DeviceId,
+    pub verification_method: DidUrl,
+    pub signature_algorithm: KeyBackupSignatureAlgorithm,
+    pub device_authorize_event_id: EventId,
+    pub extra: XExtensionMap,
+}
+
+impl UnsignedKeyBackupAuthData {
+    pub fn new(
+        device_id: DeviceId,
+        verification_method: DidUrl,
+        signature_algorithm: KeyBackupSignatureAlgorithm,
+        device_authorize_event_id: EventId,
+    ) -> Result<Self> {
+        validate_key_backup_signature_algorithm(signature_algorithm)?;
+        Ok(Self {
+            device_id,
+            verification_method,
+            signature_algorithm,
+            device_authorize_event_id,
+            extra: XExtensionMap::default(),
+        })
+    }
+}
+
+/// Validated key-backup authoring state whose signature transcript is stable,
+/// but which cannot be serialized as a signed wire envelope yet.
+#[derive(Clone, Debug)]
+pub struct UnsignedKeyBackup {
+    envelope: KeyBackup,
+    auth_data: UnsignedKeyBackupAuthData,
+}
+
+impl UnsignedKeyBackup {
+    /// Close the unsigned authoring boundary and validate every cross-field
+    /// invariant that participates in the signature or AEAD domain.
+    pub fn new(envelope: KeyBackup, auth_data: UnsignedKeyBackupAuthData) -> Result<Self> {
+        if envelope.auth_data.is_some() {
+            return Err(Error::Protocol(
+                "unsigned key backup must not already carry auth_data".to_owned(),
+            ));
+        }
+        envelope.validate_envelope_fields()?;
+        validate_key_backup_signature_algorithm(auth_data.signature_algorithm)?;
+        if envelope
+            .device_id
+            .as_ref()
+            .is_some_and(|device_id| device_id != &auth_data.device_id)
+        {
+            return Err(Error::Protocol(
+                "key backup auth_data.device_id does not match envelope device_id".to_owned(),
+            ));
+        }
+        Ok(Self {
+            envelope,
+            auth_data,
+        })
+    }
+
+    pub fn envelope(&self) -> &KeyBackup {
+        &self.envelope
+    }
+
+    /// Canonical bytes signed by the author. These bytes include all auth
+    /// metadata and the SDK-owned canonical `signed_fields`, but never a
+    /// placeholder or empty signature.
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        let unsigned = self.unsigned_wire_value()?;
+        Ok(arkret_canonical::canonical_json_bytes(&unsigned)?)
+    }
+
+    /// Attach the detached signature and cross the only boundary that produces
+    /// an uploadable signed [`KeyBackup`].
+    pub fn attach_signature(mut self, signature: Base64UrlString) -> Result<KeyBackup> {
+        self.envelope.auth_data = Some(KeyBackupAuthData {
+            device_id: self.auth_data.device_id,
+            verification_method: self.auth_data.verification_method,
+            signature_algorithm: self.auth_data.signature_algorithm,
+            signature,
+            device_authorize_event_id: self.auth_data.device_authorize_event_id,
+            signed_fields: self.envelope.expected_signed_fields(),
+            extra: self.auth_data.extra,
+        });
+        self.envelope.validate()?;
+        Ok(self.envelope)
+    }
+
+    fn unsigned_wire_value(&self) -> Result<Value> {
+        let mut value = serde_json::to_value(&self.envelope).map_err(|error| {
+            Error::Protocol(format!("failed to serialize unsigned key backup: {error}"))
+        })?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            Error::Protocol("key backup envelope must serialize as an object".to_owned())
+        })?;
+        let mut auth_data = serde_json::Map::new();
+        auth_data.insert(
+            "device_id".to_owned(),
+            serde_json::to_value(&self.auth_data.device_id)?,
+        );
+        auth_data.insert(
+            "verification_method".to_owned(),
+            serde_json::to_value(&self.auth_data.verification_method)?,
+        );
+        auth_data.insert(
+            "signature_algorithm".to_owned(),
+            serde_json::to_value(self.auth_data.signature_algorithm)?,
+        );
+        auth_data.insert(
+            "device_authorize_event_id".to_owned(),
+            serde_json::to_value(&self.auth_data.device_authorize_event_id)?,
+        );
+        auth_data.insert(
+            "signed_fields".to_owned(),
+            serde_json::to_value(self.envelope.expected_signed_fields())?,
+        );
+        for (key, value) in &self.auth_data.extra {
+            auth_data.insert(key.clone(), value.clone());
+        }
+        object.insert("auth_data".to_owned(), Value::Object(auth_data));
+        Ok(value)
+    }
+}
+
 impl KeyBackup {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_V1;
+
+    /// Validate a fully signed key-backup envelope at the typed wire boundary.
+    pub fn validate(&self) -> Result<()> {
+        self.validate_envelope_fields()?;
+        let auth_data = self
+            .auth_data
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("signed key backup auth_data is required".to_owned()))?;
+        validate_key_backup_signature_algorithm(auth_data.signature_algorithm)?;
+        if self
+            .device_id
+            .as_ref()
+            .is_some_and(|device_id| device_id != &auth_data.device_id)
+        {
+            return Err(Error::Protocol(
+                "key backup auth_data.device_id does not match envelope device_id".to_owned(),
+            ));
+        }
+        let expected_signed_fields = self.expected_signed_fields();
+        let actual_signed_fields = auth_data
+            .signed_fields
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        if actual_signed_fields.len() != auth_data.signed_fields.len()
+            || expected_signed_fields
+                .iter()
+                .any(|field| !actual_signed_fields.contains(field.as_str()))
+        {
+            return Err(Error::Protocol(format!(
+                "key backup auth_data.signed_fields must be unique and cover {:?}",
+                expected_signed_fields
+            )));
+        }
+        Ok(())
+    }
+
+    /// Validate the signature-independent envelope fields. Authoring code
+    /// reaches this through [`UnsignedKeyBackup::new`]; receiver code should
+    /// normally call [`Self::validate`] so auth metadata is checked too.
+    pub fn validate_envelope_fields(&self) -> Result<()> {
+        self.encryption.validate()?;
+        if self
+            .backup_version
+            .strip_prefix("kb_")
+            .is_none_or(|suffix| {
+                suffix.is_empty()
+                    || !suffix
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+            })
+        {
+            return Err(Error::Protocol(
+                "key backup backup_version must match ^kb_[A-Za-z0-9_-]+$".to_owned(),
+            ));
+        }
+        if self.contents.is_empty() {
+            return Err(Error::Protocol(
+                "key backup contents must not be empty".to_owned(),
+            ));
+        }
+        for item in &self.contents {
+            if !key_backup_item_kind_allowed(self.backup_kind, &item.item_kind) {
+                return Err(Error::Protocol(format!(
+                    "key backup item_kind '{}' is not allowed for {}",
+                    item.item_kind,
+                    self.backup_kind.as_str()
+                )));
+            }
+            if item.secret_version == Some(0) {
+                return Err(Error::Protocol(
+                    "key backup content secret_version must be at least 1".to_owned(),
+                ));
+            }
+            if item.managed_principal_binding.is_some()
+                && (item.realm_id.is_none()
+                    || !matches!(
+                        item.item_kind.as_str(),
+                        "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
+                    ))
+            {
+                return Err(Error::Protocol(
+                    "managed key backup content requires realm_id and an MLS item_kind".to_owned(),
+                ));
+            }
+        }
+        if self.ciphertext.trim().is_empty() {
+            return Err(Error::Protocol(
+                "key backup ciphertext must not be empty".to_owned(),
+            ));
+        }
+        let ciphertext = arkret_canonical::base64url_decode(&self.ciphertext).map_err(|error| {
+            Error::Protocol(format!("invalid key backup ciphertext base64url: {error}"))
+        })?;
+        let ciphertext_digest = Hash::new(self.ciphertext_digest.clone()).map_err(|error| {
+            Error::Protocol(format!("invalid key backup ciphertext_digest: {error}"))
+        })?;
+        let digest_suite = self
+            .ciphertext_digest
+            .split_once(':')
+            .and_then(|(suite, _)| arkret_canonical::digest_suite(suite).ok())
+            .ok_or_else(|| {
+                Error::Protocol("unsupported key backup ciphertext digest suite".to_owned())
+            })?;
+        if arkret_canonical::digest(digest_suite, &ciphertext) != ciphertext_digest.as_str() {
+            return Err(Error::Protocol(
+                "key backup ciphertext_digest does not match ciphertext".to_owned(),
+            ));
+        }
+        if let Some(plaintext_commitment) = &self.plaintext_commitment {
+            Hash::new(plaintext_commitment.clone()).map_err(|error| {
+                Error::Protocol(format!("invalid key backup plaintext_commitment: {error}"))
+            })?;
+        }
+
+        match self.series_seq {
+            0 if self.supersedes.is_some() || self.supersedes_digest.is_some() => {
+                return Err(Error::Protocol(
+                    "key backup genesis forbids supersedes and supersedes_digest".to_owned(),
+                ));
+            }
+            0 => {}
+            _ if self.supersedes.is_none() || self.supersedes_digest.is_none() => {
+                return Err(Error::Protocol(
+                    "key backup successor requires supersedes and supersedes_digest".to_owned(),
+                ));
+            }
+            _ => {
+                if self.supersedes.as_ref() == Some(&self.backup_id) {
+                    return Err(Error::Protocol(
+                        "key backup successor cannot supersede itself".to_owned(),
+                    ));
+                }
+                if let Some(supersedes_digest) = &self.supersedes_digest {
+                    Hash::new(supersedes_digest.clone()).map_err(|error| {
+                        Error::Protocol(format!("invalid key backup supersedes_digest: {error}"))
+                    })?;
+                }
+            }
+        }
+
+        if (self.backup_kind == BackupKind::DidRecovery
+            || self.encryption.recipient_method == KeyBackupRecipientMethod::RecoveryPublicKey)
+            && self.recovery_policy_ref.is_none()
+        {
+            return Err(Error::Protocol(
+                "recovery-public-key key backup requires recovery_policy_ref".to_owned(),
+            ));
+        }
+
+        self.validate_encryption_profile()?;
+        if self.backup_kind == BackupKind::MlsHistory {
+            self.validate_mls_history_opaque_only()?;
+        }
+
+        let domain = &self.domain_separation;
+        let aad = &domain.aead_aad;
+        if domain.subdomain.trim().is_empty()
+            || domain.hkdf_info != self.backup_kind.hkdf_info(&domain.subdomain)
+        {
+            return Err(Error::Protocol(
+                "key backup domain separation mismatch".to_owned(),
+            ));
+        }
+        let device_id = self.device_id.as_ref().map(|device_id| device_id.as_str());
+        let item_kinds = self
+            .contents
+            .iter()
+            .map(|item| item.item_kind.clone())
+            .collect::<Vec<_>>();
+        let managed_principal_bindings = self
+            .contents
+            .iter()
+            .filter_map(|item| item.managed_principal_binding.clone())
+            .map(|binding| {
+                arkret_canonical::canonical_json_bytes(&binding)
+                    .map(|canonical| (canonical, binding))
+                    .map_err(Error::from)
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?
+            .into_values()
+            .collect::<Vec<_>>();
+        let authenticated_managed_principal_bindings = aad
+            .managed_principal_bindings
+            .iter()
+            .cloned()
+            .map(|binding| {
+                arkret_canonical::canonical_json_bytes(&binding)
+                    .map(|canonical| (canonical, binding))
+                    .map_err(Error::from)
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        if aad.schema != Self::SCHEMA
+            || aad.actor_id != self.actor_id
+            || aad.device_id.as_deref() != device_id
+            || aad.backup_kind != self.backup_kind
+            || aad.backup_version != self.backup_version
+            || aad.created_at != self.created_at
+            || aad.item_kinds != item_kinds
+            || authenticated_managed_principal_bindings.len()
+                != aad.managed_principal_bindings.len()
+            || authenticated_managed_principal_bindings
+                .into_values()
+                .collect::<Vec<_>>()
+                != managed_principal_bindings
+            || aad.recipient_method != Some(self.encryption.recipient_method)
+            || aad.recipient_key_ref != self.encryption.recipient_key_ref
+        {
+            return Err(Error::Protocol(
+                "key backup authenticated domain metadata mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_encryption_profile(&self) -> Result<()> {
+        let encryption = &self.encryption;
+        let aead = &encryption.aead;
+        match encryption.recipient_method {
+            KeyBackupRecipientMethod::PassphraseKdf => {
+                if matches!(
+                    self.backup_kind,
+                    BackupKind::DidRecovery | BackupKind::MlsHistory
+                ) {
+                    return Err(Error::Protocol(
+                        "passphrase_kdf is valid only for secret_storage backups".to_owned(),
+                    ));
+                }
+                if aead.enc.is_some() {
+                    return Err(Error::Protocol(
+                        "passphrase_kdf forbids encryption.aead.enc".to_owned(),
+                    ));
+                }
+                let nonce_salt = aead.nonce_salt.as_ref().ok_or_else(|| {
+                    Error::Protocol("passphrase_kdf requires encryption.aead.nonce_salt".to_owned())
+                })?;
+                if !(16..=128).contains(&nonce_salt.as_str().len()) {
+                    return Err(Error::Protocol(
+                        "passphrase_kdf nonce_salt must contain 16 to 128 base64url characters"
+                            .to_owned(),
+                    ));
+                }
+                let key_commitment = encryption.key_commitment.as_ref().ok_or_else(|| {
+                    Error::Protocol("passphrase_kdf requires key_commitment".to_owned())
+                })?;
+                Hash::new(key_commitment.clone()).map_err(|error| {
+                    Error::Protocol(format!("invalid key backup key_commitment: {error}"))
+                })?;
+                let kdf = encryption.kdf.as_ref().ok_or_else(|| {
+                    Error::Protocol("passphrase_kdf requires encryption.kdf".to_owned())
+                })?;
+                if self.mixed_secret_storage {
+                    if kdf.name != KeyBackupKdfName::Argon2id
+                        || kdf.params.memory_kib.is_none_or(|value| value < 262_144)
+                        || kdf.params.iterations.is_none_or(|value| value < 4)
+                        || kdf.params.parallelism.is_none_or(|value| value < 1)
+                    {
+                        return Err(Error::Protocol(
+                            "mixed secret-storage backups require the strengthened Argon2id profile"
+                                .to_owned(),
+                        ));
+                    }
+                }
+            }
+            KeyBackupRecipientMethod::SecretStorageKey => {
+                if !matches!(
+                    self.backup_kind,
+                    BackupKind::SecretStorage | BackupKind::MlsHistory
+                ) {
+                    return Err(Error::Protocol(
+                        "secret_storage_key is valid only for secret_storage or mls_history backups"
+                            .to_owned(),
+                    ));
+                }
+                if aead.nonce_salt.is_some()
+                    || aead.enc.is_some()
+                    || encryption.key_commitment.is_some()
+                {
+                    return Err(Error::Protocol(
+                        "secret_storage_key forbids nonce_salt, enc, and key_commitment".to_owned(),
+                    ));
+                }
+            }
+            KeyBackupRecipientMethod::RecoveryPublicKey => {
+                if aead.nonce.is_some()
+                    || aead.nonce_salt.is_some()
+                    || encryption.key_commitment.is_some()
+                {
+                    return Err(Error::Protocol(
+                        "recovery_public_key forbids nonce, nonce_salt, and key_commitment"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_mls_history_opaque_only(&self) -> Result<()> {
+        fn scan(value: &Value, path: &str) -> Result<()> {
+            match value {
+                Value::Object(map) => {
+                    for (key, child) in map {
+                        if matches!(
+                            key.to_ascii_lowercase().as_str(),
+                            "plaintext"
+                                | "plain_text"
+                                | "serialized_state"
+                                | "state_bytes"
+                                | "group_state"
+                                | "passphrase"
+                                | "mls_passphrase"
+                                | "snapshot_secret"
+                        ) {
+                            return Err(Error::Protocol(format!(
+                                "mls_history backup contains forbidden plaintext field {path}/{key}"
+                            )));
+                        }
+                        scan(child, &format!("{path}/{key}"))?;
+                    }
+                    Ok(())
+                }
+                Value::Array(values) => {
+                    for (index, child) in values.iter().enumerate() {
+                        scan(child, &format!("{path}/{index}"))?;
+                    }
+                    Ok(())
+                }
+                _ => Ok(()),
+            }
+        }
+
+        let value = serde_json::to_value(self).map_err(|error| {
+            Error::Protocol(format!("failed to inspect mls_history key backup: {error}"))
+        })?;
+        scan(&value, "")
+    }
+
+    fn expected_signed_fields(&self) -> Vec<String> {
+        KEY_BACKUP_SIGNED_FIELD_ORDER
+            .into_iter()
+            .filter(|field| match *field {
+                "supersedes" => self.supersedes.is_some(),
+                "supersedes_digest" => self.supersedes_digest.is_some(),
+                "frontier_ref" => self.frontier_ref.is_some(),
+                "recovery_policy_ref" => self.recovery_policy_ref.is_some(),
+                _ => true,
+            })
+            .map(str::to_owned)
+            .collect()
+    }
 
     /// Canonical signature input for a fully formed backup envelope.
     ///
     /// The wire signature covers the entire envelope, including the remaining
     /// `auth_data` metadata, with only `auth_data.signature` omitted.
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
-        if self.auth_data.is_none() {
-            return Err(Error::Protocol(
-                "key backup auth_data is required".to_owned(),
-            ));
-        }
+        self.validate()?;
         self.signature_independent_payload_bytes()
     }
 
@@ -721,33 +1213,18 @@ impl KeyBackup {
     /// without normalizing optional-field presence through a deserialize /
     /// reserialize round trip.
     pub fn signing_payload_bytes_from_wire(wire: &Value) -> Result<Vec<u8>> {
-        serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
+        let envelope = serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
             Error::Protocol(format!("invalid signed key backup envelope: {error}"))
         })?;
+        envelope.validate()?;
         key_backup_signature_independent_wire_bytes(wire, true)
-    }
-
-    /// Compute the exact authoring transcript before a signature is attached.
-    /// The auth envelope must already exist and must not carry any signature
-    /// member, preventing a producer from accidentally signing stale proof
-    /// material.
-    pub fn unsigned_signing_payload_bytes_from_wire(wire: &Value) -> Result<Vec<u8>> {
-        let auth_data = wire
-            .get("auth_data")
-            .and_then(Value::as_object)
-            .ok_or_else(|| Error::Protocol("key backup auth_data is required".to_owned()))?;
-        if auth_data.contains_key("signature") {
-            return Err(Error::Protocol(
-                "unsigned key backup auth_data must omit signature".to_owned(),
-            ));
-        }
-        Ok(arkret_canonical::canonical_json_bytes(wire)?)
     }
 
     /// Canonical envelope bytes with a present signature omitted. This is also
     /// defined for an unsigned envelope and is the stable predecessor-digest
     /// input used by backup-series chaining.
     pub fn signature_independent_payload_bytes(&self) -> Result<Vec<u8>> {
+        self.validate_envelope_fields()?;
         let mut unsigned = serde_json::to_value(self).map_err(|error| {
             Error::Protocol(format!("failed to serialize key backup envelope: {error}"))
         })?;
@@ -767,9 +1244,10 @@ impl KeyBackup {
     /// Compute a predecessor digest from its exact wire shape after validating
     /// that it is a key-backup envelope.
     pub fn signature_independent_digest_from_wire(wire: &Value) -> Result<String> {
-        serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
+        let envelope = serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
             Error::Protocol(format!("invalid key backup predecessor envelope: {error}"))
         })?;
+        envelope.validate_envelope_fields()?;
         Ok(arkret_canonical::sha256_digest(
             key_backup_signature_independent_wire_bytes(wire, false)?,
         ))
@@ -838,6 +1316,33 @@ fn key_backup_signature_independent_wire_bytes(
         }
     }
     Ok(arkret_canonical::canonical_json_bytes(&unsigned)?)
+}
+
+fn validate_key_backup_signature_algorithm(algorithm: KeyBackupSignatureAlgorithm) -> Result<()> {
+    if algorithm == KeyBackupSignatureAlgorithm::Es256 {
+        return Err(Error::Protocol(
+            "key backup auth_data.signature_algorithm must be Ed25519 or ML-DSA-65".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn key_backup_item_kind_allowed(backup_kind: BackupKind, item_kind: &str) -> bool {
+    match backup_kind {
+        BackupKind::DidRecovery => item_kind == "recovery_key_share",
+        BackupKind::SecretStorage => matches!(
+            item_kind,
+            "account_data_namespace_key"
+                | "mls_account_secret"
+                | "mls_private_plaintext"
+                | "mls_group_secrets_backup_key"
+                | "private_account_state"
+        ),
+        BackupKind::MlsHistory => matches!(
+            item_kind,
+            "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
+        ),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -963,7 +1468,7 @@ impl KeyBackupEncryption {
                         "key backup encryption: secret_storage_key forbids `kdf`".to_owned(),
                     ));
                 }
-                if self.recipient_key_ref.is_none() {
+                if self.recipient_key_ref.as_deref().is_none_or(str::is_empty) {
                     return Err(Error::Protocol(
                         "key backup encryption: secret_storage_key requires `recipient_key_ref`"
                             .to_owned(),
@@ -989,7 +1494,7 @@ impl KeyBackupEncryption {
                         "key backup encryption: recovery_public_key forbids `kdf`".to_owned(),
                     ));
                 }
-                if self.recipient_key_ref.is_none() {
+                if self.recipient_key_ref.as_deref().is_none_or(str::is_empty) {
                     return Err(Error::Protocol(
                         "key backup encryption: recovery_public_key requires `recipient_key_ref`"
                             .to_owned(),
@@ -1437,22 +1942,23 @@ impl RecoveryPolicy {
         let policy = serde_json::to_value(self).map_err(|error| {
             Error::Protocol(format!("failed to serialize recovery policy: {error}"))
         })?;
-        let mut signed_payload = serde_json::Map::new();
-        for field in &self.auth_data.signed_fields {
-            let value = policy.get(field).cloned().unwrap_or(Value::Null);
-            signed_payload.insert(field.clone(), value);
-        }
-        Ok(arkret_canonical::canonical_json_bytes(&json!({
-            "type": Self::SIGNATURE_TYPE,
-            "signed_fields": &self.auth_data.signed_fields,
-            "payload": Value::Object(signed_payload),
-        }))?)
+        recovery_policy_signature_transcript_bytes(&policy, &self.auth_data.signed_fields)
     }
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != "ak.schema.recovery_policy.v1" {
             return Err(Error::Protocol(
                 "recovery policy schema must be ak.schema.recovery_policy.v1".to_owned(),
+            ));
+        }
+        if !matches!(
+            self.auth_data.signature_algorithm.as_str(),
+            "Ed25519" | "ML-DSA-65"
+        ) || Base64UrlString::new(self.auth_data.signature.clone()).is_err()
+        {
+            return Err(Error::Protocol(
+                "recovery policy auth_data must carry an Ed25519 or ML-DSA-65 base64url signature"
+                    .to_owned(),
             ));
         }
         if self.version < 1
@@ -1747,6 +2253,178 @@ impl RecoveryPolicy {
         }
         Ok(())
     }
+}
+
+/// Strongly typed recovery-policy members before signature metadata exists.
+/// This is an authoring input, not a serializable wire object.
+#[derive(Clone, Debug)]
+pub struct UnsignedRecoveryPolicyBody {
+    pub policy_id: PolicyId,
+    pub principal_id: Did,
+    pub version: u64,
+    pub supersedes: Option<PolicyId>,
+    pub trust_domain: TypedTrustDomainId,
+    pub allowed_proof_kinds: Vec<RecoveryProofKind>,
+    pub publication_authorization_rules: Vec<RecoveryPublicationAuthorizationRule>,
+    pub threshold: Option<RecoveryThresholdConfig>,
+    pub device_quorum: Option<RecoveryDeviceQuorumConfig>,
+    pub trusted_recovery_services: Option<Vec<RecoveryTrustedService>>,
+    pub recovery_keys: Option<Vec<RecoveryKeyEntry>>,
+    pub recovery_key_agreements: Option<Vec<RecoveryKeyAgreementEntry>>,
+    pub approval_requirement: Option<RecoveryApprovalRequirement>,
+    pub audit: Option<RecoveryAuditConfig>,
+    pub issued_at: DateTime<Utc>,
+    pub not_before: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub extra: XExtensionMap,
+}
+
+/// Recovery policy authoring state before its detached signature exists.
+#[derive(Clone, Debug)]
+pub struct UnsignedRecoveryPolicy {
+    body: UnsignedRecoveryPolicyBody,
+    verification_method: DidUrl,
+    signature_algorithm: KeyBackupSignatureAlgorithm,
+    signed_fields: Vec<String>,
+}
+
+impl UnsignedRecoveryPolicy {
+    pub fn new(
+        body: UnsignedRecoveryPolicyBody,
+        verification_method: DidUrl,
+        signature_algorithm: KeyBackupSignatureAlgorithm,
+    ) -> Result<Self> {
+        validate_key_backup_signature_algorithm(signature_algorithm)?;
+        let signed_fields = recovery_policy_signed_fields(&body);
+        Ok(Self {
+            body,
+            verification_method,
+            signature_algorithm,
+            signed_fields,
+        })
+    }
+
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        let policy = recovery_policy_unsigned_value(&self.body)?;
+        recovery_policy_signature_transcript_bytes(&policy, &self.signed_fields)
+    }
+
+    pub fn attach_signature(self, signature: Base64UrlString) -> Result<RecoveryPolicy> {
+        let body = self.body;
+        let policy = RecoveryPolicy {
+            schema: RecoveryPolicy::SCHEMA.to_owned(),
+            policy_id: body.policy_id,
+            principal_id: body.principal_id,
+            version: body.version,
+            supersedes: body.supersedes,
+            trust_domain: body.trust_domain,
+            allowed_proof_kinds: body.allowed_proof_kinds,
+            publication_authorization_rules: body.publication_authorization_rules,
+            threshold: body.threshold,
+            device_quorum: body.device_quorum,
+            trusted_recovery_services: body.trusted_recovery_services,
+            recovery_keys: body.recovery_keys,
+            recovery_key_agreements: body.recovery_key_agreements,
+            approval_requirement: body.approval_requirement,
+            audit: body.audit,
+            issued_at: body.issued_at,
+            not_before: body.not_before,
+            expires_at: body.expires_at,
+            auth_data: RecoveryPolicyAuthData {
+                verification_method: self.verification_method,
+                signature_algorithm: self.signature_algorithm.as_str().to_owned(),
+                signature: signature.into_string(),
+                signed_fields: self.signed_fields,
+            },
+            extra: body.extra,
+        };
+        policy.validate()?;
+        Ok(policy)
+    }
+}
+
+fn recovery_policy_signed_fields(body: &UnsignedRecoveryPolicyBody) -> Vec<String> {
+    let mut fields = [
+        "schema",
+        "policy_id",
+        "principal_id",
+        "version",
+        "trust_domain",
+        "allowed_proof_kinds",
+        "publication_authorization_rules",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<Vec<_>>();
+    for (present, field) in [
+        (body.threshold.is_some(), "threshold"),
+        (body.device_quorum.is_some(), "device_quorum"),
+        (
+            body.trusted_recovery_services.is_some(),
+            "trusted_recovery_services",
+        ),
+        (body.recovery_keys.is_some(), "recovery_keys"),
+        (
+            body.recovery_key_agreements.is_some(),
+            "recovery_key_agreements",
+        ),
+        (body.approval_requirement.is_some(), "approval_requirement"),
+        (body.audit.is_some(), "audit"),
+    ] {
+        if present {
+            fields.push(field.to_owned());
+        }
+    }
+    fields.push("supersedes".to_owned());
+    fields.push("issued_at".to_owned());
+    if body.not_before.is_some() {
+        fields.push("not_before".to_owned());
+    }
+    if body.expires_at.is_some() {
+        fields.push("expires_at".to_owned());
+    }
+    fields
+}
+
+fn recovery_policy_signature_transcript_bytes(
+    policy: &Value,
+    signed_fields: &[String],
+) -> Result<Vec<u8>> {
+    let mut signed_payload = serde_json::Map::new();
+    for field in signed_fields {
+        signed_payload.insert(
+            field.clone(),
+            policy.get(field).cloned().unwrap_or(Value::Null),
+        );
+    }
+    Ok(arkret_canonical::canonical_json_bytes(&json!({
+        "type": RecoveryPolicy::SIGNATURE_TYPE,
+        "signed_fields": signed_fields,
+        "payload": Value::Object(signed_payload),
+    }))?)
+}
+
+fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<Value> {
+    Ok(json!({
+        "schema": RecoveryPolicy::SCHEMA,
+        "policy_id": &body.policy_id,
+        "principal_id": &body.principal_id,
+        "version": body.version,
+        "supersedes": &body.supersedes,
+        "trust_domain": &body.trust_domain,
+        "allowed_proof_kinds": &body.allowed_proof_kinds,
+        "publication_authorization_rules": &body.publication_authorization_rules,
+        "threshold": &body.threshold,
+        "device_quorum": &body.device_quorum,
+        "trusted_recovery_services": &body.trusted_recovery_services,
+        "recovery_keys": &body.recovery_keys,
+        "recovery_key_agreements": &body.recovery_key_agreements,
+        "approval_requirement": &body.approval_requirement,
+        "audit": &body.audit,
+        "issued_at": arkret_canonical::canonical::format_timestamp_canonical(body.issued_at),
+        "not_before": body.not_before.map(arkret_canonical::canonical::format_timestamp_canonical),
+        "expires_at": body.expires_at.map(arkret_canonical::canonical::format_timestamp_canonical),
+    }))
 }
 
 /// Read-model summary for the currently accepted recovery policy.
@@ -2281,25 +2959,7 @@ impl RecoveryReceipt {
         let payload = serde_json::to_value(self).map_err(|error| {
             Error::Protocol(format!("failed to serialize recovery receipt: {error}"))
         })?;
-        let mut signed_payload = serde_json::Map::new();
-        for field in &self.auth_data.signed_fields {
-            let value = payload.get(field).cloned().ok_or_else(|| {
-                Error::Protocol(format!(
-                    "recovery receipt signed_fields names absent field {field}"
-                ))
-            })?;
-            signed_payload.insert(field.clone(), value);
-        }
-        let transcript = serde_json::json!({
-            "type": Self::SIGNATURE_TYPE,
-            "signed_fields": self.auth_data.signed_fields,
-            "payload": signed_payload,
-        });
-        arkret_canonical::canonical_json_bytes(&transcript).map_err(|error| {
-            Error::Protocol(format!(
-                "failed to canonicalize recovery receipt signature transcript: {error}"
-            ))
-        })
+        recovery_receipt_signature_transcript_bytes(&payload, &self.auth_data.signed_fields)
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -2308,50 +2968,28 @@ impl RecoveryReceipt {
                 "recovery receipt schema must be ak.schema.recovery_receipt.v1".to_owned(),
             ));
         }
-        if self.policy_version == 0 {
-            return Err(Error::Protocol(
-                "recovery receipt policy_version must be positive".to_owned(),
-            ));
-        }
-        self.previous_model_generation_ref
-            .validate_for(self.identity_model)?;
-        self.result_model_generation_ref
-            .validate_for(self.identity_model)?;
-        if self.identity_model != RecoveryIdentityModel::RootAnchored
-            || self.device_list_update_event_id.is_some()
-            || self.reanchor_event_id.is_none()
-            || self.reanchor_batch_receipt_id.is_none()
-            || self.did_entry_ref.as_deref().is_none_or(str::is_empty)
-            || self.previous_model_generation_ref == self.result_model_generation_ref
-        {
-            return Err(Error::Protocol(
-                "root-anchored recovery receipt requires an advancing re-anchor artifact pair"
-                    .to_owned(),
-            ));
-        }
-        if self.completed_at < self.started_at {
-            return Err(Error::Protocol(
-                "recovery receipt completed_at precedes started_at".to_owned(),
-            ));
-        }
-        if self.outcome == RecoveryReceiptOutcome::Completed && self.outcome_reason_code.is_some() {
-            return Err(Error::Protocol(
-                "completed recovery receipt must omit outcome_reason_code".to_owned(),
-            ));
-        }
-        if self.outcome != RecoveryReceiptOutcome::Completed
-            && self
-                .outcome_reason_code
-                .as_deref()
-                .is_none_or(str::is_empty)
-        {
-            return Err(Error::Protocol(
-                "non-completed recovery receipt requires outcome_reason_code".to_owned(),
-            ));
-        }
+        validate_recovery_receipt_body(
+            self.policy_version,
+            self.identity_model,
+            &self.previous_model_generation_ref,
+            &self.result_model_generation_ref,
+            self.device_list_update_event_id.is_some(),
+            self.reanchor_event_id.is_some(),
+            self.reanchor_batch_receipt_id.is_some(),
+            self.did_entry_ref.as_deref(),
+            self.outcome,
+            self.outcome_reason_code.as_deref(),
+            self.started_at,
+            self.completed_at,
+        )?;
         if self.auth_data.signature_algorithm != "Ed25519" {
             return Err(Error::Protocol(
                 "recovery receipt signature_algorithm must be Ed25519".to_owned(),
+            ));
+        }
+        if Base64UrlString::new(self.auth_data.signature.clone()).is_err() {
+            return Err(Error::Protocol(
+                "recovery receipt signature must be non-empty base64url".to_owned(),
             ));
         }
         let signed = self
@@ -2409,6 +3047,267 @@ impl RecoveryReceipt {
         }
         Ok(())
     }
+}
+
+/// Strongly typed recovery-receipt members before signature metadata exists.
+#[derive(Clone, Debug)]
+pub struct UnsignedRecoveryReceiptBody {
+    pub receipt_id: ReceiptId,
+    pub transaction_id: TransactionId,
+    pub transaction_request_digest: Hash,
+    pub prepared_plan_digest: Hash,
+    pub principal_id: Did,
+    pub recovery_session_id: RecoverySessionId,
+    pub policy_id: PolicyId,
+    pub policy_version: u64,
+    pub trust_domain: TypedTrustDomainId,
+    pub new_device_id: DeviceId,
+    pub identity_model: RecoveryIdentityModel,
+    pub previous_model_generation_ref: RecoveryModelGenerationRef,
+    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    pub authorization_event_id: EventId,
+    pub device_list_update_event_id: Option<EventId>,
+    pub reanchor_event_id: Option<EventId>,
+    pub reanchor_batch_receipt_id: Option<ReceiptId>,
+    pub did_entry_ref: Option<String>,
+    pub proof_summary: RecoveryProofSummary,
+    pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
+    pub welcome_count: u64,
+    pub welcome_realm_summary: Option<Vec<RecoveryWelcomeRealmSummary>>,
+    pub outcome: RecoveryReceiptOutcome,
+    pub outcome_reason_code: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: DateTime<Utc>,
+    pub extra: XExtensionMap,
+}
+
+/// Recovery receipt authoring state before the replacement-device signature.
+#[derive(Clone, Debug)]
+pub struct UnsignedRecoveryReceipt {
+    body: UnsignedRecoveryReceiptBody,
+    verification_method: DidUrl,
+    signed_fields: Vec<String>,
+}
+
+impl UnsignedRecoveryReceipt {
+    pub fn new(body: UnsignedRecoveryReceiptBody, verification_method: DidUrl) -> Result<Self> {
+        validate_recovery_receipt_body(
+            body.policy_version,
+            body.identity_model,
+            &body.previous_model_generation_ref,
+            &body.result_model_generation_ref,
+            body.device_list_update_event_id.is_some(),
+            body.reanchor_event_id.is_some(),
+            body.reanchor_batch_receipt_id.is_some(),
+            body.did_entry_ref.as_deref(),
+            body.outcome,
+            body.outcome_reason_code.as_deref(),
+            body.started_at,
+            body.completed_at,
+        )?;
+        let signed_fields = recovery_receipt_signed_fields(&body);
+        Ok(Self {
+            body,
+            verification_method,
+            signed_fields,
+        })
+    }
+
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        let receipt = recovery_receipt_unsigned_value(&self.body);
+        recovery_receipt_signature_transcript_bytes(&receipt, &self.signed_fields)
+    }
+
+    pub fn attach_signature(self, signature: Base64UrlString) -> Result<RecoveryReceipt> {
+        let body = self.body;
+        let receipt = RecoveryReceipt {
+            schema: RecoveryReceipt::SCHEMA.to_owned(),
+            receipt_id: body.receipt_id,
+            transaction_id: body.transaction_id,
+            transaction_request_digest: body.transaction_request_digest,
+            prepared_plan_digest: body.prepared_plan_digest,
+            principal_id: body.principal_id,
+            recovery_session_id: body.recovery_session_id,
+            policy_id: body.policy_id,
+            policy_version: body.policy_version,
+            trust_domain: body.trust_domain,
+            new_device_id: body.new_device_id,
+            identity_model: body.identity_model,
+            previous_model_generation_ref: body.previous_model_generation_ref,
+            result_model_generation_ref: body.result_model_generation_ref,
+            authorization_event_id: body.authorization_event_id,
+            device_list_update_event_id: body.device_list_update_event_id,
+            reanchor_event_id: body.reanchor_event_id,
+            reanchor_batch_receipt_id: body.reanchor_batch_receipt_id,
+            did_entry_ref: body.did_entry_ref,
+            proof_summary: body.proof_summary,
+            backup_classes_unlocked: body.backup_classes_unlocked,
+            welcome_count: body.welcome_count,
+            welcome_realm_summary: body.welcome_realm_summary,
+            outcome: body.outcome,
+            outcome_reason_code: body.outcome_reason_code,
+            started_at: body.started_at,
+            completed_at: body.completed_at,
+            auth_data: RecoveryReceiptAuthData {
+                verification_method: self.verification_method,
+                signature_algorithm: "Ed25519".to_owned(),
+                signature: signature.into_string(),
+                signed_fields: self.signed_fields,
+            },
+            extra: body.extra,
+        };
+        receipt.validate()?;
+        Ok(receipt)
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_recovery_receipt_body(
+    policy_version: u64,
+    identity_model: RecoveryIdentityModel,
+    previous_model_generation_ref: &RecoveryModelGenerationRef,
+    result_model_generation_ref: &RecoveryModelGenerationRef,
+    device_list_update_present: bool,
+    reanchor_event_present: bool,
+    reanchor_batch_receipt_present: bool,
+    did_entry_ref: Option<&str>,
+    outcome: RecoveryReceiptOutcome,
+    outcome_reason_code: Option<&str>,
+    started_at: DateTime<Utc>,
+    completed_at: DateTime<Utc>,
+) -> Result<()> {
+    if policy_version == 0 {
+        return Err(Error::Protocol(
+            "recovery receipt policy_version must be positive".to_owned(),
+        ));
+    }
+    previous_model_generation_ref.validate_for(identity_model)?;
+    result_model_generation_ref.validate_for(identity_model)?;
+    if identity_model != RecoveryIdentityModel::RootAnchored
+        || device_list_update_present
+        || !reanchor_event_present
+        || !reanchor_batch_receipt_present
+        || did_entry_ref.is_none_or(str::is_empty)
+        || previous_model_generation_ref == result_model_generation_ref
+    {
+        return Err(Error::Protocol(
+            "root-anchored recovery receipt requires an advancing re-anchor artifact pair"
+                .to_owned(),
+        ));
+    }
+    if completed_at < started_at {
+        return Err(Error::Protocol(
+            "recovery receipt completed_at precedes started_at".to_owned(),
+        ));
+    }
+    if outcome == RecoveryReceiptOutcome::Completed && outcome_reason_code.is_some() {
+        return Err(Error::Protocol(
+            "completed recovery receipt must omit outcome_reason_code".to_owned(),
+        ));
+    }
+    if outcome != RecoveryReceiptOutcome::Completed && outcome_reason_code.is_none_or(str::is_empty)
+    {
+        return Err(Error::Protocol(
+            "non-completed recovery receipt requires outcome_reason_code".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn recovery_receipt_signed_fields(body: &UnsignedRecoveryReceiptBody) -> Vec<String> {
+    let mut fields = [
+        "schema",
+        "receipt_id",
+        "transaction_id",
+        "transaction_request_digest",
+        "prepared_plan_digest",
+        "principal_id",
+        "recovery_session_id",
+        "policy_id",
+        "policy_version",
+        "trust_domain",
+        "new_device_id",
+        "identity_model",
+        "previous_model_generation_ref",
+        "result_model_generation_ref",
+        "authorization_event_id",
+        "reanchor_event_id",
+        "reanchor_batch_receipt_id",
+        "did_entry_ref",
+        "proof_summary",
+        "backup_classes_unlocked",
+        "welcome_count",
+        "outcome",
+        "started_at",
+        "completed_at",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<Vec<_>>();
+    if body.welcome_realm_summary.is_some() {
+        fields.push("welcome_realm_summary".to_owned());
+    }
+    if body.outcome_reason_code.is_some() {
+        fields.push("outcome_reason_code".to_owned());
+    }
+    fields
+}
+
+fn recovery_receipt_signature_transcript_bytes(
+    receipt: &Value,
+    signed_fields: &[String],
+) -> Result<Vec<u8>> {
+    let mut signed_payload = serde_json::Map::new();
+    for field in signed_fields {
+        let value = receipt.get(field).cloned().ok_or_else(|| {
+            Error::Protocol(format!(
+                "recovery receipt signed field {field} is absent from the authoring body"
+            ))
+        })?;
+        signed_payload.insert(field.clone(), value);
+    }
+    let transcript = json!({
+        "type": RecoveryReceipt::SIGNATURE_TYPE,
+        "signed_fields": signed_fields,
+        "payload": signed_payload,
+    });
+    arkret_canonical::canonical_json_bytes(&transcript).map_err(|error| {
+        Error::Protocol(format!(
+            "failed to canonicalize recovery receipt signature transcript: {error}"
+        ))
+    })
+}
+
+fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value {
+    json!({
+        "schema": RecoveryReceipt::SCHEMA,
+        "receipt_id": &body.receipt_id,
+        "transaction_id": &body.transaction_id,
+        "transaction_request_digest": &body.transaction_request_digest,
+        "prepared_plan_digest": &body.prepared_plan_digest,
+        "principal_id": &body.principal_id,
+        "recovery_session_id": &body.recovery_session_id,
+        "policy_id": &body.policy_id,
+        "policy_version": body.policy_version,
+        "trust_domain": &body.trust_domain,
+        "new_device_id": &body.new_device_id,
+        "identity_model": body.identity_model,
+        "previous_model_generation_ref": &body.previous_model_generation_ref,
+        "result_model_generation_ref": &body.result_model_generation_ref,
+        "authorization_event_id": &body.authorization_event_id,
+        "device_list_update_event_id": &body.device_list_update_event_id,
+        "reanchor_event_id": &body.reanchor_event_id,
+        "reanchor_batch_receipt_id": &body.reanchor_batch_receipt_id,
+        "did_entry_ref": &body.did_entry_ref,
+        "proof_summary": &body.proof_summary,
+        "backup_classes_unlocked": &body.backup_classes_unlocked,
+        "welcome_count": body.welcome_count,
+        "welcome_realm_summary": &body.welcome_realm_summary,
+        "outcome": body.outcome,
+        "outcome_reason_code": &body.outcome_reason_code,
+        "started_at": arkret_canonical::canonical::format_timestamp_canonical(body.started_at),
+        "completed_at": arkret_canonical::canonical::format_timestamp_canonical(body.completed_at),
+    })
 }
 
 /// `recovery-receipt.schema.json#/properties/proof_summary`.
@@ -2715,6 +3614,178 @@ mod encryption_validate_tests {
                 "signed_fields": ["backup_id"]
             }));
         assert!(invalid_auth.is_err());
+    }
+
+    fn unsigned_key_backup_fixture() -> KeyBackup {
+        serde_json::from_value(serde_json::json!({
+            "backup_id": "ak:backup:01964137-0000-7000-8000-000000000001",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000002",
+            "backup_kind": "secret_storage",
+            "backup_version": "kb_1",
+            "created_at": "2026-08-09T00:00:00.000Z",
+            "encryption": {
+                "recipient_method": "passphrase_kdf",
+                "kdf": {
+                    "name": "argon2id",
+                    "salt": "c2FsdA",
+                    "params": {
+                        "memory_kib": 65536,
+                        "iterations": 3,
+                        "parallelism": 1
+                    }
+                },
+                "aead": {
+                    "name": "xchacha20_poly1305",
+                    "nonce_salt": "bm9uY2Vfc2FsdF9maXh0dXJl",
+                    "nonce": "bm9uY2U"
+                },
+                "key_commitment": format!("sha256:{}", "b".repeat(64))
+            },
+            "domain_separation": {
+                "hkdf_info": "arkret-key-backup/secret_storage/fixture/v1",
+                "subdomain": "fixture",
+                "aead_aad": {
+                    "schema": "ak.schema.key_backup.v1",
+                    "actor_id": "did:webvh:z6mkfixture:alice.example",
+                    "device_id": "ak:device:01964137-0000-7000-8000-000000000002",
+                    "backup_kind": "secret_storage",
+                    "backup_version": "kb_1",
+                    "created_at": "2026-08-09T00:00:00.000Z",
+                    "item_kinds": ["private_account_state"],
+                    "recipient_method": "passphrase_kdf"
+                }
+            },
+            "contents": [{
+                "item_kind": "private_account_state",
+                "secret_id": "recovery"
+            }],
+            "ciphertext": "Y2lwaGVydGV4dA",
+            "ciphertext_digest": arkret_canonical::sha256_digest(b"ciphertext"),
+            "series_id": "ak:backup_series:01964137-0000-7000-8000-000000000003",
+            "series_seq": 0
+        }))
+        .expect("valid unsigned key backup fixture")
+    }
+
+    fn unsigned_key_backup_auth() -> UnsignedKeyBackupAuthData {
+        UnsignedKeyBackupAuthData::new(
+            DeviceId::new("ak:device:01964137-0000-7000-8000-000000000002").unwrap(),
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#device-2").unwrap(),
+            KeyBackupSignatureAlgorithm::Ed25519,
+            EventId::new("ak:event:ATyV5XR6BcRjzlrvTfk1r6sWwIdO63K42L1e3vfblrp2").unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn unsigned_key_backup_typestate_preserves_signature_transcript() {
+        let unsigned =
+            UnsignedKeyBackup::new(unsigned_key_backup_fixture(), unsigned_key_backup_auth())
+                .unwrap();
+        let signing_bytes = unsigned.signing_payload_bytes().unwrap();
+        let unsigned_wire: Value = serde_json::from_slice(&signing_bytes).unwrap();
+        assert!(unsigned_wire["auth_data"].get("signature").is_none());
+        assert_eq!(
+            unsigned_wire["auth_data"]["signed_fields"],
+            serde_json::json!([
+                "backup_id",
+                "actor_id",
+                "backup_kind",
+                "backup_version",
+                "series_id",
+                "series_seq",
+                "encryption",
+                "domain_separation",
+                "contents",
+                "ciphertext_digest"
+            ])
+        );
+
+        let signed = unsigned
+            .attach_signature(Base64UrlString::new("c2lnbmF0dXJl").unwrap())
+            .unwrap();
+        signed.validate().unwrap();
+        let signed_wire = serde_json::to_value(&signed).unwrap();
+        assert_eq!(
+            KeyBackup::signing_payload_bytes_from_wire(&signed_wire).unwrap(),
+            signing_bytes
+        );
+    }
+
+    #[test]
+    fn unsigned_key_backup_rejects_domain_and_series_mismatches() {
+        let mut wrong_domain = unsigned_key_backup_fixture();
+        wrong_domain.domain_separation.aead_aad.backup_kind = BackupKind::MlsHistory;
+        assert!(UnsignedKeyBackup::new(wrong_domain, unsigned_key_backup_auth()).is_err());
+
+        let mut broken_successor = unsigned_key_backup_fixture();
+        broken_successor.series_seq = 1;
+        assert!(UnsignedKeyBackup::new(broken_successor, unsigned_key_backup_auth()).is_err());
+
+        let mut bad_version = unsigned_key_backup_fixture();
+        bad_version.backup_version = "1".to_owned();
+        assert!(UnsignedKeyBackup::new(bad_version, unsigned_key_backup_auth()).is_err());
+
+        let mut oversized_nonce_salt = unsigned_key_backup_fixture();
+        oversized_nonce_salt.encryption.aead.nonce_salt =
+            Some(Base64UrlString::new("A".repeat(129)).unwrap());
+        assert!(UnsignedKeyBackup::new(oversized_nonce_salt, unsigned_key_backup_auth()).is_err());
+
+        let mut bad_class_item = unsigned_key_backup_fixture();
+        bad_class_item.contents[0].item_kind = "mls_group_state".to_owned();
+        bad_class_item.domain_separation.aead_aad.item_kinds = vec!["mls_group_state".to_owned()];
+        assert!(UnsignedKeyBackup::new(bad_class_item, unsigned_key_backup_auth()).is_err());
+
+        let mut tampered_ciphertext = unsigned_key_backup_fixture();
+        tampered_ciphertext.ciphertext = "dGFtcGVyZWQ".to_owned();
+        assert!(UnsignedKeyBackup::new(tampered_ciphertext, unsigned_key_backup_auth()).is_err());
+
+        let mut mls_passphrase = unsigned_key_backup_fixture();
+        mls_passphrase.backup_kind = BackupKind::MlsHistory;
+        mls_passphrase.contents[0].item_kind = "mls_group_state".to_owned();
+        mls_passphrase.domain_separation.hkdf_info = BackupKind::MlsHistory.hkdf_info("fixture");
+        mls_passphrase.domain_separation.aead_aad.backup_kind = BackupKind::MlsHistory;
+        mls_passphrase.domain_separation.aead_aad.item_kinds = vec!["mls_group_state".to_owned()];
+        assert!(UnsignedKeyBackup::new(mls_passphrase, unsigned_key_backup_auth()).is_err());
+    }
+
+    #[test]
+    fn unsigned_key_backup_rejects_es256_and_unbound_recovery_recipient() {
+        assert!(
+            UnsignedKeyBackupAuthData::new(
+                DeviceId::new("ak:device:01964137-0000-7000-8000-000000000002").unwrap(),
+                DidUrl::new("did:webvh:z6mkfixture:alice.example#device-2").unwrap(),
+                KeyBackupSignatureAlgorithm::Es256,
+                EventId::new("ak:event:ATyV5XR6BcRjzlrvTfk1r6sWwIdO63K42L1e3vfblrp2").unwrap(),
+            )
+            .is_err()
+        );
+        let mut es256 = unsigned_key_backup_auth();
+        es256.signature_algorithm = KeyBackupSignatureAlgorithm::Es256;
+        assert!(UnsignedKeyBackup::new(unsigned_key_backup_fixture(), es256).is_err());
+
+        let mut recovery_recipient = unsigned_key_backup_fixture();
+        recovery_recipient.encryption.recipient_method =
+            KeyBackupRecipientMethod::RecoveryPublicKey;
+        recovery_recipient.encryption.recipient_key_ref =
+            Some("ak:recovery-key-agreement:fixture".to_owned());
+        recovery_recipient.encryption.kdf = None;
+        recovery_recipient.encryption.key_commitment = None;
+        recovery_recipient.encryption.aead.name = KeyBackupAeadName::Chacha20Poly1305;
+        recovery_recipient.encryption.aead.nonce = None;
+        recovery_recipient.encryption.aead.nonce_salt = None;
+        recovery_recipient.encryption.aead.enc =
+            Some(Base64UrlString::new("ZW5jYXBzdWxhdGVkX2tleQ").unwrap());
+        recovery_recipient
+            .domain_separation
+            .aead_aad
+            .recipient_method = Some(KeyBackupRecipientMethod::RecoveryPublicKey);
+        recovery_recipient
+            .domain_separation
+            .aead_aad
+            .recipient_key_ref = recovery_recipient.encryption.recipient_key_ref.clone();
+        assert!(UnsignedKeyBackup::new(recovery_recipient, unsigned_key_backup_auth()).is_err());
     }
 
     #[test]

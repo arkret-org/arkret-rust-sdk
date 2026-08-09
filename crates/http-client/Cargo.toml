@@ -49,6 +49,9 @@ tokio = {workspace = true,features = ["time"]}
 tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"]}
 
+[dev-dependencies]
+arkret-wire = {workspace = true,features = ["test-support"]}
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = {workspace = true}
 # Native-only: consumed exclusively by `http_did_resolver` (reqwest + Tokio DID

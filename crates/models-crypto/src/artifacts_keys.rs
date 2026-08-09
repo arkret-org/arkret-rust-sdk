@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::key_backup::{
-    BackupKind, BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody,
+    BackupKind, BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup,
     KeyBackupSignatureAlgorithm, KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome,
     KeysBackupsDeleteRequestBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList,
     KeysBackupsReplaceOutcome, ManagedPrincipalBinding, RecoveryProofKind,
@@ -39,6 +39,88 @@ pub struct KeyBackupPlaintext {
 
 impl KeyBackupPlaintext {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_PLAINTEXT_V1;
+
+    /// Validate the decrypted keybag and its byte-for-byte binding to the
+    /// authenticated public envelope. A receiver MUST run this before importing
+    /// any secret material.
+    pub fn validate_for_envelope(&self, envelope: &KeyBackup) -> Result<()> {
+        envelope.validate_envelope_fields()?;
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(format!(
+                "key backup plaintext schema must be {}",
+                Self::SCHEMA
+            )));
+        }
+        if self.backup_id != envelope.backup_id
+            || self.backup_kind != envelope.backup_kind
+            || self.series_id != envelope.series_id
+            || self.series_seq != envelope.series_seq
+        {
+            return Err(Error::Protocol(
+                "key backup plaintext envelope identity mismatch".to_owned(),
+            ));
+        }
+        if self.items.is_empty() || self.items.len() != envelope.contents.len() {
+            return Err(Error::Protocol(
+                "key backup public/plaintext item counts differ or are empty".to_owned(),
+            ));
+        }
+        for (public, secret) in envelope.contents.iter().zip(&self.items) {
+            secret.validate()?;
+            if public.item_kind != secret.item_kind
+                || public.secret_id.as_deref() != Some(secret.secret_id.as_str())
+                || public.realm_id != secret.realm_id
+                || public.managed_principal_binding != secret.managed_principal_binding
+                || public.mls_group_id != secret.mls_group_id
+                || public.epoch != secret.epoch
+                || public.first_event_id != secret.first_event_id
+                || public.last_event_id != secret.last_event_id
+                || public.secret_version != secret.secret_version()?
+            {
+                return Err(Error::Protocol(
+                    "key backup public/plaintext item metadata mismatch".to_owned(),
+                ));
+            }
+        }
+
+        let canonical_set = |bindings: Vec<ManagedPrincipalBinding>| {
+            bindings
+                .into_iter()
+                .map(|binding| {
+                    arkret_canonical::canonical_json_bytes(&binding)
+                        .map(|bytes| (bytes, binding))
+                        .map_err(Error::from)
+                })
+                .collect::<Result<BTreeMap<_, _>>>()
+                .map(|bindings| bindings.into_values().collect::<Vec<_>>())
+        };
+        let public_bindings = canonical_set(
+            envelope
+                .contents
+                .iter()
+                .filter_map(|item| item.managed_principal_binding.clone())
+                .collect(),
+        )?;
+        let plaintext_bindings = canonical_set(
+            self.items
+                .iter()
+                .filter_map(|item| item.managed_principal_binding.clone())
+                .collect(),
+        )?;
+        let aad_bindings = canonical_set(
+            envelope
+                .domain_separation
+                .aead_aad
+                .managed_principal_bindings
+                .clone(),
+        )?;
+        if public_bindings != plaintext_bindings || public_bindings != aad_bindings {
+            return Err(Error::Protocol(
+                "key backup public/plaintext/AAD managed binding sets differ".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/item_kind`.
@@ -68,6 +150,60 @@ pub struct PlaintextItem {
     pub last_event_id: Option<EventId>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+impl PlaintextItem {
+    pub fn validate(&self) -> Result<()> {
+        if self.secret_id.is_empty()
+            || !self
+                .secret_id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'-'))
+        {
+            return Err(Error::Protocol(
+                "key backup plaintext secret_id must match ^[A-Za-z0-9_.-]+$".to_owned(),
+            ));
+        }
+        let secret =
+            arkret_canonical::base64url::base64url_decode(&self.secret_b64u).map_err(|error| {
+                Error::Protocol(format!(
+                    "key backup plaintext secret_b64u must be unpadded base64url: {error}"
+                ))
+            })?;
+        if secret.is_empty() || self.secret_b64u.contains('=') {
+            return Err(Error::Protocol(
+                "key backup plaintext secret_b64u must encode non-empty bytes without padding"
+                    .to_owned(),
+            ));
+        }
+        if self.managed_principal_binding.is_some()
+            && (self.realm_id.is_none()
+                || !matches!(
+                    self.item_kind.as_str(),
+                    "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
+                ))
+        {
+            return Err(Error::Protocol(
+                "managed key backup plaintext requires realm_id and an MLS item_kind".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Project the plaintext generation into the public envelope's bounded
+    /// `secret_version` index without truncation.
+    pub fn secret_version(&self) -> Result<Option<u32>> {
+        self.secret_generation
+            .map(|generation| {
+                u32::try_from(generation).map_err(|_| {
+                    Error::Protocol(
+                        "key backup plaintext secret_generation exceeds public secret_version"
+                            .to_owned(),
+                    )
+                })
+            })
+            .transpose()
+    }
 }
 
 /// Counterpart for
@@ -106,6 +242,253 @@ pub struct KeyBackupUnlockProof {
 
 impl KeyBackupUnlockProof {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_UNLOCK_PROOF_V1;
+
+    /// Validate the signed wire shape and the SDK-owned signature coverage.
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(format!(
+                "key backup unlock proof schema must be {}",
+                Self::SCHEMA
+            )));
+        }
+        validate_unlock_proof_signature_algorithm(self.auth_data.signature_algorithm)?;
+        if self.challenge.as_deref().is_some_and(|challenge| {
+            challenge.len() != 43
+                || !challenge.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
+                })
+        }) {
+            return Err(Error::Protocol(
+                "key backup unlock proof challenge must be 43 base64url characters".to_owned(),
+            ));
+        }
+        let actual = self
+            .auth_data
+            .signed_fields
+            .iter()
+            .map(String::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        if actual.len() != self.auth_data.signed_fields.len()
+            || KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS
+                .iter()
+                .any(|field| !actual.contains(field))
+        {
+            return Err(Error::Protocol(
+                "key backup unlock proof signed_fields must be unique and cover the canonical field set"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Canonical signature transcript for a fully formed receiver-side proof.
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let mut unsigned = serde_json::to_value(self)?;
+        unsigned
+            .get_mut("auth_data")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| {
+                Error::Protocol("key backup unlock proof auth_data must be an object".to_owned())
+            })?
+            .remove("signature");
+        key_backup_unlock_proof_signing_payload_bytes(&unsigned)
+    }
+}
+
+const KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS: [&str; 11] = [
+    "schema",
+    "recovery_session_id",
+    "principal_id",
+    "requesting_device_id",
+    "backup_id",
+    "backup_kind",
+    "series_id",
+    "ciphertext_digest",
+    "proof_kind",
+    "proof_digest",
+    "issued_at",
+];
+
+/// Signature metadata for an unlock proof before a signature exists.
+#[derive(Clone, Debug)]
+pub struct UnsignedKeyBackupUnlockProofAuthData {
+    verification_method: DidUrl,
+    signature_algorithm: KeyBackupSignatureAlgorithm,
+}
+
+impl UnsignedKeyBackupUnlockProofAuthData {
+    pub fn new(
+        verification_method: DidUrl,
+        signature_algorithm: KeyBackupSignatureAlgorithm,
+    ) -> Result<Self> {
+        validate_unlock_proof_signature_algorithm(signature_algorithm)?;
+        Ok(Self {
+            verification_method,
+            signature_algorithm,
+        })
+    }
+}
+
+/// Strongly typed unlock-proof authoring state. It is intentionally not
+/// serializable, so only [`Self::attach_signature`] can produce the outbound
+/// wire model.
+#[derive(Clone, Debug)]
+pub struct UnsignedKeyBackupUnlockProof {
+    recovery_session_id: RecoverySessionId,
+    principal_id: Did,
+    requesting_device_id: DeviceId,
+    backup_id: BackupId,
+    backup_kind: BackupKind,
+    series_id: BackupSeriesId,
+    ciphertext_digest: Hash,
+    proof_kind: ProofKind,
+    proof_digest: Hash,
+    challenge: Option<Base64UrlString>,
+    issued_at: DateTime<Utc>,
+    auth_data: UnsignedKeyBackupUnlockProofAuthData,
+    extra: XExtensionMap,
+}
+
+impl UnsignedKeyBackupUnlockProof {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        recovery_session_id: RecoverySessionId,
+        principal_id: Did,
+        requesting_device_id: DeviceId,
+        backup_id: BackupId,
+        backup_kind: BackupKind,
+        series_id: BackupSeriesId,
+        ciphertext_digest: Hash,
+        proof_kind: ProofKind,
+        proof_digest: Hash,
+        challenge: Option<Base64UrlString>,
+        issued_at: DateTime<Utc>,
+        auth_data: UnsignedKeyBackupUnlockProofAuthData,
+    ) -> Result<Self> {
+        if challenge
+            .as_ref()
+            .is_some_and(|challenge| challenge.as_str().len() != 43)
+        {
+            return Err(Error::Protocol(
+                "key backup unlock proof challenge must be 43 base64url characters".to_owned(),
+            ));
+        }
+        validate_unlock_proof_signature_algorithm(auth_data.signature_algorithm)?;
+        Ok(Self {
+            recovery_session_id,
+            principal_id,
+            requesting_device_id,
+            backup_id,
+            backup_kind,
+            series_id,
+            ciphertext_digest,
+            proof_kind,
+            proof_digest,
+            challenge,
+            issued_at,
+            auth_data,
+            extra: XExtensionMap::default(),
+        })
+    }
+
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        key_backup_unlock_proof_signing_payload_bytes(&self.unsigned_wire_value()?)
+    }
+
+    pub fn attach_signature(self, signature: Base64UrlString) -> Result<KeyBackupUnlockProof> {
+        let proof = KeyBackupUnlockProof {
+            schema: KeyBackupUnlockProof::SCHEMA.to_owned(),
+            recovery_session_id: self.recovery_session_id,
+            principal_id: self.principal_id,
+            requesting_device_id: self.requesting_device_id,
+            backup_id: self.backup_id,
+            backup_kind: self.backup_kind,
+            series_id: self.series_id,
+            ciphertext_digest: self.ciphertext_digest,
+            proof_kind: self.proof_kind,
+            proof_digest: self.proof_digest,
+            challenge: self.challenge.map(Base64UrlString::into_string),
+            issued_at: self.issued_at,
+            auth_data: KeyBackupUnlockProofAuthData {
+                verification_method: self.auth_data.verification_method,
+                signature_algorithm: self.auth_data.signature_algorithm,
+                signature,
+                signed_fields: KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect(),
+            },
+            extra: self.extra,
+        };
+        proof.validate()?;
+        Ok(proof)
+    }
+
+    fn unsigned_wire_value(&self) -> Result<Value> {
+        #[derive(Serialize)]
+        struct UnsignedAuthData<'a> {
+            verification_method: &'a DidUrl,
+            signature_algorithm: KeyBackupSignatureAlgorithm,
+            signed_fields: [&'static str; 11],
+        }
+
+        #[derive(Serialize)]
+        struct UnsignedProof<'a> {
+            schema: &'static str,
+            recovery_session_id: &'a RecoverySessionId,
+            principal_id: &'a Did,
+            requesting_device_id: &'a DeviceId,
+            backup_id: &'a BackupId,
+            backup_kind: BackupKind,
+            series_id: &'a BackupSeriesId,
+            ciphertext_digest: &'a Hash,
+            proof_kind: ProofKind,
+            proof_digest: &'a Hash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            challenge: Option<&'a Base64UrlString>,
+            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+            issued_at: DateTime<Utc>,
+            auth_data: UnsignedAuthData<'a>,
+            #[serde(flatten)]
+            extra: &'a XExtensionMap,
+        }
+
+        serde_json::to_value(UnsignedProof {
+            schema: KeyBackupUnlockProof::SCHEMA,
+            recovery_session_id: &self.recovery_session_id,
+            principal_id: &self.principal_id,
+            requesting_device_id: &self.requesting_device_id,
+            backup_id: &self.backup_id,
+            backup_kind: self.backup_kind,
+            series_id: &self.series_id,
+            ciphertext_digest: &self.ciphertext_digest,
+            proof_kind: self.proof_kind,
+            proof_digest: &self.proof_digest,
+            challenge: self.challenge.as_ref(),
+            issued_at: self.issued_at,
+            auth_data: UnsignedAuthData {
+                verification_method: &self.auth_data.verification_method,
+                signature_algorithm: self.auth_data.signature_algorithm,
+                signed_fields: KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS,
+            },
+            extra: &self.extra,
+        })
+        .map_err(Error::from)
+    }
+}
+
+fn validate_unlock_proof_signature_algorithm(algorithm: KeyBackupSignatureAlgorithm) -> Result<()> {
+    if algorithm == KeyBackupSignatureAlgorithm::Es256 {
+        return Err(Error::Protocol(
+            "key backup unlock proof signature_algorithm must be Ed25519 or ML-DSA-65".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn key_backup_unlock_proof_signing_payload_bytes(unsigned: &Value) -> Result<Vec<u8>> {
+    Ok(arkret_canonical::canonical_json_bytes(unsigned)?)
 }
 
 /// Counterpart for
@@ -756,6 +1139,22 @@ pub struct RecoverySessionUnlockProof {
     pub signature_algorithm: NonEmptyString,
     pub unlock_commitment: Hash,
     pub signature: Base64UrlString,
+}
+
+impl RecoverySessionUnlockProof {
+    /// Exact `proof_body` embedded in the generic recovery transcript. Both
+    /// the detached signature and `unlock_commitment` cover this body, so the
+    /// two derived fields are omitted in one SDK-owned place.
+    pub fn signature_independent_proof_body(&self) -> Result<BTreeMap<String, Value>> {
+        let Value::Object(mut proof_body) = serde_json::to_value(self)? else {
+            return Err(Error::Protocol(
+                "recovery unlock proof must serialize as an object".to_owned(),
+            ));
+        };
+        proof_body.remove("signature");
+        proof_body.remove("unlock_commitment");
+        Ok(proof_body.into_iter().collect())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

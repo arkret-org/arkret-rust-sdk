@@ -45,7 +45,7 @@ keystore-encrypted-file = ["arkret-keystore/keystore-encrypted-file"]
 arkret-auth = {workspace = true}
 arkret-bootstrap = {workspace = true}
 arkret-canonical = {workspace = true}
-arkret-crypto = {workspace = true,features = ["account-data", "aead", "identity-root"]}
+arkret-crypto = {workspace = true,features = ["account-data", "aead", "identity-root", "secret-share"]}
 arkret-event-draft = {workspace = true}
 arkret-hlc = {workspace = true}
 arkret-identifiers = {workspace = true}

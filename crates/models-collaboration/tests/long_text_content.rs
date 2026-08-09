@@ -13,7 +13,7 @@ use arkret_models_collaboration::events_payloads::message::{
 use serde_json::json;
 
 fn plaintext_block() -> ContentBlock {
-    ContentBlock::new(CONTENT_KIND_LONG_TEXT, "first four KiB of the body")
+    ContentBlock::new(ContentBlockKind::LongText, "first four KiB of the body")
         .with_field("format", json!("markdown"))
         .with_field("body_kind", json!("prefix"))
         .with_field(
@@ -25,7 +25,7 @@ fn plaintext_block() -> ContentBlock {
 }
 
 fn e2ee_block() -> ContentBlock {
-    ContentBlock::new(CONTENT_KIND_LONG_TEXT, "authenticated summary")
+    ContentBlock::new(ContentBlockKind::LongText, "authenticated summary")
         .with_field("format", json!("plain"))
         .with_field("body_kind", json!("summary"))
         .with_field(
@@ -155,7 +155,7 @@ fn fallback_body_is_bounded_in_utf8_bytes() {
     let oversized = "\u{4e2d}".repeat(2048);
     assert!(oversized.chars().count() < LONG_TEXT_FALLBACK_MAX_BYTES);
     assert!(oversized.len() > LONG_TEXT_FALLBACK_MAX_BYTES);
-    let block = ContentBlock::new(CONTENT_KIND_LONG_TEXT, oversized)
+    let block = ContentBlock::new(ContentBlockKind::LongText, oversized)
         .with_field("format", json!("plain"))
         .with_field("body_kind", json!("summary"))
         .with_field(
@@ -170,7 +170,7 @@ fn fallback_body_is_bounded_in_utf8_bytes() {
 #[test]
 fn fallback_body_must_already_be_normalized() {
     let crlf = plaintext_block();
-    let crlf = ContentBlock::new(CONTENT_KIND_LONG_TEXT, "line one\r\nline two")
+    let crlf = ContentBlock::new(ContentBlockKind::LongText, "line one\r\nline two")
         .with_field("format", json!("markdown"))
         .with_field("body_kind", json!("prefix"))
         .with_field("blob_ref", crlf.extra.get("blob_ref").unwrap().clone())

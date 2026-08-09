@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{AuthzDecision, Did, FreshnessState, Hash, NotaryStatus, ReasonCode};
+use arkret_wire::{
+    AuthzDecision, Did, FreshnessState, Hash, NotaryStatus, ReasonCode, WireResourceSelector,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,7 +19,7 @@ pub struct AuthzCheckRequestBody {
     pub action: String,
     /// Optional resource selector (Realm / Strand / Space / Morph / etc.).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub resource: Option<BTreeMap<String, Value>>,
+    pub resource: Option<WireResourceSelector>,
     /// Optional decision context — claim presentations, frontier reference,
     /// request metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]

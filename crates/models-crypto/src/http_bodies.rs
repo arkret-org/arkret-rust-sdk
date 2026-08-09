@@ -573,6 +573,12 @@ pub struct KeyPackageClaimTerminalReceipt {
     pub signature: KeyOperationSignature,
 }
 
+impl KeyPackageClaimTerminalReceipt {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        signed_receipt_canonical_signing_bytes(self, self.domain.as_str())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -815,6 +821,12 @@ pub struct RecipientMlsDurableReceipt {
     pub signature: KeyOperationSignature,
 }
 
+impl RecipientMlsDurableReceipt {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        signed_receipt_canonical_signing_bytes(self, self.domain.as_str())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -916,6 +928,26 @@ pub struct KeyPackageConsumeReceipt {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub consumed_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
+}
+
+impl KeyPackageConsumeReceipt {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        signed_receipt_canonical_signing_bytes(self, self.domain.as_str())
+    }
+}
+
+fn signed_receipt_canonical_signing_bytes(
+    value: &impl Serialize,
+    domain: &str,
+) -> arkret_canonical::Result<Vec<u8>> {
+    let mut unsigned = serde_json::to_value(value)?;
+    let object = unsigned.as_object_mut().ok_or_else(|| {
+        arkret_canonical::CanonicalError::Protocol(
+            "signed receipt must serialize as an object".to_owned(),
+        )
+    })?;
+    object.remove("signature");
+    keypackage_signing_input(&format!("{domain}\n"), &unsigned)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

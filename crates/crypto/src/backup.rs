@@ -16,7 +16,7 @@
 //!
 //! ```no_run
 //! use arkret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
-//! use arkret_models_crypto::key_backup::BackupKind;
+//! use arkret_models_crypto::{BackupKind, PlaintextItem};
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
@@ -27,8 +27,19 @@
 //!     "kb_1",
 //!     "recovery_vault",
 //!     &kek,
-//!     br#"{"recovery":"..."}"#,
-//!     &[("recovery_secret", None)],
+//!     vec![PlaintextItem {
+//!         item_kind: "private_account_state".to_owned(),
+//!         secret_id: "account-state".to_owned(),
+//!         secret_b64u: "c2VjcmV0".to_owned(),
+//!         secret_generation: None,
+//!         realm_id: None,
+//!         managed_principal_binding: None,
+//!         mls_group_id: None,
+//!         epoch: None,
+//!         first_event_id: None,
+//!         last_event_id: None,
+//!         extra: Default::default(),
+//!     }],
 //! )?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -44,6 +55,7 @@ use arkret_models_crypto::key_backup::{
     KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
     KeyBackupRecipientMethod,
 };
+use arkret_models_crypto::{KeyBackupPlaintext, PlaintextItem};
 use arkret_wire::{
     AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, Did, Hash,
     NonEmptyString,
@@ -518,7 +530,7 @@ pub fn decrypt_vault(
 /// Open a typed `passphrase_kdf` key-backup envelope and enforce every
 /// producer/receiver invariant owned by the SDK: recipient method, ciphertext
 /// digest, key commitment, deterministic nonce, domain binding, and AEAD tag.
-pub fn decrypt_key_backup_envelope(
+fn decrypt_key_backup_envelope_bytes(
     passphrase: &[u8],
     envelope: &KeyBackup,
 ) -> Result<Zeroizing<Vec<u8>>> {
@@ -617,6 +629,25 @@ pub fn decrypt_key_backup_envelope(
     )
 }
 
+/// Open a `passphrase_kdf` envelope as its closed, typed plaintext keybag and
+/// verify the decrypted identity and public-metadata binding before returning
+/// any secret material to the caller.
+pub fn decrypt_key_backup_envelope(
+    passphrase: &[u8],
+    envelope: &KeyBackup,
+) -> Result<KeyBackupPlaintext> {
+    let plaintext = decrypt_key_backup_envelope_bytes(passphrase, envelope)?;
+    let keybag = serde_json::from_slice::<KeyBackupPlaintext>(&plaintext).map_err(|error| {
+        KeyBackupError::Encoding(format!(
+            "decrypted key backup is not ak.schema.key_backup_plaintext.v1: {error}"
+        ))
+    })?;
+    keybag
+        .validate_for_envelope(envelope)
+        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+    Ok(keybag)
+}
+
 /// Generate a fresh Recovery Key as a human-readable string of
 /// Crockford-base32-style groups (alphabet `0-9 + A-Z` minus `I/L/O/U`
 /// to avoid lookalikes). 32 random bytes (256 bits) are encoded as 50
@@ -695,10 +726,12 @@ pub fn estimate_passphrase_strength(passphrase: &str) -> u8 {
     score.clamp(0, 5) as u8
 }
 
-/// Build a typed `ak.schema.key_backup.v1` envelope, encrypting
-/// `plaintext` against the envelope's own identity binding.
+/// Build a typed `ak.schema.key_backup.v1` genesis envelope from closed
+/// plaintext items. The SDK constructs the canonical
+/// `ak.schema.key_backup_plaintext.v1` keybag and its public `contents` index
+/// from the same values, preventing caller-controlled metadata drift.
 ///
-/// `contents` is `(item_kind, optional secret_id)`. The AEAD key, nonce
+/// The AEAD key, nonce
 /// and key commitment are all HKDF-derived from the root unlock key with
 /// domain-separated `info` strings, the AEAD AAD binds the envelope
 /// identity, and the nonce is deterministically derived with a fresh
@@ -712,8 +745,45 @@ pub fn build_key_backup_envelope(
     backup_version: &str,
     subdomain: &str,
     kek: &VaultKek,
-    plaintext: &[u8],
-    contents: &[(&str, Option<&str>)],
+    items: Vec<PlaintextItem>,
+) -> Result<KeyBackup> {
+    let series_id =
+        arkret_wire::BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
+            .map_err(|err| {
+                KeyBackupError::InvalidInput(format!("failed to mint backup_series id: {err}"))
+            })?;
+    build_key_backup_envelope_in_series(
+        backup_id,
+        actor_id,
+        device_id,
+        backup_kind,
+        backup_version,
+        subdomain,
+        kek,
+        items,
+        series_id,
+        0,
+        None,
+        None,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_key_backup_envelope_in_series(
+    backup_id: BackupId,
+    actor_id: Did,
+    device_id: Option<DeviceId>,
+    backup_kind: BackupKind,
+    backup_version: &str,
+    subdomain: &str,
+    kek: &VaultKek,
+    items: Vec<PlaintextItem>,
+    series_id: arkret_wire::BackupSeriesId,
+    series_seq: u64,
+    supersedes: Option<BackupId>,
+    supersedes_digest: Option<String>,
+    frontier_ref: Option<KeyBackupFrontierRef>,
 ) -> Result<KeyBackup> {
     if backup_kind == BackupKind::MlsHistory {
         return Err(KeyBackupError::InvalidInput(
@@ -731,6 +801,57 @@ pub fn build_key_backup_envelope(
             "key backup subdomain must not be empty".to_owned(),
         ));
     }
+    if items.is_empty() {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup plaintext items must not be empty".to_owned(),
+        ));
+    }
+    for item in &items {
+        item.validate()
+            .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+    }
+
+    let contents = items
+        .iter()
+        .map(|item| {
+            Ok(KeyBackupContentItem {
+                item_kind: item.item_kind.clone(),
+                realm_id: item.realm_id.clone(),
+                managed_principal_binding: item.managed_principal_binding.clone(),
+                mls_group_id: item.mls_group_id.clone(),
+                epoch: item.epoch,
+                first_event_id: item.first_event_id.clone(),
+                last_event_id: item.last_event_id.clone(),
+                secret_id: Some(item.secret_id.clone()),
+                secret_version: item
+                    .secret_version()
+                    .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?,
+                extra: Default::default(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let managed_principal_bindings = contents
+        .iter()
+        .filter_map(|item| item.managed_principal_binding.clone())
+        .map(|binding| {
+            arkret_canonical::canonical_json_bytes(&binding)
+                .map(|canonical| (canonical, binding))
+                .map_err(|error| KeyBackupError::Canonical(error.to_string()))
+        })
+        .collect::<Result<std::collections::BTreeMap<_, _>>>()?
+        .into_values()
+        .collect::<Vec<_>>();
+    let plaintext = KeyBackupPlaintext {
+        schema: KeyBackupPlaintext::SCHEMA.to_owned(),
+        backup_id: backup_id.clone(),
+        backup_kind,
+        series_id: series_id.clone(),
+        series_seq,
+        items,
+        extra: Default::default(),
+    };
+    let plaintext_bytes = arkret_canonical::canonical_json_bytes(&plaintext)
+        .map_err(|error| KeyBackupError::Canonical(error.to_string()))?;
 
     // Truncate to whole seconds so the binding's canonical timestamp
     // round-trips byte-for-byte through the persisted `created_at`.
@@ -744,11 +865,8 @@ pub fn build_key_backup_envelope(
         backup_kind,
         backup_version: backup_version.to_owned(),
         created_at,
-        item_kinds: contents
-            .iter()
-            .map(|(item_kind, _)| (*item_kind).to_owned())
-            .collect(),
-        managed_principal_bindings: Vec::new(),
+        item_kinds: contents.iter().map(|item| item.item_kind.clone()).collect(),
+        managed_principal_bindings,
         recipient_method: Some(KeyBackupRecipientMethod::PassphraseKdf),
         recipient_key_ref: None,
         extra: Default::default(),
@@ -758,7 +876,7 @@ pub fn build_key_backup_envelope(
         subdomain: subdomain.to_owned(),
         aead_aad: aead_aad.clone(),
     };
-    let ciphertext = encrypt_vault(kek, &binding, plaintext)?;
+    let ciphertext = encrypt_vault(kek, &binding, &plaintext_bytes)?;
 
     let kdf = KeyBackupKdf {
         name: KeyBackupKdfName::Argon2id,
@@ -808,31 +926,7 @@ pub fn build_key_backup_envelope(
         aead_aad,
         extra: Default::default(),
     };
-    let contents: Vec<KeyBackupContentItem> = contents
-        .iter()
-        .map(|(item_kind, secret_id)| KeyBackupContentItem {
-            item_kind: (*item_kind).to_owned(),
-            realm_id: None,
-            managed_principal_binding: None,
-            mls_group_id: None,
-            epoch: None,
-            first_event_id: None,
-            last_event_id: None,
-            secret_id: secret_id.map(|s| s.to_owned()),
-            secret_version: None,
-            extra: Default::default(),
-        })
-        .collect();
-    // Per `key-backup.schema.json` (required: series_id, series_seq) every
-    // envelope MUST carry `series_id` + `series_seq`. This helper produces a
-    // genesis envelope by minting a fresh series_id and seq=0; successors are
-    // built with `build_key_backup_successor_envelope`.
-    let series_id =
-        arkret_wire::BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
-            .map_err(|err| {
-                KeyBackupError::InvalidInput(format!("failed to mint backup_series id: {err}"))
-            })?;
-    Ok(KeyBackup {
+    let envelope = KeyBackup {
         backup_id,
         actor_id,
         device_id,
@@ -851,29 +945,33 @@ pub fn build_key_backup_envelope(
         auth_data: None,
         retention: None,
         series_id,
-        series_seq: 0,
-        supersedes: None,
-        supersedes_digest: None,
-        frontier_ref: None,
+        series_seq,
+        supersedes,
+        supersedes_digest,
+        frontier_ref,
         recovery_policy_ref: None,
         extra: Default::default(),
-    })
+    };
+    plaintext
+        .validate_for_envelope(&envelope)
+        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+    Ok(envelope)
 }
 
 /// Build a successor envelope in an existing key-backup series.
 ///
 /// The successor inherits actor/device/class from `predecessor`, increments
 /// `series_seq`, and binds the predecessor by both `backup_id` and
-/// canonical predecessor-envelope digest. Callers supply the new plaintext and
-/// the current originating-key frontier reference.
+/// canonical predecessor-envelope digest. The SDK constructs the successor
+/// keybag only after the final series/supersedes/frontier metadata is fixed, so
+/// encryption can never bind genesis metadata and mutate it afterward.
 #[allow(clippy::too_many_arguments)]
 pub fn build_key_backup_successor_envelope(
     backup_id: BackupId,
     predecessor: &KeyBackup,
     backup_version: &str,
     kek: &VaultKek,
-    plaintext: &[u8],
-    contents: &[(&str, Option<&str>)],
+    items: Vec<PlaintextItem>,
     frontier_ref: impl Into<String>,
     device_generation_ref: NonEmptyString,
 ) -> Result<KeyBackup> {
@@ -893,7 +991,17 @@ pub fn build_key_backup_successor_envelope(
             "successor frontier_ref.frontier_digest invalid: {err}"
         ))
     })?;
-    let mut successor = build_key_backup_envelope(
+    let series_seq = predecessor
+        .series_seq
+        .checked_add(1)
+        .ok_or_else(|| KeyBackupError::InvalidInput("successor series_seq overflow".to_owned()))?;
+    let supersedes_digest = key_backup_supersedes_digest(predecessor)?;
+    let frontier_ref = KeyBackupFrontierRef {
+        frontier_digest,
+        seal_ref: None,
+        device_generation_ref,
+    };
+    build_key_backup_envelope_in_series(
         backup_id,
         predecessor.actor_id.clone(),
         predecessor.device_id.clone(),
@@ -901,22 +1009,13 @@ pub fn build_key_backup_successor_envelope(
         backup_version,
         &predecessor.domain_separation.subdomain,
         kek,
-        plaintext,
-        contents,
-    )?;
-    successor.series_id = predecessor.series_id.clone();
-    successor.series_seq = predecessor
-        .series_seq
-        .checked_add(1)
-        .ok_or_else(|| KeyBackupError::InvalidInput("successor series_seq overflow".to_owned()))?;
-    successor.supersedes = Some(predecessor.backup_id.clone());
-    successor.supersedes_digest = Some(key_backup_supersedes_digest(predecessor)?);
-    successor.frontier_ref = Some(KeyBackupFrontierRef {
-        frontier_digest,
-        seal_ref: None,
-        device_generation_ref,
-    });
-    Ok(successor)
+        items,
+        predecessor.series_id.clone(),
+        series_seq,
+        Some(predecessor.backup_id.clone()),
+        Some(supersedes_digest),
+        Some(frontier_ref),
+    )
 }
 
 fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
@@ -1025,6 +1124,22 @@ pub fn key_backup_aad(
 #[cfg(any())]
 mod tests {
     use super::*;
+
+    fn plaintext_item(item_kind: &str, secret_id: &str, secret: &[u8]) -> PlaintextItem {
+        PlaintextItem {
+            item_kind: item_kind.to_owned(),
+            secret_id: secret_id.to_owned(),
+            secret_b64u: base64url_encode(secret),
+            secret_generation: None,
+            realm_id: None,
+            managed_principal_binding: None,
+            mls_group_id: None,
+            epoch: None,
+            first_event_id: None,
+            last_event_id: None,
+            extra: Default::default(),
+        }
+    }
 
     #[test]
     fn argon2id_is_deterministic_under_fixed_salt() {
@@ -1227,8 +1342,11 @@ mod tests {
             "kb_1",
             "recovery_vault",
             &kek,
-            b"hello",
-            &[("recovery_secret", Some("vault_payload"))],
+            vec![plaintext_item(
+                "private_account_state",
+                "vault_payload",
+                b"hello",
+            )],
         )
         .unwrap();
         assert_eq!(envelope.backup_kind, BackupKind::SecretStorage);
@@ -1250,7 +1368,7 @@ mod tests {
         assert_eq!(kdf.params.parallelism, Some(u64::from(VAULT_ARGON2_P)));
         assert!(envelope.encryption.key_commitment.is_some());
         assert_eq!(envelope.contents.len(), 1);
-        assert_eq!(envelope.contents[0].item_kind, "recovery_secret");
+        assert_eq!(envelope.contents[0].item_kind, "private_account_state");
     }
 
     #[test]
@@ -1258,7 +1376,6 @@ mod tests {
         // Reconstruct the binding from the persisted envelope, exactly as
         // a verifier would, and confirm AEAD/nonce verification succeeds.
         let kek = derive_vault_kek_with_salt(b"sesame", &[6u8; VAULT_SALT_LEN]).unwrap();
-        let plaintext = br#"{"recovery_secret":"opaque"}"#;
         let envelope = build_key_backup_envelope(
             "ak:backup:01964137-0000-7000-8000-000000000003"
                 .parse()
@@ -1269,26 +1386,15 @@ mod tests {
             "kb_1",
             "account_keys",
             &kek,
-            plaintext,
-            &[("recovery_secret", Some("recovery_secret"))],
+            vec![plaintext_item(
+                "private_account_state",
+                "recovery_secret",
+                b"opaque",
+            )],
         )
         .unwrap();
-        let aead = &envelope.encryption.aead;
-        let binding = VaultBinding {
-            backup_id: envelope.backup_id.clone(),
-            subdomain: envelope.domain_separation.subdomain.clone(),
-            aead_aad: envelope.domain_separation.aead_aad.clone(),
-        };
-        let recovered = decrypt_vault(
-            b"sesame",
-            &binding,
-            envelope.encryption.kdf.as_ref().unwrap().salt.as_str(),
-            aead.nonce.as_deref().unwrap(),
-            aead.nonce_salt.as_deref().unwrap(),
-            envelope.ciphertext.as_str(),
-        )
-        .unwrap();
-        assert_eq!(*recovered, plaintext);
+        let recovered = decrypt_key_backup_envelope(b"sesame", &envelope).unwrap();
+        assert_eq!(recovered.items[0].secret_b64u, base64url_encode(b"opaque"));
     }
 
     #[test]
@@ -1331,8 +1437,11 @@ mod tests {
             "kb_1",
             "recovery_vault",
             &kek,
-            b"genesis",
-            &[("recovery_secret", Some("genesis"))],
+            vec![plaintext_item(
+                "private_account_state",
+                "genesis",
+                b"genesis",
+            )],
         )
         .unwrap();
         let successor = build_key_backup_successor_envelope(
@@ -1342,10 +1451,13 @@ mod tests {
             &genesis,
             "kb_2",
             &kek,
-            b"successor",
-            &[("recovery_secret", Some("successor"))],
+            vec![plaintext_item(
+                "private_account_state",
+                "successor",
+                b"successor",
+            )],
             "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-            KeyBackupFrontierGeneration::SskGeneration(std::num::NonZeroU64::new(1).unwrap()),
+            NonEmptyString::new("ssk_generation:1").unwrap(),
         )
         .unwrap();
         assert_eq!(successor.series_id, genesis.series_id);
@@ -1382,8 +1494,7 @@ mod tests {
             "1",
             "recovery_vault",
             &kek,
-            b"x",
-            &[],
+            vec![plaintext_item("private_account_state", "fixture", b"x")],
         )
         .unwrap_err();
         assert!(err.to_string().contains("backup_version"));
@@ -1402,8 +1513,7 @@ mod tests {
             "kb_1",
             "mls_snapshot",
             &kek,
-            b"x",
-            &[("mls_group_state", Some("snapshot"))],
+            vec![plaintext_item("mls_group_state", "snapshot", b"x")],
         )
         .unwrap_err();
         assert!(err.to_string().contains("secret_storage_key"));
@@ -1430,8 +1540,11 @@ mod tests {
             DEFAULT_BACKUP_VERSION,
             "account_keys",
             &kek,
-            b"{\"private_account_state\":\"fixture-plaintext\"}",
-            &[("private_account_state", None)],
+            vec![plaintext_item(
+                "private_account_state",
+                "fixture",
+                b"fixture-plaintext",
+            )],
         )
         .unwrap();
 

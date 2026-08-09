@@ -178,11 +178,11 @@ fn message_create_payload_reads_plain_body_and_first_media_block() {
     let strand_id =
         StrandId::new("ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
     let blob_ref = format!("ak:blob:sha256:{}", "a".repeat(64));
-    let media = ContentBlock::new(CONTENT_KIND_FILE, "spec.pdf")
+    let media = ContentBlock::new(ContentBlockKind::File, "spec.pdf")
         .with_field("mime_type", json!("application/pdf"))
         .with_field("filename", json!("spec.pdf"))
         .with_field("size_bytes", json!(7));
-    let content = ContentBlock::new(CONTENT_KIND_COMPOSITE, "caption text")
+    let content = ContentBlock::new(ContentBlockKind::Composite, "caption text")
         .with_part(ContentBlock::text("caption text"))
         .with_part(media);
     let mut payload = MessageCreatePayload::with_content(strand_id, "discussion", content);
@@ -191,7 +191,7 @@ fn message_create_payload_reads_plain_body_and_first_media_block() {
     assert_eq!(payload.plain_body().unwrap(), "caption text");
     assert!(MEDIA_CONTENT_KINDS.contains(&CONTENT_KIND_FILE));
     let block = payload.first_media_content_block().unwrap().unwrap();
-    assert_eq!(block.kind, CONTENT_KIND_FILE);
+    assert_eq!(block.kind, ContentBlockKind::File);
     let attachment = payload.first_media_attachment().unwrap().unwrap();
     assert_eq!(attachment.blob_ref, blob_ref);
     assert_eq!(attachment.mime_type.as_deref(), Some("application/pdf"));

@@ -1,39 +1,37 @@
 //! Arkret v1 Rust SDK.
 //!
 //! This crate exposes Arkret protocol concepts directly. The source of truth
-//! is signed Event Envelopes; Operations are SDK-local builders or offline
-//! drafts that must be materialized as Events before network, sync, federation
-//! or reducer use.
+//! is signed Event Envelopes; standard authoring binds each Event marker to its
+//! SDK payload type before erasing it into the wire envelope.
 //!
 //! # Examples
 //!
-//! Build a local operation draft and materialize it as an Event Envelope:
+//! Author a standard Event without supplying a separate runtime kind:
 //!
 //! ```rust
 //! use arkret::{
-//!     Did, Hlc, OperationEnvelopeBuilder, OperationEventConversion, OperationId,
-//!     EventDraftKindRegistry, RealmId, ScopeRef, events::EventKind,
+//!     ContentBlock, Did, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId, TypedEventDraft,
+//!     event_spec,
 //! };
-//! use serde_json::json;
 //!
 //! # fn main() -> arkret::Result<()> {
-//! let draft = OperationEnvelopeBuilder::new(
-//!     OperationId::new("ak:operation:01904100-0000-7000-8000-57d7d85564c5")?,
+//! let payload = MessageCreatePayload::with_content(
+//!     StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9")?,
+//!     "main",
+//!     ContentBlock::text("hello"),
+//! );
+//! let event = TypedEventDraft::<event_spec::MessageCreate>::new(
 //!     ScopeRef::Realm {
 //!         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?,
 //!     },
 //!     Did::new("did:webvh:z6mkfixture:alice.example")?,
-//!     EventKind::MessageCreate,
+//!     payload,
+//! )?
+//! .author(
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
-//! )
-//! .with_payload(json!({
-//!     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
-//!     "track_name": "main",
-//!     "content": {"kind": "ak.content.text", "body": "hello"}
-//! }))
-//! .build(&EventDraftKindRegistry::default())?;
-//! let event = draft.into_event_envelope(OperationEventConversion::default())?;
+//!     "2026-08-09T00:00:00Z".parse().unwrap(),
+//! )?;
 //! assert_eq!(event.payload["content"]["body"], "hello");
 //! # Ok(())
 //! # }
@@ -65,13 +63,15 @@ pub use arkret_crypto as crypto;
 pub use arkret_crypto::{account_data_crypto, identity_root};
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
-    AppletBridgeErrorBuilder, CausalRef, ContainerRebalanceAssignment,
+    AppletBridgeErrorBuilder, CausalRef, ContainerRebalanceAssignment, DeviceMessageSpec,
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
-    EventDraftKindValidation, EventPayloadExt, EventSpec, GhostActorProfileRequest,
-    MessageEventPayload, MlsEnvelopeOperationExt, Operation, OperationEnvelope,
-    OperationEnvelopeBuilder, OperationEventConversion, OperationSignature, RsvpAuthoring,
-    RsvpResponseBranch, StrandCreateObject, accountability_grant_event,
-    container_rebalance_assignments, event_draft_kind_conformance_vectors, operations,
+    EventDraftKindValidation, EventPayloadExt, EventSpec, ExtensionPayloadValidator,
+    GhostActorProfileRequest, LocalOperationDraft, LocalOperationSpec, MessageEventPayload,
+    MlsEnvelopeOperationExt, OperationEnvelope, OperationEnvelopeBuilder, OperationEventConversion,
+    OperationSignature, ProjectedEventOperation, ProjectionContext, RsvpAuthoring,
+    RsvpResponseBranch, StrandCreateObject, TypedDeviceMessageTarget, TypedEventDraft,
+    ValidatedExtensionPayload, accountability_grant_event, container_rebalance_assignments,
+    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors, operations,
     rank_between, rank_exhausted,
 };
 pub use arkret_hlc::{
@@ -362,7 +362,7 @@ pub use arkret_wire::{
     ProtocolOperationId, ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS,
     ReservationHandle, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
     SIGNATURE_ALGORITHMS, SchemaId, ServiceKind, ServiceOperationDescriptor, ServiceOperationId,
-    WireError, XExtensionMap, contains_query_auth_material, error_codes as error,
+    WireError, XExtensionMap, contains_query_auth_material, error_codes as error, event_spec,
     is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
@@ -528,7 +528,6 @@ pub mod calendar {
     use arkret_event_draft::RsvpAuthoring;
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
     use arkret_schema::project_registered_cell_writes;
-    use arkret_wire::generated::event_kinds::EventKind;
     use arkret_wire::{Did, Error, Event, Hash, Hlc, Result, ScopeRef};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
@@ -559,16 +558,13 @@ pub mod calendar {
                 ));
             }
         }
-        let mut event = Event::new(
-            EventKind::RsvpSet.to_string(),
-            scope_ref,
-            actor_id,
-            actor_seq,
-            hlc,
-            serde_json::to_value(&payload)?,
-        )?;
-        event.causal_refs = causal_refs;
-        event.refresh_content_bound_identity()?;
+        let event = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RsvpSet>::new(
+            scope_ref, actor_id, payload,
+        )
+        .map_err(|error| Error::Protocol(error.to_string()))?
+        .with_causal_refs(causal_refs)
+        .author_now(actor_seq, hlc)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
         // No materialization step: v1 has no producer-written effect array, so
         // there is nothing for the builder to stamp. The check below is the
         // producer running the same registry projection a receiver will run,

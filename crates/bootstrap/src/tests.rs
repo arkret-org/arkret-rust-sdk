@@ -101,7 +101,7 @@ fn bootstrap_unit() -> (Event, Event) {
     );
 
     let payload = founding_authorize_payload(&create.actor_id, create.created_at);
-    let mut authorize = Event::new(
+    let mut authorize = arkret_wire::test_support::raw_event(
         EventKind::DeviceAuthorize.to_string(),
         // The genesis scope belongs to the create alone; the first authorize is
         // an ordinary Control Move inside the Realm the create just named.
@@ -340,7 +340,7 @@ fn managed_agent_pcr_create() -> Event {
         created_at: Utc::now(),
     })
     .unwrap();
-    let mut create = Event::new(
+    let mut create = arkret_wire::test_support::raw_event(
         EventKind::RealmCreate.to_string(),
         ScopeRef::Realm {
             realm_id: realm_id.clone(),
@@ -453,7 +453,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
         "the authority digest must cover the founding notary value verbatim"
     );
 
-    let mut later_transition = Event::new(
+    let mut later_transition = arkret_wire::test_support::raw_event(
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),
@@ -478,7 +478,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
 fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     let create = managed_agent_pcr_create();
     let controller = create.executed_by.clone().unwrap();
-    let mut anchor = Event::new(
+    let mut anchor = arkret_wire::test_support::raw_event(
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),

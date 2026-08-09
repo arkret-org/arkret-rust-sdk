@@ -21,8 +21,8 @@ pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, FrozenPreState, batch_add_tag,
     derived_object_id, derived_object_id_for_kind, derived_object_ids, derived_object_ids_for_kind,
     or_set_dot, project_registered_cell_writes, project_registered_cell_writes_with_pre_state,
-    validate_registered_cell_plane_in_context, validate_registered_cell_writes,
-    validate_registered_cell_writes_in_context,
+    project_registered_operation_writes, validate_registered_cell_plane_in_context,
+    validate_registered_cell_writes, validate_registered_cell_writes_in_context,
 };
 pub use event_validation::{EventSchemaExt, validate_event_for_submit, validate_event_wire_schema};
 pub use generated::*;

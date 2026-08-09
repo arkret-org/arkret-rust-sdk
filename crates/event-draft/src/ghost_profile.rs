@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_collaboration::events_payloads::ObjectCreatePayload;
+use arkret_models_collaboration::events_payloads::ActorProfileCreatePayload;
 use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
 use arkret_wire::{ActorKind, AppletId, BlobRef, Did, Event, Hlc, RealmId, SchemaId, ScopeRef};
@@ -143,7 +143,9 @@ impl GhostActorProfileRequest {
     }
 
     pub fn profile_create_payload(&self) -> Result<Value> {
-        Ok(ObjectCreatePayload::new(self.to_actor_profile()?).to_value()?)
+        Ok(serde_json::to_value(ActorProfileCreatePayload {
+            object: self.to_actor_profile()?,
+        })?)
     }
 
     pub fn profile_create_event(
@@ -153,18 +155,22 @@ impl GhostActorProfileRequest {
         hlc: Hlc,
         authorization: Option<&AppletDelegatedEventAuthorization>,
     ) -> Result<Event> {
-        let mut event = Event::new(
-            "ak.profile.create",
+        let payload = ActorProfileCreatePayload {
+            object: self.to_actor_profile()?,
+        };
+        let mut draft = crate::TypedEventDraft::<arkret_wire::event_spec::ProfileCreate>::new(
             scope_ref,
             self.principal_id.clone(),
-            actor_seq,
-            hlc,
-            self.profile_create_payload()?,
+            payload,
         )?;
         if let Some(authorization) = authorization {
-            authorization.apply_to_event(&mut event)?;
+            authorization.validate()?;
+            draft = draft
+                .with_executed_by(authorization.executed_by.clone())
+                .with_authorization_ref(authorization.authorization_ref.clone())
+                .with_applet_id(authorization.applet_id.clone());
         }
-        Ok(event)
+        draft.author_now(actor_seq, hlc)
     }
 }
 

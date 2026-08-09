@@ -2,7 +2,10 @@ use arkret_event_draft::{
     CausalRef, EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
     event_draft_kind_conformance_vectors,
 };
-use arkret_wire::{Did, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef};
+use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
+use arkret_wire::{
+    Did, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef, StrandId, event_spec,
+};
 use serde_json::json;
 
 fn realm_id() -> RealmId {
@@ -35,7 +38,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             .unwrap(),
         scope_ref: scope_ref(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        kind: "ak.message.create".to_owned(),
+        kind: EventKind::MessageCreate,
         target_ref: Some("ak:thread:general".to_owned()),
         causal: CausalRef {
             deps: vec![
@@ -108,7 +111,7 @@ fn event_draft_kind_registry_validates_kind_and_payload_container() {
             .unwrap(),
         scope_ref: scope_ref(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        kind: EventKind::MessageCreate.to_string(),
+        kind: EventKind::MessageCreate,
         target_ref: None,
         causal: CausalRef {
             deps: Vec::new(),
@@ -132,51 +135,24 @@ fn event_draft_kind_registry_validates_kind_and_payload_container() {
 }
 
 #[test]
-fn operation_envelope_builder_covers_every_registered_event_kind() {
+fn operation_envelope_builder_derives_kind_from_typed_payload() {
     let registry = EventDraftKindRegistry::default();
-    let scope_ref = scope_ref();
-    let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-    let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
-
-    for (index, kind) in EventKind::ALL.iter().enumerate() {
-        let builder = OperationEnvelopeBuilder::new(
-            OperationId::new(format!("ak:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
-            scope_ref.clone(),
-            actor_id.clone(),
-            kind.as_str(),
-            index as u64 + 1,
-            hlc.clone(),
-        );
-        let envelope = builder.build(&registry).unwrap();
-        assert_eq!(envelope.kind, kind.as_str());
-        registry.validate_envelope(&envelope).unwrap();
-    }
-}
-
-#[test]
-fn operation_envelope_builder_requires_registered_kind_and_object_payload() {
-    let registry = EventDraftKindRegistry::default();
-    let builder = OperationEnvelopeBuilder::new(
+    let payload = MessageCreatePayload::with_content(
+        StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
+        "discussion",
+        ContentBlock::text("hello"),
+    );
+    let builder = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         scope_ref(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        EventKind::MessageCreate.as_str(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        payload,
     );
 
     let envelope = builder.build(&registry).unwrap();
-    assert_eq!(envelope.kind, EventKind::MessageCreate.as_str());
-
-    let unknown = OperationEnvelopeBuilder::new(
-        OperationId::new("ak:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
-        scope_ref(),
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        "unknown",
-        1,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-    );
-    assert!(unknown.build(&registry).is_err());
+    assert_eq!(envelope.kind, EventKind::MessageCreate);
 }
 
 #[test]

@@ -19,12 +19,13 @@
 //! vocabulary.
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
-use arkret_wire::{DeviceId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1};
+pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
+#[cfg(test)]
+use arkret_wire::DeviceId;
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;
 use hpke::{Deserializable, OpModeR, OpModeS, Serializable, single_shot_open, single_shot_seal};
-use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
@@ -37,100 +38,6 @@ pub const SECRET_SEND_KIND: &str = arkret_wire::SECRET_SEND_KIND;
 /// D2D direct-share path ships in v1. Kept here so client and conformance code
 /// agree on the exact opaque token.
 pub const SECRET_ID_MLS_ACCOUNT: &str = "inkson_mls_account_secret";
-
-/// `ak.secret.request.content` — a newly authorized device asks an existing
-/// authorized device for `secret_id`, advertising the HPKE public key the
-/// responder should seal to. Carries no secret material itself.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecretShareRequestContent {
-    /// Caller-generated random correlation id; MUST NOT be reused after the
-    /// request is answered or cancelled.
-    pub request_id: String,
-    /// Opaque identifier of the requested secret, e.g.
-    /// [`SECRET_ID_MLS_ACCOUNT`].
-    pub secret_id: String,
-    /// Requesting (new) device; MUST equal the envelope `sender_device_id`.
-    pub from_device: DeviceId,
-    /// base64url X25519 HPKE public key the requesting device controls and the
-    /// responder seals to.
-    pub recipient_hpke_public_key: String,
-}
-
-impl SecretShareRequestContent {
-    /// Reject empty load-bearing fields before the content is shipped.
-    pub fn validate(&self) -> Result<()> {
-        if self.request_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.secret.request.request_id must not be empty".to_owned(),
-            ));
-        }
-        if self.secret_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.secret.request.secret_id must not be empty".to_owned(),
-            ));
-        }
-        if self.recipient_hpke_public_key.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.secret.request.recipient_hpke_public_key must not be empty".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// `ak.secret.send.content` — the existing authorized device returns the
-/// requested secret HPKE-sealed to the requester's
-/// `recipient_hpke_public_key`. The plaintext is never visible to the queue
-/// service.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecretShareSendContent {
-    /// Correlates to the pending [`SecretShareRequestContent::request_id`];
-    /// MUST equal the `request_id` authenticated inside the sealed plaintext.
-    pub request_id: String,
-    /// Secret identifier, matching the request.
-    pub secret_id: String,
-    /// Authorizing (existing) device; MUST equal the envelope
-    /// `sender_device_id` and MUST be a non-revoked device of the recipient
-    /// principal.
-    pub from_device: DeviceId,
-    /// HPKE scheme label; MUST equal [`HPKE_SUITE_X25519_CHACHA20POLY1305_V1`].
-    pub scheme: String,
-    /// base64url ephemeral X25519 public key (the RFC 9180 DHKEM encapsulation
-    /// `enc`).
-    pub enc: String,
-    /// base64url HPKE AEAD ciphertext over the secret plaintext. The HPKE AAD
-    /// MUST cover the envelope binding fields per `device-lifecycle.md` §7.
-    pub ciphertext: String,
-}
-
-impl SecretShareSendContent {
-    /// Reject a mis-labelled scheme or empty crypto material before the content
-    /// is shipped or after it is received.
-    pub fn validate(&self) -> Result<()> {
-        if self.request_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.secret.send.request_id must not be empty".to_owned(),
-            ));
-        }
-        if self.secret_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.secret.send.secret_id must not be empty".to_owned(),
-            ));
-        }
-        if self.scheme != HPKE_SUITE_X25519_CHACHA20POLY1305_V1 {
-            return Err(Error::Protocol(format!(
-                "ak.secret.send.scheme must be {HPKE_SUITE_X25519_CHACHA20POLY1305_V1}, got {}",
-                self.scheme
-            )));
-        }
-        if self.enc.trim().is_empty() || self.ciphertext.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.secret.send.enc and ciphertext must not be empty".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
 
 // ─── RFC 9180 HPKE base-mode sealing (via the `hpke` crate) ──────────────────
 //
