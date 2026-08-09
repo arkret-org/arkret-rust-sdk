@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-09.6;
-//! sha256=728eda84c9db3eaa57f96f20394fa3d2bbc65a39e8f42d569d5a9a8a40671184 Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-09.7;
+//! sha256=a28bc1a21b7167cb1852b74e38459cefe33fae0aee2990723955f3b0bc20a042 Entries: registered=222
 
 use serde::{Deserialize, Serialize};
 
@@ -2397,7 +2397,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            rationale: Some(
+                "persists_only_a_service_local_single_use_challenge_and_public_did_operation_checkpoint_no_event_is_authored",
+            ),
         }),
     },
     ServiceOperationDescriptor {
@@ -2547,9 +2549,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "{\"operation_id\":\"ak.self.account.read.viewer\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.device.authorize"])),
+            rationale: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2595,11 +2597,16 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/account-operations.schema.json#/$defs/account_register_outcome",
         ),
-        uncertain_outcome: None,
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.gate.account.command.register\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
+        ),
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.realm.create",
+                "ak.device.authorize",
+            ])),
+            rationale: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2673,7 +2680,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            rationale: Some(
+                "persists_only_service_local_dpop_handoff_lease_fence_and_account_binding_state_no_event_is_authored",
+            ),
         }),
     },
     ServiceOperationDescriptor {

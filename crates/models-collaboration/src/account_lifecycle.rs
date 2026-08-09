@@ -668,6 +668,12 @@ impl AccountRegisterOutcome {
             ));
         }
         if let Some(identity_creation) = &request.identity_creation {
+            let binding_receipt = self.binding_receipt.as_ref().ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "identity creation outcome omits signed binding_receipt".to_owned(),
+                )
+            })?;
+            binding_receipt.validate_shape()?;
             let receipt = self.pcr_genesis_receipt.as_ref().ok_or_else(|| {
                 arkret_wire::Error::Protocol(
                     "identity creation outcome omits pcr_genesis_receipt".to_owned(),
@@ -713,6 +719,29 @@ impl AccountRegisterOutcome {
                 (
                     "receipt accepted_device_id",
                     receipt_scope.accepted_device_id == initial.device_id,
+                ),
+                (
+                    "binding receipt principal_id",
+                    binding_receipt.principal_id == request.principal_id,
+                ),
+                (
+                    "binding receipt operation_digest",
+                    binding_receipt.operation_digest
+                        == identity_creation.control_proof.operation_digest,
+                ),
+                (
+                    "binding receipt lease",
+                    binding_receipt.identity_creation_lease_id
+                        == identity_creation.identity_creation_lease_id
+                        && binding_receipt.lease_fence == identity_creation.lease_fence,
+                ),
+                (
+                    "receipt did log pins",
+                    receipt_scope.did_version_id == identity_creation.control_proof.did_version_id
+                        && receipt_scope.log_head_digest
+                            == identity_creation.control_proof.log_head_digest
+                        && receipt_scope.control_key_digest
+                            == identity_creation.control_proof.control_key_digest,
                 ),
             ];
             if let Some((constraint, _)) = constraints.iter().find(|(_, valid)| !valid) {

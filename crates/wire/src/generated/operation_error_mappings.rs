@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-09.6;
-//! sha256=728eda84c9db3eaa57f96f20394fa3d2bbc65a39e8f42d569d5a9a8a40671184 Input: registry/
-//! operations-error-mapping.json; version=2026-08-09.4;
-//! sha256=52a59431b0f05208a200678736b9831667edb222d40b355ec7d094c8322abea0 Input: registry/
-//! error-code-registry.json; version=2026-08-09.3;
-//! sha256=7f9b0c139c4555cc1739f994edf5597e64f30e50df164f6143242ff3b7be0e94 Entries: operations=222
+//! Input: registry/operation-registry.json; version=2026-08-09.7;
+//! sha256=a28bc1a21b7167cb1852b74e38459cefe33fae0aee2990723955f3b0bc20a042 Input: registry/
+//! operations-error-mapping.json; version=2026-08-09.5;
+//! sha256=60d11b1779c4074e40c286409944d7f209aad439ee1717afad73c74ca8d26e31 Input: registry/
+//! error-code-registry.json; version=2026-08-09.4;
+//! sha256=459cd60017960d314d494af419516f04f3399ad913c2edafb6fd55c0d04b02df Entries: operations=222
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -269,7 +269,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandRegister,
         operation_specific: &[
-            OperationSpecificError::ReasonCode(ReasonCode::ChallengeExpired),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationChallengeExpired),
+            OperationSpecificError::ReasonCode(
+                ReasonCode::IdentityCreationChallengeAlreadyConsumed,
+            ),
+            OperationSpecificError::ReasonCode(ReasonCode::AccountBindingPrincipalMismatch),
             OperationSpecificError::ReasonCode(ReasonCode::CrossDomainReplayRejected),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),

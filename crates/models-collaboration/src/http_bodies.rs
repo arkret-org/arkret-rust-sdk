@@ -23,6 +23,10 @@ use crate::direct_conversation_ops::{
     DirectConversationFoundingAcceptanceOutcome, DirectConversationFoundingUnitSubmission,
 };
 use crate::event_sync::{RealmActorFrontierView, RealmSealFrontierView};
+use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
+use crate::events_payloads::{
+    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, SignatureMaterial,
+};
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::authorization::GrantList;
 use crate::objects::blob::BlobUploadMetadata;
@@ -1605,7 +1609,10 @@ pub struct DevicePairingToDeviceChallengeTranscript {
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
+    pub hpke_key: NonEmptyString,
+    pub device_signature: SignatureMaterial,
     pub challenge_proof: DevicePairingChallengeProof,
+    pub authorize_event: EventInitialSubmission,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1620,6 +1627,32 @@ pub struct AccountDevicePairRequestBody {
     pub device_pairing_request_id: Option<DevicePairingRequestId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge_transcript: Option<DevicePairingToDeviceChallengeTranscript>,
+}
+
+impl AccountDevicePairRequestBody {
+    /// Validate that the gate only relays the approving device's exact Event.
+    pub fn validate_authorize_event_binding(&self) -> Result<()> {
+        self.authorize_event.validate_structural()?;
+        if arkret_wire::EventKind::DeviceAuthorize != self.authorize_event.event.kind {
+            return Err(Error::Protocol(
+                "device-pair authorize_event is not ak.device.authorize".to_owned(),
+            ));
+        }
+        let payload: DeviceAuthorizePayload =
+            decode_payload_after_kind_validation(&self.authorize_event.event)?;
+        if payload.device_id.as_str() != self.new_device_pubkey.kid.as_str()
+            || payload.device_public_key.as_str() != self.new_device_pubkey.key.as_str()
+            || payload.hpke_key != self.hpke_key
+            || payload.device_signature != self.device_signature
+            || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice
+        {
+            return Err(Error::Protocol(
+                "device-pair request fields do not match the exact authorize Event payload"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

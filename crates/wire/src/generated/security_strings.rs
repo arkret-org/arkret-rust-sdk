@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-09.1;
-//! sha256=c4ca19caa287f6eca9554a161ea824efaf58a2ccfd8e10e4fc5a502a8923ba82 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-09.2;
+//! sha256=810d452e9a2b10896751fd4a995c73b7a2e7795e294b4f43107a08233ff0dae1 Input: registry/
 //! exporter-label-registry.json; version=2026-08-08;
 //! sha256=065f7fc5f29a97a542f54805b594d8d702b3f7f41bd072135f225508fb9e5768 Input: registry/
 //! digest-suite-registry.json; version=2026-08-08.2;
@@ -14,12 +14,13 @@
 //! sha256=2c73b41567acd7880abcb4f73a2b09f28805517f41531ef9bfa9a1d018d63ac3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=38, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=39, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum ProofContextId {
+    AccountBindingReceiptProofV1,
     AccountHandoffAuthenticationProofV1,
     AccountabilityGrantProofV1,
     AgentRequestedScopeDisclosureProofV1,
@@ -62,6 +63,7 @@ pub enum ProofContextId {
 
 impl ProofContextId {
     pub const ALL: &'static [Self] = &[
+        Self::AccountBindingReceiptProofV1,
         Self::AccountHandoffAuthenticationProofV1,
         Self::AccountabilityGrantProofV1,
         Self::AgentRequestedScopeDisclosureProofV1,
@@ -102,6 +104,8 @@ impl ProofContextId {
         Self::SnapshotProofV1,
     ];
 
+    pub const ACCOUNT_BINDING_RECEIPT_PROOF_V1: &'static str =
+        "ak.account-binding-receipt-proof-v1";
     pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1: &'static str =
         "ak.account-handoff-authentication-proof-v1";
     pub const ACCOUNTABILITY_GRANT_PROOF_V1: &'static str = "ak.accountability-grant-proof-v1";
@@ -161,6 +165,7 @@ impl ProofContextId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AccountBindingReceiptProofV1 => Self::ACCOUNT_BINDING_RECEIPT_PROOF_V1,
             Self::AccountHandoffAuthenticationProofV1 => {
                 Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1
             }
@@ -222,6 +227,7 @@ impl ProofContextId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            Self::ACCOUNT_BINDING_RECEIPT_PROOF_V1 => Some(Self::AccountBindingReceiptProofV1),
             Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1 => {
                 Some(Self::AccountHandoffAuthenticationProofV1)
             }
@@ -393,6 +399,20 @@ pub struct MlsExtensionDescriptor {
 }
 
 pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
+    ProofContextDescriptor {
+        id: ProofContextId::AccountBindingReceiptProofV1,
+        context: "ak.account-binding-receipt-proof-v1",
+        object_family: "account_binding_receipt",
+        binding_fields: &[
+            "payload_digest",
+            "account_authority_id",
+            "account_subject",
+            "principal_id",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/account-operations.schema.json#/$defs/account_binding_receipt",
+    },
     ProofContextDescriptor {
         id: ProofContextId::AccountHandoffAuthenticationProofV1,
         context: "ak.account-handoff-authentication-proof-v1",

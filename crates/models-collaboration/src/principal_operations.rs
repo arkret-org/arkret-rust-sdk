@@ -21,6 +21,9 @@ pub struct PcrGenesisSubmitRequestBody {
     pub pcr_realm_id: RealmId,
     pub idempotency_key: IdempotencyKey,
     pub registration_request_digest: Hash,
+    pub did_version_id: String,
+    pub log_head_digest: Hash,
+    pub control_key_digest: Hash,
     pub identity_creation_control_proof: IdentityCreationControlProof,
     pub genesis_unit: PcrGenesisUnit,
 }
@@ -37,6 +40,9 @@ impl PcrGenesisSubmitRequestBody {
         authorize.validate_proof_bindings()?;
         if self.principal_id != proof.principal_id
             || self.pcr_realm_id != proof.pcr_realm_id
+            || self.did_version_id != proof.did_version_id
+            || self.log_head_digest != proof.log_head_digest
+            || self.control_key_digest != proof.control_key_digest
             || proof.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
             || create.actor_id != self.principal_id
             || create.realm_id != self.pcr_realm_id
@@ -150,6 +156,9 @@ impl PcrGenesisSubmitOutcome {
             || scope.principal_id != request.principal_id
             || scope.realm_id != request.pcr_realm_id
             || scope.audience != request.account_authority_id
+            || scope.did_version_id != request.did_version_id
+            || scope.log_head_digest != request.log_head_digest
+            || scope.control_key_digest != request.control_key_digest
             || scope.accepted_device_id != descriptor.device_id
             || scope.device_key_digest != descriptor.device_key_digest
             || scope.hpke_key_digest != descriptor.hpke_key_digest

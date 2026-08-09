@@ -611,7 +611,7 @@ impl ContentBlock {
         if self.kind != ContentBlockKind::LongText {
             return Err(Error::Protocol(format!(
                 "expected {CONTENT_KIND_LONG_TEXT}, got {}",
-                self.kind
+                self.kind.as_str()
             )));
         }
         if !self.parts.is_empty() {
@@ -789,7 +789,7 @@ impl ContentBlock {
         if self.kind != ContentBlockKind::Text {
             return Err(Error::Protocol(format!(
                 "expected {CONTENT_KIND_TEXT}, got {}",
-                self.kind
+                self.kind.as_str()
             )));
         }
         if self.body.len() > CONTENT_TEXT_INLINE_MAX_BYTES {

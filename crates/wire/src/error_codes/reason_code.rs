@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-09.3;
-//! sha256=7f9b0c139c4555cc1739f994edf5597e64f30e50df164f6143242ff3b7be0e94
-//! Entries: reason_codes=456
+//! Input: registry/error-code-registry.json; version=2026-08-09.4;
+//! sha256=459cd60017960d314d494af419516f04f3399ad913c2edafb6fd55c0d04b02df
+//! Entries: reason_codes=459
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -12,6 +12,7 @@ pub enum ReasonCode {
     AbuseCluster,
     AbuseNetwork,
     AbuseReview,
+    AccountBindingPrincipalMismatch,
     AccountStatusTransitionInvalid,
     AccountabilityGrantMissing,
     ActorKindReducerManaged,
@@ -188,6 +189,8 @@ pub enum ReasonCode {
     HateSpeech,
     HistoryVisibilityRequiresHistoryCapableScheme,
     HumanApprovalRequired,
+    IdentityCreationChallengeAlreadyConsumed,
+    IdentityCreationChallengeExpired,
     IdentityCreationLeaseFenced,
     IdentityLinkNoLongerVisible,
     IdentityLinkPolicyTightened,
@@ -479,6 +482,8 @@ impl ReasonCode {
     pub const ABUSE_CLUSTER: &'static str = "abuse_cluster";
     pub const ABUSE_NETWORK: &'static str = "abuse_network";
     pub const ABUSE_REVIEW: &'static str = "abuse_review";
+    pub const ACCOUNT_BINDING_PRINCIPAL_MISMATCH: &'static str =
+        "account_binding_principal_mismatch";
     pub const ACCOUNT_STATUS_TRANSITION_INVALID: &'static str = "account_status_transition_invalid";
     pub const ACCOUNTABILITY_GRANT_MISSING: &'static str = "accountability_grant_missing";
     pub const ACTOR_KIND_REDUCER_MANAGED: &'static str = "actor_kind_reducer_managed";
@@ -700,6 +705,10 @@ impl ReasonCode {
     pub const HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME: &'static str =
         "history_visibility_requires_history_capable_scheme";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
+    pub const IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED: &'static str =
+        "identity_creation_challenge_already_consumed";
+    pub const IDENTITY_CREATION_CHALLENGE_EXPIRED: &'static str =
+        "identity_creation_challenge_expired";
     pub const IDENTITY_CREATION_LEASE_FENCED: &'static str = "identity_creation_lease_fenced";
     pub const IDENTITY_LINK_NO_LONGER_VISIBLE: &'static str = "identity_link_no_longer_visible";
     pub const IDENTITY_LINK_POLICY_TIGHTENED: &'static str = "identity_link_policy_tightened";
@@ -1024,6 +1033,7 @@ impl ReasonCode {
             Self::AbuseCluster => Self::ABUSE_CLUSTER,
             Self::AbuseNetwork => Self::ABUSE_NETWORK,
             Self::AbuseReview => Self::ABUSE_REVIEW,
+            Self::AccountBindingPrincipalMismatch => Self::ACCOUNT_BINDING_PRINCIPAL_MISMATCH,
             Self::AccountStatusTransitionInvalid => Self::ACCOUNT_STATUS_TRANSITION_INVALID,
             Self::AccountabilityGrantMissing => Self::ACCOUNTABILITY_GRANT_MISSING,
             Self::ActorKindReducerManaged => Self::ACTOR_KIND_REDUCER_MANAGED,
@@ -1248,6 +1258,10 @@ impl ReasonCode {
                 Self::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME
             }
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
+            Self::IdentityCreationChallengeAlreadyConsumed => {
+                Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED
+            }
+            Self::IdentityCreationChallengeExpired => Self::IDENTITY_CREATION_CHALLENGE_EXPIRED,
             Self::IdentityCreationLeaseFenced => Self::IDENTITY_CREATION_LEASE_FENCED,
             Self::IdentityLinkNoLongerVisible => Self::IDENTITY_LINK_NO_LONGER_VISIBLE,
             Self::IdentityLinkPolicyTightened => Self::IDENTITY_LINK_POLICY_TIGHTENED,
@@ -1580,6 +1594,7 @@ impl ReasonCode {
             Self::ABUSE_CLUSTER => Self::AbuseCluster,
             Self::ABUSE_NETWORK => Self::AbuseNetwork,
             Self::ABUSE_REVIEW => Self::AbuseReview,
+            Self::ACCOUNT_BINDING_PRINCIPAL_MISMATCH => Self::AccountBindingPrincipalMismatch,
             Self::ACCOUNT_STATUS_TRANSITION_INVALID => Self::AccountStatusTransitionInvalid,
             Self::ACCOUNTABILITY_GRANT_MISSING => Self::AccountabilityGrantMissing,
             Self::ACTOR_KIND_REDUCER_MANAGED => Self::ActorKindReducerManaged,
@@ -1804,6 +1819,10 @@ impl ReasonCode {
                 Self::HistoryVisibilityRequiresHistoryCapableScheme
             }
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
+            Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED => {
+                Self::IdentityCreationChallengeAlreadyConsumed
+            }
+            Self::IDENTITY_CREATION_CHALLENGE_EXPIRED => Self::IdentityCreationChallengeExpired,
             Self::IDENTITY_CREATION_LEASE_FENCED => Self::IdentityCreationLeaseFenced,
             Self::IDENTITY_LINK_NO_LONGER_VISIBLE => Self::IdentityLinkNoLongerVisible,
             Self::IDENTITY_LINK_POLICY_TIGHTENED => Self::IdentityLinkPolicyTightened,
@@ -2209,6 +2228,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::ABUSE_REVIEW,
         applies_to: &["moderation_decision"],
         description: "Awaiting moderator review.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ACCOUNT_BINDING_PRINCIPAL_MISMATCH,
+        applies_to: &["identity_creation", "client_validation"],
+        description: "The authenticated service account is already bound to a principal_id different from the DID locally derived from the frozen identity-creation draft. The client MUST fail closed, visibly disclose the conflict, and MUST NOT adopt the returned principal or silently regenerate a replacement identity.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNT_STATUS_TRANSITION_INVALID,
@@ -3097,6 +3121,16 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::HUMAN_APPROVAL_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "An agent runtime requested a high-risk session scope that requires out-of-band controller approval. The top-level service error is claim_required; error.details carries this reason_code and an opaque approval_request_id. The runtime MUST NOT receive a CAPTCHA, OTP, or browser challenge. See zh/identity/key-management.md §3.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED,
+        applies_to: &["identity_creation", "service_call"],
+        description: "The identity-binding challenge was already consumed and the request is not a byte-identical replay whose canonical request digest matches the stored successful outcome. The Account Authority MUST reject it before any state transition; an exact replay returns the recorded outcome instead of this code.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::IDENTITY_CREATION_CHALLENGE_EXPIRED,
+        applies_to: &["identity_creation", "service_call"],
+        description: "The persisted identity-binding challenge expired before first successful consumption. The Account Authority MUST reject before publishing the DID operation or relaying PCR genesis, and the client must obtain a fresh challenge for the same frozen draft. This code is distinct from the Policy Server challenge_expired reason.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_CREATION_LEASE_FENCED,

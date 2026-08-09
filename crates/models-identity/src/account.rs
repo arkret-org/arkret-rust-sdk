@@ -1,5 +1,5 @@
 use arkret_wire::{
-    DeviceId, Did, Error, EventId, Hash, RealmId, ReasonCode, RequestId, Result,
+    DeviceId, Did, Error, EventId, Hash, PayloadProof, RealmId, ReasonCode, RequestId, Result,
     TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -532,6 +532,8 @@ pub enum AccountHandoffBinding {
     },
     IdentityCreationBusy {
         retry_after_ms: u64,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        expires_at: DateTime<Utc>,
     },
     Bound {
         principal_id: Did,
@@ -549,6 +551,8 @@ pub struct AccountHandoffOutcome {
     /// naming only. It is not principal identity evidence or authorization.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub account_handle: Handle,
+    /// Deployment-local stable digest for the authenticated service account.
+    pub account_subject: Hash,
     /// Authenticated account's private UI-language preference.
     ///
     /// This is returned only on the DPoP-bound account-handoff response. It is
@@ -661,8 +665,12 @@ pub struct IdentityBindingChallengeOutcome {
     pub challenge_id: String,
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
+    pub account_subject: Hash,
     pub principal_id: Did,
     pub operation_digest: Hash,
+    pub did_version_id: String,
+    pub log_head_digest: Hash,
+    pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
@@ -695,8 +703,12 @@ pub struct IdentityCreationControlProof {
     pub challenge_id: String,
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
+    pub account_subject: Hash,
     pub principal_id: Did,
     pub operation_digest: Hash,
+    pub did_version_id: String,
+    pub log_head_digest: Hash,
+    pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
@@ -733,8 +745,12 @@ impl IdentityCreationControlProof {
             challenge_id: self.challenge_id.clone(),
             challenge: self.challenge.clone(),
             purpose: self.purpose,
+            account_subject: self.account_subject.clone(),
             principal_id: self.principal_id.clone(),
             operation_digest: self.operation_digest.clone(),
+            did_version_id: self.did_version_id.clone(),
+            log_head_digest: self.log_head_digest.clone(),
+            control_key_digest: self.control_key_digest.clone(),
             pcr_realm_id: self.pcr_realm_id.clone(),
             realm_create_payload_digest: self.realm_create_payload_digest.clone(),
             founding_authorize_payload_digest: self.founding_authorize_payload_digest.clone(),
@@ -759,8 +775,12 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub challenge_id: String,
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
+    pub account_subject: Hash,
     pub principal_id: Did,
     pub operation_digest: Hash,
+    pub did_version_id: String,
+    pub log_head_digest: Hash,
+    pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
@@ -803,8 +823,12 @@ impl UnsignedIdentityCreationControlProof {
             challenge_id: body.challenge_id,
             challenge: body.challenge,
             purpose: body.purpose,
+            account_subject: body.account_subject,
             principal_id: body.principal_id,
             operation_digest: body.operation_digest,
+            did_version_id: body.did_version_id,
+            log_head_digest: body.log_head_digest,
+            control_key_digest: body.control_key_digest,
             pcr_realm_id: body.pcr_realm_id,
             realm_create_payload_digest: body.realm_create_payload_digest,
             founding_authorize_payload_digest: body.founding_authorize_payload_digest,
@@ -832,6 +856,7 @@ fn validate_identity_creation_control_proof_body(
     if body.purpose != IdentityBindingPurpose::AccountBindingAndPcrGenesis
         || body.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
         || body.lease_fence == 0
+        || body.did_version_id.is_empty()
         || body.expires_at <= body.issued_at
     {
         return Err(Error::Protocol(
@@ -850,8 +875,12 @@ fn identity_creation_control_proof_signing_bytes(
         "challenge_id": &body.challenge_id,
         "challenge": &body.challenge,
         "purpose": body.purpose,
+        "account_subject": &body.account_subject,
         "principal_id": &body.principal_id,
         "operation_digest": &body.operation_digest,
+        "did_version_id": &body.did_version_id,
+        "log_head_digest": &body.log_head_digest,
+        "control_key_digest": &body.control_key_digest,
         "pcr_realm_id": &body.pcr_realm_id,
         "realm_create_payload_digest": &body.realm_create_payload_digest,
         "founding_authorize_payload_digest": &body.founding_authorize_payload_digest,
@@ -952,11 +981,54 @@ pub enum IdentityCreationOperationStatus {
 #[serde(deny_unknown_fields)]
 pub struct AccountBindingReceipt {
     pub binding_state: AccountBindingState,
+    pub account_authority_id: Did,
+    pub account_subject: Hash,
+    pub principal_id: Did,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub operation_status: IdentityCreationOperationStatus,
     pub operation_digest: Hash,
     pub head_event_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    pub proof: PayloadProof,
+}
+
+impl AccountBindingReceipt {
+    pub fn canonical_payload_digest(&self) -> Result<Hash> {
+        let value = serde_json::json!({
+            "binding_state": self.binding_state,
+            "account_authority_id": &self.account_authority_id,
+            "account_subject": &self.account_subject,
+            "principal_id": &self.principal_id,
+            "identity_creation_lease_id": &self.identity_creation_lease_id,
+            "lease_fence": self.lease_fence,
+            "operation_status": self.operation_status,
+            "operation_digest": &self.operation_digest,
+            "head_event_digest": &self.head_event_digest,
+            "issued_at": canonical::format_timestamp_canonical(self.issued_at),
+        });
+        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+    }
+
+    pub fn validate_shape(&self) -> Result<()> {
+        self.proof.validate()?;
+        if self.lease_fence == 0
+            || self.identity_creation_lease_id.is_empty()
+            || self.proof.created_at != self.issued_at
+            || self.proof.payload_digest != self.canonical_payload_digest()?
+            || !self
+                .proof
+                .verification_method
+                .as_str()
+                .starts_with(&format!("{}#", self.account_authority_id))
+        {
+            return Err(Error::Protocol(
+                "account binding receipt proof does not bind the complete receipt".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1078,11 +1150,15 @@ mod account_handoff_tests {
         let mut outcome = AccountHandoffOutcome {
             request_id: handoff_request().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
+            account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             preferred_locale: Some(arkret_locale::UiLocale::En),
             account_handoff_grant: "g".repeat(32),
             expires_at: Utc::now(),
             allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
-            binding: AccountHandoffBinding::IdentityCreationBusy { retry_after_ms: 1 },
+            binding: AccountHandoffBinding::IdentityCreationBusy {
+                retry_after_ms: 1,
+                expires_at: Utc::now(),
+            },
         };
         outcome.validate().unwrap();
 
@@ -1105,11 +1181,15 @@ mod account_handoff_tests {
         let outcome = AccountHandoffOutcome {
             request_id: handoff_request().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
+            account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             preferred_locale: Some(arkret_locale::UiLocale::Zh),
             account_handoff_grant: "g".repeat(32),
             expires_at: Utc::now(),
             allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
-            binding: AccountHandoffBinding::IdentityCreationBusy { retry_after_ms: 1 },
+            binding: AccountHandoffBinding::IdentityCreationBusy {
+                retry_after_ms: 1,
+                expires_at: Utc::now(),
+            },
         };
         let mut value = serde_json::to_value(outcome).unwrap();
         value.as_object_mut().unwrap().remove("account_handle");
@@ -1127,11 +1207,15 @@ mod account_handoff_tests {
         let outcome = AccountHandoffOutcome {
             request_id: handoff_request().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
+            account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             preferred_locale: Some(arkret_locale::UiLocale::En),
             account_handoff_grant: "g".repeat(32),
             expires_at: Utc::now(),
             allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
-            binding: AccountHandoffBinding::IdentityCreationBusy { retry_after_ms: 1 },
+            binding: AccountHandoffBinding::IdentityCreationBusy {
+                retry_after_ms: 1,
+                expires_at: Utc::now(),
+            },
         };
         let value = serde_json::to_value(&outcome).unwrap();
         assert_eq!(value["preferred_locale"], "en");

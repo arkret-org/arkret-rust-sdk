@@ -165,6 +165,12 @@ pub struct ValidatedPrincipalInception {
     pub principal_id: Did,
     /// Canonical digest of the complete typed submit request.
     pub operation_digest: Hash,
+    /// Method-native inception versionId.
+    pub did_version_id: String,
+    /// Canonical digest of the exact method-native inception log entry.
+    pub log_head_digest: Hash,
+    /// Digest of the active inception update key bytes.
+    pub control_key_digest: Hash,
     /// The method-native identity root selected from `parameters.updateKeys[0]`.
     pub root_public_key_multibase: String,
 }
@@ -264,10 +270,25 @@ pub fn validate_principal_inception_operation(
             .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
     )
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let log_head_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(&entry)
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let root_key_bytes = decode_ed25519_multibase(root_public_key_multibase)
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    let control_key_digest = Hash::new(format!(
+        "sha256:{}",
+        arkret_canonical::sha256_hex(&root_key_bytes)
+    ))
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
 
     Ok(ValidatedPrincipalInception {
         principal_id: request.did.clone(),
         operation_digest,
+        did_version_id: expected_version_id,
+        log_head_digest,
+        control_key_digest,
         root_public_key_multibase: root_public_key_multibase.to_owned(),
     })
 }
@@ -281,6 +302,9 @@ pub fn verify_identity_creation_control_proof(
     let validated = validate_principal_inception_operation(request)?;
     if proof.principal_id != validated.principal_id
         || proof.operation_digest != validated.operation_digest
+        || proof.did_version_id != validated.did_version_id
+        || proof.log_head_digest != validated.log_head_digest
+        || proof.control_key_digest != validated.control_key_digest
         || proof.verification_key_multibase != validated.root_public_key_multibase
     {
         return Err(WebvhInceptionError::InvalidProof(
