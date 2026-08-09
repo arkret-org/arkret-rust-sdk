@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-09.10;
-//! sha256=73a5fb25327a7e71d17d87d049411c41f8e5dd17950ab6233a491c828abf4548 Entries: registered=168
+//! Input: registry/capability-action-registry.json; version=2026-08-09.23;
+//! sha256=71cb5fc2172b803d4b96a90406dffa8e994b232839814c4e5fe2301cf67e16b4 Entries: registered=169
 
 use serde::{Deserialize, Serialize};
 
@@ -59,6 +59,7 @@ pub enum CapabilityActionId {
     MemberCompensateLeave,
     MemberCompensateRemove,
     MemberLeaveOwn,
+    MemberRejoinOwn,
     MessageCreate,
     MessageMentionBroadcast,
     MessageRedact,
@@ -231,6 +232,7 @@ impl CapabilityActionId {
         Self::MemberCompensateLeave,
         Self::MemberCompensateRemove,
         Self::MemberLeaveOwn,
+        Self::MemberRejoinOwn,
         Self::MessageCreate,
         Self::MessageMentionBroadcast,
         Self::MessageRedact,
@@ -401,6 +403,7 @@ impl CapabilityActionId {
     pub const MEMBER_COMPENSATE_LEAVE: &'static str = "ak.member.compensate.leave";
     pub const MEMBER_COMPENSATE_REMOVE: &'static str = "ak.member.compensate.remove";
     pub const MEMBER_LEAVE_OWN: &'static str = "ak.member.leave.own";
+    pub const MEMBER_REJOIN_OWN: &'static str = "ak.member.rejoin.own";
     pub const MESSAGE_CREATE: &'static str = "ak.message.create";
     pub const MESSAGE_MENTION_BROADCAST: &'static str = "ak.message.mention.broadcast";
     pub const MESSAGE_REDACT: &'static str = "ak.message.redact";
@@ -578,6 +581,7 @@ impl CapabilityActionId {
             Self::MemberCompensateLeave => Self::MEMBER_COMPENSATE_LEAVE,
             Self::MemberCompensateRemove => Self::MEMBER_COMPENSATE_REMOVE,
             Self::MemberLeaveOwn => Self::MEMBER_LEAVE_OWN,
+            Self::MemberRejoinOwn => Self::MEMBER_REJOIN_OWN,
             Self::MessageCreate => Self::MESSAGE_CREATE,
             Self::MessageMentionBroadcast => Self::MESSAGE_MENTION_BROADCAST,
             Self::MessageRedact => Self::MESSAGE_REDACT,
@@ -753,6 +757,7 @@ impl CapabilityActionId {
             Self::MEMBER_COMPENSATE_LEAVE => Some(Self::MemberCompensateLeave),
             Self::MEMBER_COMPENSATE_REMOVE => Some(Self::MemberCompensateRemove),
             Self::MEMBER_LEAVE_OWN => Some(Self::MemberLeaveOwn),
+            Self::MEMBER_REJOIN_OWN => Some(Self::MemberRejoinOwn),
             Self::MESSAGE_CREATE => Some(Self::MessageCreate),
             Self::MESSAGE_MENTION_BROADCAST => Some(Self::MessageMentionBroadcast),
             Self::MESSAGE_REDACT => Some(Self::MessageRedact),

@@ -9,16 +9,18 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalAck, Cursor, DeviceId, Did,
-    Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
-    MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, ReasonCode, RelationId,
-    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
-    canonical,
+    DidKey, Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri,
+    MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, ReasonCode,
+    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
+    StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::contact_operations::{ContactPeer, ContactScopes};
+use crate::contact_operations::{
+    ContactNextPrepareInput, ContactPeer, ContactScopes, RequestAcceptanceReceipt,
+};
 use crate::direct_conversation_ops::{
     DirectConversationFoundingAcceptanceOutcome, DirectConversationFoundingUnitSubmission,
 };
@@ -1348,8 +1350,7 @@ pub enum DirectConversationSummaryState {
 pub struct DirectConversationSummary {
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding_event_ref: Option<EventId>,
+    pub binding_event_ref: EventId,
     pub state: DirectConversationSummaryState,
 }
 
@@ -1377,9 +1378,13 @@ pub struct ContactListRow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_receipt: Option<RequestAcceptanceReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tombstone_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_prepare_input: Option<ContactNextPrepareInput>,
     pub granted_to_peer_scopes: ContactScopes,
     pub granted_by_peer_scopes: ContactScopes,
     pub bidirectional_scopes: ContactScopes,
@@ -1409,9 +1414,13 @@ struct ContactListRowWire {
     #[serde(default)]
     request_event_ref: Option<EventId>,
     #[serde(default)]
+    request_receipt: Option<RequestAcceptanceReceipt>,
+    #[serde(default)]
     response_event_ref: Option<EventId>,
     #[serde(default)]
     tombstone_event_ref: Option<EventId>,
+    #[serde(default)]
+    next_prepare_input: Option<ContactNextPrepareInput>,
     granted_to_peer_scopes: ContactScopes,
     granted_by_peer_scopes: ContactScopes,
     bidirectional_scopes: ContactScopes,
@@ -1433,8 +1442,10 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             peer: wire.peer,
             state: wire.state,
             request_event_ref: wire.request_event_ref,
+            request_receipt: wire.request_receipt,
             response_event_ref: wire.response_event_ref,
             tombstone_event_ref: wire.tombstone_event_ref,
+            next_prepare_input: wire.next_prepare_input,
             granted_to_peer_scopes: wire.granted_to_peer_scopes,
             granted_by_peer_scopes: wire.granted_by_peer_scopes,
             bidirectional_scopes: wire.bidirectional_scopes,
@@ -1450,6 +1461,28 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
 
 impl ContactListRow {
     pub fn validate_shape(&self) -> Result<()> {
+        if (self.state == ContactState::PendingIncoming) != self.request_receipt.is_some() {
+            return Err(Error::Protocol(
+                "request_receipt must be present exactly for pending_incoming Contact rows"
+                    .to_owned(),
+            ));
+        }
+        if let Some(receipt) = &self.request_receipt {
+            receipt.validate_shape()?;
+            if self.request_event_ref.as_ref() != Some(&receipt.core.request_event_ref) {
+                return Err(Error::Protocol(
+                    "Contact row request_event_ref does not match request_receipt".to_owned(),
+                ));
+            }
+        }
+        if (self.state == ContactState::Accepted) != self.next_prepare_input.is_some() {
+            return Err(Error::Protocol(
+                "next_prepare_input must be present exactly for accepted Contact rows".to_owned(),
+            ));
+        }
+        if let Some(input) = &self.next_prepare_input {
+            input.validate_shape()?;
+        }
         if self
             .effective_scopes
             .as_ref()
@@ -1836,6 +1869,188 @@ pub struct DevicePairingToDeviceChallengeTranscript {
     pub expires_at: DateTime<Utc>,
 }
 
+/// The only target-device authority for accepted-device pairing key material.
+///
+/// This closed object travels out of band. It is deliberately not a field of
+/// `AccountDevicePairRequestBody`; the Account Authority reconstructs the same
+/// signing object from the request challenge and authorize Event.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingTargetAttestation {
+    pub device_id: DeviceId,
+    pub device_public_key: DidKey,
+    pub hpke_key: NonEmptyString,
+    pub algorithms: Vec<NonEmptyString>,
+    pub device_key_algorithm: DevicePairingTargetKeyAlgorithm,
+    pub authorization_binding_kind: DeviceAuthorizationBindingKind,
+    pub pairing_challenge_transcript_digest: Hash,
+    pub device_signature: SignatureMaterial,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DevicePairingTargetKeyAlgorithm {
+    #[serde(rename = "Ed25519")]
+    Ed25519,
+}
+
+/// Target-owned accepted-device pairing material before its possession proof.
+/// This type is intentionally not serializable, so unsigned attestations cannot
+/// accidentally leave the device.
+#[derive(Clone, Debug)]
+pub struct UnsignedDevicePairingTargetAttestation {
+    device_id: DeviceId,
+    device_public_key: DidKey,
+    hpke_key: NonEmptyString,
+    algorithms: Vec<NonEmptyString>,
+    pairing_challenge_transcript_digest: Hash,
+}
+
+impl UnsignedDevicePairingTargetAttestation {
+    pub fn new(
+        device_id: DeviceId,
+        device_public_key: DidKey,
+        hpke_key: NonEmptyString,
+        algorithms: Vec<NonEmptyString>,
+        pairing_challenge_transcript_digest: Hash,
+    ) -> Result<Self> {
+        if algorithms.is_empty()
+            || algorithms
+                .windows(2)
+                .any(|pair| pair[0].as_bytes() >= pair[1].as_bytes())
+        {
+            return Err(Error::Protocol(
+                "pairing target algorithms must be non-empty, sorted and unique".to_owned(),
+            ));
+        }
+        Ok(Self {
+            device_id,
+            device_public_key,
+            hpke_key,
+            algorithms,
+            pairing_challenge_transcript_digest,
+        })
+    }
+
+    pub fn signing_input(&self) -> Result<Vec<u8>> {
+        device_pairing_target_attestation_signing_input(
+            &self.algorithms,
+            self.device_id.as_str(),
+            self.device_public_key.as_str(),
+            self.hpke_key.as_str(),
+            self.pairing_challenge_transcript_digest.as_str(),
+        )
+    }
+
+    pub fn attach_signature(
+        self,
+        device_signature: SignatureMaterial,
+    ) -> DevicePairingTargetAttestation {
+        DevicePairingTargetAttestation {
+            device_id: self.device_id,
+            device_public_key: self.device_public_key,
+            hpke_key: self.hpke_key,
+            algorithms: self.algorithms,
+            device_key_algorithm: DevicePairingTargetKeyAlgorithm::Ed25519,
+            authorization_binding_kind: DeviceAuthorizationBindingKind::AcceptedDevice,
+            pairing_challenge_transcript_digest: self.pairing_challenge_transcript_digest,
+            device_signature,
+        }
+    }
+}
+
+impl DevicePairingTargetAttestation {
+    pub fn signing_input(&self) -> Result<Vec<u8>> {
+        if self.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice {
+            return Err(Error::Protocol(
+                "pairing target attestation must use accepted_device binding".to_owned(),
+            ));
+        }
+        UnsignedDevicePairingTargetAttestation::new(
+            self.device_id.clone(),
+            self.device_public_key.clone(),
+            self.hpke_key.clone(),
+            self.algorithms.clone(),
+            self.pairing_challenge_transcript_digest.clone(),
+        )?
+        .signing_input()
+    }
+
+    /// Validate the pre-assembly binding before an approving device authors the
+    /// exact `ak.device.authorize` Event carried by `pair_device`.
+    pub fn validate_against_pair_request(
+        &self,
+        request: &AccountDevicePairRequestBody,
+    ) -> Result<()> {
+        request.validate_authorize_event_binding()?;
+        let payload: DeviceAuthorizePayload =
+            decode_payload_after_kind_validation(&request.authorize_event.event)?;
+        let public_key_bytes =
+            arkret_canonical::base64url_decode(request.new_device_pubkey.key.as_str())
+                .map_err(|error| Error::Protocol(format!("invalid pairing public key: {error}")))?;
+        let attested_key_bytes = arkret_canonical::decode_ed25519_multibase(
+            self.device_public_key
+                .as_str()
+                .strip_prefix("did:key:")
+                .expect("DidKey enforces the did:key prefix"),
+        )
+        .map_err(|error| Error::Protocol(format!("invalid attested did:key: {error}")))?;
+        if self.device_id.as_str() != request.new_device_pubkey.kid.as_str()
+            || public_key_bytes.as_slice() != attested_key_bytes.as_slice()
+            || self.pairing_challenge_transcript_digest != request.challenge_proof.transcript_digest
+            || payload.device_id != self.device_id
+            || payload.device_public_key.as_str() != self.device_public_key.as_str()
+            || payload.hpke_key != self.hpke_key
+            || payload.algorithms != self.algorithms
+            || payload
+                .device_key_algorithm
+                .as_ref()
+                .map(NonEmptyString::as_str)
+                != Some("Ed25519")
+            || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice
+            || payload.device_signature != self.device_signature
+            || request.device_signature != self.device_signature
+        {
+            return Err(Error::Protocol(
+                "pairing target attestation does not match the exact pair request/Event".to_owned(),
+            ));
+        }
+        self.signing_input().map(|_| ())
+    }
+}
+
+fn device_pairing_target_attestation_signing_input(
+    algorithms: &[NonEmptyString],
+    device_id: &str,
+    device_public_key: &str,
+    hpke_key: &str,
+    pairing_challenge_transcript_digest: &str,
+) -> Result<Vec<u8>> {
+    #[derive(Serialize)]
+    struct SigningObject<'a> {
+        algorithms: &'a [NonEmptyString],
+        authorization_binding_kind: DeviceAuthorizationBindingKind,
+        device_id: &'a str,
+        device_key_algorithm: &'static str,
+        device_public_key: &'a str,
+        hpke_key: &'a str,
+        pairing_challenge_transcript_digest: &'a str,
+    }
+    let object = SigningObject {
+        algorithms,
+        authorization_binding_kind: DeviceAuthorizationBindingKind::AcceptedDevice,
+        device_id,
+        device_key_algorithm: "Ed25519",
+        device_public_key,
+        hpke_key,
+        pairing_challenge_transcript_digest,
+    };
+    let mut bytes = b"ak.device-authorize-accepted-device-possession-proof-v1\n".to_vec();
+    bytes.extend(canonical::canonical_json_bytes(&object)?);
+    Ok(bytes)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1873,11 +2088,30 @@ impl AccountDevicePairRequestBody {
         }
         let payload: DeviceAuthorizePayload =
             decode_payload_after_kind_validation(&self.authorize_event.event)?;
+        let payload_key = payload
+            .device_public_key
+            .as_str()
+            .strip_prefix("did:key:")
+            .ok_or_else(|| {
+                Error::Protocol("device-pair authorize Event key is not did:key".to_owned())
+            })?;
+        let payload_key =
+            arkret_canonical::decode_ed25519_multibase(payload_key).map_err(|error| {
+                Error::Protocol(format!("invalid authorize Event did:key: {error}"))
+            })?;
+        let request_key =
+            arkret_canonical::base64url_decode(self.new_device_pubkey.key.as_str())
+                .map_err(|error| Error::Protocol(format!("invalid request public key: {error}")))?;
         if payload.device_id.as_str() != self.new_device_pubkey.kid.as_str()
-            || payload.device_public_key.as_str() != self.new_device_pubkey.key.as_str()
+            || request_key.as_slice() != payload_key.as_slice()
             || payload.hpke_key != self.hpke_key
             || payload.device_signature != self.device_signature
             || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice
+            || payload
+                .device_key_algorithm
+                .as_ref()
+                .map(NonEmptyString::as_str)
+                != Some("Ed25519")
         {
             return Err(Error::Protocol(
                 "device-pair request fields do not match the exact authorize Event payload"
@@ -2095,7 +2329,10 @@ mod federation_dependency_tests {
 
 #[cfg(test)]
 mod device_pairing_tests {
+    use arkret_wire::{AuthContext, DidUrl, EventKind, EventRequirements, ScopeRef, proof_kind};
+
     use super::*;
+    use crate::events_payloads::{DeviceOrPrincipalRef, UnsignedDeviceAuthorizePayload};
 
     #[test]
     fn device_pairing_identifiers_enforce_the_wire_profiles() {
@@ -2111,5 +2348,269 @@ mod device_pairing_tests {
         assert!(DevicePairingCode::new("7H2K9M4Q".to_owned()).is_ok());
         assert!(DevicePairingCode::new("00000000".to_owned()).is_err());
         assert!(DevicePairingCode::new("TOO-SHORT".to_owned()).is_err());
+    }
+
+    fn pair_request_fixture() -> (DevicePairingTargetAttestation, AccountDevicePairRequestBody) {
+        let created_at = DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let principal_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let authorizing_device =
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
+        let target_device =
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000009").unwrap();
+        let did_key =
+            DidKey::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x").unwrap();
+        let public_key_bytes = arkret_canonical::decode_ed25519_multibase(
+            did_key.as_str().strip_prefix("did:key:").unwrap(),
+        )
+        .unwrap();
+        let hpke_key = NonEmptyString::new("hpke-public-key-fixture").unwrap();
+        let algorithms = vec![NonEmptyString::new("Ed25519").unwrap()];
+        let transcript_digest = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
+        let device_signature =
+            SignatureMaterial::NonEmptyString(NonEmptyString::new("AA").unwrap());
+        let attestation = UnsignedDevicePairingTargetAttestation::new(
+            target_device.clone(),
+            did_key.clone(),
+            hpke_key.clone(),
+            algorithms.clone(),
+            transcript_digest.clone(),
+        )
+        .unwrap()
+        .attach_signature(device_signature.clone());
+        let authorize_payload = UnsignedDeviceAuthorizePayload::new(
+            principal_id.clone(),
+            target_device.clone(),
+            NonEmptyString::new(did_key.as_str()).unwrap(),
+            hpke_key.clone(),
+            algorithms,
+            Some(NonEmptyString::new("Ed25519").unwrap()),
+            DeviceOrPrincipalRef::DeviceId(authorizing_device.clone()),
+            None,
+            created_at,
+            None,
+            DeviceAuthorizationBindingKind::AcceptedDevice,
+            None,
+        )
+        .unwrap()
+        .attach_signature(Base64UrlString::new("AA").unwrap())
+        .unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap();
+        let event = Event {
+            event_id: EventId::new("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA")
+                .unwrap(),
+            kind: EventKind::DeviceAuthorize,
+            realm_id: realm_id.clone(),
+            scope_ref: ScopeRef::Realm { realm_id },
+            actor_id: principal_id.clone(),
+            executed_by: None,
+            authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
+            actor_kind: None,
+            actor_seq: 2,
+            created_at,
+            hlc: None,
+            prev_refs: Vec::new(),
+            refs: Vec::new(),
+            causal_refs: Vec::new(),
+            preconditions: Vec::new(),
+            seal_ref: Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
+            auth_context: Some(AuthContext {
+                did: principal_id.clone(),
+                key_id: authorizing_device.as_str().to_owned(),
+                key_epoch: 1,
+                credential_epoch: None,
+            }),
+            seal_basis: None,
+            payload: serde_json::to_value(authorize_payload)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .clone()
+                .into_iter()
+                .collect(),
+            redacts: None,
+            unsigned: BTreeMap::new(),
+            proofs: vec![Proof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(format!(
+                    "{}#{}",
+                    principal_id, authorizing_device
+                ))
+                .unwrap(),
+                event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+                created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "a..b".to_owned(),
+            }],
+            requirements: EventRequirements::default(),
+        };
+        let request = AccountDevicePairRequestBody {
+            pairing_code: DevicePairingCode::new("7H2K9M4Q".to_owned()).unwrap(),
+            new_device_pubkey: PublicKey {
+                kty: NonEmptyString::new("OKP").unwrap(),
+                kid: NonEmptyString::new(target_device.as_str()).unwrap(),
+                algorithm: NonEmptyString::new("Ed25519").unwrap(),
+                key: Base64UrlString::new(arkret_canonical::base64url_encode(public_key_bytes))
+                    .unwrap(),
+                key_digest: None,
+            },
+            hpke_key,
+            device_signature,
+            challenge_proof: DevicePairingChallengeProof {
+                transcript: DevicePairingChallengeTranscriptKind::ServerMediated,
+                kid: target_device,
+                signature_algorithm: NonEmptyString::new("Ed25519").unwrap(),
+                transcript_digest,
+                signature: Base64UrlString::new("AA").unwrap(),
+            },
+            authorize_event: EventInitialSubmission {
+                event,
+                authorization_lease: None,
+                cba_proof_bundles: Vec::new(),
+                control_proposal_ack: None,
+                membership_compensation_evidence: None,
+            },
+            display_name: None,
+            device_metadata: None,
+            device_pairing_request_id: None,
+            challenge_transcript: None,
+        };
+        (attestation, request)
+    }
+
+    #[test]
+    fn target_attestation_preassembly_binds_exact_pair_request_and_event() {
+        let (attestation, request) = pair_request_fixture();
+        attestation.validate_against_pair_request(&request).unwrap();
+
+        let mut changed_request = request.clone();
+        changed_request.hpke_key = NonEmptyString::new("different-hpke-key").unwrap();
+        assert!(
+            attestation
+                .validate_against_pair_request(&changed_request)
+                .is_err()
+        );
+
+        let mut changed_attestation = attestation;
+        changed_attestation.pairing_challenge_transcript_digest =
+            Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap();
+        assert!(
+            changed_attestation
+                .validate_against_pair_request(&request)
+                .is_err()
+        );
+    }
+}
+
+#[cfg(test)]
+mod contact_projection_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
+
+    fn accepted_row_fixture() -> serde_json::Value {
+        json!({
+            "peer": {
+                "kind": "human",
+                "principal_id": "did:webvh:z6mkfixture:bob.example"
+            },
+            "state": "accepted",
+            "next_prepare_input": {
+                "basis_id": format!("sha256:{}", "c".repeat(64)),
+                "version": 2,
+                "predecessor_event_ref": REQUEST_EVENT_REF
+            },
+            "granted_to_peer_scopes": ["direct_message"],
+            "granted_by_peer_scopes": ["direct_message"],
+            "bidirectional_scopes": ["direct_message"]
+        })
+    }
+
+    fn pending_incoming_row_fixture() -> serde_json::Value {
+        json!({
+            "peer": {
+                "kind": "human",
+                "principal_id": "did:webvh:z6mkfixture:bob.example"
+            },
+            "state": "pending_incoming",
+            "request_event_ref": REQUEST_EVENT_REF,
+            "request_receipt": {
+                "core": {
+                    "holder": {
+                        "kind": "human",
+                        "principal_id": "did:webvh:z6mkfixture:alice.example"
+                    },
+                    "peer": {
+                        "kind": "human",
+                        "principal_id": "did:webvh:z6mkfixture:bob.example"
+                    },
+                    "slot_version": 1,
+                    "request_event_ref": REQUEST_EVENT_REF,
+                    "request_digest": format!("sha256:{}", "a".repeat(64)),
+                    "source_checkpoint": format!("sha256:{}", "b".repeat(64)),
+                    "accepted_at": "2026-08-08T00:00:00.000Z",
+                    "issuer": "did:web:ps.example"
+                },
+                "receipt_digest": "sha256:e30fc72c40df83bf8393b1e02f70a8302d1d1f5c26ab52eedcb9624a467c7c41",
+                "signature": {
+                    "verification_method": "did:web:ps.example#key-1",
+                    "created_at": "2026-08-08T00:00:00.000Z",
+                    "jws": "AA"
+                }
+            },
+            "granted_to_peer_scopes": [],
+            "granted_by_peer_scopes": [],
+            "bidirectional_scopes": []
+        })
+    }
+
+    #[test]
+    fn accepted_contact_row_carries_exact_next_prepare_cursor() {
+        let row: ContactListRow = serde_json::from_value(accepted_row_fixture()).unwrap();
+        let next = row.next_prepare_input.unwrap();
+        assert_eq!(next.version, 2);
+        assert_eq!(next.predecessor_event_ref.as_str(), REQUEST_EVENT_REF);
+
+        let mut missing = accepted_row_fixture();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("next_prepare_input");
+        assert!(serde_json::from_value::<ContactListRow>(missing).is_err());
+
+        let mut stale_version = accepted_row_fixture();
+        stale_version["next_prepare_input"]["version"] = json!(1);
+        assert!(serde_json::from_value::<ContactListRow>(stale_version).is_err());
+    }
+
+    #[test]
+    fn pending_incoming_row_requires_matching_source_receipt() {
+        let row: ContactListRow = serde_json::from_value(pending_incoming_row_fixture()).unwrap();
+        assert_eq!(
+            row.request_receipt
+                .as_ref()
+                .unwrap()
+                .core
+                .request_event_ref
+                .as_str(),
+            REQUEST_EVENT_REF
+        );
+
+        let mut missing = pending_incoming_row_fixture();
+        missing.as_object_mut().unwrap().remove("request_receipt");
+        assert!(serde_json::from_value::<ContactListRow>(missing).is_err());
+
+        let mut mismatched = pending_incoming_row_fixture();
+        mismatched["request_event_ref"] =
+            json!("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA");
+        assert!(serde_json::from_value::<ContactListRow>(mismatched).is_err());
     }
 }

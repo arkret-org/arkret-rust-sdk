@@ -326,7 +326,7 @@ impl MessageStreamFrame {
 /// Producer-side state for one transient generation preview.
 ///
 /// The durable message identity is fixed before the first frame: `message_id`
-/// is the final `EventId` UUID retyped as a `MessageId`.
+/// is the final 33-byte `EventId` token retyped as a `MessageId`.
 #[derive(Clone, Debug)]
 pub struct MessageStreamProducer {
     event_id: EventId,

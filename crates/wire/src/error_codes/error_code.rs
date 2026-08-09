@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-09.4;
-//! sha256=459cd60017960d314d494af419516f04f3399ad913c2edafb6fd55c0d04b02df Entries: error_codes=272
+//! Input: registry/error-code-registry.json; version=2026-08-09.7;
+//! sha256=0a1ba1b2de1d3c41e9e1c52a97e9cee72c1091c4930bbdc1ceacd0edad98ecdf Entries: error_codes=273
 
 use serde::{Deserialize, Serialize};
 
@@ -172,6 +172,7 @@ pub enum ErrorCode {
     MimiPayloadInvalid,
     MimiReporterResolutionRequired,
     MissingParam,
+    MlsGenerationProposalFanoutExceeded,
     MlsGovernanceAnchorUnreachable,
     MlsGovernanceProofBoundsExceeded,
     MlsKeypackageClaimRequestExpired,
@@ -458,6 +459,7 @@ impl ErrorCode {
         Self::MimiPayloadInvalid,
         Self::MimiReporterResolutionRequired,
         Self::MissingParam,
+        Self::MlsGenerationProposalFanoutExceeded,
         Self::MlsGovernanceAnchorUnreachable,
         Self::MlsGovernanceProofBoundsExceeded,
         Self::MlsKeypackageClaimRequestExpired,
@@ -741,6 +743,8 @@ impl ErrorCode {
     pub const MIMI_PAYLOAD_INVALID: &'static str = "mimi_payload_invalid";
     pub const MIMI_REPORTER_RESOLUTION_REQUIRED: &'static str = "mimi_reporter_resolution_required";
     pub const MISSING_PARAM: &'static str = "missing_param";
+    pub const MLS_GENERATION_PROPOSAL_FANOUT_EXCEEDED: &'static str =
+        "mls_generation_proposal_fanout_exceeded";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
     pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
         "mls_governance_proof_bounds_exceeded";
@@ -1041,6 +1045,7 @@ impl ErrorCode {
             Self::MimiPayloadInvalid => "mimi_payload_invalid",
             Self::MimiReporterResolutionRequired => "mimi_reporter_resolution_required",
             Self::MissingParam => "missing_param",
+            Self::MlsGenerationProposalFanoutExceeded => "mls_generation_proposal_fanout_exceeded",
             Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
             Self::MlsGovernanceProofBoundsExceeded => "mls_governance_proof_bounds_exceeded",
             Self::MlsKeypackageClaimRequestExpired => "mls_keypackage_claim_request_expired",
@@ -1338,6 +1343,9 @@ impl ErrorCode {
             "mimi_payload_invalid" => Some(Self::MimiPayloadInvalid),
             "mimi_reporter_resolution_required" => Some(Self::MimiReporterResolutionRequired),
             "missing_param" => Some(Self::MissingParam),
+            "mls_generation_proposal_fanout_exceeded" => {
+                Some(Self::MlsGenerationProposalFanoutExceeded)
+            }
             "mls_governance_anchor_unreachable" => Some(Self::MlsGovernanceAnchorUnreachable),
             "mls_governance_proof_bounds_exceeded" => Some(Self::MlsGovernanceProofBoundsExceeded),
             "mls_keypackage_claim_request_expired" => Some(Self::MlsKeypackageClaimRequestExpired),
@@ -2344,7 +2352,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The first did_recovery backup gate requirements are not satisfied.",
+        description: "The recovery-material gate requirements (first accepted Seal and genesis recovery policy) are not satisfied.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrankingProofUnavailable,
@@ -2641,6 +2649,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "A required parameter is missing.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::MlsGenerationProposalFanoutExceeded,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "Sixteen not-yet-active candidate MLS groups already exist under one Direct Conversation active-generation predecessor, so the seventeenth ak.direct_conversation.mls_generation.activate candidate is refused. The cap is a hard structural bound and not a rate limit: 409 is correct and 429 is not, waiting alone never clears it, and progress requires one existing candidate to be activated by the cell or to expire. Only the offending candidate is refused with zero writes; the pair MUST NOT be quarantined and its coordinates, binding, membership and current active generation stay untouched. Servers MUST NOT promise a retry window through retry_after_ms for this code. Semantically it is the Direct Conversation sibling of contact_lineage_conflict rather than of rate_limited. See zh/identity/contact-and-direct-conversation.md §7.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceAnchorUnreachable,

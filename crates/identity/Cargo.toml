@@ -32,6 +32,9 @@ thiserror = {workspace = true}
 
 [dev-dependencies]
 arkret-wire = {workspace = true,features = ["test-support"]}
+rand_chacha = {workspace = true}
+rand_core = {workspace = true}
+url = {workspace = true}
 
 [lints]
 workspace = true

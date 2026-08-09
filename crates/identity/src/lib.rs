@@ -6,6 +6,7 @@
 //! model / signature data crates and the outbound egress classifier; the
 //! umbrella `arkret` crate re-exports this surface under `arkret::identity::*`.
 
+pub mod authority_history;
 mod error;
 mod handles;
 // DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
@@ -39,14 +40,16 @@ pub use arkret_models_identity::primary_handle::{
     PrimaryHandleSelectInput, SubjectRender, claim_digest, render_mention, render_subject,
     select_primary_handle, select_primary_handle_string,
 };
-pub use arkret_models_identity::{
-    DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeyLogEntry, DidKeyLogOperation, HandleAttestation,
-};
+pub use arkret_models_identity::{DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, HandleAttestation};
 pub(crate) use arkret_wire::{Did, DidUrl, Event, Hash, Proof};
 // DID-P0-B: flat re-exports of the verified-binding surface, so downstream
 // repos consume one shared model (`arkret_identity::VerifiedDidBinding`, or
 // `arkret::identity::*` through the umbrella) instead of inventing parallel
 // per-service types.
+pub use authority_history::{
+    AuthorityDidHistoryResolver, AuthorityHistoryUnavailable, AuthorityHistoryVerificationError,
+    VerifiedAccountBindingReceipt, verify_account_binding_receipt_at_issuance,
+};
 pub use binding::{
     BindingError, DidBindingPurpose, DidBindingStatus, FreshnessProfile, FreshnessRequirement,
     FreshnessRiskTier, LimitedTrust, PinState, StaleBehavior, VerifiedDidBinding,

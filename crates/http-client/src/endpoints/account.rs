@@ -32,7 +32,9 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
     AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
-    AccountUpdateProfileOutcome, IdentityBindingChallengeOutcome,
+    AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
+    IdentityAbandonmentChallengeRequestBody, IdentityAbandonmentOutcome,
+    IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
     IdentityBindingChallengeRequestBody, SessionGrantProofKind,
 };
 use arkret_wire::{
@@ -253,6 +255,35 @@ impl Client {
             self.post("/_arkret/gate/account/register", request).await?;
         outcome.validate_against_request(request)?;
         Ok(outcome)
+    }
+
+    /// Issue the durable, single-use challenge that makes giving up a
+    /// never-accepted provisional identity explicit. Authentication is the
+    /// current account handoff grant, not a principal-bound session grant.
+    pub async fn auth_issue_identity_abandonment_challenge(
+        &self,
+        request: &IdentityAbandonmentChallengeRequestBody,
+    ) -> Result<IdentityAbandonmentChallengeOutcome> {
+        request.validate()?;
+        let outcome: IdentityAbandonmentChallengeOutcome = self
+            .post(
+                "/_arkret/gate/account/identity-abandonment-challenges",
+                request,
+            )
+            .await?;
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
+    /// Consume a previously issued abandonment challenge with a fresh account
+    /// handoff grant. Exact request-id replay returns the recorded terminal.
+    pub async fn auth_abandon_identity_creation(
+        &self,
+        request: &IdentityAbandonmentRequestBody,
+    ) -> Result<IdentityAbandonmentOutcome> {
+        request.validate()?;
+        self.post("/_arkret/gate/account/identity-abandonments", request)
+            .await
     }
 
     pub async fn account_update_profile(

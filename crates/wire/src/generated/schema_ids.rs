@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-09.10;
-//! sha256=99b0fe20ca6b3c92088e05e777df3f9ef3d3e12aad1a150b8ac6e2edc3c84e70 Entries: schema_ids=182,
-//! active=182
+//! Input: registry/schema-registry.json; version=2026-08-09.16;
+//! sha256=8d44669b0ac04d3ccca13c93ad44b9a913485f090bb428347edbaad22730e54d Entries: schema_ids=181,
+//! active=181
 
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +72,6 @@ pub enum SchemaId {
     DeviceReanchorV1,
     DidBindingContractsV1,
     DidContinuityProofV1,
-    DidKeyLogEntryV1,
     DidWebvhWitnessReceiptV1,
     DirectConversationOperationsV1,
     DirectoryOperationsV1,
@@ -258,7 +257,6 @@ impl SchemaId {
         Self::DeviceReanchorV1,
         Self::DidBindingContractsV1,
         Self::DidContinuityProofV1,
-        Self::DidKeyLogEntryV1,
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
@@ -444,7 +442,6 @@ impl SchemaId {
         Self::DeviceReanchorV1,
         Self::DidBindingContractsV1,
         Self::DidContinuityProofV1,
-        Self::DidKeyLogEntryV1,
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
@@ -752,7 +749,6 @@ impl SchemaId {
     pub const DID_BINDING_CONTRACTS_V1: &'static str = "ak.schema.did_binding_contracts.v1";
     /// Signed DID continuity / migration proof payload
     pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.schema.did_continuity_proof.v1";
-    pub const DID_KEY_LOG_ENTRY_V1: &'static str = "ak.schema.did_key_log_entry.v1";
     /// Arkret-layer record that a named did:webvh witness was observed attesting a specific log
     /// versionId. Separate object family from ak.schema.identity_receipt.v1, whose witness_role
     /// describes a DID registry consensus role rather than a method-native witness; both are
@@ -1124,7 +1120,6 @@ impl SchemaId {
             Self::DeviceReanchorV1 => Self::DEVICE_REANCHOR_V1,
             Self::DidBindingContractsV1 => Self::DID_BINDING_CONTRACTS_V1,
             Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
-            Self::DidKeyLogEntryV1 => Self::DID_KEY_LOG_ENTRY_V1,
             Self::DidWebvhWitnessReceiptV1 => Self::DID_WEBVH_WITNESS_RECEIPT_V1,
             Self::DirectConversationOperationsV1 => Self::DIRECT_CONVERSATION_OPERATIONS_V1,
             Self::DirectoryOperationsV1 => Self::DIRECTORY_OPERATIONS_V1,
@@ -1331,7 +1326,6 @@ impl SchemaId {
             Self::DeviceReanchorV1 => "schemas/device-reanchor.schema.json",
             Self::DidBindingContractsV1 => "schemas/did-binding-contracts.schema.json",
             Self::DidContinuityProofV1 => "schemas/did-continuity-proof.schema.json",
-            Self::DidKeyLogEntryV1 => "schemas/did-key-log-entry.schema.json",
             Self::DidWebvhWitnessReceiptV1 => "schemas/did-webvh-witness-receipt.schema.json",
             Self::DirectConversationOperationsV1 => {
                 "schemas/direct-conversation-operations.schema.json"
@@ -1548,7 +1542,6 @@ impl SchemaId {
             Self::DEVICE_REANCHOR_V1 => Some(Self::DeviceReanchorV1),
             Self::DID_BINDING_CONTRACTS_V1 => Some(Self::DidBindingContractsV1),
             Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
-            Self::DID_KEY_LOG_ENTRY_V1 => Some(Self::DidKeyLogEntryV1),
             Self::DID_WEBVH_WITNESS_RECEIPT_V1 => Some(Self::DidWebvhWitnessReceiptV1),
             Self::DIRECT_CONVERSATION_OPERATIONS_V1 => Some(Self::DirectConversationOperationsV1),
             Self::DIRECTORY_OPERATIONS_V1 => Some(Self::DirectoryOperationsV1),

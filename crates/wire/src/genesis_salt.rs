@@ -11,7 +11,8 @@ use crate::{Error, Result};
 ///
 /// This value is scoped to event-derived Realm creation intents. It has no
 /// replay, ordering, freshness, authorization, idempotency-key, or winner
-/// semantics. Subject-derived Principal Control Realm branches omit it.
+/// semantics. Every Realm, including a Principal Control Realm, is identified
+/// by retyping its accepted create Event id.
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct GenesisSalt(String);
 

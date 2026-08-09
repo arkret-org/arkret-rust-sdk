@@ -1,0 +1,200 @@
+//! Contact source-service receipt signing inputs and verification.
+
+use arkret_models_collaboration::contact_operations::RequestAcceptanceReceipt;
+use arkret_wire::{Error, EventId, Hash, Result};
+use ed25519_dalek::Signature;
+use serde::Serialize;
+
+/// Canonical bytes signed by the source service for a Contact request
+/// acceptance receipt. The non-recursive `receipt_digest` covers `core`; the
+/// signature then covers both values.
+pub fn contact_request_acceptance_receipt_signing_bytes(
+    receipt: &RequestAcceptanceReceipt,
+) -> Result<Vec<u8>> {
+    #[derive(Serialize)]
+    struct SignedValue<'a> {
+        core: &'a arkret_models_collaboration::contact_operations::RequestAcceptanceReceiptCore,
+        receipt_digest: &'a Hash,
+    }
+    arkret_canonical::canonical_json_bytes(&SignedValue {
+        core: &receipt.core,
+        receipt_digest: &receipt.receipt_digest,
+    })
+    .map_err(Into::into)
+}
+
+/// Verify a pending-incoming Contact receipt after the caller has resolved the
+/// issuer service key at `receipt.core.accepted_at`.
+///
+/// `expected_request_event_ref` and `expected_request_digest` must come from
+/// the exact request Event, not from the list projection's summary alone.
+pub fn verify_contact_request_acceptance_receipt(
+    receipt: &RequestAcceptanceReceipt,
+    expected_request_event_ref: &EventId,
+    expected_request_digest: &Hash,
+    verifying_key: &ed25519_dalek::VerifyingKey,
+) -> Result<()> {
+    receipt.validate_shape()?;
+    if &receipt.core.request_event_ref != expected_request_event_ref
+        || &receipt.core.request_digest != expected_request_digest
+    {
+        return Err(Error::Protocol(
+            "Contact request receipt does not bind the exact request Event".to_owned(),
+        ));
+    }
+    let signature_bytes = arkret_canonical::base64url_decode(receipt.signature.jws.as_str())
+        .map_err(|error| Error::Protocol(format!("invalid Contact receipt signature: {error}")))?;
+    let signature = Signature::from_slice(&signature_bytes).map_err(|_| {
+        Error::Protocol(
+            "Contact receipt signature must contain exactly 64 Ed25519 bytes".to_owned(),
+        )
+    })?;
+    verifying_key
+        .verify_strict(
+            &contact_request_acceptance_receipt_signing_bytes(receipt)?,
+            &signature,
+        )
+        .map_err(|_| Error::Protocol("Contact request receipt signature is invalid".to_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_models_collaboration::contact_operations::{
+        ContactPeer, RequestAcceptanceReceiptCore,
+    };
+    use arkret_wire::{Base64UrlString, Did, DidUrl, ProtocolSignature};
+    use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use chrono::{DateTime, Utc};
+    use ed25519_dalek::Signer as _;
+
+    use super::*;
+
+    const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
+    const CORE_DIGEST: &str =
+        "sha256:e30fc72c40df83bf8393b1e02f70a8302d1d1f5c26ab52eedcb9624a467c7c41";
+
+    fn hash(fill: char) -> Hash {
+        Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
+    }
+
+    fn signed_receipt(signing_key: &ed25519_dalek::SigningKey) -> RequestAcceptanceReceipt {
+        let accepted_at = DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut receipt = RequestAcceptanceReceipt {
+            core: RequestAcceptanceReceiptCore {
+                holder: ContactPeer::Human {
+                    principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                },
+                peer: ContactPeer::Human {
+                    principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+                },
+                slot_version: 1,
+                slot_predecessor: None,
+                previous_terminal_basis_id: None,
+                request_event_ref: EventId::new(REQUEST_EVENT_REF).unwrap(),
+                request_digest: hash('a'),
+                source_checkpoint: hash('b'),
+                accepted_at,
+                issuer: Did::new("did:web:ps.example").unwrap(),
+            },
+            receipt_digest: hash('0'),
+            signature: ProtocolSignature {
+                verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
+                created_at: accepted_at,
+                jws: Base64UrlString::new("AA").unwrap(),
+            },
+        };
+        receipt.receipt_digest = receipt.computed_core_digest().unwrap();
+        let signature =
+            signing_key.sign(&contact_request_acceptance_receipt_signing_bytes(&receipt).unwrap());
+        receipt.signature.jws =
+            Base64UrlString::new(URL_SAFE_NO_PAD.encode(signature.to_bytes())).unwrap();
+        receipt
+    }
+
+    #[test]
+    fn contact_receipt_known_signing_fixture_verifies() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[23_u8; 32]);
+        let receipt = signed_receipt(&signing_key);
+        assert_eq!(receipt.receipt_digest.as_str(), CORE_DIGEST);
+        assert_eq!(
+            String::from_utf8(contact_request_acceptance_receipt_signing_bytes(&receipt).unwrap())
+                .unwrap(),
+            concat!(
+                "{\"core\":{\"accepted_at\":\"2026-08-08T00:00:00.000Z\",",
+                "\"holder\":{\"kind\":\"human\",\"principal_id\":\"did:webvh:z6mkfixture:alice.example\"},",
+                "\"issuer\":\"did:web:ps.example\",",
+                "\"peer\":{\"kind\":\"human\",\"principal_id\":\"did:webvh:z6mkfixture:bob.example\"},",
+                "\"request_digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
+                "\"request_event_ref\":\"ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD\",",
+                "\"slot_version\":1,",
+                "\"source_checkpoint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},",
+                "\"receipt_digest\":\"sha256:e30fc72c40df83bf8393b1e02f70a8302d1d1f5c26ab52eedcb9624a467c7c41\"}"
+            )
+        );
+        verify_contact_request_acceptance_receipt(
+            &receipt,
+            &receipt.core.request_event_ref,
+            &receipt.core.request_digest,
+            &signing_key.verifying_key(),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(&receipt).unwrap()["core"]["slot_version"],
+            1
+        );
+    }
+
+    #[test]
+    fn contact_receipt_rejects_wrong_request_tampering_and_signer() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[24_u8; 32]);
+        let receipt = signed_receipt(&signing_key);
+        let wrong_event =
+            EventId::new("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA").unwrap();
+        assert!(
+            verify_contact_request_acceptance_receipt(
+                &receipt,
+                &wrong_event,
+                &receipt.core.request_digest,
+                &signing_key.verifying_key(),
+            )
+            .is_err()
+        );
+
+        let mut core_tampered = receipt.clone();
+        core_tampered.core.request_digest = hash('c');
+        assert!(
+            verify_contact_request_acceptance_receipt(
+                &core_tampered,
+                &core_tampered.core.request_event_ref,
+                &core_tampered.core.request_digest,
+                &signing_key.verifying_key(),
+            )
+            .is_err()
+        );
+
+        let mut signature_tampered = receipt.clone();
+        let mut signature = URL_SAFE_NO_PAD
+            .decode(signature_tampered.signature.jws.as_str())
+            .unwrap();
+        signature[0] ^= 1;
+        signature_tampered.signature.jws =
+            Base64UrlString::new(URL_SAFE_NO_PAD.encode(signature)).unwrap();
+        assert!(
+            verify_contact_request_acceptance_receipt(
+                &signature_tampered,
+                &signature_tampered.core.request_event_ref,
+                &signature_tampered.core.request_digest,
+                &signing_key.verifying_key(),
+            )
+            .is_err()
+        );
+
+        let mut wrong_signer = receipt;
+        wrong_signer.signature.verification_method =
+            DidUrl::new("did:web:attacker.example#key-1").unwrap();
+        assert!(wrong_signer.validate_shape().is_err());
+    }
+}

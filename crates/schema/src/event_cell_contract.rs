@@ -1374,20 +1374,10 @@ pub fn derived_object_id(event: &Event) -> Option<String> {
 
 /// Every object id this Event derives, in the registry-declared order.
 ///
-/// A multi-output Event retypes the same event UUID into distinct prefixes;
+/// A multi-output Event retypes the same 33-byte Event token into distinct prefixes;
 /// the full typed IDs are therefore distinct.  Registry lint guarantees that
 /// the target kinds are non-empty, unique and event-derived.
 pub fn derived_object_ids(event: &Event) -> Vec<String> {
-    if event.kind.as_str() == "ak.realm.create" {
-        return vec![
-            arkret_wire::derive_genesis_realm_id(
-                &event.event_id,
-                &event.actor_id,
-                event.payload.get("object"),
-            )
-            .to_string(),
-        ];
-    }
     derived_object_ids_for_kind(event.kind.as_str(), &event.event_id)
 }
 
@@ -1396,18 +1386,15 @@ pub fn derived_object_ids(event: &Event) -> Vec<String> {
 /// example.
 ///
 /// Same registry row, same retype, so a surface reading events off the wire can
-/// never disagree with one holding the typed envelope. Returns `None` for
-/// `ak.realm.create`: the kind alone cannot select its event-derived versus
-/// subject-derived branch; callers must parse the signed payload and use
-/// [`derived_object_id`].
+/// never disagree with one holding the typed envelope. Realm creation uses the
+/// same event-derived rule for every purpose.
 pub fn derived_object_id_for_kind(kind: &str, event_id: &EventId) -> Option<String> {
     let mut ids = derived_object_ids_for_kind(kind, event_id);
     (ids.len() == 1).then(|| ids.pop().expect("length checked"))
 }
 
 /// [`derived_object_ids`] for a receiver that has only the envelope kind and
-/// event ID.  Returns an empty vector for non-derived kinds and for
-/// `ak.realm.create`, whose branch requires the signed payload.
+/// event ID. Returns an empty vector for non-derived kinds.
 pub fn derived_object_ids_for_kind(kind: &str, event_id: &EventId) -> Vec<String> {
     let Some(registry) = event_kind_registry().ok() else {
         return Vec::new();

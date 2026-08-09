@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-09.10;
-//! sha256=62e3d8bc2bbc980aec843286c08ac31c855d653146c16f3584adbe93439bbca0 Input: registry/
-//! operations-error-mapping.json; version=2026-08-09.5;
-//! sha256=60d11b1779c4074e40c286409944d7f209aad439ee1717afad73c74ca8d26e31 Input: registry/
-//! error-code-registry.json; version=2026-08-09.4;
-//! sha256=459cd60017960d314d494af419516f04f3399ad913c2edafb6fd55c0d04b02df Entries: operations=222
+//! Input: registry/operation-registry.json; version=2026-08-09.20;
+//! sha256=bdbc0a4d0a84c7434c9493293fe1640a0461ea6bb68cbdb922d80b958d462f37 Input: registry/
+//! operations-error-mapping.json; version=2026-08-10.2;
+//! sha256=bb524066bdcb4fe2722a0434fb3341d4f56f56767a05eed393508fe2098d67a2 Input: registry/
+//! error-code-registry.json; version=2026-08-09.7;
+//! sha256=0a1ba1b2de1d3c41e9e1c52a97e9cee72c1091c4930bbdc1ceacd0edad98ecdf Entries: operations=225
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -189,8 +189,42 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountCommandAbandonIdentityCreation,
+        operation_specific: &[
+            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationLeaseFenced),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationChallengeExpired),
+            OperationSpecificError::ReasonCode(
+                ReasonCode::IdentityCreationChallengeAlreadyConsumed,
+            ),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationAlreadyAccepted),
+        ],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandIntrospectSessionGrant,
         operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountCommandIssueDidBindingChallenge,
+        operation_specific: &[
+            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::DidNotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedDidMethod),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountCommandIssueIdentityAbandonmentChallenge,
+        operation_specific: &[
+            OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationLeaseFenced),
+            OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationAlreadyAccepted),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandIssueIdentityBindingChallenge,
@@ -440,6 +474,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
             OperationSpecificError::ErrorCode(ErrorCode::DeliveryBindingStale),
             OperationSpecificError::ErrorCode(ErrorCode::DeliveryBindingHandedOver),
+            OperationSpecificError::ErrorCode(ErrorCode::MlsGenerationProposalFanoutExceeded),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1063,6 +1098,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::SealRefUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::RealmFrozen),
             OperationSpecificError::ErrorCode(ErrorCode::Quarantine),
+            OperationSpecificError::ErrorCode(ErrorCode::MlsGenerationProposalFanoutExceeded),
         ],
     },
     OperationErrorMappingDescriptor {

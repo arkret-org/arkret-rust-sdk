@@ -175,6 +175,100 @@ pub struct ValidatedPrincipalInception {
     pub root_public_key_multibase: String,
 }
 
+/// One cryptographically verified method-native history state selected at an
+/// exact wall-clock instant. The returned document and update key come from the
+/// same validated entry; callers must not combine either with current resolve
+/// output.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatedWebvhHistoryPoint {
+    pub did: Did,
+    pub version_id: String,
+    pub version_time: DateTime<Utc>,
+    pub document: Value,
+    pub active_update_key_multibase: String,
+}
+
+/// Validate a complete `did:webvh` history and select the entry effective at
+/// `at`. Hash-chain, pre-rotation commitment and every Data Integrity proof are
+/// checked before a point is returned.
+pub fn validate_webvh_history_at(
+    did: &Did,
+    entries: &[Value],
+    at: DateTime<Utc>,
+) -> Result<ValidatedWebvhHistoryPoint, WebvhInceptionError> {
+    if did.method() != "webvh" {
+        return Err(WebvhInceptionError::InvalidDid(
+            "historical verification requires did:webvh".to_owned(),
+        ));
+    }
+    validate_principal_rotation_history(did.as_str(), entries)?;
+
+    let mut previous_time = None;
+    let mut selected = None;
+    for entry in entries {
+        let version_time = entry
+            .get("versionTime")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(
+                    "webvh history entry is missing versionTime".to_owned(),
+                )
+            })?
+            .parse::<DateTime<Utc>>()
+            .map_err(|_| {
+                WebvhInceptionError::InvalidProof(
+                    "webvh history entry has a non-canonical versionTime".to_owned(),
+                )
+            })?;
+        if previous_time.is_some_and(|previous| version_time <= previous) {
+            return Err(WebvhInceptionError::InvalidProof(
+                "webvh history versionTime is not strictly increasing (fork or reorder)".to_owned(),
+            ));
+        }
+        previous_time = Some(version_time);
+        if version_time <= at {
+            selected = Some((entry, version_time));
+        }
+    }
+
+    let (entry, version_time) = selected.ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "webvh history has no entry effective at the requested time".to_owned(),
+        )
+    })?;
+    if entry
+        .pointer("/parameters/deactivated")
+        .and_then(Value::as_bool)
+        == Some(true)
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "webvh DID was deactivated at the requested time".to_owned(),
+        ));
+    }
+    let version_id = entry
+        .get("versionId")
+        .and_then(Value::as_str)
+        .expect("validated history entry has versionId")
+        .to_owned();
+    let active_update_key_multibase = entry
+        .pointer("/parameters/updateKeys/0")
+        .and_then(Value::as_str)
+        .expect("validated history entry has one update key")
+        .to_owned();
+    let document = entry.get("state").cloned().ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "webvh history entry is missing its DID document state".to_owned(),
+        )
+    })?;
+    Ok(ValidatedWebvhHistoryPoint {
+        did: did.clone(),
+        version_id,
+        version_time,
+        document,
+        active_update_key_multibase,
+    })
+}
+
 /// Validate a complete, signed `did:webvh` entry-0 operation before it is
 /// reserved by an Account Authority.
 ///
@@ -1577,4 +1671,173 @@ fn normalize_key_fragment(value: &str) -> Option<String> {
 
 fn valid_multibase_key(value: &str) -> bool {
     decode_ed25519_multibase(value).is_ok()
+}
+
+#[cfg(test)]
+mod historical_verification_tests {
+    use chrono::{Duration, TimeZone as _};
+    use rand_chacha::ChaChaRng;
+    use rand_core::SeedableRng as _;
+
+    use super::*;
+
+    struct HistoryFixture {
+        did: Did,
+        first_time: DateTime<Utc>,
+        second_time: DateTime<Utc>,
+        first_key: String,
+        second_key: String,
+        first_assertion_key: String,
+        second_assertion_key: String,
+        entries: Vec<Value>,
+        second_seed: [u8; SECRET_KEY_LENGTH],
+    }
+
+    fn history_fixture() -> HistoryFixture {
+        let endpoint = Url::parse("https://history.example/").unwrap();
+        let first_time = Utc.with_ymd_and_hms(2026, 8, 9, 10, 0, 0).unwrap();
+        let second_time = first_time + Duration::hours(1);
+        let mut rng = ChaChaRng::seed_from_u64(0x4849_5354);
+        let third_seed = [0x33; SECRET_KEY_LENGTH];
+        let third_key = encode_ed25519_pubkey_multibase(
+            &SigningKey::from_bytes(&third_seed)
+                .verifying_key()
+                .to_bytes(),
+        );
+        let inception = prepare_service_inception(
+            &mut rng,
+            &ServiceInceptionInput {
+                principal_endpoint: &endpoint,
+                local_id: "service",
+                also_known_as: &[],
+                version_time: first_time,
+                did_key_fragment: Some("assertion-1"),
+            },
+        )
+        .unwrap();
+        let did = inception.did.clone();
+        let first_key = inception.update_public_key_multibase.clone();
+        let second_key = inception.next_update_public_key_multibase.clone();
+        let second_seed = inception.next_update_key_seed;
+        let first_assertion_key = inception.did_public_key_multibase.clone();
+        let second_assertion_seed = [0x44; SECRET_KEY_LENGTH];
+        let second_assertion_key = encode_ed25519_pubkey_multibase(
+            &SigningKey::from_bytes(&second_assertion_seed)
+                .verifying_key()
+                .to_bytes(),
+        );
+        let mut second_state = inception.log_entry["state"].clone();
+        second_state["verificationMethod"][0]["publicKeyMultibase"] =
+            Value::String(second_assertion_key.clone());
+        let previous_version_id = inception.version_id.clone();
+        let scid = inception.log_entry["parameters"]["scid"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut rotation = json!({
+            "versionId": previous_version_id,
+            "versionTime": second_time.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            "parameters": {
+                "scid": scid,
+                "method": WEBVH_METHOD_VERSION,
+                "updateKeys": [second_key],
+                "nextKeyHashes": [webvh_next_key_hash(&third_key).unwrap()],
+            },
+            "state": second_state,
+        });
+        let version_hash = sha256_multihash_base58btc(
+            &canonical_bytes(&strip_for_hash(&rotation, &previous_version_id)).unwrap(),
+        );
+        rotation["versionId"] = Value::String(format!("2-{version_hash}"));
+        let signing = SigningKey::from_bytes(&second_seed);
+        rotation["proof"] =
+            Value::Array(vec![build_proof(&rotation, &signing, &second_key).unwrap()]);
+        HistoryFixture {
+            did: Did::new(did).unwrap(),
+            first_time,
+            second_time,
+            first_key,
+            second_key,
+            first_assertion_key,
+            second_assertion_key,
+            entries: vec![inception.log_entry.clone(), rotation],
+            second_seed,
+        }
+    }
+
+    #[test]
+    fn selects_the_key_effective_at_the_exact_issued_at_boundary() {
+        let fixture = history_fixture();
+        let before_rotation = validate_webvh_history_at(
+            &fixture.did,
+            &fixture.entries,
+            fixture.second_time - Duration::milliseconds(1),
+        )
+        .unwrap();
+        assert_eq!(
+            before_rotation.active_update_key_multibase,
+            fixture.first_key
+        );
+        assert_eq!(
+            before_rotation
+                .document
+                .pointer("/verificationMethod/0/publicKeyMultibase")
+                .and_then(Value::as_str),
+            Some(fixture.first_assertion_key.as_str())
+        );
+
+        let at_rotation =
+            validate_webvh_history_at(&fixture.did, &fixture.entries, fixture.second_time).unwrap();
+        assert_eq!(at_rotation.active_update_key_multibase, fixture.second_key);
+        assert_eq!(
+            at_rotation
+                .document
+                .pointer("/verificationMethod/0/publicKeyMultibase")
+                .and_then(Value::as_str),
+            Some(fixture.second_assertion_key.as_str())
+        );
+        assert_eq!(at_rotation.version_time, fixture.second_time);
+    }
+
+    #[test]
+    fn rejects_a_forked_or_reordered_history() {
+        let mut fixture = history_fixture();
+        fixture.entries[1]["versionId"] = Value::String("2-zfork".to_owned());
+        let error = validate_webvh_history_at(&fixture.did, &fixture.entries, fixture.second_time)
+            .unwrap_err();
+        assert!(error.to_string().contains("versionId hash is invalid"));
+
+        let mut fixture = history_fixture();
+        fixture.entries[1]["versionTime"] = Value::String(
+            fixture
+                .first_time
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        );
+        let error = validate_webvh_history_at(&fixture.did, &fixture.entries, fixture.second_time)
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("versionId hash is invalid")
+                || error.to_string().contains("fork or reorder")
+        );
+    }
+
+    #[test]
+    fn rejects_a_cryptographically_valid_deactivated_history_point() {
+        let mut fixture = history_fixture();
+        let previous_version_id = fixture.entries[0]["versionId"].as_str().unwrap().to_owned();
+        let entry = &mut fixture.entries[1];
+        entry["parameters"]["deactivated"] = Value::Bool(true);
+        entry.as_object_mut().unwrap().remove("proof");
+        let version_hash = sha256_multihash_base58btc(
+            &canonical_bytes(&strip_for_hash(entry, &previous_version_id)).unwrap(),
+        );
+        entry["versionId"] = Value::String(format!("2-{version_hash}"));
+        let signing = SigningKey::from_bytes(&fixture.second_seed);
+        let proof = build_proof(entry, &signing, &fixture.second_key).unwrap();
+        entry["proof"] = Value::Array(vec![proof]);
+
+        let error = validate_webvh_history_at(&fixture.did, &fixture.entries, fixture.second_time)
+            .unwrap_err();
+        assert!(error.to_string().contains("deactivated"));
+    }
 }

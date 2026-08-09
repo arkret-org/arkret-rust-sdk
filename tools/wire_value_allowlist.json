@@ -2788,6 +2788,18 @@
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/IdentityDocumentView/properties/did_document"
     },
     {
+      "finding": "crates/models-identity/src/identity.rs::IdentityLogListOutcome.entries",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "DID method selected by IdentityLogListOutcome.method plus the method-native history validator (for did:webvh, arkret_signatures::webvh::validate_webvh_history_at)",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain method-native entries without a synthetic common envelope; dispatch on the resolved DID method and validate the complete native history before using any entry for historical key selection.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Identity history is deliberately method-native rather than wrapped in a synthetic generic log envelope. The list outcome carries the DID method explicitly, and receipt verification may consume entries only through that method's complete-history validator.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "crates/models-identity/src/identity.rs::IdentityResolveOutcome.did_document",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
@@ -2798,18 +2810,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/IdentityResolveOutcome/properties/did_document"
-    },
-    {
-      "finding": "crates/models-identity/src/identity_key_log.rs::DidKeyLogEntry.operation_body",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "did-key-log-entry.schema.json#/properties/operation_body",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "did-key-log-entry.schema.json#/properties/operation_body"
     },
     {
       "finding": "crates/models-identity/src/session_credential.rs::SessionGrantIssuancePreimage.scope_details",
@@ -3272,6 +3272,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "crates/signatures/src/webvh/inception.rs::ValidatedWebvhHistoryPoint.document",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_signatures::webvh::validate_webvh_history_at over the complete did:webvh hash chain, pre-rotation commitments, Data Integrity proofs, versionTime ordering, and deactivation state",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Expose the method-native DID document only as part of a ValidatedWebvhHistoryPoint produced by complete-history validation; callers must not combine it with current resolution output or bypass the selected active update key.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "A did:webvh DID document is an extensible method-native JSON document. This field is not arbitrary ingress: it is returned only after the entire history and the exact effective time have been cryptographically validated.",
+      "adjudication": "manual"
     },
     {
       "finding": "crates/state/src/lattice/fsm.rs::Fsm.allowed_transitions",
@@ -4305,6 +4317,18 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
+      "finding": "json_authoring:inkson/src/views/chat/mod.rs::submit_source_routed_sidecar_message:d7d83c0bef9251cd",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Inkson LocalStateStore RawOperationRecord derived after submission from the typed SDK message Event",
+      "owner_repository": "inkson",
+      "action": "Retain only as a local optimistic-operation cache record; never sign, submit, or treat this JSON summary as the authoritative Event payload.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The JSON object is written only through append_raw_operation after secure_send has authored and submitted the typed SDK Event; it is local UI replay metadata rather than protocol wire authoring.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_authoring:inkson/src/views/chat/model/events.rs::local_redaction_tombstone_for_message:c81c94766f4b716a",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4474,17 +4498,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec closed union selected by kind,state",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
-      "finding": "json_authoring:inkson/src/views/settings/devices.rs::build_pair_payload:9d84c108b791f031",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by algorithm,schema",
       "owner_repository": "inkson",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -5683,17 +5696,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec protocol schema owning signature",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:crates/models-identity/src/identity_key_log.rs::digest_view:7b81092bf0ac3169",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning proofs",
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -8637,17 +8639,6 @@
     },
     {
       "finding": "soland/crates/storage/src/control_proposal_acks.rs::ControlProposalAuthorityAckRecord.response_body",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "soland/crates/storage/src/device_pairings.rs::DevicePairingAuthorizationCommit.new_device_pubkey",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

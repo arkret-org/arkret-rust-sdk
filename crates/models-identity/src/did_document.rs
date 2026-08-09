@@ -315,13 +315,6 @@ impl DidDocument {
     }
 }
 
-/// Derive the deterministic principal-control Realm ID for a principal DID.
-pub fn principal_control_realm_id(principal_id: &Did) -> String {
-    // Single source of the derivation: `arkret-identifiers` owns it so the
-    // envelope-construction path in `arkret-wire` derives the identical bytes.
-    arkret_wire::principal_control_realm_id(principal_id.as_str()).to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

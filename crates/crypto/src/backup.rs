@@ -324,7 +324,6 @@ impl VaultBinding {
     /// value used in the AAD / nonce transcript and the envelope itself).
     fn backup_class_wire(&self) -> &'static str {
         match self.aead_aad.backup_kind {
-            BackupKind::DidRecovery => "did_recovery",
             BackupKind::SecretStorage => "secret_storage",
             BackupKind::MlsHistory => "mls_history",
         }
@@ -1223,7 +1222,7 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"pp", &[9u8; VAULT_SALT_LEN]).unwrap();
         let mut binding = test_binding(BackupKind::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, b"secret").unwrap();
-        binding.aead_aad.backup_kind = BackupKind::DidRecovery;
+        binding.aead_aad.backup_kind = BackupKind::MlsHistory;
         let err = decrypt_vault(
             b"pp",
             &binding,
@@ -1269,17 +1268,17 @@ mod tests {
     fn aead_subkey_differs_from_root_and_across_domains() {
         let kek = derive_vault_kek_with_salt(b"pp", &[1u8; VAULT_SALT_LEN]).unwrap();
         let ss = test_binding(BackupKind::SecretStorage, "x").subkey(&kek.key, "aead");
-        let dr = test_binding(BackupKind::DidRecovery, "x").subkey(&kek.key, "aead");
+        let history = test_binding(BackupKind::MlsHistory, "x").subkey(&kek.key, "aead");
         assert_ne!(ss, kek.key, "aead key must not reuse bare argon2 output");
-        assert_ne!(ss, dr, "domains must derive distinct aead keys");
+        assert_ne!(ss, history, "domains must derive distinct aead keys");
     }
 
     #[test]
     fn commitment_is_domain_isolated() {
         let kek = derive_vault_kek_with_salt(b"pp", &[1u8; VAULT_SALT_LEN]).unwrap();
         let ss = commitment_digest(&kek.key, BackupKind::SecretStorage);
-        let dr = commitment_digest(&kek.key, BackupKind::DidRecovery);
-        assert_ne!(ss, dr, "commitment must differ across backup classes");
+        let history = commitment_digest(&kek.key, BackupKind::MlsHistory);
+        assert_ne!(ss, history, "commitment must differ across backup classes");
     }
 
     #[test]

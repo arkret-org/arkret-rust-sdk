@@ -1585,7 +1585,7 @@ mod tests {
                     )
                     .unwrap(),
                 ),
-                backup_kind: Some(arkret_models_crypto::BackupKind::DidRecovery),
+                backup_kind: Some(arkret_models_crypto::BackupKind::SecretStorage),
                 cursor: None,
                 limit: Some(25),
             };
@@ -1605,7 +1605,7 @@ mod tests {
                     "series_id=ak%3Abackup_series%3A01964137-0000-7000-8000-000000000777"
                 )
             );
-            assert!(request_line.contains("backup_kind=did_recovery"));
+            assert!(request_line.contains("backup_kind=secret_storage"));
             assert!(request_line.contains("limit=25"));
         }
 

@@ -17,7 +17,7 @@ use serde_json::Value;
 /// DID service entry `type` designating an offline RRK (`identity-did.md` §8.3).
 pub const RRK_SERVICE_TYPE: &str = "ArkretRealmHistoryRecoveryKey";
 /// `serviceEndpoint.domain` an RRK service entry MUST carry (history-recovery
-/// domain, separate from `did_recovery`).
+/// domain, separate from DID control-key recovery).
 pub const RRK_SERVICE_DOMAIN: &str = "mls_history";
 /// X25519 public-key multicodec prefix (`0xec 0x01` unsigned-varint), the wire
 /// form a `Multikey` `publicKeyMultibase` RRK key uses for HPKE key agreement.
@@ -328,7 +328,7 @@ mod tests {
         let recipient = recipient();
         let rrk_pub = [5u8; 32];
         let mut document = did_document(&recipient, &rrk_pub);
-        document["service"][0]["serviceEndpoint"]["domain"] = serde_json::json!("did_recovery");
+        document["service"][0]["serviceEndpoint"]["domain"] = serde_json::json!("other_domain");
 
         let err = resolve(&recipient, &document).unwrap_err();
         assert_eq!(

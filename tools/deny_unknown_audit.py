@@ -54,7 +54,6 @@ FLATTEN_RE = re.compile(r"#\s*\[\s*serde\s*\([^)]*\bflatten\b")
 # these get explicit unknown-field negative tests. Membership is by file path.
 A_CLASS_MARKERS = (
     "signatures/",
-    "identity_key_log.rs",
     "mls_governance_proof.rs",
     "mls_payloads.rs",
     "operation_payloads/",

@@ -8,10 +8,9 @@ value is shaped like a valid typed id, every schema, every newtype and every
 round-trip test accepts it. The failure only shows up as an unresolvable
 reference, or as two ids for one object after a retry.
 
-`arkret_identifiers::new_prefixed_uuid7` carries a `debug_assert` against these
-prefixes, which catches the SDK path in debug builds only. This scanner covers
-the two ways around it: a `format!("ak:<kind>:{...}")` that never touches the
-helper, and a release build where the assert is compiled out.
+`arkret_identifiers::new_prefixed_uuid7` rejects these prefixes at runtime.
+This scanner catches defects before execution and also covers the way around
+that guard: a `format!("ak:<kind>:{...}")` that never touches the helper.
 
 What counts as minting: an event-derived prefix on the same line as a fresh-id
 generator, or a call to a `generate_<kind>_id()` / `generate("<kind>")` helper for

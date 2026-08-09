@@ -72,7 +72,7 @@ pub struct ModerationQueueItem {
     pub assigned_to: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_policy: Option<ModerationEvidencePolicy>,
-    /// `ak:event:<uuidv7>` references to audit events recording queue
+    /// `ak:event:<44-char-token>` references to audit events recording queue
     /// actions (decisions, redirects, dismissals).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub audit_refs: Vec<String>,

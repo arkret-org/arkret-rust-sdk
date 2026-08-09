@@ -5,7 +5,7 @@
       "repo": "soland",
       "path": "crates/http/src/ids.rs",
       "verdict": "event_derived",
-      "reason": "The five retained generators for event-derived kinds (realm, space, event, relation, circle) plus `generate_view_id`, and the unit tests that exercise them. The file documents them as known defects with `Do not add callers`; the SDK debug_assert panics on each, which is what the remaining ids.rs test failures report. Removing them is the outcome of the soland local-projection decision in arkret-work/work/active/2026-08-06-event-derived-id-handover.md section 3."
+      "reason": "The five retained generators for event-derived kinds (realm, space, event, relation, circle) plus `generate_view_id`, and the unit tests that exercise them. The file documents them as known defects with `Do not add callers`; the SDK runtime guard rejects each. Removing them is the outcome of the soland local-projection decision in arkret-work/work/active/2026-08-06-event-derived-id-handover.md section 3."
     },
     {
       "repo": "soland",
@@ -44,10 +44,10 @@
       "reason": "Synthetic delegation reference used only by the PostgreSQL round-trip test."
     },
     {
-      "repo": "bridges",
-      "path": "crates/messaging/src/ghost.rs",
-      "verdict": "event_derived",
-      "reason": "`create_portal_strand` mints the portal `ak:strand:` id before building `StrandCreateObject`, so the bridge names the strand instead of deriving it from the create Event it is about to submit."
+      "repo": "arkret-rust-sdk",
+      "path": "crates/identifiers/src/lib.rs",
+      "verdict": "test_fixture",
+      "reason": "Negative `should_panic` coverage proves `new_prefixed_uuid7` rejects an event-derived Realm prefix in every build profile; no id escapes the test expression."
     }
   ]
 }

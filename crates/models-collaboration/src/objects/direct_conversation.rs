@@ -14,7 +14,7 @@ use crate::events_payloads::device_identity::DirectConversationBoundPayload;
 use crate::events_payloads::{RealmCreatePayload, RealmGenesis, RealmPurpose, StrandCreatePayload};
 use crate::governance::delivery_binding::DeliveryStatus;
 use crate::governance::membership_invite::MembershipPayload;
-use crate::objects::profiles::STRAND_TRACK_NAME_DISCUSSION;
+use crate::objects::profiles::{STRAND_TRACK_NAME_DISCUSSION, StrandTrackConfig};
 use crate::objects::realm::NotaryProfile;
 use crate::objects::strand::Strand;
 
@@ -140,9 +140,7 @@ impl DirectConversationRealmRole {
                 "direct conversation Realm purpose/profile mismatch (schema_violation)".to_owned(),
             ));
         }
-        if genesis.genesis_salt.is_none()
-            || genesis.encryption_profile != EncryptionProfile::MlsRfc9420
-        {
+        if genesis.encryption_profile != EncryptionProfile::MlsRfc9420 {
             return Err(Error::Protocol(
                 "direct conversation Realm genesis mismatch (schema_violation)".to_owned(),
             ));
@@ -232,12 +230,16 @@ pub fn direct_conversation_member_join_payload(
 }
 
 pub fn direct_conversation_main_strand_create_payload(
-    strand_id: StrandId,
     realm_id: RealmId,
     creator: Did,
     created_at: DateTime<Utc>,
 ) -> StrandCreatePayload {
-    let mut strand = Strand::discussion(strand_id, realm_id, "Direct conversation", creator);
+    let mut strand = Strand::new_create(realm_id, "Direct conversation", creator);
+    strand.tracks.clear();
+    strand.tracks.insert(
+        STRAND_TRACK_NAME_DISCUSSION.to_owned(),
+        StrandTrackConfig::discussion_primary(),
+    );
     strand.scope_circle_id = None;
     strand.state = Some(ObjectState::Active);
     strand.stage = Some(ObjectStage::InProgress);
@@ -476,7 +478,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(payload.object.purpose, RealmPurpose::DirectConversation);
-        assert!(payload.object.genesis_salt.is_some());
+        assert_eq!(
+            payload.object.genesis_salt.as_str(),
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        );
         assert_eq!(payload.object.security_class, SecurityClass::Standard);
     }
 
@@ -575,14 +580,16 @@ mod tests {
         .object;
         let realm_id =
             RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap();
-        let mut strand = direct_conversation_main_strand_create_payload(
-            StrandId::new("ak:strand:AVBgYTmzSkzTSd1dlFH4ZADaQRkVcx_iTAvXdxlTfxrg").unwrap(),
-            realm_id,
-            creator,
-            Utc::now(),
-        )
-        .object;
         let payload = binding_payload();
+        let mut strand =
+            direct_conversation_main_strand_create_payload(realm_id, creator, Utc::now()).object;
+        assert!(
+            strand.id.is_none(),
+            "create payload must omit the derived id"
+        );
+        // The binding validator consumes the materialized projection, where the
+        // reducer has retyped the accepted create Event id.
+        strand.id = Some(payload.main_strand_id.clone());
         let mut members: BTreeSet<_> = payload.participants_unordered.iter().cloned().collect();
         assert!(
             validate_direct_conversation_binding(

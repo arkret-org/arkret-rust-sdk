@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-09.4;
-//! sha256=788eaf6736d65662f3194da0f454c7741f270d657649bc92c07b804cb162c675 Input: registry/
-//! capability-action-registry.json; version=2026-08-09.10;
-//! sha256=73a5fb25327a7e71d17d87d049411c41f8e5dd17950ab6233a491c828abf4548 Input: registry/
-//! schema-registry.json; version=2026-08-09.10;
-//! sha256=99b0fe20ca6b3c92088e05e777df3f9ef3d3e12aad1a150b8ac6e2edc3c84e70 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-09.9;
+//! sha256=5485e8d9b50b1d927bd89e3343afe641df7afb666d44a74820639dd3022ba6c4 Input: registry/
+//! capability-action-registry.json; version=2026-08-09.23;
+//! sha256=71cb5fc2172b803d4b96a90406dffa8e994b232839814c4e5fe2301cf67e16b4 Input: registry/
+//! schema-registry.json; version=2026-08-09.16;
+//! sha256=8d44669b0ac04d3ccca13c93ad44b9a913485f090bb428347edbaad22730e54d Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
 //! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=55,
-//! special_forms=10, actions=168, schemas=182, account_data_patterns=24
+//! special_forms=10, actions=169, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -275,7 +275,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "realm",
         category: "core_object",
-        wire_form: "ak:realm:<44-char-derivation-tagged-full-digest-token>",
+        wire_form: "ak:realm:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "receipt",
@@ -1071,6 +1071,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         target_event_kinds: &[event_kind_str::MEMBER_STATE],
         grant_authority_actions: &[],
         profile: Some("ak.profile.direct_conversation_realm.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "scope_suffix_variant",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MemberRejoinOwn,
+        category: "membership",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        target_event_kinds: &[event_kind_str::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.direct_conversation_repair.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -3139,10 +3152,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::DID_CONTINUITY_PROOF_V1,
         file: "schemas/did-continuity-proof.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::DID_KEY_LOG_ENTRY_V1,
-        file: "schemas/did-key-log-entry.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1,

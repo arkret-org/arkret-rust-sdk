@@ -751,28 +751,11 @@ impl FederatedDeviceSigningKeyEvidence {
 
 /// Derive the Realm id of an `ak.realm.create` from its own signed content.
 ///
-/// `zh/models/realm-and-space.md` section 2.5.0 has two branches and both are
-/// pure functions of the signed Event, so the id stays self-certifying either
-/// way:
-///
-/// - **Principal Control Realm** (`payload.object.purpose` is `"principal_control"` or
-///   `"managed_agent_control"`) — subject-derived Realm token (`0x11 || SHA-256(v1 domain ||
-///   principal DID)`), so the address remains computable from the DID alone.
-/// - **Collaboration Realm** — event-derived: `retype(event_id)`.
-pub fn derive_genesis_realm_id(
-    event_id: &EventId,
-    actor_id: &Did,
-    payload_object: Option<&Value>,
-) -> RealmId {
-    let is_principal_control = payload_object
-        .and_then(|object| object.get("purpose"))
-        .and_then(Value::as_str)
-        .is_some_and(|purpose| matches!(purpose, "principal_control" | "managed_agent_control"));
-    if is_principal_control {
-        crate::principal_control_realm_id(actor_id.as_str())
-    } else {
-        RealmId::from_event_id(event_id)
-    }
+/// Every Realm kind, including principal and managed-Agent control Realms, is
+/// event-derived. The high nibble of the token header is reserved and remains
+/// zero; no DID-subject-derived address branch exists.
+pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
+    RealmId::from_event_id(event_id)
 }
 
 /// The Event digest preimage of `conformance/encoding.md` §6, computed from a
@@ -978,7 +961,7 @@ impl TryFrom<EventWire> for Event {
                 if kind != EventKind::RealmCreate {
                     return Err("realm_id is required".to_owned());
                 }
-                derive_genesis_realm_id(&wire.event_id, &wire.actor_id, wire.payload.get("object"))
+                derive_genesis_realm_id(&wire.event_id)
             }
         };
         let event = Self {
@@ -1225,8 +1208,7 @@ impl Event {
     ) -> Result<()> {
         self.event_id = self.derive_event_id_with_digest_suite(digest_suite)?;
         if self.scope_ref == ScopeRef::RealmGenesis {
-            self.realm_id =
-                derive_genesis_realm_id(&self.event_id, &self.actor_id, self.payload.get("object"));
+            self.realm_id = derive_genesis_realm_id(&self.event_id);
         }
         Ok(())
     }
@@ -1590,11 +1572,7 @@ impl Event {
         // A genesis scope names no Realm, so `realm_id` was computed from the
         // placeholder id above; recompute it now that the real id is known.
         if event.scope_ref.realm_id_opt().is_none() {
-            event.realm_id = derive_genesis_realm_id(
-                &event.event_id,
-                &event.actor_id,
-                event.payload.get("object"),
-            );
+            event.realm_id = derive_genesis_realm_id(&event.event_id);
         }
         Ok(event)
     }
@@ -1621,7 +1599,7 @@ impl Event {
         // A genesis scope names no Realm; the Realm id comes from this Event.
         let realm_id = match scope_ref.realm_id_opt() {
             Some(realm_id) => realm_id.clone(),
-            None => derive_genesis_realm_id(&event_id, &actor_id, payload.get("object")),
+            None => derive_genesis_realm_id(&event_id),
         };
         Ok(Self {
             event_id,

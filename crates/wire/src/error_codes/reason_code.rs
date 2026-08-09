@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-09.4;
-//! sha256=459cd60017960d314d494af419516f04f3399ad913c2edafb6fd55c0d04b02df
-//! Entries: reason_codes=459
+//! Input: registry/error-code-registry.json; version=2026-08-09.7;
+//! sha256=0a1ba1b2de1d3c41e9e1c52a97e9cee72c1091c4930bbdc1ceacd0edad98ecdf
+//! Entries: reason_codes=460
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -189,6 +189,7 @@ pub enum ReasonCode {
     HateSpeech,
     HistoryVisibilityRequiresHistoryCapableScheme,
     HumanApprovalRequired,
+    IdentityCreationAlreadyAccepted,
     IdentityCreationChallengeAlreadyConsumed,
     IdentityCreationChallengeExpired,
     IdentityCreationLeaseFenced,
@@ -705,6 +706,8 @@ impl ReasonCode {
     pub const HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME: &'static str =
         "history_visibility_requires_history_capable_scheme";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
+    pub const IDENTITY_CREATION_ALREADY_ACCEPTED: &'static str =
+        "identity_creation_already_accepted";
     pub const IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED: &'static str =
         "identity_creation_challenge_already_consumed";
     pub const IDENTITY_CREATION_CHALLENGE_EXPIRED: &'static str =
@@ -1258,6 +1261,7 @@ impl ReasonCode {
                 Self::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME
             }
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
+            Self::IdentityCreationAlreadyAccepted => Self::IDENTITY_CREATION_ALREADY_ACCEPTED,
             Self::IdentityCreationChallengeAlreadyConsumed => {
                 Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED
             }
@@ -1819,6 +1823,7 @@ impl ReasonCode {
                 Self::HistoryVisibilityRequiresHistoryCapableScheme
             }
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
+            Self::IDENTITY_CREATION_ALREADY_ACCEPTED => Self::IdentityCreationAlreadyAccepted,
             Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED => {
                 Self::IdentityCreationChallengeAlreadyConsumed
             }
@@ -3121,6 +3126,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::HUMAN_APPROVAL_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "An agent runtime requested a high-risk session scope that requires out-of-band controller approval. The top-level service error is claim_required; error.details carries this reason_code and an opaque approval_request_id. The runtime MUST NOT receive a CAPTCHA, OTP, or browser challenge. See zh/identity/key-management.md §3.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::IDENTITY_CREATION_ALREADY_ACCEPTED,
+        applies_to: &["identity_creation", "service_call"],
+        description: "The Principal Control Realm for the provisional identity was accepted between abandonment-challenge issuance and the abandonment confirmation, so the identity now exists and MUST NOT be abandoned. The Account Authority decides this from the did_version_id and identity-creation lease fence pinned by the challenge, MUST return this stable terminal outcome with zero writes, and MUST NOT record an orphan anchor tombstone, suppress the checkpoint or release the lease. Removing an established identity is the account deletion / erasure path, not provisional-identity abandonment. See zh/identity/key-management.md §5.0.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED,

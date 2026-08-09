@@ -480,10 +480,16 @@ pub enum AccountHandoffAllowedOperation {
     IssueSessionGrant,
     #[serde(rename = "ak.gate.account.command.issue_recovery_completion_grant")]
     IssueRecoveryCompletionGrant,
+    #[serde(rename = "ak.gate.account.command.issue_identity_abandonment_challenge")]
+    IssueIdentityAbandonmentChallenge,
+    #[serde(rename = "ak.gate.account.command.abandon_identity_creation")]
+    AbandonIdentityCreation,
 }
 
-pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 4] = [
+pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 6] = [
     AccountHandoffAllowedOperation::IssueIdentityBindingChallenge,
+    AccountHandoffAllowedOperation::IssueIdentityAbandonmentChallenge,
+    AccountHandoffAllowedOperation::AbandonIdentityCreation,
     AccountHandoffAllowedOperation::Register,
     AccountHandoffAllowedOperation::IssueSessionGrant,
     AccountHandoffAllowedOperation::IssueRecoveryCompletionGrant,
@@ -515,7 +521,7 @@ impl ReservedIdentityCreation {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationLease {
-    pub lease_id: String,
+    pub identity_creation_lease_id: String,
     pub fence: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -564,7 +570,7 @@ pub struct AccountHandoffOutcome {
     pub account_handoff_grant: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub allowed_operations: [AccountHandoffAllowedOperation; 4],
+    pub allowed_operations: [AccountHandoffAllowedOperation; 6],
     pub binding: AccountHandoffBinding,
 }
 
@@ -578,6 +584,160 @@ impl AccountHandoffOutcome {
         }
         Ok(())
     }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityAbandonmentConsequence {
+    OrphanAnchorPermanentlyUnusable,
+    OrphanAnchorCannotBeDeactivated,
+    NoContinuableStateOnTheOrphanAnchor,
+    #[serde(rename = "a_new_identity_root_did_and_pcr_must_be_created")]
+    ANewIdentityRootDidAndPcrMustBeCreated,
+}
+
+pub const IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE: [IdentityAbandonmentConsequence; 4] = [
+    IdentityAbandonmentConsequence::OrphanAnchorPermanentlyUnusable,
+    IdentityAbandonmentConsequence::OrphanAnchorCannotBeDeactivated,
+    IdentityAbandonmentConsequence::NoContinuableStateOnTheOrphanAnchor,
+    IdentityAbandonmentConsequence::ANewIdentityRootDidAndPcrMustBeCreated,
+];
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityAbandonmentChallengeRequestBody {
+    pub request_id: RequestId,
+    pub identity_creation_lease_id: String,
+    pub lease_fence: u64,
+    pub principal_id: Did,
+    pub did_version_id: String,
+}
+
+impl IdentityAbandonmentChallengeRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.identity_creation_lease_id.is_empty()
+            || self.lease_fence == 0
+            || self.did_version_id.is_empty()
+        {
+            return Err(Error::Protocol(
+                "identity abandonment challenge request is incomplete".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum IdentityAbandonmentPurpose {
+    #[serde(rename = "provisional_identity_abandonment")]
+    ProvisionalIdentityAbandonment,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityAbandonmentChallengeOutcome {
+    pub request_id: RequestId,
+    pub challenge_id: String,
+    pub challenge: String,
+    pub purpose: IdentityAbandonmentPurpose,
+    pub account_subject: Hash,
+    pub principal_id: Did,
+    pub did_version_id: String,
+    pub identity_creation_lease_id: String,
+    pub lease_fence: u64,
+    pub consequence_disclosure: [IdentityAbandonmentConsequence; 4],
+    pub dpop_jkt: String,
+    pub audience: Did,
+    pub origin: String,
+    pub trust_domain: TypedTrustDomainId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+impl IdentityAbandonmentChallengeOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if self.challenge_id.is_empty()
+            || self.challenge.len() < 22
+            || self.did_version_id.is_empty()
+            || self.identity_creation_lease_id.is_empty()
+            || self.lease_fence == 0
+            || self.consequence_disclosure != IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE
+            || self.dpop_jkt.is_empty()
+            || self.origin.is_empty()
+            || self.expires_at <= self.issued_at
+            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
+        {
+            return Err(Error::Protocol(
+                "identity abandonment challenge violates the closed transcript".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityAbandonmentRequestBody {
+    pub request_id: RequestId,
+    pub challenge_id: String,
+    pub challenge: String,
+    pub identity_creation_lease_id: String,
+    pub lease_fence: u64,
+    pub principal_id: Did,
+    pub did_version_id: String,
+}
+
+impl IdentityAbandonmentRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.challenge_id.is_empty()
+            || self.challenge.len() < 22
+            || self.identity_creation_lease_id.is_empty()
+            || self.lease_fence == 0
+            || self.did_version_id.is_empty()
+        {
+            return Err(Error::Protocol(
+                "identity abandonment confirmation is incomplete".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityAbandonmentStatus {
+    Abandoned,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityAbandonmentOutcome {
+    pub request_id: RequestId,
+    pub status: IdentityAbandonmentStatus,
+    pub account_subject: Hash,
+    pub principal_id: Did,
+    pub did_version_id: String,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub abandoned_at: DateTime<Utc>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -605,6 +765,74 @@ impl IdentityBindingChallengeRequestBody {
 #[serde(rename_all = "snake_case")]
 pub enum IdentityBindingPurpose {
     AccountBindingAndPcrGenesis,
+}
+
+/// Request a durable single-use challenge for an already-published DID.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DidBindingChallengeRequestBody {
+    pub request_id: RequestId,
+    pub principal_id: Did,
+}
+
+impl DidBindingChallengeRequestBody {
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DidBindingPurpose {
+    AccountBindingForPublishedDid,
+}
+
+/// Account-Authority-derived pins and freshness evidence for an
+/// already-published DID. Callers copy this transcript verbatim before signing
+/// with the update key active at `did_version_id`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DidBindingChallengeOutcome {
+    pub request_id: RequestId,
+    pub challenge_id: String,
+    pub challenge: String,
+    pub purpose: DidBindingPurpose,
+    pub account_subject: Hash,
+    pub principal_id: Did,
+    pub did_version_id: String,
+    pub log_head_digest: Hash,
+    pub control_key_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub witness_evidence: Option<String>,
+    pub dpop_jkt: String,
+    pub audience: Did,
+    pub origin: String,
+    pub trust_domain: TypedTrustDomainId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+impl DidBindingChallengeOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if self.challenge_id.is_empty()
+            || self.challenge.len() < 22
+            || self.did_version_id.is_empty()
+            || self.dpop_jkt.is_empty()
+            || self.origin.is_empty()
+            || self.expires_at <= self.issued_at
+            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
+        {
+            return Err(Error::Protocol(
+                "published-DID binding challenge violates the closed transcript".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1012,7 +1240,7 @@ impl AccountBindingReceipt {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        self.proof.validate()?;
+        self.proof.validate_production()?;
         if self.lease_fence == 0
             || self.identity_creation_lease_id.is_empty()
             || self.proof.created_at != self.issued_at
@@ -1028,6 +1256,21 @@ impl AccountBindingReceipt {
             ));
         }
         Ok(())
+    }
+
+    /// Canonical detached-JWS binding object for the Account Authority proof.
+    pub fn canonical_proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.validate_shape()?;
+        canonical::canonical_json_bytes(&serde_json::json!({
+            "context": arkret_wire::ProofContextId::ACCOUNT_BINDING_RECEIPT_PROOF_V1,
+            "payload_digest": &self.proof.payload_digest,
+            "account_authority_id": &self.account_authority_id,
+            "account_subject": &self.account_subject,
+            "principal_id": &self.principal_id,
+            "verification_method": &self.proof.verification_method,
+            "created_at": canonical::format_timestamp_canonical(self.proof.created_at),
+        }))
+        .map_err(Into::into)
     }
 }
 

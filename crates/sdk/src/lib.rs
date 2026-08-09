@@ -262,14 +262,11 @@ pub use arkret_models_identity::did_continuity::*;
 pub use arkret_models_identity::handle::*;
 pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;
-pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
 pub use arkret_models_identity::identity_link_cache::*;
 pub use arkret_models_identity::member_identity::*;
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::session_credential::*;
-pub use arkret_models_identity::{
-    DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method,
-};
+pub use arkret_models_identity::{DID_WEBVH_V1_METHOD, validate_did_webvh_v1_method};
 pub use arkret_models_integration::applet::*;
 pub use arkret_models_integration::applet_audit_payload::*;
 pub use arkret_models_integration::applet_install_plan::*;
@@ -311,6 +308,12 @@ pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519PayloadSigner;
+pub use arkret_signatures::contact_receipt::{
+    contact_request_acceptance_receipt_signing_bytes, verify_contact_request_acceptance_receipt,
+};
+pub use arkret_signatures::device_pairing::{
+    sign_device_pairing_target_attestation, verify_device_pairing_target_attestation,
+};
 pub use arkret_signatures::federation::*;
 pub use arkret_signatures::keypackages::{
     KeyPackageSignatureError, KeyPackageSignatureResult, keypackage_signature_from_bytes,
@@ -482,18 +485,19 @@ pub use http_did_resolver::{
     DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
 };
 pub use identity::{
+    AuthorityDidHistoryResolver, AuthorityHistoryUnavailable, AuthorityHistoryVerificationError,
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
-    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyLogAuthorityVerifier,
-    DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
-    DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation,
-    HandleClaimChallenge, HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole,
-    PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore, ResolvedDid,
-    ResolvedVerificationMethodKey, VerifiedDidKeyLog, attach_did_key_log_controller_proof,
+    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidMigration,
+    DidRegistryReceipt, DidResolver, DidVisibility, DidWebDocumentOutcome, DidWebResolver,
+    ExternalHandleProof, HandleAttestation, HandleClaimChallenge, HandleProofProfile,
+    IdentityManager, IdentityReceiptWitnessRole, PairwiseDidBinding, PairwiseDidResolutionProof,
+    PairwiseDidStore, ResolvedDid, ResolvedVerificationMethodKey, VerifiedAccountBindingReceipt,
     event_proof_verification_context, event_proof_verification_context_with_digest_suite,
     handle_claim_proof, handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
     resolve_verification_method_key, resolve_verification_method_key_from_document,
-    verification_method_did, verify_canonical_proof_with_did_resolver, verify_did_key_log,
-    verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
+    verification_method_did, verify_account_binding_receipt_at_issuance,
+    verify_canonical_proof_with_did_resolver, verify_event_proof_with_did_resolver,
+    verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "client")]
 pub use key_backup_client::KeyBackupClient;

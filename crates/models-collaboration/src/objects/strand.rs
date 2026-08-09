@@ -192,14 +192,21 @@ pub struct Strand {
 
 impl Strand {
     pub const SCHEMA: &'static str = SchemaId::STRAND_V1;
-    pub fn new(id: StrandId, realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
+
+    /// Build the object carried by an `ak.strand.create` payload.
+    ///
+    /// The id is deliberately absent: the accepted Event's complete 33-byte
+    /// identity token is retyped as the projected [`StrandId`]. Producers must
+    /// not mint a placeholder UUID or truncate that Event token merely to use
+    /// a projected-object constructor.
+    pub fn new_create(realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
         let mut tracks = BTreeMap::new();
         tracks.insert(
             STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
             StrandTrackConfig::synthesis(),
         );
         Self {
-            id: Some(id),
+            id: None,
             schema: SchemaId::STRAND_V1.to_owned(),
             realm_id,
             scope_circle_id: None,
@@ -219,6 +226,13 @@ impl Strand {
             updated_by: None,
             updated_at: None,
         }
+    }
+
+    /// Build a materialized Strand snapshot with its already-derived id.
+    pub fn new(id: StrandId, realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
+        let mut strand = Self::new_create(realm_id, title, created_by);
+        strand.id = Some(id);
+        strand
     }
 
     /// Activates a profile subtree: adds `schema_id` to `schema_refs` while the

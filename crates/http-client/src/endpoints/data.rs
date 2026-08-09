@@ -534,7 +534,6 @@ impl Client {
         }
         if let Some(class) = query.backup_kind {
             let class_str = match class {
-                arkret_models_crypto::key_backup::BackupKind::DidRecovery => "did_recovery",
                 arkret_models_crypto::key_backup::BackupKind::SecretStorage => "secret_storage",
                 arkret_models_crypto::key_backup::BackupKind::MlsHistory => "mls_history",
             };

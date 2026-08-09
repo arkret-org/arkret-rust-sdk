@@ -1,10 +1,12 @@
 //! Canonical device-pairing challenge transcript generation and verification.
 
+use arkret_models_collaboration::events_payloads::SignatureMaterial;
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_models_collaboration::http_bodies::{
     DevicePairingBootstrap, DevicePairingChallengeProof, DevicePairingChallengeTranscriptKind,
     DevicePairingCode, DevicePairingNonce, DevicePairingRequestId, DevicePairingStageOutcome,
-    DevicePairingToDeviceChallengeTranscript,
+    DevicePairingTargetAttestation, DevicePairingToDeviceChallengeTranscript,
+    UnsignedDevicePairingTargetAttestation,
 };
 use arkret_wire::{Base64UrlString, DeviceId, Hash, NonEmptyString};
 use base64::Engine as _;
@@ -71,10 +73,55 @@ pub enum DevicePairingProofError {
     MalformedSignature,
     #[error("device pairing signature verification failed")]
     InvalidSignature,
+    #[error("device pairing target attestation signature is not the closed Ed25519 string form")]
+    InvalidTargetAttestationSignatureShape,
     #[error("device pairing transcript could not be canonicalized: {0}")]
     Canonical(#[from] arkret_canonical::CanonicalError),
     #[error("device pairing wire value is invalid: {0}")]
     Wire(#[from] arkret_wire::Error),
+}
+
+/// Sign the target-owned accepted-device possession attestation that travels
+/// out of band to the approving sibling.
+pub fn sign_device_pairing_target_attestation(
+    unsigned: UnsignedDevicePairingTargetAttestation,
+    signing_key: &ed25519_dalek::SigningKey,
+) -> Result<DevicePairingTargetAttestation, DevicePairingProofError> {
+    let input = unsigned.signing_input()?;
+    let signature =
+        NonEmptyString::new(URL_SAFE_NO_PAD.encode(signing_key.sign(&input).to_bytes()))
+            .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?;
+    let attestation = unsigned.attach_signature(SignatureMaterial::NonEmptyString(signature));
+    verify_device_pairing_target_attestation(&attestation)?;
+    Ok(attestation)
+}
+
+/// Verify the target-device possession proof independently of the approving
+/// device Event. Call `DevicePairingTargetAttestation::validate_against_pair_request`
+/// afterwards to bind the verified material to the exact preassembled request.
+pub fn verify_device_pairing_target_attestation(
+    attestation: &DevicePairingTargetAttestation,
+) -> Result<(), DevicePairingProofError> {
+    let multibase = attestation
+        .device_public_key
+        .as_str()
+        .strip_prefix("did:key:")
+        .ok_or(DevicePairingProofError::UnsupportedKey)?;
+    let public_key = arkret_canonical::decode_ed25519_multibase(multibase)
+        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
+    let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&public_key)
+        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
+    let SignatureMaterial::NonEmptyString(signature) = &attestation.device_signature else {
+        return Err(DevicePairingProofError::InvalidTargetAttestationSignatureShape);
+    };
+    let signature = URL_SAFE_NO_PAD
+        .decode(signature.as_str())
+        .map_err(|_| DevicePairingProofError::MalformedSignature)?;
+    let signature = ed25519_dalek::Signature::from_slice(&signature)
+        .map_err(|_| DevicePairingProofError::MalformedSignature)?;
+    verifying_key
+        .verify_strict(&attestation.signing_input()?, &signature)
+        .map_err(|_| DevicePairingProofError::InvalidSignature)
 }
 
 #[derive(Serialize)]
@@ -293,6 +340,8 @@ fn validate_public_key(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
 
     fn fixture() -> (
@@ -349,5 +398,110 @@ mod tests {
             ),
             Err(DevicePairingProofError::DigestMismatch)
         ));
+    }
+
+    fn target_attestation_fixture(
+        signing_key: &ed25519_dalek::SigningKey,
+    ) -> UnsignedDevicePairingTargetAttestation {
+        let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            signing_key.verifying_key().as_bytes(),
+        );
+        UnsignedDevicePairingTargetAttestation::new(
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000009").unwrap(),
+            arkret_wire::DidKey::new(format!("did:key:{multibase}")).unwrap(),
+            NonEmptyString::new("hpke-public-key-fixture").unwrap(),
+            vec![NonEmptyString::new("Ed25519").unwrap()],
+            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn target_attestation_signing_input_and_wire_shape_are_fixed() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[9_u8; 32]);
+        let unsigned = target_attestation_fixture(&signing_key);
+        let did_key = format!(
+            "did:key:{}",
+            arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                signing_key.verifying_key().as_bytes()
+            )
+        );
+        assert_eq!(
+            String::from_utf8(unsigned.signing_input().unwrap()).unwrap(),
+            format!(
+                "ak.device-authorize-accepted-device-possession-proof-v1\n\
+                 {{\"algorithms\":[\"Ed25519\"],\"authorization_binding_kind\":\"accepted_device\",\
+                 \"device_id\":\"ak:device:01904100-0000-7000-8000-000000000009\",\
+                 \"device_key_algorithm\":\"Ed25519\",\"device_public_key\":\"{did_key}\",\
+                 \"hpke_key\":\"hpke-public-key-fixture\",\
+                 \"pairing_challenge_transcript_digest\":\"sha256:{}\"}}",
+                "a".repeat(64)
+            )
+        );
+
+        let attestation = sign_device_pairing_target_attestation(unsigned, &signing_key).unwrap();
+        verify_device_pairing_target_attestation(&attestation).unwrap();
+        let value = serde_json::to_value(&attestation).unwrap();
+        assert_eq!(value["device_key_algorithm"], "Ed25519");
+        assert_eq!(value["authorization_binding_kind"], "accepted_device");
+        assert!(value["device_signature"].is_string());
+    }
+
+    #[test]
+    fn target_attestation_rejects_tampering_polymorphic_signature_and_bad_algorithm_set() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[10_u8; 32]);
+        let mut attestation = sign_device_pairing_target_attestation(
+            target_attestation_fixture(&signing_key),
+            &signing_key,
+        )
+        .unwrap();
+        attestation.hpke_key = NonEmptyString::new("tampered-hpke-key").unwrap();
+        assert!(matches!(
+            verify_device_pairing_target_attestation(&attestation),
+            Err(DevicePairingProofError::InvalidSignature)
+        ));
+
+        let mut map_signature = sign_device_pairing_target_attestation(
+            target_attestation_fixture(&signing_key),
+            &signing_key,
+        )
+        .unwrap();
+        map_signature.device_signature = SignatureMaterial::Variant1(BTreeMap::new());
+        assert!(matches!(
+            verify_device_pairing_target_attestation(&map_signature),
+            Err(DevicePairingProofError::InvalidTargetAttestationSignatureShape)
+        ));
+
+        let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000009").unwrap();
+        let did_key = arkret_wire::DidKey::new(format!(
+            "did:key:{}",
+            arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                signing_key.verifying_key().as_bytes()
+            )
+        ))
+        .unwrap();
+        let digest = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
+        for algorithms in [
+            Vec::new(),
+            vec![
+                NonEmptyString::new("MLS").unwrap(),
+                NonEmptyString::new("Ed25519").unwrap(),
+            ],
+            vec![
+                NonEmptyString::new("Ed25519").unwrap(),
+                NonEmptyString::new("Ed25519").unwrap(),
+            ],
+        ] {
+            assert!(
+                UnsignedDevicePairingTargetAttestation::new(
+                    device_id.clone(),
+                    did_key.clone(),
+                    NonEmptyString::new("hpke-public-key-fixture").unwrap(),
+                    algorithms,
+                    digest.clone(),
+                )
+                .is_err()
+            );
+        }
     }
 }

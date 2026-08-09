@@ -22,8 +22,8 @@ pub const PRINCIPAL_CONTROL_PURPOSE_FIELD: &str = "purpose";
 pub const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
 pub const MANAGED_AGENT_CONTROL_PURPOSE: &str = "managed_agent_control";
 
-/// Whether an `ak.realm.create` genesis object selects the subject-derived PCR
-/// identity branch. Admission still validates the complete closed schema.
+/// Whether an `ak.realm.create` genesis object selects the PCR profile.
+/// Realm identifiers remain event-derived for every purpose.
 pub fn realm_object_is_principal_control(object: &Value) -> bool {
     object
         .get(PRINCIPAL_CONTROL_PURPOSE_FIELD)
@@ -245,7 +245,7 @@ pub struct DurabilityThreshold {
 /// One Realm Recovery Key holder. `verification_method` MUST point to a
 /// verification method designated by an active `ArkretRealmHistoryRecoveryKey`
 /// service entry published by `principal_id` (identity-did.md §8.3),
-/// domain-separated from the principal's `did_recovery` key.
+/// domain-separated from the principal's DID control-key recovery material.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RealmRecoveryRecipient {
     pub recipient_id: String,

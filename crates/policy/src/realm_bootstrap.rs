@@ -327,9 +327,7 @@ pub fn validate_realm_bootstrap_unit(
     let payload: RealmCreatePayload = create
         .typed_payload::<event_spec::RealmCreate>()
         .map_err(|_| RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;
-    if payload.object.purpose != RealmPurpose::Collaboration
-        || payload.object.genesis_salt.is_none()
-    {
+    if payload.object.purpose != RealmPurpose::Collaboration {
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     }
     let mut previous_slot = 0_usize;

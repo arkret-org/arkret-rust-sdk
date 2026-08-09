@@ -22,7 +22,7 @@ use std::fmt;
 
 pub use admin_key::AdminKeyStore;
 use arkret_models_identity::{DidDocument, SignedSessionGrantClaims};
-use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof};
+use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof, RealmId};
 use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
 use error::AuthError as Error;
@@ -239,18 +239,17 @@ pub fn is_principal_control_event(event_kind: &EventKind) -> bool {
 /// `realm_id` does not match.
 pub fn assert_control_realm_pinning(
     event_kind: &EventKind,
-    principal_id: &Did,
+    principal_control_realm_id: &RealmId,
     realm_id: &str,
 ) -> Result<()> {
     if !is_principal_control_event(event_kind) {
         return Ok(());
     }
-    let expected = arkret_models_identity::principal_control_realm_id(principal_id);
-    if realm_id == expected {
+    if realm_id == principal_control_realm_id.as_str() {
         Ok(())
     } else {
         Err(Error::Protocol(format!(
-            "principal_control_realm_mismatch: '{event_kind}' must be pinned to '{expected}', got '{realm_id}'"
+            "principal_control_realm_mismatch: '{event_kind}' must be pinned to '{principal_control_realm_id}', got '{realm_id}'"
         )))
     }
 }

@@ -319,6 +319,7 @@ validated_wire_string!(
 fn is_authorization_ref(value: &str) -> bool {
     value == crate::REALM_AUTHORITY_ROOT_CELL
         || value == "ak.authority.direct_conversation_participant.v1"
+        || value == "ak.authority.direct_conversation_repair.v1"
         || crate::MembershipCompensationDelegationRef::new(value).is_ok()
         || GrantId::new(value).is_ok()
         || EventId::new(value).is_ok()
@@ -786,6 +787,7 @@ impl<'de> Deserialize<'de> for DidUrl {
 
 /// Ed25519 public key encoded as a `did:key` multibase value.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(transparent)]
 pub struct DidKey(String);
 
@@ -865,6 +867,7 @@ mod tests {
             "did:web:alice.example#managed-controller",
             crate::REALM_AUTHORITY_ROOT_CELL,
             "ak.authority.direct_conversation_participant.v1",
+            "ak.authority.direct_conversation_repair.v1",
         ] {
             assert!(AuthorizationRef::new(value).is_ok(), "{value}");
         }

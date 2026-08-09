@@ -323,34 +323,58 @@ where
 /// baseline: a PCR with no evaluable policy MUST NOT fall back to "allow".
 pub fn principal_control_realm_history_sharing_policy()
 -> arkret_wire::Result<HistorySharingPolicyPayloadValue> {
+    profile_fixed_history_sharing_policy(
+        ProfileId::PRINCIPAL_CONTROL_REALM_V1,
+        "principal control realm",
+    )
+}
+
+/// Effective exact-peer-only history sharing policy fixed by
+/// `ak.profile.direct_conversation_realm.v1`.
+///
+/// A Direct Conversation cannot author an `ak.realm.history_sharing_policy`
+/// Event: its founding unit is exactly three Events and its participant
+/// authorities never carry a policy action. Consumers must use this profile
+/// value rather than treating the absent Event as a missing policy.
+pub fn direct_conversation_realm_history_sharing_policy()
+-> arkret_wire::Result<HistorySharingPolicyPayloadValue> {
+    profile_fixed_history_sharing_policy(
+        ProfileId::DIRECT_CONVERSATION_REALM_V1,
+        "direct conversation realm",
+    )
+}
+
+fn profile_fixed_history_sharing_policy(
+    profile_id: &str,
+    label: &str,
+) -> arkret_wire::Result<HistorySharingPolicyPayloadValue> {
     let profiles = arkret_schema::embedded_json_artifact("profiles/conformance-profiles.json")
         .map_err(|error| {
             arkret_wire::Error::Protocol(format!(
-                "principal control realm history sharing baseline unavailable: {error}"
+                "{label} history sharing baseline unavailable: {error}"
             ))
         })?;
     let value = profiles
         .get("profile_requirements")
-        .and_then(|profiles| profiles.get(ProfileId::PRINCIPAL_CONTROL_REALM_V1))
+        .and_then(|profiles| profiles.get(profile_id))
         .and_then(|profile| profile.get("history_sharing_policy_fixed_baseline"))
         .and_then(|baseline| baseline.get("value"))
         .ok_or_else(|| {
-            arkret_wire::Error::Protocol(
-                "principal control realm profile declares no \
-                 history_sharing_policy_fixed_baseline.value"
-                    .to_owned(),
-            )
+            arkret_wire::Error::Protocol(format!(
+                "{label} profile declares no \
+                     history_sharing_policy_fixed_baseline.value"
+            ))
         })?;
     let policy: HistorySharingPolicyPayloadValue =
         serde_json::from_value(value.clone()).map_err(|error| {
             arkret_wire::Error::Protocol(format!(
-                "principal control realm history sharing baseline is not a valid policy value: \
+                "{label} history sharing baseline is not a valid policy value: \
                  {error}"
             ))
         })?;
     validate_history_sharing_policy(&policy).map_err(|error| {
         arkret_wire::Error::Protocol(format!(
-            "principal control realm history sharing baseline fails policy validation: {error}"
+            "{label} history sharing baseline fails policy validation: {error}"
         ))
     })?;
     Ok(policy)
@@ -359,7 +383,9 @@ pub fn principal_control_realm_history_sharing_policy()
 #[cfg(test)]
 mod policy_tests {
     use arkret_models_collaboration::events_payloads::HistorySharingPolicyPayloadValueAudit;
-    use arkret_models_collaboration::governance::history_visibility::HistorySharingPreJoinPolicy;
+    use arkret_models_collaboration::governance::history_visibility::{
+        HistorySharingPostRemovalRecoveryPolicy, HistorySharingPreJoinPolicy,
+    };
 
     use super::*;
 
@@ -535,5 +561,69 @@ mod policy_tests {
             );
             assert!(!rules[0].key_sources.contains(&source));
         }
+    }
+
+    #[test]
+    fn direct_conversation_baseline_is_exact_and_profile_backed() {
+        let policy = direct_conversation_realm_history_sharing_policy()
+            .expect("the Direct Conversation profile declares its fixed baseline");
+        assert_eq!(policy.version, 1);
+        assert_eq!(
+            policy.default_key_share,
+            HistoryKeyShareDefault::EventTimeVisibility
+        );
+        assert_eq!(
+            policy.pre_join_history,
+            Some(HistorySharingPreJoinPolicy::Deny)
+        );
+        assert_eq!(
+            policy.post_removal_recovery,
+            Some(HistorySharingPostRemovalRecoveryPolicy::Deny)
+        );
+        assert_eq!(
+            policy.allowed_key_sources,
+            vec![
+                HistoryKeySource::OwnDevice,
+                HistoryKeySource::VerifiedMemberDevice,
+                HistoryKeySource::KeyBackup,
+            ]
+        );
+        assert_eq!(
+            policy.allowed_receiver_states,
+            Some(vec![HistorySharingReceiverClass::ActiveMember])
+        );
+        assert!(policy.audit.share_audit_event_required);
+        assert!(policy.audit.access_audit_required);
+        assert!(policy.restricted_rules.is_none());
+        assert_eq!(
+            serde_json::to_value(&policy).unwrap(),
+            serde_json::json!({
+                "version": 1,
+                "default_key_share": "event_time_visibility",
+                "pre_join_history": "deny",
+                "post_removal_recovery": "deny",
+                "allowed_key_sources": [
+                    "own_device",
+                    "verified_member_device",
+                    "key_backup"
+                ],
+                "allowed_receiver_states": ["active_member"],
+                "audit": {
+                    "share_audit_event_required": true,
+                    "access_audit_required": true
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn fixed_baseline_loader_fails_closed_for_unregistered_profile() {
+        assert!(
+            profile_fixed_history_sharing_policy(
+                "ak.profile.not-registered.v1",
+                "unregistered fixture"
+            )
+            .is_err()
+        );
     }
 }

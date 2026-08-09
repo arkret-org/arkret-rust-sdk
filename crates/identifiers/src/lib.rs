@@ -124,15 +124,9 @@ macro_rules! id_type {
 /// `ak:realm:` is not declared here because it uses the derivation-tagged
 /// 33-byte Realm token rather than a UUID.
 ///
-/// - **Collaboration Realm** — event-derived: `realm_id = retype(genesis event_id)`, so the id
-///   self-certifies against the genesis Event.
-/// - **Principal Control Realm** — subject-derived: header `0x11` followed by the full
-///   `SHA-256("ak:realm:principal-control:v1:" || principal_did)` digest. It carries no
-///   producer-chosen timestamp or randomness and stays computable from the DID alone; a PCR's
-///   identity anchor is its `did_inception` root, not its genesis Event.
-///
-/// Neither form is producer-chosen. The branch is fixed by the create's
-/// `purpose`, never by the call site.
+/// Every Realm, including a Principal Control Realm, is event-derived:
+/// `realm_id = retype(genesis event_id)`. The id therefore self-certifies
+/// against the genesis Event and has no DID-subject-derived branch.
 /// RFC 9562 version nibble for producer-allocated typed ids (UUIDv7).
 pub const UUID_VERSION_PRODUCER_ALLOCATED: u8 = b'7';
 
@@ -618,19 +612,18 @@ pub fn is_strict_typed_id(value: &str, prefix: &str, version_nibble: u8) -> bool
 /// `conformance/encoding.md` §4 and is the canonical wire form for typed
 /// `ak:<kind>:` identifiers (Arkret v1, 2026-05-09 onward).
 pub fn new_prefixed_uuid7(prefix: &str) -> String {
-    debug_assert!(
+    assert!(
         !EVENT_DERIVED_ID_KIND_PREFIXES.contains(&prefix),
         "{prefix} is an event-derived kind: its id MUST come from          <Kind>Id::from_event_id, never from a freshly minted identifier"
     );
     format!("{prefix}{}", uuid_v7_at(platform_unix_ms()))
 }
 
-/// Derivation class carried in the high nibble of a Realm token header.
+/// The sole v1 Realm derivation class. The high nibble is reserved zero.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum RealmDerivationClass {
     EventDerived = 0x0,
-    PrincipalSubjectDerived = 0x1,
 }
 
 impl TryFrom<u8> for RealmDerivationClass {
@@ -639,36 +632,11 @@ impl TryFrom<u8> for RealmDerivationClass {
     fn try_from(value: u8) -> Result<Self> {
         match value {
             0x0 => Ok(Self::EventDerived),
-            0x1 => Ok(Self::PrincipalSubjectDerived),
             _ => Err(IdentifierError::InvalidId(format!(
-                "unsupported Realm derivation class: 0x{value:x}"
+                "Realm token reserved high nibble must be zero, got 0x{value:x}"
             ))),
         }
     }
-}
-
-const PRINCIPAL_CONTROL_REALM_HEADER: u8 = 0x11;
-const PRINCIPAL_CONTROL_REALM_DOMAIN: &[u8] = b"ak:realm:principal-control:v1:";
-
-/// Derive a Principal Control Realm id from its canonical principal DID.
-///
-/// Spec `zh/models/realm-and-space.md` section 2.5.0: a PCR id is
-/// *subject-derived*, not event-derived, so it stays computable from the DID
-/// alone by anyone — that addressability is the point, and a PCR's identity
-/// anchor is its `did_inception` root rather than its genesis Event.
-///
-/// Realm genesis construction selects this subject transcript only for the
-/// signed `purpose=principal_control|managed_agent_control` branches. The v1 domain separator is
-/// unchanged; only the Realm wire container is the unified full-digest token.
-pub fn principal_control_realm_id(principal_did: &str) -> RealmId {
-    let digest = arkret_canonical::canonical::sha256_bytes_from_slices(&[
-        PRINCIPAL_CONTROL_REALM_DOMAIN,
-        principal_did.as_bytes(),
-    ]);
-    let mut token = [0_u8; 33];
-    token[0] = PRINCIPAL_CONTROL_REALM_HEADER;
-    token[1..].copy_from_slice(&digest);
-    RealmId(encode_event_token(RealmId::KIND_PREFIX, token))
 }
 
 /// Typed id prefixes whose ids are derived from a create Event rather than
@@ -759,11 +727,10 @@ pub fn is_lowercase_typed_uuid(value: &str, version_nibble: u8) -> bool {
         }
     }
     // Version nibble at byte position 14 (third group: Vxxx).
-    // `0` means either registered Realm form: event-derived v8 or
-    // subject-derived PCR v7. Genesis validation selects and recomputes the
-    // exact branch; this helper validates only the shared wire shape.
+    // `0` is reserved for derivation-tagged identifiers. Realm identifiers
+    // use the event-derived v8 form exclusively.
     if version_nibble == 0 {
-        if !matches!(bytes[14], b'7' | b'8') {
+        if bytes[14] != b'8' {
             return false;
         }
     } else if bytes[14] != version_nibble {
@@ -962,13 +929,10 @@ impl RealmId {
         digest
     }
 
-    /// Retype a collaboration Realm back to its genesis Event identity.
-    /// Principal Control Realms are subject-derived and therefore return `None`.
-    pub fn event_id(&self) -> Option<EventId> {
-        if self.derivation_class() != RealmDerivationClass::EventDerived {
-            return None;
-        }
-        EventId::from_token_bytes(self.token_bytes()).ok()
+    /// Retype any Realm back to its genesis Event identity.
+    pub fn event_id(&self) -> EventId {
+        EventId::from_token_bytes(self.token_bytes())
+            .expect("validated Realm id is a retyped genesis Event id")
     }
 }
 
@@ -1600,24 +1564,26 @@ mod tests {
     }
 
     #[test]
-    fn principal_control_realm_full_digest_token_known_answer() {
-        let did = "did:webvh:z6mkfixture:alice.example";
-        let realm_id = principal_control_realm_id(did);
-        assert_eq!(
-            realm_id.as_str(),
-            "ak:realm:EZhLpW4uz0hs--DKssejBneEirYysC3NDtTyvwG9ulcS"
-        );
-        assert_eq!(realm_id.token_bytes()[0], 0x11);
+    #[should_panic(expected = "ak:realm: is an event-derived kind")]
+    fn new_prefixed_uuid7_rejects_event_derived_kinds_in_all_build_profiles() {
+        let _ = new_prefixed_uuid7("ak:realm:");
+    }
+
+    #[test]
+    fn realm_tokens_are_event_derived_and_reject_reserved_header_bits() {
+        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x42; 32]);
+        let realm_id = RealmId::from_event_id(&event_id);
+        assert_eq!(realm_id.token_bytes()[0], 0x01);
         assert_eq!(
             realm_id.derivation_class(),
-            RealmDerivationClass::PrincipalSubjectDerived
+            RealmDerivationClass::EventDerived
         );
         assert_eq!(realm_id.digest_suite_code(), EventDigestSuiteCode::Sha256);
-        assert!(realm_id.event_id().is_none());
-        assert_ne!(
-            realm_id,
-            principal_control_realm_id("did:webvh:z6mkfixture:bob.example")
-        );
+        assert_eq!(realm_id.event_id(), event_id);
+
+        let mut reserved = realm_id.token_bytes();
+        reserved[0] = 0x11;
+        assert!(RealmId::new(encode_event_token("ak:realm:", reserved)).is_err());
 
         assert!(RealmId::new("ak:realm:019a6aa0-0000-7000-8000-000000000001").is_err());
         let blake3_event = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x42; 32]);

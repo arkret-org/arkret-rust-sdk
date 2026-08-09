@@ -12,10 +12,9 @@ use arkret_models_collaboration::events_payloads::{
     FoundingDeviceDescriptor, RealmCreatePayload, RealmGenesis,
 };
 use arkret_models_collaboration::objects::realm::NotaryProfile;
-use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_wire::{
-    CellRef, Did, EncryptionProfile, Error, Event, EventKind, EventRef, EventRequirements, Hash,
-    Hlc, NotaryValue, PcrGenesisUnit, ProfileId, RealmId, Result, SchemaId, ScopeRef,
+    CellRef, Did, EncryptionProfile, Error, Event, EventKind, EventRef, EventRequirements,
+    GenesisSalt, Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
     SecurityClass, TypedTrustDomainId, composite_subject, event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
@@ -29,7 +28,7 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 #[derive(Clone, Debug)]
 pub struct SelfPrincipalPcrCreateInput {
     pub principal_id: Did,
-    pub realm_id: RealmId,
+    pub genesis_salt: GenesisSalt,
     pub trust_domain: TypedTrustDomainId,
     pub did_inception_ref: EventRef,
     pub founding_device_descriptor: FoundingDeviceDescriptor,
@@ -47,12 +46,6 @@ pub fn build_self_principal_pcr_create(
     project: CellWriteProjector<'_>,
 ) -> Result<Event> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
-    let expected_realm_id = RealmId::new(principal_control_realm_id(&input.principal_id))?;
-    if input.realm_id != expected_realm_id {
-        return Err(Error::Protocol(
-            "self principal PCR realm_id does not match principal_id".to_owned(),
-        ));
-    }
     if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE
         || !input.did_inception_ref.critical
         || input.did_inception_ref.proof.is_some()
@@ -63,6 +56,7 @@ pub fn build_self_principal_pcr_create(
     }
 
     let genesis = RealmGenesis::principal_control(
+        input.genesis_salt,
         Some(input.founding_device_descriptor),
         input.trust_domain,
         vec![
@@ -81,9 +75,8 @@ pub fn build_self_principal_pcr_create(
     let payload = RealmCreatePayload::new(genesis);
     let event = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RealmCreate>::new(
         // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
-        // carries no realm_id. For a PCR the id is subject-derived from the
-        // principal DID rather than from this Event, but the wire shape is the
-        // same closed `realm_genesis` scope for every ak.realm.create.
+        // carries no realm_id. Every Realm id, including a PCR, is derived
+        // from the authored create Event.
         ScopeRef::RealmGenesis,
         input.principal_id,
         payload,
@@ -209,7 +202,7 @@ pub(crate) fn validate_self_principal_pcr_create(
     require_proof: bool,
     project: CellWriteProjector<'_>,
 ) -> Result<()> {
-    let expected_realm_id = RealmId::new(principal_control_realm_id(&event.actor_id))?;
+    let expected_realm_id = arkret_wire::RealmId::from_event_id(&event.event_id);
     if event.kind != EventKind::RealmCreate
         || event.realm_id != expected_realm_id
         || event.actor_seq != 0
@@ -266,7 +259,6 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
     if genesis.schema != SchemaId::REALM_GENESIS_V1
         || genesis.purpose
             != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl
-        || genesis.genesis_salt.is_some()
         || genesis.security_class != SecurityClass::HighAssurance
         || profile_count != 1
         || genesis.encryption_profile != EncryptionProfile::MlsRfc9420

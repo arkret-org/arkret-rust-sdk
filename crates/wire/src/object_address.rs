@@ -139,9 +139,9 @@ impl RealmRef {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParsedAddress {
     pub realm: RealmRef,
-    /// Bare strand uuid; `Some` for strand + message targets.
+    /// Sigil-stripped strand Event token; `Some` for strand + message targets.
     pub strand: Option<String>,
-    /// Bare message uuid; `Some` only for message targets.
+    /// Sigil-stripped message Event token; `Some` only for message targets.
     pub message: Option<String>,
     pub action: AddressAction,
     pub address_link_kind: AddressLinkKind,
@@ -368,7 +368,7 @@ fn parse_query(query: &str) -> (AddressAction, AddressLinkKind, Option<String>) 
 /// the HTTPS-landing fragment form into a [`ParsedAddress`].
 ///
 /// Fails closed on: unrecognized envelope, unknown/misordered path keyword, a
-/// missing intermediate hierarchy level, a non-uuid strand/message segment, or a
+/// missing intermediate hierarchy level, a non-token strand/message segment, or a
 /// Strand/Message address missing `realm/<r>`.
 pub fn parse_address(input: &str) -> Result<ParsedAddress> {
     let (path, query) = strip_shell(input)?;
@@ -449,8 +449,9 @@ fn build_query(parsed: &ParsedAddress) -> String {
     }
 }
 
-/// Wrap a bare uuid (or already-typed id) into a canonical `ak:<kind>:<uuid>`
-/// identifier. Idempotent if the input already carries the prefix.
+/// Wrap a sigil-stripped token (or already-typed id) into a canonical
+/// `ak:<kind>:<token>` identifier. Idempotent if the input already carries the
+/// prefix.
 fn typed_id(prefix: &str, bare: &str) -> String {
     if bare.starts_with(prefix) {
         bare.to_owned()
@@ -578,7 +579,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_realm_address_uuid() {
+    fn parse_realm_address_token() {
         let parsed = parse_address(&format!("web+arkret:realm/{R}")).unwrap();
         assert_eq!(parsed.realm, RealmRef::RealmId(R.to_owned()));
         assert!(parsed.is_realm());
@@ -691,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    fn non_uuid_strand_segment_fails_closed() {
+    fn non_token_strand_segment_fails_closed() {
         assert!(
             parse_address(&format!("web+arkret:realm/{R}/strand/not-a-uuid?via={VIA}")).is_err()
         );

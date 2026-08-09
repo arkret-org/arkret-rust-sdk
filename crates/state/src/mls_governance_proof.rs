@@ -444,13 +444,9 @@ where
     E: From<Error>,
     VerifyNotary: Fn(&Seal, &Value) -> std::result::Result<(), E>,
 {
-    // A Principal Control Realm's id derives from the principal DID, not from a
-    // create Event. Only the collaboration branch carries the Event token.
-    let Some(expected_create_id) = realm_id.event_id() else {
-        return Err(anchor_rejected(
-            "realm_id is not event-derived; a Principal Control Realm anchors on its              did_inception root (encryption-and-audit.md 2.5.4 T2), not on a create Event",
-        ));
-    };
+    // Every Realm id, including a Principal Control Realm, retypes its exact
+    // create Event identity.
+    let expected_create_id = realm_id.event_id();
     if create_event.event_id != expected_create_id {
         return Err(anchor_rejected(
             "candidate create Event is not the one realm_id retypes to",
@@ -999,18 +995,6 @@ mod tests {
             );
             Ok(())
         })
-    }
-
-    #[test]
-    fn a_pcr_realm_is_not_admitted_through_the_event_derived_rule() {
-        let (_, create) = self_certifying_create();
-        let candidate = seal(hash(0x11), Vec::new(), hash(0x12));
-        // A PCR id carries the subject-derived 0x11 Realm token: retyping it would name an Event
-        // that does not exist. The caller must take T2, not silently get a bad request.
-        let pcr =
-            arkret_identifiers::principal_control_realm_id("did:webvh:z6mkfixture:alice.example");
-        admit(&pcr, &create, &candidate)
-            .expect_err("event-derived admission must refuse a DID-derived Realm id");
     }
 
     #[test]

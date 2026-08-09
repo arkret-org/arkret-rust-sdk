@@ -94,28 +94,28 @@ impl ParticipationScope {
     #[must_use]
     pub fn scope_key(&self) -> String {
         match self {
-            Self::Realm { realm_id } => format!("realm:{}", uuid_part(realm_id.as_str())),
+            Self::Realm { realm_id } => format!("realm:{}", token_part(realm_id.as_str())),
             Self::Circle {
                 realm_id,
                 circle_id,
             } => format!(
                 "circle:{}:{}",
-                uuid_part(realm_id.as_str()),
-                uuid_part(circle_id.as_str())
+                token_part(realm_id.as_str()),
+                token_part(circle_id.as_str())
             ),
             Self::Strand {
                 realm_id,
                 strand_id,
             } => format!(
                 "strand:{}:{}",
-                uuid_part(realm_id.as_str()),
-                uuid_part(strand_id.as_str())
+                token_part(realm_id.as_str()),
+                token_part(strand_id.as_str())
             ),
         }
     }
 }
 
-fn uuid_part(typed_id: &str) -> &str {
+fn token_part(typed_id: &str) -> &str {
     typed_id.rsplit(':').next().unwrap_or(typed_id)
 }
 

@@ -329,10 +329,13 @@ dependencies = [
  "arkret-wire",
  "chrono",
  "ed25519-dalek",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
  "serde",
  "serde_json",
  "subtle",
  "thiserror",
+ "url",
 ]
 
 [[package]]

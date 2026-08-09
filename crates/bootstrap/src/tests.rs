@@ -8,7 +8,6 @@ use arkret_models_collaboration::events_payloads::{
     FoundingDeviceDescriptor, FoundingDeviceHpkeKeyAlgorithm, FoundingDeviceKeyAlgorithm,
     FoundingDeviceKeyPurpose, SignatureMaterial, device_authorize_payload_digest,
 };
-use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
     AuthorizationRef, CellRef, DeviceId, Did, DidUrl, Event, EventDigestSuiteCode, EventId,
@@ -128,8 +127,9 @@ fn input() -> SelfPrincipalPcrCreateInput {
     let principal_id = Did::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
     let created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
     SelfPrincipalPcrCreateInput {
-        realm_id: RealmId::new(principal_control_realm_id(&principal_id)).unwrap(),
         principal_id: principal_id.clone(),
+        genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+            .unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         did_inception_ref: EventRef::new(
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -219,7 +219,7 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
     assert_eq!(event.refs[0].role, DID_INCEPTION_REF_ROLE);
     event.verify_event_id_matches_content().unwrap();
     // A genesis envelope carries no realm_id and uses the closed genesis
-    // scope; the Realm id is derived (subject-derived for a PCR).
+    // scope; the Realm id is derived from this genesis event.
     assert_eq!(event.scope_ref, ScopeRef::RealmGenesis);
     assert!(event.scope_ref.circle_id().is_none());
     // Nothing on the wire says what this Event writes; the registry
@@ -244,11 +244,11 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
 }
 
 #[test]
-fn builder_rejects_a_non_self_realm_and_indirect_inception_ref() {
-    let mut wrong_realm = input();
+fn validation_rejects_a_non_self_realm_and_builder_rejects_indirect_inception_ref() {
+    let mut wrong_realm = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
     wrong_realm.realm_id =
         RealmId::new("ak:realm:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
-    assert!(build_self_principal_pcr_create(wrong_realm, &registry_projection).is_err());
+    assert!(validate_self_principal_pcr_create(&wrong_realm, false, &registry_projection).is_err());
 
     let mut indirect = input();
     indirect.did_inception_ref.proof = Some(SemanticRefProof {
@@ -333,7 +333,8 @@ fn managed_agent_pcr_create() -> Event {
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: agent.clone(),
         controller_id: controller.clone(),
-        realm_id: realm_id.clone(),
+        genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+            .unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),
@@ -368,7 +369,8 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: Did::new("did:web:agent.example".to_owned()).unwrap(),
         controller_id: Did::new("did:web:controller.example".to_owned()).unwrap(),
-        realm_id: RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap(),
+        genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+            .unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),

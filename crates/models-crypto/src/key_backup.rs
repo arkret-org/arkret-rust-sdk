@@ -33,7 +33,6 @@ fn is_false(value: &bool) -> bool {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackupKind {
-    DidRecovery,
     SecretStorage,
     MlsHistory,
 }
@@ -42,7 +41,6 @@ impl BackupKind {
     /// Canonical snake_case wire token used by `ak.schema.key_backup.v1`.
     pub const fn as_str(self) -> &'static str {
         match self {
-            BackupKind::DidRecovery => "did_recovery",
             BackupKind::SecretStorage => "secret_storage",
             BackupKind::MlsHistory => "mls_history",
         }
@@ -51,7 +49,6 @@ impl BackupKind {
     /// HKDF info string per key-management.md §7.2.
     pub fn hkdf_info(self, subdomain: &str) -> String {
         let class = match self {
-            BackupKind::DidRecovery => "did_recovery",
             BackupKind::SecretStorage => "secret_storage",
             BackupKind::MlsHistory => "mls_history",
         };
@@ -65,7 +62,6 @@ impl TryFrom<&str> for BackupKind {
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         match value {
-            "did_recovery" => Ok(Self::DidRecovery),
             "secret_storage" => Ok(Self::SecretStorage),
             "mls_history" => Ok(Self::MlsHistory),
             other => Err(format!("unsupported backup_kind {other}")),
@@ -694,7 +690,7 @@ pub struct KeyBackup {
     )]
     pub frontier_ref: Option<KeyBackupFrontierRef>,
     /// Recovery policy tuple under which this envelope was produced. Required
-    /// for `backup_kind=did_recovery`; optional signed hint for other classes.
+    /// by the MLS-history profile and when using a recovery public key.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     #[serde(default, flatten)]
@@ -989,8 +985,7 @@ impl KeyBackup {
             }
         }
 
-        if (self.backup_kind == BackupKind::DidRecovery
-            || self.encryption.recipient_method == KeyBackupRecipientMethod::RecoveryPublicKey)
+        if self.encryption.recipient_method == KeyBackupRecipientMethod::RecoveryPublicKey
             && self.recovery_policy_ref.is_none()
         {
             return Err(Error::Protocol(
@@ -1068,10 +1063,7 @@ impl KeyBackup {
         let aead = &encryption.aead;
         match encryption.recipient_method {
             KeyBackupRecipientMethod::PassphraseKdf => {
-                if matches!(
-                    self.backup_kind,
-                    BackupKind::DidRecovery | BackupKind::MlsHistory
-                ) {
+                if self.backup_kind == BackupKind::MlsHistory {
                     return Err(Error::Protocol(
                         "passphrase_kdf is valid only for secret_storage backups".to_owned(),
                     ));
@@ -1253,26 +1245,6 @@ impl KeyBackup {
         ))
     }
 
-    pub fn is_first_did_recovery_backup(&self) -> bool {
-        self.backup_kind == BackupKind::DidRecovery && self.series_seq == 0
-    }
-
-    pub fn satisfies_first_did_recovery_backup_gate(&self) -> bool {
-        self.is_first_did_recovery_backup()
-            && self.recovery_policy_ref.is_some()
-            && self.auth_data.as_ref().is_some_and(|auth| {
-                !auth.device_id.as_str().is_empty()
-                    && !auth.verification_method.is_empty()
-                    && !auth.signature.is_empty()
-                    && auth
-                        .signed_fields
-                        .iter()
-                        .any(|field| field == "recovery_policy_ref")
-            })
-            && !self.contents.is_empty()
-            && !self.ciphertext_digest.is_empty()
-    }
-
     pub fn summary(&self) -> KeyBackupSummary {
         KeyBackupSummary {
             backup_id: self.backup_id.clone(),
@@ -1329,10 +1301,10 @@ fn validate_key_backup_signature_algorithm(algorithm: KeyBackupSignatureAlgorith
 
 fn key_backup_item_kind_allowed(backup_kind: BackupKind, item_kind: &str) -> bool {
     match backup_kind {
-        BackupKind::DidRecovery => item_kind == "recovery_key_share",
         BackupKind::SecretStorage => matches!(
             item_kind,
-            "account_data_namespace_key"
+            "recovery_key_share"
+                | "account_data_namespace_key"
                 | "mls_account_secret"
                 | "mls_private_plaintext"
                 | "mls_group_secrets_backup_key"

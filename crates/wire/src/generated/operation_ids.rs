@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-09.10;
-//! sha256=62e3d8bc2bbc980aec843286c08ac31c855d653146c16f3584adbe93439bbca0 Entries: registered=222
+//! Input: registry/operation-registry.json; version=2026-08-09.20;
+//! sha256=bdbc0a4d0a84c7434c9493293fe1640a0461ea6bb68cbdb922d80b958d462f37 Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,10 @@ pub enum ServiceOperationId {
     FindDirectoryReadSearchOrganizations,
     FindDirectoryReadSearchRealms,
     FindDirectoryReadSearchUsers,
+    GateAccountCommandAbandonIdentityCreation,
     GateAccountCommandIntrospectSessionGrant,
+    GateAccountCommandIssueDidBindingChallenge,
+    GateAccountCommandIssueIdentityAbandonmentChallenge,
     GateAccountCommandIssueIdentityBindingChallenge,
     GateAccountCommandIssueRecoveryCompletionGrant,
     GateAccountCommandIssueSessionGrant,
@@ -260,7 +263,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS,
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_REALMS,
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_USERS,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT,
@@ -525,7 +531,10 @@ impl ServiceOperationId {
         Self::FindDirectoryReadSearchOrganizations,
         Self::FindDirectoryReadSearchRealms,
         Self::FindDirectoryReadSearchUsers,
+        Self::GateAccountCommandAbandonIdentityCreation,
         Self::GateAccountCommandIntrospectSessionGrant,
+        Self::GateAccountCommandIssueDidBindingChallenge,
+        Self::GateAccountCommandIssueIdentityAbandonmentChallenge,
         Self::GateAccountCommandIssueIdentityBindingChallenge,
         Self::GateAccountCommandIssueRecoveryCompletionGrant,
         Self::GateAccountCommandIssueSessionGrant,
@@ -767,8 +776,14 @@ impl ServiceOperationId {
         "ak.find.directory.read.search_realms";
     pub const FIND_DIRECTORY_READ_SEARCH_USERS: &'static str =
         "ak.find.directory.read.search_users";
+    pub const GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION: &'static str =
+        "ak.gate.account.command.abandon_identity_creation";
     pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT: &'static str =
         "ak.gate.account.command.introspect_session_grant";
+    pub const GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE: &'static str =
+        "ak.gate.account.command.issue_did_binding_challenge";
+    pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE: &'static str =
+        "ak.gate.account.command.issue_identity_abandonment_challenge";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE: &'static str =
         "ak.gate.account.command.issue_identity_binding_challenge";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT: &'static str =
@@ -1112,8 +1127,17 @@ impl ServiceOperationId {
             }
             Self::FindDirectoryReadSearchRealms => Self::FIND_DIRECTORY_READ_SEARCH_REALMS,
             Self::FindDirectoryReadSearchUsers => Self::FIND_DIRECTORY_READ_SEARCH_USERS,
+            Self::GateAccountCommandAbandonIdentityCreation => {
+                Self::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION
+            }
             Self::GateAccountCommandIntrospectSessionGrant => {
                 Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT
+            }
+            Self::GateAccountCommandIssueDidBindingChallenge => {
+                Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE
+            }
+            Self::GateAccountCommandIssueIdentityAbandonmentChallenge => {
+                Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE
             }
             Self::GateAccountCommandIssueIdentityBindingChallenge => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE
@@ -1445,8 +1469,17 @@ impl ServiceOperationId {
             }
             Self::FIND_DIRECTORY_READ_SEARCH_REALMS => Some(Self::FindDirectoryReadSearchRealms),
             Self::FIND_DIRECTORY_READ_SEARCH_USERS => Some(Self::FindDirectoryReadSearchUsers),
+            Self::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION => {
+                Some(Self::GateAccountCommandAbandonIdentityCreation)
+            }
             Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT => {
                 Some(Self::GateAccountCommandIntrospectSessionGrant)
+            }
+            Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE => {
+                Some(Self::GateAccountCommandIssueDidBindingChallenge)
+            }
+            Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE => {
+                Some(Self::GateAccountCommandIssueIdentityAbandonmentChallenge)
             }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE => {
                 Some(Self::GateAccountCommandIssueIdentityBindingChallenge)
@@ -2353,6 +2386,32 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandAbandonIdentityCreation,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/identity-abandonments",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/identity_abandonment_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/identity_abandonment_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "records_only_a_service_local_orphan_anchor_tombstone_audit_reservation_and_releases_the_identity_creation_lease_no_event_is_authored",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIntrospectSessionGrant,
         http_method: "POST",
         http_path: "/_arkret/gate/account/session-grants/introspect",
@@ -2377,6 +2436,58 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandIssueDidBindingChallenge,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/did-binding-challenges",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/did_binding_challenge_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/did_binding_challenge_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandIssueIdentityAbandonmentChallenge,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/identity-abandonment-challenges",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/identity_abandonment_challenge_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/identity_abandonment_challenge_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIssueIdentityBindingChallenge,
         http_method: "POST",
         http_path: "/_arkret/gate/account/identity-binding-challenges",
@@ -2398,7 +2509,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "persists_only_a_service_local_single_use_challenge_and_public_did_operation_checkpoint_no_event_is_authored",
+                "persists_only_a_service_local_single_use_challenge_and_holder_authenticated_did_operation_checkpoint_no_event_is_authored",
             ),
         }),
     },

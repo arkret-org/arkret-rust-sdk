@@ -646,12 +646,6 @@ impl FoundingDeviceDescriptor {
     }
 }
 
-impl RealmPurpose {
-    pub const fn is_event_derived(self) -> bool {
-        !matches!(self, Self::PrincipalControl | Self::ManagedAgentControl)
-    }
-}
-
 /// Minimal immutable identity and security interpretation root carried by
 /// `ak.realm.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -659,8 +653,7 @@ impl RealmPurpose {
 pub struct RealmGenesis {
     pub schema: String,
     pub purpose: RealmPurpose,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub genesis_salt: Option<GenesisSalt>,
+    pub genesis_salt: GenesisSalt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub founding_device_descriptor: Option<FoundingDeviceDescriptor>,
     pub trust_domain: TypedTrustDomainId,
@@ -692,7 +685,7 @@ impl RealmGenesis {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
             purpose,
-            genesis_salt: Some(genesis_salt),
+            genesis_salt,
             founding_device_descriptor: None,
             trust_domain,
             schema_refs,
@@ -710,6 +703,7 @@ impl RealmGenesis {
 
     #[allow(clippy::too_many_arguments)]
     pub fn principal_control(
+        genesis_salt: GenesisSalt,
         founding_device_descriptor: Option<FoundingDeviceDescriptor>,
         trust_domain: TypedTrustDomainId,
         schema_refs: Vec<String>,
@@ -724,7 +718,7 @@ impl RealmGenesis {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
             purpose: RealmPurpose::PrincipalControl,
-            genesis_salt: None,
+            genesis_salt,
             founding_device_descriptor,
             trust_domain,
             schema_refs,
@@ -742,6 +736,7 @@ impl RealmGenesis {
 
     #[allow(clippy::too_many_arguments)]
     pub fn managed_agent_control(
+        genesis_salt: GenesisSalt,
         trust_domain: TypedTrustDomainId,
         schema_refs: Vec<String>,
         reducer_profile: impl Into<String>,
@@ -755,7 +750,7 @@ impl RealmGenesis {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
             purpose: RealmPurpose::ManagedAgentControl,
-            genesis_salt: None,
+            genesis_salt,
             founding_device_descriptor: None,
             trust_domain,
             schema_refs,
@@ -775,8 +770,8 @@ impl RealmGenesis {
         if self.schema != SchemaId::REALM_GENESIS_V1
             || self.schema_refs.is_empty()
             || self.reducer_profile.is_empty()
-            || self.purpose.is_event_derived() != self.genesis_salt.is_some()
-            || (self.purpose.is_event_derived() && self.founding_device_descriptor.is_some())
+            || (!matches!(self.purpose, RealmPurpose::PrincipalControl)
+                && self.founding_device_descriptor.is_some())
             || (self.purpose == RealmPurpose::ManagedAgentControl
                 && self.founding_device_descriptor.is_some())
         {

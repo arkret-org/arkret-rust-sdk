@@ -97,6 +97,7 @@ impl PcrGenesisUnit {
             || authorize.kind.as_str() != "ak.device.authorize"
             || create.actor_id != authorize.actor_id
             || create.realm_id != authorize.realm_id
+            || create.realm_id != crate::RealmId::from_event_id(&create.event_id)
             || create.actor_seq != 0
             || authorize.prev_refs.as_slice() != [create.event_id.clone()]
             || authorize.actor_seq != 1

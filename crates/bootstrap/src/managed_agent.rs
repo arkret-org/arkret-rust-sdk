@@ -13,8 +13,9 @@ use arkret_state::{
 };
 use arkret_wire::{
     AuthorizationRef, CellRef, Did, EncryptionProfile, Error, Event, EventId, EventKind, EventRef,
-    Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result,
-    SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId, event_spec,
+    GenesisSalt, Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId,
+    RealmId, Result, SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId,
+    event_spec,
 };
 use chrono::{DateTime, Utc};
 
@@ -32,7 +33,7 @@ pub fn managed_agent_provision_ref(provision_event_id: EventId) -> EventRef {
 pub struct ManagedAgentPcrCreatePayloadInput {
     pub agent_id: Did,
     pub controller_id: Did,
-    pub realm_id: RealmId,
+    pub genesis_salt: GenesisSalt,
     pub trust_domain: TypedTrustDomainId,
     pub capability_action_registry_digest: Hash,
     pub created_at: DateTime<Utc>,
@@ -49,6 +50,7 @@ pub fn build_managed_agent_pcr_create_payload(
         vec![input.controller_id.clone()],
     );
     let genesis = RealmGenesis::managed_agent_control(
+        input.genesis_salt,
         input.trust_domain,
         vec![
             SchemaId::REALM_V1.to_owned(),
@@ -144,10 +146,9 @@ pub fn materialize_managed_agent_pcr_control(
     let object = payload.object;
     if object.purpose
         != arkret_models_collaboration::events_payloads::RealmPurpose::ManagedAgentControl
-        || object.genesis_salt.is_some()
     {
         return Err(Error::Protocol(
-            "managed Agent PCR create purpose or genesis_salt is inconsistent".to_owned(),
+            "managed Agent PCR create purpose is inconsistent".to_owned(),
         ));
     }
     let notary_value = object.notary;

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::governance::peer_contact::{ContactIntroductionEvidence, PeerContactAddress};
 use crate::string_marker;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum StandardHolderBinding {
@@ -53,7 +53,7 @@ pub enum ContactScope {
 
 pub type ContactScopes = Vec<ContactScope>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RequestAcceptanceReceiptCore {
@@ -86,13 +86,77 @@ impl RequestAcceptanceReceiptCore {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RequestAcceptanceReceipt {
     pub core: RequestAcceptanceReceiptCore,
     pub receipt_digest: Hash,
     pub signature: ProtocolSignature,
+}
+
+impl RequestAcceptanceReceipt {
+    /// Digest of the closed receipt core covered by `signature`.
+    pub fn computed_core_digest(&self) -> arkret_wire::Result<Hash> {
+        let mut bytes = b"ak.contact.request-acceptance-core.v1\n".to_vec();
+        bytes.extend(arkret_canonical::canonical_json_bytes(&self.core)?);
+        Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+    }
+
+    /// RFC 8785/JCS digest of the complete signed receipt used by Contact basis
+    /// payloads and receipt-to-Event bindings.
+    pub fn computed_receipt_digest(&self) -> arkret_wire::Result<Hash> {
+        Hash::new(arkret_canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+
+    /// Validate the closed core and its non-recursive digest layer. Historical
+    /// issuer-key and signature verification remains a separate cryptographic
+    /// step because it needs the issuer DID document at `accepted_at`.
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        self.core.validate()?;
+        if self.computed_core_digest()? != self.receipt_digest {
+            return Err(arkret_wire::Error::Protocol(
+                "Contact request acceptance receipt core digest mismatch".to_owned(),
+            ));
+        }
+        if self
+            .signature
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(did, _)| did)
+            != Some(self.core.issuer.as_str())
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "Contact request acceptance receipt signer is not its issuer".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Exact issuer-local successor cursor copied from an accepted Contact list
+/// projection into the next scope-update or tombstone prepare request.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactNextPrepareInput {
+    pub basis_id: Hash,
+    /// Version carried by the *next* Event, so it starts at two.
+    pub version: u64,
+    /// Current accepted lineage head, used as the next Event predecessor.
+    pub predecessor_event_ref: EventId,
+}
+
+impl ContactNextPrepareInput {
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if self.version < 2 {
+            return Err(arkret_wire::Error::Protocol(
+                "Contact next_prepare_input.version must be at least 2".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
