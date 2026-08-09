@@ -753,9 +753,9 @@ impl FederatedDeviceSigningKeyEvidence {
 /// pure functions of the signed Event, so the id stays self-certifying either
 /// way:
 ///
-/// - **Principal Control Realm** (`payload.object.purpose == "principal_control"`) —
-///   subject-derived Realm token (`0x11 || SHA-256(v1 domain || principal DID)`), so the address
-///   remains computable from the DID alone.
+/// - **Principal Control Realm** (`payload.object.purpose` is `"principal_control"` or
+///   `"managed_agent_control"`) — subject-derived Realm token (`0x11 || SHA-256(v1 domain ||
+///   principal DID)`), so the address remains computable from the DID alone.
 /// - **Collaboration Realm** — event-derived: `retype(event_id)`.
 pub fn derive_genesis_realm_id(
     event_id: &EventId,
@@ -765,7 +765,7 @@ pub fn derive_genesis_realm_id(
     let is_principal_control = payload_object
         .and_then(|object| object.get("purpose"))
         .and_then(Value::as_str)
-        == Some("principal_control");
+        .is_some_and(|purpose| matches!(purpose, "principal_control" | "managed_agent_control"));
     if is_principal_control {
         crate::principal_control_realm_id(actor_id.as_str())
     } else {

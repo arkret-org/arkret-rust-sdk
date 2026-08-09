@@ -20,6 +20,7 @@ use crate::objects::relation::RelationProfile;
 /// (`models/realm-and-space.md` §2.8.1).
 pub const PRINCIPAL_CONTROL_PURPOSE_FIELD: &str = "purpose";
 pub const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
+pub const MANAGED_AGENT_CONTROL_PURPOSE: &str = "managed_agent_control";
 
 /// Whether an `ak.realm.create` genesis object selects the subject-derived PCR
 /// identity branch. Admission still validates the complete closed schema.
@@ -27,7 +28,12 @@ pub fn realm_object_is_principal_control(object: &Value) -> bool {
     object
         .get(PRINCIPAL_CONTROL_PURPOSE_FIELD)
         .and_then(Value::as_str)
-        == Some(PRINCIPAL_CONTROL_PURPOSE)
+        .is_some_and(|purpose| {
+            matches!(
+                purpose,
+                PRINCIPAL_CONTROL_PURPOSE | MANAGED_AGENT_CONTROL_PURPOSE
+            )
+        })
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/sync_endpoint`.
@@ -83,7 +89,8 @@ pub struct Realm {
     pub owning_organizations: Vec<Did>,
     pub schema_refs: Vec<String>,
     /// Product/profile fields carried by `realm.schema.json`. Security
-    /// discriminators such as `purpose=principal_control` are validated by
+    /// discriminators such as `purpose=principal_control` and
+    /// `purpose=managed_agent_control` are validated by
     /// the profile-specific admission path.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
@@ -630,6 +637,10 @@ mod tests {
         assert!(realm_object_is_principal_control(&serde_json::json!({
             "purpose": PRINCIPAL_CONTROL_PURPOSE,
             "schema_refs": ["ak.schema.realm.v1"]
+        })));
+        assert!(realm_object_is_principal_control(&serde_json::json!({
+            "purpose": MANAGED_AGENT_CONTROL_PURPOSE,
+            "schema_refs": ["ak.schema.realm.v1", arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1]
         })));
         assert!(!realm_object_is_principal_control(&serde_json::json!({
             "schema_refs": ["ak.schema.realm.v1", arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1]

@@ -2,10 +2,10 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-09.4;
 //! sha256=788eaf6736d65662f3194da0f454c7741f270d657649bc92c07b804cb162c675 Input: registry/
-//! capability-action-registry.json; version=2026-08-09.7;
-//! sha256=c14e171c4b9570254d6d468995035baa5fb84cae1ba1e9cd168fc7ace4448268 Input: registry/
-//! schema-registry.json; version=2026-08-09.7;
-//! sha256=2ee3b248a7b1d3a094343930c374f711f50c2d5fe5c1008a5c519f679ecaa418 Input: registry/
+//! capability-action-registry.json; version=2026-08-09.10;
+//! sha256=73a5fb25327a7e71d17d87d049411c41f8e5dd17950ab6233a491c828abf4548 Input: registry/
+//! schema-registry.json; version=2026-08-09.10;
+//! sha256=99b0fe20ca6b3c92088e05e777df3f9ef3d3e12aad1a150b8ac6e2edc3c84e70 Input: registry/
 //! account-data-key-registry.json; version=2026-08-07;
 //! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=55,
 //! special_forms=10, actions=168, schemas=182, account_data_patterns=24

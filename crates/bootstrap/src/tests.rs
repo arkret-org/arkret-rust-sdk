@@ -385,7 +385,7 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
     );
     assert_eq!(
         value.pointer("/object/purpose").and_then(Value::as_str),
-        Some("principal_control")
+        Some("managed_agent_control")
     );
 }
 

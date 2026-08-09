@@ -658,7 +658,7 @@ const PRINCIPAL_CONTROL_REALM_DOMAIN: &[u8] = b"ak:realm:principal-control:v1:";
 /// anchor is its `did_inception` root rather than its genesis Event.
 ///
 /// Realm genesis construction selects this subject transcript only for the
-/// signed `purpose=principal_control` branch. The v1 domain separator is
+/// signed `purpose=principal_control|managed_agent_control` branches. The v1 domain separator is
 /// unchanged; only the Realm wire container is the unified full-digest token.
 pub fn principal_control_realm_id(principal_did: &str) -> RealmId {
     let digest = arkret_canonical::canonical::sha256_bytes_from_slices(&[

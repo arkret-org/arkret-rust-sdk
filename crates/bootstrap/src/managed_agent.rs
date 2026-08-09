@@ -48,8 +48,7 @@ pub fn build_managed_agent_pcr_create_payload(
         input.controller_id.clone(),
         vec![input.controller_id.clone()],
     );
-    let genesis = RealmGenesis::principal_control(
-        None,
+    let genesis = RealmGenesis::managed_agent_control(
         input.trust_domain,
         vec![
             SchemaId::REALM_V1.to_owned(),
@@ -144,7 +143,7 @@ pub fn materialize_managed_agent_pcr_control(
     let payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let object = payload.object;
     if object.purpose
-        != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl
+        != arkret_models_collaboration::events_payloads::RealmPurpose::ManagedAgentControl
         || object.genesis_salt.is_some()
     {
         return Err(Error::Protocol(

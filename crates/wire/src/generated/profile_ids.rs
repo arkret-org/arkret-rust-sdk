@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-09.2;
-//! sha256=e5812e15683c224fcc0ad314edc4f5b47f61112fcdbcc930875ba7bc4ffc09f6 Entries: profile_ids=99
+//! Input: profiles/conformance-profiles.json; version=2026-08-09.3;
+//! sha256=1476c49283c11774622c6613e90f70ab79a225238753515842ce39187d90ac12 Entries: profile_ids=99
 
 use serde::{Deserialize, Serialize};
 

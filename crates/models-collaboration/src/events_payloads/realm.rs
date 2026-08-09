@@ -593,6 +593,7 @@ pub enum RealmPurpose {
     Collaboration,
     DirectConversation,
     PrincipalControl,
+    ManagedAgentControl,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -647,7 +648,7 @@ impl FoundingDeviceDescriptor {
 
 impl RealmPurpose {
     pub const fn is_event_derived(self) -> bool {
-        !matches!(self, Self::PrincipalControl)
+        !matches!(self, Self::PrincipalControl | Self::ManagedAgentControl)
     }
 }
 
@@ -739,12 +740,45 @@ impl RealmGenesis {
         Ok(value)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn managed_agent_control(
+        trust_domain: TypedTrustDomainId,
+        schema_refs: Vec<String>,
+        reducer_profile: impl Into<String>,
+        digest_algorithm: canonical::DigestSuite,
+        security_class: SecurityClass,
+        encryption_profile: EncryptionProfile,
+        notary_profile: NotaryProfile,
+        notary: NotaryValue,
+        capability_action_registry_digest: Hash,
+    ) -> Result<Self> {
+        let value = Self {
+            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
+            purpose: RealmPurpose::ManagedAgentControl,
+            genesis_salt: None,
+            founding_device_descriptor: None,
+            trust_domain,
+            schema_refs,
+            reducer_profile: reducer_profile.into(),
+            digest_algorithm,
+            security_class,
+            encryption_profile,
+            notary_profile,
+            notary,
+            capability_action_registry_digest,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::REALM_GENESIS_V1
             || self.schema_refs.is_empty()
             || self.reducer_profile.is_empty()
             || self.purpose.is_event_derived() != self.genesis_salt.is_some()
             || (self.purpose.is_event_derived() && self.founding_device_descriptor.is_some())
+            || (self.purpose == RealmPurpose::ManagedAgentControl
+                && self.founding_device_descriptor.is_some())
         {
             return Err(Error::Protocol(
                 "schema_violation: invalid Realm genesis identity branch".to_owned(),
