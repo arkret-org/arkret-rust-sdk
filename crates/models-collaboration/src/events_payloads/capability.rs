@@ -14,6 +14,8 @@ pub struct CapabilityGrantCreateBody {
     pub realm_id: Option<RealmId>,
     pub issuer: DidCoreId,
     pub subject: CapabilitySubject,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_authority_instance: Option<PrincipalAuthorityInstance>,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

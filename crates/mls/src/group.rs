@@ -5,7 +5,7 @@ use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
     EncryptedEnvelopeAad, EncryptedPayload, KeyRefObject, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-    MlsCommitEnvelope, MlsExporterAeadHeader, MlsGovernanceBindingExtension,
+    MlsCommitEnvelope, MlsEndpointIdentity, MlsExporterAeadHeader, MlsGovernanceBindingExtension,
     MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
     MlsGroupStateSink, MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
     verify_mls_governance_binding_extension,
@@ -1039,8 +1039,7 @@ impl ArkretMlsGroup {
             .map(|member_key_package| MlsWelcomeEnvelope {
                 group_id: group_id.clone(),
                 epoch,
-                recipient_principal_id: member_key_package.principal_id.clone(),
-                recipient_device_id: member_key_package.device_id.clone(),
+                recipient: member_key_package.endpoint.clone(),
                 welcome: encode(&welcome_bytes),
                 welcome_hash: welcome_hash.clone(),
                 ratchet_tree: ratchet_tree.clone(),
@@ -1287,8 +1286,11 @@ impl ArkretMlsGroup {
         identity: ArkretMlsIdentity,
         envelope: &MlsWelcomeEnvelope,
     ) -> Result<Self> {
-        if envelope.recipient_principal_id != identity.principal_id
-            || envelope.recipient_device_id != identity.device_id
+        if envelope.recipient
+            != MlsEndpointIdentity::human_device(
+                identity.principal_id.clone(),
+                identity.device_id.clone(),
+            )
         {
             return Err(Error::Protocol(
                 "MLS Welcome recipient does not match identity".to_owned(),

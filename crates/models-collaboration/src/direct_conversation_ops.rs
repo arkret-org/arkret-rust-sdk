@@ -11,7 +11,12 @@ use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_wire::{
     Base64UrlString, CbaProofBundle, DidCoreId, DidFullId, DidUrl, Event,
     EventFederationSubmission, EventId, EventInitialSubmission, FederatedDeviceSigningKeyEvidence,
-    Hash, IdempotencyKey, ProtocolSignature, RealmId, ScopeRef, StrandId,
+    Hash, IdempotencyKey, PrincipalAuthorityInstance, ProtocolSignature, RealmId, ScopeRef,
+    StrandId,
+};
+pub use arkret_wire::{
+    DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
+    DidBindingMethodProofKind, DidBindingWitness,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -29,7 +34,7 @@ pub const PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN: &[u8] =
     b"ak.principal-service-binding-proof.v1\n";
 pub const PRINCIPAL_SERVICE_CUTOVER_DOMAIN: &[u8] = b"ak.principal-service-cutover.v1\n";
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceVerificationMethod {
@@ -61,53 +66,12 @@ pub enum PrincipalServiceBindingProofPurpose {
     PrincipalAuthorization,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum DidBindingEvidenceKind {
-    #[serde(rename = "ak.did.binding_evidence.v1")]
-    AkDidBindingEvidenceV1,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum DidBindingMethodProofKind {
-    WebvhLog,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct DidBindingWitness {
-    pub witness_did: DidFullId,
-    pub controlling_organization: DidCoreId,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct DidBindingMethodProof {
-    pub kind: DidBindingMethodProofKind,
-    pub history_head: String,
-    pub witnesses: Vec<DidBindingWitness>,
-    pub witness_proofs_digest: Hash,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct DidBindingEvidenceReceipt {
-    pub kind: DidBindingEvidenceKind,
-    pub method: String,
-    pub document_digest: Hash,
-    pub method_proofs: Vec<DidBindingMethodProof>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AcceptedAtServiceBindingCore {
     pub principal_id: DidCoreId,
+    pub authority_instance: PrincipalAuthorityInstance,
     pub service_id: DidCoreId,
     pub trust_domain: String,
     pub service_kind: PrincipalServiceKind,
@@ -163,6 +127,9 @@ impl AcceptedAtServiceBindingCore {
             } => !current_record_url.trim().is_empty(),
         };
         if controller_service_id != self.service_id
+            || self.authority_instance.validate().is_err()
+            || self.authority_instance.principal_id != self.principal_id
+            || self.authority_instance.principal_server_id != self.service_id
             || !inline_resolution_matches
             || self.authority_evidence.document_digest != self.document_digest
             || self.authority_evidence.method.is_empty()
@@ -214,11 +181,12 @@ impl AcceptedAtServiceBindingCore {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AcceptedAtServiceBinding {
     pub principal_id: DidCoreId,
+    pub authority_instance: PrincipalAuthorityInstance,
     pub service_id: DidCoreId,
     pub trust_domain: String,
     pub service_kind: PrincipalServiceKind,
@@ -247,6 +215,8 @@ pub struct AcceptedAtServiceBinding {
     pub binding_digest: Hash,
     pub service_acceptance_proof: ProtocolSignature,
     pub principal_authorization_proof: ProtocolSignature,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub principal_authorization_evidence: FederatedDeviceSigningKeyEvidence,
 }
 
 impl AcceptedAtServiceBinding {
@@ -254,6 +224,7 @@ impl AcceptedAtServiceBinding {
     pub fn core(&self) -> AcceptedAtServiceBindingCore {
         AcceptedAtServiceBindingCore {
             principal_id: self.principal_id.clone(),
+            authority_instance: self.authority_instance.clone(),
             service_id: self.service_id.clone(),
             trust_domain: self.trust_domain.clone(),
             service_kind: self.service_kind,
@@ -282,6 +253,13 @@ impl AcceptedAtServiceBinding {
             arkret_wire::project_full_id_to_core_id(&self.service_verification_method.controller)?;
         if self.core().validate_shape().is_err()
             || controller_service_id != self.service_id
+            || self
+                .principal_authorization_evidence
+                .validate_shape()
+                .is_err()
+            || self.principal_authorization_evidence.authority_instance != self.authority_instance
+            || self.principal_authorization_evidence.verification_method
+                != self.principal_authorization_proof.verification_method
             || self.service_verification_method.id
                 != self.service_acceptance_proof.verification_method
             || self.authority_evidence.document_digest != self.document_digest
@@ -307,30 +285,6 @@ impl AcceptedAtServiceBinding {
         {
             return Err(arkret_wire::Error::Protocol(
                 "invalid accepted-at principal service binding".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// Bind the principal proof method to a separately verified, method-native
-    /// current full id. Shape validation cannot perform this projection: a
-    /// stable `core_id` is not a DID URL base.
-    pub fn validate_principal_full_id(&self, full_id: &DidFullId) -> arkret_wire::Result<()> {
-        let projected = arkret_wire::project_full_id_to_core_id(full_id)?;
-        let proof_full_id = self
-            .principal_authorization_proof
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(base, _)| base)
-            .ok_or_else(|| {
-                arkret_wire::Error::Protocol(
-                    "principal authorization verification method has no DID fragment".to_owned(),
-                )
-            })?;
-        if projected != self.principal_id || proof_full_id != full_id.as_str() {
-            return Err(arkret_wire::Error::Protocol(
-                "principal authorization method does not project to principal core id".to_owned(),
             ));
         }
         Ok(())

@@ -1,20 +1,20 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-10.4;
-//! sha256=850164f4545b8acadd32347f80bd13ac63c505ba7100e91851576db2433985ef Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-11.1;
+//! sha256=53ae8797cac7eb9837eeeae8424b53303d75fa99a609dfbe52b39c37412e4ce1 Input: registry/
 //! exporter-label-registry.json; version=2026-08-08;
 //! sha256=065f7fc5f29a97a542f54805b594d8d702b3f7f41bd072135f225508fb9e5768 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
-//! sha256=e51b58edc46ab7e1ab337883dc9fa36ccebb7536bb06eafb1b4771f844078151 Input: registry/
+//! sha256=1a309e38062e1f5a2276bed378b0e195d5d88dc1d2564d72ee1ddbb77bcf9908 Input: registry/
 //! signature-alg-registry.json; version=2026-08-04.2;
-//! sha256=e381cf8a9c28a76f3c891897895d1e7188d648c7ab68f5888b6c75c67ed31d55 Input: registry/
+//! sha256=509de113ec94d2099974c90970849703a50770a18fd82151a405dcf6d2b472a3 Input: registry/
 //! hpke-suite-registry.json; version=2026-08-09;
-//! sha256=57e3969f9ff5233a573b1c831ae2506866be0a54cfcddaf248b05a467ffa74bd Input: registry/
+//! sha256=fc85822a5c2ded9301fc7de7672429b18456f8d81a2533b2a799e1de5a1d1c03 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-07-29;
-//! sha256=2c73b41567acd7880abcb4f73a2b09f28805517f41531ef9bfa9a1d018d63ac3 Input: registry/
+//! sha256=908f806c1a634aa468d5acd3c610c4849903dd00f95f3e139627d9ee01fb86d3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=43, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=44, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -35,6 +35,7 @@ pub enum ProofContextId {
     ControlProposalDecisionProofV1,
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
     DeviceAuthorizePossessionProofV1,
+    DeviceAuthorizeRecoveryPossessionProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
     DirectoryOperationProofV1,
@@ -82,6 +83,7 @@ impl ProofContextId {
         Self::ControlProposalDecisionProofV1,
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
         Self::DeviceAuthorizePossessionProofV1,
+        Self::DeviceAuthorizeRecoveryPossessionProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
         Self::DirectoryOperationProofV1,
@@ -137,6 +139,8 @@ impl ProofContextId {
         "ak.device-authorize-accepted-device-possession-proof-v1";
     pub const DEVICE_AUTHORIZE_POSSESSION_PROOF_V1: &'static str =
         "ak.device-authorize-possession-proof-v1";
+    pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
+        "ak.device-authorize-recovery-possession-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
         "ak.did-webvh-witness-receipt-proof-v1";
     pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
@@ -206,6 +210,9 @@ impl ProofContextId {
                 Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
             Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
+            Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
+                Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1
+            }
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
             Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
             Self::DirectoryOperationProofV1 => Self::DIRECTORY_OPERATION_PROOF_V1,
@@ -281,6 +288,9 @@ impl ProofContextId {
             }
             Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizePossessionProofV1)
+            }
+            Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1 => {
+                Some(Self::DeviceAuthorizeRecoveryPossessionProofV1)
             }
             Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
             Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
@@ -660,6 +670,23 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "expires_at?",
             "scopes?",
             "recovery_session_id?",
+            "authorization_binding_kind",
+        ],
+        schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::DeviceAuthorizeRecoveryPossessionProofV1,
+        context: "ak.device-authorize-recovery-possession-proof-v1",
+        object_family: "device_authorize_recovery_possession",
+        binding_fields: &[
+            "principal_id",
+            "device_id",
+            "device_public_key",
+            "hpke_key",
+            "algorithms",
+            "device_key_algorithm",
+            "authorized_by",
+            "recovery_session_id",
             "authorization_binding_kind",
         ],
         schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",

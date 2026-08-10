@@ -178,12 +178,10 @@ pub fn is_valid_domain(s: &str) -> bool {
 
 /// R3.2 — `ak.schema.handle_claim.v1.subject` validator.
 ///
-/// The handle claim subject MUST be a holder / principal DID. It is NOT a
-/// Realm `actor_id` (`ak:actor:`), a server-local `account_id`
-/// (`ak:account:`), a service DID, an administrative identifier, or a
-/// generic resource id. The type boundary already rejects non-core identifiers;
-/// a deployment-specific "is this a service DID" distinction is left to the
-/// issuer.
+/// The handle claim subject MUST be a holder/principal `did_core_id`, not a
+/// server-local account id, service identity, administrative identifier, or
+/// generic resource id. The type boundary rejects full DIDs and non-core
+/// identifiers; deployment-specific role admission remains the issuer's job.
 ///
 /// On rejection returns [`Error::Protocol`] carrying the
 /// `handle_claim_subject_not_principal_did` wire code prefix.

@@ -349,7 +349,7 @@ mod tests {
         let carol_welcome = add
             .welcomes
             .iter()
-            .find(|welcome| welcome.recipient_principal_id == carol.principal_id)
+            .find(|welcome| welcome.recipient.actor_id() == &carol.principal_id)
             .unwrap();
         let mut carol_group = ArkretMlsGroup::join_from_welcome(carol, carol_welcome).unwrap();
         let remove_binding = governance_binding(&group_id, 1, 2, governance_hash('3'));
@@ -912,7 +912,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
         let charlie_key_package = charlie.key_package_record().unwrap();
         let mut revoked_package = charlie_key_package.clone();
-        let revoke_step = revoke_key_package(&mut revoked_package);
+        let revoke_step = revoke_key_package(&mut revoked_package).unwrap();
         assert_eq!(
             revoked_package.state,
             arkret_models_crypto::MlsKeyPackageState::Revoked
@@ -928,7 +928,7 @@ mod tests {
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
-        let workflow = late_device_join_steps(&charlie_add.welcome);
+        let workflow = late_device_join_steps(&charlie_add.welcome).unwrap();
         assert_eq!(workflow[0].action, MlsDeviceWorkflowAction::ConsumeWelcome);
 
         bob_group

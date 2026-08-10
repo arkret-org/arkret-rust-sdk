@@ -663,6 +663,12 @@ impl<'de> Deserialize<'de> for MimiRoomUri {
 
 /// DID URL with a required verification-method fragment.
 ///
+/// This type names one key or verification method at a DID proof boundary. It
+/// is not a subject identifier, membership key, route key, or authority
+/// instance: callers must project its bare controller to [`crate::DidCoreId`]
+/// and independently verify the applicable historical or accepted-at evidence
+/// before treating the referenced key as authorized.
+///
 /// Mirrors `common-ids.schema.json#/$defs/did_url`
 /// (`^did:[a-z0-9]+:[^\s#?]+#[A-Za-z0-9._:-]+$`): the method-specific
 /// identifier rejects whitespace, `#` and `?`, while the fragment is limited to

@@ -5,8 +5,8 @@ use arkret_models_crypto::{
     KeyOperationSignature, KeyPackageConsumer, KeyPackageUploadEntry,
     KeyPackagesConsumeRequestBody, KeyPackagesConsumeUnsignedRequest, KeyPackagesRevokeRequestBody,
     KeyPackagesRevokeUnsignedRequest, KeyPackagesUploadRequestBody,
-    KeyPackagesUploadUnsignedRequest, MlsGovernanceBindingPayload, MlsKeyPackageRecord,
-    keypackages_consume_signing_input, keypackages_revoke_signing_input,
+    KeyPackagesUploadUnsignedRequest, MlsEndpointIdentity, MlsGovernanceBindingPayload,
+    MlsKeyPackageRecord, keypackages_consume_signing_input, keypackages_revoke_signing_input,
     keypackages_upload_signing_input, mls_key_package_record_upload_entry,
 };
 use arkret_wire::{DeviceId, DidCoreId, Hash, NonEmptyString, canonical};
@@ -148,7 +148,9 @@ impl ArkretMlsIdentity {
         &self,
         record: &MlsKeyPackageRecord,
     ) -> Result<KeyPackageUploadEntry> {
-        if record.principal_id != self.principal_id || record.device_id != self.device_id {
+        if record.endpoint
+            != MlsEndpointIdentity::human_device(self.principal_id.clone(), self.device_id.clone())
+        {
             return Err(Error::Protocol(
                 "MLS KeyPackage record owner differs from identity".to_owned(),
             ));
@@ -291,8 +293,10 @@ impl ArkretMlsIdentity {
         let created_at = Utc::now();
         Ok(MlsKeyPackageRecord {
             keypackage_id: format!("ak:mls:kp:{}", uuid::Uuid::now_v7()),
-            principal_id: self.principal_id.clone(),
-            device_id: self.device_id.clone(),
+            endpoint: MlsEndpointIdentity::human_device(
+                self.principal_id.clone(),
+                self.device_id.clone(),
+            ),
             key_package: encode(&key_package_bytes),
             keypackage_ref,
             cipher_suites: vec![ARKRET_MLS_CIPHERSUITE_CANONICAL_ID.to_owned()],
@@ -493,16 +497,25 @@ pub fn author_leaf_from_key_package_bytes(
     })
 }
 
-pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
+pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> Result<MlsDeviceWorkflowStep> {
+    let MlsEndpointIdentity::HumanDevice {
+        principal_id,
+        device_id,
+    } = &record.endpoint
+    else {
+        return Err(Error::Protocol(
+            "device workflow cannot revoke a Native Agent KeyPackage".to_owned(),
+        ));
+    };
     record.state = arkret_models_crypto::MlsKeyPackageState::Revoked;
-    MlsDeviceWorkflowStep {
+    Ok(MlsDeviceWorkflowStep {
         action: MlsDeviceWorkflowAction::RevokeKeyPackage,
-        principal_id: record.principal_id.clone(),
-        device_id: record.device_id.clone(),
+        principal_id: principal_id.clone(),
+        device_id: device_id.clone(),
         group_id: None,
         from_epoch: None,
         to_epoch: None,
-    }
+    })
 }
 
 #[cfg(test)]

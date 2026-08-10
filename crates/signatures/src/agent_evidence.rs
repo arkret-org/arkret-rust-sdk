@@ -167,11 +167,38 @@ pub fn verify_controller_account_gate_attestation(
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAgentSigningKey {
-    pub signer: DidCoreId,
-    pub key: [u8; 32],
-    pub authorization_ref: EventId,
-    pub snapshot_digest: Hash,
-    pub admission_evidence_digest: Hash,
+    signer: DidCoreId,
+    authority_service_id: DidCoreId,
+    key: [u8; 32],
+    authorization_ref: EventId,
+    snapshot_digest: Hash,
+    admission_evidence_digest: Hash,
+}
+
+impl VerifiedAgentSigningKey {
+    pub fn signer(&self) -> &DidCoreId {
+        &self.signer
+    }
+
+    pub const fn key(&self) -> &[u8; 32] {
+        &self.key
+    }
+
+    pub fn authority_service_id(&self) -> &DidCoreId {
+        &self.authority_service_id
+    }
+
+    pub fn authorization_ref(&self) -> &EventId {
+        &self.authorization_ref
+    }
+
+    pub fn snapshot_digest(&self) -> &Hash {
+        &self.snapshot_digest
+    }
+
+    pub fn admission_evidence_digest(&self) -> &Hash {
+        &self.admission_evidence_digest
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1054,6 +1081,7 @@ fn validate_common_evidence(
     }
     Ok(VerifiedAgentSigningKey {
         signer: context.signer_id.clone(),
+        authority_service_id: context.expected_authority_service_id.clone(),
         key,
         authorization_ref: context.agent_key_authorize_event_id.clone(),
         snapshot_digest: snapshot.snapshot_digest.clone(),

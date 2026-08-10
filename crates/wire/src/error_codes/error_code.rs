@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-10.6;
-//! sha256=c7bbe83ba2d48204431a96c09ae9b122ec8633682942b2b936b99121f1494bf9 Entries: error_codes=273
+//! Input: registry/error-code-registry.json; version=2026-08-11.2;
+//! sha256=daf52a63b94abc2c12a03d9ee6fb3265500e2817178351e84ed3c7405478a35a Entries: error_codes=278
 
 use serde::{Deserialize, Serialize};
 
@@ -91,6 +91,7 @@ pub enum ErrorCode {
     ControllerSignedEventRequired,
     CredentialExpired,
     CredentialNotFound,
+    CurrentDidAuthorityUnavailable,
     CursorExpired,
     CursorIntegrityInvalid,
     CursorInvalid,
@@ -111,6 +112,7 @@ pub enum ErrorCode {
     DeviceRevoked,
     DeviceUnknown,
     DidAlreadyExists,
+    DidMethodSuccessorInvalid,
     DidNotFound,
     DidProofRequired,
     DidRevoked,
@@ -143,6 +145,7 @@ pub enum ErrorCode {
     GovernanceKeyInvalid,
     GrantAlreadyConsumed,
     HandleUnverified,
+    HistoricalDidEvidenceInvalid,
     HistoricalOnly,
     HistoryNotVisible,
     HistorySharingPolicyMissing,
@@ -192,6 +195,7 @@ pub enum ErrorCode {
     OverbroadRequest,
     PayloadDigestMismatch,
     PayloadTooLarge,
+    PcrAuthorityStale,
     PolicyCombinationInvalid,
     PolicyDenied,
     PolicyRevisionRollback,
@@ -199,6 +203,7 @@ pub enum ErrorCode {
     PolicyUnavailable,
     PolicyViolation,
     PreviewPolicyDenied,
+    PrincipalAuthorityInstanceMismatch,
     PrincipalUnknown,
     ProfileUnsupported,
     ProjectionIncomplete,
@@ -378,6 +383,7 @@ impl ErrorCode {
         Self::ControllerSignedEventRequired,
         Self::CredentialExpired,
         Self::CredentialNotFound,
+        Self::CurrentDidAuthorityUnavailable,
         Self::CursorExpired,
         Self::CursorIntegrityInvalid,
         Self::CursorInvalid,
@@ -398,6 +404,7 @@ impl ErrorCode {
         Self::DeviceRevoked,
         Self::DeviceUnknown,
         Self::DidAlreadyExists,
+        Self::DidMethodSuccessorInvalid,
         Self::DidNotFound,
         Self::DidProofRequired,
         Self::DidRevoked,
@@ -430,6 +437,7 @@ impl ErrorCode {
         Self::GovernanceKeyInvalid,
         Self::GrantAlreadyConsumed,
         Self::HandleUnverified,
+        Self::HistoricalDidEvidenceInvalid,
         Self::HistoricalOnly,
         Self::HistoryNotVisible,
         Self::HistorySharingPolicyMissing,
@@ -479,6 +487,7 @@ impl ErrorCode {
         Self::OverbroadRequest,
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
+        Self::PcrAuthorityStale,
         Self::PolicyCombinationInvalid,
         Self::PolicyDenied,
         Self::PolicyRevisionRollback,
@@ -486,6 +495,7 @@ impl ErrorCode {
         Self::PolicyUnavailable,
         Self::PolicyViolation,
         Self::PreviewPolicyDenied,
+        Self::PrincipalAuthorityInstanceMismatch,
         Self::PrincipalUnknown,
         Self::ProfileUnsupported,
         Self::ProjectionIncomplete,
@@ -658,6 +668,7 @@ impl ErrorCode {
     pub const CONTROLLER_SIGNED_EVENT_REQUIRED: &'static str = "controller_signed_event_required";
     pub const CREDENTIAL_EXPIRED: &'static str = "credential_expired";
     pub const CREDENTIAL_NOT_FOUND: &'static str = "credential_not_found";
+    pub const CURRENT_DID_AUTHORITY_UNAVAILABLE: &'static str = "current_did_authority_unavailable";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
     pub const CURSOR_INVALID: &'static str = "cursor_invalid";
@@ -680,6 +691,7 @@ impl ErrorCode {
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
     pub const DEVICE_UNKNOWN: &'static str = "device_unknown";
     pub const DID_ALREADY_EXISTS: &'static str = "did_already_exists";
+    pub const DID_METHOD_SUCCESSOR_INVALID: &'static str = "did_method_successor_invalid";
     pub const DID_NOT_FOUND: &'static str = "did_not_found";
     pub const DID_PROOF_REQUIRED: &'static str = "did_proof_required";
     pub const DID_REVOKED: &'static str = "did_revoked";
@@ -714,6 +726,7 @@ impl ErrorCode {
     pub const GOVERNANCE_KEY_INVALID: &'static str = "governance_key_invalid";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
     pub const HANDLE_UNVERIFIED: &'static str = "handle_unverified";
+    pub const HISTORICAL_DID_EVIDENCE_INVALID: &'static str = "historical_did_evidence_invalid";
     pub const HISTORICAL_ONLY: &'static str = "historical_only";
     pub const HISTORY_NOT_VISIBLE: &'static str = "history_not_visible";
     pub const HISTORY_SHARING_POLICY_MISSING: &'static str = "history_sharing_policy_missing";
@@ -770,6 +783,7 @@ impl ErrorCode {
     pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
+    pub const PCR_AUTHORITY_STALE: &'static str = "pcr_authority_stale";
     pub const POLICY_COMBINATION_INVALID: &'static str = "policy_combination_invalid";
     pub const POLICY_DENIED: &'static str = "policy_denied";
     pub const POLICY_REVISION_ROLLBACK: &'static str = "policy_revision_rollback";
@@ -777,6 +791,8 @@ impl ErrorCode {
     pub const POLICY_UNAVAILABLE: &'static str = "policy_unavailable";
     pub const POLICY_VIOLATION: &'static str = "policy_violation";
     pub const PREVIEW_POLICY_DENIED: &'static str = "preview_policy_denied";
+    pub const PRINCIPAL_AUTHORITY_INSTANCE_MISMATCH: &'static str =
+        "principal_authority_instance_mismatch";
     pub const PRINCIPAL_UNKNOWN: &'static str = "principal_unknown";
     pub const PROFILE_UNSUPPORTED: &'static str = "profile_unsupported";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
@@ -964,6 +980,7 @@ impl ErrorCode {
             Self::ControllerSignedEventRequired => "controller_signed_event_required",
             Self::CredentialExpired => "credential_expired",
             Self::CredentialNotFound => "credential_not_found",
+            Self::CurrentDidAuthorityUnavailable => "current_did_authority_unavailable",
             Self::CursorExpired => "cursor_expired",
             Self::CursorIntegrityInvalid => "cursor_integrity_invalid",
             Self::CursorInvalid => "cursor_invalid",
@@ -984,6 +1001,7 @@ impl ErrorCode {
             Self::DeviceRevoked => "device_revoked",
             Self::DeviceUnknown => "device_unknown",
             Self::DidAlreadyExists => "did_already_exists",
+            Self::DidMethodSuccessorInvalid => "did_method_successor_invalid",
             Self::DidNotFound => "did_not_found",
             Self::DidProofRequired => "did_proof_required",
             Self::DidRevoked => "did_revoked",
@@ -1016,6 +1034,7 @@ impl ErrorCode {
             Self::GovernanceKeyInvalid => "governance_key_invalid",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
             Self::HandleUnverified => "handle_unverified",
+            Self::HistoricalDidEvidenceInvalid => "historical_did_evidence_invalid",
             Self::HistoricalOnly => "historical_only",
             Self::HistoryNotVisible => "history_not_visible",
             Self::HistorySharingPolicyMissing => "history_sharing_policy_missing",
@@ -1073,6 +1092,7 @@ impl ErrorCode {
             Self::OverbroadRequest => "overbroad_request",
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
+            Self::PcrAuthorityStale => "pcr_authority_stale",
             Self::PolicyCombinationInvalid => "policy_combination_invalid",
             Self::PolicyDenied => "policy_denied",
             Self::PolicyRevisionRollback => "policy_revision_rollback",
@@ -1080,6 +1100,7 @@ impl ErrorCode {
             Self::PolicyUnavailable => "policy_unavailable",
             Self::PolicyViolation => "policy_violation",
             Self::PreviewPolicyDenied => "preview_policy_denied",
+            Self::PrincipalAuthorityInstanceMismatch => "principal_authority_instance_mismatch",
             Self::PrincipalUnknown => "principal_unknown",
             Self::ProfileUnsupported => "profile_unsupported",
             Self::ProjectionIncomplete => "projection_incomplete",
@@ -1258,6 +1279,7 @@ impl ErrorCode {
             "controller_signed_event_required" => Some(Self::ControllerSignedEventRequired),
             "credential_expired" => Some(Self::CredentialExpired),
             "credential_not_found" => Some(Self::CredentialNotFound),
+            "current_did_authority_unavailable" => Some(Self::CurrentDidAuthorityUnavailable),
             "cursor_expired" => Some(Self::CursorExpired),
             "cursor_integrity_invalid" => Some(Self::CursorIntegrityInvalid),
             "cursor_invalid" => Some(Self::CursorInvalid),
@@ -1278,6 +1300,7 @@ impl ErrorCode {
             "device_revoked" => Some(Self::DeviceRevoked),
             "device_unknown" => Some(Self::DeviceUnknown),
             "did_already_exists" => Some(Self::DidAlreadyExists),
+            "did_method_successor_invalid" => Some(Self::DidMethodSuccessorInvalid),
             "did_not_found" => Some(Self::DidNotFound),
             "did_proof_required" => Some(Self::DidProofRequired),
             "did_revoked" => Some(Self::DidRevoked),
@@ -1314,6 +1337,7 @@ impl ErrorCode {
             "governance_key_invalid" => Some(Self::GovernanceKeyInvalid),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
             "handle_unverified" => Some(Self::HandleUnverified),
+            "historical_did_evidence_invalid" => Some(Self::HistoricalDidEvidenceInvalid),
             "historical_only" => Some(Self::HistoricalOnly),
             "history_not_visible" => Some(Self::HistoryNotVisible),
             "history_sharing_policy_missing" => Some(Self::HistorySharingPolicyMissing),
@@ -1373,6 +1397,7 @@ impl ErrorCode {
             "overbroad_request" => Some(Self::OverbroadRequest),
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
+            "pcr_authority_stale" => Some(Self::PcrAuthorityStale),
             "policy_combination_invalid" => Some(Self::PolicyCombinationInvalid),
             "policy_denied" => Some(Self::PolicyDenied),
             "policy_revision_rollback" => Some(Self::PolicyRevisionRollback),
@@ -1380,6 +1405,9 @@ impl ErrorCode {
             "policy_unavailable" => Some(Self::PolicyUnavailable),
             "policy_violation" => Some(Self::PolicyViolation),
             "preview_policy_denied" => Some(Self::PreviewPolicyDenied),
+            "principal_authority_instance_mismatch" => {
+                Some(Self::PrincipalAuthorityInstanceMismatch)
+            }
             "principal_unknown" => Some(Self::PrincipalUnknown),
             "profile_unsupported" => Some(Self::ProfileUnsupported),
             "projection_incomplete" => Some(Self::ProjectionIncomplete),
@@ -2003,6 +2031,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The holder has no credential matching the authorized presentation request.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::CurrentDidAuthorityUnavailable,
+        http_status: 503,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "A call site explicitly registered as current-DID-dependent cannot obtain fresh current authority. Unrelated human PCR operations remain available.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::CursorExpired,
         http_status: 410,
         http_status_by_context: &[],
@@ -2161,6 +2197,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "A DID operation attempted to create or register a DID that already exists under the registry's uniqueness rules.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::DidMethodSuccessorInvalid,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "The proposed current resolution is not a valid method-native same-core successor. A valid PCR author proof alone cannot advance it.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidNotFound,
@@ -2417,6 +2461,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "A handle or alias exists but lacks a verifiable current claim binding for the requested operation.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::HistoricalDidEvidenceInvalid,
+        http_status: 422,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "Registration-time or Event accepted-at DID evidence cannot be replayed at its frozen historical boundary. Current DID state MUST NOT be substituted.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HistoricalOnly,
@@ -2811,6 +2863,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The request or blob exceeds declared size limits.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::PcrAuthorityStale,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "The accepted PCR authority frontier, device generation, recovery-policy version or authority-instance binding is stale. DID freshness cannot repair this failure.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::PolicyCombinationInvalid,
         http_status: 422,
         http_status_by_context: &[],
@@ -2865,6 +2925,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "A directory/resolve/search/projection request attempted to obtain a stripped preview, history stub, history snippet, or token-scoped preview that is not allowed by the effective ak.realm.preview_policy. External responses that must be non-enumerating MAY map this to not_found. See zh/governance/history-visibility.md §4.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::PrincipalAuthorityInstanceMismatch,
+        http_status: 403,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "Evidence belongs to a different Principal Server, PCR Realm or genesis-receipt lineage, even if principal_id and public keys match.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PrincipalUnknown,

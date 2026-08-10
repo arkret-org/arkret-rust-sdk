@@ -1016,7 +1016,7 @@ pub enum RealmOrganizationControlScope {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationIssuerRole {
-    OrganizationDid,
+    OrganizationPrincipalId,
     GovernanceService,
     AccountAuthority,
     ThresholdQuorum,
@@ -1306,7 +1306,7 @@ mod realm_organization_tests {
             "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
                 "issuer": "ak:did_core:webvh:example.test",
-                "issuer_role": "organization_did",
+                "issuer_role": "organization_principal_id",
                 "verification_method": "did:webvh:example.test:orgs:01J0000000000000000000000A#k1",
                 "signed_at": "2026-06-25T00:00:00.000Z",
                 "proof": "c2ln"
@@ -1332,7 +1332,7 @@ mod realm_organization_tests {
         assert_eq!(reserialized["relationship"], json!("owner"));
         assert_eq!(
             reserialized["authorization"]["issuer_role"],
-            json!("organization_did")
+            json!("organization_principal_id")
         );
         // Optional/absent fields must not be emitted.
         assert!(reserialized.get("expires_at").is_none());
@@ -1369,7 +1369,7 @@ mod realm_organization_tests {
     fn issuer_role_delegation_requirement() {
         assert!(RealmOrganizationIssuerRole::GovernanceService.requires_delegation_ref());
         assert!(RealmOrganizationIssuerRole::AccountAuthority.requires_delegation_ref());
-        assert!(!RealmOrganizationIssuerRole::OrganizationDid.requires_delegation_ref());
+        assert!(!RealmOrganizationIssuerRole::OrganizationPrincipalId.requires_delegation_ref());
         assert!(!RealmOrganizationIssuerRole::ThresholdQuorum.requires_delegation_ref());
     }
 

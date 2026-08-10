@@ -334,13 +334,26 @@ pub fn validate_root_anchored_authorize_payload_digest(
 /// Event's `event_id` in `prev_refs`, and every `event_id` is a function of its
 /// own signed content, so an id or envelope binding would make the two Events
 /// preimages of each other. See `key-management.md` §5.0.7.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryAuthorityKind {
+    PcrPolicy,
+    DidRoot,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorPayload {
     pub principal_id: DidCoreId,
-    pub did_version_id: NonEmptyString,
-    pub previous_device_generation: NonEmptyString,
-    pub new_device_generation: NonEmptyString,
+    pub authority_instance: PrincipalAuthorityInstance,
+    pub recovery_authority_kind: RecoveryAuthorityKind,
+    pub recovery_policy_id: PolicyId,
+    pub recovery_policy_version: u64,
+    pub recovery_session_id: RecoverySessionId,
+    pub previous_device_generation: u64,
+    pub new_device_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub did_root_evidence_digest: Option<Hash>,
     pub pre_fence_basis: Option<DeviceReanchorPreFenceBasis>,
     pub replacement_authorize_payload_digest: Hash,
 }
@@ -349,9 +362,15 @@ pub struct DeviceReanchorPayload {
 #[serde(deny_unknown_fields)]
 struct DeviceReanchorPayloadWire {
     principal_id: DidCoreId,
-    did_version_id: NonEmptyString,
-    previous_device_generation: NonEmptyString,
-    new_device_generation: NonEmptyString,
+    authority_instance: PrincipalAuthorityInstance,
+    recovery_authority_kind: RecoveryAuthorityKind,
+    recovery_policy_id: PolicyId,
+    recovery_policy_version: u64,
+    recovery_session_id: RecoverySessionId,
+    previous_device_generation: u64,
+    new_device_generation: u64,
+    #[serde(default)]
+    did_root_evidence_digest: Option<Hash>,
     #[serde(deserialize_with = "deserialize_required_nullable")]
     pre_fence_basis: Option<DeviceReanchorPreFenceBasis>,
     replacement_authorize_payload_digest: Hash,
@@ -375,9 +394,14 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
         let wire = DeviceReanchorPayloadWire::deserialize(deserializer)?;
         let payload = Self {
             principal_id: wire.principal_id,
-            did_version_id: wire.did_version_id,
+            authority_instance: wire.authority_instance,
+            recovery_authority_kind: wire.recovery_authority_kind,
+            recovery_policy_id: wire.recovery_policy_id,
+            recovery_policy_version: wire.recovery_policy_version,
+            recovery_session_id: wire.recovery_session_id,
             previous_device_generation: wire.previous_device_generation,
             new_device_generation: wire.new_device_generation,
+            did_root_evidence_digest: wire.did_root_evidence_digest,
             pre_fence_basis: wire.pre_fence_basis,
             replacement_authorize_payload_digest: wire.replacement_authorize_payload_digest,
         };
@@ -389,11 +413,30 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
 impl DeviceReanchorPayload {
     pub const SCHEMA: &'static str = SchemaId::DEVICE_REANCHOR_V1;
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
-        parse_did_webvh_version_id(self.did_version_id.as_str())?;
-        parse_did_webvh_version_id(self.previous_device_generation.as_str())?;
-        parse_did_webvh_version_id(self.new_device_generation.as_str())?;
-        if self.new_device_generation != self.did_version_id {
-            return Err("device reanchor new_device_generation must equal did_version_id");
+        self.authority_instance
+            .validate()
+            .map_err(|_| "device reanchor authority_instance is invalid")?;
+        if self.authority_instance.principal_id != self.principal_id {
+            return Err("device reanchor authority_instance does not bind principal_id");
+        }
+        if self.recovery_policy_version == 0
+            || self.previous_device_generation == 0
+            || self.new_device_generation != self.previous_device_generation.saturating_add(1)
+        {
+            return Err(
+                "device reanchor policy version and generations must be positive immediate successors",
+            );
+        }
+        match (
+            self.recovery_authority_kind,
+            self.did_root_evidence_digest.is_some(),
+        ) {
+            (RecoveryAuthorityKind::DidRoot, true) | (RecoveryAuthorityKind::PcrPolicy, false) => {}
+            _ => {
+                return Err(
+                    "device reanchor did_root_evidence_digest must exist exactly for did_root authority",
+                );
+            }
         }
         if let Some(basis) = &self.pre_fence_basis
             && basis.validate_protocol_bounds().is_err()
@@ -404,11 +447,6 @@ impl DeviceReanchorPayload {
             );
         }
         Ok(())
-    }
-
-    pub fn did_version_number(&self) -> u64 {
-        parse_did_webvh_version_id(self.did_version_id.as_str())
-            .expect("validated DeviceReanchorPayload has a valid did_version_id")
     }
 }
 
@@ -460,22 +498,6 @@ pub fn validate_device_reanchor_recovery_first_seal(
         ));
     }
     Ok(())
-}
-
-fn parse_did_webvh_version_id(value: &str) -> std::result::Result<u64, &'static str> {
-    let (number_text, digest) = value
-        .split_once('-')
-        .ok_or("did:webvh versionId must be <positive-number>-<digest>")?;
-    if digest.is_empty() || digest.chars().any(char::is_whitespace) {
-        return Err("did:webvh versionId digest must be non-empty and contain no whitespace");
-    }
-    let number = number_text
-        .parse::<u64>()
-        .map_err(|_| "did:webvh versionId number is invalid")?;
-    if number == 0 || number_text.starts_with('0') {
-        return Err("did:webvh versionId number must be positive without leading zeros");
-    }
-    Ok(number)
 }
 
 use arkret_wire::SchemaId;
@@ -737,6 +759,19 @@ mod tests {
         })
     }
 
+    fn authority_instance_value() -> Value {
+        serde_json::to_value(
+            PrincipalAuthorityInstance::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
+                RealmId::new("ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j").unwrap(),
+                Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn device_authorize_binding_kind_is_closed_and_matches_authorizer() {
         let root: DeviceAuthorizePayload =
@@ -886,17 +921,21 @@ mod tests {
     }
 
     #[test]
-    fn device_reanchor_enforces_version_shape_generation_equality_and_basis() {
+    fn device_reanchor_enforces_exact_authority_generation_cas_and_basis() {
         let valid = json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "did_version_id": "2-QmCurrent",
-            "previous_device_generation": "1-QmPrevious",
-            "new_device_generation": "2-QmCurrent",
+            "authority_instance": authority_instance_value(),
+            "recovery_authority_kind": "pcr_policy",
+            "recovery_policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
+            "recovery_policy_version": 1,
+            "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000002",
+            "previous_device_generation": 1,
+            "new_device_generation": 2,
             "pre_fence_basis": null,
             "replacement_authorize_payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         });
         let payload: DeviceReanchorPayload = serde_json::from_value(valid.clone()).unwrap();
-        assert_eq!(payload.did_version_number(), 2);
+        assert_eq!(payload.new_device_generation, 2);
         let reanchor_digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
         let authorize_digest = Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap();
         let delta = vec![
@@ -972,12 +1011,19 @@ mod tests {
         );
 
         let mut mismatched = valid.clone();
-        mismatched["new_device_generation"] = json!("3-QmOther");
+        mismatched["new_device_generation"] = json!(3);
         assert!(serde_json::from_value::<DeviceReanchorPayload>(mismatched).is_err());
 
-        let mut leading_zero = valid;
-        leading_zero["did_version_id"] = json!("02-QmCurrent");
-        assert!(serde_json::from_value::<DeviceReanchorPayload>(leading_zero).is_err());
+        let mut zero_policy_version = valid.clone();
+        zero_policy_version["recovery_policy_version"] = json!(0);
+        assert!(serde_json::from_value::<DeviceReanchorPayload>(zero_policy_version).is_err());
+
+        let mut unexpected_did_root_evidence = valid;
+        unexpected_did_root_evidence["did_root_evidence_digest"] =
+            json!(format!("sha256:{}", "f".repeat(64)));
+        assert!(
+            serde_json::from_value::<DeviceReanchorPayload>(unexpected_did_root_evidence).is_err()
+        );
     }
 
     /// The non-null `pre_fence_basis` branch.
@@ -990,9 +1036,13 @@ mod tests {
     fn device_reanchor_pre_fence_basis_round_trips_both_frontier_roots() {
         let wire = json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "did_version_id": "2-QmCurrent",
-            "previous_device_generation": "1-QmPrevious",
-            "new_device_generation": "2-QmCurrent",
+            "authority_instance": authority_instance_value(),
+            "recovery_authority_kind": "pcr_policy",
+            "recovery_policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
+            "recovery_policy_version": 1,
+            "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000002",
+            "previous_device_generation": 1,
+            "new_device_generation": 2,
             "pre_fence_basis": {
                 "leaves": [
                     format!("ak:seal:sha256:{}", "a".repeat(64)),

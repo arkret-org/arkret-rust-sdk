@@ -86,6 +86,22 @@ impl GrantProjection {
                 "schema_violation: capability grant requires issuer_authority_refs".to_owned(),
             ));
         }
+        if let Some(authority_instance) = &grant.subject_authority_instance {
+            authority_instance.validate().map_err(|error| {
+                Error::Protocol(format!(
+                    "schema_violation: invalid subject_authority_instance: {error}"
+                ))
+            })?;
+            if !matches!(
+                &grant.subject,
+                CapabilitySubject::Did(subject) if subject == &authority_instance.principal_id
+            ) {
+                return Err(Error::Protocol(
+                    "schema_violation: subject_authority_instance does not bind the DID subject"
+                        .to_owned(),
+                ));
+            }
+        }
         validate_capability_action_registry_binding(
             &grant.actions,
             grant.capability_action_registry_digest.as_ref(),
@@ -731,6 +747,7 @@ pub fn capability_grant_from_resolved_event(
             realm_id: grant.realm_id.or(default_realm_id),
             issuer: grant.issuer,
             subject: grant.subject,
+            subject_authority_instance: grant.subject_authority_instance,
             actions: grant.actions,
             resources: grant.resources,
             capability_action_registry_digest: grant.capability_action_registry_digest,
@@ -1467,6 +1484,7 @@ impl CapabilityGrantBuilder {
                 realm_id: self.grant.realm_id,
                 issuer: self.grant.issuer,
                 subject: self.grant.subject,
+                subject_authority_instance: self.grant.subject_authority_instance,
                 actions: self.grant.actions,
                 resources: self.grant.resources,
                 capability_action_registry_digest: self.grant.capability_action_registry_digest,
@@ -1549,6 +1567,7 @@ mod capability_grant_builder_tests {
             realm_id: None,
             issuer: alice(),
             subject: CapabilitySubject::Did(bob()),
+            subject_authority_instance: None,
             actions: vec!["ak.message.create".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             capability_action_registry_digest: None,

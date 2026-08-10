@@ -279,7 +279,7 @@ mod realm_organization_verifier_tests {
             organization_policy_ref: None,
             authorization: RealmOrganizationAuthorization {
                 issuer: org_actor(),
-                issuer_role: RealmOrganizationIssuerRole::OrganizationDid,
+                issuer_role: RealmOrganizationIssuerRole::OrganizationPrincipalId,
                 verification_method: DidUrl::new("did:webvh:example.test:orgs:org1#k1").unwrap(),
                 delegation_ref: None,
                 executed_by: None,

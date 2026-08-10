@@ -23,7 +23,6 @@ use serde::{Deserialize, Serialize};
 pub enum MlsEndpointIdentity {
     HumanDevice {
         principal_id: DidCoreId,
-        principal_full_id: DidFullId,
         device_id: DeviceId,
     },
     NativeAgentRuntime {
@@ -34,16 +33,11 @@ pub enum MlsEndpointIdentity {
 }
 
 impl MlsEndpointIdentity {
-    pub fn human_device(
-        principal_full_id: DidFullId,
-        device_id: DeviceId,
-    ) -> arkret_wire::Result<Self> {
-        let principal_id = project_full_id_to_core_id(&principal_full_id)?;
-        Ok(Self::HumanDevice {
+    pub fn human_device(principal_id: DidCoreId, device_id: DeviceId) -> Self {
+        Self::HumanDevice {
             principal_id,
-            principal_full_id,
             device_id,
-        })
+        }
     }
 
     pub fn native_agent_runtime(
@@ -51,15 +45,20 @@ impl MlsEndpointIdentity {
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
     ) -> arkret_wire::Result<Self> {
-        let controller = verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(controller, _)| controller)
-            .ok_or_else(|| {
-                arkret_wire::Error::Protocol(
-                    "Native Agent MLS verification method has no fragment".to_owned(),
-                )
-            })?;
+        let (controller, fragment) =
+            verification_method
+                .as_str()
+                .split_once('#')
+                .ok_or_else(|| {
+                    arkret_wire::Error::Protocol(
+                        "Native Agent MLS verification method has no fragment".to_owned(),
+                    )
+                })?;
+        if fragment.is_empty() {
+            return Err(arkret_wire::Error::Protocol(
+                "Native Agent MLS verification method has an empty fragment".to_owned(),
+            ));
+        }
         let controller = DidFullId::new(controller.to_owned())?;
         if project_full_id_to_core_id(&controller)?.as_str() != agent_id.as_str() {
             return Err(arkret_wire::Error::Protocol(
@@ -73,10 +72,10 @@ impl MlsEndpointIdentity {
         })
     }
 
-    pub fn actor_id(&self) -> DidCoreId {
+    pub fn actor_id(&self) -> &DidCoreId {
         match self {
-            Self::HumanDevice { principal_id, .. } => principal_id.clone(),
-            Self::NativeAgentRuntime { agent_id, .. } => agent_id.clone(),
+            Self::HumanDevice { principal_id, .. } => principal_id,
+            Self::NativeAgentRuntime { agent_id, .. } => agent_id,
         }
     }
 
@@ -89,15 +88,7 @@ impl MlsEndpointIdentity {
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
         match self {
-            Self::HumanDevice {
-                principal_id,
-                principal_full_id,
-                ..
-            } if project_full_id_to_core_id(principal_full_id)?.as_str()
-                == principal_id.as_str() =>
-            {
-                Ok(())
-            }
+            Self::HumanDevice { .. } => Ok(()),
             Self::NativeAgentRuntime {
                 agent_id,
                 verification_method,
@@ -108,9 +99,6 @@ impl MlsEndpointIdentity {
                 agent_key_authorize_event_id.clone(),
             )
             .map(|_| ()),
-            _ => Err(arkret_wire::Error::Protocol(
-                "human MLS endpoint DidFullId/DidCoreId mismatch".to_owned(),
-            )),
         }
     }
 }
@@ -282,8 +270,10 @@ pub enum MlsKeyPackageState {
 pub struct MlsKeyPackageRecord {
     /// Globally unique identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
+    /// Exact MLS endpoint that owns the BasicCredential and LeafNode key.
+    /// Human devices and Native Agent runtimes are mutually exclusive; callers
+    /// must not infer one from the other or synthesize a placeholder device.
+    pub endpoint: MlsEndpointIdentity,
     /// MLS KeyPackage material (base64url).
     pub key_package: String,
     /// Canonical hash of `key_package`.

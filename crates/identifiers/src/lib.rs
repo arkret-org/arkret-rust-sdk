@@ -839,7 +839,8 @@ pub fn project_full_id_to_core_id(full_id: &DidFullId) -> Result<DidCoreId> {
 // directions.
 declare_uuid_id_kinds! {
     // AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
-    // `agent_id` is a DID scalar, represented by `DidFullId`.
+    // `agent_id` business references use the stable `DidCoreId`; full Agent
+    // DIDs remain confined to registration and method-resolution evidence.
     // Audit release-session + attestation typed ids (id-kind-registry kinds
     // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
     AttestationId, "ak:attestation:", UUID_VERSION_PRODUCER_ALLOCATED;

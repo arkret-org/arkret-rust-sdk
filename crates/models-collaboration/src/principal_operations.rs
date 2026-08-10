@@ -1,7 +1,7 @@
 use arkret_models_identity::{IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS};
 use arkret_wire::{
-    DeviceId, DidCoreId, Error, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit, RealmId,
-    Result, canonical,
+    DeviceId, DidCoreId, DidFullId, Error, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
+    RealmId, Result, canonical, project_full_id_to_core_id,
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +18,7 @@ use crate::events_payloads::{
 pub struct PcrGenesisSubmitRequestBody {
     pub account_authority_id: DidCoreId,
     pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub pcr_realm_id: RealmId,
     pub idempotency_key: IdempotencyKey,
     pub registration_request_digest: Hash,
@@ -39,6 +40,8 @@ impl PcrGenesisSubmitRequestBody {
         create.validate_proof_bindings()?;
         authorize.validate_proof_bindings()?;
         if self.principal_id != proof.principal_id
+            || self.full_id != proof.full_id
+            || project_full_id_to_core_id(&self.full_id)? != self.principal_id
             || self.pcr_realm_id != proof.pcr_realm_id
             || self.did_version_id != proof.did_version_id
             || self.log_head_digest != proof.log_head_digest

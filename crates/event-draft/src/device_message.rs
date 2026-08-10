@@ -297,7 +297,7 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
 mod tests {
     use arkret_identifiers::{DeviceId, DeviceMessageId, DidCoreId, EventId, Hash, RealmId};
     use arkret_models_collaboration::events_payloads::MemberRepairRequester;
-    use arkret_models_crypto::MlsWelcomeEnvelope;
+    use arkret_models_crypto::{MlsEndpointIdentity, MlsWelcomeEnvelope};
     use arkret_wire::NonEmptyString;
     use chrono::{Duration, Utc};
 
@@ -308,9 +308,10 @@ mod tests {
         let content = MlsWelcomeEnvelope {
             group_id: "group-1".to_owned(),
             epoch: 4,
-            recipient_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
-                .unwrap(),
+            recipient: MlsEndpointIdentity::human_device(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
+            ),
             welcome: "d2VsY29tZQ".to_owned(),
             welcome_hash: Hash::new(
                 "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",

@@ -1,4 +1,6 @@
-use arkret_models_crypto::{MlsCommitEnvelope, MlsCommitSource, MlsWelcomeEnvelope};
+use arkret_models_crypto::{
+    MlsCommitEnvelope, MlsCommitSource, MlsEndpointIdentity, MlsWelcomeEnvelope,
+};
 use arkret_wire::{DeviceId, DidCoreId};
 use serde::{Deserialize, Serialize};
 
@@ -25,15 +27,24 @@ pub struct MlsDeviceWorkflowStep {
     pub to_epoch: Option<u64>,
 }
 
-pub fn late_device_join_steps(welcome: &MlsWelcomeEnvelope) -> Vec<MlsDeviceWorkflowStep> {
-    vec![MlsDeviceWorkflowStep {
+pub fn late_device_join_steps(welcome: &MlsWelcomeEnvelope) -> Result<Vec<MlsDeviceWorkflowStep>> {
+    let MlsEndpointIdentity::HumanDevice {
+        principal_id,
+        device_id,
+    } = &welcome.recipient
+    else {
+        return Err(Error::Protocol(
+            "device recovery workflow cannot consume a Native Agent Welcome".to_owned(),
+        ));
+    };
+    Ok(vec![MlsDeviceWorkflowStep {
         action: MlsDeviceWorkflowAction::ConsumeWelcome,
-        principal_id: welcome.recipient_principal_id.clone(),
-        device_id: welcome.recipient_device_id.clone(),
+        principal_id: principal_id.clone(),
+        device_id: device_id.clone(),
         group_id: Some(welcome.group_id.clone()),
         from_epoch: None,
         to_epoch: Some(welcome.epoch),
-    }]
+    }])
 }
 
 pub fn epoch_recovery_step(

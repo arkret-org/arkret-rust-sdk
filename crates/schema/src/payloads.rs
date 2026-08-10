@@ -752,7 +752,7 @@ mod tests {
         }
     }
 
-    fn root_anchored_device_authorize_payload() -> Value {
+    fn registration_anchored_device_authorize_payload() -> Value {
         json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
@@ -762,7 +762,7 @@ mod tests {
             "device_key_algorithm": "Ed25519",
             "authorized_by": "ak:did_core:webvh:z6mkfixture",
             "not_before": "2026-06-30T00:00:00.000Z",
-            "authorization_binding_kind": "root_anchored",
+            "authorization_binding_kind": "registration_anchor",
             "device_signature": "c2lnbmF0dXJl"
         })
     }
@@ -780,7 +780,7 @@ mod tests {
         catalog
             .validate_payload(
                 "ak.device.authorize",
-                &root_anchored_device_authorize_payload(),
+                &registration_anchored_device_authorize_payload(),
             )
             .unwrap();
     }

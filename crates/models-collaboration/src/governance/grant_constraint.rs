@@ -745,6 +745,8 @@ pub struct CapabilityGrant {
     pub realm_id: Option<RealmId>,
     pub issuer: DidCoreId,
     pub subject: CapabilitySubject,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_authority_instance: Option<arkret_wire::PrincipalAuthorityInstance>,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -870,6 +872,7 @@ mod tests {
             subject: CapabilitySubject::Did(
                 DidCoreId::new("ak:did_core:web:subject.example").unwrap(),
             ),
+            subject_authority_instance: None,
             actions: vec!["ak.event.read".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             capability_action_registry_digest: None,

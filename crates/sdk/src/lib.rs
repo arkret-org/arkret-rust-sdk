@@ -48,6 +48,7 @@
 
 mod sdk_error;
 mod sidecar_recovery;
+mod verified_actor_binding;
 pub use arkret_auth as auth;
 pub use arkret_auth::{AdminKeyStore, session_grant};
 pub use arkret_bootstrap as bootstrap;
@@ -390,6 +391,7 @@ pub use arkret_wire::{
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};
+pub use verified_actor_binding::*;
 
 pub mod events {
     pub use arkret_models_collaboration::events_payloads::redaction::*;

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-10.2;
-//! sha256=ad6706bfecb2498ac4fb3b41e74213f3ab2be7171f0986243886d631bb89e29d Entries: schema_ids=183,
+//! Input: registry/schema-registry.json; version=2026-08-11.1;
+//! sha256=190d5089fe8a1cf8b066422905da535faf50bcb8287b181eb12f21d2957ba36d Entries: schema_ids=183,
 //! active=183
 
 use serde::{Deserialize, Serialize};
@@ -752,9 +752,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for the server-mediated device-pairing short-link handoff
     /// (stage / resolve / status). See device-lifecycle.md §2.1.1.
     pub const DEVICE_PAIRING_OPERATIONS_V1: &'static str = "ak.schema.device_pairing_operations.v1";
-    /// Closed root-anchored recovery re-entry payload binding one verified DID version, the
-    /// complete pre-fence Seal frontier, and the exact replacement device authorization event
-    /// id/digest.
+    /// Closed PCR-policy recovery payload binding one authority instance, accepted policy/session,
+    /// monotonic PCR generation CAS, complete pre-fence Seal frontier and replacement authorization
+    /// digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
     /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
     /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),
@@ -795,9 +795,9 @@ impl SchemaId {
     pub const EVENTS_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.events_subscribe_frame.v1";
     /// Declarative extension loading and conformance manifest.
     pub const EXTENSION_MANIFEST_V1: &'static str = "ak.schema.extension_manifest.v1";
-    /// Portable PCR-root-anchored device authorization evidence reused by peer Event, contact fact,
-    /// and KeyPackage claim transports. DID history supplies only the identity root; accepted PCR
-    /// Events and Seal evidence establish device authority and freshness.
+    /// Portable PCR-lineage device evidence reused by peer Event, Contact and KeyPackage
+    /// transports. Frozen registration/accepted-at DID evidence proves historical keys; accepted
+    /// PCR Events and Seal evidence establish current device authority.
     pub const FEDERATED_DEVICE_SIGNING_KEY_EVIDENCE_V1: &'static str =
         "ak.schema.federated_device_signing_key_evidence.v1";
     /// Encrypted account-data plaintext shape and to-device key message content for

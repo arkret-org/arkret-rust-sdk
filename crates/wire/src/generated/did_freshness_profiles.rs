@@ -1,12 +1,15 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/did-freshness-profile-registry.json; version=2026-08-01;
-//! sha256=20557e38f5626ba304e82da83fb90e4fdfce0d0364c8b701c8d50b403ca34593 Entries: registered=3
+//! Input: registry/did-freshness-profile-registry.json; version=2026-08-11.2;
+//! sha256=f0a3f8a46b699b8f273e1890f30e7d366d6472897673e37ce3ad8d551446a2fc Entries: registered=6
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DidFreshnessProfileId {
-    AuthorityControllerV1,
-    AuthorityHighRiskV1,
+    CurrentExternalClaimV1,
+    MethodSuccessorV1,
+    OngoingGovernanceV1,
+    OptionalDidRootRecoveryV1,
+    RegistrationCurrentV1,
     UnregisteredFailClosedV1,
 }
 
@@ -28,28 +31,42 @@ pub struct DidFreshnessProfileDescriptor {
 
 impl DidFreshnessProfileId {
     pub const ALL: &'static [Self] = &[
-        Self::AuthorityControllerV1,
-        Self::AuthorityHighRiskV1,
+        Self::CurrentExternalClaimV1,
+        Self::MethodSuccessorV1,
+        Self::OngoingGovernanceV1,
+        Self::OptionalDidRootRecoveryV1,
+        Self::RegistrationCurrentV1,
         Self::UnregisteredFailClosedV1,
     ];
 
-    pub const AUTHORITY_CONTROLLER_V1: &'static str = "ak.did_freshness.authority_controller.v1";
-    pub const AUTHORITY_HIGH_RISK_V1: &'static str = "ak.did_freshness.authority_high_risk.v1";
+    pub const CURRENT_EXTERNAL_CLAIM_V1: &'static str =
+        "ak.did_freshness.current_external_claim.v1";
+    pub const METHOD_SUCCESSOR_V1: &'static str = "ak.did_freshness.method_successor.v1";
+    pub const ONGOING_GOVERNANCE_V1: &'static str = "ak.did_freshness.ongoing_governance.v1";
+    pub const OPTIONAL_DID_ROOT_RECOVERY_V1: &'static str =
+        "ak.did_freshness.optional_did_root_recovery.v1";
+    pub const REGISTRATION_CURRENT_V1: &'static str = "ak.did_freshness.registration_current.v1";
     pub const UNREGISTERED_FAIL_CLOSED_V1: &'static str =
         "ak.did_freshness.unregistered_fail_closed.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::AuthorityControllerV1 => Self::AUTHORITY_CONTROLLER_V1,
-            Self::AuthorityHighRiskV1 => Self::AUTHORITY_HIGH_RISK_V1,
+            Self::CurrentExternalClaimV1 => Self::CURRENT_EXTERNAL_CLAIM_V1,
+            Self::MethodSuccessorV1 => Self::METHOD_SUCCESSOR_V1,
+            Self::OngoingGovernanceV1 => Self::ONGOING_GOVERNANCE_V1,
+            Self::OptionalDidRootRecoveryV1 => Self::OPTIONAL_DID_ROOT_RECOVERY_V1,
+            Self::RegistrationCurrentV1 => Self::REGISTRATION_CURRENT_V1,
             Self::UnregisteredFailClosedV1 => Self::UNREGISTERED_FAIL_CLOSED_V1,
         }
     }
 
     pub const fn risk_tier(self) -> DidFreshnessRiskTier {
         match self {
-            Self::AuthorityControllerV1 => DidFreshnessRiskTier::High,
-            Self::AuthorityHighRiskV1 => DidFreshnessRiskTier::High,
+            Self::CurrentExternalClaimV1 => DidFreshnessRiskTier::High,
+            Self::MethodSuccessorV1 => DidFreshnessRiskTier::High,
+            Self::OngoingGovernanceV1 => DidFreshnessRiskTier::High,
+            Self::OptionalDidRootRecoveryV1 => DidFreshnessRiskTier::High,
+            Self::RegistrationCurrentV1 => DidFreshnessRiskTier::High,
             Self::UnregisteredFailClosedV1 => DidFreshnessRiskTier::High,
         }
     }
@@ -58,8 +75,11 @@ impl DidFreshnessProfileId {
     /// "any cached binding will do".
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            Self::AUTHORITY_CONTROLLER_V1 => Some(Self::AuthorityControllerV1),
-            Self::AUTHORITY_HIGH_RISK_V1 => Some(Self::AuthorityHighRiskV1),
+            Self::CURRENT_EXTERNAL_CLAIM_V1 => Some(Self::CurrentExternalClaimV1),
+            Self::METHOD_SUCCESSOR_V1 => Some(Self::MethodSuccessorV1),
+            Self::ONGOING_GOVERNANCE_V1 => Some(Self::OngoingGovernanceV1),
+            Self::OPTIONAL_DID_ROOT_RECOVERY_V1 => Some(Self::OptionalDidRootRecoveryV1),
+            Self::REGISTRATION_CURRENT_V1 => Some(Self::RegistrationCurrentV1),
             Self::UNREGISTERED_FAIL_CLOSED_V1 => Some(Self::UnregisteredFailClosedV1),
             _ => None,
         }
@@ -68,12 +88,27 @@ impl DidFreshnessProfileId {
 
 pub const REGISTERED_DID_FRESHNESS_PROFILES: &[DidFreshnessProfileDescriptor] = &[
     DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::AUTHORITY_CONTROLLER_V1,
+        freshness_profile_id: DidFreshnessProfileId::CURRENT_EXTERNAL_CLAIM_V1,
         risk_tier: DidFreshnessRiskTier::High,
         stale_behavior: "synchronous_refresh_or_fail_closed",
     },
     DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::AUTHORITY_HIGH_RISK_V1,
+        freshness_profile_id: DidFreshnessProfileId::METHOD_SUCCESSOR_V1,
+        risk_tier: DidFreshnessRiskTier::High,
+        stale_behavior: "synchronous_refresh_or_fail_closed",
+    },
+    DidFreshnessProfileDescriptor {
+        freshness_profile_id: DidFreshnessProfileId::ONGOING_GOVERNANCE_V1,
+        risk_tier: DidFreshnessRiskTier::High,
+        stale_behavior: "synchronous_refresh_or_fail_closed",
+    },
+    DidFreshnessProfileDescriptor {
+        freshness_profile_id: DidFreshnessProfileId::OPTIONAL_DID_ROOT_RECOVERY_V1,
+        risk_tier: DidFreshnessRiskTier::High,
+        stale_behavior: "synchronous_refresh_or_fail_closed",
+    },
+    DidFreshnessProfileDescriptor {
+        freshness_profile_id: DidFreshnessProfileId::REGISTRATION_CURRENT_V1,
         risk_tier: DidFreshnessRiskTier::High,
         stale_behavior: "synchronous_refresh_or_fail_closed",
     },

@@ -9,6 +9,7 @@
 //! projection is exercised here over hand-constructed envelopes.
 
 use arkret_event_draft::{MlsEnvelopeOperationExt, MlsWelcomeTargetExt};
+use arkret_models_crypto::MlsEndpointIdentity;
 use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
@@ -44,9 +45,10 @@ fn welcome_envelope() -> MlsWelcomeEnvelope {
     MlsWelcomeEnvelope {
         group_id: "Zml4dHVyZS1yZWFsbQ".to_owned(),
         epoch: 7,
-        recipient_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-        recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e")
-            .unwrap(),
+        recipient: MlsEndpointIdentity::human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+        ),
         welcome: "V0VMQ09NRQ".to_owned(),
         welcome_hash: hash('e'),
         ratchet_tree: Some("VFJFRQ".to_owned()),

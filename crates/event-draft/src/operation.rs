@@ -617,11 +617,20 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
         operation_id: OperationId,
         realm_id: RealmId,
     ) -> Result<LocalOperationDraft<Self::Spec>> {
+        let endpoint = match &self.recipient {
+            arkret_models_crypto::MlsEndpointIdentity::HumanDevice {
+                principal_id,
+                device_id,
+            } => format!("device:{principal_id}:{device_id}"),
+            arkret_models_crypto::MlsEndpointIdentity::NativeAgentRuntime {
+                agent_id,
+                verification_method,
+                agent_key_authorize_event_id,
+            } => format!("agent:{agent_id}:{verification_method}:{agent_key_authorize_event_id}"),
+        };
         Ok(
-            LocalOperationDraft::new(operation_id, realm_id, self.clone()).with_object_id(format!(
-                "{}:{}:{}:{}",
-                self.group_id, self.epoch, self.recipient_principal_id, self.recipient_device_id
-            )),
+            LocalOperationDraft::new(operation_id, realm_id, self.clone())
+                .with_object_id(format!("{}:{}:{endpoint}", self.group_id, self.epoch)),
         )
     }
 }

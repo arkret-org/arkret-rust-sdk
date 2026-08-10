@@ -29,8 +29,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, DeviceId, DidCoreId, EventId, GrantId, Hash, Hlc, RealmId, SealId,
-    SidecarId,
+    AppletId, CircleId, DeviceId, DidCoreId, DidFullId, EventId, GrantId, Hash, Hlc, RealmId,
+    SealId, SidecarId, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,8 @@ use crate::primitives::{
 };
 use crate::seal::Seal;
 use crate::{
-    AuthorizationRef, DidKey, DidUrl, FeatureRef, NonEmptyString, ProfileRef, SchemaId, canonical,
+    AuthorizationRef, Base64UrlString, DidKey, DidUrl, FeatureRef, NonEmptyString, ProfileRef,
+    SchemaId, canonical,
 };
 
 /// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
@@ -491,6 +492,197 @@ pub struct FederatedCurrentDeviceProjection {
     pub generation_state: FederatedDeviceGenerationState,
 }
 
+/// Immutable selector for one independently controlled human PCR authority
+/// instance. Identity equality is only `principal_id`; authorization equality
+/// requires all five fields and a valid canonical digest.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalAuthorityInstance {
+    pub principal_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
+    pub pcr_realm_id: RealmId,
+    pub principal_genesis_receipt_digest: Hash,
+    pub authority_instance_digest: Hash,
+}
+
+impl PrincipalAuthorityInstance {
+    pub fn new(
+        principal_id: DidCoreId,
+        principal_server_id: DidCoreId,
+        pcr_realm_id: RealmId,
+        principal_genesis_receipt_digest: Hash,
+    ) -> Result<Self> {
+        let authority_instance_digest = Self::digest_for(
+            &principal_id,
+            &principal_server_id,
+            &pcr_realm_id,
+            &principal_genesis_receipt_digest,
+        )?;
+        Ok(Self {
+            principal_id,
+            principal_server_id,
+            pcr_realm_id,
+            principal_genesis_receipt_digest,
+            authority_instance_digest,
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let expected = Self::digest_for(
+            &self.principal_id,
+            &self.principal_server_id,
+            &self.pcr_realm_id,
+            &self.principal_genesis_receipt_digest,
+        )?;
+        if self.authority_instance_digest != expected {
+            return Err(Error::Protocol(
+                "principal authority instance digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn digest_for(
+        principal_id: &DidCoreId,
+        principal_server_id: &DidCoreId,
+        pcr_realm_id: &RealmId,
+        principal_genesis_receipt_digest: &Hash,
+    ) -> Result<Hash> {
+        let core = serde_json::json!({
+            "principal_id": principal_id,
+            "principal_server_id": principal_server_id,
+            "pcr_realm_id": pcr_realm_id,
+            "principal_genesis_receipt_digest": principal_genesis_receipt_digest,
+        });
+        let mut input = b"ak.principal-authority-instance.v1\n".to_vec();
+        input.extend(arkret_canonical::canonical_json_bytes(&core)?);
+        Ok(Hash::new(arkret_canonical::sha256_digest(input))?)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DidBindingEvidenceKind {
+    #[serde(rename = "ak.did.binding_evidence.v1")]
+    AkDidBindingEvidenceV1,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DidBindingMethodProofKind {
+    WebvhLog,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DidBindingWitness {
+    pub witness_did: DidFullId,
+    pub controlling_organization: DidFullId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DidBindingMethodProof {
+    pub kind: DidBindingMethodProofKind,
+    pub history_head: String,
+    pub witnesses: Vec<DidBindingWitness>,
+    pub witness_proofs_digest: Hash,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DidBindingEvidenceReceipt {
+    pub kind: DidBindingEvidenceKind,
+    pub method: String,
+    pub document_digest: Hash,
+    pub method_proofs: Vec<DidBindingMethodProof>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct RegistrationControlSignature {
+    pub verification_method: DidUrl,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub jws: Base64UrlString,
+}
+
+/// Frozen DID evidence captured when this PCR registration was accepted.
+/// It is historical input: verifiers must never replace it with a current DID
+/// document or current method head.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct RegistrationDidEvidence {
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
+    pub adapter_version: String,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub method_history_head: String,
+    pub version_id: String,
+    pub control_key_digest: Hash,
+    pub method_evidence: DidBindingEvidenceReceipt,
+    pub control_proof: RegistrationControlSignature,
+}
+
+impl RegistrationDidEvidence {
+    pub fn validate_shape(&self) -> Result<()> {
+        let controller = self
+            .control_proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(controller, _)| controller)
+            .ok_or_else(|| {
+                Error::Protocol("registration control proof has no fragment".to_owned())
+            })?;
+        let mut witness_ids = BTreeSet::new();
+        if self.adapter_version.trim().is_empty()
+            || self.method_history_head.trim().is_empty()
+            || self.version_id.trim().is_empty()
+            || project_full_id_to_core_id(&self.full_id)? != self.principal_id
+            || controller != self.full_id.as_str()
+            || self.control_proof.created_at > self.accepted_at
+            || self.method_evidence.method != self.full_id.method()
+            || self.method_evidence.method_proofs.iter().any(|proof| {
+                proof.history_head.is_empty()
+                    || proof
+                        .witnesses
+                        .windows(2)
+                        .any(|pair| pair[0].witness_did.as_str() >= pair[1].witness_did.as_str())
+                    || proof
+                        .witnesses
+                        .iter()
+                        .any(|witness| !witness_ids.insert(witness.witness_did.as_str().to_owned()))
+            })
+        {
+            return Err(Error::Protocol(
+                "registration DID evidence shape or identity binding mismatch".to_owned(),
+            ));
+        }
+        match self.full_id.method() {
+            "webvh"
+                if self.method_evidence.method_proofs.len() == 1
+                    && self.method_evidence.method_proofs[0].history_head
+                        == self.method_history_head => {}
+            "web" | "key" if self.method_evidence.method_proofs.is_empty() => {}
+            _ => {
+                return Err(Error::Protocol(
+                    "registration DID evidence method proof mismatch".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FederatedDeviceSigningKeyEvidence {
@@ -500,6 +692,8 @@ pub struct FederatedDeviceSigningKeyEvidence {
     pub device_signing_key: DidKey,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub authorization_accepted_at: DateTime<Utc>,
+    pub authority_instance: PrincipalAuthorityInstance,
+    pub registration_did_evidence: RegistrationDidEvidence,
     pub principal_genesis_receipt: EventBatchReceipt,
     pub authorization_chain: Vec<Event>,
     pub accepted_seal: Seal,
@@ -509,10 +703,13 @@ pub struct FederatedDeviceSigningKeyEvidence {
 
 impl FederatedDeviceSigningKeyEvidence {
     pub fn validate_shape(&self) -> Result<()> {
-        let expected = format!("{}#{}", self.actor_id, self.device_id);
-        if self.verification_method != expected {
+        self.authority_instance.validate()?;
+        self.registration_did_evidence.validate_shape()?;
+        if device_method_fragment_for_actor(&self.verification_method, &self.actor_id)?
+            != self.device_id.as_str()
+        {
             return Err(Error::Protocol(
-                "federated device signing evidence verification_method must equal actor_id#device_id"
+                "federated device signing evidence verification_method does not project to actor_id#device_id"
                     .to_owned(),
             ));
         }
@@ -534,7 +731,15 @@ impl FederatedDeviceSigningKeyEvidence {
             ));
         }
         let receipt_scope = self.principal_genesis_receipt.pcr_genesis_scope()?;
-        if self.current_device_projection.principal_id != self.actor_id
+        if self.authority_instance.principal_id != self.actor_id
+            || self.authority_instance.principal_server_id != self.principal_genesis_receipt.issuer
+            || self.registration_did_evidence.principal_id != self.actor_id
+            || self.registration_did_evidence.accepted_at != receipt_scope.accepted_at
+            || self.registration_did_evidence.version_id != receipt_scope.did_version_id
+            || self.registration_did_evidence.method_history_head
+                != receipt_scope.log_head_digest.as_str()
+            || self.registration_did_evidence.control_key_digest != receipt_scope.control_key_digest
+            || self.current_device_projection.principal_id != self.actor_id
             || self.current_device_projection.device_id != self.device_id
             || self
                 .current_device_projection
@@ -625,8 +830,10 @@ impl FederatedDeviceSigningKeyEvidence {
                         }
                         authorizer
                     };
-                    if event.proofs[0].verification_method
-                        != format!("{}#{proof_device_id}", self.actor_id)
+                    if device_method_fragment_for_actor(
+                        &event.proofs[0].verification_method,
+                        &self.actor_id,
+                    )? != proof_device_id
                     {
                         return Err(Error::Protocol(
                             "device authorization Event proof signer does not match its binding"
@@ -718,6 +925,11 @@ impl FederatedDeviceSigningKeyEvidence {
                 })
             || receipt_scope.principal_id != self.actor_id
             || receipt_scope.realm_id != create.realm_id
+            || self.authority_instance.pcr_realm_id != create.realm_id
+            || self.authority_instance.principal_genesis_receipt_digest
+                != Hash::new(arkret_canonical::canonical_sha256(
+                    &self.principal_genesis_receipt,
+                )?)?
             || receipt_scope.create_digest != create_digest
             || receipt_scope.founding_authorize_digest != founding_authorize_digest
             || self.accepted_seal.realm_id != create.realm_id
@@ -748,6 +960,23 @@ impl FederatedDeviceSigningKeyEvidence {
                 .iter()
                 .any(|proof| &proof.verification_method == verification_method)
     }
+}
+
+fn device_method_fragment_for_actor<'a>(
+    verification_method: &'a DidUrl,
+    actor_id: &DidCoreId,
+) -> Result<&'a str> {
+    let (controller, fragment) = verification_method
+        .as_str()
+        .split_once('#')
+        .ok_or_else(|| Error::Protocol("device verification method has no fragment".to_owned()))?;
+    let full_id = DidFullId::new(controller.to_owned())?;
+    if project_full_id_to_core_id(&full_id)? != *actor_id || fragment.is_empty() {
+        return Err(Error::Protocol(
+            "device verification method controller does not project to actor_id".to_owned(),
+        ));
+    }
+    Ok(fragment)
 }
 
 /// Derive the Realm id of an `ak.realm.create` from its own signed content.
@@ -1500,6 +1729,7 @@ impl Event {
     ///
     /// `realm_id` is taken from `scope_ref` so the envelope cannot be built
     /// with a Realm that disagrees with its own signed scope.
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn new(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
@@ -1525,6 +1755,7 @@ impl Event {
     /// the Event wire profile before it is stored on the typed envelope. This
     /// is the deterministic authoring entry point for callers that need an
     /// object timestamp and its containing Event to share one exact instant.
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
@@ -1546,6 +1777,7 @@ impl Event {
     /// placeholder id, computes the digest over the preimage — which excludes
     /// `event_id` — and then stamps the derived id.
     #[allow(clippy::too_many_arguments)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn new_with_derived_id_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
@@ -1581,6 +1813,7 @@ impl Event {
     /// Internal first pass used only while deriving the content-bound id.
     /// No public API may expose an Event with this placeholder identity.
     #[allow(clippy::too_many_arguments)]
+    #[cfg(any(test, feature = "test-support"))]
     fn new_unstamped_at(
         event_id: EventId,
         kind: impl Into<String>,
@@ -1690,6 +1923,41 @@ mod event_wire_surface_tests {
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn principal_authority_instance_rejects_digest_substitution() {
+        let instance = PrincipalAuthorityInstance::new(
+            alice(),
+            DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
+            realm(),
+            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+        )
+        .unwrap();
+        instance.validate().unwrap();
+
+        let mut substituted = instance;
+        substituted.authority_instance_digest =
+            Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
+        assert!(substituted.validate().is_err());
+    }
+
+    #[test]
+    fn device_method_projects_full_did_and_never_uses_core_as_a_did_url() {
+        let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
+        let method = DidUrl::new(format!(
+            "did:webvh:z6mkfixture:alice.example#{}",
+            device_id.as_str()
+        ))
+        .unwrap();
+        assert_eq!(
+            device_method_fragment_for_actor(&method, &alice()).unwrap(),
+            device_id.as_str()
+        );
+
+        let other_actor = DidCoreId::new("ak:did_core:webvh:z6mkother").unwrap();
+        assert!(device_method_fragment_for_actor(&method, &other_actor).is_err());
+        assert!(DidUrl::new(format!("{}#{}", alice(), device_id)).is_err());
     }
 
     #[test]
