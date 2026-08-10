@@ -10,11 +10,11 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    AuthorizationRef, CellRef, DeviceId, Did, DidUrl, Event, EventDigestSuiteCode, EventId,
-    EventIdentityKey, EventKind, EventRef, Hash, Hlc, NonEmptyString, NotarySig, PayloadSignature,
-    PayloadSigner, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis, SealId,
-    SemanticRefProof, SemanticRefProofKind, TypedTrustDomainId, WireError, composite_subject,
-    proof_kind,
+    ActorId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl, Event, EventDigestSuiteCode,
+    EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc, NonEmptyString, NotarySig,
+    PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
+    SealId, SemanticRefProof, SemanticRefProofKind, TypedTrustDomainId, WireError,
+    composite_subject, project_full_id_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -90,7 +90,9 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
 }
 
 fn bootstrap_unit() -> (Event, Event) {
-    let mut create = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
+    let input = input();
+    let principal_id = input.principal_id.clone();
+    let mut create = build_self_principal_pcr_create(input, &registry_projection).unwrap();
     attach_fixture_proof(
         &mut create,
         &DidUrl::new(
@@ -99,7 +101,7 @@ fn bootstrap_unit() -> (Event, Event) {
         .unwrap(),
     );
 
-    let payload = founding_authorize_payload(&create.actor_id, create.created_at);
+    let payload = founding_authorize_payload(&principal_id, create.created_at);
     let mut authorize = arkret_wire::test_support::raw_event(
         EventKind::DeviceAuthorize.to_string(),
         // The genesis scope belongs to the create alone; the first authorize is
@@ -118,7 +120,7 @@ fn bootstrap_unit() -> (Event, Event) {
     authorize.refresh_content_bound_identity().unwrap();
     attach_fixture_proof(
         &mut authorize,
-        &DidUrl::new(format!("{}#{}", create.actor_id, founding_device_id())).unwrap(),
+        &DidUrl::new(format!("{}#{}", principal_id, founding_device_id())).unwrap(),
     );
     (create, authorize)
 }
@@ -294,9 +296,10 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
 fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
     let (create, authorize) = bootstrap_unit();
     let device_id = "ak:device:01904100-0000-7000-8000-000000000001";
+    let principal_id = input().principal_id;
     let signer = FixtureSigner {
-        did: create.actor_id.clone(),
-        verification_method: DidUrl::new(format!("{}#{device_id}", create.actor_id)).unwrap(),
+        did: principal_id.clone(),
+        verification_method: DidUrl::new(format!("{principal_id}#{device_id}")).unwrap(),
     };
     let seal = build_self_principal_bootstrap_seal(
         &create,
@@ -346,7 +349,7 @@ fn managed_agent_pcr_create() -> Event {
         ScopeRef::Realm {
             realm_id: realm_id.clone(),
         },
-        agent.clone(),
+        ActorId::from(project_full_id_to_core_id(&agent).unwrap()),
         0,
         Hlc::new("01970e589d21-0007-a13f9c2e").unwrap(),
         payload.to_value().unwrap(),
@@ -356,11 +359,10 @@ fn managed_agent_pcr_create() -> Event {
         EventId::new("ak:event:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
     create.authorization_ref =
         Some(AuthorizationRef::new(format!("{agent}#managed-controller")).unwrap());
-    create.executed_by = Some(controller);
-    create.refs = vec![EventRef::new(
-        "ak:event:AXHnkT-tdDqCMpsoD_x6N087pBWlUx40WhTdBqPJatRN",
-        "agent_provision",
-    )];
+    create.executed_by = Some(ActorId::from(
+        project_full_id_to_core_id(&controller).unwrap(),
+    ));
+    create.refs.clear();
     create
 }
 
@@ -404,13 +406,19 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
             .joined
             .keys()
             .map(CellRef::as_str)
+            .map(ToOwned::to_owned)
             .collect::<Vec<_>>(),
         vec![
-            REALM_NOTARY_CELL,
-            REALM_AUTHORITY_ROOT_CELL,
-            REALM_CREATE_CELL,
-            REALM_GENESIS_CELL,
-            REALM_REDUCER_PROFILE_CELL,
+            format!(
+                "ak:cell:{}:{}",
+                arkret_wire::CellFamilyId::AGENT_STATUS_V1,
+                create.actor_id
+            ),
+            REALM_NOTARY_CELL.to_owned(),
+            REALM_AUTHORITY_ROOT_CELL.to_owned(),
+            REALM_CREATE_CELL.to_owned(),
+            REALM_GENESIS_CELL.to_owned(),
+            REALM_REDUCER_PROFILE_CELL.to_owned(),
         ]
     );
 
@@ -479,7 +487,8 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
 #[test]
 fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     let create = managed_agent_pcr_create();
-    let controller = create.executed_by.clone().unwrap();
+    let controller_actor = create.executed_by.clone().unwrap();
+    let controller = Did::new("did:web:controller.example").unwrap();
     let mut anchor = arkret_wire::test_support::raw_event(
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
@@ -491,7 +500,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     .unwrap();
     anchor.event_id =
         EventId::new("ak:event:Af0cDOgrSK-qWEvQvEo_FnP9vdEMz6mEq0IN2aIOIege").unwrap();
-    anchor.executed_by = Some(controller.clone());
+    anchor.executed_by = Some(controller_actor);
     anchor.authorization_ref = create.authorization_ref.clone();
 
     // The subject here is this crate's Seal arithmetic, not the registry:
@@ -585,6 +594,11 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
             .collect::<BTreeSet<_>>(),
         BTreeSet::from([
             format!("ak:cell:ak.component.agent.provision.v1:{agent}"),
+            format!(
+                "ak:cell:{}:{}",
+                arkret_wire::CellFamilyId::AGENT_PRINCIPAL_CONTROL_REALM_CLAIM_V1,
+                fixture_realm(2)
+            ),
             format!(
                 "ak:cell:ak.component.identity.accountability.v1:{}",
                 composite_subject(&[controller.as_str(), agent.as_str(), "agent_operator"])

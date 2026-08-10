@@ -10,7 +10,9 @@ use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::sync_frames::snapshot::{
     RangeCompletenessAttestation, RangeCompletenessAttestationEventRangeActorSeqRangesItem,
 };
-use arkret_wire::{Did, Event, EventId, Hash, RealmId, event_spec};
+use arkret_wire::{
+    ActorId, Did, Event, EventId, Hash, RealmId, event_spec, project_full_id_to_core_id,
+};
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -34,7 +36,7 @@ pub struct VerifiedRangeCompleteness {
 
 #[derive(Serialize)]
 struct RangeLeaf<'a> {
-    actor_id: &'a Did,
+    actor_id: &'a ActorId,
     actor_seq: u64,
     event_id: &'a EventId,
     event_digest: &'a Hash,
@@ -261,7 +263,7 @@ pub fn full_realm_range_events(events: &[Event]) -> Result<Vec<Event>, RangeComp
 pub fn range_completeness_actor_seq_ranges(
     events: &[Event],
 ) -> Result<Vec<RangeCompletenessAttestationEventRangeActorSeqRangesItem>, RangeCompletenessError> {
-    let mut bounds = BTreeMap::<Did, (u64, u64)>::new();
+    let mut bounds = BTreeMap::<ActorId, (u64, u64)>::new();
     for event in events.iter().filter(|event| event.kind.is_reducer_input()) {
         bounds
             .entry(event.actor_id.clone())
@@ -292,7 +294,7 @@ fn validate_actor_ranges(
     payload: &RangeCompletenessAttestation,
     range_events: &[Event],
 ) -> Result<(), RangeCompletenessError> {
-    let mut previous_actor: Option<&Did> = None;
+    let mut previous_actor: Option<&ActorId> = None;
     let mut ranges = BTreeMap::new();
     for range in &payload.event_range.actor_seq_ranges {
         if range.from_seq_exclusive >= range.to_seq_inclusive as i64 {
@@ -476,7 +478,10 @@ pub fn verify_full_realm_range_completeness_with_suite(
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
     if payload.schema != arkret_wire::SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1
         || payload.realm_id != *expected_realm
-        || payload.issuer != attestation_event.actor_id
+        || ActorId::from(
+            project_full_id_to_core_id(&payload.issuer)
+                .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?,
+        ) != attestation_event.actor_id
     {
         return Err(RangeCompletenessError::SchemaViolation(
             "attestation payload binding is invalid".to_owned(),
@@ -551,7 +556,8 @@ mod tests {
     use super::*;
 
     fn event(id: &str, seq: u64, kind: &str, prev_refs: Vec<EventId>) -> Event {
-        let actor = Did::new("did:web:alice.example").unwrap();
+        let actor_full = Did::new("did:web:alice.example").unwrap();
+        let actor = ActorId::from(project_full_id_to_core_id(&actor_full).unwrap());
         let realm = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
         let mut event = Event {
             event_id: EventId::new(id).unwrap(),
@@ -583,7 +589,7 @@ mod tests {
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
         event.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new(format!("{actor}#device")).unwrap(),
+            verification_method: DidUrl::new(format!("{actor_full}#device")).unwrap(),
             event_digest: digest,
             created_at: event.created_at,
             domain: None,
@@ -664,7 +670,7 @@ mod tests {
             kind: EventKind::AttestationRangeCompleteness,
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: issuer.clone(),
+            actor_id: ActorId::from(project_full_id_to_core_id(&issuer).unwrap()),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

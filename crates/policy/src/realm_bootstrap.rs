@@ -83,6 +83,10 @@ fn build_realm_authority_event<K: EventSpec>(
     hlc: Hlc,
     payload: K::Payload,
 ) -> Result<Event> {
+    let actor_id = arkret_wire::ActorId::from(
+        arkret_wire::project_full_id_to_core_id(&actor_id)
+            .map_err(|error| Error::Protocol(error.to_string()))?,
+    );
     Ok(TypedEventDraft::<K>::new(scope_ref, actor_id, payload)
         .map_err(|error| Error::Protocol(error.to_string()))?
         .with_authorization_ref(

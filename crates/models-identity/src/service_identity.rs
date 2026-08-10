@@ -10,10 +10,12 @@
 use std::fmt;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, DidUrl, Error, Result, ServiceKind, ServiceRegistrationReceiptId};
+use arkret_wire::{
+    Did, DidUrl, Error, FullId, Hash, PayloadProof, Result, ServiceId, ServiceKind,
+    ServiceRegistrationReceiptId, project_full_id_to_core_id,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sha2::{Digest, Sha256};
 use url::Url;
 
 pub const SERVICE_REGISTRATION_ENSURE_PATH: &str =
@@ -208,7 +210,7 @@ pub struct ServiceDidVerificationMethod {
     pub id: String,
     #[serde(rename = "type")]
     pub method_type: String,
-    pub controller: Did,
+    pub controller: FullId,
     pub public_key_multibase: String,
 }
 
@@ -229,7 +231,7 @@ pub struct ServiceDidEndpoint {
 pub struct ServiceDidDocument {
     #[serde(rename = "@context")]
     pub context: Vec<String>,
-    pub id: Did,
+    pub id: FullId,
     #[serde(default)]
     pub also_known_as: Vec<String>,
     pub verification_method: Vec<ServiceDidVerificationMethod>,
@@ -467,14 +469,15 @@ impl ServiceWebvhInceptionOperation {
 pub struct ServiceRegistrationReceipt {
     pub registration_receipt_id: ServiceRegistrationReceiptId,
     pub registration_key: ServiceRegistrationKey,
-    pub service_id: Did,
+    pub service_id: ServiceId,
+    pub full_id: FullId,
     pub version_id: String,
     pub log_head_digest: String,
     pub control_key_digest: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    pub provider_service_id: Did,
-    pub proof: ServiceWebvhDataIntegrityProof,
+    pub provider_service_id: ServiceId,
+    pub proof: PayloadProof,
 }
 
 impl ServiceRegistrationReceipt {
@@ -484,6 +487,7 @@ impl ServiceRegistrationReceipt {
         let claims = serde_json::json!({
             "registration_key": &self.registration_key,
             "service_id": &self.service_id,
+            "full_id": &self.full_id,
             "version_id": &self.version_id,
             "log_head_digest": &self.log_head_digest,
             "control_key_digest": &self.control_key_digest,
@@ -497,19 +501,9 @@ impl ServiceRegistrationReceipt {
         ))?)
     }
 
-    /// Build the exact `eddsa-jcs-2022` signing input for this receipt.
-    ///
-    /// The proof configuration excludes `proofValue`; the signed document
-    /// excludes the complete `proof` object. Each canonical JSON value is
-    /// hashed independently and the two 32-byte digests are concatenated.
-    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
-        let mut proof_config = serde_json::to_value(&self.proof)?;
-        proof_config
-            .as_object_mut()
-            .ok_or_else(|| {
-                Error::Protocol("service registration proof must be an object".to_owned())
-            })?
-            .remove("proofValue");
+    /// Recompute `payload_digest` over the complete receipt with `proof`
+    /// omitted, including the already-derived registration receipt id.
+    pub fn expected_payload_digest(&self) -> Result<Hash> {
         let mut document = serde_json::to_value(self)?;
         document
             .as_object_mut()
@@ -517,37 +511,87 @@ impl ServiceRegistrationReceipt {
                 Error::Protocol("service registration receipt must be an object".to_owned())
             })?
             .remove("proof");
-        let proof_config = canonical::canonical_json_bytes(&proof_config)?;
-        let document = canonical::canonical_json_bytes(&document)?;
-        let mut binding = Vec::with_capacity(64);
-        binding.extend_from_slice(&Sha256::digest(proof_config));
-        binding.extend_from_slice(&Sha256::digest(document));
-        Ok(binding)
+        Ok(Hash::new(canonical::canonical_sha256(&document)?)?)
+    }
+
+    /// Build the exact detached-JWS transcript registered for service
+    /// registration receipts.
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        #[derive(Serialize)]
+        struct Transcript<'a> {
+            context: &'static str,
+            payload_digest: &'a Hash,
+            provider_service_id: &'a ServiceId,
+            registration_receipt_id: &'a ServiceRegistrationReceiptId,
+            verification_method: &'a DidUrl,
+            #[serde(
+                serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
+            )]
+            created_at: DateTime<Utc>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            domain: &'a Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            audience: &'a Option<arkret_wire::Audience>,
+        }
+        Ok(canonical::canonical_json_bytes(&Transcript {
+            context: "ak.service-registration-receipt-proof-v1",
+            payload_digest: &self.proof.payload_digest,
+            provider_service_id: &self.provider_service_id,
+            registration_receipt_id: &self.registration_receipt_id,
+            verification_method: &self.proof.verification_method,
+            created_at: self.proof.created_at,
+            domain: &self.proof.domain,
+            audience: &self.proof.audience,
+        })?)
     }
 
     /// Validate all proof bindings that can be checked without resolving the
     /// Provider DID verification method.
     pub fn validate_proof_binding(&self) -> Result<()> {
-        self.proof.validate_shape()?;
-        if self.registration_receipt_id != self.expected_registration_receipt_id()? {
+        self.proof.validate_production()?;
+        if self.registration_receipt_id != self.expected_registration_receipt_id()?
+            || self.proof.payload_digest != self.expected_payload_digest()?
+            || self.proof.created_at != self.issued_at
+            || self.proof.proof_purpose.is_some()
+        {
             return Err(Error::Protocol(
-                "service registration receipt id does not match its canonical claims".to_owned(),
-            ));
-        }
-        let provider_prefix = format!("{}#", self.provider_service_id);
-        if !self.proof.verification_method.starts_with(&provider_prefix) {
-            return Err(Error::Protocol(
-                "service registration proof verificationMethod is not controlled by provider_service_id"
+                "service registration receipt id or detached proof binding does not match its canonical claims"
                     .to_owned(),
             ));
         }
         Ok(())
     }
 
-    pub fn validate_for(&self, key: &ServiceRegistrationKey, service_id: &Did) -> Result<()> {
-        if &self.registration_key != key || &self.service_id != service_id {
+    /// Validate the provider verification-method controller after independently
+    /// resolving the provider's current complete DID.
+    pub fn validate_provider_full_id(&self, provider_full_id: &FullId) -> Result<()> {
+        let projected = ServiceId::from(project_full_id_to_core_id(provider_full_id)?);
+        let provider_prefix = format!("{}#", provider_full_id);
+        if projected != self.provider_service_id
+            || !self.proof.verification_method.starts_with(&provider_prefix)
+        {
             return Err(Error::Protocol(
-                "service registration receipt key or service DID mismatch".to_owned(),
+                "service registration proof verificationMethod is not controlled by the resolved provider service"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for(
+        &self,
+        key: &ServiceRegistrationKey,
+        service_id: &ServiceId,
+        full_id: &FullId,
+    ) -> Result<()> {
+        if &self.registration_key != key
+            || &self.service_id != service_id
+            || &self.full_id != full_id
+            || ServiceId::from(project_full_id_to_core_id(full_id)?) != *service_id
+        {
+            return Err(Error::Protocol(
+                "service registration receipt key, stable service id, or complete DID mismatch"
+                    .to_owned(),
             ));
         }
         if !is_sha256_digest(&self.log_head_digest) || !is_sha256_digest(&self.control_key_digest) {
@@ -565,6 +609,7 @@ impl ServiceRegistrationReceipt {
 pub struct ServiceRegistrationEnsureRequestBody {
     pub service_kind: ServiceKind,
     pub public_base: CanonicalServiceUrl,
+    pub full_id: FullId,
     pub inception_operation: ServiceWebvhInceptionOperation,
     pub idempotency_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -578,13 +623,16 @@ impl ServiceRegistrationEnsureRequestBody {
         previous_receipt: Option<ServiceRegistrationReceipt>,
     ) -> Result<Self> {
         inception_operation.validate_for(&key)?;
+        let full_id = inception_operation.state.id.clone();
+        let service_id = ServiceId::from(project_full_id_to_core_id(&full_id)?);
         if let Some(receipt) = &previous_receipt {
-            receipt.validate_for(&key, &inception_operation.state.id)?;
+            receipt.validate_for(&key, &service_id, &full_id)?;
         }
         let idempotency_key = service_registration_idempotency_key(&key)?;
         Ok(Self {
             service_kind: key.service_kind,
             public_base: key.public_base,
+            full_id,
             inception_operation,
             idempotency_key,
             previous_receipt,
@@ -598,6 +646,13 @@ impl ServiceRegistrationEnsureRequestBody {
     pub fn validate(&self) -> Result<()> {
         let key = self.registration_key()?;
         self.inception_operation.validate_for(&key)?;
+        if self.full_id != self.inception_operation.state.id {
+            return Err(Error::Protocol(
+                "service registration full_id must equal the signed inception document id"
+                    .to_owned(),
+            ));
+        }
+        let service_id = ServiceId::from(project_full_id_to_core_id(&self.full_id)?);
         if self.idempotency_key != service_registration_idempotency_key(&key)? {
             return Err(Error::Protocol(
                 "service registration idempotency_key does not match the registration key"
@@ -605,7 +660,7 @@ impl ServiceRegistrationEnsureRequestBody {
             ));
         }
         if let Some(receipt) = &self.previous_receipt {
-            receipt.validate_for(&key, &self.inception_operation.state.id)?;
+            receipt.validate_for(&key, &service_id, &self.full_id)?;
         }
         Ok(())
     }
@@ -615,7 +670,8 @@ impl ServiceRegistrationEnsureRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationOutcome {
-    pub service_id: Did,
+    pub service_id: ServiceId,
+    pub full_id: FullId,
     pub did_document: ServiceDidDocument,
     pub version_id: String,
     pub registration_receipt: ServiceRegistrationReceipt,
@@ -624,14 +680,17 @@ pub struct ServiceRegistrationOutcome {
 
 impl ServiceRegistrationOutcome {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
-        if self.did_document.id != self.service_id {
+        if self.did_document.id != self.full_id
+            || ServiceId::from(project_full_id_to_core_id(&self.full_id)?) != self.service_id
+        {
             return Err(Error::Protocol(
-                "service registration outcome DID document id mismatch".to_owned(),
+                "service registration outcome stable service id or complete DID mismatch"
+                    .to_owned(),
             ));
         }
         self.did_document.validate_for(key)?;
         self.registration_receipt
-            .validate_for(key, &self.service_id)?;
+            .validate_for(key, &self.service_id, &self.full_id)?;
         if self.registration_receipt.version_id != self.version_id {
             return Err(Error::Protocol(
                 "service registration receipt version_id mismatch".to_owned(),
@@ -647,7 +706,7 @@ impl ServiceRegistrationOutcome {
         request.validate()?;
         let key = request.registration_key()?;
         self.validate_for(&key)?;
-        if self.service_id != request.inception_operation.state.id {
+        if self.full_id != request.full_id {
             return Err(Error::Protocol(
                 "Provider returned a service DID different from the signed inception".to_owned(),
             ));

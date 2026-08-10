@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::{base64url_decode, canonical};
-use arkret_models_collaboration::agent_signer_evidence::{
+use arkret_models_identity::agent_signer_evidence::{
     AGENT_KEY_COMPONENT, AGENT_SIGNING_KEY_BINDING_CONTEXT, AGENT_STATUS_COMPONENT,
     AgentAdmissionEvidence, AgentAuthorizationStatus, AgentControllerProof,
     AgentCurrentObservation, AgentDetachedJws, AgentEventAdmissionReceipt,
@@ -16,8 +16,9 @@ use arkret_models_collaboration::agent_signer_evidence::{
     ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
-    CellRef, Did, DidUrl, Event, EventId, Hash, NonEmptyString, ProfileId, ProtocolOperationId,
-    RealmId, SchemaId, Seal, SealId,
+    ActorId, CellRef, Did, DidUrl, Event, EventId, FullId, Hash, NonEmptyString, PrincipalId,
+    ProfileId, ProtocolOperationId, RealmId, SchemaId, Seal, SealId, ServiceId,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::SigningKey;
@@ -36,6 +37,86 @@ const EVENT_ADMISSION_RECEIPT_DOMAIN: &str = "ak.agent-signer-admission-receipt-
 const OUTER_ATTESTATION_DOMAIN: &str = "ak.agent-signer-evidence.v1";
 const DETACHED_JWS_KIND: &str = "detached_jws";
 const MAX_SEAL_LINEAGE: usize = 4096;
+
+/// Canonical Account Authority signing bytes for the controller lifecycle
+/// gate. `proof.jws` is excluded while every other closed field, including
+/// the proof kind, remains covered.
+pub fn controller_account_gate_attestation_signing_bytes(
+    attestation: &arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
+) -> Result<Vec<u8>, AgentEvidenceRejectedReason> {
+    let mut value = serde_json::to_value(attestation)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    remove_nested_jws(&mut value)?;
+    let canonical = canonical::canonical_json_bytes(&value)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let mut signing_bytes = Vec::with_capacity(CONTROLLER_GATE_DOMAIN.len() + 1 + canonical.len());
+    signing_bytes.extend_from_slice(CONTROLLER_GATE_DOMAIN.as_bytes());
+    signing_bytes.push(b'\n');
+    signing_bytes.extend_from_slice(&canonical);
+    Ok(signing_bytes)
+}
+
+/// Finish an Account Authority controller gate with the canonical Ed25519
+/// detached JWS used by all independent evidence verifiers.
+pub fn sign_controller_account_gate_attestation(
+    attestation: &mut arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
+    signing_key: &SigningKey,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    let bytes = controller_account_gate_attestation_signing_bytes(attestation)?;
+    let jws = sign_ed25519_detached_jws(signing_key, &bytes)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    attestation.proof.jws =
+        NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    Ok(())
+}
+
+/// Independently verify the Account Authority-owned gate before an Agent PCR
+/// includes it in portable evidence. The private projection behind
+/// `basis_digest` is authority-owned; the verifier checks the closed shape,
+/// exact expected identities, registered full-id projection, time window and
+/// detached service proof.
+pub fn verify_controller_account_gate_attestation(
+    attestation: &arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
+    expected_principal_id: &arkret_wire::PrincipalId,
+    expected_authority_service_id: &arkret_wire::ServiceId,
+    authority_public_key: &PublicKeyMaterial,
+    now: DateTime<Utc>,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    let method_base = attestation
+        .verification_method
+        .as_str()
+        .split_once('#')
+        .map(|(base, _)| base)
+        .ok_or(AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let full_id = arkret_wire::FullId::new(method_base.to_owned())
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let projected = arkret_wire::ServiceId::from(
+        arkret_wire::project_full_id_to_core_id(&full_id)
+            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
+    );
+    let status_active = attestation.status == ControllerAccountStatus::Active;
+    let eligibility_active = attestation.eligibility == ControllerAccountEligibility::Active;
+    if attestation.schema.as_str() != "ak.schema.controller_account_gate_attestation.v1"
+        || &attestation.principal_id != expected_principal_id
+        || &attestation.authority_service_id != expected_authority_service_id
+        || projected != attestation.authority_service_id
+        || status_active != eligibility_active
+        || attestation.issued_at >= attestation.expires_at
+        || attestation.expires_at - attestation.issued_at > chrono::Duration::minutes(5)
+        || now < attestation.issued_at
+        || now >= attestation.expires_at
+        || verify_domain_proof(
+            CONTROLLER_GATE_DOMAIN,
+            attestation,
+            &attestation.proof,
+            authority_public_key,
+        )
+        .is_err()
+    {
+        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+    }
+    Ok(())
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAgentSigningKey {
@@ -181,8 +262,8 @@ pub enum SignerRegime {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EventSignerBinding {
-    pub binding_actor_id: Did,
-    pub signer_id: Did,
+    pub binding_actor_id: ActorId,
+    pub signer_id: ActorId,
 }
 
 pub fn event_signer_binding(event: &Event) -> EventSignerBinding {
@@ -217,7 +298,13 @@ pub fn verify_event_signer_controller(
     verification_method: &DidUrl,
 ) -> Result<EventSignerBinding, AgentEvidenceRejectedReason> {
     let binding = event_signer_binding(event);
-    if did_url_controller(verification_method) != binding.signer_id.as_str() {
+    let controller = FullId::new(did_url_controller(verification_method).to_owned())
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    if ActorId::from(
+        project_full_id_to_core_id(&controller)
+            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
+    ) != binding.signer_id
+    {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
     Ok(binding)
@@ -345,9 +432,9 @@ pub fn verify_agent_evidence_state(
     #[derive(Serialize)]
     struct AdmissionCore<'a> {
         agent_authority_snapshot:
-            &'a arkret_models_collaboration::agent_signer_evidence::AgentAuthoritySnapshot,
+            &'a arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
         controller_account_gate_attestation:
-            &'a arkret_models_collaboration::agent_signer_evidence::ControllerAccountGateAttestation,
+            &'a arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
     }
     if canonical_digest(&snapshot.core)? != snapshot.snapshot_digest
         || canonical_digest(&AdmissionCore {
@@ -772,9 +859,9 @@ fn validate_common_evidence(
     #[derive(Serialize)]
     struct AdmissionCore<'a> {
         agent_authority_snapshot:
-            &'a arkret_models_collaboration::agent_signer_evidence::AgentAuthoritySnapshot,
+            &'a arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
         controller_account_gate_attestation:
-            &'a arkret_models_collaboration::agent_signer_evidence::ControllerAccountGateAttestation,
+            &'a arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
     }
     let expected_admission_digest = canonical_digest(&AdmissionCore {
         agent_authority_snapshot: snapshot,
@@ -855,8 +942,22 @@ fn validate_common_evidence(
         || lifecycle.status != AgentLifecycleStatus::Active
         || lifecycle.cell_value != AgentLifecycleStatus::Active
         || gate.schema.as_str() != SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
-        || gate.principal_id != *context.controller_id
-        || gate.authority_service_id != *context.expected_account_authority_service_id
+        || gate.principal_id
+            != PrincipalId::from(project_full_id_to_core_id(context.controller_id).map_err(
+                |_| {
+                    CommonEvidenceFailure::Rejected(AgentEvidenceRejectedReason::SigningKeyMismatch)
+                },
+            )?)
+        || gate.authority_service_id
+            != ServiceId::from(
+                project_full_id_to_core_id(context.expected_account_authority_service_id).map_err(
+                    |_| {
+                        CommonEvidenceFailure::Rejected(
+                            AgentEvidenceRejectedReason::SigningKeyMismatch,
+                        )
+                    },
+                )?,
+            )
         || gate.verification_method != *context.expected_account_authority_verification_method
         || gate.eligibility != ControllerAccountEligibility::Active
         || gate.status != ControllerAccountStatus::Active
@@ -874,7 +975,20 @@ fn validate_common_evidence(
         || verified_state.authorization_event_id != *context.agent_key_authorize_event_id
         || verified_state.key_seal_id != key_witness.seal_id
         || verified_state.lifecycle_seal_id != lifecycle.seal_id
-        || did_url_controller(&gate.verification_method) != gate.authority_service_id.as_str()
+        || ServiceId::from(
+            project_full_id_to_core_id(
+                &FullId::new(did_url_controller(&gate.verification_method).to_owned()).map_err(
+                    |_| {
+                        CommonEvidenceFailure::Rejected(
+                            AgentEvidenceRejectedReason::SigningKeyMismatch,
+                        )
+                    },
+                )?,
+            )
+            .map_err(|_| {
+                CommonEvidenceFailure::Rejected(AgentEvidenceRejectedReason::SigningKeyMismatch)
+            })?,
+        ) != gate.authority_service_id
         || verify_domain_proof(
             CONTROLLER_GATE_DOMAIN,
             gate,

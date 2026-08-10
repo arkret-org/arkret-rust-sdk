@@ -1048,13 +1048,13 @@ impl CellRegistry for MemoryCellRegistry {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
+    use arkret_wire::{ActorId, DidUrl};
 
     use crate::lattice::SealedOp;
 
     fn issued(op: SealedOp) -> IssuedOp {
         IssuedOp {
-            issuer: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            issuer: ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             op,
         }
     }
@@ -1066,7 +1066,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::*;
-    use crate::{Did, Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis};
+    use crate::{Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis};
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
@@ -1097,7 +1097,7 @@ mod tests {
         let mut event = arkret_wire::test_support::raw_event_at(
             "ak.member.state",
             ScopeRef::Realm { realm_id: realm() },
-            Did::new("did:webvh:z6mkfixture:admin.example".to_owned()).unwrap(),
+            ActorId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap(),
             actor_seq,
             Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             serde_json::json!({"state": "join"}),

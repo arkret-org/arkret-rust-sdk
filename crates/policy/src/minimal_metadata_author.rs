@@ -12,7 +12,7 @@
 //! already-authenticated historical group-state view and never accepts a
 //! directory client or resolver callback, so a caller cannot accidentally
 //! wire a network fallback through it.
-use arkret_wire::Did;
+use arkret_wire::{ActorId, DidUrl, FullId, project_full_id_to_core_id};
 
 /// Credential carried by an active leaf in an [`AuthorGroupStateView`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -57,8 +57,12 @@ pub struct MinimalMetadataAuthorClaim<'a> {
     pub epoch: u64,
     /// `encrypted_content.key_ref.group_state_ref` from the envelope.
     pub group_state_ref: &'a str,
-    /// `Event.actor_id` (the pairwise DID).
-    pub actor_id: &'a Did,
+    /// `Event.actor_id`, the realm-scoped pairwise Core ActorId. The raw leaf
+    /// credential identity is this CoreId, never the resolvable did:key.
+    pub actor_id: &'a ActorId,
+    /// Event proof verification method. Its controller MUST be a did:key
+    /// FullId whose active adapter projection equals `actor_id`.
+    pub proof_verification_method: &'a DidUrl,
     /// The proof's resolved public key, raw bytes (e.g. Ed25519 32 bytes via
     /// `arkret_signatures::proof::PublicKeyMaterial::ed25519_bytes`).
     pub proof_public_key: &'a [u8],
@@ -75,6 +79,9 @@ pub enum MinimalMetadataAuthorViolation {
     /// Envelope `group_state_ref` is not the winning group state for the
     /// epoch (rollback / non-winning fork).
     GroupStateRefNotWinning,
+    /// The proof method is not a did:key URL, or its FullId controller does
+    /// not project byte-for-byte to the Event Core ActorId.
+    ProofVerificationMethodMismatch,
     /// No active leaf carries a BasicCredential equal to `utf8(actor_id)`
     /// (covers removed leaves and never-member actors).
     NoActiveLeafForActor,
@@ -91,6 +98,7 @@ impl MinimalMetadataAuthorViolation {
             Self::GroupIdMismatch => "group_id_mismatch",
             Self::EpochMismatch => "epoch_mismatch",
             Self::GroupStateRefNotWinning => "group_state_ref_not_winning",
+            Self::ProofVerificationMethodMismatch => "proof_verification_method_mismatch",
             Self::NoActiveLeafForActor => "no_active_leaf_for_actor",
             Self::DuplicateActiveLeafIdentity => "duplicate_active_leaf_identity",
             Self::SignatureKeyMismatch => "signature_key_mismatch",
@@ -149,6 +157,22 @@ pub fn verify_minimal_metadata_author(
         return reject(MinimalMetadataAuthorViolation::GroupStateRefNotWinning);
     }
 
+    let Some((controller, _)) = claim.proof_verification_method.as_str().split_once('#') else {
+        return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
+    };
+    if !controller.starts_with("did:key:") {
+        return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
+    }
+    let Ok(controller) = FullId::new(controller.to_owned()) else {
+        return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
+    };
+    let Ok(projected) = project_full_id_to_core_id(&controller) else {
+        return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
+    };
+    if ActorId::from(projected) != *claim.actor_id {
+        return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
+    }
+
     let actor_identity = claim.actor_id.as_str().as_bytes();
     let mut matching = view.active_leaves.iter().filter(|leaf| {
         matches!(
@@ -174,8 +198,10 @@ pub fn verify_minimal_metadata_author(
 mod tests {
     use super::*;
 
-    fn actor() -> Did {
-        Did::new("did:key:z6MkpairwiseAlice").unwrap()
+    fn actor() -> ActorId {
+        ActorId::from(
+            project_full_id_to_core_id(&FullId::new("did:key:z6MkpairwiseAlice").unwrap()).unwrap(),
+        )
     }
 
     fn key(byte: u8) -> Vec<u8> {
@@ -201,12 +227,16 @@ mod tests {
         }
     }
 
-    fn claim<'a>(actor: &'a Did, proof_key: &'a [u8]) -> MinimalMetadataAuthorClaim<'a> {
+    fn claim<'a>(actor: &'a ActorId, proof_key: &'a [u8]) -> MinimalMetadataAuthorClaim<'a> {
+        static PROOF_METHOD: std::sync::LazyLock<DidUrl> = std::sync::LazyLock::new(|| {
+            DidUrl::new("did:key:z6MkpairwiseAlice#z6MkpairwiseAlice").unwrap()
+        });
         MinimalMetadataAuthorClaim {
             group_id: "Zml4dHVyZS1yZWFsbQ",
             epoch: 7,
             group_state_ref: "ak:event:AYJ6k4yNe3sgr_7Xr3OYBCsTpcHMbdQAogrCDJGM0fh9",
             actor_id: actor,
+            proof_verification_method: &PROOF_METHOD,
             proof_public_key: proof_key,
         }
     }
@@ -216,7 +246,7 @@ mod tests {
         let actor = actor();
         let proof_key = key(0xA1);
         let view = view(vec![
-            basic_leaf(0, "did:key:z6MkpairwiseBob", key(0xB0)),
+            basic_leaf(0, "ak:did_core:key:z6MkpairwiseBob", key(0xB0)),
             basic_leaf(3, actor.as_str(), proof_key.clone()),
         ]);
 
@@ -249,7 +279,11 @@ mod tests {
         // A removed leaf is simply absent from the active leaf set.
         let actor = actor();
         let proof_key = key(0xA1);
-        let view = view(vec![basic_leaf(0, "did:key:z6MkpairwiseBob", key(0xB0))]);
+        let view = view(vec![basic_leaf(
+            0,
+            "ak:did_core:key:z6MkpairwiseBob",
+            key(0xB0),
+        )]);
 
         let err = verify_minimal_metadata_author(&view, &claim(&actor, &proof_key)).unwrap_err();
         assert_eq!(
@@ -312,6 +346,22 @@ mod tests {
         assert_eq!(
             err.violation,
             MinimalMetadataAuthorViolation::SignatureKeyMismatch
+        );
+    }
+
+    #[test]
+    fn proof_full_id_must_project_to_event_actor_core_id() {
+        let actor = actor();
+        let proof_key = key(0xA1);
+        let view = view(vec![basic_leaf(3, actor.as_str(), proof_key.clone())]);
+        let wrong_method = DidUrl::new("did:key:z6MkpairwiseMallory#z6MkpairwiseAlice").unwrap();
+        let mut mismatched = claim(&actor, &proof_key);
+        mismatched.proof_verification_method = &wrong_method;
+
+        let err = verify_minimal_metadata_author(&view, &mismatched).unwrap_err();
+        assert_eq!(
+            err.violation,
+            MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch
         );
     }
 

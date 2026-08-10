@@ -4,8 +4,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    Did, EncryptionProfile, Error, EventId, GenesisSalt, Hash, ObjectStage, ObjectState, ProfileId,
-    RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
+    ActorId, Did, EncryptionProfile, Error, EventId, GenesisSalt, Hash, ObjectStage, ObjectState,
+    ProfileId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -81,12 +81,12 @@ pub enum CollaborationRealmRole {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationPairKeyParticipant {
-    pub did: Did,
-    pub stable_subject: Did,
+    pub did: ActorId,
+    pub stable_subject: ActorId,
 }
 
 impl DirectConversationPairKeyParticipant {
-    pub fn unmapped(did: Did) -> Self {
+    pub fn unmapped(did: ActorId) -> Self {
         Self {
             stable_subject: did.clone(),
             did,
@@ -96,7 +96,7 @@ impl DirectConversationPairKeyParticipant {
 
 #[derive(Serialize)]
 struct DirectConversationPairKeyMaterial {
-    participants: [Did; 2],
+    participants: [ActorId; 2],
     trust_domain_id: TypedTrustDomainId,
 }
 
@@ -231,7 +231,7 @@ pub fn direct_conversation_member_join_payload(
 
 pub fn direct_conversation_main_strand_create_payload(
     realm_id: RealmId,
-    creator: Did,
+    creator: ActorId,
     created_at: DateTime<Utc>,
 ) -> StrandCreatePayload {
     let mut strand = Strand::new_create(realm_id, "Direct conversation", creator);

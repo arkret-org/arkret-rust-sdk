@@ -1676,6 +1676,7 @@ mod tests {
                     "binding_event_ref":"ak:event:AfOnmtYgQpP17IGXP_64dE-weM-8C_AfXXXfYpJ3ubJG"
                 },
                 "active_mls_generation_ref":"ak:event:AfR_M7E56E86OkxTne77vQ9fmdFkzpnxO_TBqB4ymjKV",
+                "active_mls_generation_value_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "send_blockers": []
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;

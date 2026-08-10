@@ -86,6 +86,64 @@ impl RealmKeyRequestPayload {
     }
 }
 
+/// Counterpart for
+/// `device-message.schema.json#/$defs/member_repair_request_content`.
+///
+/// This is a non-authorizing to-device trigger. It deliberately carries no
+/// Event bytes, Welcome, Commit, capability, or receipt: the receiving peer
+/// must re-read the accepted log and re-evaluate every repair gate before it
+/// authors the durable replacement-generation artifacts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MemberRepairRequestPayload {
+    pub realm_id: RealmId,
+    pub requester_principal_id: CoreId,
+    #[serde(flatten)]
+    pub requester: MemberRepairRequester,
+    pub requester_keypackage_ref: NonEmptyString,
+    pub observed_active_generation_value_digest: Hash,
+    pub rejoin_event_id: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+}
+
+/// Closed requester identity branch for one member-repair trigger.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MemberRepairRequester {
+    Device {
+        requester_device_id: DeviceId,
+    },
+    NativeAgent {
+        requester_agent_id: CoreId,
+        requester_agent_verification_method: DidUrl,
+        agent_key_authorize_event_id: EventId,
+    },
+}
+
+impl MemberRepairRequestPayload {
+    pub fn validate(&self) -> Result<()> {
+        if self.requester_keypackage_ref.trim().is_empty() {
+            return Err(Error::Protocol(
+                "ak.member.repair.request.requester_keypackage_ref must not be blank".to_owned(),
+            ));
+        }
+        if let MemberRepairRequester::NativeAgent {
+            requester_agent_id, ..
+        } = &self.requester
+            && requester_agent_id != &self.requester_principal_id
+        {
+            return Err(Error::Protocol(
+                "ak.member.repair.request Native Agent id must equal requester_principal_id"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RealmKeySourceRef {

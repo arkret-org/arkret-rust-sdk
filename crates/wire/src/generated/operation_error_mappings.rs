@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-10.2;
-//! sha256=f1a3286cd556c1a4eef7ac3d19fb78917f6c3de705e3a8e6f879b8347a0bfc6f Input: registry/
-//! operations-error-mapping.json; version=2026-08-10.4;
-//! sha256=98cba07c836bfdafd064a2e12f2cd7dbe5094a6cf2f658d5d7d4c20f79739380 Input: registry/
-//! error-code-registry.json; version=2026-08-10.2;
-//! sha256=0e9130399e68c629159b4905118767e8ca9a5b064a007a65f4c115f625210dfe Entries: operations=227
+//! Input: registry/operation-registry.json; version=2026-08-10.5;
+//! sha256=a9c839bac4b192cedb0ecedab010278b3a146b5c353bd2732c2a167731ca43d4 Input: registry/
+//! operations-error-mapping.json; version=2026-08-10.7;
+//! sha256=bc22ebd482712105292d6aaa4d82bdbfecdc5d6e6d1f840f4d0c70435000414f Input: registry/
+//! error-code-registry.json; version=2026-08-10.5;
+//! sha256=033acc2ea1a9331093e4cfbeb17173580697b98833ad72aa4f6d3860ba1bb50f Entries: operations=236
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -207,6 +207,12 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountCommandIssueControllerGateAttestation,
+        operation_specific: &[OperationSpecificError::ErrorCode(
+            ErrorCode::DuplicateConflict,
+        )],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountCommandIssueDidBindingChallenge,
         operation_specific: &[
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
@@ -367,6 +373,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::OpenIdentityReadResolution,
+        operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::OpenInviteLocatorReadResolve,
         operation_specific: &[],
     },
@@ -415,6 +425,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::OpenServiceReadResolution,
+        operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerAccountStatusCommandSubmit,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
@@ -439,6 +453,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerDirectConversationCommandRepairRelay,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -544,6 +566,22 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationLeaseFenced),
             OperationSpecificError::ReasonCode(ReasonCode::InitialSessionRequestMismatch),
         ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerServiceResolutionCommandPublish,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::ServiceRouteNoticeBasisStale),
+            OperationSpecificError::ReasonCode(ReasonCode::ServiceRouteNoticeConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::ServiceRouteNoticeCancelled),
+            OperationSpecificError::ReasonCode(ReasonCode::ServiceRouteNoticeExpired),
+            OperationSpecificError::ReasonCode(ReasonCode::ServiceRouteFork),
+            OperationSpecificError::ReasonCode(ReasonCode::ServiceResolutionMirrorResponseLimit),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerServiceResolutionReadResolve,
+        operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerSignalCommandRelay,
@@ -1100,6 +1138,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfDirectConversationCommandRepairDispatch,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),
+        ],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfDirectConversationReadResolve,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
@@ -1313,6 +1359,24 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::PolicyUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::PolicyStale),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfPrincipalServiceBindingCommandCommit,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::ChallengeExpired),
+            OperationSpecificError::ErrorCode(ErrorCode::CasConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::InvalidSignature),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfPrincipalServiceBindingCommandPrepare,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::CasConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
         ],
     },
     OperationErrorMappingDescriptor {

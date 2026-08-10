@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-10.2;
-//! sha256=ad20d94f864c621ea62db35f70d795a3dc353e205cd0e657db82009980b41111 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-10.4;
+//! sha256=850164f4545b8acadd32347f80bd13ac63c505ba7100e91851576db2433985ef Input: registry/
 //! exporter-label-registry.json; version=2026-08-08;
 //! sha256=065f7fc5f29a97a542f54805b594d8d702b3f7f41bd072135f225508fb9e5768 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
@@ -14,7 +14,7 @@
 //! sha256=908f806c1a634aa468d5acd3c610c4849903dd00f95f3e139627d9ee01fb86d3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=40, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=43, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -22,6 +22,7 @@
 pub enum ProofContextId {
     AccountBindingReceiptProofV1,
     AccountHandoffAuthenticationProofV1,
+    AccountRegistrationControlProofV1,
     AccountabilityGrantProofV1,
     AgentRequestedScopeDisclosureProofV1,
     AgentRuntimeKeyPossessionProofV1,
@@ -34,7 +35,6 @@ pub enum ProofContextId {
     ControlProposalDecisionProofV1,
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
     DeviceAuthorizePossessionProofV1,
-    DidContinuityProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
     DirectoryOperationProofV1,
@@ -58,6 +58,9 @@ pub enum ProofContextId {
     RealmKeyShareSenderProofV1,
     ReceiptProofV1,
     ServiceRegistrationReceiptProofV1,
+    ServiceResolutionPublishAckProofV1,
+    ServiceResolutionRecordProofV1,
+    ServiceRouteHandoverNoticeProofV1,
     SignalProofV1,
     SnapshotProofV1,
 }
@@ -66,6 +69,7 @@ impl ProofContextId {
     pub const ALL: &'static [Self] = &[
         Self::AccountBindingReceiptProofV1,
         Self::AccountHandoffAuthenticationProofV1,
+        Self::AccountRegistrationControlProofV1,
         Self::AccountabilityGrantProofV1,
         Self::AgentRequestedScopeDisclosureProofV1,
         Self::AgentRuntimeKeyPossessionProofV1,
@@ -78,7 +82,6 @@ impl ProofContextId {
         Self::ControlProposalDecisionProofV1,
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
         Self::DeviceAuthorizePossessionProofV1,
-        Self::DidContinuityProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
         Self::DirectoryOperationProofV1,
@@ -102,6 +105,9 @@ impl ProofContextId {
         Self::RealmKeyShareSenderProofV1,
         Self::ReceiptProofV1,
         Self::ServiceRegistrationReceiptProofV1,
+        Self::ServiceResolutionPublishAckProofV1,
+        Self::ServiceResolutionRecordProofV1,
+        Self::ServiceRouteHandoverNoticeProofV1,
         Self::SignalProofV1,
         Self::SnapshotProofV1,
     ];
@@ -110,6 +116,8 @@ impl ProofContextId {
         "ak.account-binding-receipt-proof-v1";
     pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1: &'static str =
         "ak.account-handoff-authentication-proof-v1";
+    pub const ACCOUNT_REGISTRATION_CONTROL_PROOF_V1: &'static str =
+        "ak.account-registration-control-proof-v1";
     pub const ACCOUNTABILITY_GRANT_PROOF_V1: &'static str = "ak.accountability-grant-proof-v1";
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1: &'static str =
         "ak.agent-requested-scope-disclosure-proof-v1";
@@ -129,7 +137,6 @@ impl ProofContextId {
         "ak.device-authorize-accepted-device-possession-proof-v1";
     pub const DEVICE_AUTHORIZE_POSSESSION_PROOF_V1: &'static str =
         "ak.device-authorize-possession-proof-v1";
-    pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
         "ak.did-webvh-witness-receipt-proof-v1";
     pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
@@ -165,6 +172,12 @@ impl ProofContextId {
     pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt-proof-v1";
     pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
         "ak.service-registration-receipt-proof-v1";
+    pub const SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1: &'static str =
+        "ak.service-resolution-publish-ack-proof-v1";
+    pub const SERVICE_RESOLUTION_RECORD_PROOF_V1: &'static str =
+        "ak.service-resolution-record-proof-v1";
+    pub const SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1: &'static str =
+        "ak.service-route-handover-notice-proof-v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal-proof-v1";
     pub const SNAPSHOT_PROOF_V1: &'static str = "ak.snapshot-proof-v1";
 
@@ -174,6 +187,7 @@ impl ProofContextId {
             Self::AccountHandoffAuthenticationProofV1 => {
                 Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1
             }
+            Self::AccountRegistrationControlProofV1 => Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1,
             Self::AccountabilityGrantProofV1 => Self::ACCOUNTABILITY_GRANT_PROOF_V1,
             Self::AgentRequestedScopeDisclosureProofV1 => {
                 Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1
@@ -192,7 +206,6 @@ impl ProofContextId {
                 Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
             Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
-            Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
             Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
             Self::DirectoryOperationProofV1 => Self::DIRECTORY_OPERATION_PROOF_V1,
@@ -228,6 +241,11 @@ impl ProofContextId {
             Self::RealmKeyShareSenderProofV1 => Self::REALM_KEY_SHARE_SENDER_PROOF_V1,
             Self::ReceiptProofV1 => Self::RECEIPT_PROOF_V1,
             Self::ServiceRegistrationReceiptProofV1 => Self::SERVICE_REGISTRATION_RECEIPT_PROOF_V1,
+            Self::ServiceResolutionPublishAckProofV1 => {
+                Self::SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1
+            }
+            Self::ServiceResolutionRecordProofV1 => Self::SERVICE_RESOLUTION_RECORD_PROOF_V1,
+            Self::ServiceRouteHandoverNoticeProofV1 => Self::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1,
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
             Self::SnapshotProofV1 => Self::SNAPSHOT_PROOF_V1,
         }
@@ -238,6 +256,9 @@ impl ProofContextId {
             Self::ACCOUNT_BINDING_RECEIPT_PROOF_V1 => Some(Self::AccountBindingReceiptProofV1),
             Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1 => {
                 Some(Self::AccountHandoffAuthenticationProofV1)
+            }
+            Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1 => {
+                Some(Self::AccountRegistrationControlProofV1)
             }
             Self::ACCOUNTABILITY_GRANT_PROOF_V1 => Some(Self::AccountabilityGrantProofV1),
             Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1 => {
@@ -261,7 +282,6 @@ impl ProofContextId {
             Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizePossessionProofV1)
             }
-            Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
             Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
             Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
                 Some(Self::DirectoryGovernanceRequestProofV1)
@@ -300,6 +320,13 @@ impl ProofContextId {
             Self::RECEIPT_PROOF_V1 => Some(Self::ReceiptProofV1),
             Self::SERVICE_REGISTRATION_RECEIPT_PROOF_V1 => {
                 Some(Self::ServiceRegistrationReceiptProofV1)
+            }
+            Self::SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1 => {
+                Some(Self::ServiceResolutionPublishAckProofV1)
+            }
+            Self::SERVICE_RESOLUTION_RECORD_PROOF_V1 => Some(Self::ServiceResolutionRecordProofV1),
+            Self::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1 => {
+                Some(Self::ServiceRouteHandoverNoticeProofV1)
             }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
             Self::SNAPSHOT_PROOF_V1 => Some(Self::SnapshotProofV1),
@@ -439,6 +466,33 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience",
         ],
         schema_ref: "schemas/account-operations.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::AccountRegistrationControlProofV1,
+        context: "ak.account-registration-control-proof-v1",
+        object_family: "account_registration_control_proof",
+        binding_fields: &[
+            "proof_kind",
+            "challenge_id",
+            "challenge",
+            "purpose",
+            "request_canonical_digest",
+            "account_subject",
+            "principal_id",
+            "full_id",
+            "did_version_id",
+            "log_head_digest",
+            "control_key_digest",
+            "dpop_jkt",
+            "audience",
+            "origin",
+            "trust_domain",
+            "issued_at",
+            "expires_at",
+            "verification_method",
+            "witness_evidence?",
+        ],
+        schema_ref: "schemas/account-operations.schema.json#/$defs/account_registration_control_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::AccountabilityGrantProofV1,
@@ -609,21 +663,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "authorization_binding_kind",
         ],
         schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DidContinuityProofV1,
-        context: "ak.did-continuity-proof-v1",
-        object_family: "did_continuity",
-        binding_fields: &[
-            "payload_digest",
-            "old_did",
-            "new_did",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/did-continuity-proof.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidWebvhWitnessReceiptProofV1,
@@ -987,6 +1026,80 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationReceipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::ServiceResolutionPublishAckProofV1,
+        context: "ak.service-resolution-publish-ack-proof-v1",
+        object_family: "service_resolution_publish_ack",
+        binding_fields: &[
+            "payload_digest",
+            "request_id",
+            "source_service_id",
+            "receiver_service_id",
+            "realm_id",
+            "request_digest",
+            "artifact_key",
+            "artifact_digest",
+            "accepted_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/identity-resolution.schema.json#/$defs/service_resolution_publish_ack",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::ServiceResolutionRecordProofV1,
+        context: "ak.service-resolution-record-proof-v1",
+        object_family: "service_resolution_record",
+        binding_fields: &[
+            "payload_digest",
+            "service_id",
+            "service_kind",
+            "full_id",
+            "method_history_head",
+            "version_id",
+            "resolution_event_ref",
+            "record_sequence",
+            "previous_record_digest",
+            "current_record_url",
+            "base_url",
+            "describe_digest",
+            "issued_at",
+            "refresh_after",
+            "expires_at",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
+        schema_ref: "schemas/identity-resolution.schema.json#/$defs/service_resolution_record",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::ServiceRouteHandoverNoticeProofV1,
+        context: "ak.service-route-handover-notice-proof-v1",
+        object_family: "service_route_handover_notice",
+        binding_fields: &[
+            "payload_digest",
+            "service_id",
+            "service_kind",
+            "handover_id",
+            "notice_revision",
+            "state",
+            "from_record_sequence",
+            "from_record_digest",
+            "candidate_base_url?",
+            "candidate_record_url?",
+            "not_before?",
+            "cutover_at?",
+            "grace_until?",
+            "previous_notice_digest",
+            "issued_at",
+            "expires_at",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
+        schema_ref: "schemas/identity-resolution.schema.json#/$defs/service_route_handover_notice",
     },
     ProofContextDescriptor {
         id: ProofContextId::SignalProofV1,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-10.6;
-//! sha256=1871b06bcd72fdf916607ca9ae8b8039b5b44303fc78c0382475bedb24c26b61 Entries: profile_ids=99
+//! Input: profiles/conformance-profiles.json; version=2026-08-10.9;
+//! sha256=56ce30e59ee6ac0840e6ef9ab8787d4d4374a5f1a14e7a156e977bdf409ef8f6 Entries: profile_ids=101
 
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +49,7 @@ pub enum ProfileId {
     EncodingCborV1,
     EncodingMultihashV1,
     EnterpriseClientV1,
+    EphemeralPairwisePrincipalV1,
     FederationHighAssuranceV1,
     FederationRbsrNegentropyV1,
     FederationMinimalV1,
@@ -98,6 +99,7 @@ pub enum ProfileId {
     SearchBlindIndexV1,
     SearchClientIndexV1,
     SearchForwardPrivateV1,
+    ServiceResolutionMirrorV1,
     SignalMessageStreamV1,
     SignalPeerRelayV1,
     SignatureEcdsaP256V1,
@@ -152,6 +154,7 @@ impl ProfileId {
         Self::EncodingCborV1,
         Self::EncodingMultihashV1,
         Self::EnterpriseClientV1,
+        Self::EphemeralPairwisePrincipalV1,
         Self::FederationHighAssuranceV1,
         Self::FederationRbsrNegentropyV1,
         Self::FederationMinimalV1,
@@ -201,6 +204,7 @@ impl ProfileId {
         Self::SearchBlindIndexV1,
         Self::SearchClientIndexV1,
         Self::SearchForwardPrivateV1,
+        Self::ServiceResolutionMirrorV1,
         Self::SignalMessageStreamV1,
         Self::SignalPeerRelayV1,
         Self::SignatureEcdsaP256V1,
@@ -262,6 +266,8 @@ impl ProfileId {
     pub const ENCODING_CBOR_V1: &'static str = "ak.profile.encoding.cbor.v1";
     pub const ENCODING_MULTIHASH_V1: &'static str = "ak.profile.encoding.multihash.v1";
     pub const ENTERPRISE_CLIENT_V1: &'static str = "ak.profile.enterprise_client.v1";
+    pub const EPHEMERAL_PAIRWISE_PRINCIPAL_V1: &'static str =
+        "ak.profile.ephemeral_pairwise_principal.v1";
     pub const FEDERATION_HIGH_ASSURANCE_V1: &'static str =
         "ak.profile.federation.high_assurance.v1";
     pub const FEDERATION_RBSR_NEGENTROPY_V1: &'static str =
@@ -328,6 +334,8 @@ impl ProfileId {
     pub const SEARCH_BLIND_INDEX_V1: &'static str = "ak.profile.search.blind_index.v1";
     pub const SEARCH_CLIENT_INDEX_V1: &'static str = "ak.profile.search.client_index.v1";
     pub const SEARCH_FORWARD_PRIVATE_V1: &'static str = "ak.profile.search.forward_private.v1";
+    pub const SERVICE_RESOLUTION_MIRROR_V1: &'static str =
+        "ak.profile.service_resolution_mirror.v1";
     pub const SIGNAL_MESSAGE_STREAM_V1: &'static str = "ak.profile.signal_message_stream.v1";
     pub const SIGNAL_PEER_RELAY_V1: &'static str = "ak.profile.signal_peer_relay.v1";
     pub const SIGNATURE_ECDSA_P256_V1: &'static str = "ak.profile.signature.ecdsa_p256.v1";
@@ -382,6 +390,7 @@ impl ProfileId {
             Self::EncodingCborV1 => Self::ENCODING_CBOR_V1,
             Self::EncodingMultihashV1 => Self::ENCODING_MULTIHASH_V1,
             Self::EnterpriseClientV1 => Self::ENTERPRISE_CLIENT_V1,
+            Self::EphemeralPairwisePrincipalV1 => Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1,
             Self::FederationHighAssuranceV1 => Self::FEDERATION_HIGH_ASSURANCE_V1,
             Self::FederationRbsrNegentropyV1 => Self::FEDERATION_RBSR_NEGENTROPY_V1,
             Self::FederationMinimalV1 => Self::FEDERATION_MINIMAL_V1,
@@ -433,6 +442,7 @@ impl ProfileId {
             Self::SearchBlindIndexV1 => Self::SEARCH_BLIND_INDEX_V1,
             Self::SearchClientIndexV1 => Self::SEARCH_CLIENT_INDEX_V1,
             Self::SearchForwardPrivateV1 => Self::SEARCH_FORWARD_PRIVATE_V1,
+            Self::ServiceResolutionMirrorV1 => Self::SERVICE_RESOLUTION_MIRROR_V1,
             Self::SignalMessageStreamV1 => Self::SIGNAL_MESSAGE_STREAM_V1,
             Self::SignalPeerRelayV1 => Self::SIGNAL_PEER_RELAY_V1,
             Self::SignatureEcdsaP256V1 => Self::SIGNATURE_ECDSA_P256_V1,
@@ -490,6 +500,7 @@ impl ProfileId {
             Self::ENCODING_CBOR_V1 => Some(Self::EncodingCborV1),
             Self::ENCODING_MULTIHASH_V1 => Some(Self::EncodingMultihashV1),
             Self::ENTERPRISE_CLIENT_V1 => Some(Self::EnterpriseClientV1),
+            Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1 => Some(Self::EphemeralPairwisePrincipalV1),
             Self::FEDERATION_HIGH_ASSURANCE_V1 => Some(Self::FederationHighAssuranceV1),
             Self::FEDERATION_RBSR_NEGENTROPY_V1 => Some(Self::FederationRbsrNegentropyV1),
             Self::FEDERATION_MINIMAL_V1 => Some(Self::FederationMinimalV1),
@@ -547,6 +558,7 @@ impl ProfileId {
             Self::SEARCH_BLIND_INDEX_V1 => Some(Self::SearchBlindIndexV1),
             Self::SEARCH_CLIENT_INDEX_V1 => Some(Self::SearchClientIndexV1),
             Self::SEARCH_FORWARD_PRIVATE_V1 => Some(Self::SearchForwardPrivateV1),
+            Self::SERVICE_RESOLUTION_MIRROR_V1 => Some(Self::ServiceResolutionMirrorV1),
             Self::SIGNAL_MESSAGE_STREAM_V1 => Some(Self::SignalMessageStreamV1),
             Self::SIGNAL_PEER_RELAY_V1 => Some(Self::SignalPeerRelayV1),
             Self::SIGNATURE_ECDSA_P256_V1 => Some(Self::SignatureEcdsaP256V1),

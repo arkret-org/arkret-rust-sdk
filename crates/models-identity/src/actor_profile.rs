@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorKind, ActorProfileId, ActorStatus, BlobRef, Did, RealmId, SchemaId};
+use arkret_wire::{ActorKind, ActorProfileId, ActorStatus, BlobRef, CoreId, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -22,7 +22,7 @@ pub struct ActorProfile {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub principal_id: Did,
+    pub principal_id: CoreId,
     pub actor_kind: ActorKind,
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -34,13 +34,15 @@ pub struct ActorProfile {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<ActorStatus>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accountable_principal_ids: Vec<Did>,
+    pub accountable_principal_ids: Vec<CoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<crate::PrincipalResolutionProjection>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profile_fields: BTreeMap<String, Value>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<CoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

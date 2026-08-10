@@ -16,7 +16,7 @@ use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
     AnchorUnitLeaseBasis, AuthorizationLease, IngressReceipt, LeaseBasisRef,
 };
-use crate::{RiskTier, ScopeRef};
+use crate::{ActorId, RiskTier, ScopeRef, project_full_id_to_core_id};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
@@ -316,7 +316,7 @@ pub struct EventFederationSubmission {
 /// `capability-action-registry.json`, so it belongs to the registry-aware
 /// caller, not to this wire-level gate.
 fn validate_lease_binds_event(event: &Event, lease: &AuthorizationLease) -> Result<()> {
-    if lease.actor_id != event.actor_id {
+    if ActorId::from(project_full_id_to_core_id(&lease.actor_id)?) != event.actor_id {
         return Err(Error::Protocol(
             "authorization lease actor_id does not match the Event actor".to_owned(),
         ));
@@ -366,10 +366,13 @@ fn validate_membership_compensation_evidence(
     evidence.validate_bindings()?;
     let core = &evidence.delegation.core;
     if event.kind.as_str() != "ak.member.state"
-        || event.executed_by.as_ref() != Some(&core.executor_service_id)
+        || event.executed_by.as_ref()
+            != Some(&ActorId::from(project_full_id_to_core_id(
+                &core.executor_service_id,
+            )?))
         || event.authorization_ref.as_ref().map(|value| value.as_str())
             != Some(evidence.delegation.delegation_id.as_str())
-        || event.actor_id != core.join_actor_id
+        || event.actor_id != ActorId::from(project_full_id_to_core_id(&core.join_actor_id)?)
         || event.realm_id != core.resource
         || event
             .payload

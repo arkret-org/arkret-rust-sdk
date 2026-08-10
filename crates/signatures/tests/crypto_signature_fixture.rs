@@ -23,7 +23,7 @@ use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signat
 use arkret_signatures::{
     FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof,
 };
-use arkret_wire::{Did, DidUrl, Hash, Proof};
+use arkret_wire::{ActorId, Did, DidUrl, Hash, Proof, project_full_id_to_core_id};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
 
@@ -244,7 +244,8 @@ fn negative_cases_reject_through_sdk_verifiers() {
     let base_public_key = PublicKeyMaterial::Jwk {
         value: base["did_document_fragment"]["publicKeyJwk"].clone(),
     };
-    let actor = Did::new(s(&base["binding_object"], "actor_id")).unwrap();
+    let actor_full_id = Did::new(s(&base["binding_object"], "actor_id")).unwrap();
+    let actor = ActorId::from(project_full_id_to_core_id(&actor_full_id).unwrap());
     let canonical_event_bytes =
         canonical::canonical_json_bytes(&digest_preimage(&base["event_without_proofs"])).unwrap();
 

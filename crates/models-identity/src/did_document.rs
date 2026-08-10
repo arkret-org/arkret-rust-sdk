@@ -89,6 +89,7 @@ pub struct HandleAttestation {
 /// (`IdentityResolveOutcome`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DidDocument {
     pub id: Did,
     pub verification_methods: BTreeMap<String, String>,

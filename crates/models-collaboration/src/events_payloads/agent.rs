@@ -203,8 +203,8 @@ pub struct AgentActionTarget {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentDeactivatePayload {
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: ActorId,
+    pub controller_id: ActorId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]
@@ -484,8 +484,8 @@ pub struct AgentKeyRevokePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPausePayload {
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: ActorId,
+    pub controller_id: ActorId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]
@@ -499,8 +499,8 @@ pub struct AgentPausePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentResumePayload {
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: ActorId,
+    pub controller_id: ActorId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]

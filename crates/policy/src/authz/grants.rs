@@ -1577,7 +1577,10 @@ impl CapabilityGrantBuilder {
         };
         arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityGrant>::new(
             self.scope_ref,
-            self.actor_id,
+            arkret_wire::ActorId::from(
+                arkret_wire::project_full_id_to_core_id(&self.actor_id)
+                    .map_err(|error| Error::Protocol(error.to_string()))?,
+            ),
             payload,
         )
         .map_err(|error| Error::Protocol(error.to_string()))?
@@ -1597,7 +1600,12 @@ pub fn build_capability_relinquish_event(
     payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
 ) -> Result<crate::Event> {
     arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityRelinquish>::new(
-        scope_ref, subject, payload,
+        scope_ref,
+        arkret_wire::ActorId::from(
+            arkret_wire::project_full_id_to_core_id(&subject)
+                .map_err(|error| Error::Protocol(error.to_string()))?,
+        ),
+        payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
     .author_now(actor_seq, hlc)

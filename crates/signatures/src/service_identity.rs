@@ -1,25 +1,21 @@
 //! Typed `ServiceRegistrationReceipt` proof signing and verification.
 
-use arkret_canonical::multibase::{
-    decode_ed25519_multibase, decode_multibase_base58btc, encode_base58btc,
-};
-use arkret_models_identity::service_identity::{
-    ServiceDidDocument, ServiceRegistrationReceipt, ServiceWebvhDataIntegrityProof,
-};
-use ed25519_dalek::{SIGNATURE_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
+use arkret_canonical::multibase::decode_ed25519_multibase;
+use arkret_models_identity::service_identity::{ServiceDidDocument, ServiceRegistrationReceipt};
+use arkret_wire::PayloadProof;
+use ed25519_dalek::{SigningKey, VerifyingKey};
 
-use crate::{Error, Result};
+use crate::{Ed25519DetachedJwsVerifier, Error, Result, sign_ed25519_detached_jws};
 
 /// Produce the canonical Provider proof for a typed service-registration
 /// receipt. Transcript construction remains owned by the `arkret` umbrella.
 pub fn sign_registration_receipt_proof(
     receipt: &ServiceRegistrationReceipt,
     signing_key: &SigningKey,
-) -> Result<ServiceWebvhDataIntegrityProof> {
+) -> Result<PayloadProof> {
     receipt.validate_proof_binding()?;
-    let signature = signing_key.sign(&receipt.proof_binding_bytes()?);
     let mut proof = receipt.proof.clone();
-    proof.proof_value = format!("z{}", encode_base58btc(signature.to_bytes()));
+    proof.jws = sign_ed25519_detached_jws(signing_key, &receipt.proof_binding_bytes()?)?;
     Ok(proof)
 }
 
@@ -30,11 +26,11 @@ pub fn verify_registration_receipt_proof(
     provider_document: &ServiceDidDocument,
 ) -> Result<()> {
     receipt.validate_proof_binding()?;
-    if provider_document.id != receipt.provider_service_id
-        || !provider_document
-            .assertion_method
-            .iter()
-            .any(|method| method == receipt.proof.verification_method.as_str())
+    receipt.validate_provider_full_id(&provider_document.id)?;
+    if !provider_document
+        .assertion_method
+        .iter()
+        .any(|method| method == receipt.proof.verification_method.as_str())
     {
         return Err(Error::Protocol(
             "receipt proof verificationMethod is not an authorized Provider assertion method"
@@ -51,7 +47,7 @@ pub fn verify_registration_receipt_proof(
                     .to_owned(),
             )
         })?;
-    if method.controller != receipt.provider_service_id {
+    if method.controller != provider_document.id {
         return Err(Error::Protocol(
             "receipt proof verification method is not controlled by the Provider DID".to_owned(),
         ));
@@ -59,23 +55,16 @@ pub fn verify_registration_receipt_proof(
     let public_key = decode_ed25519_multibase(&method.public_key_multibase).map_err(|error| {
         Error::Protocol(format!("invalid Provider Ed25519 public key: {error}"))
     })?;
-    let verifying_key = VerifyingKey::from_bytes(&public_key)
-        .map_err(|_| Error::Protocol("invalid Provider Ed25519 public key".to_owned()))?;
-    let signature = decode_multibase_base58btc(&receipt.proof.proof_value)
-        .map_err(|error| Error::Protocol(format!("invalid receipt proofValue: {error}")))?;
-    if signature.len() != SIGNATURE_LENGTH {
-        return Err(Error::Protocol(
-            "service registration receipt proofValue must contain a 64-byte Ed25519 signature"
-                .to_owned(),
-        ));
-    }
-    let mut signature_bytes = [0_u8; SIGNATURE_LENGTH];
-    signature_bytes.copy_from_slice(&signature);
-    verifying_key
-        .verify_strict(
+    let public_key = crate::proof::PublicKeyMaterial::Ed25519Raw {
+        bytes: public_key.to_vec(),
+    };
+    Ed25519DetachedJwsVerifier::default()
+        .verify_detached_jws(
+            &receipt.proof.jws,
             &receipt.proof_binding_bytes()?,
-            &Signature::from_bytes(&signature_bytes),
+            &public_key,
         )
+        .map(|_| ())
         .map_err(|_| {
             Error::Protocol("service registration receipt signature is invalid".to_owned())
         })
@@ -87,13 +76,19 @@ mod tests {
     use arkret_models_identity::service_identity::{
         CanonicalServiceUrl, ServiceDidVerificationMethod, ServiceRegistrationKey,
     };
-    use arkret_wire::{Did, DidUrl, ServiceKind};
+    use arkret_wire::{
+        Did, DidUrl, FullId, Hash, PayloadProof, ServiceId, ServiceKind,
+        project_full_id_to_core_id, proof_kind,
+    };
 
     use super::*;
 
     fn receipt() -> ServiceRegistrationReceipt {
-        let provider_service_id =
+        let provider_full_id =
             Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        let provider_service_id =
+            ServiceId::from(project_full_id_to_core_id(&provider_full_id).unwrap());
+        let full_id = Did::new("did:webvh:QmService:identity.example:webvh:auth").unwrap();
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
                 "ak:service_registration_receipt:{}",
@@ -105,22 +100,27 @@ mod tests {
                 CanonicalServiceUrl::new("https://auth.example/").unwrap(),
             )
             .unwrap(),
-            service_id: Did::new("did:webvh:QmService:identity.example:webvh:auth").unwrap(),
+            service_id: ServiceId::from(project_full_id_to_core_id(&full_id).unwrap()),
+            full_id,
             version_id: "1-QmVersion".to_owned(),
             log_head_digest: format!("sha256:{}", "a".repeat(64)),
             control_key_digest: format!("sha256:{}", "b".repeat(64)),
             issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
             provider_service_id: provider_service_id.clone(),
-            proof: ServiceWebvhDataIntegrityProof {
-                proof_type: "DataIntegrityProof".to_owned(),
-                cryptosuite: "eddsa-jcs-2022".to_owned(),
-                verification_method: DidUrl::new(format!("{provider_service_id}#service-key"))
+            proof: PayloadProof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(format!("{provider_full_id}#service-key"))
                     .unwrap(),
-                proof_purpose: "assertionMethod".to_owned(),
-                proof_value: "z1".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "placeholder".to_owned(),
             },
         };
         receipt.registration_receipt_id = receipt.expected_registration_receipt_id().unwrap();
+        receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
         receipt
     }
 
@@ -131,14 +131,24 @@ mod tests {
         receipt.proof = sign_registration_receipt_proof(&receipt, &signing_key).unwrap();
         let public_key_multibase =
             ed25519_pubkey_to_did_key_multibase(&signing_key.verifying_key().to_bytes());
+        let provider_full_id = FullId::new(
+            receipt
+                .proof
+                .verification_method
+                .as_str()
+                .split_once('#')
+                .unwrap()
+                .0,
+        )
+        .unwrap();
         let provider_document = ServiceDidDocument {
             context: vec!["https://www.w3.org/ns/did/v1".to_owned()],
-            id: receipt.provider_service_id.clone(),
+            id: provider_full_id.clone(),
             also_known_as: Vec::new(),
             verification_method: vec![ServiceDidVerificationMethod {
                 id: receipt.proof.verification_method.as_str().to_owned(),
                 method_type: "Multikey".to_owned(),
-                controller: receipt.provider_service_id.clone(),
+                controller: provider_full_id,
                 public_key_multibase,
             }],
             authentication: vec![receipt.proof.verification_method.as_str().to_owned()],

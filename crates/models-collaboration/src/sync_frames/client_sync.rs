@@ -167,7 +167,7 @@ pub struct TimelineOrderKey {
     /// Hybrid logical clock for the event.
     pub hlc: Option<Hlc>,
     /// Event actor.
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     /// Actor-local sequence.
     pub actor_seq: u64,
     /// Event ID tie-breaker.

@@ -6,8 +6,8 @@ use arkret_models_collaboration::events_payloads::agent::{
 };
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    Did, DidUrl, Error, Event, EventId, Hash, Hlc, ProfileRef, RealmId, Result, SchemaId, ScopeRef,
-    SealBasis, event_spec,
+    ActorId, Did, DidUrl, Error, Event, EventId, Hash, Hlc, ProfileRef, RealmId, Result, SchemaId,
+    ScopeRef, SealBasis, event_spec, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -59,7 +59,7 @@ pub fn build_agent_provision_event_draft(
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),
         },
-        controller_id.clone(),
+        ActorId::from(project_full_id_to_core_id(controller_id)?),
         payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?

@@ -488,7 +488,7 @@ pub fn public_key_material_from_binding(
 pub fn verify_event_proof_with_binding(
     proof: &Proof,
     envelope_bytes: &[u8],
-    actor_id: &Did,
+    actor_id: &arkret_wire::ActorId,
     accepted: &AcceptedDidBinding,
 ) -> Result<(), BindingVerifyError> {
     let binding = accepted.binding();

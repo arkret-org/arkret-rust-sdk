@@ -234,7 +234,7 @@ fn to_signature_error(error: Error) -> arkret_signatures::Error {
 pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
     proof: &Proof,
-    binding_actor_id: &Did,
+    binding_actor_id: &arkret_wire::ActorId,
     context: &arkret_signatures::ProofVerificationContext,
     resolver: &R,
 ) -> Result<arkret_signatures::SignatureVerification>

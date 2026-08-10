@@ -419,6 +419,9 @@ macro_rules! declare_special_form_id_kinds {
 /// predicate used by `id_type!(Did, is_did)`, exposed for downstream callers
 /// that need validation without constructing a [`Did`].
 pub fn is_did(value: &str) -> bool {
+    if value.len() > 2048 {
+        return false;
+    }
     let Some(remainder) = value.strip_prefix("did:") else {
         return false;
     };
@@ -435,11 +438,32 @@ pub fn is_did(value: &str) -> bool {
     }
     if method_specific_id
         .bytes()
-        .any(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'?'))
+        .any(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'/' | b'#' | b'?'))
     {
         return false;
     }
     true
+}
+
+/// Validate the stable DID-derived identity-core form registered by the
+/// protocol. A core id is deliberately not a DID and cannot be sent to a DID
+/// resolver without a separately verified current [`FullId`].
+pub fn is_core_id(value: &str) -> bool {
+    let Some(remainder) = value.strip_prefix("ak:did_core:") else {
+        return false;
+    };
+    let Some((method, method_specific_core)) = remainder.split_once(':') else {
+        return false;
+    };
+    !method.is_empty()
+        && !method_specific_core.is_empty()
+        && method
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        && !method_specific_core
+            .bytes()
+            .any(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'/' | b'?' | b'#'))
+        && value.len() <= 512
 }
 
 fn is_hash(value: &str) -> bool {
@@ -743,7 +767,64 @@ pub fn is_lowercase_typed_uuid(value: &str, version_nibble: u8) -> bool {
     true
 }
 
-id_type!(Did, is_did);
+id_type!(FullId, is_did);
+id_type!(CoreId, is_core_id);
+id_type!(PrincipalId, is_core_id);
+id_type!(ActorId, is_core_id);
+id_type!(ServiceId, is_core_id);
+
+macro_rules! core_role_conversions {
+    ($role:ident) => {
+        impl From<$role> for CoreId {
+            fn from(value: $role) -> Self {
+                Self(value.into_string())
+            }
+        }
+
+        impl From<CoreId> for $role {
+            fn from(value: CoreId) -> Self {
+                Self(value.into_string())
+            }
+        }
+    };
+}
+
+core_role_conversions!(PrincipalId);
+core_role_conversions!(ActorId);
+core_role_conversions!(ServiceId);
+
+/// Compatibility name for protocol fields that still explicitly carry a
+/// resolvable bare DID. New code should prefer [`FullId`] so it cannot be
+/// confused with [`CoreId`].
+pub type Did = FullId;
+
+/// Project a canonical resolvable DID through the active v1 method adapter.
+///
+/// This deliberately implements only registry-active adapters. Generic code
+/// must never manufacture a core id by prefix substitution.
+pub fn project_full_id_to_core_id(full_id: &FullId) -> Result<CoreId> {
+    let value = full_id.as_str();
+    if let Some(remainder) = value.strip_prefix("did:webvh:") {
+        let scid = remainder
+            .split_once(':')
+            .map(|(scid, _)| scid)
+            .filter(|scid| !scid.is_empty())
+            .ok_or_else(|| IdentifierError::InvalidId(value.to_owned()))?;
+        return CoreId::new(format!("ak:did_core:webvh:{scid}"));
+    }
+    if value.starts_with("did:web:") {
+        let method_specific_id = value
+            .strip_prefix("did:web:")
+            .expect("checked did:web prefix");
+        return CoreId::new(format!("ak:did_core:web:{method_specific_id}"));
+    }
+    if let Some(method_specific_id) = value.strip_prefix("did:key:") {
+        return CoreId::new(format!("ak:did_core:key:{method_specific_id}"));
+    }
+    Err(IdentifierError::InvalidId(format!(
+        "no active DID method adapter for {value}"
+    )))
+}
 
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7
 // payloads. Pure-uuid kinds go through `declare_uuid_id_kinds!` so they
@@ -1736,5 +1817,39 @@ mod tests {
             "hlc": "1970",
         }));
         assert!(invalid_hlc.is_err());
+    }
+
+    #[test]
+    fn full_and_core_id_method_adapter_kats() {
+        let webvh = FullId::new("did:webvh:zQ3shExampleScid:alice.example:webvh:user").unwrap();
+        assert_eq!(
+            project_full_id_to_core_id(&webvh).unwrap().as_str(),
+            "ak:did_core:webvh:zQ3shExampleScid"
+        );
+
+        let web = FullId::new("did:web:peer-ps.example:users:alice").unwrap();
+        assert_eq!(
+            project_full_id_to_core_id(&web).unwrap().as_str(),
+            "ak:did_core:web:peer-ps.example:users:alice"
+        );
+
+        let key = FullId::new("did:key:z6MkruntimeExample").unwrap();
+        assert_eq!(
+            project_full_id_to_core_id(&key).unwrap().as_str(),
+            "ak:did_core:key:z6MkruntimeExample"
+        );
+
+        for invalid in [
+            "did:web:example.test/path",
+            "did:web:example.test?version=1",
+            "did:web:example.test#key-1",
+            "did:Web:example.test",
+        ] {
+            assert!(FullId::new(invalid).is_err(), "{invalid} must fail");
+        }
+        assert!(FullId::new(format!("did:web:{}", "a".repeat(2040))).is_ok());
+        assert!(FullId::new(format!("did:web:{}", "a".repeat(2041))).is_err());
+        assert!(CoreId::new("ak:did_core:web:peer-ps.example").is_ok());
+        assert!(CoreId::new("ak:did_core:web:peer-ps.example/path").is_err());
     }
 }

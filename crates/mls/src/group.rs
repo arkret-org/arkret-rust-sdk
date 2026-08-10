@@ -709,13 +709,22 @@ impl ArkretMlsGroup {
                 let credential = if member.credential.credential_type()
                     == openmls::prelude::CredentialType::Basic
                 {
-                    match decode_leaf_credential(member.credential.serialized_content()) {
-                        Ok((principal_id, _)) => crate::AuthorLeafCredential::Basic {
-                            identity: principal_id.as_str().as_bytes().to_vec(),
-                        },
-                        Err(_) => crate::AuthorLeafCredential::Other {
-                            credential_type: "invalid_arkret_basic_credential".to_owned(),
-                        },
+                    let identity = member.credential.serialized_content();
+                    if identity.starts_with(b"ak:did_core:key:") {
+                        crate::AuthorLeafCredential::Basic {
+                            // Minimal-metadata pairwise credentials carry the
+                            // Core ActorId itself. Preserve it byte-for-byte.
+                            identity: identity.to_vec(),
+                        }
+                    } else {
+                        match decode_leaf_credential(identity) {
+                            Ok((principal_id, _)) => crate::AuthorLeafCredential::Basic {
+                                identity: principal_id.as_str().as_bytes().to_vec(),
+                            },
+                            Err(_) => crate::AuthorLeafCredential::Other {
+                                credential_type: "invalid_arkret_basic_credential".to_owned(),
+                            },
+                        }
                     }
                 } else {
                     crate::AuthorLeafCredential::Other {
@@ -1854,14 +1863,14 @@ mod content_scheme_anchor_tests {
             algorithm: "MLS-EXPORTER-AEAD".to_owned(),
             group_state_ref: "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB".to_owned(),
         };
-        let envelope_aad = EncryptedEnvelopeAad::hidden(
-            arkret_wire::RealmId::new(REALM).unwrap(),
-            "ak.message.create",
-        );
+        let scope = arkret_wire::ScopeRef::Realm {
+            realm_id: arkret_wire::RealmId::new(REALM).unwrap(),
+        };
+        let envelope_aad = EncryptedEnvelopeAad::hidden(&scope, "ak.message.create").unwrap();
         let aad = content_aead_aad(&key_ref, 42, &nonce, profile, &envelope_aad).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":{\"event_kind\":\"ak.message.create\",\"realm_id\":\"ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0\"},\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",\"epoch\":42,\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",\"group_state_ref\":\"ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\",\"scheme\":\"mls_exporter_aead_v1\"}",
+            "{\"aad\":{\"event_kind\":\"ak.message.create\",\"realm_id\":\"ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0\",\"scope_digest\":\"sha256:d55205975616853ef197cee86857c19fd8d43a0d45e0c184ad214aa5a9778660\"},\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",\"epoch\":42,\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",\"group_state_ref\":\"ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\",\"scheme\":\"mls_exporter_aead_v1\"}",
             "canonical content AAD drifted"
         );
 
@@ -1869,7 +1878,7 @@ mod content_scheme_anchor_tests {
         let ciphertext = suite.seal(&content_key, &nonce, &aad, plaintext).unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa172ec35effff53537ea9d100647aa4f700",
+            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa172f1fa66b1c876334061abf44ff20001c",
             "exporter-aead ciphertext drifted"
         );
 

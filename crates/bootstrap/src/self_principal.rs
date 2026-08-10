@@ -13,9 +13,9 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_wire::{
-    CellRef, Did, EncryptionProfile, Error, Event, EventKind, EventRef, EventRequirements,
-    GenesisSalt, Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
-    SecurityClass, TypedTrustDomainId, composite_subject, event_spec, proof_kind,
+    ActorId, CellRef, Did, EncryptionProfile, Error, Event, EventKind, EventRef, GenesisSalt, Hash,
+    Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef, SecurityClass,
+    TypedTrustDomainId, composite_subject, event_spec, project_full_id_to_core_id, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -46,6 +46,7 @@ pub fn build_self_principal_pcr_create(
     project: CellWriteProjector<'_>,
 ) -> Result<Event> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
+    let actor_id = ActorId::from(project_full_id_to_core_id(&input.principal_id)?);
     if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE
         || !input.did_inception_ref.critical
         || input.did_inception_ref.proof.is_some()
@@ -78,7 +79,7 @@ pub fn build_self_principal_pcr_create(
         // carries no realm_id. Every Realm id, including a PCR, is derived
         // from the authored create Event.
         ScopeRef::RealmGenesis,
-        input.principal_id,
+        actor_id,
         payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
@@ -140,7 +141,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     validate_event_proof_digests(authorize)?;
     let payload: DeviceAuthorizePayload =
         authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
-    if payload.principal_id != create.actor_id
+    if ActorId::from(project_full_id_to_core_id(&payload.principal_id)?) != create.actor_id
         || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored
         || payload.recovery_session_id.is_some()
     {
@@ -148,10 +149,12 @@ pub fn validate_self_principal_pcr_genesis_unit(
             "founding device authorize must be root-anchored".to_owned(),
         ));
     }
-    let authorized_by_matches = matches!(
-        &payload.authorized_by,
-        DeviceOrPrincipalRef::Did(did) if did == &create.actor_id
-    );
+    let authorized_by_matches = match &payload.authorized_by {
+        DeviceOrPrincipalRef::Did(did) => {
+            ActorId::from(project_full_id_to_core_id(did)?) == create.actor_id
+        }
+        DeviceOrPrincipalRef::DeviceId(_) => false,
+    };
     let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let descriptor = create_payload
         .object
@@ -168,7 +171,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     if !authorized_by_matches
         || authorize.proofs.len() != 1
         || authorize.proofs[0].verification_method.as_str()
-            != format!("{}#{}", create.actor_id, descriptor.device_id)
+            != format!("{}#{}", payload.principal_id, descriptor.device_id)
         || descriptor.device_id != payload.device_id
         || descriptor.device_public_key != payload.device_public_key
         || descriptor.hpke_key != payload.hpke_key
@@ -252,10 +255,12 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .iter()
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
-    let notary_matches = matches!(
-        &genesis.notary,
-        NotaryValue::SingleDid { did, .. } if did == &event.actor_id
-    );
+    let notary_matches = match &genesis.notary {
+        NotaryValue::SingleDid { did, .. } => {
+            ActorId::from(project_full_id_to_core_id(did)?) == event.actor_id
+        }
+        _ => false,
+    };
     if genesis.schema != SchemaId::REALM_GENESIS_V1
         || genesis.purpose
             != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl

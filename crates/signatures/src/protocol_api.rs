@@ -82,7 +82,7 @@ use arkret_canonical::canonical;
 pub use arkret_wire::PRODUCTION_ALGORITHMS;
 pub use arkret_wire::Proof as ProtocolProof;
 use arkret_wire::{
-    Audience, Did, DidUrl, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload,
+    ActorId, Audience, Did, DidUrl, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload,
 };
 use chrono::{DateTime, Duration, Utc};
 pub use error::{Error, Result};
@@ -133,7 +133,7 @@ pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ak.http-message-signature.v1";
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignatureBinding {
     pub payload_digest: Hash,
-    pub signer: Did,
+    pub signer: ActorId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -146,7 +146,7 @@ pub struct DetachedSignatureBinding {
 impl DetachedSignatureBinding {
     pub fn from_payload<T: Serialize>(
         payload: &T,
-        signer: Did,
+        signer: ActorId,
         verification_method: DidUrl,
     ) -> Result<Self> {
         Ok(Self {
@@ -277,7 +277,7 @@ impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProofVerificationContext {
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     pub expected_payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub now: DateTime<Utc>,
@@ -293,7 +293,7 @@ pub struct ProofVerificationContext {
 }
 
 impl ProofVerificationContext {
-    pub fn new(actor_id: Did, expected_payload_digest: Hash) -> Self {
+    pub fn new(actor_id: ActorId, expected_payload_digest: Hash) -> Self {
         Self {
             actor_id,
             expected_payload_digest,
@@ -357,7 +357,9 @@ where
 
     let method = resolver.resolve_verification_method(&proof.verification_method)?;
     let controller = method.controller.as_ref().unwrap_or(&method.did);
-    if controller != &context.actor_id {
+    if arkret_wire::ActorId::from(arkret_wire::project_full_id_to_core_id(controller)?)
+        != context.actor_id
+    {
         return Err(Error::Protocol(
             "proof verification method controller mismatch".to_owned(),
         ));
@@ -454,7 +456,7 @@ mod tests {
     fn detached_signature_validates_core_proof_binding() {
         let binding = DetachedSignatureBinding::from_payload(
             &json!({"hello": "world"}),
-            did("alice"),
+            ActorId::from(arkret_wire::project_full_id_to_core_id(&did("alice")).unwrap()),
             DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         )
         .unwrap();
@@ -496,7 +498,10 @@ mod tests {
             proof_purpose: None,
             jws: "sig".to_owned(),
         };
-        let mut context = ProofVerificationContext::new(actor, payload_digest);
+        let mut context = ProofVerificationContext::new(
+            ActorId::from(arkret_wire::project_full_id_to_core_id(&actor).unwrap()),
+            payload_digest,
+        );
         context.domain = proof.domain.clone();
         context.audience = proof.audience.clone();
         context.service_id = Some(did("service"));
@@ -546,7 +551,11 @@ mod tests {
             proof_purpose: None,
             jws: "sig".to_owned(),
         };
-        let context = ProofVerificationContext::new(actor, payload_digest).cross_domain(
+        let context = ProofVerificationContext::new(
+            ActorId::from(arkret_wire::project_full_id_to_core_id(&actor).unwrap()),
+            payload_digest,
+        )
+        .cross_domain(
             "ak:trust_domain:example.net",
             Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()),
         );

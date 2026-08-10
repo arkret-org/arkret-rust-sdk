@@ -38,6 +38,7 @@ fn encrypted_envelope() -> EncryptedEnvelope {
         "aad_visibility_event_id": "hidden",
         "aad": {
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "event_kind": "ak.message.create"
         },
         "key_ref": {

@@ -987,7 +987,12 @@ impl MimiUpdateConsentRequestBody {
             MimiConsentDecision::Deny | MimiConsentDecision::Revoke => "ak.consent.revoke",
         };
         let event = &self.consent_event.event;
-        if event.kind.as_str() != expected_kind || event.actor_id != self.actor_id {
+        if event.kind.as_str() != expected_kind
+            || event.actor_id
+                != arkret_wire::ActorId::from(arkret_wire::project_full_id_to_core_id(
+                    &self.actor_id,
+                )?)
+        {
             return Err(Error::Protocol(
                 "MIMI consent decision, event kind, and actor binding mismatch".to_owned(),
             ));

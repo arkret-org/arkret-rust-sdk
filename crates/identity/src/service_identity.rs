@@ -16,7 +16,7 @@ use arkret_models_identity::service_identity::{
     CanonicalServiceUrl, ServiceDidDocument, ServiceRegistrationKey, ServiceRegistrationReceipt,
     ServiceWebvhInceptionOperation, service_registration_key_digest,
 };
-use arkret_wire::{Did, ServiceKind};
+use arkret_wire::{FullId, ServiceId, ServiceKind, project_full_id_to_core_id};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,8 @@ pub struct ServiceIdentityProviderRef {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LocalServiceIdentity {
-    pub service_id: Did,
+    pub service_id: ServiceId,
+    pub full_id: FullId,
     pub registration_key: ServiceRegistrationKey,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider: Option<ServiceIdentityProviderRef>,
@@ -74,6 +75,15 @@ impl LocalServiceIdentity {
                 "local service identity key references or version are inconsistent".to_owned(),
             ));
         }
+        if ServiceId::from(
+            project_full_id_to_core_id(&self.full_id)
+                .map_err(|error| IdentityError::Protocol(error.to_string()))?,
+        ) != self.service_id
+        {
+            return Err(IdentityError::Protocol(
+                "local service identity full_id does not project to service_id".to_owned(),
+            ));
+        }
         Ok(())
     }
 }
@@ -93,7 +103,7 @@ impl StoredServiceIdentity {
         self.identity.validate()?;
         self.did_document
             .validate_for(&self.identity.registration_key)?;
-        if self.did_document.id != self.identity.service_id
+        if self.did_document.id != self.identity.full_id
             || self.registration_receipt.version_id != self.identity.version_id
         {
             return Err(IdentityError::Protocol(
@@ -101,9 +111,11 @@ impl StoredServiceIdentity {
                     .to_owned(),
             ));
         }
-        Ok(self
-            .registration_receipt
-            .validate_for(&self.identity.registration_key, &self.identity.service_id)?)
+        Ok(self.registration_receipt.validate_for(
+            &self.identity.registration_key,
+            &self.identity.service_id,
+            &self.identity.full_id,
+        )?)
     }
 }
 
@@ -142,14 +154,18 @@ impl ServiceIdentityBundle {
             .expect("checked non-empty")
             .state
             .id
-            != self.identity.identity.service_id
+            != self.identity.identity.full_id
         {
             return Err(IdentityError::Protocol(
                 "identity bundle history belongs to a different service DID".to_owned(),
             ));
         }
         for receipt in &self.receipt_chain {
-            receipt.validate_for(key, &self.identity.identity.service_id)?;
+            receipt.validate_for(
+                key,
+                &self.identity.identity.service_id,
+                &self.identity.identity.full_id,
+            )?;
         }
         Ok(())
     }
@@ -190,8 +206,8 @@ pub enum ServiceIdentityState {
         computed_key: ServiceRegistrationKey,
     },
     Conflict {
-        stored_service_id: Did,
-        provider_service_id: Did,
+        stored_service_id: ServiceId,
+        provider_service_id: ServiceId,
     },
     Faulted {
         diagnostic: ServiceIdentityDiagnostic,
@@ -270,7 +286,7 @@ impl ServiceIdentityState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResolvedService {
-    pub service_id: Did,
+    pub service_id: ServiceId,
     pub service_kind: ServiceKind,
     pub endpoint: CanonicalServiceUrl,
     pub supported_operations: Vec<String>,
@@ -447,7 +463,10 @@ mod tests {
         ServiceRegistrationReceipt, ServiceWebvhDataIntegrityProof, ServiceWebvhInceptionOperation,
         ServiceWebvhInceptionParameters,
     };
-    use arkret_wire::{Did, DidUrl, ServiceKind};
+    use arkret_wire::{
+        Did, DidUrl, Hash, PayloadProof, ServiceId, ServiceKind, project_full_id_to_core_id,
+        proof_kind,
+    };
     use chrono::{DateTime, Utc};
 
     use super::{
@@ -509,8 +528,11 @@ mod tests {
     }
 
     fn receipt(operation: &ServiceWebvhInceptionOperation) -> ServiceRegistrationReceipt {
-        let provider_service_id =
+        let provider_full_id =
             Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        let provider_service_id =
+            ServiceId::from(project_full_id_to_core_id(&provider_full_id).unwrap());
+        let service_id = ServiceId::from(project_full_id_to_core_id(&operation.state.id).unwrap());
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
                 "ak:service_registration_receipt:{}",
@@ -518,22 +540,27 @@ mod tests {
             ))
             .unwrap(),
             registration_key: registration_key(),
-            service_id: operation.state.id.clone(),
+            service_id,
+            full_id: operation.state.id.clone(),
             version_id: operation.version_id.clone(),
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
             issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
             provider_service_id: provider_service_id.clone(),
-            proof: ServiceWebvhDataIntegrityProof {
-                proof_type: "DataIntegrityProof".to_owned(),
-                cryptosuite: "eddsa-jcs-2022".to_owned(),
-                verification_method: DidUrl::new(format!("{provider_service_id}#service-key"))
+            proof: PayloadProof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(format!("{provider_full_id}#service-key"))
                     .unwrap(),
-                proof_purpose: "assertionMethod".to_owned(),
-                proof_value: "zReceiptProof".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "placeholder".to_owned(),
             },
         };
         receipt.registration_receipt_id = receipt.expected_registration_receipt_id().unwrap();
+        receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
         receipt
     }
 
@@ -542,7 +569,10 @@ mod tests {
         let receipt = receipt(&operation);
         StoredServiceIdentity {
             identity: LocalServiceIdentity {
-                service_id: operation.state.id.clone(),
+                service_id: ServiceId::from(
+                    project_full_id_to_core_id(&operation.state.id).unwrap(),
+                ),
+                full_id: operation.state.id.clone(),
                 registration_key: registration_key(),
                 provider: Some(ServiceIdentityProviderRef {
                     name: "provider".to_owned(),
@@ -619,7 +649,8 @@ mod tests {
                 .unwrap();
         request.validate().unwrap();
         let outcome = ServiceRegistrationOutcome {
-            service_id: operation.state.id.clone(),
+            service_id: ServiceId::from(project_full_id_to_core_id(&operation.state.id).unwrap()),
+            full_id: operation.state.id.clone(),
             did_document: operation.state.clone(),
             version_id: operation.version_id.clone(),
             registration_receipt: receipt(&operation),
@@ -636,8 +667,14 @@ mod tests {
     fn service_registration_receipt_binds_claims_and_provider_controller() {
         let operation = inception();
         let receipt = receipt(&operation);
+        let service_id = ServiceId::from(project_full_id_to_core_id(&operation.state.id).unwrap());
         receipt
-            .validate_for(&registration_key(), &operation.state.id)
+            .validate_for(&registration_key(), &service_id, &operation.state.id)
+            .unwrap();
+        let provider_full_id =
+            Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        receipt
+            .validate_provider_full_id(&provider_full_id)
             .unwrap();
 
         let mut tampered = receipt.clone();
@@ -647,7 +684,11 @@ mod tests {
         let mut wrong_controller = receipt;
         wrong_controller.proof.verification_method =
             DidUrl::new("did:webvh:QmOther:identity.example:webvh:service#service-key").unwrap();
-        assert!(wrong_controller.validate_proof_binding().is_err());
+        assert!(
+            wrong_controller
+                .validate_provider_full_id(&provider_full_id)
+                .is_err()
+        );
     }
 
     #[test]
@@ -711,9 +752,8 @@ mod tests {
     #[test]
     fn conflicting_provider_mapping_fails_closed() {
         let state = ServiceIdentityState::Conflict {
-            stored_service_id: Did::new("did:webvh:QmStored:identity.example:webvh:auth").unwrap(),
-            provider_service_id: Did::new("did:webvh:QmProvider:identity.example:webvh:auth")
-                .unwrap(),
+            stored_service_id: ServiceId::new("ak:did_core:webvh:QmStored").unwrap(),
+            provider_service_id: ServiceId::new("ak:did_core:webvh:QmProvider").unwrap(),
         };
         assert!(state.identity().is_none());
         assert!(!state.is_ready());
@@ -725,7 +765,7 @@ mod tests {
             state
         );
 
-        let same_did = Did::new("did:webvh:QmStored:identity.example:webvh:auth").unwrap();
+        let same_did = ServiceId::new("ak:did_core:webvh:QmStored").unwrap();
         assert!(
             ServiceIdentityState::Conflict {
                 stored_service_id: same_did.clone(),

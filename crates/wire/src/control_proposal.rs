@@ -14,8 +14,8 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::notary::NotaryValue;
 use crate::{
-    AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash, PayloadSignature,
-    PayloadSigner, RealmId, canonical,
+    ActorId, AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash,
+    PayloadSignature, PayloadSigner, RealmId, canonical, project_full_id_to_core_id,
 };
 
 pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
@@ -150,7 +150,9 @@ impl ControlProposalAckIssueRequest {
             ));
         }
         self.authorization_lease.validate_structural()?;
-        if self.authorization_lease.actor_id != self.event.actor_id
+        if ActorId::from(project_full_id_to_core_id(
+            &self.authorization_lease.actor_id,
+        )?) != self.event.actor_id
             || self.authorization_lease.scope_ref != self.event.scope_ref
         {
             return Err(Error::Protocol(

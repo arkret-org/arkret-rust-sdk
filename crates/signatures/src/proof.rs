@@ -158,7 +158,7 @@ struct DetachedJwsProtectedHeader {
 pub fn verify_ed25519_detached_jws_proof(
     proof: &Proof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_wire::Did,
+    actor_id: &arkret_wire::ActorId,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
     verify_ed25519_detached_jws_proof_with_digest_suite(
@@ -178,7 +178,7 @@ pub fn verify_ed25519_detached_jws_proof(
 pub fn verify_ed25519_detached_jws_proof_with_digest_suite(
     proof: &Proof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_wire::Did,
+    actor_id: &arkret_wire::ActorId,
     public_key: &PublicKeyMaterial,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> std::result::Result<(), VerifierError> {
@@ -221,7 +221,7 @@ pub fn verify_ed25519_signal_proof(
 fn verify_ed25519_detached_jws_proof_inner(
     proof: &Proof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_wire::Did,
+    actor_id: &arkret_wire::ActorId,
     public_key: &PublicKeyMaterial,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> std::result::Result<(), VerifierError> {
@@ -1178,7 +1178,10 @@ mod tests {
     #[cfg(feature = "signer")]
     #[test]
     fn event_proof_verifier_requires_the_explicit_realm_digest_suite() {
-        let actor = arkret_wire::Did::new("did:web:blake.example".to_owned()).unwrap();
+        let actor_full_id = arkret_wire::Did::new("did:web:blake.example".to_owned()).unwrap();
+        let actor = arkret_wire::ActorId::from(
+            arkret_wire::project_full_id_to_core_id(&actor_full_id).unwrap(),
+        );
         let verification_method = DidUrl::new("did:web:blake.example#key-1".to_owned()).unwrap();
         let canonical_bytes = canonical::canonical_json_bytes(&json!({"realm": "blake"})).unwrap();
         let digest = Hash::new(canonical::digest(

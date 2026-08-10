@@ -29,7 +29,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId, SidecarId,
+    ActorId, AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId,
+    SidecarId, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -359,9 +360,9 @@ pub struct Event {
     /// payload and accepted references and reject a signed-but-wrong scope
     /// (`conformance/encoding.md` §6).
     pub scope_ref: ScopeRef,
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<Did>,
+    pub executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -410,7 +411,7 @@ pub struct Event {
 pub struct ProjectedEventInput {
     pub kind: EventKind,
     pub event_id: EventId,
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     pub authorization_ref: Option<AuthorizationRef>,
     pub actor_seq: u64,
     pub realm_id: RealmId,
@@ -493,7 +494,7 @@ pub struct FederatedCurrentDeviceProjection {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FederatedDeviceSigningKeyEvidence {
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub verification_method: DidUrl,
     pub device_signing_key: DidKey,
@@ -515,7 +516,7 @@ impl FederatedDeviceSigningKeyEvidence {
                     .to_owned(),
             ));
         }
-        if !(2..=64).contains(&self.authorization_chain.len()) {
+        if self.authorization_chain.len() < 2 {
             return Err(Error::Protocol(
                 "federated device signing evidence authorization_chain length is invalid"
                     .to_owned(),
@@ -533,7 +534,9 @@ impl FederatedDeviceSigningKeyEvidence {
             ));
         }
         let receipt_scope = self.principal_genesis_receipt.pcr_genesis_scope()?;
-        if self.current_device_projection.principal_id != self.actor_id
+        if ActorId::from(project_full_id_to_core_id(
+            &self.current_device_projection.principal_id,
+        )?) != self.actor_id
             || self.current_device_projection.device_id != self.device_id
             || self
                 .current_device_projection
@@ -715,7 +718,8 @@ impl FederatedDeviceSigningKeyEvidence {
                                     .any(|(left, right)| right.as_str() != Some(left.as_str()))
                         })
                 })
-            || receipt_scope.principal_id != self.actor_id
+            || ActorId::from(project_full_id_to_core_id(&receipt_scope.principal_id)?)
+                != self.actor_id
             || receipt_scope.realm_id != create.realm_id
             || receipt_scope.create_digest != create_digest
             || receipt_scope.founding_authorize_digest != founding_authorize_digest
@@ -814,9 +818,9 @@ struct EventSer<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     realm_id: Option<&'a RealmId>,
     scope_ref: &'a ScopeRef,
-    actor_id: &'a Did,
+    actor_id: &'a ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    executed_by: &'a Option<Did>,
+    executed_by: &'a Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     authorization_ref: &'a Option<AuthorizationRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -902,9 +906,9 @@ struct EventWire {
     #[serde(default)]
     pub realm_id: Option<RealmId>,
     pub scope_ref: ScopeRef,
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     #[serde(default)]
-    pub executed_by: Option<Did>,
+    pub executed_by: Option<ActorId>,
     #[serde(default)]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default)]
@@ -1502,7 +1506,7 @@ impl Event {
     pub(crate) fn new(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: Did,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1527,7 +1531,7 @@ impl Event {
     pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: Did,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1548,7 +1552,7 @@ impl Event {
     pub(crate) fn new_with_derived_id_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: Did,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1584,7 +1588,7 @@ impl Event {
         event_id: EventId,
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: Did,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,

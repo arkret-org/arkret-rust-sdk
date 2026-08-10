@@ -28,13 +28,52 @@ use arkret_models_identity::{
     OrganizationRegistrationChallenge, OrganizationRegistrationChallengeRequestBody,
     OrganizationRegistrationEnsureRequestBody, OrganizationRegistrationOutcome,
     OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
+    PrincipalResolutionEvidence, ServiceResolutionRecord,
 };
-use arkret_wire::{Did, ServiceKind};
+use arkret_wire::{CoreId, Did, ServiceId, ServiceKind};
 use reqwest::Method;
 
 use crate::{Client, Error, Result};
 
 impl Client {
+    /// Fetch owner-published PCR resolution evidence without persisting a
+    /// remote binding. Sensitive callers must independently verify it.
+    pub async fn open_principal_resolution(
+        &self,
+        principal_id: &CoreId,
+        history_depth: Option<u16>,
+        after_resolution_event_ref: Option<&str>,
+    ) -> Result<PrincipalResolutionEvidence> {
+        if history_depth.is_some_and(|depth| depth > 256) {
+            return Err(Error::Protocol(
+                "principal resolution history_depth exceeds 256".to_owned(),
+            ));
+        }
+        let encoded = url::form_urlencoded::byte_serialize(principal_id.as_str().as_bytes())
+            .collect::<String>();
+        let path = format!("/_arkret/open/principals/{encoded}/resolution");
+        let mut builder = self.public_request(Method::GET, &path)?;
+        if let Some(depth) = history_depth {
+            builder = builder.query(&[("history_depth", depth)]);
+        }
+        if let Some(event_ref) = after_resolution_event_ref {
+            builder = builder.query(&[("after_resolution_event_ref", event_ref)]);
+        }
+        self.send_json(builder).await
+    }
+
+    /// Fetch the current signed first-hop route record for one stable service id.
+    pub async fn open_service_resolution(
+        &self,
+        service_id: &ServiceId,
+    ) -> Result<ServiceResolutionRecord> {
+        let encoded = url::form_urlencoded::byte_serialize(service_id.as_str().as_bytes())
+            .collect::<String>();
+        let path = format!("/_arkret/open/services/{encoded}/resolution");
+        let builder = self.public_request(Method::GET, &path)?;
+        self.send_json(builder).await
+    }
+
     pub async fn describe(&self) -> Result<ServiceDescribe> {
         let builder = self.public_request(Method::GET, "/_arkret/describe")?;
         self.send_json(builder).await

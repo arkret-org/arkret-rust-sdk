@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-10.1;
-//! sha256=507aafbdc8297028751c97e1419182a3841e42fc23fb25d202bbe3d206a9b693 Input: registry/
-//! capability-action-registry.json; version=2026-08-10.4;
-//! sha256=e6a6689bc18d36052ae56e13a2f16203124cd1aa29734457816fa8bc958f8bf5 Input: registry/
-//! schema-registry.json; version=2026-08-09.16;
-//! sha256=8d44669b0ac04d3ccca13c93ad44b9a913485f090bb428347edbaad22730e54d Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-10.3;
+//! sha256=9d8f322821a0c6fbbb8d9265ab43f279d4cbe44b52fa8cebc0641097871f8181 Input: registry/
+//! capability-action-registry.json; version=2026-08-10.8;
+//! sha256=d311198b01a7bf4f9df1f3c1754ab5b4946587a0f974f28eb3ff12a1a3158832 Input: registry/
+//! schema-registry.json; version=2026-08-10.1;
+//! sha256=e9c76ca9aea5e9916c161d22b4b13e2d6b5fa0c356b29ddd85d2b2c9fa3e0c32 Input: registry/
 //! account-data-key-registry.json; version=2026-08-10;
-//! sha256=281aeb5dbec015ec79e13b02d2d641fea690936ee7b0c8290137a83560b72077 Entries: id_kinds=55,
-//! special_forms=10, actions=171, schemas=181, account_data_patterns=24
+//! sha256=281aeb5dbec015ec79e13b02d2d641fea690936ee7b0c8290137a83560b72077 Entries: id_kinds=56,
+//! special_forms=11, actions=171, schemas=183, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -313,6 +313,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:scheduled_send:<uuidv7>",
     },
     IdKindDescriptor {
+        kind: "service_route_handover",
+        category: "transport",
+        wire_form: "ak:service_route_handover:<uuidv7>",
+    },
+    IdKindDescriptor {
         kind: "session_grant",
         category: "authz",
         wire_form: "ak:session_grant:<44-char-suite-tagged-full-digest-token>",
@@ -366,6 +371,10 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
     SpecialFormIdKindDescriptor {
         kind: "cursor",
         wire_form: "ak:cursor:<base64url>",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "did_core",
+        wire_form: "ak:did_core:<method>:<core>",
     },
     SpecialFormIdKindDescriptor {
         kind: "membership_compensation_delegation",
@@ -3148,6 +3157,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-signer-evidence.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1,
+        file: "schemas/agent-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1,
+        file: "schemas/agent-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::CURSOR_V1,
         file: "schemas/cursor.schema.json",
     },
@@ -3174,10 +3191,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::DID_BINDING_CONTRACTS_V1,
         file: "schemas/did-binding-contracts.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::DID_CONTINUITY_PROOF_V1,
-        file: "schemas/did-continuity-proof.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1,
@@ -3266,6 +3279,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::IDENTITY_RECEIPT_V1,
         file: "schemas/identity-receipt.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::IDENTITY_RESOLUTION_V1,
+        file: "schemas/identity-resolution.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::INCLUSION_LIST_V1,

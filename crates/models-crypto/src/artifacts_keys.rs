@@ -2,11 +2,13 @@
 
 use std::collections::BTreeMap;
 
+use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
-    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
-    DeviceReanchorPreFenceBasis, Did, DidUrl, Error, EventId, Hash, LeaseBasisRef, NonEmptyString,
-    PolicyId, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId, ReasonCode, RecoverySessionId,
-    Result, SchemaId, ScopeRef, TransactionId, TypedTrustDomainId, XExtensionMap,
+    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, CoreId,
+    DeviceId, DeviceReanchorPreFenceBasis, Did, DidUrl, Error, EventId,
+    FederatedDeviceSigningKeyEvidence, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
+    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId, ReasonCode, RecoverySessionId, Result,
+    SchemaId, ScopeRef, TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -541,15 +543,28 @@ pub struct KeyPackageClaimRecord {
     pub claim_id: String,
     pub keypackage_ref: String,
     pub keypackage_digest: Hash,
-    pub principal_id: Did,
-    pub device_id: String,
+    pub principal_id: CoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<CoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_verification_method: Option<DidUrl>,
     pub key_package: String,
     pub capabilities: Vec<String>,
     pub capabilities_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_authorize_event_id: Option<String>,
+    pub device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_key_authorize_event_id: Option<String>,
+    pub agent_key_authorize_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
+    pub target_device_signing_key_evidence: Option<FederatedDeviceSigningKeyEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_agent_signer_evidence: Option<CurrentAgentSignerEvidence>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub device_signature: KeyOperationSignature,

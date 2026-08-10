@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-09.16;
-//! sha256=8d44669b0ac04d3ccca13c93ad44b9a913485f090bb428347edbaad22730e54d Entries: schema_ids=181,
-//! active=181
+//! Input: registry/schema-registry.json; version=2026-08-10.1;
+//! sha256=e9c76ca9aea5e9916c161d22b4b13e2d6b5fa0c356b29ddd85d2b2c9fa3e0c32 Entries: schema_ids=183,
+//! active=183
 
 use serde::{Deserialize, Serialize};
 
@@ -64,6 +64,8 @@ pub enum SchemaId {
     ContactScopeUpdateV1,
     ContentBlockPollV1,
     ControllerAccountGateAttestationV1,
+    ControllerAccountGateAttestationIssueOutcomeV1,
+    ControllerAccountGateAttestationIssueRequestV1,
     CursorV1,
     DeliveryBindingStaleV1,
     DeviceMessageV1,
@@ -71,7 +73,6 @@ pub enum SchemaId {
     DevicePairingOperationsV1,
     DeviceReanchorV1,
     DidBindingContractsV1,
-    DidContinuityProofV1,
     DidWebvhWitnessReceiptV1,
     DirectConversationOperationsV1,
     DirectoryOperationsV1,
@@ -94,6 +95,7 @@ pub enum SchemaId {
     IceConfigResponseV1,
     IdentityLinkV1,
     IdentityReceiptV1,
+    IdentityResolutionV1,
     InclusionListV1,
     InviteV1,
     InviteDeliveryRequestV1,
@@ -249,6 +251,8 @@ impl SchemaId {
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
+        Self::ControllerAccountGateAttestationIssueOutcomeV1,
+        Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CursorV1,
         Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
@@ -256,7 +260,6 @@ impl SchemaId {
         Self::DevicePairingOperationsV1,
         Self::DeviceReanchorV1,
         Self::DidBindingContractsV1,
-        Self::DidContinuityProofV1,
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
@@ -279,6 +282,7 @@ impl SchemaId {
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
+        Self::IdentityResolutionV1,
         Self::InclusionListV1,
         Self::InviteV1,
         Self::InviteDeliveryRequestV1,
@@ -434,6 +438,8 @@ impl SchemaId {
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
+        Self::ControllerAccountGateAttestationIssueOutcomeV1,
+        Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CursorV1,
         Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
@@ -441,7 +447,6 @@ impl SchemaId {
         Self::DevicePairingOperationsV1,
         Self::DeviceReanchorV1,
         Self::DidBindingContractsV1,
-        Self::DidContinuityProofV1,
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
@@ -464,6 +469,7 @@ impl SchemaId {
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
+        Self::IdentityResolutionV1,
         Self::InclusionListV1,
         Self::InviteV1,
         Self::InviteDeliveryRequestV1,
@@ -723,6 +729,14 @@ impl SchemaId {
     /// never carries service-local account identity or a raw account cell.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
         "ak.schema.controller_account_gate_attestation.v1";
+    /// Closed issuance outcome carrying one privacy-minimal controller Account Authority gate
+    /// attestation.
+    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1: &'static str =
+        "ak.schema.controller_account_gate_attestation_issue_outcome.v1";
+    /// Authenticated S2S request from a Native Agent PCR authority for the controller Account
+    /// Authority lifecycle gate needed to assemble signer evidence.
+    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
+        "ak.schema.controller_account_gate_attestation_issue_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
     /// Canonical response body for the delivery_binding_stale federation signal (member
     /// delivery-binding rebind handover): new_recipient_service_id, handover_frontier, and the
@@ -747,8 +761,6 @@ impl SchemaId {
     /// mechanically extracted evidence dependency record, per-pin limited-trust record, and the
     /// freshness profile row every authority call site references.
     pub const DID_BINDING_CONTRACTS_V1: &'static str = "ak.schema.did_binding_contracts.v1";
-    /// Signed DID continuity / migration proof payload
-    pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.schema.did_continuity_proof.v1";
     /// Arkret-layer record that a named did:webvh witness was observed attesting a specific log
     /// versionId. Separate object family from ak.schema.identity_receipt.v1, whose witness_role
     /// describes a DID registry consensus role rather than a method-native witness; both are
@@ -803,6 +815,9 @@ impl SchemaId {
     /// by realm_id and trust_domain.
     pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
     pub const IDENTITY_RECEIPT_V1: &'static str = "ak.schema.identity_receipt.v1";
+    /// Principal resolution projection/update/evidence and signed service resolution record
+    /// contracts for the core_id/full_id model.
+    pub const IDENTITY_RESOLUTION_V1: &'static str = "ak.schema.identity_resolution.v1";
     /// FOCIL-style control-plane inclusion list signed by a non-proposer notary signer; the next
     /// Seal MUST include, signed-reject, or prove verification failure for every listed digest
     pub const INCLUSION_LIST_V1: &'static str = "ak.schema.inclusion_list.v1";
@@ -1112,6 +1127,12 @@ impl SchemaId {
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
             }
+            Self::ControllerAccountGateAttestationIssueOutcomeV1 => {
+                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1
+            }
+            Self::ControllerAccountGateAttestationIssueRequestV1 => {
+                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1
+            }
             Self::CursorV1 => Self::CURSOR_V1,
             Self::DeliveryBindingStaleV1 => Self::DELIVERY_BINDING_STALE_V1,
             Self::DeviceMessageV1 => Self::DEVICE_MESSAGE_V1,
@@ -1119,7 +1140,6 @@ impl SchemaId {
             Self::DevicePairingOperationsV1 => Self::DEVICE_PAIRING_OPERATIONS_V1,
             Self::DeviceReanchorV1 => Self::DEVICE_REANCHOR_V1,
             Self::DidBindingContractsV1 => Self::DID_BINDING_CONTRACTS_V1,
-            Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
             Self::DidWebvhWitnessReceiptV1 => Self::DID_WEBVH_WITNESS_RECEIPT_V1,
             Self::DirectConversationOperationsV1 => Self::DIRECT_CONVERSATION_OPERATIONS_V1,
             Self::DirectoryOperationsV1 => Self::DIRECTORY_OPERATIONS_V1,
@@ -1144,6 +1164,7 @@ impl SchemaId {
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::IdentityReceiptV1 => Self::IDENTITY_RECEIPT_V1,
+            Self::IdentityResolutionV1 => Self::IDENTITY_RESOLUTION_V1,
             Self::InclusionListV1 => Self::INCLUSION_LIST_V1,
             Self::InviteV1 => Self::INVITE_V1,
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
@@ -1318,6 +1339,12 @@ impl SchemaId {
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ControllerAccountGateAttestationV1 => "schemas/agent-signer-evidence.schema.json",
+            Self::ControllerAccountGateAttestationIssueOutcomeV1 => {
+                "schemas/agent-signer-evidence-operations.schema.json"
+            }
+            Self::ControllerAccountGateAttestationIssueRequestV1 => {
+                "schemas/agent-signer-evidence-operations.schema.json"
+            }
             Self::CursorV1 => "schemas/cursor.schema.json",
             Self::DeliveryBindingStaleV1 => "schemas/delivery-binding-stale.schema.json",
             Self::DeviceMessageV1 => "schemas/device-message.schema.json",
@@ -1325,7 +1352,6 @@ impl SchemaId {
             Self::DevicePairingOperationsV1 => "schemas/device-pairing.schema.json",
             Self::DeviceReanchorV1 => "schemas/device-reanchor.schema.json",
             Self::DidBindingContractsV1 => "schemas/did-binding-contracts.schema.json",
-            Self::DidContinuityProofV1 => "schemas/did-continuity-proof.schema.json",
             Self::DidWebvhWitnessReceiptV1 => "schemas/did-webvh-witness-receipt.schema.json",
             Self::DirectConversationOperationsV1 => {
                 "schemas/direct-conversation-operations.schema.json"
@@ -1352,6 +1378,7 @@ impl SchemaId {
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
             Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
             Self::IdentityReceiptV1 => "schemas/identity-receipt.schema.json",
+            Self::IdentityResolutionV1 => "schemas/identity-resolution.schema.json",
             Self::InclusionListV1 => "schemas/inclusion-list.schema.json",
             Self::InviteV1 => "schemas/invite.schema.json",
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
@@ -1534,6 +1561,12 @@ impl SchemaId {
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)
             }
+            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1 => {
+                Some(Self::ControllerAccountGateAttestationIssueOutcomeV1)
+            }
+            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1 => {
+                Some(Self::ControllerAccountGateAttestationIssueRequestV1)
+            }
             Self::CURSOR_V1 => Some(Self::CursorV1),
             Self::DELIVERY_BINDING_STALE_V1 => Some(Self::DeliveryBindingStaleV1),
             Self::DEVICE_MESSAGE_V1 => Some(Self::DeviceMessageV1),
@@ -1541,7 +1574,6 @@ impl SchemaId {
             Self::DEVICE_PAIRING_OPERATIONS_V1 => Some(Self::DevicePairingOperationsV1),
             Self::DEVICE_REANCHOR_V1 => Some(Self::DeviceReanchorV1),
             Self::DID_BINDING_CONTRACTS_V1 => Some(Self::DidBindingContractsV1),
-            Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
             Self::DID_WEBVH_WITNESS_RECEIPT_V1 => Some(Self::DidWebvhWitnessReceiptV1),
             Self::DIRECT_CONVERSATION_OPERATIONS_V1 => Some(Self::DirectConversationOperationsV1),
             Self::DIRECTORY_OPERATIONS_V1 => Some(Self::DirectoryOperationsV1),
@@ -1566,6 +1598,7 @@ impl SchemaId {
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
             Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
             Self::IDENTITY_RECEIPT_V1 => Some(Self::IdentityReceiptV1),
+            Self::IDENTITY_RESOLUTION_V1 => Some(Self::IdentityResolutionV1),
             Self::INCLUSION_LIST_V1 => Some(Self::InclusionListV1),
             Self::INVITE_V1 => Some(Self::InviteV1),
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),

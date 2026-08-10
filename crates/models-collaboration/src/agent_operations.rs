@@ -593,8 +593,14 @@ pub enum AgentPairingMode {
 pub enum AgentProvisionOutcome {
     AwaitingControllerEvent {
         agent_id: Did,
-        principal_control_realm_id: RealmId,
         controller_realm_id: RealmId,
+        allocation_handle: ProtocolOpaqueId,
+        controller_authorization_ref: DidUrl,
+        requested_scope_digest: Hash,
+    },
+    AwaitingPcrGenesis {
+        agent_id: Did,
+        principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
         requested_scope_digest: Hash,
@@ -946,11 +952,13 @@ impl AgentGrantAttachRequestBody {
                 ));
             }
         };
-        if grant.issuer != event.actor_id
+        if ActorId::from(arkret_wire::project_full_id_to_core_id(&grant.issuer)?) != event.actor_id
             || grant.realm_id.as_ref() != Some(&event.realm_id)
             || event.scope_ref.realm_id() != &event.realm_id
             || self.requested_scope_disclosure.agent_id != *subject
-            || self.requested_scope_disclosure.controller_id != event.actor_id
+            || ActorId::from(arkret_wire::project_full_id_to_core_id(
+                &self.requested_scope_disclosure.controller_id,
+            )?) != event.actor_id
             || grant.actions.iter().any(|action| {
                 !self
                     .requested_scope_disclosure

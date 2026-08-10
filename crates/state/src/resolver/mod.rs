@@ -18,7 +18,7 @@ use serde_json::Value;
 
 use crate::canonical::{canonical_json_bytes, canonical_sha256, sha256_digest};
 use crate::{
-    Audience, Did, Error, Event, EventId, Morph, RealmId, Relation, RelationId, Result, Space,
+    ActorId, Audience, Error, Event, EventId, Morph, RealmId, Relation, RelationId, Result, Space,
     SpaceId, Strand,
 };
 

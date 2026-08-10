@@ -6,14 +6,18 @@ use std::collections::BTreeSet;
 use arkret_models_collaboration::event_sync::RealmSealFrontierView;
 use arkret_state::control_event_set_root;
 use arkret_wire::{
-    Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSignature, PayloadSigner, Result, Seal,
-    SealId, SealKind,
+    ActorId, Did, Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSignature, PayloadSigner,
+    Result, Seal, SealId, SealKind, project_full_id_to_core_id,
 };
 use chrono::Utc;
 use serde_json::Value;
 
 use crate::projection::{CellWriteProjector, state_root_from_projection};
 use crate::self_principal::validate_self_principal_pcr_genesis_unit;
+
+fn signer_projects_to_actor(signer: &Did, actor_id: &ActorId) -> Result<bool> {
+    Ok(ActorId::from(project_full_id_to_core_id(signer)?) == *actor_id)
+}
 
 /// Build and sign the first principal-control Seal after the closed bootstrap
 /// unit has been accepted. The Seal is rooted (no predecessors), covers both
@@ -27,7 +31,7 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
     validate_self_principal_pcr_genesis_unit(create, authorize, project)?;
-    if signer.signer_did() != &create.actor_id {
+    if !signer_projects_to_actor(signer.signer_did(), &create.actor_id)? {
         return Err(Error::Protocol(
             "bootstrap Seal signer DID must equal the principal DID".to_owned(),
         ));
@@ -118,7 +122,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
                 .to_owned(),
         ));
     }
-    if signer.signer_did() != &create.actor_id {
+    if !signer_projects_to_actor(signer.signer_did(), &create.actor_id)? {
         return Err(Error::Protocol(
             "self principal successor Seal signer DID must equal the principal DID".to_owned(),
         ));
@@ -230,7 +234,7 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
             "self principal Seal Events must share one Realm and actor".to_owned(),
         ));
     }
-    if signer.signer_did() != &first.actor_id {
+    if !signer_projects_to_actor(signer.signer_did(), &first.actor_id)? {
         return Err(Error::Protocol(
             "self principal Seal signer DID must equal the principal DID".to_owned(),
         ));

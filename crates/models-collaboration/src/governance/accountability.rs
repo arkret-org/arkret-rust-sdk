@@ -233,7 +233,7 @@ impl AccountabilityGrantPayload {
 
     pub fn validate_for_profile(&self, profile: &ActorProfile, now: DateTime<Utc>) -> Result<()> {
         self.validate_lifecycle_at(now)?;
-        if self.subject != profile.principal_id {
+        if arkret_wire::project_full_id_to_core_id(&self.subject)? != profile.principal_id {
             return Err(WireError::Protocol(
                 "accountability_grant subject does not match actor profile principal_id".to_owned(),
             ));
@@ -241,7 +241,10 @@ impl AccountabilityGrantPayload {
         if !profile
             .accountable_principal_ids
             .iter()
-            .any(|did| did == &self.issuer)
+            .any(|principal_id| {
+                arkret_wire::project_full_id_to_core_id(&self.issuer)
+                    .is_ok_and(|issuer| principal_id == &issuer)
+            })
         {
             return Err(WireError::Protocol(
                 "accountability_grant issuer is not in actor profile accountable_principal_ids"

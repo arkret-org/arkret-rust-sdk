@@ -18,8 +18,8 @@ fn scope_ref() -> ScopeRef {
     }
 }
 
-fn actor_id() -> Did {
-    Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap()
+fn actor_id() -> ActorId {
+    ActorId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()
 }
 
 fn test_event_id(seq: u64) -> EventId {

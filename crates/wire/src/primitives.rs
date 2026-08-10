@@ -1063,7 +1063,7 @@ impl Proof {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 
-    pub fn binding_payload(&self, actor_id: &Did) -> SignatureBindingPayload {
+    pub fn binding_payload(&self, actor_id: &ActorId) -> SignatureBindingPayload {
         SignatureBindingPayload {
             payload_digest: self.event_digest.clone(),
             actor_id: actor_id.clone(),
@@ -1085,13 +1085,13 @@ impl Proof {
     /// signature, not just compared as plaintext. `created_at` is emitted
     /// in canonical UTC `YYYY-MM-DDTHH:MM:SS.sssZ` form so the wire field
     /// and transcript contain the same byte-identical timestamp string.
-    pub fn canonical_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
+    pub fn canonical_binding_bytes(&self, actor_id: &ActorId) -> Result<Vec<u8>> {
         self.canonical_binding_bytes_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
     }
 
     fn canonical_binding_bytes_with_context(
         &self,
-        actor_id: &Did,
+        actor_id: &ActorId,
         context: &str,
     ) -> Result<Vec<u8>> {
         Ok(canonical::canonical_json_bytes(
@@ -1102,12 +1102,12 @@ impl Proof {
     /// The proof binding object as a [`serde_json::Value`] (key order is
     /// irrelevant — canonical JSON re-sorts by JCS). Shared by signer and
     /// verifier so both derive identical transcripts.
-    pub fn binding_object(&self, actor_id: &Did) -> Value {
+    pub fn binding_object(&self, actor_id: &ActorId) -> Value {
         self.binding_object_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
             .expect("the fixed event proof context is non-empty")
     }
 
-    fn binding_object_with_context(&self, actor_id: &Did, context: &str) -> Result<Value> {
+    fn binding_object_with_context(&self, actor_id: &ActorId, context: &str) -> Result<Value> {
         if context.trim().is_empty() {
             return Err(Error::Protocol(
                 "proof binding context must not be empty".to_owned(),
@@ -1333,7 +1333,7 @@ impl FactChainEcho {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignatureBindingPayload {
     pub payload_digest: Hash,
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,

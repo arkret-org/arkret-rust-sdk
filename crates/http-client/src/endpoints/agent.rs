@@ -12,14 +12,15 @@ use arkret_models_collaboration::agent_operations::{
     AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody, AgentSidecarList,
     AgentSidecarView, AgentView,
 };
-use arkret_models_collaboration::agent_signer_evidence::{
-    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBodyBody,
-};
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, ParticipationReplaceRequestBody,
 };
 use arkret_models_collaboration::sidecar_operations::{
     SidecarEnsureOutcome, SidecarEnsureRequestBody,
+};
+use arkret_models_identity::agent_signer_evidence::{
+    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBodyBody,
+    ControllerAccountGateAttestationIssueOutcome, ControllerAccountGateAttestationIssueRequestBody,
 };
 use arkret_wire::{GrantId, RealmId, SidecarId};
 use reqwest::Method;
@@ -27,6 +28,8 @@ use reqwest::Method;
 use crate::{Client, Error, Result, retry_after_ms};
 
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
+const CONTROLLER_GATE_ATTESTATIONS_PATH: &str =
+    "/_arkret/gate/account/controller-gate-attestations";
 const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
     "/_arkret/open/agent-pairing/runtime-key-requests";
 const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
@@ -51,6 +54,18 @@ impl Deref for AgentRuntimeApprovalStatusResponse {
 }
 
 impl Client {
+    /// `POST /_arkret/gate/account/controller-gate-attestations`
+    /// (`ak.gate.account.command.issue_controller_gate_attestation`).
+    ///
+    /// The caller must apply the service-to-service authentication required by
+    /// its Account Authority deployment before sending this request.
+    pub async fn issue_controller_account_gate_attestation(
+        &self,
+        request: &ControllerAccountGateAttestationIssueRequestBody,
+    ) -> Result<ControllerAccountGateAttestationIssueOutcome> {
+        self.post(CONTROLLER_GATE_ATTESTATIONS_PATH, request).await
+    }
+
     /// `POST /_arkret/self/agent-signer-evidence/query`
     /// (`ak.self.agent_signer_evidence.read.resolve`).
     pub async fn agent_signer_evidence_query(

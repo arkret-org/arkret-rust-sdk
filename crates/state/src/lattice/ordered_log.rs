@@ -31,7 +31,7 @@ use serde_json::{Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{
-    Bottom, BottomKind, CellRef, Did, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
+    ActorId, Bottom, BottomKind, CellRef, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
     bottom_details, canonical,
 };
 
@@ -41,7 +41,7 @@ pub struct OrderedLog;
 /// An sealed op carrying issuer DID, used by [`OrderedLog::join_with_issuers`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IssuedOp {
-    pub issuer: Did,
+    pub issuer: ActorId,
     pub op: SealedOp,
 }
 
@@ -519,7 +519,7 @@ mod tests {
 
     fn issued(issuer_str: &str, seq: u64, value: Value, mid: u8) -> IssuedOp {
         IssuedOp {
-            issuer: Did::new(issuer_str.to_owned()).unwrap(),
+            issuer: ActorId::new(issuer_str.to_owned()).unwrap(),
             op: SealedOp::new(move_id(mid), append(seq, value)),
         }
     }
@@ -573,10 +573,10 @@ mod tests {
     #[test]
     fn byte_identical_effect_op_is_idempotent() {
         let ops = vec![
-            issued("did:webvh:z6mkfixture:alice.example", 0, json!("e0"), 1),
+            issued("ak:did_core:webvh:z6mkfixturealice", 0, json!("e0"), 1),
             // Same canonical `effect.op`, different Event: idempotent duplicate.
-            issued("did:webvh:z6mkfixture:alice.example", 0, json!("e0"), 2),
-            issued("did:webvh:z6mkfixture:alice.example", 1, json!("e1"), 3),
+            issued("ak:did_core:webvh:z6mkfixturealice", 0, json!("e0"), 2),
+            issued("ak:did_core:webvh:z6mkfixturealice", 1, json!("e1"), 3),
         ];
         let report = OrderedLog.join_with_issuer_report(&ops);
         assert!(report.fail_closed.is_empty());
@@ -599,9 +599,9 @@ mod tests {
     #[test]
     fn join_orders_by_issuer_then_seq() {
         let ops = vec![
-            issued("did:webvh:z6mkfixture:bob.example", 0, json!("b0"), 1),
-            issued("did:webvh:z6mkfixture:alice.example", 1, json!("a1"), 2),
-            issued("did:webvh:z6mkfixture:alice.example", 0, json!("a0"), 3),
+            issued("ak:did_core:webvh:z6mkfixturebob", 0, json!("b0"), 1),
+            issued("ak:did_core:webvh:z6mkfixturealice", 1, json!("a1"), 2),
+            issued("ak:did_core:webvh:z6mkfixturealice", 0, json!("a0"), 3),
         ];
         let state = OrderedLog.join_with_issuers(&cell(), &ops);
         match state {
@@ -610,17 +610,17 @@ mod tests {
                 assert_eq!(arr.len(), 3);
                 assert_eq!(
                     arr[0].get("issuer").unwrap(),
-                    "did:webvh:z6mkfixture:alice.example"
+                    "ak:did_core:webvh:z6mkfixturealice"
                 );
                 assert_eq!(arr[0].get("issuer_seq").unwrap().as_u64().unwrap(), 0);
                 assert_eq!(
                     arr[1].get("issuer").unwrap(),
-                    "did:webvh:z6mkfixture:alice.example"
+                    "ak:did_core:webvh:z6mkfixturealice"
                 );
                 assert_eq!(arr[1].get("issuer_seq").unwrap().as_u64().unwrap(), 1);
                 assert_eq!(
                     arr[2].get("issuer").unwrap(),
-                    "did:webvh:z6mkfixture:bob.example"
+                    "ak:did_core:webvh:z6mkfixturebob"
                 );
             }
             _ => panic!("expected value"),
@@ -632,7 +632,7 @@ mod tests {
         // Only seq 3 arrived: the prefix starts at 0, so nothing materializes
         // and the gap is reported against the missing seq 0.
         let ops = vec![issued(
-            "did:webvh:z6mkfixture:alice.example",
+            "ak:did_core:webvh:z6mkfixturealice",
             3,
             json!("late"),
             1,
@@ -648,13 +648,13 @@ mod tests {
     fn equivocation_resolves_to_max_event_digest() {
         let ops = vec![
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 0,
                 json!("loser"),
                 0x11,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 0,
                 json!("winner"),
                 0x22,
@@ -689,7 +689,7 @@ mod tests {
 
     #[test]
     fn same_op_value_different_op_field_is_equivocation() {
-        let alice = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let ops = vec![
             IssuedOp {
                 issuer: alice.clone(),
@@ -712,7 +712,7 @@ mod tests {
 
     #[test]
     fn max_event_digest_compares_decoded_octets_across_suites() {
-        let alice = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         // As UTF-8 wire strings "sha256:00.." > "blake3:ff..", but the decoded
         // octets order the other way. §4.2 compares octets, so blake3 wins.
         let ops = vec![
@@ -742,7 +742,7 @@ mod tests {
 
     #[test]
     fn distinct_op_under_same_event_digest_fails_closed() {
-        let alice = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let ops = vec![
             IssuedOp {
                 issuer: alice.clone(),
@@ -765,7 +765,7 @@ mod tests {
 
     #[test]
     fn fail_closed_slot_blocks_the_rest_of_the_prefix() {
-        let alice = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let ops = vec![
             IssuedOp {
                 issuer: alice.clone(),
@@ -796,19 +796,19 @@ mod tests {
     fn join_reports_gaps_and_recomputes_after_backfill() {
         let gap_ops = vec![
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 0,
                 json!({"entry_id": "entry-0000", "kind": "start"}),
                 1,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 1,
                 json!({"entry_id": "entry-0001", "kind": "next"}),
                 2,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 3,
                 json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
                 5,
@@ -823,31 +823,31 @@ mod tests {
 
         let backfilled_a = vec![
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 0,
                 json!({"entry_id": "entry-0000", "kind": "start"}),
                 1,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 1,
                 json!({"entry_id": "entry-0001", "kind": "next"}),
                 2,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 3,
                 json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
                 5,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 2,
                 json!({"entry_id": "entry-0002", "kind": "backfill"}),
                 4,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 3,
                 json!({"entry_id": "entry-0003-a", "kind": "late-a"}),
                 3,
@@ -855,31 +855,31 @@ mod tests {
         ];
         let backfilled_b = vec![
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 0,
                 json!({"entry_id": "entry-0000", "kind": "start"}),
                 1,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 1,
                 json!({"entry_id": "entry-0001", "kind": "next"}),
                 2,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 2,
                 json!({"entry_id": "entry-0002", "kind": "backfill"}),
                 4,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 3,
                 json!({"entry_id": "entry-0003-a", "kind": "late-a"}),
                 3,
             ),
             issued(
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixturealice",
                 3,
                 json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
                 5,
@@ -951,10 +951,10 @@ mod tests {
     #[test]
     fn invalid_ops_skipped() {
         let ops = vec![
-            issued("did:webvh:z6mkfixture:alice.example", 0, json!("good"), 1),
+            issued("ak:did_core:webvh:z6mkfixturealice", 0, json!("good"), 1),
             // invalid: missing issuer_seq -> filtered
             IssuedOp {
-                issuer: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+                issuer: ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
                 op: SealedOp::new(
                     move_id(2),
                     LatticeOp {

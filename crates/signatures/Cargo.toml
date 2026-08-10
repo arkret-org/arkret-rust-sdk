@@ -13,7 +13,7 @@ version.workspace = true
 
 [features]
 default = []
-collaboration = ["dep:arkret-event-draft", "dep:arkret-models-collaboration", "dep:arkret-state"]
+collaboration = ["dep:arkret-event-draft", "dep:arkret-models-collaboration", "dep:arkret-models-identity", "dep:arkret-state"]
 keypackages = ["dep:arkret-models-crypto"]
 service-identity = ["dep:arkret-models-identity"]
 webvh = ["dep:arkret-models-discovery", "dep:arkret-models-identity"]

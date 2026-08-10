@@ -4,6 +4,8 @@ mod development_identity;
 pub mod http_signature;
 #[cfg(feature = "collaboration")]
 pub mod media;
+#[cfg(feature = "service-identity")]
+pub mod service_resolution;
 
 // RFC 9421 federation trust-domain transcript fragment. Pure wire-string
 // formatting (no crypto/model deps), so it is available without the

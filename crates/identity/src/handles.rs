@@ -21,13 +21,13 @@ pub enum DidVisibility {
 /// a distinct DID for each counterparty, so a compromised pairwise DID does not
 /// expose the user's activity with other peers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PairwiseDidBinding {
-    /// The pairwise DID (unique per peer relationship).
-    pub pairwise_did: Did,
-    /// The real/parent DID that this pairwise DID represents.
-    pub parent_did: Did,
-    /// The counterparty DID this pairwise binding is scoped to.
-    pub peer_did: Did,
+pub struct PairwiseActorBinding {
+    /// Realm-scoped actor core id (unique per peer relationship).
+    pub pairwise_actor_id: ActorId,
+    /// The stable principal core id represented by this actor.
+    pub principal_id: PrincipalId,
+    /// The counterparty principal core id this binding is scoped to.
+    pub peer_principal_id: PrincipalId,
     /// Optional space or context this binding is limited to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
@@ -42,10 +42,10 @@ pub struct PairwiseDidBinding {
 
 /// Proof required before revealing a pairwise DID's parent DID.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PairwiseDidResolutionProof {
-    pub pairwise_did: Did,
-    pub requester: Did,
-    pub peer_did: Did,
+pub struct PairwiseActorResolutionProof {
+    pub pairwise_actor_id: ActorId,
+    pub requester: PrincipalId,
+    pub peer_principal_id: PrincipalId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
     pub challenge: String,
@@ -54,13 +54,18 @@ pub struct PairwiseDidResolutionProof {
     pub created_at: DateTime<Utc>,
 }
 
-impl PairwiseDidBinding {
-    /// Create a new pairwise DID binding.
-    pub fn new(pairwise_did: Did, parent_did: Did, peer_did: Did, scope: Option<String>) -> Self {
+impl PairwiseActorBinding {
+    /// Create a new pairwise actor binding.
+    pub fn new(
+        pairwise_actor_id: ActorId,
+        principal_id: PrincipalId,
+        peer_principal_id: PrincipalId,
+        scope: Option<String>,
+    ) -> Self {
         Self {
-            pairwise_did,
-            parent_did,
-            peer_did,
+            pairwise_actor_id,
+            principal_id,
+            peer_principal_id,
             scope,
             created_at: Utc::now(),
             expires_at: None,
@@ -81,21 +86,21 @@ impl PairwiseDidBinding {
     /// Build a deterministic proof allowing a scoped peer to resolve this binding.
     pub fn resolution_proof(
         &self,
-        requester: Did,
+        requester: PrincipalId,
         challenge: impl Into<String>,
-    ) -> PairwiseDidResolutionProof {
+    ) -> PairwiseActorResolutionProof {
         let challenge = challenge.into();
-        let proof = pairwise_resolution_proof(
-            &self.pairwise_did,
+        let proof = pairwise_actor_resolution_proof(
+            &self.pairwise_actor_id,
             &requester,
-            &self.peer_did,
+            &self.peer_principal_id,
             self.scope.as_deref(),
             &challenge,
         );
-        PairwiseDidResolutionProof {
-            pairwise_did: self.pairwise_did.clone(),
+        PairwiseActorResolutionProof {
+            pairwise_actor_id: self.pairwise_actor_id.clone(),
             requester,
-            peer_did: self.peer_did.clone(),
+            peer_principal_id: self.peer_principal_id.clone(),
             scope: self.scope.clone(),
             challenge,
             proof,
@@ -105,18 +110,18 @@ impl PairwiseDidBinding {
 }
 
 /// Compute the deterministic proof for gated pairwise DID resolution.
-pub fn pairwise_resolution_proof(
-    pairwise_did: &Did,
-    requester: &Did,
-    peer_did: &Did,
+pub fn pairwise_actor_resolution_proof(
+    pairwise_actor_id: &ActorId,
+    requester: &PrincipalId,
+    peer_principal_id: &PrincipalId,
     scope: Option<&str>,
     challenge: &str,
 ) -> String {
     let payload = format!(
         "{}|{}|{}|{}|{}",
-        pairwise_did,
+        pairwise_actor_id,
         requester,
-        peer_did,
+        peer_principal_id,
         scope.unwrap_or(""),
         challenge
     );
@@ -125,69 +130,74 @@ pub fn pairwise_resolution_proof(
 
 /// Manages pairwise DID bindings for privacy-preserving identity.
 #[derive(Clone, Debug, Default)]
-pub struct PairwiseDidStore {
-    /// Bindings indexed by pairwise DID.
-    by_pairwise: BTreeMap<Did, PairwiseDidBinding>,
-    /// Reverse index: parent DID → all its pairwise DIDs.
-    by_parent: BTreeMap<Did, Vec<Did>>,
+pub struct PairwiseActorStore {
+    /// Bindings indexed by pairwise actor core id.
+    by_pairwise: BTreeMap<ActorId, PairwiseActorBinding>,
+    /// Reverse index: principal core id → all its pairwise actors.
+    by_principal: BTreeMap<PrincipalId, Vec<ActorId>>,
 }
 
-impl PairwiseDidStore {
+impl PairwiseActorStore {
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Register a pairwise DID binding.
-    pub fn insert(&mut self, binding: PairwiseDidBinding) -> Result<()> {
-        let pairwise = binding.pairwise_did.clone();
-        let parent = binding.parent_did.clone();
+    /// Register a pairwise actor binding.
+    pub fn insert(&mut self, binding: PairwiseActorBinding) -> Result<()> {
+        let pairwise = binding.pairwise_actor_id.clone();
+        let principal = binding.principal_id.clone();
         self.by_pairwise.insert(pairwise.clone(), binding);
-        self.by_parent.entry(parent).or_default().push(pairwise);
+        self.by_principal
+            .entry(principal)
+            .or_default()
+            .push(pairwise);
         Ok(())
     }
 
     /// Look up the binding for a pairwise DID.
-    pub fn get(&self, pairwise_did: &Did) -> Option<&PairwiseDidBinding> {
-        self.by_pairwise.get(pairwise_did)
+    pub fn get(&self, pairwise_actor_id: &ActorId) -> Option<&PairwiseActorBinding> {
+        self.by_pairwise.get(pairwise_actor_id)
     }
 
     /// Resolve a pairwise DID to its parent DID.
-    pub fn resolve_parent(&self, pairwise_did: &Did) -> Option<&Did> {
-        self.by_pairwise.get(pairwise_did).map(|b| &b.parent_did)
+    pub fn resolve_principal(&self, pairwise_actor_id: &ActorId) -> Option<&PrincipalId> {
+        self.by_pairwise
+            .get(pairwise_actor_id)
+            .map(|binding| &binding.principal_id)
     }
 
     /// Resolve a pairwise DID to its parent DID only after validating proof.
-    pub fn resolve_parent_with_proof(
+    pub fn resolve_principal_with_proof(
         &self,
-        pairwise_did: &Did,
-        proof: &PairwiseDidResolutionProof,
-    ) -> Result<&Did> {
+        pairwise_actor_id: &ActorId,
+        proof: &PairwiseActorResolutionProof,
+    ) -> Result<&PrincipalId> {
         let binding = self
             .by_pairwise
-            .get(pairwise_did)
-            .ok_or_else(|| Error::Protocol("pairwise DID binding not found".to_owned()))?;
+            .get(pairwise_actor_id)
+            .ok_or_else(|| Error::Protocol("pairwise actor binding not found".to_owned()))?;
         if binding.is_expired() {
             return Err(Error::Protocol("pairwise DID binding expired".to_owned()));
         }
-        if &proof.pairwise_did != pairwise_did {
+        if &proof.pairwise_actor_id != pairwise_actor_id {
             return Err(Error::Protocol(
                 "pairwise DID proof target mismatch".to_owned(),
             ));
         }
-        if proof.requester != binding.peer_did && proof.requester != binding.parent_did {
+        if proof.requester != binding.peer_principal_id && proof.requester != binding.principal_id {
             return Err(Error::Protocol(
                 "pairwise DID proof requester is not authorized".to_owned(),
             ));
         }
-        if proof.peer_did != binding.peer_did || proof.scope != binding.scope {
+        if proof.peer_principal_id != binding.peer_principal_id || proof.scope != binding.scope {
             return Err(Error::Protocol(
                 "pairwise DID proof scope mismatch".to_owned(),
             ));
         }
-        let expected = pairwise_resolution_proof(
-            pairwise_did,
+        let expected = pairwise_actor_resolution_proof(
+            pairwise_actor_id,
             &proof.requester,
-            &binding.peer_did,
+            &binding.peer_principal_id,
             binding.scope.as_deref(),
             &proof.challenge,
         );
@@ -196,20 +206,20 @@ impl PairwiseDidStore {
                 "invalid pairwise DID resolution proof".to_owned(),
             ));
         }
-        Ok(&binding.parent_did)
+        Ok(&binding.principal_id)
     }
 
     /// Check if a pairwise DID is valid (exists and not expired).
-    pub fn is_valid(&self, pairwise_did: &Did) -> bool {
+    pub fn is_valid(&self, pairwise_actor_id: &ActorId) -> bool {
         self.by_pairwise
-            .get(pairwise_did)
+            .get(pairwise_actor_id)
             .is_some_and(|b| !b.is_expired())
     }
 
     /// List all pairwise DIDs for a parent DID.
-    pub fn pairwise_dids_for(&self, parent: &Did) -> Vec<&PairwiseDidBinding> {
-        self.by_parent
-            .get(parent)
+    pub fn pairwise_actor_ids_for(&self, principal: &PrincipalId) -> Vec<&PairwiseActorBinding> {
+        self.by_principal
+            .get(principal)
             .map(|ids| {
                 ids.iter()
                     .filter_map(|id| self.by_pairwise.get(id))
@@ -220,7 +230,7 @@ impl PairwiseDidStore {
 
     /// Remove expired bindings.
     pub fn purge_expired(&mut self) {
-        let expired: Vec<Did> = self
+        let expired: Vec<ActorId> = self
             .by_pairwise
             .iter()
             .filter(|(_, b)| b.is_expired())
@@ -228,9 +238,9 @@ impl PairwiseDidStore {
             .collect();
         for id in expired {
             if let Some(binding) = self.by_pairwise.remove(&id)
-                && let Some(parent_ids) = self.by_parent.get_mut(&binding.parent_did)
+                && let Some(actor_ids) = self.by_principal.get_mut(&binding.principal_id)
             {
-                parent_ids.retain(|pid| pid != &id);
+                actor_ids.retain(|actor_id| actor_id != &id);
             }
         }
     }

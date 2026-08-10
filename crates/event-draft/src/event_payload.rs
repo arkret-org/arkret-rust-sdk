@@ -222,7 +222,6 @@ event_payload_accessors! {
     event_spec::AppletDiscovery => (as_applet_discovery, ResourceDiscoveryStatePayload),
     event_spec::HandleDiscovery => (as_handle_discovery, ResourceDiscoveryStatePayload),
     event_spec::OrganizationModerationPolicy => (as_organization_moderation_policy, OrganizationModerationPolicyStatePayload),
-    event_spec::DidProof => (as_did_proof, DidProofStatePayload),
     event_spec::IdentityDisclosurePolicy => (as_identity_disclosure_policy, IdentityDisclosurePolicyStatePayload),
     event_spec::IdentityDisclosureReceipt => (as_identity_disclosure_receipt, IdentityDisclosureReceiptStatePayload),
     event_spec::IdentityPresentationRequest => (as_identity_presentation_request, IdentityPresentationRequestStatePayload),
@@ -508,6 +507,13 @@ mod tests {
         let mut event = base_event();
         let strand_id = StrandId::from_event_id(&event_id(0x6c));
         let realm_id = realm();
+        let scope_digest = arkret_models_crypto::encrypted_envelope_scope_digest(
+            &ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            &realm_id,
+        )
+        .unwrap();
         let group_state_ref = event_id(4);
         event.payload = serde_json::from_value(json!({
             "strand_id": strand_id,
@@ -522,6 +528,7 @@ mod tests {
                 "aad_visibility_event_id": "hidden",
                 "aad": {
                     "realm_id": realm_id,
+                    "scope_digest": scope_digest,
                     "event_kind": event_spec::MessageCreate::KIND_STR
                 },
                 "key_ref": {

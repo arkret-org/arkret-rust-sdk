@@ -1,4 +1,4 @@
-use arkret_wire::{Hlc, RealmId};
+use arkret_wire::{ActorId, Hlc, PrincipalId, RealmId, project_full_id_to_core_id};
 
 use super::*;
 
@@ -13,8 +13,14 @@ fn did_web(name: &str) -> Did {
     Did::new(format!("did:web:{name}.example")).unwrap()
 }
 
-fn pairwise_did(name: &str) -> Did {
-    Did::new(format!("did:key:z{name}")).unwrap()
+fn principal(name: &str) -> PrincipalId {
+    PrincipalId::from(project_full_id_to_core_id(&did(name)).unwrap())
+}
+
+fn pairwise_actor(name: &str) -> ActorId {
+    ActorId::from(
+        project_full_id_to_core_id(&Did::new(format!("did:key:z{name}")).unwrap()).unwrap(),
+    )
 }
 
 fn realm() -> RealmId {
@@ -1179,22 +1185,22 @@ fn handle_bidirectional_with_case_insensitive_matching() {
 }
 
 #[test]
-fn pairwise_did_store_insert_resolve_and_purge() {
-    let alice = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-    let bob = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
-    let pairwise = pairwise_did("pairwisealicebob");
+fn pairwise_actor_store_insert_resolve_and_purge() {
+    let alice = principal("alice");
+    let bob = principal("bob");
+    let pairwise = pairwise_actor("pairwisealicebob");
 
-    let binding = PairwiseDidBinding::new(pairwise.clone(), alice.clone(), bob.clone(), None);
-    let mut store = PairwiseDidStore::new();
+    let binding = PairwiseActorBinding::new(pairwise.clone(), alice.clone(), bob.clone(), None);
+    let mut store = PairwiseActorStore::new();
     store.insert(binding).unwrap();
 
-    assert_eq!(store.resolve_parent(&pairwise), Some(&alice));
+    assert_eq!(store.resolve_principal(&pairwise), Some(&alice));
     assert!(store.is_valid(&pairwise));
-    assert_eq!(store.pairwise_dids_for(&alice).len(), 1);
+    assert_eq!(store.pairwise_actor_ids_for(&alice).len(), 1);
 
     // Expired binding is invalid
-    let pairwise2 = pairwise_did("pairwisealicebobx");
-    let expired = PairwiseDidBinding::new(pairwise2.clone(), alice, bob, Some("x".to_owned()))
+    let pairwise2 = pairwise_actor("pairwisealicebobx");
+    let expired = PairwiseActorBinding::new(pairwise2.clone(), alice, bob, Some("x".to_owned()))
         .with_expiry("2020-01-01T00:00:00.000Z".parse().unwrap());
     store.insert(expired).unwrap();
     assert!(!store.is_valid(&pairwise2));
@@ -1205,23 +1211,25 @@ fn pairwise_did_store_insert_resolve_and_purge() {
 }
 
 #[test]
-fn pairwise_did_resolution_requires_valid_proof() {
-    let alice = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-    let bob = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
-    let mallory = Did::new("did:webvh:z6mkfixture:mallory.example").unwrap();
-    let pairwise = pairwise_did("pairwisealicebobspace01");
-    let binding = PairwiseDidBinding::new(
+fn pairwise_actor_resolution_requires_valid_proof() {
+    let alice = principal("alice");
+    let bob = principal("bob");
+    let mallory = principal("mallory");
+    let pairwise = pairwise_actor("pairwisealicebobspace01");
+    let binding = PairwiseActorBinding::new(
         pairwise.clone(),
         alice.clone(),
         bob.clone(),
         Some("space:01".to_owned()),
     );
     let proof = binding.resolution_proof(bob, "challenge-1");
-    let mut store = PairwiseDidStore::new();
+    let mut store = PairwiseActorStore::new();
     store.insert(binding).unwrap();
 
     assert_eq!(
-        store.resolve_parent_with_proof(&pairwise, &proof).unwrap(),
+        store
+            .resolve_principal_with_proof(&pairwise, &proof)
+            .unwrap(),
         &alice
     );
 
@@ -1229,7 +1237,7 @@ fn pairwise_did_resolution_requires_valid_proof() {
     bad_proof.requester = mallory;
     assert!(
         store
-            .resolve_parent_with_proof(&pairwise, &bad_proof)
+            .resolve_principal_with_proof(&pairwise, &bad_proof)
             .is_err()
     );
 
@@ -1237,7 +1245,7 @@ fn pairwise_did_resolution_requires_valid_proof() {
     tampered.proof = "bad".to_owned();
     assert!(
         store
-            .resolve_parent_with_proof(&pairwise, &tampered)
+            .resolve_principal_with_proof(&pairwise, &tampered)
             .is_err()
     );
 }

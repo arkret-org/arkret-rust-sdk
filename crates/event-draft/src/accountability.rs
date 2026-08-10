@@ -2,7 +2,7 @@
 
 use arkret_models_collaboration::governance::accountability::AccountabilityGrantPayload;
 use arkret_models_integration::applet::AppletDelegatedEventAuthorization;
-use arkret_wire::{Event, Hlc, ScopeRef, event_spec};
+use arkret_wire::{ActorId, Event, Hlc, ScopeRef, event_spec, project_full_id_to_core_id};
 
 use crate::{Result, TypedEventDraft};
 
@@ -16,7 +16,7 @@ pub fn accountability_grant_event(
 ) -> Result<Event> {
     let mut draft = TypedEventDraft::<event_spec::IdentityAccountabilityGrant>::new(
         scope_ref,
-        payload.issuer.clone(),
+        ActorId::from(project_full_id_to_core_id(&payload.issuer)?),
         payload.clone(),
     )?;
     if let Some(authorization) = authorization {

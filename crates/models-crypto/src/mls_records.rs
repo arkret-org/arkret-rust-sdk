@@ -8,9 +8,256 @@
 //! SDK crypto store. The original owners keep re-export shims so downstream
 //! paths are unchanged.
 
-use arkret_wire::{DeviceId, Did, Hash, Proof};
+use std::collections::BTreeMap;
+
+use arkret_wire::{
+    ActorId, CoreId, DeviceId, Did, DidUrl, EventId, FullId, Hash, NonEmptyString, Proof, RealmId,
+    project_full_id_to_core_id,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MlsEndpointIdentity {
+    HumanDevice {
+        principal_id: CoreId,
+        principal_full_id: FullId,
+        device_id: DeviceId,
+    },
+    NativeAgentRuntime {
+        agent_id: CoreId,
+        verification_method: DidUrl,
+        agent_key_authorize_event_id: EventId,
+    },
+}
+
+impl MlsEndpointIdentity {
+    pub fn human_device(
+        principal_full_id: FullId,
+        device_id: DeviceId,
+    ) -> arkret_wire::Result<Self> {
+        let principal_id = project_full_id_to_core_id(&principal_full_id)?;
+        Ok(Self::HumanDevice {
+            principal_id,
+            principal_full_id,
+            device_id,
+        })
+    }
+
+    pub fn native_agent_runtime(
+        agent_id: CoreId,
+        verification_method: DidUrl,
+        agent_key_authorize_event_id: EventId,
+    ) -> arkret_wire::Result<Self> {
+        let controller = verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(controller, _)| controller)
+            .ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "Native Agent MLS verification method has no fragment".to_owned(),
+                )
+            })?;
+        let controller = FullId::new(controller.to_owned())?;
+        if project_full_id_to_core_id(&controller)? != agent_id {
+            return Err(arkret_wire::Error::Protocol(
+                "Native Agent MLS verification method controller mismatch".to_owned(),
+            ));
+        }
+        Ok(Self::NativeAgentRuntime {
+            agent_id,
+            verification_method,
+            agent_key_authorize_event_id,
+        })
+    }
+
+    pub fn actor_id(&self) -> &CoreId {
+        match self {
+            Self::HumanDevice { principal_id, .. } => principal_id,
+            Self::NativeAgentRuntime { agent_id, .. } => agent_id,
+        }
+    }
+
+    pub fn human_device_id(&self) -> Option<&DeviceId> {
+        match self {
+            Self::HumanDevice { device_id, .. } => Some(device_id),
+            Self::NativeAgentRuntime { .. } => None,
+        }
+    }
+
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        match self {
+            Self::HumanDevice {
+                principal_id,
+                principal_full_id,
+                ..
+            } if &project_full_id_to_core_id(principal_full_id)? == principal_id => Ok(()),
+            Self::NativeAgentRuntime {
+                agent_id,
+                verification_method,
+                agent_key_authorize_event_id,
+            } => Self::native_agent_runtime(
+                agent_id.clone(),
+                verification_method.clone(),
+                agent_key_authorize_event_id.clone(),
+            )
+            .map(|_| ()),
+            _ => Err(arkret_wire::Error::Protocol(
+                "human MLS endpoint FullId/CoreId mismatch".to_owned(),
+            )),
+        }
+    }
+}
+
+/// Client-local, encrypted-checkpoint state for a minimal-metadata Realm
+/// author. This is deliberately not an HTTP/OpenAPI DTO and must never enter
+/// an Event or service operation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPairwiseAuthorState {
+    pub realm_id: RealmId,
+    pub pairwise_actor_id: ActorId,
+    pub pairwise_full_id: FullId,
+    pub verification_method: DidUrl,
+    /// Opaque handle into the platform secure signer; never private material.
+    pub local_signing_key_ref: NonEmptyString,
+    pub mls_group_id: NonEmptyString,
+    pub epoch: u64,
+    pub accepted_group_state_ref: EventId,
+    pub leaf_index: u32,
+    /// Public Ed25519 LeafNode signature key bytes.
+    pub leaf_signature_key: Vec<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RealmPairwiseAcceptedLeaf {
+    pub leaf_index: u32,
+    pub basic_credential_identity: Vec<u8>,
+    pub signature_key: Vec<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RealmPairwiseAcceptedGroupState {
+    pub realm_id: RealmId,
+    pub mls_group_id: NonEmptyString,
+    pub epoch: u64,
+    pub accepted_group_state_ref: EventId,
+    pub active_leaves: Vec<RealmPairwiseAcceptedLeaf>,
+}
+
+/// Durable, client-local uniqueness ledger. A key identity may be restored in
+/// the same Realm, but none of its public identity components may be rebound
+/// to another Realm.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPairwiseKeyScopeLedger {
+    bindings: BTreeMap<String, RealmId>,
+}
+
+impl RealmPairwiseAuthorState {
+    pub fn validate_against(
+        &self,
+        snapshot: &RealmPairwiseAcceptedGroupState,
+    ) -> arkret_wire::Result<()> {
+        if !self.pairwise_full_id.as_str().starts_with("did:key:") {
+            return Err(arkret_wire::Error::Protocol(
+                "pairwise author FullId must use did:key".to_owned(),
+            ));
+        }
+        if ActorId::from(project_full_id_to_core_id(&self.pairwise_full_id)?)
+            != self.pairwise_actor_id
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "pairwise FullId does not project to pairwise_actor_id".to_owned(),
+            ));
+        }
+        let (method_base, method_fragment) = self
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "pairwise verification method has no fragment".to_owned(),
+                )
+            })?;
+        if method_base != self.pairwise_full_id.as_str() {
+            return Err(arkret_wire::Error::Protocol(
+                "pairwise verification method base differs from pairwise_full_id".to_owned(),
+            ));
+        }
+        let decoded = arkret_canonical::decode_multibase_base58btc(method_fragment)
+            .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        let Some((codec, prefix_len)) = arkret_canonical::decode_multicodec_varint(&decoded) else {
+            return Err(arkret_wire::Error::Protocol(
+                "pairwise verification method has invalid multicodec prefix".to_owned(),
+            ));
+        };
+        if codec != 0xed || decoded.get(prefix_len..) != Some(self.leaf_signature_key.as_slice()) {
+            return Err(arkret_wire::Error::Protocol(
+                "pairwise verification method key differs from LeafNode signature_key".to_owned(),
+            ));
+        }
+        if self.realm_id != snapshot.realm_id
+            || self.mls_group_id != snapshot.mls_group_id
+            || self.epoch != snapshot.epoch
+            || self.accepted_group_state_ref != snapshot.accepted_group_state_ref
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "pairwise author state does not name the exact accepted Realm MLS snapshot"
+                    .to_owned(),
+            ));
+        }
+        let matching = snapshot
+            .active_leaves
+            .iter()
+            .filter(|leaf| leaf.leaf_index == self.leaf_index)
+            .collect::<Vec<_>>();
+        if matching.len() != 1
+            || matching[0].basic_credential_identity.as_slice()
+                != self.pairwise_actor_id.as_str().as_bytes()
+            || matching[0].signature_key != self.leaf_signature_key
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "pairwise author is not the exact active BasicCredential leaf".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl RealmPairwiseKeyScopeLedger {
+    pub fn validate_and_bind(
+        &mut self,
+        state: &RealmPairwiseAuthorState,
+        snapshot: &RealmPairwiseAcceptedGroupState,
+    ) -> arkret_wire::Result<()> {
+        state.validate_against(snapshot)?;
+        let identities = [
+            format!("actor:{}", state.pairwise_actor_id),
+            format!("full:{}", state.pairwise_full_id),
+            format!("method:{}", state.verification_method),
+            format!("key-ref:{}", state.local_signing_key_ref),
+            format!("leaf-key:{}", hex::encode(&state.leaf_signature_key)),
+        ];
+        for identity in &identities {
+            if self
+                .bindings
+                .get(identity)
+                .is_some_and(|realm_id| realm_id != &state.realm_id)
+            {
+                return Err(arkret_wire::Error::Protocol(
+                    "pairwise author key identity is already bound to another Realm".to_owned(),
+                ));
+            }
+        }
+        for identity in identities {
+            self.bindings.insert(identity, state.realm_id.clone());
+        }
+        Ok(())
+    }
+}
 
 /// Lifecycle of a published KeyPackage per `device-lifecycle.md` §2 /
 /// `encryption-and-audit.md` §2.6. Once a KeyPackage is `claimed` it

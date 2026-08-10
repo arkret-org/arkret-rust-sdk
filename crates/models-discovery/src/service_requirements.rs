@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, Did, Error, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind,
+    DeviceId, Did, Error, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceId, ServiceKind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ use crate::service_description::ServiceDescribe;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceEndpointBinding {
-    pub service_id: Did,
+    pub service_id: ServiceId,
     pub service_kind: ServiceKind,
     pub endpoint: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -35,7 +35,7 @@ pub struct ServiceEndpointBinding {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceIdAllowlist {
     #[serde(default)]
-    pub services: BTreeMap<Did, ServiceEndpointBinding>,
+    pub services: BTreeMap<ServiceId, ServiceEndpointBinding>,
 }
 
 impl ServiceIdAllowlist {
@@ -52,11 +52,11 @@ impl ServiceIdAllowlist {
         self.services.insert(binding.service_id.clone(), binding);
     }
 
-    pub fn contains(&self, service_id: &Did) -> bool {
+    pub fn contains(&self, service_id: &ServiceId) -> bool {
         self.services.contains_key(service_id)
     }
 
-    pub fn binding(&self, service_id: &Did) -> Option<&ServiceEndpointBinding> {
+    pub fn binding(&self, service_id: &ServiceId) -> Option<&ServiceEndpointBinding> {
         self.services.get(service_id)
     }
 
@@ -307,7 +307,12 @@ mod tests {
     #[test]
     fn verifies_required_service_profile_and_operation() {
         let description = ServiceDescribe {
-            service_id: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+            service_id: ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            service_resolution: arkret_models_identity::ResolutionCommitment {
+                full_id: FullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+                method_history_head: "fixture-head".to_owned(),
+                version_id: "fixture-version".to_owned(),
+            },
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
@@ -378,7 +383,7 @@ mod tests {
 
     #[test]
     fn service_id_allowlist_verifies_description_and_operations() {
-        let service_id = Did::new("did:webvh:z6mkfixture:svc.example").unwrap();
+        let service_id = ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let allowlist = ServiceIdAllowlist::new().allow(ServiceEndpointBinding {
             service_id: service_id.clone(),
             service_kind: ServiceKind::DirectoryService,
@@ -387,6 +392,11 @@ mod tests {
         });
         let description = ServiceDescribe {
             service_id,
+            service_resolution: arkret_models_identity::ResolutionCommitment {
+                full_id: FullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+                method_history_head: "fixture-head".to_owned(),
+                version_id: "fixture-version".to_owned(),
+            },
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),

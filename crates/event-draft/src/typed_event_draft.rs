@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    AppletId, AuthContext, AuthorizationRef, CriticalExtension, Did, Event, EventId, EventKind,
+    ActorId, AppletId, AuthContext, AuthorizationRef, CriticalExtension, Event, EventId, EventKind,
     EventRef, EventRequirements, ExtensionManifest, FeatureRef, Hash, Hlc, Precondition,
     ProfileRef, RealmId, RegistryContentRef, ScopeRef, SealBasis, SealId,
 };
@@ -24,14 +24,14 @@ use crate::{EventDraftError, EventSpec, Result};
 /// ```compile_fail
 /// # use arkret_event_draft::TypedEventDraft;
 /// # use arkret_models_collaboration::events_payloads::{MessageCreatePayload, RealmCreatePayload};
-/// # use arkret_wire::{Did, ScopeRef, event_spec};
-/// # fn mismatch(scope: ScopeRef, actor: Did, payload: MessageCreatePayload) {
+/// # use arkret_wire::{ActorId, ScopeRef, event_spec};
+/// # fn mismatch(scope: ScopeRef, actor: ActorId, payload: MessageCreatePayload) {
 /// let _ = TypedEventDraft::<event_spec::RealmCreate>::new(scope, actor, payload);
 /// # }
 /// ```
 pub struct TypedEventDraft<K: EventSpec> {
     scope_ref: ScopeRef,
-    actor_id: Did,
+    actor_id: ActorId,
     payload: K::Payload,
     prev_refs: Vec<EventId>,
     refs: Vec<EventRef>,
@@ -42,7 +42,7 @@ pub struct TypedEventDraft<K: EventSpec> {
     seal_basis: Option<SealBasis>,
     requirements: EventRequirements,
     redacts: Option<EventId>,
-    executed_by: Option<Did>,
+    executed_by: Option<ActorId>,
     authorization_ref: Option<AuthorizationRef>,
     applet_id: Option<AppletId>,
     external_ref: Option<BTreeMap<String, Value>>,
@@ -50,7 +50,7 @@ pub struct TypedEventDraft<K: EventSpec> {
 }
 
 impl<K: EventSpec> TypedEventDraft<K> {
-    pub fn new(scope_ref: ScopeRef, actor_id: Did, payload: K::Payload) -> Result<Self> {
+    pub fn new(scope_ref: ScopeRef, actor_id: ActorId, payload: K::Payload) -> Result<Self> {
         K::validate_payload(&payload).map_err(|error| {
             EventDraftError::Protocol(format!("{} payload invalid: {error}", K::KIND_STR))
         })?;
@@ -140,7 +140,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
         self
     }
 
-    pub fn with_executed_by(mut self, executed_by: Did) -> Self {
+    pub fn with_executed_by(mut self, executed_by: ActorId) -> Self {
         self.executed_by = Some(executed_by);
         self
     }
@@ -302,7 +302,7 @@ impl ValidatedExtensionPayload {
     pub fn author(
         self,
         scope_ref: ScopeRef,
-        actor_id: Did,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         created_at: DateTime<Utc>,
@@ -337,7 +337,7 @@ impl ValidatedExtensionPayload {
 pub(crate) fn author_erased_event(
     kind: EventKind,
     scope_ref: ScopeRef,
-    actor_id: Did,
+    actor_id: ActorId,
     actor_seq: u64,
     hlc: Hlc,
     created_at: DateTime<Utc>,
@@ -352,7 +352,7 @@ pub(crate) fn author_erased_event(
     seal_basis: Option<SealBasis>,
     requirements: EventRequirements,
     redacts: Option<EventId>,
-    executed_by: Option<Did>,
+    executed_by: Option<ActorId>,
     authorization_ref: Option<AuthorizationRef>,
     applet_id: Option<AppletId>,
     external_ref: Option<BTreeMap<String, Value>>,

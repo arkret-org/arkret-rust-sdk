@@ -320,7 +320,7 @@ pub fn constant_time_eq(left: &str, right: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{EventId, RealmId};
+    use arkret_wire::{EventId, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -442,9 +442,17 @@ mod tests {
 
     #[test]
     fn encrypted_envelope_aad_digest_is_canonical() {
+        let realm_id =
+            RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
         let aad = EncryptedEnvelopeAad {
-            realm_id: RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs")
-                .unwrap(),
+            scope_digest: arkret_models_crypto::encrypted_envelope_scope_digest(
+                &ScopeRef::Realm {
+                    realm_id: realm_id.clone(),
+                },
+                &realm_id,
+            )
+            .unwrap(),
+            realm_id,
             event_kind: "ak.message.create".to_owned(),
             event_id: Some(
                 EventId::new("ak:event:ARVUUS5MsgtJTHxDUnT_24cP4k86XFFUI-95GFfyLv6j").unwrap(),

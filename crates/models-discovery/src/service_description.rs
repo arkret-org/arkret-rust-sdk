@@ -90,7 +90,8 @@ pub struct PrivacyDerivation {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServiceDescribe {
-    pub service_id: Did,
+    pub service_id: ServiceId,
+    pub service_resolution: arkret_models_identity::ResolutionCommitment,
     /// Required trust domain. Receivers MUST refuse to
     /// register a peer whose `trust_domain` disagrees with the
     /// expected deployment scope.
@@ -282,12 +283,21 @@ impl ServiceDescribe {
 
     /// Build a complete development-mode description for a service surface.
     pub fn development(
-        service_id: Did,
+        full_id: FullId,
         trust_domain: TypedTrustDomainId,
         service_kind: ServiceKind,
     ) -> Self {
+        let service_id = ServiceId::from(
+            project_full_id_to_core_id(&full_id)
+                .expect("development service full id must use a registered adapter"),
+        );
         Self {
             service_id,
+            service_resolution: arkret_models_identity::ResolutionCommitment {
+                full_id,
+                method_history_head: "development-unverified".to_owned(),
+                version_id: "development-unverified".to_owned(),
+            },
             trust_domain,
             service_kind,
             protocol_version: PROTOCOL_VERSION.to_owned(),
@@ -337,6 +347,17 @@ impl ServiceDescribe {
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
+        if ServiceId::from(project_full_id_to_core_id(
+            &self.service_resolution.full_id,
+        )?) != self.service_id
+            || self.service_resolution.method_history_head.is_empty()
+            || self.service_resolution.version_id.is_empty()
+        {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe: service_resolution does not project to service_id ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
         if !self.service_kind.valid_in("service_describe") {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: service_kind={} is not valid in service_describe ({})",
@@ -577,7 +598,12 @@ mod tests {
 
     fn directory_description() -> ServiceDescribe {
         ServiceDescribe {
-            service_id: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
+            service_id: ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            service_resolution: arkret_models_identity::ResolutionCommitment {
+                full_id: FullId::new("did:webvh:z6mkfixture:directory.example").unwrap(),
+                method_history_head: "fixture-head".to_owned(),
+                version_id: "fixture-version".to_owned(),
+            },
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: PROTOCOL_VERSION.to_owned(),

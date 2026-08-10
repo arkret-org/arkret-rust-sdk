@@ -695,7 +695,7 @@ pub fn control_event_set_root(covered: &BTreeSet<Hash>) -> Result<Hash, SealReje
 
 #[derive(serde::Serialize)]
 struct CompletenessLeaf<'a> {
-    actor_id: &'a arkret_wire::Did,
+    actor_id: &'a arkret_wire::ActorId,
     from_seq: u64,
     to_seq: u64,
     event_digests: Vec<&'a Hash>,
@@ -709,7 +709,7 @@ pub fn control_event_completeness_root(
     events: &[Event],
     covered: &BTreeSet<Hash>,
 ) -> Result<Hash, SealReject> {
-    let mut by_actor = BTreeMap::<arkret_wire::Did, Vec<(u64, Hash)>>::new();
+    let mut by_actor = BTreeMap::<arkret_wire::ActorId, Vec<(u64, Hash)>>::new();
     let mut resolved = BTreeSet::new();
     for event in events {
         let digest = Hash::new(event.event_digest().map_err(|error| {
@@ -993,13 +993,13 @@ pub fn join_cell_seal_batches(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
+    use arkret_wire::{ActorId, DidUrl};
 
     /// Attach a fixed issuer to a sealed op. These fixtures exercise
     /// non-ordered-log lattices, where the issuer is carried but unused.
     fn issued(op: SealedOp) -> IssuedOp {
         IssuedOp {
-            issuer: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            issuer: ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             op,
         }
     }
@@ -1055,7 +1055,7 @@ mod tests {
         let mut event = arkret_wire::test_support::raw_event_at(
             "ak.member.state",
             ScopeRef::Realm { realm_id: realm() },
-            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             actor_seq,
             Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             json!({"state": "join"}),

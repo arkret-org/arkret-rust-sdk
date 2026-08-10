@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::base64url_encode;
 use arkret_models_crypto::{
-    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeRequestBody,
-    KeyPackagesConsumeUnsignedRequest, KeyPackagesRevokeRequestBody,
+    KeyOperationSignature, KeyPackageConsumer, KeyPackageUploadEntry,
+    KeyPackagesConsumeRequestBody, KeyPackagesConsumeUnsignedRequest, KeyPackagesRevokeRequestBody,
     KeyPackagesRevokeUnsignedRequest, KeyPackagesUploadRequestBody,
     KeyPackagesUploadUnsignedRequest, MlsGovernanceBindingPayload, MlsKeyPackageRecord,
     keypackages_consume_signing_input, keypackages_revoke_signing_input,
@@ -194,11 +194,24 @@ impl ArkretMlsIdentity {
         unsigned: KeyPackagesConsumeUnsignedRequest,
         verification_method: &str,
     ) -> Result<KeyPackagesConsumeRequestBody> {
-        if unsigned.consumer_device_id != self.device_id {
-            return Err(Error::Protocol(
-                "KeyPackage consume device differs from MLS identity".to_owned(),
-            ));
+        match &unsigned.consumer {
+            KeyPackageConsumer::Device { consumer_device_id }
+                if consumer_device_id == &self.device_id => {}
+            KeyPackageConsumer::Device { .. } => {
+                return Err(Error::Protocol(
+                    "KeyPackage consume device differs from MLS identity".to_owned(),
+                ));
+            }
+            KeyPackageConsumer::NativeAgent { .. } => {
+                return Err(Error::Protocol(
+                    "device MLS identity cannot sign a Native Agent KeyPackage consume request"
+                        .to_owned(),
+                ));
+            }
         }
+        unsigned
+            .validate_shape()
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
         let signature = self.sign_keypackage_input(
             verification_method,
             &keypackages_consume_signing_input(&unsigned)?,

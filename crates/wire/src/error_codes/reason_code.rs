@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-10.2;
-//! sha256=0e9130399e68c629159b4905118767e8ca9a5b064a007a65f4c115f625210dfe
-//! Entries: reason_codes=465
+//! Input: registry/error-code-registry.json; version=2026-08-10.5;
+//! sha256=033acc2ea1a9331093e4cfbeb17173580697b98833ad72aa4f6d3860ba1bb50f
+//! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -16,6 +16,7 @@ pub enum ReasonCode {
     AccountStatusTransitionInvalid,
     AccountabilityGrantMissing,
     ActorKindReducerManaged,
+    ActorSessionMismatch,
     ActorSignatureRevoked,
     AeadNonceCounterReplay,
     AeadNonceDerivationInvalid,
@@ -201,11 +202,6 @@ pub enum ReasonCode {
     IdentityLinkNoLongerVisible,
     IdentityLinkPolicyTightened,
     Illegal,
-    InceptionUpgradeEvidenceInsufficient,
-    InceptionUpgradeEvidenceStale,
-    InceptionUpgradeFingerprintMismatch,
-    InceptionUpgradeOldDocumentHashMismatch,
-    InceptionUpgradeSignatureChainInvalid,
     InclusionListViolation,
     InclusionProofFailed,
     InitialSessionRequestMismatch,
@@ -413,6 +409,14 @@ pub enum ReasonCode {
     ServiceKeyRevoked,
     ServiceNotPlaintextVisible,
     ServicePrerotationInvalid,
+    ServiceResolutionMirrorResponseGap,
+    ServiceResolutionMirrorResponseLimit,
+    ServiceRouteFork,
+    ServiceRouteNoticeBasisStale,
+    ServiceRouteNoticeCancelled,
+    ServiceRouteNoticeConflict,
+    ServiceRouteNoticeExpired,
+    ServiceRouteSuccessorUnavailable,
     SessionFocusAlreadyCommitted,
     SessionFocusNoSplitBrain,
     SessionMissing,
@@ -493,6 +497,7 @@ impl ReasonCode {
     pub const ACCOUNT_STATUS_TRANSITION_INVALID: &'static str = "account_status_transition_invalid";
     pub const ACCOUNTABILITY_GRANT_MISSING: &'static str = "accountability_grant_missing";
     pub const ACTOR_KIND_REDUCER_MANAGED: &'static str = "actor_kind_reducer_managed";
+    pub const ACTOR_SESSION_MISMATCH: &'static str = "actor_session_mismatch";
     pub const ACTOR_SIGNATURE_REVOKED: &'static str = "actor_signature_revoked";
     pub const AEAD_NONCE_COUNTER_REPLAY: &'static str = "aead_nonce_counter_replay";
     pub const AEAD_NONCE_DERIVATION_INVALID: &'static str = "aead_nonce_derivation_invalid";
@@ -731,15 +736,6 @@ impl ReasonCode {
     pub const IDENTITY_LINK_NO_LONGER_VISIBLE: &'static str = "identity_link_no_longer_visible";
     pub const IDENTITY_LINK_POLICY_TIGHTENED: &'static str = "identity_link_policy_tightened";
     pub const ILLEGAL: &'static str = "illegal";
-    pub const INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT: &'static str =
-        "inception_upgrade_evidence_insufficient";
-    pub const INCEPTION_UPGRADE_EVIDENCE_STALE: &'static str = "inception_upgrade_evidence_stale";
-    pub const INCEPTION_UPGRADE_FINGERPRINT_MISMATCH: &'static str =
-        "inception_upgrade_fingerprint_mismatch";
-    pub const INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH: &'static str =
-        "inception_upgrade_old_document_hash_mismatch";
-    pub const INCEPTION_UPGRADE_SIGNATURE_CHAIN_INVALID: &'static str =
-        "inception_upgrade_signature_chain_invalid";
     pub const INCLUSION_LIST_VIOLATION: &'static str = "inclusion_list_violation";
     pub const INCLUSION_PROOF_FAILED: &'static str = "inclusion_proof_failed";
     pub const INITIAL_SESSION_REQUEST_MISMATCH: &'static str = "initial_session_request_mismatch";
@@ -980,6 +976,17 @@ impl ReasonCode {
     pub const SERVICE_KEY_REVOKED: &'static str = "service_key_revoked";
     pub const SERVICE_NOT_PLAINTEXT_VISIBLE: &'static str = "service_not_plaintext_visible";
     pub const SERVICE_PREROTATION_INVALID: &'static str = "service_prerotation_invalid";
+    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP: &'static str =
+        "service_resolution_mirror_response_gap";
+    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT: &'static str =
+        "service_resolution_mirror_response_limit";
+    pub const SERVICE_ROUTE_FORK: &'static str = "service_route_fork";
+    pub const SERVICE_ROUTE_NOTICE_BASIS_STALE: &'static str = "service_route_notice_basis_stale";
+    pub const SERVICE_ROUTE_NOTICE_CANCELLED: &'static str = "service_route_notice_cancelled";
+    pub const SERVICE_ROUTE_NOTICE_CONFLICT: &'static str = "service_route_notice_conflict";
+    pub const SERVICE_ROUTE_NOTICE_EXPIRED: &'static str = "service_route_notice_expired";
+    pub const SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE: &'static str =
+        "service_route_successor_unavailable";
     pub const SESSION_FOCUS_ALREADY_COMMITTED: &'static str = "session_focus_already_committed";
     pub const SESSION_FOCUS_NO_SPLIT_BRAIN: &'static str = "session_focus_no_split_brain";
     pub const SESSION_MISSING: &'static str = "session_missing";
@@ -1055,6 +1062,7 @@ impl ReasonCode {
             Self::AccountStatusTransitionInvalid => Self::ACCOUNT_STATUS_TRANSITION_INVALID,
             Self::AccountabilityGrantMissing => Self::ACCOUNTABILITY_GRANT_MISSING,
             Self::ActorKindReducerManaged => Self::ACTOR_KIND_REDUCER_MANAGED,
+            Self::ActorSessionMismatch => Self::ACTOR_SESSION_MISMATCH,
             Self::ActorSignatureRevoked => Self::ACTOR_SIGNATURE_REVOKED,
             Self::AeadNonceCounterReplay => Self::AEAD_NONCE_COUNTER_REPLAY,
             Self::AeadNonceDerivationInvalid => Self::AEAD_NONCE_DERIVATION_INVALID,
@@ -1294,19 +1302,6 @@ impl ReasonCode {
             Self::IdentityLinkNoLongerVisible => Self::IDENTITY_LINK_NO_LONGER_VISIBLE,
             Self::IdentityLinkPolicyTightened => Self::IDENTITY_LINK_POLICY_TIGHTENED,
             Self::Illegal => Self::ILLEGAL,
-            Self::InceptionUpgradeEvidenceInsufficient => {
-                Self::INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT
-            }
-            Self::InceptionUpgradeEvidenceStale => Self::INCEPTION_UPGRADE_EVIDENCE_STALE,
-            Self::InceptionUpgradeFingerprintMismatch => {
-                Self::INCEPTION_UPGRADE_FINGERPRINT_MISMATCH
-            }
-            Self::InceptionUpgradeOldDocumentHashMismatch => {
-                Self::INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH
-            }
-            Self::InceptionUpgradeSignatureChainInvalid => {
-                Self::INCEPTION_UPGRADE_SIGNATURE_CHAIN_INVALID
-            }
             Self::InclusionListViolation => Self::INCLUSION_LIST_VIOLATION,
             Self::InclusionProofFailed => Self::INCLUSION_PROOF_FAILED,
             Self::InitialSessionRequestMismatch => Self::INITIAL_SESSION_REQUEST_MISMATCH,
@@ -1546,6 +1541,18 @@ impl ReasonCode {
             Self::ServiceKeyRevoked => Self::SERVICE_KEY_REVOKED,
             Self::ServiceNotPlaintextVisible => Self::SERVICE_NOT_PLAINTEXT_VISIBLE,
             Self::ServicePrerotationInvalid => Self::SERVICE_PREROTATION_INVALID,
+            Self::ServiceResolutionMirrorResponseGap => {
+                Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP
+            }
+            Self::ServiceResolutionMirrorResponseLimit => {
+                Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT
+            }
+            Self::ServiceRouteFork => Self::SERVICE_ROUTE_FORK,
+            Self::ServiceRouteNoticeBasisStale => Self::SERVICE_ROUTE_NOTICE_BASIS_STALE,
+            Self::ServiceRouteNoticeCancelled => Self::SERVICE_ROUTE_NOTICE_CANCELLED,
+            Self::ServiceRouteNoticeConflict => Self::SERVICE_ROUTE_NOTICE_CONFLICT,
+            Self::ServiceRouteNoticeExpired => Self::SERVICE_ROUTE_NOTICE_EXPIRED,
+            Self::ServiceRouteSuccessorUnavailable => Self::SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE,
             Self::SessionFocusAlreadyCommitted => Self::SESSION_FOCUS_ALREADY_COMMITTED,
             Self::SessionFocusNoSplitBrain => Self::SESSION_FOCUS_NO_SPLIT_BRAIN,
             Self::SessionMissing => Self::SESSION_MISSING,
@@ -1626,6 +1633,7 @@ impl ReasonCode {
             Self::ACCOUNT_STATUS_TRANSITION_INVALID => Self::AccountStatusTransitionInvalid,
             Self::ACCOUNTABILITY_GRANT_MISSING => Self::AccountabilityGrantMissing,
             Self::ACTOR_KIND_REDUCER_MANAGED => Self::ActorKindReducerManaged,
+            Self::ACTOR_SESSION_MISMATCH => Self::ActorSessionMismatch,
             Self::ACTOR_SIGNATURE_REVOKED => Self::ActorSignatureRevoked,
             Self::AEAD_NONCE_COUNTER_REPLAY => Self::AeadNonceCounterReplay,
             Self::AEAD_NONCE_DERIVATION_INVALID => Self::AeadNonceDerivationInvalid,
@@ -1865,19 +1873,6 @@ impl ReasonCode {
             Self::IDENTITY_LINK_NO_LONGER_VISIBLE => Self::IdentityLinkNoLongerVisible,
             Self::IDENTITY_LINK_POLICY_TIGHTENED => Self::IdentityLinkPolicyTightened,
             Self::ILLEGAL => Self::Illegal,
-            Self::INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT => {
-                Self::InceptionUpgradeEvidenceInsufficient
-            }
-            Self::INCEPTION_UPGRADE_EVIDENCE_STALE => Self::InceptionUpgradeEvidenceStale,
-            Self::INCEPTION_UPGRADE_FINGERPRINT_MISMATCH => {
-                Self::InceptionUpgradeFingerprintMismatch
-            }
-            Self::INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH => {
-                Self::InceptionUpgradeOldDocumentHashMismatch
-            }
-            Self::INCEPTION_UPGRADE_SIGNATURE_CHAIN_INVALID => {
-                Self::InceptionUpgradeSignatureChainInvalid
-            }
             Self::INCLUSION_LIST_VIOLATION => Self::InclusionListViolation,
             Self::INCLUSION_PROOF_FAILED => Self::InclusionProofFailed,
             Self::INITIAL_SESSION_REQUEST_MISMATCH => Self::InitialSessionRequestMismatch,
@@ -2117,6 +2112,18 @@ impl ReasonCode {
             Self::SERVICE_KEY_REVOKED => Self::ServiceKeyRevoked,
             Self::SERVICE_NOT_PLAINTEXT_VISIBLE => Self::ServiceNotPlaintextVisible,
             Self::SERVICE_PREROTATION_INVALID => Self::ServicePrerotationInvalid,
+            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP => {
+                Self::ServiceResolutionMirrorResponseGap
+            }
+            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT => {
+                Self::ServiceResolutionMirrorResponseLimit
+            }
+            Self::SERVICE_ROUTE_FORK => Self::ServiceRouteFork,
+            Self::SERVICE_ROUTE_NOTICE_BASIS_STALE => Self::ServiceRouteNoticeBasisStale,
+            Self::SERVICE_ROUTE_NOTICE_CANCELLED => Self::ServiceRouteNoticeCancelled,
+            Self::SERVICE_ROUTE_NOTICE_CONFLICT => Self::ServiceRouteNoticeConflict,
+            Self::SERVICE_ROUTE_NOTICE_EXPIRED => Self::ServiceRouteNoticeExpired,
+            Self::SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE => Self::ServiceRouteSuccessorUnavailable,
             Self::SESSION_FOCUS_ALREADY_COMMITTED => Self::SessionFocusAlreadyCommitted,
             Self::SESSION_FOCUS_NO_SPLIT_BRAIN => Self::SessionFocusNoSplitBrain,
             Self::SESSION_MISSING => Self::SessionMissing,
@@ -2286,6 +2293,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::ACTOR_KIND_REDUCER_MANAGED,
         applies_to: &["schema_validation", "event_envelope"],
         description: "Sub-reason for schema_violation when actor-side submit payload carries `actor_kind`. The reducer derives actor_kind immutably from actor_id's Actor Profile after acceptance; submitters MUST NOT supply it. See zh/models/event-and-patch.md §2.1.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ACTOR_SESSION_MISMATCH,
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A minimal-metadata Realm Event used a principal/session identity combination that does not match the active Realm-scoped pairwise actor binding, or attempted that actor/session split outside the declared minimal-metadata profile. Receivers MUST reject instead of falling back to the long-lived principal identity. See zh/conformance/conformance-vectors.md minimal-metadata identity-link vectors.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACTOR_SIGNATURE_REVOKED,
@@ -3219,31 +3231,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::ILLEGAL,
         applies_to: &["moderation_report"],
         description: "Standard moderation reason: content alleged to violate applicable law (CSAM, threats, IP infringement, etc.).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Cross-method principal upgrade (e.g. personal_node `did:web` -> small_team `did:webvh`) is missing the OOB fingerprint confirmation evidence or any of the required `transfer_proof` fields (key-management.md §5.0.5).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INCEPTION_UPGRADE_EVIDENCE_STALE,
-        applies_to: &["auth_decision", "identity_resolution"],
-        description: "Cross-method principal upgrade transfer_proof.old_did_document_fetched_at is older than the maximum 168h evidence window. Receiver MUST reject instead of accepting stale did:web evidence. See zh/identity/key-management.md §5.0.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INCEPTION_UPGRADE_FINGERPRINT_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Cross-method principal upgrade evidence `inception_public_key_fingerprint` does not match the cold root key bound by the old method continuity evidence and verified in key-management.md §5.0.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Cross-method principal upgrade evidence `old_did_document_canonical_digest` does not match the receiver's canonicalised view of the current `old_did` DID Document. Indicates the hosting domain has been substituted after the upgrade was signed (key-management.md §5.0.5).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INCEPTION_UPGRADE_SIGNATURE_CHAIN_INVALID,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Cross-method principal upgrade `ak.did.proof.continuity` `signature_chain` is missing one of the two mandated signatures (the old method's continuity-evidence-bound cold root + the new method's entry-0 active cold root), uses a DID Document-only inception/verification key instead of the bound cold-root evidence key, or one of the signatures fails to verify (key-management.md §5.0.5).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INCLUSION_LIST_VIOLATION,
@@ -4288,6 +4275,46 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SERVICE_PREROTATION_INVALID,
         applies_to: &["identity_resolution", "service_call"],
         description: "A service did:webvh inception or rotation omitted the sole next-key commitment, supplied more than one update/next key, or failed to open the previous nextKeyHashes commitment. Providers and resolvers MUST fail closed as service_registration_rejected.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP,
+        applies_to: &["identity_resolution", "federation_transaction"],
+        description: "Internal peer-response diagnosis for a non-contiguous successor chain. It is a requester-local validation result and MUST NOT appear in the responder's wire error.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT,
+        applies_to: &["identity_resolution", "service_call"],
+        description: "Internal peer-response diagnosis for the 32-record, 256-KiB or caller-selected budget limit. It MUST NOT be serialized by the blinded peer resolve surface, which uses the universal size failure.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_ROUTE_FORK,
+        applies_to: &["identity_resolution", "federation_transaction"],
+        description: "Internal anti-rollback diagnosis for distinct valid target-signed artifacts at the same sequence/revision; the service route is quarantined. It MUST NOT be serialized by the blinded peer resolve surface.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_ROUTE_NOTICE_BASIS_STALE,
+        applies_to: &["identity_resolution", "federation_transaction"],
+        description: "Internal route evaluator diagnosis for a notice whose exact record basis is not the receiver's durable floor. It MUST NOT be serialized by ak.peer.service_resolution.read.resolve; the outward response is the blinded not_found/capability-denied or universal failure surface.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_ROUTE_NOTICE_CANCELLED,
+        applies_to: &["identity_resolution", "service_call"],
+        description: "Internal route evaluator diagnosis that a candidate belongs to an accepted cancelled notice. It MUST NOT be serialized by the blinded peer resolve surface.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_ROUTE_NOTICE_CONFLICT,
+        applies_to: &["identity_resolution", "federation_transaction"],
+        description: "Internal route evaluator diagnosis for a notice revision/digest fork or duplicate-key conflict. It MUST NOT be serialized by the blinded peer resolve surface.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_ROUTE_NOTICE_EXPIRED,
+        applies_to: &["identity_resolution", "service_call"],
+        description: "Internal route evaluator diagnosis that the signed handover validity window has expired. It MUST NOT be serialized by the blinded peer resolve surface.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE,
+        applies_to: &["identity_resolution", "service_call"],
+        description: "Internal route evaluator diagnosis that no exact formal successor record is available at the candidate or authorized mirror. It MUST NOT be serialized by the blinded peer resolve surface.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SESSION_FOCUS_ALREADY_COMMITTED,

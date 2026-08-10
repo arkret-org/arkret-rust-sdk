@@ -817,9 +817,9 @@ mod tests {
     use arkret_wire::error_codes::{ErrorCode, ReasonCode};
     use arkret_wire::event_envelope::{Event, ScopeRef};
     use arkret_wire::{
-        CellRef, Did, DidUrl, Error, EventId, EventRequirements, Hash, Hlc, NonEmptyString,
-        NotarySig, PayloadSignature, ProfileId, Proof, RealmId, Seal, SealBasis, SealId, SealKind,
-        canonical,
+        ActorId, CellRef, Did, DidUrl, Error, EventId, EventRequirements, Hash, Hlc,
+        NonEmptyString, NotarySig, PayloadSignature, ProfileId, Proof, RealmId, Seal, SealBasis,
+        SealId, SealKind, canonical,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
@@ -920,7 +920,7 @@ mod tests {
             kind: "ak.member.state".into(),
             realm_id: realm(),
             scope_ref: scope,
-            actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor_id: ActorId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 7, 14, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("01980b44cc00-0000-aabbccdd").unwrap()),

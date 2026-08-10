@@ -1058,12 +1058,15 @@ impl EventsSubmitFederationBatchRequestBody {
                     .agent_authority_snapshot
                     .core
                     .signing_key_binding;
+                let binding_actor_id = arkret_wire::ActorId::from(
+                    arkret_wire::project_full_id_to_core_id(&binding.agent_id)?,
+                );
                 let matches_event = self.transported_events().any(|event| {
                     if event.applet_id.is_some() {
                         return false;
                     }
                     let signer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
-                    if signer != &binding.agent_id
+                    if signer != &binding_actor_id
                         || !event.proofs.iter().any(|proof| {
                             proof.verification_method == binding.verification_method.as_str()
                         })

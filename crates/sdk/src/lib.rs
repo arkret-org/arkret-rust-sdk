@@ -109,8 +109,8 @@ pub use arkret_keystore::{
 };
 pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
-pub use arkret_models_collaboration::agent_signer_evidence::*;
 pub use arkret_models_collaboration::call_signal::*;
+pub use arkret_models_collaboration::direct_conversation_repair::*;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
 pub use arkret_models_collaboration::events_payloads::agent::*;
@@ -209,7 +209,8 @@ pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceValidator,
 };
 pub use arkret_models_collaboration::{
-    contact_operations, direct_conversation_ops, federation, history_operations, sidecar_operations,
+    contact_operations, direct_conversation_ops, direct_conversation_repair, federation,
+    history_operations, sidecar_operations,
 };
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::encrypted_envelope::{
@@ -226,7 +227,10 @@ pub use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 pub use arkret_models_crypto::mls_payloads::*;
-pub use arkret_models_crypto::mls_records::MlsKeyPackageRecord;
+pub use arkret_models_crypto::mls_records::{
+    MlsEndpointIdentity, MlsKeyPackageRecord, RealmPairwiseAcceptedGroupState,
+    RealmPairwiseAcceptedLeaf, RealmPairwiseAuthorState, RealmPairwiseKeyScopeLedger,
+};
 pub use arkret_models_crypto::protected_payload::{
     MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
 };
@@ -250,6 +254,7 @@ pub use arkret_models_identity::actor_profile::*;
 pub use arkret_models_identity::admin_grant::{
     SessionGrantAdminIntrospectionStatus, SessionGrantIntrospection, admin_scopes,
 };
+pub use arkret_models_identity::agent_signer_evidence::*;
 pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
 pub use arkret_models_identity::attestation::*;
@@ -263,6 +268,7 @@ pub use arkret_models_identity::handle::*;
 pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;
 pub use arkret_models_identity::identity_link_cache::*;
+pub use arkret_models_identity::identity_resolution::*;
 pub use arkret_models_identity::member_identity::*;
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::session_credential::*;
@@ -320,6 +326,9 @@ pub use arkret_signatures::keypackages::{
     sign_keypackage_signing_input, sign_keypackage_upload_entry, sign_keypackages_consume_request,
     sign_keypackages_revoke_request, sign_keypackages_upload_request,
     verify_keypackage_signing_input,
+};
+pub use arkret_signatures::service_resolution::{
+    sign_service_resolution_record, verify_authenticated_service_resolution,
 };
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
@@ -490,14 +499,14 @@ pub use identity::{
     DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidMigration,
     DidRegistryReceipt, DidResolver, DidVisibility, DidWebDocumentOutcome, DidWebResolver,
     ExternalHandleProof, HandleAttestation, HandleClaimChallenge, HandleProofProfile,
-    IdentityManager, IdentityReceiptWitnessRole, PairwiseDidBinding, PairwiseDidResolutionProof,
-    PairwiseDidStore, ResolvedDid, ResolvedVerificationMethodKey, VerifiedAccountBindingReceipt,
-    event_proof_verification_context, event_proof_verification_context_with_digest_suite,
-    handle_claim_proof, handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
-    resolve_verification_method_key, resolve_verification_method_key_from_document,
-    verification_method_did, verify_account_binding_receipt_at_issuance,
-    verify_canonical_proof_with_did_resolver, verify_event_proof_with_did_resolver,
-    verify_event_proof_with_did_resolver_context,
+    IdentityManager, IdentityReceiptWitnessRole, PairwiseActorBinding,
+    PairwiseActorResolutionProof, PairwiseActorStore, ResolvedDid, ResolvedVerificationMethodKey,
+    VerifiedAccountBindingReceipt, event_proof_verification_context,
+    event_proof_verification_context_with_digest_suite, handle_claim_proof, handle_dns_txt_name,
+    handle_well_known_url, pairwise_actor_resolution_proof, resolve_verification_method_key,
+    resolve_verification_method_key_from_document, verification_method_did,
+    verify_account_binding_receipt_at_issuance, verify_canonical_proof_with_did_resolver,
+    verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "client")]
 pub use key_backup_client::KeyBackupClient;

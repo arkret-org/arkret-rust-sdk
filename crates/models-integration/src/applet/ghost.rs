@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{AppletId, AuthorizationRef, Did, Event, RealmId, Result, SchemaId};
+use arkret_wire::{ActorId, AppletId, AuthorizationRef, Did, Event, RealmId, Result, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -119,13 +119,17 @@ impl AppletGhostOperations {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletDelegatedEventAuthorization {
-    pub executed_by: Did,
+    pub executed_by: ActorId,
     pub authorization_ref: AuthorizationRef,
     pub applet_id: AppletId,
 }
 
 impl AppletDelegatedEventAuthorization {
-    pub fn new(executed_by: Did, authorization_ref: AuthorizationRef, applet_id: AppletId) -> Self {
+    pub fn new(
+        executed_by: ActorId,
+        authorization_ref: AuthorizationRef,
+        applet_id: AppletId,
+    ) -> Self {
         Self {
             executed_by,
             authorization_ref,

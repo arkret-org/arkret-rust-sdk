@@ -57,7 +57,7 @@ mod tests {
     };
     use arkret_wire::{
         CORE_REDUCER_PROFILE, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, ProfileId,
-        RealmId,
+        RealmId, ScopeRef,
     };
     use chrono::Utc;
 
@@ -815,9 +815,18 @@ mod tests {
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let aad_realm_id =
+            RealmId::new("ak:realm:AWiUh2Jt07erLjzV_goRCJr5oCGRYAFLRxHdmS-gobPx").unwrap();
+        let aad_scope = ScopeRef::Realm {
+            realm_id: aad_realm_id.clone(),
+        };
         let aad = arkret_models_crypto::EncryptedEnvelopeAad {
-            realm_id: RealmId::new("ak:realm:AWiUh2Jt07erLjzV_goRCJr5oCGRYAFLRxHdmS-gobPx")
-                .unwrap(),
+            scope_digest: arkret_models_crypto::encrypted_envelope_scope_digest(
+                &aad_scope,
+                &aad_realm_id,
+            )
+            .unwrap(),
+            realm_id: aad_realm_id,
             event_kind: "ak.message.create".to_owned(),
             event_id: Some(
                 EventId::new("ak:event:AUCZEGB_x2E4y_cYPOWqzZD7nQWdSdPF9DDge4lVvqYt").unwrap(),
@@ -1264,10 +1273,12 @@ mod tests {
             .unwrap();
 
         let realm_id = "ak:realm:AQrLXlUoN8Yu4yFfjpTeWmFPwkfMdNKe-u-gY3PcdhSy";
-        let aad = arkret_models_crypto::EncryptedEnvelopeAad::hidden(
-            RealmId::new(realm_id).unwrap(),
-            "ak.message.create",
-        );
+        let aad_scope = ScopeRef::Realm {
+            realm_id: RealmId::new(realm_id).unwrap(),
+        };
+        let aad =
+            arkret_models_crypto::EncryptedEnvelopeAad::hidden(&aad_scope, "ak.message.create")
+                .unwrap();
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
         let payload = group
             .encrypt_payload_with_aad(
@@ -1338,10 +1349,8 @@ mod tests {
         // payload_digest at encryption time.
         let mismatch = encrypted_envelope_from_payload(
             &payload,
-            arkret_models_crypto::EncryptedEnvelopeAad::hidden(
-                RealmId::new(realm_id).unwrap(),
-                "ak.strand.update",
-            ),
+            arkret_models_crypto::EncryptedEnvelopeAad::hidden(&aad_scope, "ak.strand.update")
+                .unwrap(),
             EncryptedEnvelopeAadVisibility::Hidden,
             AadVisibilityCeiling::from_declared(None),
             commit_ref,
@@ -1408,10 +1417,10 @@ mod tests {
     }
 
     fn exporter_aead_aad() -> arkret_models_crypto::EncryptedEnvelopeAad {
-        arkret_models_crypto::EncryptedEnvelopeAad::hidden(
-            RealmId::new(HISTORY_REALM).unwrap(),
-            "ak.message.create",
-        )
+        let scope = ScopeRef::Realm {
+            realm_id: RealmId::new(HISTORY_REALM).unwrap(),
+        };
+        arkret_models_crypto::EncryptedEnvelopeAad::hidden(&scope, "ak.message.create").unwrap()
     }
 
     #[test]

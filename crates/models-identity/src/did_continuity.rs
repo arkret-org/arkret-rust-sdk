@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::{Did, DidUrl, Error, Hash, Result, SchemaId, canonical};
+use arkret_wire::{Did, DidUrl, Error, Hash, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -75,14 +75,14 @@ pub struct DidContinuityProof {
 }
 
 impl DidContinuityProof {
-    pub const SCHEMA: &'static str = SchemaId::DID_CONTINUITY_PROOF_V1;
+    pub const SCHEMA: &'static str = "ak.schema.did_continuity_proof.v1";
     pub const DIGEST_PREFIX: &'static [u8] = b"ak.did-continuity-proof-v1\n";
 
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != SchemaId::DID_CONTINUITY_PROOF_V1 {
+        if self.schema.as_str() != Self::SCHEMA {
             return Err(Error::Protocol(format!(
                 "DID continuity proof schema must be {schemaid_did_continuity_proof_v1} (schema_violation)",
-                schemaid_did_continuity_proof_v1 = SchemaId::DID_CONTINUITY_PROOF_V1
+                schemaid_did_continuity_proof_v1 = Self::SCHEMA
             )));
         }
         if self.signature_chain.len() < 2 {
@@ -221,7 +221,7 @@ mod tests {
 
     fn fixture() -> DidContinuityProof {
         DidContinuityProof {
-            schema: SchemaId::DID_CONTINUITY_PROOF_V1.to_owned(),
+            schema: DidContinuityProof::SCHEMA.to_owned(),
             old_did: Did::new("did:web:old.example").unwrap(),
             new_did: Did::new("did:webvh:new.example").unwrap(),
             purpose: DidContinuityPurpose::PrincipalMethodUpgrade,
@@ -272,7 +272,7 @@ mod tests {
         proof.validate_minimal().unwrap();
 
         let encoded = serde_json::to_value(&proof).unwrap();
-        assert_eq!(encoded["schema"], SchemaId::DID_CONTINUITY_PROOF_V1);
+        assert_eq!(encoded["schema"], DidContinuityProof::SCHEMA);
         assert_eq!(encoded["signature_chain"][1]["algorithm"], "ML-DSA-65");
 
         let decoded: DidContinuityProof = serde_json::from_value(encoded).unwrap();

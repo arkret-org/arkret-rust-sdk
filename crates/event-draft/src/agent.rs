@@ -5,7 +5,7 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload, AgentSidecarExposureAck,
 };
-use arkret_wire::{Did, DidUrl, Event, Hlc, ScopeRef, event_spec};
+use arkret_wire::{ActorId, DidUrl, Event, Hlc, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
 
 use crate::{EventSpec, Result, TypedEventDraft};
@@ -18,8 +18,8 @@ use crate::{EventSpec, Result, TypedEventDraft};
 pub fn build_agent_key_authorize_event(
     payload: &AgentKeyAuthorizePayload,
     scope_ref: ScopeRef,
-    agent_actor_id: Did,
-    controller_id: Did,
+    agent_actor_id: ActorId,
+    controller_id: ActorId,
     controller_authorization_ref: DidUrl,
     actor_seq: u64,
     hlc: Hlc,
@@ -39,8 +39,8 @@ pub fn build_agent_key_authorize_event(
 pub fn build_agent_key_revoke_event(
     payload: &AgentKeyRevokePayload,
     scope_ref: ScopeRef,
-    agent_actor_id: Did,
-    controller_id: Did,
+    agent_actor_id: ActorId,
+    controller_id: ActorId,
     controller_authorization_ref: DidUrl,
     actor_seq: u64,
     hlc: Hlc,
@@ -53,8 +53,8 @@ pub fn build_agent_key_revoke_event(
 
 struct AgentLifecycleEventInput<P> {
     payload: P,
-    agent_id: Did,
-    controller_id: Did,
+    agent_id: ActorId,
+    controller_id: ActorId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     actor_seq: u64,
@@ -78,8 +78,8 @@ fn build_agent_lifecycle_event<K: EventSpec>(
 /// Build an unsigned controller-executed `ak.self.agent.pause` Event draft.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_pause_event(
-    agent_id: Did,
-    controller_id: Did,
+    agent_id: ActorId,
+    controller_id: ActorId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     reason: Option<String>,
@@ -110,8 +110,8 @@ pub fn build_agent_pause_event(
 /// Build an unsigned controller-executed `ak.self.agent.resume` Event draft.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_resume_event(
-    agent_id: Did,
-    controller_id: Did,
+    agent_id: ActorId,
+    controller_id: ActorId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
@@ -144,8 +144,8 @@ pub fn build_agent_resume_event(
 /// draft. Deactivation may start from either active or paused and is terminal.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_deactivate_event(
-    agent_id: Did,
-    controller_id: Did,
+    agent_id: ActorId,
+    controller_id: ActorId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     previous_status: AgentLifecycleState,

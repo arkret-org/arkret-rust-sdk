@@ -12,15 +12,16 @@
 
 use arkret_models_identity::account::{
     AccountBindingReceipt, AccountDeviceSummary, AccountRegistrationAudit,
-    AccountRegistrationPolicyEvidence, IdentityCreationRegistration,
+    AccountRegistrationControlProof, AccountRegistrationPolicyEvidence,
+    IdentityCreationRegistration,
 };
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
-    AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId, Did, DidUrl, Event,
-    EventBatchReceipt, EventId, EventInitialSubmission, Hash, NonEmptyString, PayloadProof,
-    RealmId, ReasonCode, ReceiptId, Result, ScopeRef, ServiceOperationId, SessionGrantId,
-    canonical,
+    AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, CoreId, Cursor, DeviceId, Did,
+    DidUrl, Event, EventBatchReceipt, EventId, EventInitialSubmission, FullId, Hash,
+    NonEmptyString, PayloadProof, RealmId, ReasonCode, ReceiptId, Result, ScopeRef,
+    ServiceOperationId, SessionGrantId, canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -474,7 +475,10 @@ impl AccountStatusPublicationRequestBody {
                 "account status publication must carry ak.account.status".to_owned(),
             ));
         }
-        if event.actor_id != self.authority_evidence.issuer_service_id
+        if event.actor_id
+            != arkret_wire::ActorId::from(project_full_id_to_core_id(
+                &self.authority_evidence.issuer_service_id,
+            )?)
             || event.realm_id != self.authority_evidence.principal_control_realm_id
             || event.scope_ref.circle_id().is_some()
             || event.scope_ref.realm_id() != &self.authority_evidence.principal_control_realm_id
@@ -587,13 +591,14 @@ pub struct AccountView {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegisterRequestBody {
-    pub principal_id: Did,
+    pub principal_id: CoreId,
+    pub full_id: FullId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<AccountLifecycleProof>,
+    pub proof: Option<AccountRegistrationControlProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub identity_creation: Option<IdentityCreationRegistration>,
@@ -604,10 +609,24 @@ pub struct AccountRegisterRequestBody {
 
 impl AccountRegisterRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.proof.is_some() && self.identity_creation.is_some() {
+        if self.proof.is_some() == self.identity_creation.is_some() {
             return Err(arkret_wire::Error::Protocol(
-                "account register proof and identity_creation are mutually exclusive".to_owned(),
+                "account register requires exactly one proof or identity_creation branch"
+                    .to_owned(),
             ));
+        }
+        if project_full_id_to_core_id(&self.full_id)? != self.principal_id {
+            return Err(arkret_wire::Error::Protocol(
+                "account register full_id does not project to principal_id".to_owned(),
+            ));
+        }
+        if let Some(proof) = &self.proof {
+            proof.validate_shape()?;
+            if proof.principal_id != self.principal_id || proof.full_id != self.full_id {
+                return Err(arkret_wire::Error::Protocol(
+                    "account register published-DID proof binding mismatch".to_owned(),
+                ));
+            }
         }
         if let Some(identity_creation) = &self.identity_creation {
             identity_creation.validate()?;
@@ -621,6 +640,11 @@ impl AccountRegisterRequestBody {
                     "account register identity creation does not match principal".to_owned(),
                 ));
             }
+            if identity_creation.full_id != self.full_id {
+                return Err(arkret_wire::Error::Protocol(
+                    "account register identity creation full_id mismatch".to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -630,7 +654,7 @@ impl AccountRegisterRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegisterOutcome {
-    pub principal_id: Did,
+    pub principal_id: CoreId,
     pub state: AccountStatus,
     #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -648,9 +672,8 @@ pub struct AccountRegisterOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub registration_audit: Option<AccountRegistrationAudit>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub binding_receipt: Option<AccountBindingReceipt>,
+    pub binding_receipt: AccountBindingReceipt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub pcr_genesis_receipt: Option<EventBatchReceipt>,
@@ -668,11 +691,7 @@ impl AccountRegisterOutcome {
             ));
         }
         if let Some(identity_creation) = &request.identity_creation {
-            let binding_receipt = self.binding_receipt.as_ref().ok_or_else(|| {
-                arkret_wire::Error::Protocol(
-                    "identity creation outcome omits signed binding_receipt".to_owned(),
-                )
-            })?;
+            let binding_receipt = &self.binding_receipt;
             binding_receipt.validate_shape()?;
             let receipt = self.pcr_genesis_receipt.as_ref().ok_or_else(|| {
                 arkret_wire::Error::Protocol(
@@ -688,10 +707,7 @@ impl AccountRegisterOutcome {
             })?;
             let initial = &identity_creation.initial_session;
             let constraints = [
-                (
-                    "grant principal_id",
-                    grant.principal_id == request.principal_id,
-                ),
+                ("grant principal_id", grant.principal_id == request.full_id),
                 (
                     "grant device_id",
                     grant.device_id.as_ref() == Some(&initial.device_id),
@@ -710,7 +726,7 @@ impl AccountRegisterOutcome {
                 ),
                 (
                     "receipt principal_id",
-                    receipt_scope.principal_id == request.principal_id,
+                    receipt_scope.principal_id == request.full_id,
                 ),
                 (
                     "receipt realm_id",
@@ -732,8 +748,8 @@ impl AccountRegisterOutcome {
                 (
                     "binding receipt lease",
                     binding_receipt.identity_creation_lease_id
-                        == identity_creation.identity_creation_lease_id
-                        && binding_receipt.lease_fence == identity_creation.lease_fence,
+                        == Some(identity_creation.identity_creation_lease_id.clone())
+                        && binding_receipt.lease_fence == Some(identity_creation.lease_fence),
                 ),
                 (
                     "receipt did log pins",
@@ -750,6 +766,14 @@ impl AccountRegisterOutcome {
                          {constraint}"
                 )));
             }
+        }
+        self.binding_receipt.validate_shape()?;
+        if self.binding_receipt.principal_id != self.principal_id
+            || self.binding_receipt.full_id != request.full_id
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "account register outcome binding receipt mismatch".to_owned(),
+            ));
         }
         Ok(())
     }

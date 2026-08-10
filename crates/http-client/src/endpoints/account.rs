@@ -11,6 +11,11 @@ use arkret_models_collaboration::contact_operations::{
 };
 use arkret_models_collaboration::direct_conversation_ops::{
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
+    PrincipalServiceBindingCommitOutcome, PrincipalServiceBindingCommitRequestBody,
+    PrincipalServiceBindingPrepareOutcome, PrincipalServiceBindingPrepareRequestBody,
+};
+use arkret_models_collaboration::direct_conversation_repair::{
+    DirectConversationRepairDispatchRequest, DirectConversationRepairEnqueueOutcome,
 };
 use arkret_models_collaboration::http_bodies::{
     AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, DevicePairingBootstrap,
@@ -40,7 +45,9 @@ use arkret_models_identity::{
 use arkret_wire::{
     DeviceId, Did, Hash, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
-    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PayloadSigner,
+    PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
+    PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_COMMIT, PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_PREPARE,
+    PayloadSigner,
 };
 use chrono::{Duration, Utc};
 use reqwest::header::CONTENT_TYPE;
@@ -611,6 +618,45 @@ impl Client {
         request: &DirectConversationResolveRequestBody,
     ) -> Result<DirectConversationResolveOutcome> {
         self.post(PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, request)
+            .await
+    }
+
+    /// Persist one exact requester-authorized repair relay outbox and wait for
+    /// the destination's atomic closed-target durable-enqueue outcome.
+    pub async fn direct_conversation_repair_dispatch(
+        &self,
+        request: &DirectConversationRepairDispatchRequest,
+    ) -> Result<DirectConversationRepairEnqueueOutcome> {
+        request.validate_shape()?;
+        let outcome: DirectConversationRepairEnqueueOutcome = self
+            .post_protocol_replay_safe(PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH, request)
+            .await?;
+        outcome.validate_shape()?;
+        if outcome.request_id != request.request_id {
+            return Err(Error::Protocol(
+                "repair dispatch outcome request_id mismatch".to_owned(),
+            ));
+        }
+        Ok(outcome)
+    }
+
+    /// Ask the current Principal Server to freeze a DID-authority-backed
+    /// service-binding core and a single-use challenge.
+    pub async fn principal_service_binding_prepare(
+        &self,
+        request: &PrincipalServiceBindingPrepareRequestBody,
+    ) -> Result<PrincipalServiceBindingPrepareOutcome> {
+        self.post(PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_PREPARE, request)
+            .await
+    }
+
+    /// Commit the exact frozen binding after the principal signs its closed
+    /// authorization transcript.
+    pub async fn principal_service_binding_commit(
+        &self,
+        request: &PrincipalServiceBindingCommitRequestBody,
+    ) -> Result<PrincipalServiceBindingCommitOutcome> {
+        self.post(PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_COMMIT, request)
             .await
     }
 }

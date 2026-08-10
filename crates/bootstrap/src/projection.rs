@@ -31,8 +31,8 @@ pub type CellWriteProjector<'a> =
 ///
 /// Keeping this set in one SDK helper prevents receivers from retaining a
 /// stale copy when the registered genesis contract gains another cell.
-pub fn expected_realm_create_cells(_event: &Event) -> BTreeSet<String> {
-    [
+pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
+    let mut cells = [
         REALM_GENESIS_CELL.to_owned(),
         REALM_CREATE_CELL.to_owned(),
         REALM_NOTARY_CELL.to_owned(),
@@ -40,7 +40,32 @@ pub fn expected_realm_create_cells(_event: &Event) -> BTreeSet<String> {
         REALM_AUTHORITY_ROOT_CELL.to_owned(),
     ]
     .into_iter()
-    .collect::<BTreeSet<_>>()
+    .collect::<BTreeSet<_>>();
+    if event
+        .payload
+        .get("object")
+        .and_then(|object| object.get("purpose"))
+        .and_then(serde_json::Value::as_str)
+        == Some("managed_agent_control")
+    {
+        cells.insert(format!(
+            "ak:cell:{}:{}",
+            arkret_wire::CellFamilyId::AGENT_STATUS_V1,
+            event.actor_id
+        ));
+    }
+    if event
+        .payload
+        .get("object")
+        .and_then(|object| object.get("initial_resolution"))
+        .is_some()
+    {
+        cells.insert(format!(
+            "ak:cell:{}",
+            arkret_wire::CellFamilyId::IDENTITY_RESOLUTION_V1
+        ));
+    }
+    cells
 }
 
 /// Project `event` and require every derived write to be directly applicable.

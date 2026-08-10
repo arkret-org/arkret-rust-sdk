@@ -5,13 +5,41 @@
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    EncryptedPayloadScheme, Error, EventId, Hash, RealmId, ReasonCode, Result, SchemaId,
+    EncryptedPayloadScheme, Error, EventId, Hash, RealmId, ReasonCode, Result, SchemaId, ScopeRef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 /// AEAD purpose fixed by `encryption-and-audit.md` §2.10.2.
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
+
+/// Domain separator for the unconditional encrypted-envelope scope commitment.
+pub const AAD_SCOPE_DIGEST_DOMAIN: &str = "ak.aad-scope-v1";
+
+/// Derive the exact `aad.scope_digest` required by
+/// `encryption-and-audit.md` section 2.3.2.1.
+pub fn encrypted_envelope_scope_digest(scope_ref: &ScopeRef, realm_id: &RealmId) -> Result<Hash> {
+    let carried_realm = scope_ref.realm_id_opt().ok_or_else(|| {
+        Error::Protocol("encrypted envelope scope must carry a realm_id".to_owned())
+    })?;
+    if carried_realm != realm_id {
+        return Err(Error::Protocol(
+            "encrypted envelope scope realm_id does not match aad.realm_id".to_owned(),
+        ));
+    }
+    let canonical_scope = canonical::canonical_json_bytes(scope_ref)?;
+    let mut hasher = Sha256::new();
+    hasher.update(AAD_SCOPE_DIGEST_DOMAIN.as_bytes());
+    hasher.update([0]);
+    hasher.update(canonical_scope);
+    hasher.update([0]);
+    hasher.update(realm_id.as_str().as_bytes());
+    Ok(Hash::new(format!(
+        "sha256:{}",
+        hex::encode(hasher.finalize())
+    ))?)
+}
 
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -19,6 +47,7 @@ pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 #[serde(deny_unknown_fields)]
 pub struct EncryptedEnvelopeAad {
     pub realm_id: RealmId,
+    pub scope_digest: Hash,
     pub event_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
@@ -32,15 +61,30 @@ pub struct EncryptedEnvelopeAad {
 
 impl EncryptedEnvelopeAad {
     /// Build the minimal AAD allowed for hidden event-id visibility.
-    pub fn hidden(realm_id: RealmId, event_kind: impl Into<String>) -> Self {
-        Self {
+    pub fn hidden(scope_ref: &ScopeRef, event_kind: impl Into<String>) -> Result<Self> {
+        let realm_id = scope_ref.realm_id_opt().cloned().ok_or_else(|| {
+            Error::Protocol("encrypted envelope scope must carry a realm_id".to_owned())
+        })?;
+        Ok(Self {
+            scope_digest: encrypted_envelope_scope_digest(scope_ref, &realm_id)?,
             realm_id,
             event_kind: event_kind.into(),
             event_id: None,
             event_ref_digest: None,
             causal_refs: None,
             causal_ref_digests: None,
+        })
+    }
+
+    /// Verify the authenticated AAD commitment against the Event's exact scope.
+    pub fn validate_for_scope(&self, scope_ref: &ScopeRef) -> Result<()> {
+        let expected = encrypted_envelope_scope_digest(scope_ref, &self.realm_id)?;
+        if self.scope_digest != expected {
+            return Err(Error::Protocol(
+                "encrypted envelope aad.scope_digest does not match the Event scope_ref".to_owned(),
+            ));
         }
+        Ok(())
     }
 }
 
@@ -265,6 +309,12 @@ impl EncryptedEnvelope {
             }
         }
         Ok(())
+    }
+
+    /// Validate the closed envelope and its unconditional exact-scope binding.
+    pub fn validate_for_scope(&self, scope_ref: &ScopeRef) -> Result<()> {
+        self.validate()?;
+        self.aad.validate_for_scope(scope_ref)
     }
 }
 
@@ -508,6 +558,61 @@ struct EncryptedPayloadDigestMetadata<'a> {
 #[cfg(test)]
 mod aad_visibility_tests {
     use super::*;
+
+    fn fixture_realm() -> RealmId {
+        RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap()
+    }
+
+    #[test]
+    fn scope_digest_matches_normative_realm_and_sidecar_kats() {
+        let realm_id = fixture_realm();
+        let realm_scope = ScopeRef::Realm {
+            realm_id: realm_id.clone(),
+        };
+        let sidecar_scope = ScopeRef::Sidecar {
+            realm_id: realm_id.clone(),
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d",
+            )
+            .unwrap(),
+        };
+        assert_eq!(
+            encrypted_envelope_scope_digest(&realm_scope, &realm_id)
+                .unwrap()
+                .as_str(),
+            "sha256:1ab18cba8cdb5f932820849de9cc736457eebbceffe27fb7a3f63a47f33fd1dc"
+        );
+        assert_eq!(
+            encrypted_envelope_scope_digest(&sidecar_scope, &realm_id)
+                .unwrap()
+                .as_str(),
+            "sha256:56c61cc8c251ac5e050abff7f52e2c99fb3bec8e96ccf01affee217c9bfa9760"
+        );
+    }
+
+    #[test]
+    fn aad_rejects_cross_scope_replay_and_realm_mismatch() {
+        let realm_id = fixture_realm();
+        let realm_scope = ScopeRef::Realm {
+            realm_id: realm_id.clone(),
+        };
+        let sidecar_scope = ScopeRef::Sidecar {
+            realm_id,
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d",
+            )
+            .unwrap(),
+        };
+        let aad = EncryptedEnvelopeAad::hidden(&realm_scope, "ak.message.create").unwrap();
+        aad.validate_for_scope(&realm_scope).unwrap();
+        assert!(aad.validate_for_scope(&sidecar_scope).is_err());
+
+        let other_realm = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0")
+                .unwrap(),
+        };
+        assert!(aad.validate_for_scope(&other_realm).is_err());
+    }
 
     #[test]
     fn aad_visibility_disclosure_order_is_normative() {

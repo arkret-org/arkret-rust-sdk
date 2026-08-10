@@ -652,8 +652,12 @@ impl DirectConversationBoundPayload {
                 })?;
         let expected = direct_conversation_pair_key(
             trust_domain,
-            DirectConversationPairKeyParticipant::unmapped(left),
-            DirectConversationPairKeyParticipant::unmapped(right),
+            DirectConversationPairKeyParticipant::unmapped(arkret_wire::ActorId::from(
+                arkret_wire::project_full_id_to_core_id(&left)?,
+            )),
+            DirectConversationPairKeyParticipant::unmapped(arkret_wire::ActorId::from(
+                arkret_wire::project_full_id_to_core_id(&right)?,
+            )),
         )?;
         if self.pair_key != expected {
             return Err(Error::Protocol(

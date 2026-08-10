@@ -798,8 +798,8 @@ mod tests {
     use crate::lattice::{CellState, SealedOp};
     use crate::state::store::memory::MemoryCellRegistry;
     use crate::{
-        CellRef, Did, EventId, EventRequirements, Hash, Hlc, Precondition, PredicateOp, RealmId,
-        SealBasis, SealId,
+        ActorId, CellRef, EventId, EventRequirements, Hash, Hlc, Precondition, PredicateOp,
+        RealmId, SealBasis, SealId,
     };
 
     fn realm() -> RealmId {
@@ -819,8 +819,8 @@ mod tests {
         .unwrap()
     }
 
-    fn actor() -> Did {
-        Did::new("did:webvh:z6mkfixture:admin.example".to_owned()).unwrap()
+    fn actor() -> ActorId {
+        ActorId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap()
     }
 
     fn control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {

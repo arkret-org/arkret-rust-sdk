@@ -7,10 +7,11 @@
 //! `direct_conversation_agent_genesis`) admission variant of `ak.realm.create`. This module only
 //! carries the query-only resolver and the source-signed founding acceptance receipt.
 
+use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_wire::{
-    CbaProofBundle, Did, DidUrl, Event, EventFederationSubmission, EventId, EventInitialSubmission,
-    FederatedDeviceSigningKeyEvidence, Hash, IdempotencyKey, ProtocolOpaqueId, ProtocolSignature,
-    RealmId, ScopeRef, StrandId,
+    ActorId, Base64UrlString, CbaProofBundle, DidUrl, Event, EventFederationSubmission, EventId,
+    EventInitialSubmission, FederatedDeviceSigningKeyEvidence, FullId, Hash, IdempotencyKey,
+    PrincipalId, ProtocolOpaqueId, ProtocolSignature, RealmId, ScopeRef, ServiceId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,12 +28,12 @@ pub const PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN: &[u8] =
     b"ak.principal-service-binding-proof.v1\n";
 pub const PRINCIPAL_SERVICE_CUTOVER_DOMAIN: &[u8] = b"ak.principal-service-cutover.v1\n";
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceVerificationMethod {
     pub id: DidUrl,
-    pub controller: Did,
+    pub controller: FullId,
     #[serde(rename = "type")]
     pub method_type: MultikeyMethodType,
     pub public_key_multibase: String,
@@ -77,8 +78,8 @@ pub enum DidBindingMethodProofKind {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DidBindingWitness {
-    pub witness_did: Did,
-    pub controlling_organization: Did,
+    pub witness_did: FullId,
+    pub controlling_organization: FullId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,18 +102,20 @@ pub struct DidBindingEvidenceReceipt {
     pub method_proofs: Vec<DidBindingMethodProof>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AcceptedAtServiceBinding {
-    pub principal_id: Did,
-    pub service_id: Did,
+pub struct AcceptedAtServiceBindingCore {
+    pub principal_id: PrincipalId,
+    pub service_id: ServiceId,
     pub trust_domain: String,
     pub service_kind: PrincipalServiceKind,
     pub service_verification_method: ServiceVerificationMethod,
     pub endpoint_origins: Vec<String>,
     pub document_digest: Hash,
     pub authority_evidence: DidBindingEvidenceReceipt,
+    pub service_resolution: ServiceResolutionCarrier,
+    pub authorization_challenge: Base64UrlString,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history_head: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -127,20 +130,18 @@ pub struct AcceptedAtServiceBinding {
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub predecessor_binding_digest: Option<Hash>,
     pub binding_digest: Hash,
-    pub service_acceptance_proof: ProtocolSignature,
-    pub principal_authorization_proof: ProtocolSignature,
 }
 
-impl AcceptedAtServiceBinding {
+impl AcceptedAtServiceBindingCore {
     pub fn computed_binding_digest(&self) -> arkret_wire::Result<Hash> {
         let mut value = serde_json::to_value(self).map_err(protocol_error)?;
         let object = value.as_object_mut().ok_or_else(|| {
             arkret_wire::Error::Protocol("principal service binding must be an object".to_owned())
         })?;
         object.remove("binding_digest");
-        object.remove("service_acceptance_proof");
-        object.remove("principal_authorization_proof");
         let bytes = arkret_canonical::canonical_json_bytes(&value).map_err(protocol_error)?;
         let mut preimage = Vec::with_capacity(PRINCIPAL_SERVICE_BINDING_DOMAIN.len() + bytes.len());
         preimage.extend_from_slice(PRINCIPAL_SERVICE_BINDING_DOMAIN);
@@ -149,15 +150,141 @@ impl AcceptedAtServiceBinding {
     }
 
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        if self.service_verification_method.controller != self.service_id
+        let controller_service_id = ServiceId::from(arkret_wire::project_full_id_to_core_id(
+            &self.service_verification_method.controller,
+        )?);
+        let inline_resolution_matches = match &self.service_resolution {
+            ServiceResolutionCarrier::Inline { inline } => {
+                inline.record.service_id == self.service_id
+                    && inline.record.full_id == self.service_verification_method.controller
+            }
+            ServiceResolutionCarrier::CurrentRecordUrl {
+                current_record_url, ..
+            } => !current_record_url.trim().is_empty(),
+        };
+        if controller_service_id != self.service_id
+            || !inline_resolution_matches
+            || self.authority_evidence.document_digest != self.document_digest
+            || self.authority_evidence.method.is_empty()
+            || !self
+                .authority_evidence
+                .method
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+            || !(22..=128).contains(&self.authorization_challenge.as_str().len())
+            || self.computed_binding_digest()? != self.binding_digest
+            || self.accepted_at != self.not_before
+            || self.expires_at.is_some_and(|until| until < self.not_before)
+            || self.endpoint_origins.is_empty()
+            || self.endpoint_origins.len() > 16
+            || self
+                .endpoint_origins
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "invalid accepted-at principal service binding core".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn proof_signing_input_bytes(
+        &self,
+        proof_purpose: PrincipalServiceBindingProofPurpose,
+        verification_method: &DidUrl,
+    ) -> arkret_wire::Result<Vec<u8>> {
+        let material = serde_json::json!({
+            "binding_digest": self.binding_digest,
+            "accepted_at": arkret_canonical::format_timestamp_canonical(self.accepted_at),
+            "proof_purpose": proof_purpose,
+            "verification_method": verification_method,
+            "audience": self.service_id,
+        });
+        let canonical =
+            arkret_canonical::canonical_json_bytes(&material).map_err(protocol_error)?;
+        let mut preimage =
+            Vec::with_capacity(PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN.len() + canonical.len());
+        preimage.extend_from_slice(PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN);
+        preimage.extend_from_slice(&canonical);
+        Ok(Hash::new(arkret_canonical::sha256_digest(preimage))?
+            .as_str()
+            .as_bytes()
+            .to_vec())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AcceptedAtServiceBinding {
+    pub principal_id: PrincipalId,
+    pub service_id: ServiceId,
+    pub trust_domain: String,
+    pub service_kind: PrincipalServiceKind,
+    pub service_verification_method: ServiceVerificationMethod,
+    pub endpoint_origins: Vec<String>,
+    pub document_digest: Hash,
+    pub authority_evidence: DidBindingEvidenceReceipt,
+    pub service_resolution: ServiceResolutionCarrier,
+    pub authorization_challenge: Base64UrlString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history_head: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version_id: Option<String>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub not_before: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub predecessor_binding_digest: Option<Hash>,
+    pub binding_digest: Hash,
+    pub service_acceptance_proof: ProtocolSignature,
+    pub principal_authorization_proof: ProtocolSignature,
+}
+
+impl AcceptedAtServiceBinding {
+    #[must_use]
+    pub fn core(&self) -> AcceptedAtServiceBindingCore {
+        AcceptedAtServiceBindingCore {
+            principal_id: self.principal_id.clone(),
+            service_id: self.service_id.clone(),
+            trust_domain: self.trust_domain.clone(),
+            service_kind: self.service_kind,
+            service_verification_method: self.service_verification_method.clone(),
+            endpoint_origins: self.endpoint_origins.clone(),
+            document_digest: self.document_digest.clone(),
+            authority_evidence: self.authority_evidence.clone(),
+            service_resolution: self.service_resolution.clone(),
+            authorization_challenge: self.authorization_challenge.clone(),
+            history_head: self.history_head.clone(),
+            version_id: self.version_id.clone(),
+            not_before: self.not_before,
+            expires_at: self.expires_at,
+            accepted_at: self.accepted_at,
+            predecessor_binding_digest: self.predecessor_binding_digest.clone(),
+            binding_digest: self.binding_digest.clone(),
+        }
+    }
+
+    pub fn computed_binding_digest(&self) -> arkret_wire::Result<Hash> {
+        self.core().computed_binding_digest()
+    }
+
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        let controller_service_id = ServiceId::from(arkret_wire::project_full_id_to_core_id(
+            &self.service_verification_method.controller,
+        )?);
+        if self.core().validate_shape().is_err()
+            || controller_service_id != self.service_id
             || self.service_verification_method.id
                 != self.service_acceptance_proof.verification_method
-            || !self
-                .principal_authorization_proof
-                .verification_method
-                .as_str()
-                .strip_prefix(self.principal_id.as_str())
-                .is_some_and(|suffix| suffix.starts_with('#') || suffix.starts_with('?'))
             || self.authority_evidence.document_digest != self.document_digest
             || self.authority_evidence.method.is_empty()
             || !self
@@ -166,7 +293,9 @@ impl AcceptedAtServiceBinding {
                 .bytes()
                 .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
             || self.computed_binding_digest()? != self.binding_digest
-            || self.accepted_at < self.not_before
+            || self.service_acceptance_proof.created_at != self.accepted_at
+            || self.principal_authorization_proof.created_at != self.accepted_at
+            || self.accepted_at != self.not_before
             || self
                 .expires_at
                 .is_some_and(|until| self.accepted_at > until)
@@ -184,38 +313,104 @@ impl AcceptedAtServiceBinding {
         Ok(())
     }
 
+    /// Bind the principal proof method to a separately verified, method-native
+    /// current full id. Shape validation cannot perform this projection: a
+    /// stable `core_id` is not a DID URL base.
+    pub fn validate_principal_full_id(&self, full_id: &FullId) -> arkret_wire::Result<()> {
+        let projected = PrincipalId::from(arkret_wire::project_full_id_to_core_id(full_id)?);
+        let proof_full_id = self
+            .principal_authorization_proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(base, _)| base)
+            .ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "principal authorization verification method has no DID fragment".to_owned(),
+                )
+            })?;
+        if projected != self.principal_id || proof_full_id != full_id.as_str() {
+            return Err(arkret_wire::Error::Protocol(
+                "principal authorization method does not project to principal core id".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn proof_signing_input_bytes(
         &self,
         proof_purpose: PrincipalServiceBindingProofPurpose,
         verification_method: &DidUrl,
     ) -> arkret_wire::Result<Vec<u8>> {
-        let material = serde_json::json!({
-            "binding_digest": self.binding_digest,
-            "accepted_at": arkret_canonical::format_timestamp_canonical(self.accepted_at),
-            "proof_purpose": proof_purpose,
-            "verification_method": verification_method,
-        });
-        let canonical =
-            arkret_canonical::canonical_json_bytes(&material).map_err(protocol_error)?;
-        let mut preimage =
-            Vec::with_capacity(PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN.len() + canonical.len());
-        preimage.extend_from_slice(PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN);
-        preimage.extend_from_slice(&canonical);
-        Ok(Hash::new(arkret_canonical::sha256_digest(preimage))?
-            .as_str()
-            .as_bytes()
-            .to_vec())
+        self.core()
+            .proof_signing_input_bytes(proof_purpose, verification_method)
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalServiceBindingPrepareRequestBody {
+    pub request_id: Base64UrlString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_current_binding_digest: Option<Hash>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalServiceBindingPrepareOutcome {
+    pub request_id: Base64UrlString,
+    pub challenge_id: Base64UrlString,
+    pub binding_draft: AcceptedAtServiceBindingCore,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+impl PrincipalServiceBindingPrepareOutcome {
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if !(22..=128).contains(&self.request_id.as_str().len())
+            || !(22..=128).contains(&self.challenge_id.as_str().len())
+            || self.challenge_id != self.binding_draft.authorization_challenge
+            || self.issued_at != self.binding_draft.accepted_at
+            || self.issued_at != self.binding_draft.not_before
+            || self.expires_at <= self.issued_at
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "invalid principal service binding prepare outcome".to_owned(),
+            ));
+        }
+        self.binding_draft.validate_shape()
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalServiceBindingCommitRequestBody {
+    pub request_id: Base64UrlString,
+    pub challenge_id: Base64UrlString,
+    pub binding_digest: Hash,
+    pub principal_authorization_proof: ProtocolSignature,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalServiceBindingCommitOutcome {
+    pub binding: AcceptedAtServiceBinding,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalServiceCutover {
-    pub principal_id: Did,
+    pub principal_id: PrincipalId,
     pub trust_domain: String,
-    pub previous_service_id: Did,
-    pub new_service_id: Did,
+    pub previous_service_id: ServiceId,
+    pub new_service_id: ServiceId,
     pub previous_binding_digest: Hash,
     pub new_binding: AcceptedAtServiceBinding,
     pub cutover_sequence: u64,
@@ -257,7 +452,7 @@ pub struct PrincipalServiceBindingContinuity {
 }
 
 impl PrincipalServiceBindingContinuity {
-    pub fn validate_shape(&self, transport_source: &Did) -> arkret_wire::Result<()> {
+    pub fn validate_shape(&self, transport_source: &ServiceId) -> arkret_wire::Result<()> {
         self.accepted_binding.validate_shape()?;
         if self.cutovers.len() > 16 {
             return Err(arkret_wire::Error::Protocol(
@@ -428,7 +623,11 @@ impl DirectConversationFoundingPlan {
                 .map_err(protocol_error)?;
         if member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
-            || member_payload.actor_id.as_ref() == Some(&create.actor_id)
+            || member_payload.actor_id.as_ref().is_some_and(|actor_id| {
+                arkret_wire::project_full_id_to_core_id(actor_id)
+                    .map(ActorId::from)
+                    .is_ok_and(|actor_id| actor_id == create.actor_id)
+            })
             || member_payload.realm_id.as_ref() != Some(&realm_id)
         {
             return Err(founding_unit_invalid("founding peer membership mismatch"));
@@ -462,7 +661,7 @@ impl DirectConversationFoundingPlan {
 }
 
 impl DirectConversationFounderBasisEvidence {
-    pub fn participants_and_founder(&self) -> arkret_wire::Result<([Did; 2], Did)> {
+    pub fn participants_and_founder(&self) -> arkret_wire::Result<([ActorId; 2], ActorId)> {
         match self {
             Self::ControllerAgent { .. } => Err(arkret_wire::Error::Protocol(
                 "controller_agent founding evidence requires the accepted provision projection"
@@ -489,7 +688,7 @@ impl DirectConversationFounderBasisEvidence {
                 let root = root_basis_continuity_chain
                     .last()
                     .unwrap_or(basis_evidence_bundle);
-                let (participants, request_ref) = match &root.basis {
+                let (full_participants, request_ref) = match &root.basis {
                     crate::contact_operations::ContactBasis::Normal {
                         sorted_pair_members,
                         request_event_ref,
@@ -500,7 +699,7 @@ impl DirectConversationFounderBasisEvidence {
                         requests,
                     } => (sorted_pair_members.clone(), &requests[0].request_event_ref),
                 };
-                if participants[0].as_str() >= participants[1].as_str() {
+                if full_participants[0].as_str() >= full_participants[1].as_str() {
                     return Err(arkret_wire::Error::Protocol(
                         "direct conversation basis pair is not canonical and distinct".to_owned(),
                     ));
@@ -515,12 +714,12 @@ impl DirectConversationFounderBasisEvidence {
                             "direct conversation root basis request receipt is missing".to_owned(),
                         )
                     })?;
-                let founder = match &root.basis {
+                let full_founder = match &root.basis {
                     crate::contact_operations::ContactBasis::Normal { .. } => {
-                        if request_issuer == participants[0] {
-                            participants[1].clone()
-                        } else if request_issuer == participants[1] {
-                            participants[0].clone()
+                        if request_issuer == full_participants[0] {
+                            full_participants[1].clone()
+                        } else if request_issuer == full_participants[1] {
+                            full_participants[0].clone()
                         } else {
                             return Err(arkret_wire::Error::Protocol(
                                 "direct conversation request issuer is outside the pair".to_owned(),
@@ -529,6 +728,16 @@ impl DirectConversationFounderBasisEvidence {
                     }
                     crate::contact_operations::ContactBasis::Glare { .. } => request_issuer,
                 };
+                let participants = [
+                    ActorId::from(arkret_wire::project_full_id_to_core_id(
+                        &full_participants[0],
+                    )?),
+                    ActorId::from(arkret_wire::project_full_id_to_core_id(
+                        &full_participants[1],
+                    )?),
+                ];
+                let founder =
+                    ActorId::from(arkret_wire::project_full_id_to_core_id(&full_founder)?);
                 Ok((participants, founder))
             }
         }
@@ -537,7 +746,7 @@ impl DirectConversationFounderBasisEvidence {
     pub fn human_pair_key_and_authorization_core(
         &self,
         trust_domain_id: arkret_wire::TypedTrustDomainId,
-    ) -> arkret_wire::Result<(Hash, Did, DirectConversationFoundingAuthorizationCore)> {
+    ) -> arkret_wire::Result<(Hash, ActorId, DirectConversationFoundingAuthorizationCore)> {
         let Self::Human {
             basis_evidence_bundle,
             root_basis_continuity_chain,
@@ -765,6 +974,16 @@ pub struct DirectConversationResolveRequestBody {
     pub peer: ContactPeer,
 }
 
+/// Verbatim authoring material returned only when the authenticated principal
+/// is entitled to author the immutable three-Event founding unit.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DirectConversationFoundingInput {
+    pub founder_basis_evidence: DirectConversationFounderBasisEvidence,
+    pub source_service_binding: AcceptedAtServiceBinding,
+}
+
 /// Permanent Direct Conversation coordinates.
 ///
 /// `binding_event_ref` appears only from `found`/`suspended` onward; it is absent while the pair is
@@ -846,7 +1065,9 @@ impl DirectConversationClientLocalBlocker {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DirectConversationResolveOutcome {
     /// No accepted Realm, and this principal is the derived founder.
-    CreationRequired,
+    CreationRequired {
+        next_founding_input: DirectConversationFoundingInput,
+    },
     /// No accepted Realm, this principal is the founder, but a current gate refuses creation.
     /// No coordinates are allocated in this state.
     CreationBlocked {
@@ -862,15 +1083,22 @@ pub enum DirectConversationResolveOutcome {
         coordinates: DirectConversationCoordinates,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         active_mls_generation_ref: Option<EventId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        active_mls_generation_value_digest: Option<Hash>,
     },
     Found {
         coordinates: DirectConversationCoordinates,
         active_mls_generation_ref: EventId,
+        active_mls_generation_value_digest: Hash,
         send_blockers: Vec<DirectConversationSendBlocker>,
     },
     Suspended {
         coordinates: DirectConversationCoordinates,
         blockers: Vec<DirectConversationSendBlocker>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        active_mls_generation_ref: Option<EventId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        active_mls_generation_value_digest: Option<Hash>,
     },
     TemporarilyUnavailable {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -894,7 +1122,35 @@ impl DirectConversationResolveOutcome {
     /// Whether the caller may author the founding unit for this pair.
     #[must_use]
     pub fn is_founder_creation_point(&self) -> bool {
-        matches!(self, Self::CreationRequired)
+        matches!(self, Self::CreationRequired { .. })
+    }
+
+    /// Validate the dependent pair used as the repair/CAS predecessor. A
+    /// resolver never returns an Event ref without the digest of the complete
+    /// accepted singleton value, or vice versa.
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        let pair = match self {
+            Self::Provisional {
+                active_mls_generation_ref,
+                active_mls_generation_value_digest,
+                ..
+            }
+            | Self::Suspended {
+                active_mls_generation_ref,
+                active_mls_generation_value_digest,
+                ..
+            } => Some((
+                active_mls_generation_ref.is_some(),
+                active_mls_generation_value_digest.is_some(),
+            )),
+            _ => None,
+        };
+        if pair.is_some_and(|(event_ref, value_digest)| event_ref != value_digest) {
+            return Err(arkret_wire::Error::Protocol(
+                "active MLS generation Event ref and whole-value digest must be paired".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -929,7 +1185,7 @@ pub enum DirectConversationFoundingAuthorizationCore {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationFoundingAcceptanceReceipt {
     pub pair_key: Hash,
-    pub founder_id: Did,
+    pub founder_id: ActorId,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
@@ -937,7 +1193,7 @@ pub struct DirectConversationFoundingAcceptanceReceipt {
     /// Always `true` on the wire: the receipt is only emitted inside the slot-committing
     /// transaction.
     pub slot_committed: bool,
-    pub issuer_service_id: Did,
+    pub issuer_service_id: ServiceId,
     pub issuer_service_binding_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -968,13 +1224,13 @@ impl DirectConversationFoundingAcceptanceReceipt {
         #[derive(Serialize)]
         struct ReceiptTranscript<'a> {
             pair_key: &'a Hash,
-            founder_id: &'a Did,
+            founder_id: &'a ActorId,
             realm_id: &'a RealmId,
             main_strand_id: &'a StrandId,
             founding_unit_digest: &'a Hash,
             authorization_core: &'a DirectConversationFoundingAuthorizationCore,
             slot_committed: bool,
-            issuer_service_id: &'a Did,
+            issuer_service_id: &'a ServiceId,
             issuer_service_binding_digest: &'a Hash,
             #[serde(
                 serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"

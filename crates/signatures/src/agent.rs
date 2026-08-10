@@ -10,14 +10,14 @@ use arkret_models_collaboration::agent_operations::{
     AgentRuntimeKeyPossessionProofKind,
     agent_runtime_key_binding_digest as model_agent_runtime_key_binding_digest,
 };
-use arkret_models_collaboration::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_models_collaboration::events_payloads::agent::{
     AgentKeyAuthorizePayload, AgentKeyAuthorizePayloadRuntimeAttestation,
 };
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
+use arkret_models_identity::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_wire::{
-    Base64UrlString, DeviceId, Did, DidUrl, Event, EventInitialSubmission, EventKind, Hash,
-    NonEmptyString,
+    ActorId, Base64UrlString, DeviceId, Did, DidUrl, Event, EventInitialSubmission, EventKind,
+    Hash, NonEmptyString, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
@@ -283,7 +283,7 @@ fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> 
             "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
         ));
     }
-    if authorize_event.actor_id != *agent_id {
+    if authorize_event.actor_id != ActorId::from(project_full_id_to_core_id(agent_id)?) {
         return Err(Error::Protocol(
             "agent authorize_event.actor_id must match agent_id".to_owned(),
         ));
@@ -447,7 +447,7 @@ mod tests {
 
     use super::*;
 
-    fn initial_submission(event: Event) -> EventInitialSubmission {
+    fn initial_submission(event: Event, actor_full_id: Did) -> EventInitialSubmission {
         let policy = AuthoritySetPolicy {
             schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
@@ -464,7 +464,7 @@ mod tests {
                 issuer_role: AuthoritySetIssuerRole::RealmAdmission,
                 allowed_actions: vec!["ak.agent.key.authorize".to_owned()],
                 issuers: vec![AuthoritySetIssuer {
-                    verification_method: DidUrl::new(format!("{}#controller", event.actor_id))
+                    verification_method: DidUrl::new(format!("{actor_full_id}#controller"))
                         .unwrap(),
                 }],
                 threshold: 1,
@@ -479,7 +479,7 @@ mod tests {
                 basis_ref: LeaseBasisRef::Seal(
                     SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
                 ),
-                actor_id: event.actor_id.clone(),
+                actor_id: actor_full_id,
                 device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
                 scope_ref: event.scope_ref.clone(),
                 action: "ak.agent.key.authorize".to_owned(),
@@ -760,7 +760,7 @@ mod tests {
                     [0x41; 32],
                 )),
             },
-            agent_id.clone(),
+            ActorId::from(project_full_id_to_core_id(&agent_id).unwrap()),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             serde_json::to_value(authorize_payload).unwrap(),
@@ -785,7 +785,7 @@ mod tests {
                     &SigningKey::from_bytes(&[3_u8; 32]),
                 )
                 .unwrap(),
-                initial_submission(authorize_event),
+                initial_submission(authorize_event, agent_id.clone()),
             )
             .unwrap();
 

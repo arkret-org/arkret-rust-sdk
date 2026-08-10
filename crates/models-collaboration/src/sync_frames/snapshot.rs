@@ -27,7 +27,7 @@ pub struct RangeCompletenessAttestationEventRangeToFrontier {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RangeCompletenessAttestationEventRangeActorSeqRangesItem {
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     pub from_seq_exclusive: i64,
     pub to_seq_inclusive: u64,
 }

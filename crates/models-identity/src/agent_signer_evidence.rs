@@ -1,12 +1,12 @@
-//! Current-only portable Native Agent signer-evidence wire models.
+//! Current and historical portable Native Agent signer-evidence wire models.
 //!
 //! Current admission and historical verification are deliberately different
 //! enum branches. Historical validity is carried by the destination-signed
 //! Event admission receipt and is never reconstructed from a later snapshot.
 
 use arkret_wire::{
-    Base64UrlString, Did, DidUrl, Event, EventId, Hash, NonEmptyString, ProtocolOperationId,
-    RealmId, SchemaId, Seal, SealId,
+    Base64UrlString, Did, DidUrl, Event, EventId, Hash, NonEmptyString, PrincipalId,
+    ProtocolOperationId, RealmId, RequestId, SchemaId, Seal, SealId, ServiceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -348,18 +348,39 @@ pub enum ControllerAccountStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ControllerAccountGateAttestation {
     pub schema: NonEmptyString,
-    pub principal_id: Did,
+    pub principal_id: PrincipalId,
     pub eligibility: ControllerAccountEligibility,
     pub status: ControllerAccountStatus,
     pub basis: ControllerAccountGateBasis,
     pub basis_digest: Hash,
-    pub authority_service_id: Did,
+    pub authority_service_id: ServiceId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub proof: AgentDetachedJws,
+}
+
+/// Authenticated S2S request used by a Native Agent PCR authority to obtain
+/// the Account Authority-owned controller lifecycle gate.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ControllerAccountGateAttestationIssueRequestBody {
+    pub request_id: RequestId,
+    pub principal_id: PrincipalId,
+    pub agent_authority_service_id: ServiceId,
+    pub agent_authority_service_resolution: crate::AuthenticatedServiceResolution,
+}
+
+/// Byte-stable result of controller gate attestation issuance.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ControllerAccountGateAttestationIssueOutcome {
+    pub request_id: RequestId,
+    pub controller_account_gate_attestation: ControllerAccountGateAttestation,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -439,6 +460,39 @@ pub struct AgentEvidenceTransparency {
     pub inclusion_proof: Vec<Hash>,
     pub consistency_proof: Vec<Hash>,
     pub witness_signatures: Vec<NonEmptyString>,
+}
+
+/// Closed `current_admission_evidence` branch used when a peer KeyPackage
+/// response must carry target Native Agent authority without permitting the
+/// historical-event branch.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CurrentAgentSignerEvidence {
+    pub schema: NonEmptyString,
+    pub admission_evidence: AgentAdmissionEvidence,
+    pub current_observation: AgentCurrentObservation,
+    pub outer_attestation: AgentEvidenceOuterAttestation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transparency: Option<AgentEvidenceTransparency>,
+}
+
+impl From<CurrentAgentSignerEvidence> for AgentSignerEvidence {
+    fn from(value: CurrentAgentSignerEvidence) -> Self {
+        Self::CurrentAdmission {
+            schema: value.schema,
+            admission_evidence: value.admission_evidence,
+            current_observation: value.current_observation,
+            outer_attestation: value.outer_attestation,
+            transparency: value.transparency,
+        }
+    }
+}
+
+impl From<&CurrentAgentSignerEvidence> for AgentSignerEvidence {
+    fn from(value: &CurrentAgentSignerEvidence) -> Self {
+        value.clone().into()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

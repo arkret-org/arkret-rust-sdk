@@ -394,7 +394,11 @@ pub fn verify_identity_creation_control_proof(
     proof: &IdentityCreationControlProof,
 ) -> Result<ValidatedPrincipalInception, WebvhInceptionError> {
     let validated = validate_principal_inception_operation(request)?;
-    if proof.principal_id != validated.principal_id
+    let projected =
+        arkret_wire::project_full_id_to_core_id(&validated.principal_id).map_err(|error| {
+            WebvhInceptionError::InvalidProof(format!("invalid principal projection: {error}"))
+        })?;
+    if proof.principal_id != projected
         || proof.operation_digest != validated.operation_digest
         || proof.did_version_id != validated.did_version_id
         || proof.log_head_digest != validated.log_head_digest

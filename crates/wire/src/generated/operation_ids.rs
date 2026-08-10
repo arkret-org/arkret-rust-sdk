@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-10.2;
-//! sha256=f1a3286cd556c1a4eef7ac3d19fb78917f6c3de705e3a8e6f879b8347a0bfc6f Entries: registered=227
+//! Input: registry/operation-registry.json; version=2026-08-10.5;
+//! sha256=a9c839bac4b192cedb0ecedab010278b3a146b5c353bd2732c2a167731ca43d4 Entries: registered=236
 
 use serde::{Deserialize, Serialize};
 
@@ -37,6 +37,7 @@ pub enum ServiceOperationId {
     FindDirectoryReadSearchUsers,
     GateAccountCommandAbandonIdentityCreation,
     GateAccountCommandIntrospectSessionGrant,
+    GateAccountCommandIssueControllerGateAttestation,
     GateAccountCommandIssueDidBindingChallenge,
     GateAccountCommandIssueIdentityAbandonmentChallenge,
     GateAccountCommandIssueIdentityBindingChallenge,
@@ -57,6 +58,7 @@ pub enum ServiceOperationId {
     OpenDevicePairingCommandStage,
     OpenDevicePairingReadResolve,
     OpenDevicePairingReadStatus,
+    OpenIdentityReadResolution,
     OpenInviteLocatorReadResolve,
     OpenMimiCommandNotify,
     OpenMimiCommandProxyDownload,
@@ -69,9 +71,11 @@ pub enum ServiceOperationId {
     OpenMimiReadGroupInfo,
     OpenMimiReadIdentifiers,
     OpenMimiReadProviderDirectory,
+    OpenServiceReadResolution,
     PeerAccountStatusCommandSubmit,
     PeerAccountStatusReadAuthoringBasis,
     PeerContactsCommandSubmit,
+    PeerDirectConversationCommandRepairRelay,
     PeerErasureReceiptCommandSubmit,
     PeerErasureReceiptResourceGet,
     PeerEventsCommandSubmit,
@@ -84,6 +88,8 @@ pub enum ServiceOperationId {
     PeerKeysKeypackagesReadClaim,
     PeerMlsReadGroupStateMaterial,
     PeerPrincipalGenesisCommandSubmit,
+    PeerServiceResolutionCommandPublish,
+    PeerServiceResolutionReadResolve,
     PeerSignalCommandRelay,
     PeerSnapshotReadManifestHead,
     RootIdentityCommandSubmitDidOperation,
@@ -168,6 +174,7 @@ pub enum ServiceOperationId {
     SelfDeviceMessagesCommandAck,
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesReadList,
+    SelfDirectConversationCommandRepairDispatch,
     SelfDirectConversationReadResolve,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
@@ -201,6 +208,8 @@ pub enum ServiceOperationId {
     SelfMorphReadList,
     SelfMorphResourceGet,
     SelfPolicyReadCheck,
+    SelfPrincipalServiceBindingCommandCommit,
+    SelfPrincipalServiceBindingCommandPrepare,
     SelfReadCursorCommandAdvance,
     SelfReadCursorReadList,
     SelfRealmCommandArchive,
@@ -267,6 +276,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_USERS,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE,
@@ -287,6 +297,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_DEVICE_PAIRING_COMMAND_STAGE,
     ServiceOperationId::OPEN_DEVICE_PAIRING_READ_RESOLVE,
     ServiceOperationId::OPEN_DEVICE_PAIRING_READ_STATUS,
+    ServiceOperationId::OPEN_IDENTITY_READ_RESOLUTION,
     ServiceOperationId::OPEN_INVITE_LOCATOR_READ_RESOLVE,
     ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY,
     ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD,
@@ -299,9 +310,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_READ_GROUP_INFO,
     ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS,
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
+    ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
@@ -314,6 +327,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL,
     ServiceOperationId::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH,
+    ServiceOperationId::PEER_SERVICE_RESOLUTION_READ_RESOLVE,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY,
     ServiceOperationId::PEER_SNAPSHOT_READ_MANIFEST_HEAD,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION,
@@ -398,6 +413,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST,
+    ServiceOperationId::SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH,
     ServiceOperationId::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
@@ -431,6 +447,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MORPH_READ_LIST,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET,
     ServiceOperationId::SELF_POLICY_READ_CHECK,
+    ServiceOperationId::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT,
+    ServiceOperationId::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE,
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST,
     ServiceOperationId::SELF_REALM_COMMAND_ARCHIVE,
@@ -537,6 +555,7 @@ impl ServiceOperationId {
         Self::FindDirectoryReadSearchUsers,
         Self::GateAccountCommandAbandonIdentityCreation,
         Self::GateAccountCommandIntrospectSessionGrant,
+        Self::GateAccountCommandIssueControllerGateAttestation,
         Self::GateAccountCommandIssueDidBindingChallenge,
         Self::GateAccountCommandIssueIdentityAbandonmentChallenge,
         Self::GateAccountCommandIssueIdentityBindingChallenge,
@@ -557,6 +576,7 @@ impl ServiceOperationId {
         Self::OpenDevicePairingCommandStage,
         Self::OpenDevicePairingReadResolve,
         Self::OpenDevicePairingReadStatus,
+        Self::OpenIdentityReadResolution,
         Self::OpenInviteLocatorReadResolve,
         Self::OpenMimiCommandNotify,
         Self::OpenMimiCommandProxyDownload,
@@ -569,9 +589,11 @@ impl ServiceOperationId {
         Self::OpenMimiReadGroupInfo,
         Self::OpenMimiReadIdentifiers,
         Self::OpenMimiReadProviderDirectory,
+        Self::OpenServiceReadResolution,
         Self::PeerAccountStatusCommandSubmit,
         Self::PeerAccountStatusReadAuthoringBasis,
         Self::PeerContactsCommandSubmit,
+        Self::PeerDirectConversationCommandRepairRelay,
         Self::PeerErasureReceiptCommandSubmit,
         Self::PeerErasureReceiptResourceGet,
         Self::PeerEventsCommandSubmit,
@@ -584,6 +606,8 @@ impl ServiceOperationId {
         Self::PeerKeysKeypackagesReadClaim,
         Self::PeerMlsReadGroupStateMaterial,
         Self::PeerPrincipalGenesisCommandSubmit,
+        Self::PeerServiceResolutionCommandPublish,
+        Self::PeerServiceResolutionReadResolve,
         Self::PeerSignalCommandRelay,
         Self::PeerSnapshotReadManifestHead,
         Self::RootIdentityCommandSubmitDidOperation,
@@ -668,6 +692,7 @@ impl ServiceOperationId {
         Self::SelfDeviceMessagesCommandAck,
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesReadList,
+        Self::SelfDirectConversationCommandRepairDispatch,
         Self::SelfDirectConversationReadResolve,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
@@ -701,6 +726,8 @@ impl ServiceOperationId {
         Self::SelfMorphReadList,
         Self::SelfMorphResourceGet,
         Self::SelfPolicyReadCheck,
+        Self::SelfPrincipalServiceBindingCommandCommit,
+        Self::SelfPrincipalServiceBindingCommandPrepare,
         Self::SelfReadCursorCommandAdvance,
         Self::SelfReadCursorReadList,
         Self::SelfRealmCommandArchive,
@@ -786,6 +813,8 @@ impl ServiceOperationId {
         "ak.gate.account.command.abandon_identity_creation";
     pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT: &'static str =
         "ak.gate.account.command.introspect_session_grant";
+    pub const GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION: &'static str =
+        "ak.gate.account.command.issue_controller_gate_attestation";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE: &'static str =
         "ak.gate.account.command.issue_did_binding_challenge";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE: &'static str =
@@ -822,6 +851,7 @@ impl ServiceOperationId {
     pub const OPEN_DEVICE_PAIRING_READ_RESOLVE: &'static str =
         "ak.open.device_pairing.read.resolve";
     pub const OPEN_DEVICE_PAIRING_READ_STATUS: &'static str = "ak.open.device_pairing.read.status";
+    pub const OPEN_IDENTITY_READ_RESOLUTION: &'static str = "ak.open.identity.read.resolution";
     pub const OPEN_INVITE_LOCATOR_READ_RESOLVE: &'static str =
         "ak.open.invite_locator.read.resolve";
     pub const OPEN_MIMI_COMMAND_NOTIFY: &'static str = "ak.open.mimi.command.notify";
@@ -841,11 +871,14 @@ impl ServiceOperationId {
     pub const OPEN_MIMI_READ_IDENTIFIERS: &'static str = "ak.open.mimi.read.identifiers";
     pub const OPEN_MIMI_READ_PROVIDER_DIRECTORY: &'static str =
         "ak.open.mimi.read.provider_directory";
+    pub const OPEN_SERVICE_READ_RESOLUTION: &'static str = "ak.open.service.read.resolution";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT: &'static str =
         "ak.peer.account_status.command.submit";
     pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS: &'static str =
         "ak.peer.account_status.read.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
+    pub const PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY: &'static str =
+        "ak.peer.direct_conversation.command.repair_relay";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT: &'static str =
         "ak.peer.erasure_receipt.command.submit";
     pub const PEER_ERASURE_RECEIPT_RESOURCE_GET: &'static str =
@@ -864,6 +897,10 @@ impl ServiceOperationId {
         "ak.peer.mls.read.group_state_material";
     pub const PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT: &'static str =
         "ak.peer.principal_genesis.command.submit";
+    pub const PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH: &'static str =
+        "ak.peer.service_resolution.command.publish";
+    pub const PEER_SERVICE_RESOLUTION_READ_RESOLVE: &'static str =
+        "ak.peer.service_resolution.read.resolve";
     pub const PEER_SIGNAL_COMMAND_RELAY: &'static str = "ak.peer.signal.command.relay";
     pub const PEER_SNAPSHOT_READ_MANIFEST_HEAD: &'static str =
         "ak.peer.snapshot.read.manifest_head";
@@ -989,6 +1026,8 @@ impl ServiceOperationId {
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
         "ak.self.device_messages.command.send";
     pub const SELF_DEVICE_MESSAGES_READ_LIST: &'static str = "ak.self.device_messages.read.list";
+    pub const SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH: &'static str =
+        "ak.self.direct_conversation.command.repair_dispatch";
     pub const SELF_DIRECT_CONVERSATION_READ_RESOLVE: &'static str =
         "ak.self.direct_conversation.read.resolve";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
@@ -1038,6 +1077,10 @@ impl ServiceOperationId {
     pub const SELF_MORPH_READ_LIST: &'static str = "ak.self.morph.read.list";
     pub const SELF_MORPH_RESOURCE_GET: &'static str = "ak.self.morph.resource.get";
     pub const SELF_POLICY_READ_CHECK: &'static str = "ak.self.policy.read.check";
+    pub const SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT: &'static str =
+        "ak.self.principal_service_binding.command.commit";
+    pub const SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE: &'static str =
+        "ak.self.principal_service_binding.command.prepare";
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE: &'static str =
         "ak.self.read_cursor.command.advance";
     pub const SELF_READ_CURSOR_READ_LIST: &'static str = "ak.self.read_cursor.read.list";
@@ -1143,6 +1186,9 @@ impl ServiceOperationId {
             Self::GateAccountCommandIntrospectSessionGrant => {
                 Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT
             }
+            Self::GateAccountCommandIssueControllerGateAttestation => {
+                Self::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION
+            }
             Self::GateAccountCommandIssueDidBindingChallenge => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE
             }
@@ -1181,6 +1227,7 @@ impl ServiceOperationId {
             Self::OpenDevicePairingCommandStage => Self::OPEN_DEVICE_PAIRING_COMMAND_STAGE,
             Self::OpenDevicePairingReadResolve => Self::OPEN_DEVICE_PAIRING_READ_RESOLVE,
             Self::OpenDevicePairingReadStatus => Self::OPEN_DEVICE_PAIRING_READ_STATUS,
+            Self::OpenIdentityReadResolution => Self::OPEN_IDENTITY_READ_RESOLUTION,
             Self::OpenInviteLocatorReadResolve => Self::OPEN_INVITE_LOCATOR_READ_RESOLVE,
             Self::OpenMimiCommandNotify => Self::OPEN_MIMI_COMMAND_NOTIFY,
             Self::OpenMimiCommandProxyDownload => Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD,
@@ -1195,11 +1242,15 @@ impl ServiceOperationId {
             Self::OpenMimiReadGroupInfo => Self::OPEN_MIMI_READ_GROUP_INFO,
             Self::OpenMimiReadIdentifiers => Self::OPEN_MIMI_READ_IDENTIFIERS,
             Self::OpenMimiReadProviderDirectory => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
+            Self::OpenServiceReadResolution => Self::OPEN_SERVICE_READ_RESOLUTION,
             Self::PeerAccountStatusCommandSubmit => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
             Self::PeerAccountStatusReadAuthoringBasis => {
                 Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
+            Self::PeerDirectConversationCommandRepairRelay => {
+                Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY
+            }
             Self::PeerErasureReceiptCommandSubmit => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
             Self::PeerErasureReceiptResourceGet => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
@@ -1212,6 +1263,10 @@ impl ServiceOperationId {
             Self::PeerKeysKeypackagesReadClaim => Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
             Self::PeerMlsReadGroupStateMaterial => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL,
             Self::PeerPrincipalGenesisCommandSubmit => Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT,
+            Self::PeerServiceResolutionCommandPublish => {
+                Self::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH
+            }
+            Self::PeerServiceResolutionReadResolve => Self::PEER_SERVICE_RESOLUTION_READ_RESOLVE,
             Self::PeerSignalCommandRelay => Self::PEER_SIGNAL_COMMAND_RELAY,
             Self::PeerSnapshotReadManifestHead => Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD,
             Self::RootIdentityCommandSubmitDidOperation => {
@@ -1334,6 +1389,9 @@ impl ServiceOperationId {
             Self::SelfDeviceMessagesCommandAck => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK,
             Self::SelfDeviceMessagesCommandSend => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND,
             Self::SelfDeviceMessagesReadList => Self::SELF_DEVICE_MESSAGES_READ_LIST,
+            Self::SelfDirectConversationCommandRepairDispatch => {
+                Self::SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH
+            }
             Self::SelfDirectConversationReadResolve => Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
             Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
             Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
@@ -1373,6 +1431,12 @@ impl ServiceOperationId {
             Self::SelfMorphReadList => Self::SELF_MORPH_READ_LIST,
             Self::SelfMorphResourceGet => Self::SELF_MORPH_RESOURCE_GET,
             Self::SelfPolicyReadCheck => Self::SELF_POLICY_READ_CHECK,
+            Self::SelfPrincipalServiceBindingCommandCommit => {
+                Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT
+            }
+            Self::SelfPrincipalServiceBindingCommandPrepare => {
+                Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE
+            }
             Self::SelfReadCursorCommandAdvance => Self::SELF_READ_CURSOR_COMMAND_ADVANCE,
             Self::SelfReadCursorReadList => Self::SELF_READ_CURSOR_READ_LIST,
             Self::SelfRealmCommandArchive => Self::SELF_REALM_COMMAND_ARCHIVE,
@@ -1491,6 +1555,9 @@ impl ServiceOperationId {
             Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT => {
                 Some(Self::GateAccountCommandIntrospectSessionGrant)
             }
+            Self::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION => {
+                Some(Self::GateAccountCommandIssueControllerGateAttestation)
+            }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE => {
                 Some(Self::GateAccountCommandIssueDidBindingChallenge)
             }
@@ -1535,6 +1602,7 @@ impl ServiceOperationId {
             Self::OPEN_DEVICE_PAIRING_COMMAND_STAGE => Some(Self::OpenDevicePairingCommandStage),
             Self::OPEN_DEVICE_PAIRING_READ_RESOLVE => Some(Self::OpenDevicePairingReadResolve),
             Self::OPEN_DEVICE_PAIRING_READ_STATUS => Some(Self::OpenDevicePairingReadStatus),
+            Self::OPEN_IDENTITY_READ_RESOLUTION => Some(Self::OpenIdentityReadResolution),
             Self::OPEN_INVITE_LOCATOR_READ_RESOLVE => Some(Self::OpenInviteLocatorReadResolve),
             Self::OPEN_MIMI_COMMAND_NOTIFY => Some(Self::OpenMimiCommandNotify),
             Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD => Some(Self::OpenMimiCommandProxyDownload),
@@ -1549,11 +1617,15 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_READ_GROUP_INFO => Some(Self::OpenMimiReadGroupInfo),
             Self::OPEN_MIMI_READ_IDENTIFIERS => Some(Self::OpenMimiReadIdentifiers),
             Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY => Some(Self::OpenMimiReadProviderDirectory),
+            Self::OPEN_SERVICE_READ_RESOLUTION => Some(Self::OpenServiceReadResolution),
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT => Some(Self::PeerAccountStatusCommandSubmit),
             Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS => {
                 Some(Self::PeerAccountStatusReadAuthoringBasis)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
+            Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY => {
+                Some(Self::PeerDirectConversationCommandRepairRelay)
+            }
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT => {
                 Some(Self::PeerErasureReceiptCommandSubmit)
             }
@@ -1571,6 +1643,12 @@ impl ServiceOperationId {
             Self::PEER_MLS_READ_GROUP_STATE_MATERIAL => Some(Self::PeerMlsReadGroupStateMaterial),
             Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT => {
                 Some(Self::PeerPrincipalGenesisCommandSubmit)
+            }
+            Self::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH => {
+                Some(Self::PeerServiceResolutionCommandPublish)
+            }
+            Self::PEER_SERVICE_RESOLUTION_READ_RESOLVE => {
+                Some(Self::PeerServiceResolutionReadResolve)
             }
             Self::PEER_SIGNAL_COMMAND_RELAY => Some(Self::PeerSignalCommandRelay),
             Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::PeerSnapshotReadManifestHead),
@@ -1708,6 +1786,9 @@ impl ServiceOperationId {
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK => Some(Self::SelfDeviceMessagesCommandAck),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND => Some(Self::SelfDeviceMessagesCommandSend),
             Self::SELF_DEVICE_MESSAGES_READ_LIST => Some(Self::SelfDeviceMessagesReadList),
+            Self::SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH => {
+                Some(Self::SelfDirectConversationCommandRepairDispatch)
+            }
             Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE => {
                 Some(Self::SelfDirectConversationReadResolve)
             }
@@ -1761,6 +1842,12 @@ impl ServiceOperationId {
             Self::SELF_MORPH_READ_LIST => Some(Self::SelfMorphReadList),
             Self::SELF_MORPH_RESOURCE_GET => Some(Self::SelfMorphResourceGet),
             Self::SELF_POLICY_READ_CHECK => Some(Self::SelfPolicyReadCheck),
+            Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT => {
+                Some(Self::SelfPrincipalServiceBindingCommandCommit)
+            }
+            Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE => {
+                Some(Self::SelfPrincipalServiceBindingCommandPrepare)
+            }
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE => Some(Self::SelfReadCursorCommandAdvance),
             Self::SELF_READ_CURSOR_READ_LIST => Some(Self::SelfReadCursorReadList),
             Self::SELF_REALM_COMMAND_ARCHIVE => Some(Self::SelfRealmCommandArchive),
@@ -2458,6 +2545,32 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandIssueControllerGateAttestation,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/controller-gate-attestations",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/agent-signer-evidence-operations.schema.json#/$defs/controller_account_gate_attestation_issue_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/agent-signer-evidence-operations.schema.json#/$defs/controller_account_gate_attestation_issue_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "issues_only_a_short_lived_signed_gate_attestation_and_may_retain_a_service_local_exact_replay_record",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIssueDidBindingChallenge,
         http_method: "POST",
         http_path: "/_arkret/gate/account/did-binding-challenges",
@@ -2949,6 +3062,24 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenIdentityReadResolution,
+        http_method: "GET",
+        http_path: "/_arkret/open/principals/{principal_id}/resolution",
+        grpc: Some("OpenIdentity/Resolution"),
+        mq: Some("open.identity.query.resolution"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/principal_resolution_evidence",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::OpenInviteLocatorReadResolve,
         http_method: "POST",
         http_path: "/_arkret/open/invite-locators/resolve",
@@ -3223,6 +3354,24 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenServiceReadResolution,
+        http_method: "GET",
+        http_path: "/_arkret/open/services/{service_id}/resolution",
+        grpc: Some("OpenService/Resolution"),
+        mq: Some("open.service.query.resolution"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/service_resolution_record",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerAccountStatusCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/peer/account-status",
@@ -3288,6 +3437,32 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerDirectConversationCommandRepairRelay,
+        http_method: "POST",
+        http_path: "/_arkret/peer/direct-conversations/repair-relay",
+        grpc: Some("PeerDirectConversation/RepairRelay"),
+        mq: Some("peer.direct_conversation.command.repair_relay"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_relay_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_enqueue_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "atomically_freezes_one_closed_recipient_target_snapshot_and_queue_batch_without_authoring_an_event",
+            ),
         }),
     },
     ServiceOperationDescriptor {
@@ -3550,6 +3725,52 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             ])),
             rationale: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerServiceResolutionCommandPublish,
+        http_method: "POST",
+        http_path: "/_arkret/peer/service-resolution/publish",
+        grpc: Some("PeerServiceResolution/Publish"),
+        mq: Some("peer.service_resolution.command.publish"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(262144),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/service_resolution_publish_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/service_resolution_publish_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "service_local_durable_route_mirror_ledger_and_ack_only_no_realm_event",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerServiceResolutionReadResolve,
+        http_method: "QUERY",
+        http_path: "/_arkret/peer/service-resolution/resolve",
+        grpc: Some("PeerServiceResolution/Resolve"),
+        mq: Some("peer.service_resolution.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(16384),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/service_resolution_resolve_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/service_resolution_resolve_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerSignalCommandRelay,
@@ -5386,6 +5607,32 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfDirectConversationCommandRepairDispatch,
+        http_method: "POST",
+        http_path: "/_arkret/self/direct-conversations/repair-dispatch",
+        grpc: Some("SelfDirectConversation/RepairDispatch"),
+        mq: Some("self.direct_conversation.command.repair_dispatch"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_dispatch_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_enqueue_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_a_byte_identical_service_local_peer_relay_outbox_without_authoring_an_event",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDirectConversationReadResolve,
         http_method: "POST",
         http_path: "/_arkret/self/direct-conversations/resolve",
@@ -6091,6 +6338,58 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfPrincipalServiceBindingCommandCommit,
+        http_method: "POST",
+        http_path: "/_arkret/self/principal-service-bindings/commit",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_commit_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_commit_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "service_local_current_binding_cas_and_portable_signed_snapshot_no_event_is_authored",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfPrincipalServiceBindingCommandPrepare,
+        http_method: "POST",
+        http_path: "/_arkret/self/principal-service-bindings/prepare",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_prepare_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_prepare_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_only_a_service_local_single_use_frozen_binding_challenge_no_event_is_authored",
+            ),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfReadCursorCommandAdvance,

@@ -159,7 +159,7 @@ impl ContactNextPrepareInput {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactCurrentProof {
@@ -204,7 +204,7 @@ pub enum ContactBasis {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct NormalResponseAcceptanceReceipt {
@@ -219,7 +219,13 @@ pub struct NormalResponseAcceptanceReceipt {
     pub signature: ProtocolSignature,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+impl NormalResponseAcceptanceReceipt {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        canonical_signing_bytes_without_signature(self)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RejectAcceptanceReceipt {
@@ -230,6 +236,12 @@ pub struct RejectAcceptanceReceipt {
     pub accepted_at: DateTime<Utc>,
     pub issuer: Did,
     pub signature: ProtocolSignature,
+}
+
+impl RejectAcceptanceReceipt {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        canonical_signing_bytes_without_signature(self)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
