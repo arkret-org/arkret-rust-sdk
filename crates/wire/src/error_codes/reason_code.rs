@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-11.2;
-//! sha256=daf52a63b94abc2c12a03d9ee6fb3265500e2817178351e84ed3c7405478a35a
-//! Entries: reason_codes=469
+//! Input: registry/error-code-registry.json; version=2026-08-11.3;
+//! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878
+//! Entries: reason_codes=470
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -135,6 +135,7 @@ pub enum ReasonCode {
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
     DeviceGenerationFenced,
+    DeviceReanchorAuthorityMismatch,
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorConflict,
     DeviceReanchorEntryNotHead,
@@ -644,6 +645,8 @@ impl ReasonCode {
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
+    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str =
+        "device_reanchor_authority_mismatch";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
@@ -1205,6 +1208,7 @@ impl ReasonCode {
                 Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
             }
             Self::DeviceGenerationFenced => Self::DEVICE_GENERATION_FENCED,
+            Self::DeviceReanchorAuthorityMismatch => Self::DEVICE_REANCHOR_AUTHORITY_MISMATCH,
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
             Self::DeviceReanchorConflict => Self::DEVICE_REANCHOR_CONFLICT,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
@@ -1776,6 +1780,7 @@ impl ReasonCode {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
             }
             Self::DEVICE_GENERATION_FENCED => Self::DeviceGenerationFenced,
+            Self::DEVICE_REANCHOR_AUTHORITY_MISMATCH => Self::DeviceReanchorAuthorityMismatch,
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
             Self::DEVICE_REANCHOR_CONFLICT => Self::DeviceReanchorConflict,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
@@ -2894,6 +2899,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::DEVICE_REANCHOR_AUTHORITY_MISMATCH,
+        applies_to: &["event_envelope", "auth_decision", "service_call"],
+        description: "A re-anchor receipt scope, recovery session snapshot or recovery transaction binding carries an authority_instance, authority_instance_digest, previous_device_generation or new_device_generation that is not byte-identical to the covered ak.device.reanchor payload, or reconstructs a retired did_version_id/registry_head authority field. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The atomic replacement ak.device.authorize payload digest, prev_refs, principal, device, session, or enrollment-authority proof does not exactly match the binding in ak.device.reanchor. Dual-registered as a reason_code and a top-level service code (see codes[]).",
@@ -2901,7 +2911,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_CONFLICT,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "More than one non-identical re-anchor unit occupies the same (principal_id, did_version_number) slot. Every candidate and successor generation is quarantined; first-seen selection is forbidden. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+        description: "More than one non-identical re-anchor unit occupies the same (authority_instance_digest, new_device_generation) slot. Every candidate and successor generation is quarantined; first-seen selection is forbidden. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_ENTRY_NOT_HEAD,

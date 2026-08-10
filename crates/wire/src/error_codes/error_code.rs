@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-11.2;
-//! sha256=daf52a63b94abc2c12a03d9ee6fb3265500e2817178351e84ed3c7405478a35a Entries: error_codes=278
+//! Input: registry/error-code-registry.json; version=2026-08-11.3;
+//! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878 Entries: error_codes=279
 
 use serde::{Deserialize, Serialize};
 
@@ -104,6 +104,7 @@ pub enum ErrorCode {
     DeviceAlreadyAuthorized,
     DeviceGenerationFenced,
     DeviceNotAuthorized,
+    DeviceReanchorAuthorityMismatch,
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorConflict,
     DeviceReanchorEntryNotHead,
@@ -396,6 +397,7 @@ impl ErrorCode {
         Self::DeviceAlreadyAuthorized,
         Self::DeviceGenerationFenced,
         Self::DeviceNotAuthorized,
+        Self::DeviceReanchorAuthorityMismatch,
         Self::DeviceReanchorAuthorizeMismatch,
         Self::DeviceReanchorConflict,
         Self::DeviceReanchorEntryNotHead,
@@ -681,6 +683,8 @@ impl ErrorCode {
     pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
     pub const DEVICE_NOT_AUTHORIZED: &'static str = "device_not_authorized";
+    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str =
+        "device_reanchor_authority_mismatch";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
@@ -993,6 +997,7 @@ impl ErrorCode {
             Self::DeviceAlreadyAuthorized => "device_already_authorized",
             Self::DeviceGenerationFenced => "device_generation_fenced",
             Self::DeviceNotAuthorized => "device_not_authorized",
+            Self::DeviceReanchorAuthorityMismatch => "device_reanchor_authority_mismatch",
             Self::DeviceReanchorAuthorizeMismatch => "device_reanchor_authorize_mismatch",
             Self::DeviceReanchorConflict => "device_reanchor_conflict",
             Self::DeviceReanchorEntryNotHead => "device_reanchor_entry_not_head",
@@ -1292,6 +1297,7 @@ impl ErrorCode {
             "device_already_authorized" => Some(Self::DeviceAlreadyAuthorized),
             "device_generation_fenced" => Some(Self::DeviceGenerationFenced),
             "device_not_authorized" => Some(Self::DeviceNotAuthorized),
+            "device_reanchor_authority_mismatch" => Some(Self::DeviceReanchorAuthorityMismatch),
             "device_reanchor_authorize_mismatch" => Some(Self::DeviceReanchorAuthorizeMismatch),
             "device_reanchor_conflict" => Some(Self::DeviceReanchorConflict),
             "device_reanchor_entry_not_head" => Some(Self::DeviceReanchorEntryNotHead),
@@ -2133,6 +2139,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The device is not authorized for the requested operation.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::DeviceReanchorAuthorityMismatch,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "A device re-anchor receipt scope, recovery session or transaction snapshot selects an authority instance or device generation that does not exactly match the covered ak.device.reanchor payload. Dual-registered as a service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorAuthorizeMismatch,
