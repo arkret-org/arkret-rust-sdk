@@ -267,7 +267,6 @@ pub use arkret_models_identity::claim_presentation::{
     DirectoryRestrictedClaimPresentation, validate_agent_slug,
 };
 pub use arkret_models_identity::device_verification::*;
-pub use arkret_models_identity::did_continuity::*;
 pub use arkret_models_identity::handle::*;
 pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;

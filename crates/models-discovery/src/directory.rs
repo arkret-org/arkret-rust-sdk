@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::claim_presentation::{
     AgentSelectorClaim, DirectoryRestrictedClaimPresentation, validate_agent_slug,
 };
@@ -12,7 +13,7 @@ use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
     BlobRef, Did, Error, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, Proof, RealmId,
-    Result, SchemaId, SealBasis,
+    Result, SchemaId, SealBasis, ServiceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -181,9 +182,11 @@ pub enum RealmJoinCandidateSource {
 /// membership by itself.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmJoinCandidate {
     pub realm_id: RealmId,
-    pub service_id: Did,
+    pub service_id: ServiceId,
+    pub service_resolution: ServiceResolutionCarrier,
     pub service_kind: RealmJoinCandidateServiceKind,
     pub role: RealmJoinCandidateRole,
     #[serde(skip_serializing_if = "Option::is_none")]

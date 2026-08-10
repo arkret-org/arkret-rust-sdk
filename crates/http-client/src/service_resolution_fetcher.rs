@@ -8,10 +8,12 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use arkret_egress_policy::OutboundPolicy;
+use arkret_models_discovery::ServiceDescribe;
+use arkret_models_identity::service_identity::CanonicalServiceUrl;
 use arkret_models_identity::{
     ServiceResolutionCarrier, ServiceResolutionRecord, validate_service_current_record_url,
 };
-use arkret_wire::{Hash, ServiceId};
+use arkret_wire::{Hash, ServiceId, ServiceKind};
 use reqwest::StatusCode;
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING, HeaderMap};
 
@@ -108,6 +110,58 @@ impl ServiceResolutionFetcher {
         }
     }
 
+    /// Fetch the role-scoped endpoint confirmation from a base URL that the
+    /// caller has already authenticated through a signed
+    /// `ServiceResolutionRecord`.
+    ///
+    /// Transport success is not authority. Callers must validate the typed
+    /// description and compare its stable route-binding projection with the
+    /// signed record before using any dynamic metadata.
+    pub async fn fetch_describe(
+        &self,
+        verified_base_url: &str,
+        service_kind: ServiceKind,
+    ) -> Result<ServiceDescribe> {
+        self.fetch_describe_with_timeout(
+            verified_base_url,
+            service_kind,
+            SERVICE_RESOLUTION_FETCH_TIMEOUT,
+        )
+        .await
+    }
+
+    async fn fetch_describe_with_timeout(
+        &self,
+        verified_base_url: &str,
+        service_kind: ServiceKind,
+        timeout: Duration,
+    ) -> Result<ServiceDescribe> {
+        if !service_kind.valid_in("service_describe") {
+            return Err(Error::Protocol(format!(
+                "service kind {} is not valid for ServiceDescribe",
+                service_kind.as_str()
+            )));
+        }
+        let base = CanonicalServiceUrl::canonicalize(verified_base_url)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        if base.to_string() != verified_base_url {
+            return Err(Error::Protocol(
+                "verified service base URL is not canonical".to_owned(),
+            ));
+        }
+        let mut url = reqwest::Url::parse(&format!("{base}_arkret/describe"))
+            .map_err(|error| Error::Protocol(format!("invalid describe URL: {error}")))?;
+        url.query_pairs_mut()
+            .append_pair("service_kind", service_kind.as_str());
+        let bytes = tokio::time::timeout(timeout, self.fetch_bounded(url, timeout, "describe"))
+            .await
+            .map_err(|_| {
+                Error::Protocol("service describe fetch exceeded 5 seconds".to_owned())
+            })??;
+        serde_json::from_slice(&bytes)
+            .map_err(|error| Error::Protocol(format!("invalid ServiceDescribe JSON: {error}")))
+    }
+
     async fn fetch_url(
         &self,
         current_record_url: &str,
@@ -116,47 +170,13 @@ impl ServiceResolutionFetcher {
     ) -> Result<UnverifiedServiceResolutionRecord> {
         let parsed = reqwest::Url::parse(current_record_url)
             .map_err(|error| Error::Protocol(format!("invalid service resolution URL: {error}")))?;
-        self.egress_policy.validate_url(&parsed).map_err(|error| {
-            Error::Protocol(format!("service resolution target denied: {error}"))
-        })?;
-        let host = parsed
-            .host_str()
-            .ok_or_else(|| Error::Protocol("service resolution URL has no host".to_owned()))?
-            .to_owned();
-        let port = parsed.port_or_known_default().ok_or_else(|| {
-            Error::Protocol("service resolution URL has no usable port".to_owned())
-        })?;
-        let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
-            .await
-            .map_err(|error| Error::Protocol(format!("service resolution DNS failed: {error}")))?
-            .collect();
-        let target = self
-            .egress_policy
-            .bind_resolved(parsed, addresses)
-            .map_err(|error| {
-                Error::Protocol(format!("service resolution target denied: {error}"))
-            })?;
-
-        let client = reqwest::Client::builder()
-            .timeout(SERVICE_RESOLUTION_FETCH_TIMEOUT)
-            .connect_timeout(SERVICE_RESOLUTION_FETCH_TIMEOUT)
-            .redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            .gzip(false)
-            .resolve_to_addrs(&host, target.addresses())
-            .build()
-            .map_err(|error| {
-                Error::Protocol(format!("failed to build pinned resolution client: {error}"))
-            })?;
-        let response = client
-            .get(target.url().clone())
-            .header(ACCEPT_ENCODING, "identity")
-            .send()
-            .await
-            .map_err(crate::client_internals::transport_error)?;
-        validate_response_metadata(&response)?;
-        let canonical_bytes =
-            read_body_limited(response, SERVICE_RESOLUTION_FETCH_MAX_BYTES).await?;
+        let canonical_bytes = self
+            .fetch_bounded(
+                parsed,
+                SERVICE_RESOLUTION_FETCH_TIMEOUT,
+                "service resolution",
+            )
+            .await?;
         let record: ServiceResolutionRecord =
             arkret_canonical::canonical::from_canonical_json_slice(&canonical_bytes)
                 .map_err(|error| Error::Protocol(error.to_string()))?;
@@ -180,6 +200,54 @@ impl ServiceResolutionFetcher {
             record,
             canonical_bytes,
         })
+    }
+
+    async fn fetch_bounded(
+        &self,
+        parsed: reqwest::Url,
+        timeout: Duration,
+        purpose: &str,
+    ) -> Result<Vec<u8>> {
+        self.egress_policy
+            .validate_url(&parsed)
+            .map_err(|error| Error::Protocol(format!("{purpose} target denied: {error}")))?;
+        let host = parsed
+            .host_str()
+            .ok_or_else(|| Error::Protocol("service resolution URL has no host".to_owned()))?
+            .to_owned();
+        let port = parsed.port_or_known_default().ok_or_else(|| {
+            Error::Protocol("service resolution URL has no usable port".to_owned())
+        })?;
+        let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+            .await
+            .map_err(|error| Error::Protocol(format!("{purpose} DNS failed: {error}")))?
+            .collect();
+        let target = self
+            .egress_policy
+            .bind_resolved(parsed, addresses)
+            .map_err(|error| {
+                Error::Protocol(format!("service resolution target denied: {error}"))
+            })?;
+
+        let client = reqwest::Client::builder()
+            .timeout(timeout)
+            .connect_timeout(timeout)
+            .redirect(reqwest::redirect::Policy::none())
+            .no_proxy()
+            .gzip(false)
+            .resolve_to_addrs(&host, target.addresses())
+            .build()
+            .map_err(|error| {
+                Error::Protocol(format!("failed to build pinned {purpose} client: {error}"))
+            })?;
+        let response = client
+            .get(target.url().clone())
+            .header(ACCEPT_ENCODING, "identity")
+            .send()
+            .await
+            .map_err(crate::client_internals::transport_error)?;
+        validate_response_metadata(&response)?;
+        read_body_limited(response, SERVICE_RESOLUTION_FETCH_MAX_BYTES).await
     }
 }
 
@@ -218,7 +286,10 @@ fn validate_response_shape(
 #[cfg(test)]
 mod tests {
     use arkret_models_identity::canonical_service_current_record_path;
+    use arkret_wire::ServiceKind;
     use reqwest::header::HeaderValue;
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    use tokio::net::TcpListener;
 
     use super::*;
 
@@ -280,5 +351,70 @@ mod tests {
             Some(SERVICE_RESOLUTION_FETCH_MAX_BYTES as u64),
         )
         .unwrap();
+    }
+
+    async fn serve_once(response: String, delay: Duration) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 4_096];
+            let _ = stream.read(&mut request).await;
+            tokio::time::sleep(delay).await;
+            let _ = stream.write_all(response.as_bytes()).await;
+        });
+        format!("http://{address}/")
+    }
+
+    #[tokio::test]
+    async fn describe_fetch_rejects_redirect_and_oversize() {
+        let fetcher =
+            ServiceResolutionFetcher::with_egress_policy(OutboundPolicy::local_development());
+        let redirect = serve_once(
+            "HTTP/1.1 302 Found\r\nLocation: http://elsewhere.invalid/\r\nContent-Length: 0\r\n\r\n"
+                .to_owned(),
+            Duration::ZERO,
+        )
+        .await;
+        let error = fetcher
+            .fetch_describe(&redirect, ServiceKind::PrincipalServer)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("HTTP 302"));
+
+        let oversize = serve_once(
+            format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
+                SERVICE_RESOLUTION_FETCH_MAX_BYTES + 1
+            ),
+            Duration::ZERO,
+        )
+        .await;
+        let error = fetcher
+            .fetch_describe(&oversize, ServiceKind::PrincipalServer)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("65536"));
+    }
+
+    #[tokio::test]
+    async fn describe_fetch_has_one_total_deadline() {
+        let fetcher =
+            ServiceResolutionFetcher::with_egress_policy(OutboundPolicy::local_development());
+        let base = serve_once(
+            "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".to_owned(),
+            Duration::from_millis(100),
+        )
+        .await;
+        let started = tokio::time::Instant::now();
+        let _error = fetcher
+            .fetch_describe_with_timeout(
+                &base,
+                ServiceKind::PrincipalServer,
+                Duration::from_millis(10),
+            )
+            .await
+            .unwrap_err();
+        assert!(started.elapsed() < Duration::from_millis(80));
     }
 }

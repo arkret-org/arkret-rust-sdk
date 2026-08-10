@@ -18,7 +18,6 @@
 //! Companion file for the `arkret-models-collaboration` and `arkret-schema`
 //! members of the same list.
 
-use arkret_models_identity::did_continuity::DidContinuitySignatureLink;
 use arkret_models_identity::member_identity::MemberIdentityProof;
 use arkret_models_identity::service_identity::ServiceWebvhDataIntegrityProof;
 use serde_json::{Value, json};
@@ -49,16 +48,6 @@ fn member_identity_proof(verification_method: &str) -> Value {
     json!({
         "verification_method": verification_method,
         "signature_algorithm": "Ed25519",
-        "payload_digest": hash(),
-        "signature": "c2ln",
-    })
-}
-
-fn did_continuity_link(verification_method: &str) -> Value {
-    json!({
-        "principal_id": "did:web:alice.example",
-        "verification_method": verification_method,
-        "algorithm": "Ed25519",
         "payload_digest": hash(),
         "signature": "c2ln",
     })
@@ -96,24 +85,6 @@ fn member_identity_proof_rejects_fragments_wider_than_did_url() {
 }
 
 #[test]
-fn did_continuity_signature_link_rejects_fragments_wider_than_did_url() {
-    // `did-continuity-proof.schema.json` fragment class: `[^\s#]+`.
-    let accepted = did_continuity_link(CANONICAL);
-    let parsed: DidContinuitySignatureLink = serde_json::from_value(accepted.clone()).unwrap();
-    assert_eq!(parsed.verification_method, CANONICAL);
-    assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
-
-    for wide in WIDER_THAN_DID_URL {
-        let value =
-            with_verification_method(did_continuity_link(CANONICAL), "verification_method", wide);
-        assert!(
-            serde_json::from_value::<DidContinuitySignatureLink>(value).is_err(),
-            "DidContinuitySignatureLink must reject schema-wider fragment {wide}"
-        );
-    }
-}
-
-#[test]
 fn service_webvh_data_integrity_proof_rejects_fragments_wider_than_did_url() {
     // `service-operation-dtos.schema.json#/$defs/ServiceWebvhDataIntegrityProof`
     // fragment class: `[^\s]+` — the widest of the four. Note the wire member is
@@ -142,10 +113,6 @@ fn bare_did_is_rejected_by_every_migrated_field() {
     assert!(
         serde_json::from_value::<MemberIdentityProof>(member_identity_proof(BARE)).is_err(),
         "MemberIdentityProof must reject a bare DID"
-    );
-    assert!(
-        serde_json::from_value::<DidContinuitySignatureLink>(did_continuity_link(BARE)).is_err(),
-        "DidContinuitySignatureLink must reject a bare DID"
     );
     assert!(
         serde_json::from_value::<ServiceWebvhDataIntegrityProof>(service_webvh_proof(BARE))

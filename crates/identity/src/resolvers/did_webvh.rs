@@ -796,6 +796,12 @@ fn verify_did_webvh_v1_internal(
     let mut previous_version_id: Option<&str> = None;
     let mut previous_next_hashes: Option<Vec<String>> = None;
     let mut active_update_keys = Vec::new();
+    let inception_portable = entries[0]
+        .parameters
+        .get("portable")
+        .and_then(Value::as_bool)
+        == Some(true);
+    let mut previous_state_id: Option<String> = None;
 
     for (index, (entry, raw)) in entries.iter().zip(raw_entries).enumerate() {
         let expected_sequence = index as u64 + 1;
@@ -820,10 +826,50 @@ fn verify_did_webvh_v1_internal(
                 "did:webvh log entry method must be did:webvh:1.0".to_owned(),
             ));
         }
-        if entry.state.get("id").and_then(Value::as_str) != Some(did.as_str()) {
+        if index > 0
+            && entry.parameters.get("portable").and_then(Value::as_bool) == Some(true)
+            && !inception_portable
+        {
             return Err(Error::Protocol(
-                "did:webvh log state id does not match DID".to_owned(),
+                "did:webvh portability cannot be enabled after inception".to_owned(),
             ));
+        }
+        let state_id = entry
+            .state
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::Protocol("did:webvh log state omits id".to_owned()))?;
+        let typed_state_id = Did::new(state_id.to_owned())?;
+        if typed_state_id.method() != "webvh"
+            || did_webvh_scid(&typed_state_id).as_deref() != Some(scid.as_str())
+        {
+            return Err(Error::Protocol(
+                "did:webvh portable state id changes method or SCID".to_owned(),
+            ));
+        }
+        if let Some(previous_state_id) = previous_state_id.as_deref()
+            && state_id != previous_state_id
+        {
+            if !inception_portable {
+                return Err(Error::Protocol(
+                    "did:webvh rename requires portable=true at inception".to_owned(),
+                ));
+            }
+            let links_predecessor = entry
+                .state
+                .get("alsoKnownAs")
+                .and_then(Value::as_array)
+                .is_some_and(|aliases| {
+                    aliases
+                        .iter()
+                        .any(|alias| alias.as_str() == Some(previous_state_id))
+                });
+            if !links_predecessor {
+                return Err(Error::Protocol(
+                    "did:webvh renamed state must include its direct predecessor in alsoKnownAs"
+                        .to_owned(),
+                ));
+            }
         }
         let previous_anchor = previous_version_id.unwrap_or(scid.as_str());
         verify_webvh_entry_hash(&entry.version_id, previous_anchor, raw)?;
@@ -868,7 +914,7 @@ fn verify_did_webvh_v1_internal(
                 .map(String::as_str)
                 .collect::<Vec<_>>();
             arkret_signatures::webvh::validate_principal_did_document_profile(
-                did.as_str(),
+                state_id,
                 &entry.state,
                 &forbidden_roots,
             )
@@ -923,9 +969,15 @@ fn verify_did_webvh_v1_internal(
         active_update_keys = current_keys;
         previous_next_hashes = Some(next_hashes);
         previous_version_id = Some(&entry.version_id);
+        previous_state_id = Some(state_id.to_owned());
     }
 
     let head = entries.last().expect("non-empty checked above");
+    if previous_state_id.as_deref() != Some(did.as_str()) {
+        return Err(Error::Protocol(
+            "did:webvh resolved DID does not match the current log head id".to_owned(),
+        ));
+    }
     Ok(VerifiedDidWebvhLog {
         raw_entries: raw_entries.to_vec(),
         entries: entries.clone(),

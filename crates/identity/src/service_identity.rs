@@ -494,6 +494,7 @@ mod tests {
             parameters: ServiceWebvhInceptionParameters {
                 scid: "QmScid".to_owned(),
                 method: "did:webvh:1.0".to_owned(),
+                portable: true,
                 update_keys: vec![update_key.clone()],
                 next_key_hashes: vec!["QmNextKeyHash".to_owned()],
             },

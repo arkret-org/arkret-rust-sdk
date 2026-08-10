@@ -342,6 +342,7 @@ impl ServiceDidDocument {
 pub struct ServiceWebvhInceptionParameters {
     pub scid: String,
     pub method: String,
+    pub portable: bool,
     pub update_keys: Vec<String>,
     pub next_key_hashes: Vec<String>,
 }
@@ -389,6 +390,7 @@ impl ServiceWebvhInceptionOperation {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
         if !self.version_id.starts_with("1-")
             || self.parameters.method != "did:webvh:1.0"
+            || !self.parameters.portable
             || self.parameters.update_keys.len() != 1
             || self.parameters.next_key_hashes.len() != 1
             || self.proof.is_empty()

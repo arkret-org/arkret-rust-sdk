@@ -9,13 +9,14 @@ pub mod inception;
 
 pub use inception::{
     PreparedInception, PreparedPrincipalInception, PreparedPrincipalRotation,
-    PrincipalInceptionInput, PrincipalRotationInput, ServiceInceptionInput,
-    ServiceRegistrationInceptionInput, SubmittedInception, SuppliedPrincipalInceptionInput,
-    ValidatedPrincipalInception, ValidatedWebvhHistoryPoint, WebvhInceptionError,
+    PreparedWebvhRelocation, PrincipalInceptionInput, PrincipalRotationInput,
+    ServiceInceptionInput, ServiceRegistrationInceptionInput, SubmittedInception,
+    SuppliedPrincipalInceptionInput, ValidatedPrincipalInception, ValidatedWebvhHistoryPoint,
+    WebvhInceptionError, WebvhRelocationInput, prepare_portable_principal_inception,
     prepare_principal_inception, prepare_principal_rotation, prepare_service_inception,
     prepare_service_inception_with_did_key_seed, prepare_service_registration_inception,
     prepare_service_registration_inception_with_did_key_seed, prepare_supplied_principal_inception,
-    sign_identity_creation_control_proof, validate_principal_did_document_profile,
-    validate_principal_inception_operation, validate_webvh_history_at,
-    verify_identity_creation_control_proof, webvh_next_key_hash,
+    prepare_webvh_relocation, sign_identity_creation_control_proof,
+    validate_principal_did_document_profile, validate_principal_inception_operation,
+    validate_webvh_history_at, verify_identity_creation_control_proof, webvh_next_key_hash,
 };

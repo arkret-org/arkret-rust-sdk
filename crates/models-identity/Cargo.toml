@@ -1,7 +1,7 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures"]
-description = "Arkret v1 identity domain models: account, actor profile, device, DID continuity, and handle wire shapes."
+description = "Arkret v1 identity domain models: account, actor profile, device, DID resolution, and handle wire shapes."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "identity", "account", "wire"]

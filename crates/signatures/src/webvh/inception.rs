@@ -475,6 +475,37 @@ pub struct PreparedPrincipalRotation {
     pub next_root_key_hash: String,
 }
 
+/// Inputs for one method-native same-SCID WebVH relocation successor. The
+/// preceding log must be complete through `current_did`, and inception must
+/// have committed `portable=true`.
+pub struct WebvhRelocationInput<'a> {
+    pub current_did: &'a str,
+    pub target_did: &'a str,
+    pub previous_entries: &'a [Value],
+    pub version_time: DateTime<Utc>,
+    pub current_update_seed: &'a [u8; SECRET_KEY_LENGTH],
+    pub next_update_public_key_multibase: &'a str,
+    /// Complete successor DID Document. Its `id` must equal `target_did` and
+    /// `alsoKnownAs` must contain `current_did`.
+    pub state: &'a Value,
+}
+
+/// Canonical n+1 rename entry ready for submission to the current owner.
+#[derive(Clone, Debug)]
+pub struct PreparedWebvhRelocation {
+    pub predecessor_did: String,
+    pub did: String,
+    pub version_time: String,
+    pub previous_version_id: String,
+    pub version_id: String,
+    pub log_entry: Value,
+    pub submit_body: DidOperationSubmitRequestBody,
+    pub current_update_public_key_multibase: String,
+    pub current_update_verification_method: String,
+    pub next_update_public_key_multibase: String,
+    pub next_update_key_hash: String,
+}
+
 impl std::fmt::Debug for PreparedInception {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PreparedInception")
@@ -578,6 +609,21 @@ pub struct SubmittedInception {
 pub fn prepare_principal_inception(
     input: &PrincipalInceptionInput<'_>,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
+    prepare_principal_inception_with_portability(input, false)
+}
+
+/// Prepare a principal inception that irrevocably opts into method-native
+/// same-SCID relocation. Portability cannot be introduced by a later entry.
+pub fn prepare_portable_principal_inception(
+    input: &PrincipalInceptionInput<'_>,
+) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
+    prepare_principal_inception_with_portability(input, true)
+}
+
+fn prepare_principal_inception_with_portability(
+    input: &PrincipalInceptionInput<'_>,
+    portable: bool,
+) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
     let (method_authority, https_authority) = authority_pair(input.principal_endpoint)?;
     let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
     let root_signing = SigningKey::from_bytes(input.root_seed);
@@ -603,7 +649,7 @@ pub fn prepare_principal_inception(
             input.next_root_public_key_multibase,
         ],
     )?;
-    let entry_skeleton = json!({
+    let mut entry_skeleton = json!({
         "versionId": WEBVH_SCID_PLACEHOLDER,
         "versionTime": version_time,
         "parameters": {
@@ -614,6 +660,13 @@ pub fn prepare_principal_inception(
         },
         "state": document_skeleton,
     });
+    if portable
+        && let Some(parameters) = entry_skeleton
+            .get_mut("parameters")
+            .and_then(Value::as_object_mut)
+    {
+        parameters.insert("portable".to_owned(), Value::Bool(true));
+    }
 
     let scid = sha256_multihash_base58btc(&canonical_bytes(&entry_skeleton)?);
     let mut log_entry = substitute_scid(&entry_skeleton, &scid);
@@ -668,6 +721,11 @@ fn validate_principal_rotation_history<'a>(
     let mut activated_roots = BTreeSet::new();
     let mut previous_version_id: Option<&str> = None;
     let mut previous_next_hash: Option<String> = None;
+    let inception_portable = entries[0]
+        .pointer("/parameters/portable")
+        .and_then(Value::as_bool)
+        == Some(true);
+    let mut previous_state_id: Option<&str> = None;
 
     for (index, entry) in entries.iter().enumerate() {
         let sequence = index + 1;
@@ -684,10 +742,37 @@ fn validate_principal_rotation_history<'a>(
                 "principal history entry {sequence} has a non-contiguous versionId"
             )));
         }
-        if entry.pointer("/state/id").and_then(Value::as_str) != Some(did) {
+        let state_id = entry
+            .pointer("/state/id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} is missing its state id"
+                ))
+            })?;
+        let state_did = Did::new(state_id.to_owned())
+            .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
+        if state_did.method() != "webvh" || state_id.split(':').nth(2) != Some(scid) {
             return Err(WebvhInceptionError::InvalidProof(format!(
-                "principal history entry {sequence} state id does not match DID"
+                "principal history entry {sequence} state id changes method or SCID"
             )));
+        }
+        if let Some(previous_state_id) = previous_state_id
+            && state_id != previous_state_id
+        {
+            let links_predecessor = entry
+                .pointer("/state/alsoKnownAs")
+                .and_then(Value::as_array)
+                .is_some_and(|aliases| {
+                    aliases
+                        .iter()
+                        .any(|alias| alias.as_str() == Some(previous_state_id))
+                });
+            if !inception_portable || !links_predecessor {
+                return Err(WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} has an unauthorized portable rename"
+                )));
+            }
         }
         let parameters = entry
             .get("parameters")
@@ -775,6 +860,13 @@ fn validate_principal_rotation_history<'a>(
         }
         verify_constructed_webvh_proof(entry).map_err(WebvhInceptionError::InvalidProof)?;
         previous_version_id = Some(version_id);
+        previous_state_id = Some(state_id);
+    }
+
+    if previous_state_id != Some(did) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal history head id does not match current DID".to_owned(),
+        ));
     }
 
     Ok((
@@ -950,6 +1042,182 @@ pub fn prepare_principal_rotation(
     })
 }
 
+/// Build a controller-signed n+1 successor that moves a portable WebVH DID to
+/// a new host/path without changing its SCID (and therefore without changing
+/// its Arkret core id).
+pub fn prepare_webvh_relocation(
+    input: &WebvhRelocationInput<'_>,
+) -> Result<PreparedWebvhRelocation, WebvhInceptionError> {
+    let current_did = Did::new(input.current_did.to_owned())
+        .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
+    let target_did = Did::new(input.target_did.to_owned())
+        .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
+    if current_did.method() != "webvh" || target_did.method() != "webvh" {
+        return Err(WebvhInceptionError::InvalidDid(
+            "portable relocation requires did:webvh predecessor and successor".to_owned(),
+        ));
+    }
+    let current_scid = input.current_did.split(':').nth(2).unwrap_or_default();
+    let target_scid = input.target_did.split(':').nth(2).unwrap_or_default();
+    if current_scid.is_empty() || current_scid != target_scid {
+        return Err(WebvhInceptionError::InvalidDid(
+            "portable relocation must preserve the exact WebVH SCID".to_owned(),
+        ));
+    }
+    if input.current_did == input.target_did {
+        return Err(WebvhInceptionError::InvalidDid(
+            "portable relocation must change the WebVH host or path".to_owned(),
+        ));
+    }
+    if input
+        .previous_entries
+        .first()
+        .and_then(|entry| entry.pointer("/parameters/portable"))
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "portable relocation requires portable=true at inception".to_owned(),
+        ));
+    }
+    if input.state.get("id").and_then(Value::as_str) != Some(input.target_did) {
+        return Err(WebvhInceptionError::InvalidDid(
+            "relocation successor state id must equal target_did".to_owned(),
+        ));
+    }
+    let links_predecessor = input
+        .state
+        .get("alsoKnownAs")
+        .and_then(Value::as_array)
+        .is_some_and(|aliases| {
+            aliases
+                .iter()
+                .any(|alias| alias.as_str() == Some(input.current_did))
+        });
+    if !links_predecessor {
+        return Err(WebvhInceptionError::InvalidDid(
+            "relocation successor alsoKnownAs must contain the direct predecessor DID".to_owned(),
+        ));
+    }
+
+    let (previous_entry, activated_roots) =
+        validate_principal_rotation_history(input.current_did, input.previous_entries)?;
+    let previous_version_id = previous_entry
+        .get("versionId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous WebVH entry is missing versionId".to_owned(),
+            )
+        })?;
+    let previous_sequence = previous_version_id
+        .split_once('-')
+        .and_then(|(sequence, _)| sequence.parse::<u64>().ok())
+        .filter(|sequence| *sequence > 0)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous WebVH entry has malformed versionId".to_owned(),
+            )
+        })?;
+    let sequence = previous_sequence.checked_add(1).ok_or_else(|| {
+        WebvhInceptionError::InvalidProof("WebVH sequence cannot advance".to_owned())
+    })?;
+    let previous_parameters = previous_entry
+        .get("parameters")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous WebVH entry is missing parameters".to_owned(),
+            )
+        })?;
+    let current_signing = SigningKey::from_bytes(input.current_update_seed);
+    let current_update_public_key_multibase =
+        encode_ed25519_pubkey_multibase(&current_signing.verifying_key().to_bytes());
+    let current_commitment = webvh_next_key_hash(&current_update_public_key_multibase)?;
+    let previous_next_hashes = previous_parameters
+        .get("nextKeyHashes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous WebVH entry is missing nextKeyHashes".to_owned(),
+            )
+        })?;
+    if !previous_next_hashes
+        .iter()
+        .any(|hash| hash.as_str() == Some(current_commitment.as_str()))
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "relocation update key was not precommitted by the previous entry".to_owned(),
+        ));
+    }
+    if activated_roots.contains(&current_update_public_key_multibase)
+        || activated_roots.contains(input.next_update_public_key_multibase)
+        || current_update_public_key_multibase == input.next_update_public_key_multibase
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "relocation attempts to reuse an activated WebVH update key".to_owned(),
+        ));
+    }
+    let next_update_key_hash = webvh_next_key_hash(input.next_update_public_key_multibase)?;
+    let version_time = input
+        .version_time
+        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let mut log_entry = json!({
+        "versionId": previous_version_id,
+        "versionTime": version_time,
+        "parameters": {
+            "scid": current_scid,
+            "method": WEBVH_METHOD_VERSION,
+            "updateKeys": [current_update_public_key_multibase],
+            "nextKeyHashes": [next_update_key_hash],
+        },
+        "state": input.state,
+    });
+    let version_hash = sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(
+        &log_entry,
+        previous_version_id,
+    ))?);
+    let version_id = format!("{sequence}-{version_hash}");
+    if let Value::Object(properties) = &mut log_entry {
+        properties.insert("versionId".to_owned(), Value::String(version_id.clone()));
+    }
+    let proof = build_proof(
+        &log_entry,
+        &current_signing,
+        &current_update_public_key_multibase,
+    )?;
+    if let Value::Object(properties) = &mut log_entry {
+        properties.insert("proof".to_owned(), Value::Array(vec![proof]));
+    }
+    verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
+    let previous_event_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(previous_entry)
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let submit_body = did_submit_body(
+        input.current_did,
+        sequence,
+        Some(previous_event_digest),
+        log_entry.clone(),
+    )?;
+    let current_update_verification_method =
+        did_key_verification_method(&current_update_public_key_multibase);
+    Ok(PreparedWebvhRelocation {
+        predecessor_did: input.current_did.to_owned(),
+        did: input.target_did.to_owned(),
+        version_time,
+        previous_version_id: previous_version_id.to_owned(),
+        version_id,
+        log_entry,
+        submit_body,
+        current_update_public_key_multibase,
+        current_update_verification_method,
+        next_update_public_key_multibase: input.next_update_public_key_multibase.to_owned(),
+        next_update_key_hash,
+    })
+}
+
 /// Inputs for a service's own `did:webvh` self-mint.
 ///
 /// A service DID is the identity of the service itself and carries no
@@ -1122,6 +1390,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
         "parameters": {
             "scid": WEBVH_SCID_PLACEHOLDER,
             "method": WEBVH_METHOD_VERSION,
+            "portable": true,
             "updateKeys": [update_public_key_multibase],
             "nextKeyHashes": [next_update_key_hash],
         },

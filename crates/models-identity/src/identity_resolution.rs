@@ -839,6 +839,8 @@ pub struct ServiceRouteCacheEntry {
     pub service_kind: String,
     pub full_id: FullId,
     pub method_history_head: String,
+    /// Native DID-method version coordinate from the verified signed record.
+    pub version_id: String,
     pub record_sequence: u64,
     pub record_digest: Hash,
     pub base_url: String,
@@ -962,6 +964,32 @@ mod resolution_contract_tests {
             arkret_wire::project_full_id_to_core_id(&old).unwrap(),
             arkret_wire::project_full_id_to_core_id(&new).unwrap()
         );
+    }
+
+    #[test]
+    fn route_cache_requires_verified_version_coordinate() {
+        let record = record(0, None);
+        let now = record.record.issued_at;
+        let entry = ServiceRouteCacheEntry {
+            service_id: record.record.service_id,
+            service_kind: record.record.service_kind,
+            full_id: record.record.full_id,
+            method_history_head: record.record.method_history_head,
+            version_id: record.record.version_id,
+            record_sequence: record.record.record_sequence,
+            record_digest: hash('e'),
+            base_url: record.record.base_url,
+            current_record_url: record.record.current_record_url,
+            describe_digest: record.record.describe_digest,
+            verified_at: now,
+            refresh_after: record.record.refresh_after,
+            expires_at: record.record.expires_at,
+            cached_at: now,
+            cache_expires_at: now + Duration::minutes(1),
+        };
+        let mut value = serde_json::to_value(entry).unwrap();
+        value.as_object_mut().unwrap().remove("version_id");
+        assert!(serde_json::from_value::<ServiceRouteCacheEntry>(value).is_err());
     }
 
     #[test]

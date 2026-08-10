@@ -2,7 +2,7 @@
 //!
 //! Owner of the identity-domain wire shapes: account lifecycle and
 //! handoff, actor profiles, attestation evidence, device verification,
-//! DID continuity and operations, handles, identity-link cache
+//! DID resolution and operations, handles, identity-link cache
 //! projections, and member identity segments. Behavior that needs
 //! signature verification, schema validation, or state reduction lives
 //! in the `arkret` umbrella and its behavior crates; this crate holds data
@@ -18,7 +18,6 @@ pub mod attestation;
 pub mod claim_presentation;
 pub mod delivery_binding;
 pub mod device_verification;
-pub mod did_continuity;
 pub mod did_document;
 pub mod handle;
 pub mod handle_claim;
@@ -46,7 +45,6 @@ pub use attestation::*;
 pub use claim_presentation::*;
 pub use delivery_binding::*;
 pub use device_verification::*;
-pub use did_continuity::*;
 pub use did_document::*;
 pub use handle::*;
 pub use handle_claim::*;

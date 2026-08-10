@@ -3,9 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    Audience, DeviceId, DeviceMessageTransactionId, Did, DidUrl, Error, EventId, Hash,
+    ActorId, Audience, DeviceId, DeviceMessageTransactionId, Did, DidUrl, Error, EventId, Hash,
     NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
-    Result, SchemaId, TypedTrustDomainId, XExtensionMap, canonical,
+    Result, SchemaId, ServiceId, TypedTrustDomainId, XExtensionMap, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -502,8 +502,8 @@ mod tests {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStaleHandoverProof {
     pub frontier: Vec<EventId>,
-    pub recipient_service_id: Did,
-    pub actor_id: Did,
+    pub recipient_service_id: ServiceId,
+    pub actor_id: ActorId,
     pub witness: NonEmptyJsonObject,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
@@ -511,7 +511,8 @@ pub struct DeliveryBindingStaleHandoverProof {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStale {
-    pub new_recipient_service_id: Did,
+    pub new_recipient_service_id: ServiceId,
+    pub new_service_resolution: crate::ServiceResolutionCarrier,
     pub handover_frontier: Vec<EventId>,
     pub handover_proof: DeliveryBindingStaleHandoverProof,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -825,6 +826,39 @@ mod key_verification_tests {
     use serde_json::json;
 
     use super::*;
+
+    fn delivery_binding_stale_value() -> Value {
+        json!({
+            "new_recipient_service_id": "ak:did_core:web:principal.example",
+            "new_service_resolution": {
+                "current_record_url": "https://principal.example/_arkret/open/services/ak%3Adid_core%3Aweb%3Aprincipal.example/resolution"
+            },
+            "handover_frontier": ["ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A"],
+            "handover_proof": {
+                "frontier": ["ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A"],
+                "recipient_service_id": "ak:did_core:web:principal.example",
+                "actor_id": "ak:did_core:web:alice.example",
+                "witness": {"event_digest": format!("sha256:{}", "0".repeat(64))}
+            }
+        })
+    }
+
+    #[test]
+    fn delivery_binding_stale_requires_core_ids_and_first_hop_resolution() {
+        let valid = delivery_binding_stale_value();
+        let _: DeliveryBindingStale = serde_json::from_value(valid.clone()).unwrap();
+
+        let mut missing_resolution = valid.clone();
+        missing_resolution
+            .as_object_mut()
+            .unwrap()
+            .remove("new_service_resolution");
+        assert!(serde_json::from_value::<DeliveryBindingStale>(missing_resolution).is_err());
+
+        let mut full_did_service = valid;
+        full_did_service["new_recipient_service_id"] = json!("did:web:principal.example");
+        assert!(serde_json::from_value::<DeliveryBindingStale>(full_did_service).is_err());
+    }
 
     #[test]
     fn key_verification_content_enforces_schema_string_constraints() {

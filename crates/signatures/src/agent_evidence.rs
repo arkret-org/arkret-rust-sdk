@@ -69,6 +69,56 @@ pub fn sign_controller_account_gate_attestation(
     Ok(())
 }
 
+/// Sign the short-lived Agent Authority lease after `snapshot_digest` has
+/// been computed from the complete snapshot core.
+pub fn sign_agent_snapshot_lease(
+    lease: &mut arkret_models_identity::agent_signer_evidence::AgentSnapshotLease,
+    signing_key: &SigningKey,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    lease.proof.jws = domain_proof_jws(SNAPSHOT_LEASE_DOMAIN, lease, signing_key)?;
+    Ok(())
+}
+
+/// Finalize the outer attestation over an already complete evidence value.
+/// The digest excludes the whole outer-attestation object, while its detached
+/// JWS covers every outer field except `proof.jws`.
+pub fn sign_agent_evidence_outer_attestation(
+    evidence: &mut AgentSignerEvidence,
+    signing_key: &SigningKey,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    let digest = outer_core_digest(evidence)?;
+    let outer = match evidence {
+        AgentSignerEvidence::CurrentAdmission {
+            outer_attestation, ..
+        }
+        | AgentSignerEvidence::HistoricalEvent {
+            outer_attestation, ..
+        } => outer_attestation,
+    };
+    outer.core_digest = digest;
+    outer.proof.jws = domain_proof_jws(OUTER_ATTESTATION_DOMAIN, outer, signing_key)?;
+    Ok(())
+}
+
+fn domain_proof_jws(
+    domain: &str,
+    value: &impl Serialize,
+    signing_key: &SigningKey,
+) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
+    let mut value =
+        serde_json::to_value(value).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    remove_nested_jws(&mut value)?;
+    let canonical = canonical::canonical_json_bytes(&value)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let mut bytes = Vec::with_capacity(domain.len() + 1 + canonical.len());
+    bytes.extend_from_slice(domain.as_bytes());
+    bytes.push(b'\n');
+    bytes.extend_from_slice(&canonical);
+    let jws = sign_ed25519_detached_jws(signing_key, &bytes)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
+}
+
 /// Independently verify the Account Authority-owned gate before an Agent PCR
 /// includes it in portable evidence. The private projection behind
 /// `basis_digest` is authority-owned; the verifier checks the closed shape,
@@ -1414,6 +1464,39 @@ fn value_contains_authorization_record(
             )
         }),
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod producer_tests {
+    use arkret_models_identity::agent_signer_evidence::AgentSnapshotLease;
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn signed_snapshot_lease_rejects_evidence_tamper() {
+        let signing_key = SigningKey::from_bytes(&[29_u8; 32]);
+        let mut lease: AgentSnapshotLease = serde_json::from_value(json!({
+            "authority_kind": "agent_authority",
+            "authority_service_id": "ak:did_core:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+            "verification_method": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+            "snapshot_digest": format!("sha256:{}", "11".repeat(32)),
+            "issued_at": "2026-08-10T00:00:00.000Z",
+            "expires_at": "2026-08-10T00:02:00.000Z",
+            "proof": {"kind": "detached_jws", "jws": "pending"}
+        }))
+        .unwrap();
+        sign_agent_snapshot_lease(&mut lease, &signing_key).unwrap();
+        let material = PublicKeyMaterial::Ed25519Raw {
+            bytes: signing_key.verifying_key().to_bytes().to_vec(),
+        };
+        verify_domain_proof(SNAPSHOT_LEASE_DOMAIN, &lease, &lease.proof, &material).unwrap();
+
+        lease.snapshot_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
+        assert!(
+            verify_domain_proof(SNAPSHOT_LEASE_DOMAIN, &lease, &lease.proof, &material).is_err()
+        );
     }
 }
 
