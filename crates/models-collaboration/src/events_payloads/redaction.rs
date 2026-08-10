@@ -111,9 +111,9 @@ mod tests {
             "sender": "did:webvh:z6mkfixture:bob.example",
             "created_at": "2026-04-26T00:00:00.000Z",
             "content": {"kind": "ak.content.text", "body": "secret"},
-            "reactions": [{"actor": "did:webvh:z6mkfixture:alice.example", "key": "+1"}],
+            "reactions": [{"actor": "ak:did_core:webvh:z6mkfixture", "key": "+1"}],
             "reply_to": "ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p",
-            "mentions": [{"actor_id": "did:webvh:z6mkfixture:alice.example"}],
+            "mentions": [{"actor_id": "ak:did_core:webvh:z6mkfixture"}],
         });
         let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00.000Z")
             .unwrap()

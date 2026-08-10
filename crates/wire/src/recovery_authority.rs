@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
-use crate::{DeviceId, Did, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId, TransactionId};
+use crate::{
+    DeviceId, DidCoreId, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId, TransactionId,
+};
 
 pub const RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS: [&str; 14] = [
     "schema",
@@ -105,8 +107,8 @@ pub struct RecoveryCompletionAttestation {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: Did,
-    pub coordinator_service_id: Did,
+    pub principal_id: DidCoreId,
+    pub coordinator_service_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,
@@ -185,8 +187,8 @@ pub struct UnsignedRecoveryCompletionAttestationBody {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: Did,
-    pub coordinator_service_id: Did,
+    pub principal_id: DidCoreId,
+    pub coordinator_service_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,

@@ -10,7 +10,7 @@
 //!
 //! ```rust
 //! use arkret::{
-//!     ActorId, ContentBlock, FullId, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId,
+//!     ContentBlock, DidCoreId, DidFullId, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId,
 //!     TypedEventDraft, event_spec, project_full_id_to_core_id,
 //! };
 //!
@@ -24,7 +24,7 @@
 //!     ScopeRef::Realm {
 //!         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?,
 //!     },
-//!     ActorId::from(project_full_id_to_core_id(&FullId::new(
+//!     DidCoreId::from(project_full_id_to_core_id(&DidFullId::new(
 //!         "did:webvh:z6mkfixture:alice.example",
 //!     )?)?),
 //!     payload,
@@ -43,7 +43,7 @@
 //! raw strings:
 //!
 //! ```compile_fail
-//! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
+//! let did: arkret::DidFullId = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
 mod sdk_error;
@@ -84,24 +84,24 @@ pub use arkret_hlc::{
 pub use arkret_http_client as http_client;
 pub use arkret_identifiers as identifiers;
 pub use arkret_identifiers::{
-    ActorId, ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
+    ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, CoreId, DeviceId,
-    DeviceMessageId, DeviceMessageTransactionId, Did, EventId, FilterId, FrameId, FrankingProofId,
-    FullId, GrantId, Hash, Hlc, InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
+    DeviceMessageTransactionId, DidCoreId, DidFullId, EventId, FilterId, FrameId, FrankingProofId,
+    GrantId, Hash, Hlc, InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId,
     ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
-    PrincipalId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, RtcParticipantId, SealId, ServiceId, SidecarId, SnapshotId, SpaceId, StrandId,
-    SubscriptionId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId,
+    RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId,
+    TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
     project_full_id_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
 pub use arkret_identity::service_identity::{
-    FileIdentityBundleBackend, IdentityBundleBackend, IdentityBundleBackendAvailability,
-    KeyStoreIdentityBundleBackend, LocalServiceIdentity, ResolvedService, ServiceIdentityBundle,
-    ServiceIdentityDiagnostic, ServiceIdentityKeyRef, ServiceIdentityProviderRef,
-    ServiceIdentityState, StoredServiceIdentity,
+    DidCoreIdentityBundle, DidCoreIdentityDiagnostic, DidCoreIdentityKeyRef,
+    DidCoreIdentityProviderRef, DidCoreIdentityState, FileIdentityBundleBackend,
+    IdentityBundleBackend, IdentityBundleBackendAvailability, KeyStoreIdentityBundleBackend,
+    LocalDidCoreIdentity, ResolvedService, StoredDidCoreIdentity,
 };
 #[cfg(feature = "keystore-encrypted-file")]
 pub use arkret_keystore::EncryptedFileKeyStore;
@@ -112,7 +112,15 @@ pub use arkret_keystore::{
 };
 pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
-pub use arkret_models_collaboration::call_signal::*;
+pub use arkret_models_collaboration::call_signal::{
+    CallAckSignalData, CallAnswerSignalData, CallCandidateSignalData, CallEndSignalData,
+    CallErrorSignalData, CallFocusSignalData, CallInviteSignalData, CallMediaSelection,
+    CallMediaStateSignalData, CallMode as CallSignalMode, CallModerationAction,
+    CallModerationSignalData, CallMuteStateSignalData, CallRenegotiateSignalData, CallSignalData,
+    CallSignalKind, CallSignalPlaintext, CallSignalPlaintextKind, CallSpeakingSignalData,
+    IceCandidate, MuteChangedBy, RenegotiationReason, ScreenMediaState, SessionDescription,
+    SessionDescriptionType,
+};
 pub use arkret_models_collaboration::direct_conversation_ops::*;
 pub use arkret_models_collaboration::direct_conversation_repair::*;
 pub use arkret_models_collaboration::event_query::*;
@@ -248,8 +256,8 @@ pub use arkret_models_discovery::presence::{
 };
 pub use arkret_models_discovery::service_description::*;
 pub use arkret_models_discovery::service_requirements::{
-    ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
-    RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
+    ApiConventionMetadata, DidCoreIdAllowlist, HttpTraceMetadata, NotFoundPrivacy, QuotaKind,
+    QuotaMetadata, RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding,
     ServiceRequirements,
 };
 pub use arkret_models_discovery::{ops, service_requirements as service};
@@ -499,14 +507,14 @@ pub use http_did_resolver::{
 pub use identity::{
     AuthorityDidHistoryResolver, AuthorityHistoryUnavailable, AuthorityHistoryVerificationError,
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
-    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidMigration,
-    DidRegistryReceipt, DidResolver, DidVisibility, DidWebDocumentOutcome, DidWebResolver,
-    ExternalHandleProof, HandleAttestation, HandleClaimChallenge, HandleProofProfile,
-    IdentityManager, IdentityReceiptWitnessRole, PairwiseActorBinding,
-    PairwiseActorResolutionProof, PairwiseActorStore, ResolvedDid, ResolvedVerificationMethodKey,
-    VerifiedAccountBindingReceipt, event_proof_verification_context,
-    event_proof_verification_context_with_digest_suite, handle_claim_proof, handle_dns_txt_name,
-    handle_well_known_url, pairwise_actor_resolution_proof, resolve_verification_method_key,
+    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidRegistryReceipt,
+    DidResolver, DidVisibility, DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof,
+    HandleAttestation, HandleClaimChallenge, HandleProofProfile, IdentityManager,
+    IdentityReceiptWitnessRole, PairwiseActorBinding, PairwiseActorResolutionProof,
+    PairwiseActorStore, ResolvedDid, ResolvedVerificationMethodKey, VerifiedAccountBindingReceipt,
+    event_proof_verification_context, event_proof_verification_context_with_digest_suite,
+    handle_claim_proof, handle_dns_txt_name, handle_well_known_url,
+    pairwise_actor_resolution_proof, resolve_verification_method_key,
     resolve_verification_method_key_from_document, verification_method_did,
     verify_account_binding_receipt_at_issuance, verify_canonical_proof_with_did_resolver,
     verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
@@ -544,7 +552,7 @@ pub mod calendar {
     use arkret_event_draft::RsvpAuthoring;
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
     use arkret_schema::project_registered_cell_writes;
-    use arkret_wire::{ActorId, Error, Event, Hash, Hlc, Result, ScopeRef};
+    use arkret_wire::{DidCoreId, Error, Event, Hash, Hlc, Result, ScopeRef};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
     ///
@@ -557,7 +565,7 @@ pub mod calendar {
         calendar: &CalendarEventFields,
         schedule: &crate::CalendarScheduleProjection,
         scope_ref: ScopeRef,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         causal_refs: Vec<Hash>,

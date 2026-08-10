@@ -7,7 +7,8 @@
 use arkret_canonical as canonical;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    DeviceId, Did, Error, EventId, GrantId, Hash, PayloadProof, ProofContextId, RealmId, Result,
+    DeviceId, DidCoreId, DidFullId, Error, EventId, GrantId, Hash, PayloadProof, ProofContextId,
+    RealmId, Result, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -38,7 +39,7 @@ pub struct JoinApplicationAnswer {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationEnvelopeRecipient {
-    pub reviewer_did: Did,
+    pub reviewer_actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub recipient_hpke_kid: String,
     pub enc: String,
@@ -140,7 +141,7 @@ pub fn join_application_revision_digest(
 pub struct JoinApplicationReceiptUnsigned {
     pub candidate_kind: String,
     pub realm_id: RealmId,
-    pub applicant_did: Did,
+    pub applicant_actor_id: DidCoreId,
     pub knock_ref: EventId,
     pub policy_version_digest: Hash,
     pub application_revision_digest: Hash,
@@ -161,7 +162,7 @@ impl JoinApplicationReceiptUnsigned {
 pub struct JoinApplicationReceipt {
     pub candidate_kind: String,
     pub realm_id: RealmId,
-    pub applicant_did: Did,
+    pub applicant_actor_id: DidCoreId,
     pub knock_ref: EventId,
     pub policy_version_digest: Hash,
     pub application_revision_digest: Hash,
@@ -178,7 +179,7 @@ impl JoinApplicationReceipt {
         let receipt = Self {
             candidate_kind: unsigned.candidate_kind,
             realm_id: unsigned.realm_id,
-            applicant_did: unsigned.applicant_did,
+            applicant_actor_id: unsigned.applicant_actor_id,
             knock_ref: unsigned.knock_ref,
             policy_version_digest: unsigned.policy_version_digest,
             application_revision_digest: unsigned.application_revision_digest,
@@ -195,7 +196,7 @@ impl JoinApplicationReceipt {
         JoinApplicationReceiptUnsigned {
             candidate_kind: self.candidate_kind.clone(),
             realm_id: self.realm_id.clone(),
-            applicant_did: self.applicant_did.clone(),
+            applicant_actor_id: self.applicant_actor_id.clone(),
             knock_ref: self.knock_ref.clone(),
             policy_version_digest: self.policy_version_digest.clone(),
             application_revision_digest: self.application_revision_digest.clone(),
@@ -212,14 +213,14 @@ impl JoinApplicationReceipt {
         validate_receipt_proof(
             &self.proof,
             &self.application_receipt_digest,
-            &self.applicant_did,
+            &self.applicant_actor_id,
             self.submitted_at,
         )?;
         canonical::canonical_json_bytes(&serde_json::json!({
             "context": ProofContextId::JOIN_APPLICATION_RECEIPT_PROOF_V1,
             "receipt_digest": self.application_receipt_digest,
             "realm_id": self.realm_id,
-            "actor_id": self.applicant_did,
+            "actor_id": self.applicant_actor_id,
             "verification_method": self.proof.verification_method,
             "created_at": self.proof.created_at,
         }))
@@ -234,7 +235,12 @@ impl JoinApplicationReceipt {
         if digest != self.application_receipt_digest {
             return protocol_error("join application receipt digest mismatch");
         }
-        validate_receipt_proof(&self.proof, &digest, &self.applicant_did, self.submitted_at)
+        validate_receipt_proof(
+            &self.proof,
+            &digest,
+            &self.applicant_actor_id,
+            self.submitted_at,
+        )
     }
 }
 
@@ -296,7 +302,7 @@ pub struct JoinApplicationReviewReceiptUnsigned {
     pub realm_id: RealmId,
     pub application_ref: Hash,
     pub application_revision_digest: Hash,
-    pub reviewer_did: Did,
+    pub reviewer_actor_id: DidCoreId,
     pub decision: JoinApplicationDecision,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<JoinApplicationReasonCode>,
@@ -323,7 +329,7 @@ pub struct JoinApplicationReviewReceipt {
     pub realm_id: RealmId,
     pub application_ref: Hash,
     pub application_revision_digest: Hash,
-    pub reviewer_did: Did,
+    pub reviewer_actor_id: DidCoreId,
     pub decision: JoinApplicationDecision,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<JoinApplicationReasonCode>,
@@ -349,7 +355,7 @@ impl JoinApplicationReviewReceipt {
             realm_id: unsigned.realm_id,
             application_ref: unsigned.application_ref,
             application_revision_digest: unsigned.application_revision_digest,
-            reviewer_did: unsigned.reviewer_did,
+            reviewer_actor_id: unsigned.reviewer_actor_id,
             decision: unsigned.decision,
             reason_code: unsigned.reason_code,
             reason_text: unsigned.reason_text,
@@ -369,7 +375,7 @@ impl JoinApplicationReviewReceipt {
             realm_id: self.realm_id.clone(),
             application_ref: self.application_ref.clone(),
             application_revision_digest: self.application_revision_digest.clone(),
-            reviewer_did: self.reviewer_did.clone(),
+            reviewer_actor_id: self.reviewer_actor_id.clone(),
             decision: self.decision.clone(),
             reason_code: self.reason_code.clone(),
             reason_text: self.reason_text.clone(),
@@ -387,7 +393,7 @@ impl JoinApplicationReviewReceipt {
         validate_receipt_proof(
             &self.proof,
             &self.review_receipt_digest,
-            &self.reviewer_did,
+            &self.reviewer_actor_id,
             self.reviewed_at,
         )?;
         canonical::canonical_json_bytes(&serde_json::json!({
@@ -396,7 +402,7 @@ impl JoinApplicationReviewReceipt {
             "realm_id": self.realm_id,
             "application_ref": self.application_ref,
             "application_revision_digest": self.application_revision_digest,
-            "actor_id": self.reviewer_did,
+            "actor_id": self.reviewer_actor_id,
             "verification_method": self.proof.verification_method,
             "created_at": self.proof.created_at,
         }))
@@ -425,7 +431,12 @@ impl JoinApplicationReviewReceipt {
         if digest != self.review_receipt_digest {
             return protocol_error("join application review receipt digest mismatch");
         }
-        validate_receipt_proof(&self.proof, &digest, &self.reviewer_did, self.reviewed_at)
+        validate_receipt_proof(
+            &self.proof,
+            &digest,
+            &self.reviewer_actor_id,
+            self.reviewed_at,
+        )
     }
 }
 
@@ -443,7 +454,7 @@ pub struct JoinApplicationCancelReceiptUnsigned {
     pub candidate_kind: String,
     pub realm_id: RealmId,
     pub application_ref: Hash,
-    pub cancelled_by: Did,
+    pub cancelled_by: DidCoreId,
     #[serde(with = "canonical_timestamp")]
     pub cancelled_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -463,7 +474,7 @@ pub struct JoinApplicationCancelReceipt {
     pub candidate_kind: String,
     pub realm_id: RealmId,
     pub application_ref: Hash,
-    pub cancelled_by: Did,
+    pub cancelled_by: DidCoreId,
     #[serde(with = "canonical_timestamp")]
     pub cancelled_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -582,7 +593,7 @@ pub struct JoinApplicationMutationOutcome {
 pub struct JoinApplicationEntry {
     pub application_ref: Hash,
     pub realm_id: RealmId,
-    pub applicant_did: Did,
+    pub applicant_actor_id: DidCoreId,
     pub application_revision_digest: Hash,
     pub policy_version_digest: Hash,
     #[serde(with = "canonical_timestamp")]
@@ -630,7 +641,7 @@ pub enum JoinApplicationAuditAction {
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationAuditEntry {
     pub action: JoinApplicationAuditAction,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(with = "canonical_timestamp")]
     pub occurred_at: DateTime<Utc>,
     pub receipt_ref: Hash,
@@ -654,7 +665,7 @@ fn canonical_hash(value: &impl Serialize) -> Result<Hash> {
 fn validate_receipt_proof(
     proof: &PayloadProof,
     digest: &Hash,
-    actor: &Did,
+    actor: &DidCoreId,
     created_at: DateTime<Utc>,
 ) -> Result<()> {
     proof.validate_production()?;
@@ -664,8 +675,16 @@ fn validate_receipt_proof(
     if proof.created_at != created_at {
         return protocol_error("join application proof created_at mismatch");
     }
-    let expected_prefix = format!("{}#", actor.as_str());
-    if !proof.verification_method.starts_with(&expected_prefix) {
+    let controller = proof
+        .verification_method
+        .as_str()
+        .split_once('#')
+        .map(|(controller, _)| controller)
+        .ok_or_else(|| {
+            Error::Protocol("join application proof signer is not a DID URL".to_owned())
+        })?;
+    let controller = DidFullId::new(controller.to_owned())?;
+    if project_full_id_to_core_id(&controller)? != *actor {
         return protocol_error("join application proof signer does not match actor");
     }
     Ok(())
@@ -681,10 +700,14 @@ mod tests {
 
     use super::*;
 
-    fn proof(digest: Hash, actor: &Did, created_at: DateTime<Utc>) -> PayloadProof {
+    fn proof(digest: Hash, actor: &DidCoreId, created_at: DateTime<Utc>) -> PayloadProof {
+        let controller = match actor.as_str() {
+            "ak:did_core:webvh:zexamplealice" => "did:webvh:zexamplealice:alice.example",
+            other => panic!("missing full-DID fixture for {other}"),
+        };
         PayloadProof {
             kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new(format!("{}#device-key", actor.as_str())).unwrap(),
+            verification_method: DidUrl::new(format!("{controller}#device-key")).unwrap(),
             payload_digest: digest,
             created_at,
             domain: None,
@@ -696,7 +719,7 @@ mod tests {
 
     #[test]
     fn application_receipt_digest_and_binding_are_stable() {
-        let actor = Did::new("did:webvh:zExample:users.example:alice".to_owned()).unwrap();
+        let actor = DidCoreId::new("ak:did_core:webvh:zexamplealice").unwrap();
         let created_at = DateTime::parse_from_rfc3339("2026-07-24T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -706,7 +729,7 @@ mod tests {
                 "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
             )
             .unwrap(),
-            applicant_did: actor.clone(),
+            applicant_actor_id: actor.clone(),
             knock_ref: EventId::new(
                 "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
             )
@@ -740,7 +763,7 @@ mod tests {
             gate_proofs: Vec::new(),
             applicant_note: None,
         };
-        let actor = Did::new("did:webvh:zExample:users.example:alice".to_owned()).unwrap();
+        let actor = DidCoreId::new("ak:did_core:webvh:zexamplealice").unwrap();
         let created_at = DateTime::parse_from_rfc3339("2026-07-24T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -750,7 +773,7 @@ mod tests {
                 "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
             )
             .unwrap(),
-            applicant_did: actor.clone(),
+            applicant_actor_id: actor.clone(),
             knock_ref: EventId::new(
                 "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
             )

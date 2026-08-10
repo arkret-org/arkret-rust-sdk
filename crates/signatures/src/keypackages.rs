@@ -6,7 +6,7 @@ use arkret_models_crypto::{
     keypackage_upload_entry_signing_input, keypackages_consume_signing_input,
     keypackages_revoke_signing_input, keypackages_upload_signing_input,
 };
-use arkret_wire::{Base64UrlString, DeviceId, Did, NonEmptyString};
+use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, NonEmptyString};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
@@ -98,7 +98,7 @@ pub fn sign_keypackages_upload_request(
 }
 
 pub fn sign_keypackage_upload_entry(
-    principal_id: &Did,
+    principal_id: &DidCoreId,
     device_id: &DeviceId,
     entry: &KeyPackageUploadEntry,
     verification_method: &str,

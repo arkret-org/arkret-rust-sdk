@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    AccountDataKey, BlobId, CallId, CircleId, DeviceId, Did, Error,
+    AccountDataKey, BlobId, CallId, CircleId, DeviceId, DidCoreId, DidFullId, Error,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, ProfileId, RealmId, Result, ScheduledSendId,
     SchemaId, ScopeRef, SpaceId, StrandId, canonical,
 };
@@ -220,7 +220,7 @@ pub enum CalendarAttendeeRole {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalendarAttendee {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<CalendarAttendeeRole>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -914,7 +914,7 @@ pub enum SearchLeakageClass {
 #[serde(deny_unknown_fields)]
 pub struct SearchPolicy {
     pub enabled_profile_refs: Vec<SearchProfileRef>,
-    pub allowed_service_ids: Vec<Did>,
+    pub allowed_service_ids: Vec<DidCoreId>,
     pub data_classes: Vec<SearchDataClass>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index_retention_ms: Option<u64>,
@@ -1448,7 +1448,7 @@ pub struct RealmRemark {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_title_at_save: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub verified_owning_organizations_at_save: Vec<Did>,
+    pub verified_owning_organizations_at_save: Vec<DidCoreId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub saved_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1467,7 +1467,7 @@ pub struct RealmRemarkAccountDataUpdate {
 #[serde(deny_unknown_fields)]
 pub struct ContactRemarkSubject {
     pub kind: String,
-    pub did: Did,
+    pub actor_id: DidCoreId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1493,12 +1493,16 @@ pub struct ContactRemark {
 }
 
 impl ContactRemark {
-    pub fn new(actor_did: Did, local_name: impl Into<String>, saved_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        actor_id: DidCoreId,
+        local_name: impl Into<String>,
+        saved_at: DateTime<Utc>,
+    ) -> Self {
         Self {
             version: 1,
             subject: ContactRemarkSubject {
                 kind: "actor".to_owned(),
-                did: actor_did,
+                actor_id,
             },
             local_name: local_name.into(),
             note: String::new(),
@@ -1511,18 +1515,18 @@ impl ContactRemark {
     }
 
     pub fn with_pinned_preserving_fields(
-        actor_did: Did,
+        actor_id: DidCoreId,
         existing: Option<&Self>,
         pinned: bool,
         updated_at: DateTime<Utc>,
     ) -> Self {
         let mut next = existing
             .cloned()
-            .unwrap_or_else(|| Self::new(actor_did.clone(), "", updated_at));
+            .unwrap_or_else(|| Self::new(actor_id.clone(), "", updated_at));
         next.version = 1;
         next.subject = ContactRemarkSubject {
             kind: "actor".to_owned(),
-            did: actor_did,
+            actor_id,
         };
         next.pinned = pinned;
         next.updated_at = Some(updated_at);
@@ -1546,7 +1550,7 @@ impl ContactRemark {
     }
 
     pub fn validate_for_account_data_key(&self, key: &str) -> Result<()> {
-        let actor_did = parse_contact_remark_account_data_key(key)?;
+        let actor_id = parse_contact_remark_account_data_key(key)?;
         if self.version != 1 {
             return Err(Error::Protocol(
                 "contact remark version must be 1".to_owned(),
@@ -1557,7 +1561,7 @@ impl ContactRemark {
                 "contact remark subject.kind must be actor".to_owned(),
             ));
         }
-        if self.subject.did != actor_did {
+        if self.subject.actor_id != actor_id {
             return Err(Error::Protocol(
                 "contact remark subject.did must match its account-data key".to_owned(),
             ));
@@ -1576,27 +1580,27 @@ impl ContactRemark {
     }
 }
 
-pub fn contact_remark_account_data_key(actor_did: &Did) -> String {
+pub fn contact_remark_account_data_key(actor_did: &DidFullId) -> String {
     format!(
         "{accountdatakey_contacts_actor}.{actor_did}",
         accountdatakey_contacts_actor = AccountDataKey::CONTACTS_ACTOR
     )
 }
 
-pub fn parse_contact_remark_account_data_key(key: &str) -> Result<Did> {
+pub fn parse_contact_remark_account_data_key(key: &str) -> Result<DidCoreId> {
     let raw = key
         .strip_prefix(&format!(
             "{accountdatakey_contacts_actor}.",
             accountdatakey_contacts_actor = AccountDataKey::CONTACTS_ACTOR
         ))
         .ok_or_else(|| Error::Protocol("invalid contact remark account-data key".to_owned()))?;
-    Ok(Did::new(raw.to_owned())?)
+    Ok(DidCoreId::new(raw.to_owned())?)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountBlocklistPayload {
-    pub owner: Did,
+    pub owner: DidCoreId,
     pub version: u64,
     pub entries: Vec<AccountBlocklistPayloadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1675,7 +1679,7 @@ pub enum AccountBlocklistAppletTargetKind {
 #[serde(deny_unknown_fields)]
 pub struct AccountBlocklistDidTarget {
     pub kind: AccountBlocklistDidTargetKind,
-    pub did: Did,
+    pub actor_id: DidCoreId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2199,9 +2203,11 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
         });
     }
     if let Some(actor_id) = strip_dotted_namespace(key, AccountDataKey::CONTACTS_ACTOR) {
-        return Did::new(actor_id.to_owned()).map(|_| ()).map_err(|_| {
-            Error::Protocol("contact remark key must be ak.contacts.actor.<did>".to_owned())
-        });
+        return DidFullId::new(actor_id.to_owned())
+            .map(|_| ())
+            .map_err(|_| {
+                Error::Protocol("contact remark key must be ak.contacts.actor.<did>".to_owned())
+            });
     }
     // `ak.views.private` / `ak.notifications.inbox` carry a full typed id in
     // the tail, exactly like the two `ak.contacts.*` namespaces above. The
@@ -2660,7 +2666,7 @@ mod tests {
     #[test]
     fn account_blocklist_uses_closed_typed_targets_and_revision_semantics() {
         let payload: AccountBlocklistPayload = serde_json::from_value(json!({
-            "owner": "did:webvh:z6mkfixture:holder.example",
+            "owner": "ak:did_core:webvh:z6mkfixture",
             "version": 2,
             "entries": [
                 {
@@ -2688,7 +2694,7 @@ mod tests {
         assert_eq!(payload.version, 2);
 
         let cleared: AccountBlocklistPayload = serde_json::from_value(json!({
-            "owner": "did:webvh:z6mkfixture:holder.example",
+            "owner": "ak:did_core:webvh:z6mkfixture",
             "version": 3,
             "entries": []
         }))
@@ -2699,7 +2705,7 @@ mod tests {
     #[test]
     fn account_blocklist_rejects_wrong_typed_ref_and_overlapping_surface() {
         let wrong_ref = serde_json::from_value::<AccountBlocklistPayload>(json!({
-            "owner": "did:webvh:z6mkfixture:holder.example",
+            "owner": "ak:did_core:webvh:z6mkfixture",
             "version": 1,
             "entries": [{
                 "target": {
@@ -2714,13 +2720,13 @@ mod tests {
         assert!(wrong_ref.is_err());
 
         let overlap: AccountBlocklistPayload = serde_json::from_value(json!({
-            "owner": "did:webvh:z6mkfixture:holder.example",
+            "owner": "ak:did_core:webvh:z6mkfixture",
             "version": 1,
             "entries": [
                 {
                     "target": {
                         "kind": "actor",
-                        "did": "did:webvh:z6mkfixture:blocked.example"
+                        "actor_id": "ak:did_core:webvh:z6mkfixtureblocked"
                     },
                     "mode": "block",
                     "applies_to": ["messages"],
@@ -2729,7 +2735,7 @@ mod tests {
                 {
                     "target": {
                         "kind": "actor",
-                        "did": "did:webvh:z6mkfixture:blocked.example"
+                        "actor_id": "ak:did_core:webvh:z6mkfixtureblocked"
                     },
                     "mode": "hide",
                     "applies_to": ["messages"],
@@ -2800,7 +2806,7 @@ mod tests {
             location: None,
             call_id: None,
             attendees: vec![CalendarAttendee {
-                actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 role: Some(CalendarAttendeeRole::Organizer),
                 display_name_snapshot: None,
             }],
@@ -2842,7 +2848,7 @@ mod tests {
         // At most one organizer.
         let mut invalid = fields;
         invalid.attendees.push(CalendarAttendee {
-            actor_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             role: Some(CalendarAttendeeRole::Organizer),
             display_name_snapshot: None,
         });
@@ -3171,7 +3177,7 @@ mod tests {
             pinned: true,
             verified_title_at_save: Some("Engineering".to_owned()),
             verified_owning_organizations_at_save: vec![
-                Did::new("did:webvh:z6mkfixture:acme.example".to_owned()).unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureacme").unwrap(),
             ],
             saved_at: test_time(0),
             updated_at: Some(test_time(1)),
@@ -3268,7 +3274,7 @@ mod tests {
                 SearchProfileRef::BlindIndex,
                 SearchProfileRef::ForwardPrivate,
             ],
-            allowed_service_ids: vec![Did::new("did:webvh:z6mkfixture:search.example").unwrap()],
+            allowed_service_ids: vec![DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()],
             data_classes: vec![
                 SearchDataClass::EncryptedIndex,
                 SearchDataClass::BlindTokens,

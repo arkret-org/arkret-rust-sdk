@@ -6,7 +6,9 @@
 //! (`AgentLifecycleState`, `AgentRuntimeState`, `AgentPcrRecoveryState`,
 //! `AgentPairingMode`) that remain core-resident.
 
-use arkret_wire::{Base64UrlString, Did, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId};
+use arkret_wire::{
+    Base64UrlString, DidCoreId, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +62,7 @@ pub struct AgentKeyAuthorizationState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PendingMemberReconciliationItem {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub reason: NonEmptyString,
 }
 
@@ -85,7 +87,7 @@ pub type EventDigest = Hash;
 
 // `seal.schema.json#/$defs/signature` is modelled by
 // [`arkret_wire::PayloadSignature`]. A second, incompatible `Signature` struct
-// used to live here with `verification_method: Did`, which rejected every legal
+// used to live here with `verification_method: DidCoreId`, which rejected every legal
 // wire value (the schema's own description says "Bare DID is not valid for
 // signatures"). It had zero constructors and zero readers across all
 // repositories — it only leaked into the facade through

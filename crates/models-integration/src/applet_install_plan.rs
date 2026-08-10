@@ -1,6 +1,8 @@
 //! `ak.schema.applet_install_plan.v1` wire object.
 
-use arkret_wire::{AppletId, Did, Error, Hash, PlanId, Result, SchemaId, ScopeRef, canonical};
+use arkret_wire::{
+    AppletId, DidCoreId, Error, Hash, PlanId, Result, SchemaId, ScopeRef, canonical,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_applet::{
@@ -12,7 +14,7 @@ use crate::artifacts_applet::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletInstallAppletId {
-    Did(Did),
+    Service(DidCoreId),
     AppletId(AppletId),
 }
 

@@ -10,8 +10,7 @@
 //! is fail-closed and never falls back to an arbitrary key.
 
 use arkret_canonical::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
-use arkret_identifiers::Did;
-use arkret_wire::DidUrl;
+use arkret_wire::{DidCoreId, DidUrl};
 use serde_json::Value;
 
 /// DID service entry `type` designating an offline RRK (`identity-did.md` §8.3).
@@ -73,7 +72,7 @@ pub struct ResolvedRealmHistoryRecoveryKey {
     /// The recipient stable id (`durability_policy.recovery_recipients[].recipient_id`).
     pub recipient_id: String,
     /// The principal that published the RRK service entry.
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     /// The verification method id the RRK service entry designates.
     pub verification_method: DidUrl,
     /// Decoded raw 32-byte X25519 HPKE public key the provider seals to.
@@ -104,7 +103,7 @@ pub struct ResolvedRealmHistoryRecoveryKey {
 /// the DID Document resolved as of that instant.
 pub fn resolve_realm_history_recovery_key(
     recipient_id: &str,
-    principal_id: &Did,
+    principal_id: &DidCoreId,
     verification_method: &DidUrl,
     did_document: &Value,
 ) -> Result<ResolvedRealmHistoryRecoveryKey, RealmHistoryRecoveryKeyError> {
@@ -236,14 +235,14 @@ mod tests {
 
     struct TestRecipient {
         recipient_id: String,
-        principal_id: Did,
+        principal_id: DidCoreId,
         verification_method: DidUrl,
     }
 
     fn recipient() -> TestRecipient {
         TestRecipient {
             recipient_id: "acme-org-rrk-1".to_owned(),
-            principal_id: Did::new("did:webvh:z6mkfixture:acme.example").unwrap(),
+            principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             verification_method: DidUrl::new(
                 "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1",
             )

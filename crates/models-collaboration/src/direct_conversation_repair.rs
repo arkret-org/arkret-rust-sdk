@@ -6,7 +6,7 @@
 
 use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
-    Base64UrlString, CoreId, DeviceId, DidUrl, EventId, FederatedDeviceSigningKeyEvidence, Hash,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, FederatedDeviceSigningKeyEvidence, Hash,
     ProtocolSignature,
 };
 use chrono::{DateTime, Utc};
@@ -30,7 +30,7 @@ pub enum DirectConversationRepairAuthorization {
         signature: ProtocolSignature,
     },
     NativeAgent {
-        requester_agent_id: CoreId,
+        requester_agent_id: DidCoreId,
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -76,7 +76,8 @@ impl DirectConversationRepairAuthorization {
                 },
             ) => {
                 requester_agent_id == content_agent_id
-                    && requester_agent_id == &content.requester_principal_id
+                    && requester_agent_id.as_core_id()
+                        == content.requester_principal_id.as_core_id()
                     && verification_method == requester_agent_verification_method
                     && agent_key_authorize_event_id == content_authorize_event_id
                     && verification_method == &signature.verification_method
@@ -96,6 +97,7 @@ impl DirectConversationRepairAuthorization {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum DirectConversationRepairRequesterEvidence {
     Device {
         #[cfg_attr(
@@ -253,7 +255,7 @@ pub enum DirectConversationRepairEnqueueStatus {
 pub struct DirectConversationRepairEnqueueOutcome {
     pub request_id: Base64UrlString,
     pub request_digest: Hash,
-    pub destination_service_id: CoreId,
+    pub destination_service_id: DidCoreId,
     pub status: DirectConversationRepairEnqueueStatus,
     pub recipient_target: DirectConversationRepairRecipientTarget,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

@@ -9,7 +9,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_identifiers::{Did, EventId, Hash, RealmId, TypedTrustDomainId};
+use arkret_identifiers::{DidCoreId, EventId, Hash, RealmId, TypedTrustDomainId};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{BlobRef, Error, Result};
 use chrono::{DateTime, Utc};
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WellKnownArkretServer {
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub base_url: String,
     pub protocol_versions: Vec<String>,
     #[serde(default)]
@@ -42,8 +42,8 @@ pub struct HttpMessageSignatureInput {
     pub target_uri: String,
     pub authority: String,
     pub content_digest: String,
-    pub origin_service_id: Did,
-    pub destination_service_id: Did,
+    pub origin_service_id: DidCoreId,
+    pub destination_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -99,7 +99,7 @@ pub struct FederationQuarantineRecord {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationBackfillAuthorization {
-    pub requester_service_id: Did,
+    pub requester_service_id: DidCoreId,
     pub realm_id: RealmId,
     pub history_visible: bool,
     pub service_delegated: bool,
@@ -120,9 +120,9 @@ impl FederationBackfillAuthorization {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifyActorChallenge {
-    pub actor_id: Did,
-    pub origin_service_id: Did,
-    pub destination_service_id: Did,
+    pub actor_id: DidCoreId,
+    pub origin_service_id: DidCoreId,
+    pub destination_service_id: DidCoreId,
     pub challenge: String,
     pub purpose: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -222,8 +222,8 @@ impl FederationMediaOutcome {
 mod tests {
     use super::*;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
     #[test]

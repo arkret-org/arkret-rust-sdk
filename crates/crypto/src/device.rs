@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_signatures::DetachedSignature;
-use arkret_wire::{DeviceId, Did};
+use arkret_wire::{DeviceId, DidCoreId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ use crate::errors::{
 /// `ak.keys.upload_device_keys`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceKeyBundle {
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub device_id: DeviceId,
     pub signing_key: String,
     pub identity_key: String,
@@ -94,7 +94,7 @@ pub enum VerificationStrandState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceVerificationStrand {
     pub transaction_id: String,
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub from_device: DeviceId,
     pub to_device: DeviceId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

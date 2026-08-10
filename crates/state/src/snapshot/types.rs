@@ -1,11 +1,11 @@
-use arkret_wire::DidUrl;
+use arkret_wire::{DidCoreId, DidUrl};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::constants::DETACHED_JWS_PROOF_KIND;
 use super::merkle::sha256_digest;
-use crate::{BlobRef, Did, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
+use crate::{BlobRef, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
 
 mod base64_url {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -39,7 +39,7 @@ pub struct SnapshotManifest {
     pub verification_hints: Option<SnapshotVerificationHints>,
     #[serde(default)]
     pub chunks: Vec<SnapshotChunkDescriptor>,
-    pub created_by: Did,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: AuthorityBinding,
@@ -60,7 +60,7 @@ pub struct UnsignedSnapshotManifest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<&'a SnapshotVerificationHints>,
     pub chunks: &'a [SnapshotChunkDescriptor],
-    pub created_by: &'a Did,
+    pub created_by: &'a DidCoreId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: &'a AuthorityBinding,
@@ -181,7 +181,7 @@ pub enum EventSetCommitmentAlgorithm {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActorSeqRangeCommitment {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub from_seq: u64,
     pub to_seq: u64,
     pub root: Hash,
@@ -192,7 +192,7 @@ pub struct ActorSeqRangeCommitment {
 pub struct EventSetLeaf {
     pub event_id: EventId,
     pub event_digest: Hash,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub actor_seq: u64,
     pub hlc: Hlc,
 }
@@ -200,7 +200,7 @@ pub struct EventSetLeaf {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthorityBinding {
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub authority_kind: SnapshotAuthorityKind,
     pub auth_state_digest: Hash,
     #[serde(default)]

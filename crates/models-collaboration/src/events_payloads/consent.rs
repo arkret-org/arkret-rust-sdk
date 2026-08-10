@@ -1,5 +1,7 @@
 //! Consent event payloads.
 
+use arkret_wire::DidCoreId;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -8,7 +10,7 @@ use crate::internal_prelude::*;
 #[serde(deny_unknown_fields)]
 pub struct ConsentGrantPayload {
     pub consent_id: ConsentId,
-    pub peer: Did,
+    pub peer: DidCoreId,
     pub consent_scope: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

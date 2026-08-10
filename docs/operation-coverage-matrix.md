@@ -4,16 +4,19 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 70 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 567
+- Effective profile/operation requirements: 602
 - Complete rows: 10
 - Partial rows: 8
-- Gap rows: 549
+- Gap rows: 584
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
 | Profile | Role | Operation | Binding | SDK API | Handler | Test | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `ak.profile.agent_auth.v1` | `server` | `ak.gate.account.command.introspect_session_grant` | `POST /_arkret/gate/account/session-grants/introspect` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.gate.account.command.issue_session_grant` | `POST /_arkret/gate/account/session-grants` | — | — | — | gap |
+| `ak.profile.agent_auth.v1` | `server` | `ak.gate.account.command.refresh_session_grant` | `POST /_arkret/gate/account/session-grants/refresh` | — | — | — | gap |
+| `ak.profile.agent_auth.v1` | `server` | `ak.gate.account.command.revoke_session` | `POST /_arkret/gate/account/session-grants/revoke` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.authz.read.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
@@ -29,6 +32,8 @@
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.gate.account.command.pair_agent_key` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
+| `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.abandon_provisioning` | `POST /_arkret/self/agent-provisioning-abandonments` | — | — | — | gap |
+| `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.issue_provisioning_abandonment_challenge` | `POST /_arkret/self/agent-provisioning-abandonment-challenges` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.provision` | `POST /_arkret/self/agents` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.renew_pairing` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.participation.resource.get` | `GET /_arkret/self/agents/{agent_id}/participation` | — | — | — | gap |
@@ -51,6 +56,8 @@
 | `ak.profile.agent_runtime.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.gate.account.command.pair_agent_key` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.abandon_provisioning` | `POST /_arkret/self/agent-provisioning-abandonments` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.issue_provisioning_abandonment_challenge` | `POST /_arkret/self/agent-provisioning-abandonment-challenges` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.provision` | `POST /_arkret/self/agents` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.renew_pairing` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.sidecar.command.ensure` | `POST /_arkret/self/agent-sidecars:ensure` | — | — | — | gap |
@@ -66,6 +73,7 @@
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.keypackages.command.revoke` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
+| `ak.profile.agent_signer_evidence.v1` | `interop` | `ak.gate.account.command.issue_controller_gate_attestation` | `POST /_arkret/gate/account/controller-gate-attestations` | — | — | — | gap |
 | `ak.profile.agent_signer_evidence.v1` | `interop` | `ak.self.agent_signer_evidence.read.resolve` | `POST /_arkret/self/agent-signer-evidence/query` | — | — | — | gap |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.actor.read.resolve` | `GET /_arkret/edge/applet/actors/{actor_id}` | `crates/server/src/applet.rs::AppletHandler::resolve_actor` | `crates/server/src/applet.rs::actor_handler` | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.command.transaction` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/applet.rs::transactions_handler` | `crates/server/src/applet.rs::dispatch_replays_duplicates_and_fails_closed_on_conflicts` | complete |
@@ -111,7 +119,10 @@
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.keys.read.lookup` | `POST /_arkret/self/keys/query` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.keys.upload.create` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
+| `ak.profile.auth_server.v1` | `server` | `ak.gate.account.command.introspect_session_grant` | `POST /_arkret/gate/account/session-grants/introspect` | — | — | — | gap |
 | `ak.profile.auth_server.v1` | `server` | `ak.gate.account.command.issue_session_grant` | `POST /_arkret/gate/account/session-grants` | — | — | — | gap |
+| `ak.profile.auth_server.v1` | `server` | `ak.gate.account.command.refresh_session_grant` | `POST /_arkret/gate/account/session-grants/refresh` | — | — | — | gap |
+| `ak.profile.auth_server.v1` | `server` | `ak.gate.account.command.revoke_session` | `POST /_arkret/gate/account/session-grants/revoke` | — | — | — | gap |
 | `ak.profile.auth_server.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.blob_node.v1` | `gateway` | `ak.self.blob.resource.get` | `GET /_arkret/self/blob/get` | — | — | — | gap |
 | `ak.profile.blob_node.v1` | `gateway` | `ak.self.blob.resource.head` | `HEAD /_arkret/self/blob/get` | — | — | — | gap |
@@ -140,6 +151,7 @@
 | `ak.profile.core_event_store.v1` | `server` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.core_event_store.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.contacts.command.submit` | `POST /_arkret/peer/contacts` | — | — | — | gap |
+| `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.direct_conversation.command.repair_relay` | `POST /_arkret/peer/direct-conversations/repair-relay` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.events.command.submit` | `POST /_arkret/peer/events` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.events.read.resolve` | `QUERY /_arkret/peer/events/resolve` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.events.read.scan` | `QUERY /_arkret/peer/events` | — | — | — | gap |
@@ -150,6 +162,7 @@
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.respond` | `POST /_arkret/self/contacts/respond` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.scope_update` | `POST /_arkret/self/contacts/scope-update` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.tombstone` | `POST /_arkret/self/contacts/tombstone` | — | — | — | gap |
+| `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.direct_conversation.command.repair_dispatch` | `POST /_arkret/self/direct-conversations/repair-dispatch` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.direct_conversation.read.resolve` | `POST /_arkret/self/direct-conversations/resolve` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.directory_service.v1` | `directory` | `ak.find.directory.command.announce` | `POST /_arkret/find/directory/announce` | — | — | — | gap |
@@ -276,6 +289,7 @@
 | `ak.profile.full_client.v1` | `client` | `ak.self.events.stream.subscribe` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.find.directory.read.resolve_organization` | `POST /_arkret/find/directory/resolve-organization` | — | — | — | gap |
+| `ak.profile.high_security_organization.v1` | `admin` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.peer.account_status.read.authoring_basis` | `POST /_arkret/peer/account-status/authoring-basis` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.peer.mls.read.group_state_material` | `POST /_arkret/peer/mls/group-state-material` | — | — | — | gap |
@@ -319,6 +333,7 @@
 | `ak.profile.identity_registry.v1` | `directory` | `ak.root.identity.receipts.read.list` | `GET /_arkret/root/identity/receipts` | — | — | — | gap |
 | `ak.profile.identity_registry.v1` | `directory` | `ak.root.identity.registry.read.describe` | `GET /_arkret/root/identity/describe` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.find.directory.read.resolve_organization` | `POST /_arkret/find/directory/resolve-organization` | — | — | — | gap |
+| `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.peer.account_status.read.authoring_basis` | `POST /_arkret/peer/account-status/authoring-basis` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.peer.mls.read.group_state_material` | `POST /_arkret/peer/mls/group-state-material` | — | — | — | gap |
@@ -417,6 +432,7 @@
 | `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.self.keys.keypackages.command.claim` | `POST /_arkret/self/keys/keypackages/claim` | — | — | — | gap |
 | `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.find.directory.read.resolve_organization` | `POST /_arkret/find/directory/resolve-organization` | — | — | — | gap |
+| `ak.profile.organization.v1` | `admin` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.peer.account_status.read.authoring_basis` | `POST /_arkret/peer/account-status/authoring-basis` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.root.identity.command.submit_did_operation` | `POST /_arkret/root/identity/submit-did-operation` | — | — | — | gap |
@@ -439,6 +455,8 @@
 | `ak.profile.organization.v1` | `admin` | `ak.self.snapshot.read.manifest_head` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.gate.account.command.pair_agent_key` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
+| `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.abandon_provisioning` | `POST /_arkret/self/agent-provisioning-abandonments` | — | — | — | gap |
+| `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.issue_provisioning_abandonment_challenge` | `POST /_arkret/self/agent-provisioning-abandonment-challenges` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.provision` | `POST /_arkret/self/agents` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.renew_pairing` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.authz.read.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |
@@ -464,6 +482,7 @@
 | `ak.profile.personal_productivity.v1` | `client` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.pinned_items.v1` | `client` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.pinned_items.v1` | `client` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.principal_server.v1` | `server` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.principal_server.v1` | `server` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |
 | `ak.profile.principal_server.v1` | `server` | `ak.peer.account_status.read.authoring_basis` | `POST /_arkret/peer/account-status/authoring-basis` | — | — | — | gap |
 | `ak.profile.principal_server.v1` | `server` | `ak.self.account.read.describe` | `GET /_arkret/self/account/describe` | — | — | — | gap |
@@ -500,6 +519,19 @@
 | `ak.profile.search.client_index.v1` | `client` | `ak.self.blob.upload.create` | `POST /_arkret/self/blob/upload` | — | — | — | gap |
 | `ak.profile.search.forward_private.v1` | `server` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.search.forward_private.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.peer.events.command.submit` | `POST /_arkret/peer/events` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.peer.events.read.frontier` | `QUERY /_arkret/peer/events/frontier` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.peer.events.read.resolve` | `QUERY /_arkret/peer/events/resolve` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.peer.events.read.scan` | `QUERY /_arkret/peer/events` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.peer.service_resolution.command.publish` | `POST /_arkret/peer/service-resolution/publish` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.peer.service_resolution.read.resolve` | `QUERY /_arkret/peer/service-resolution/resolve` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.self.events.read.describe` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.self.events.read.frontier` | `QUERY /_arkret/self/events/frontier` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.self.events.read.resolve` | `QUERY /_arkret/self/events/resolve` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
+| `ak.profile.service_resolution_mirror.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.signal_message_stream.v1` | `client` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.signal_message_stream.v1` | `client` | `ak.self.signal.command.send` | `POST /_arkret/self/signal` | — | — | — | gap |
 | `ak.profile.signal_message_stream.v1` | `client` | `ak.self.signal.stream.subscribe` | `GET /_arkret/self/signal/subscribe` | — | — | — | gap |
@@ -507,6 +539,7 @@
 | `ak.profile.signal_peer_relay.v1` | `server` | `ak.self.signal.command.send` | `POST /_arkret/self/signal` | — | — | — | gap |
 | `ak.profile.signal_peer_relay.v1` | `server` | `ak.self.signal.stream.subscribe` | `GET /_arkret/self/signal/subscribe` | — | — | — | gap |
 | `ak.profile.signal_peer_relay.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
+| `ak.profile.small_team.v1` | `admin` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.peer.account_status.read.authoring_basis` | `POST /_arkret/peer/account-status/authoring-basis` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.account.read.describe` | `GET /_arkret/self/account/describe` | — | — | — | gap |
@@ -534,6 +567,7 @@
 | `ak.profile.sovereign_client.v1` | `client` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.self.events.stream.subscribe` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
+| `ak.profile.sovereign_deployment.v1` | `admin` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.peer.account_status.read.authoring_basis` | `POST /_arkret/peer/account-status/authoring-basis` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.root.identity.command.submit_did_operation` | `POST /_arkret/root/identity/submit-did-operation` | — | — | — | gap |
@@ -554,6 +588,7 @@
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.events.stream.subscribe` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.snapshot.read.manifest_head` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
+| `ak.profile.sovereign_enclave.v1` | `admin` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.peer.account_status.read.authoring_basis` | `POST /_arkret/peer/account-status/authoring-basis` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.root.identity.command.submit_did_operation` | `POST /_arkret/root/identity/submit-did-operation` | — | — | — | gap |

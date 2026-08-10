@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, CircleId, Error, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
+    CircleId, DidCoreId, Error, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
     RelationTruthSourceClass, Result, SchemaId, ScopeRef, standard_relation_kind_metadata,
 };
 use chrono::{DateTime, Utc};
@@ -44,11 +44,11 @@ pub struct Relation {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
-    pub created_by: ActorId,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<ActorId>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,

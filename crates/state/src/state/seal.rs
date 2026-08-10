@@ -695,7 +695,7 @@ pub fn control_event_set_root(covered: &BTreeSet<Hash>) -> Result<Hash, SealReje
 
 #[derive(serde::Serialize)]
 struct CompletenessLeaf<'a> {
-    actor_id: &'a arkret_wire::ActorId,
+    actor_id: &'a arkret_wire::DidCoreId,
     from_seq: u64,
     to_seq: u64,
     event_digests: Vec<&'a Hash>,
@@ -709,7 +709,7 @@ pub fn control_event_completeness_root(
     events: &[Event],
     covered: &BTreeSet<Hash>,
 ) -> Result<Hash, SealReject> {
-    let mut by_actor = BTreeMap::<arkret_wire::ActorId, Vec<(u64, Hash)>>::new();
+    let mut by_actor = BTreeMap::<arkret_wire::DidCoreId, Vec<(u64, Hash)>>::new();
     let mut resolved = BTreeSet::new();
     for event in events {
         let digest = Hash::new(event.event_digest().map_err(|error| {
@@ -993,13 +993,13 @@ pub fn join_cell_seal_batches(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ActorId, DidUrl};
+    use arkret_wire::{DidCoreId, DidUrl};
 
     /// Attach a fixed issuer to a sealed op. These fixtures exercise
     /// non-ordered-log lattices, where the issuer is carried but unused.
     fn issued(op: SealedOp) -> IssuedOp {
         IssuedOp {
-            issuer: ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             op,
         }
     }
@@ -1055,7 +1055,7 @@ mod tests {
         let mut event = arkret_wire::test_support::raw_event_at(
             "ak.member.state",
             ScopeRef::Realm { realm_id: realm() },
-            ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             actor_seq,
             Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             json!({"state": "join"}),
@@ -1986,7 +1986,7 @@ mod tests {
         let grant_move = move_id(0x42);
         let conflict_a_move = move_id(0x51);
         let conflict_b_move = move_id(0x52);
-        let actor = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+        let actor = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let target_value = json!({"policy_revision": 7});
         let grant_value = json!({
             "grant_id": grant_id,

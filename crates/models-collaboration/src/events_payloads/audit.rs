@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Deref;
 
 use arkret_wire::{
-    AppletIdentifier, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, Did, DidUrl,
+    AppletIdentifier, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, DidCoreId, DidUrl,
     EventId, Hash, NonEmptyJsonObject, NonEmptyString, RealmId, ScopeRef,
 };
 use chrono::{DateTime, Utc};
@@ -34,9 +34,9 @@ pub enum AuditAccessedKind {
 #[serde(deny_unknown_fields)]
 pub struct AuditAccessedPayload {
     pub access_kind: AuditAccessedKind,
-    pub writer_actor_id: Did,
+    pub writer_actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Did>,
+    pub target_actor_id: Option<DidCoreId>,
     pub target_ref: ObjectRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_cell_id: Option<CellRef>,
@@ -118,7 +118,7 @@ pub struct AuditAppletBindingCreatePayload {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub applet_id: AppletIdentifier,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub purpose_kinds: Vec<NonEmptyString>,
     pub allowed_release_modes: Vec<AuditReleaseMode>,
     pub audit_assurance_class: AuditAssurance,
@@ -162,7 +162,7 @@ pub struct AuditPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -192,7 +192,7 @@ pub struct AuditReleasePayload {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub applet_id: AppletIdentifier,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub release_mode: AuditReleaseMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sealed_epoch_range: Option<MlsEpochRange>,
@@ -201,9 +201,9 @@ pub struct AuditReleasePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<EventId>,
     pub seal_digest: Hash,
-    pub recipient_audit_actor_id: Did,
+    pub recipient_audit_actor_id: DidCoreId,
     pub recipient_public_key_ref: DidUrl,
-    pub approver_actor_id: Did,
+    pub approver_actor_id: DidCoreId,
     pub notice_ref: EventId,
     pub purpose_kind: NonEmptyString,
     pub legal_basis_ref: NonEmptyString,
@@ -251,17 +251,17 @@ pub struct AuditSessionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletIdentifier>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
+    pub service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requested_by: Option<Did>,
+    pub requested_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approver_actor_id: Option<Did>,
+    pub approver_actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approved_recipient_audit_actor_id: Option<Did>,
+    pub approved_recipient_audit_actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approved_recipient_public_key_ref: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub closer_actor_id: Option<Did>,
+    pub closer_actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose_kind: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -302,7 +302,7 @@ pub struct AuditSessionPayload {
 }
 
 impl AuditSessionPayload {
-    fn validate_collections(&self) -> std::result::Result<(), &'static str> {
+    fn validate_collections(&self) -> Result<(), &'static str> {
         if self.target_refs.as_ref().is_some_and(Vec::is_empty) {
             return Err("audit session target_refs must be non-empty when present");
         }
@@ -362,9 +362,7 @@ macro_rules! audit_session_payload {
     };
 }
 
-fn validate_audit_session_request(
-    payload: &AuditSessionPayload,
-) -> std::result::Result<(), &'static str> {
+fn validate_audit_session_request(payload: &AuditSessionPayload) -> Result<(), &'static str> {
     if payload.session_state != AuditSessionStage::Request
         || payload.session_id.is_some()
         || payload.requested_by.is_none()
@@ -379,9 +377,7 @@ fn validate_audit_session_request(
     Ok(())
 }
 
-fn validate_audit_session_authorize(
-    payload: &AuditSessionPayload,
-) -> std::result::Result<(), &'static str> {
+fn validate_audit_session_authorize(payload: &AuditSessionPayload) -> Result<(), &'static str> {
     if payload.session_state != AuditSessionStage::Authorize
         || payload.session_id.is_none()
         || payload.request_ref.is_none()
@@ -398,9 +394,7 @@ fn validate_audit_session_authorize(
     Ok(())
 }
 
-fn validate_audit_session_notice(
-    payload: &AuditSessionPayload,
-) -> std::result::Result<(), &'static str> {
+fn validate_audit_session_notice(payload: &AuditSessionPayload) -> Result<(), &'static str> {
     if payload.session_state != AuditSessionStage::Notice
         || payload.session_id.is_none()
         || payload.authorize_ref.is_none()
@@ -416,9 +410,7 @@ fn validate_audit_session_notice(
     Ok(())
 }
 
-fn validate_audit_session_close(
-    payload: &AuditSessionPayload,
-) -> std::result::Result<(), &'static str> {
+fn validate_audit_session_close(payload: &AuditSessionPayload) -> Result<(), &'static str> {
     if payload.session_state != AuditSessionStage::Close
         || payload.session_id.is_none()
         || payload.closer_actor_id.is_none()
@@ -466,8 +458,8 @@ mod tests {
             },
             "session_state": "authorize",
             "request_ref": "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "approver_actor_id": "did:webvh:z6mkfixture:approver.example",
-            "approved_recipient_audit_actor_id": "did:webvh:z6mkfixture:auditor.example",
+            "approver_actor_id": "ak:did_core:webvh:z6mkfixture",
+            "approved_recipient_audit_actor_id": "ak:did_core:webvh:z6mkfixture",
             "approved_recipient_public_key_ref": "did:webvh:z6mkfixture:auditor.example#audit-1",
             "approved_release_mode": "targeted_evidence_release",
             "target_refs": ["ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB"],

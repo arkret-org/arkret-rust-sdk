@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Did, Event, EventDigestSuiteCode, EventId, EventIdentityKey, EventRequirements, Hlc,
+    DidCoreId, Event, EventDigestSuiteCode, EventId, EventIdentityKey, EventRequirements, Hlc,
     MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH, MAX_AUTHORITY_CONTROL_DEPTH,
     MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES, MAX_EVENT_PREV_REFS, MAX_EVENT_REFS,
     MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId, ScopeRef, prev_frontier_digest,
@@ -28,7 +28,7 @@ fn event_new_sets_required_event_id() {
         ScopeRef::Realm {
             realm_id: realm_id(),
         },
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({"body": "hello"}),
@@ -47,7 +47,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         scope_ref: ScopeRef::Realm {
             realm_id: realm_id(),
         },
-        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         actor_seq: 1,
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -77,7 +77,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     // v1 Event digest changed; this value must only move again with the spec.
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:79ed3ce319d2b144f82ba9ce2c4d31e8ad3d63bb7bb2652629372f8355a7c4fa"
+        "sha256:5b9bcafc1b5bb5e516bfb19a7e34db8607142f775559f24256b7dd518ff8e8f1"
     );
     let value = serde_json::to_value(&event).unwrap();
     assert_eq!(value["payload"]["body"], "hello");
@@ -141,7 +141,7 @@ fn event_scalability_helpers_reject_over_limits() {
 /// `event-and-patch.md` §75 names producer-selected `auth_context.capability_refs`
 /// alongside `effects` as a field a v1 receiver MUST reject with
 /// `schema_violation`, and the envelope schema closes `auth_context` over
-/// `{did, key_id, key_epoch, credential_epoch}`.
+/// `{actor_id, key_id, key_epoch, credential_epoch}`.
 ///
 /// Rejecting is the point: effective capabilities are derived from the accepted
 /// governance basis, so a producer that ships a list has either been tampered
@@ -150,7 +150,7 @@ fn event_scalability_helpers_reject_over_limits() {
 #[test]
 fn auth_context_rejects_a_producer_selected_capability_list() {
     let base = json!({
-        "did": "did:webvh:z6mkfixture:alice.example",
+        "actor_id": "ak:did_core:webvh:z6mkfixture",
         "key_id": "ak:device:01904100-0000-7000-8000-65c7feb295d8",
         "key_epoch": 1
     });
@@ -183,7 +183,7 @@ fn event_digest_preimage_agrees_with_typed_digest_payload() {
         ScopeRef::Realm {
             realm_id: realm_id(),
         },
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({"body": "hello"}),
@@ -210,7 +210,7 @@ fn event_digest_preimage_drops_exactly_the_excluded_fields() {
         "event_id": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
         "kind": "ak.message.create",
         "actor_kind": "person",
-        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "actor_id": "ak:did_core:webvh:z6mkfixture",
         "scope_ref": {"realm_id": "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
         "payload": {"body": "hello"},
         "proofs": [{"kind": "detached_jws"}],

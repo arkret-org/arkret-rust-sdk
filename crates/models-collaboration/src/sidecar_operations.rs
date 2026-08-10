@@ -1,5 +1,5 @@
 use arkret_wire::{
-    Base64UrlString, Did, Event, EventId, Hash, IdempotencyKey, ProtocolOperationId, RealmId,
+    Base64UrlString, DidCoreId, Event, EventId, Hash, IdempotencyKey, ProtocolOperationId, RealmId,
     RelationId, ReservationHandle, SidecarId, StrandId,
 };
 use chrono::{DateTime, Utc};
@@ -52,7 +52,7 @@ pub struct SidecarEnsurePrepareRequestBody {
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
     pub source_realm_id: RealmId,
-    pub controller_id: Did,
+    pub controller_id: DidCoreId,
     pub context_ref: SidecarContextRef,
 }
 

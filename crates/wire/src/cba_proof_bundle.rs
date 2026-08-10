@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::event_envelope::{Event, SemanticRefProof};
 use crate::seal::Seal;
-use crate::{Did, EventId, Hash, PayloadSignature, RealmId, SchemaId, SealId, canonical};
+use crate::{DidCoreId, EventId, Hash, PayloadSignature, RealmId, SchemaId, SealId, canonical};
 
 pub const MAX_BUNDLE_SEALS: usize = 256;
 pub const MAX_BUNDLE_CONTROL_MOVES: usize = 1024;
@@ -39,7 +39,7 @@ pub struct AvailabilityReceipt {
     pub realm_id: RealmId,
     pub event_id: EventId,
     pub bytes_digest: Hash,
-    pub holder_id: Did,
+    pub holder_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub retention_expires_at: DateTime<Utc>,
     pub signature: PayloadSignature,

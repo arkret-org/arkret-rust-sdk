@@ -323,7 +323,7 @@ mod tests {
     fn agent_list_requires_agents_and_has_more() {
         let error = serde_json::from_value::<AgentList>(serde_json::json!({
             "items": [{
-                "agent_id": "did:web:agents.example:summary",
+                "agent_id": "ak:did_core:web:agents.example:summary",
                 "display_name": "Summary",
                 "slug": "summary",
                 "status": "active"

@@ -11,7 +11,7 @@
 //! keys by `(application_id, admin_did)`) lives in `arkret-auth` as
 //! `AdminKeyStore`.
 
-use arkret_wire::{Did, Error, Result};
+use arkret_wire::{DidCoreId, Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -67,7 +67,7 @@ pub struct SessionGrantIntrospection {
     pub status: SessionGrantAdminIntrospectionStatus,
     /// The operator's principal ID. Populated from
     /// `org.arkret.principal_id` (or `sub`) on the IdP side.
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     /// Granted admin scopes — e.g.
     /// [`admin_scopes::NOTARY_RECONFIGURE`]. Receivers gate
     /// individual admin operations on whether the relevant scope is
@@ -129,8 +129,8 @@ impl SessionGrantIntrospection {
 mod tests {
     use super::*;
 
-    fn admin(did: &str) -> Did {
-        Did::new(did.to_owned()).unwrap()
+    fn admin(_did: &str) -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
     fn grant_active(scopes: &[&str]) -> SessionGrantIntrospection {
@@ -214,7 +214,8 @@ mod tests {
     #[test]
     fn introspection_deserializes_minimal_envelope() {
         // Only `active` and `principal_id` required; the rest default.
-        let s = r#"{"active":true,"status":"active","principal_id":"did:webvh:z6mkfixture:alice.example"}"#;
+        let s =
+            r#"{"active":true,"status":"active","principal_id":"ak:did_core:webvh:z6mkfixture"}"#;
         let g: SessionGrantIntrospection = serde_json::from_str(s).unwrap();
         assert!(g.active);
         assert!(g.admin_scopes.is_empty());

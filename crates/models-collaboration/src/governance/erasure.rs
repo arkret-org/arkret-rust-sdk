@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    Did, DidUrl, Error, EventKind, Hash, PolicyId, ProtocolSignature, RealmId, Result, SchemaId,
+    DidCoreId, DidUrl, Error, Hash, PolicyId, ProtocolSignature, RealmId, Result, SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -70,8 +70,8 @@ pub struct ErasureReceiptAcceptance {
     pub status: ErasureReceiptAcceptanceStatus,
     pub receipt_id: String,
     pub receipt_digest: Hash,
-    pub issuer_service_id: Did,
-    pub receiver_service_id: Did,
+    pub issuer_service_id: DidCoreId,
+    pub receiver_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub proof: ProtocolSignature,
@@ -264,7 +264,7 @@ pub enum ErasurePeerStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasurePeerReceipt {
     /// Peer Principal Server DID.
-    pub peer: Did,
+    pub peer: DidCoreId,
     pub status: ErasurePeerStatus,
     /// The peer's own feedback receipt id, when received.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -282,7 +282,7 @@ pub struct ErasurePeerReceipt {
 pub struct ErasureReceipt {
     pub receipt_id: String,
     pub schema: String,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub subject: ErasureSubject,
     pub scope: ErasureScope,
     pub outcome: ErasureOutcome,
@@ -430,7 +430,7 @@ mod erasure_receipt_tests {
         let mut receipt = ErasureReceipt {
             receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
             schema: SchemaId::ERASURE_RECEIPT_V1.to_owned(),
-            issuer: Did::new("did:webvh:z6mkfixture:erasure.example".to_owned()).unwrap(),
+            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,
                 subject_ref: "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),

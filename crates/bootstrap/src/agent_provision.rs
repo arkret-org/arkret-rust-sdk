@@ -6,8 +6,8 @@ use arkret_models_collaboration::events_payloads::agent::{
 };
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    ActorId, Did, DidUrl, Error, Event, EventId, Hash, Hlc, ProfileRef, RealmId, Result, SchemaId,
-    ScopeRef, SealBasis, event_spec, project_full_id_to_core_id,
+    DidCoreId, DidUrl, Error, Event, EventId, Hash, Hlc, ProfileRef, RealmId, Result, SchemaId,
+    ScopeRef, SealBasis, event_spec,
 };
 use chrono::{DateTime, Utc};
 
@@ -29,9 +29,9 @@ pub struct AgentProvisionEventDraftOptions {
 /// pipeline.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_provision_event_draft(
-    controller_id: &Did,
+    controller_id: &DidCoreId,
     controller_realm_id: &RealmId,
-    agent_id: &Did,
+    agent_id: &DidCoreId,
     principal_control_realm_id: &RealmId,
     controller_authorization_ref: &DidUrl,
     agent_slug: &str,
@@ -59,7 +59,7 @@ pub fn build_agent_provision_event_draft(
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),
         },
-        ActorId::from(project_full_id_to_core_id(controller_id)?),
+        controller_id.clone(),
         payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
@@ -68,7 +68,7 @@ pub fn build_agent_provision_event_draft(
     if let Some(seal_basis) = options.seal_basis {
         draft = draft.with_seal_basis(seal_basis);
     }
-    Ok(draft
+    draft
         .author(options.actor_seq, options.hlc, created_at)
-        .map_err(|error| Error::Protocol(error.to_string()))?)
+        .map_err(|error| Error::Protocol(error.to_string()))
 }

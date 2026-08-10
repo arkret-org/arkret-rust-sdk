@@ -9,7 +9,7 @@ use arkret_models_crypto::{
     keypackages_consume_signing_input, keypackages_revoke_signing_input,
     keypackages_upload_signing_input, mls_key_package_record_upload_entry,
 };
-use arkret_wire::{DeviceId, Did, Hash, NonEmptyString, canonical};
+use arkret_wire::{DeviceId, DidCoreId, Hash, NonEmptyString, canonical};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -47,17 +47,17 @@ pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "a
 
 const ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "arkret-openmls-identity-state-v1";
 
-pub(super) fn leaf_credential_bytes(principal_id: &Did, device_id: &DeviceId) -> Vec<u8> {
+pub(super) fn leaf_credential_bytes(principal_id: &DidCoreId, device_id: &DeviceId) -> Vec<u8> {
     format!("{}#{}", principal_id.as_str(), device_id.as_str()).into_bytes()
 }
 
-pub(super) fn decode_leaf_credential(bytes: &[u8]) -> Result<(Did, NonEmptyString)> {
+pub(super) fn decode_leaf_credential(bytes: &[u8]) -> Result<(DidCoreId, NonEmptyString)> {
     let encoded = std::str::from_utf8(bytes)
         .map_err(|_| Error::Protocol("MLS BasicCredential is not UTF-8".to_owned()))?;
     let (principal, device) = encoded.rsplit_once('#').ok_or_else(|| {
         Error::Protocol("MLS BasicCredential must bind a principal DID and device id".to_owned())
     })?;
-    let principal_id = Did::new(principal.to_owned())?;
+    let principal_id = DidCoreId::new(principal.to_owned())?;
     DeviceId::new(device.to_owned()).map_err(|error| {
         Error::Protocol(format!("MLS BasicCredential device id is invalid: {error}"))
     })?;
@@ -67,7 +67,7 @@ pub(super) fn decode_leaf_credential(bytes: &[u8]) -> Result<(Did, NonEmptyStrin
 }
 
 pub struct ArkretMlsIdentity {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub(super) provider: OpenMlsRustCrypto,
     pub(super) signer: SignatureKeyPair,
@@ -77,14 +77,14 @@ pub struct ArkretMlsIdentity {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct OpenMlsIdentityStateSnapshot {
     context: String,
-    principal_id: Did,
+    principal_id: DidCoreId,
     device_id: DeviceId,
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
 }
 
 impl ArkretMlsIdentity {
-    pub fn new_basic(principal_id: Did, device_id: DeviceId) -> Result<Self> {
+    pub fn new_basic(principal_id: DidCoreId, device_id: DeviceId) -> Result<Self> {
         let signer = SignatureKeyPair::new(ARKRET_MLS_CIPHERSUITE.signature_algorithm())
             .map_err(mls_error)?;
         Self::new_with_signer(principal_id, device_id, signer)
@@ -94,7 +94,7 @@ impl ArkretMlsIdentity {
     /// seed. Native Agent runtimes use this path so the MLS LeafNode signature
     /// key is the same key named by `ak.agent.key.authorize.verification_method`.
     pub fn from_ed25519_signing_seed(
-        principal_id: Did,
+        principal_id: DidCoreId,
         device_id: DeviceId,
         mut signing_seed: [u8; 32],
     ) -> Result<Self> {
@@ -111,7 +111,7 @@ impl ArkretMlsIdentity {
     }
 
     fn new_with_signer(
-        principal_id: Did,
+        principal_id: DidCoreId,
         device_id: DeviceId,
         signer: SignatureKeyPair,
     ) -> Result<Self> {
@@ -321,7 +321,7 @@ impl ArkretMlsIdentity {
     }
 
     pub fn restore_from_private_state(
-        principal_id: Did,
+        principal_id: DidCoreId,
         device_id: DeviceId,
         serialized_state: &[u8],
     ) -> Result<Self> {
@@ -527,7 +527,7 @@ mod tests {
     #[test]
     fn key_package_record_carries_required_capabilities() {
         let identity = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-000000000001".to_owned()).unwrap(),
         )
         .unwrap();
@@ -551,7 +551,7 @@ mod tests {
             .verifying_key()
             .to_bytes();
         let identity = ArkretMlsIdentity::from_ed25519_signing_seed(
-            Did::new("did:webvh:z6mkfixture:agent.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureagent".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000d".to_owned()).unwrap(),
             seed,
         )
@@ -572,7 +572,7 @@ mod tests {
     #[test]
     fn last_resort_key_package_is_addable_to_a_group() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
         )
         .unwrap();
@@ -581,7 +581,7 @@ mod tests {
             .unwrap();
 
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000b".to_owned()).unwrap(),
         )
         .unwrap();
@@ -597,7 +597,7 @@ mod tests {
 
         // Sanity: the single-use KeyPackage path still adds cleanly.
         let carol = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:carol.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecarol".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000c".to_owned()).unwrap(),
         )
         .unwrap();

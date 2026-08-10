@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, DidUrl, Error, Hash, Hlc, RealmId, Result, SealId, canonical};
+use crate::{DidCoreId, DidUrl, Error, Hash, Hlc, RealmId, Result, SealId, canonical};
 
 pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
 pub const MAX_SEAL_COVERED_EVENT_DIGESTS: usize = 1_048_576;
@@ -77,7 +77,7 @@ pub struct MultiSignature {
 pub struct ThresholdSignature {
     pub kind: ThresholdSigKind,
     pub threshold: u32,
-    pub signers: Vec<Did>,
+    pub signers: Vec<DidCoreId>,
     pub proof: String,
 }
 
@@ -435,7 +435,7 @@ mod tests {
         let threshold = json!({
             "kind": "threshold_sig",
             "threshold": 2,
-            "signers": ["did:webvh:z6mkfixture:a.example", "did:webvh:z6mkfixture:b.example"],
+            "signers": ["ak:did_core:webvh:z6mkfixturea", "ak:did_core:webvh:z6mkfixtureb"],
             "proof": "AAAA"
         });
         assert!(matches!(

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-10.1;
-//! sha256=e9c76ca9aea5e9916c161d22b4b13e2d6b5fa0c356b29ddd85d2b2c9fa3e0c32 Entries: schema_ids=183,
+//! Input: registry/schema-registry.json; version=2026-08-10.2;
+//! sha256=ad6706bfecb2498ac4fb3b41e74213f3ab2be7171f0986243886d631bb89e29d Entries: schema_ids=183,
 //! active=183
 
 use serde::{Deserialize, Serialize};
@@ -816,7 +816,7 @@ impl SchemaId {
     pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
     pub const IDENTITY_RECEIPT_V1: &'static str = "ak.schema.identity_receipt.v1";
     /// Principal resolution projection/update/evidence and signed service resolution record
-    /// contracts for the core_id/full_id model.
+    /// contracts for the did_core_id/full_id model.
     pub const IDENTITY_RESOLUTION_V1: &'static str = "ak.schema.identity_resolution.v1";
     /// FOCIL-style control-plane inclusion list signed by a non-proposer notary signer; the next
     /// Seal MUST include, signed-reject, or prove verification failure for every listed digest

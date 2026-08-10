@@ -4,7 +4,7 @@ use arkret_canonical::base64url::base64url_decode;
 use arkret_models_collaboration::objects::media::{
     MediaIceConfigOutcome, MediaIceServer, MediaIceSignatureAlgorithm, MediaIceSignatureInput,
 };
-use arkret_wire::{Did, Hash, RealmId};
+use arkret_wire::{DidCoreId, DidFullId, Hash, RealmId};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ use crate::{Error, Result};
 pub struct IceConfig {
     pub realm_id: RealmId,
     pub call_id: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     /// STUN / TURN servers offered for this call leg.
     pub ice_servers: Vec<MediaIceServer>,
     /// Credential lifetime in seconds.
@@ -28,7 +28,7 @@ pub struct IceConfig {
     /// `true` when the caller MUST relay through TURN (no host/srflx).
     pub turn_required: bool,
     /// The media-service DID that signed the config (from `signature.kid`).
-    pub issuer_did: Did,
+    pub issuer_did: DidFullId,
 }
 
 impl IceConfig {
@@ -194,7 +194,7 @@ pub fn verify_ice_config_outcome(
         ttl_seconds: outcome.ttl_seconds,
         refresh_lead_seconds: outcome.refresh_lead_seconds,
         turn_required: outcome.turn_required,
-        issuer_did: Did::new(issuer_did)?,
+        issuer_did: DidFullId::new(issuer_did)?,
     })
 }
 
@@ -208,15 +208,19 @@ mod tests {
 
     use super::*;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidFullId {
+        DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
+    }
+
+    fn actor(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap()
     }
 
-    const MEDIA_KID: &str = "did:webvh:z6mkfixture:media.example#notary-key";
+    const MEDIA_KID: &str = "did:webvh:z6mkfixturemedia:media.example#notary-key";
 
     fn issuer_key() -> SigningKey {
         SigningKey::from_bytes(&[7u8; 32])
@@ -252,7 +256,7 @@ mod tests {
         MediaIceConfigOutcome {
             realm_id: realm(),
             call_id: "ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1".to_owned(),
-            actor_id: did("alice"),
+            actor_id: actor("alice"),
             device_id: arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
                 .unwrap(),
             ice_servers: vec![

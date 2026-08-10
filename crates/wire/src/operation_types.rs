@@ -5,7 +5,7 @@ use std::fmt;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
-use crate::{AuthorizationRef, Base64UrlString, Did, DidUrl, EventId, Hash, RealmId};
+use crate::{AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, EventId, Hash, RealmId};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -246,14 +246,14 @@ pub struct MembershipCompensationDelegationCore {
     pub membership_cell_id: ProtocolOpaqueId,
     pub membership_incarnation: Hash,
     pub membership_head_at_acceptance: EventId,
-    pub subject_id: Did,
-    pub join_actor_id: Did,
+    pub subject_id: DidCoreId,
+    pub join_actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<Did>,
+    pub executed_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub verification_method: DidUrl,
-    pub executor_service_id: Did,
+    pub executor_service_id: DidCoreId,
     pub executor_proof_key: DidUrl,
     pub resource: RealmId,
     pub action: MembershipCompensationAction,
@@ -268,7 +268,8 @@ impl MembershipCompensationDelegationCore {
                 "membership compensation executed_by requires authorization_ref".to_owned(),
             ));
         }
-        let expected_action = if self.executed_by.is_none() && self.join_actor_id == self.subject_id
+        let expected_action = if self.executed_by.is_none()
+            && self.join_actor_id.as_core_id() == self.subject_id.as_core_id()
         {
             MembershipCompensationAction::Leave
         } else {
@@ -326,7 +327,7 @@ pub struct MembershipJoinAcceptedProof {
     pub accepted_frontier_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -356,7 +357,7 @@ pub struct MembershipCompensationTerminalCertificate {
     pub terminal_state: MembershipCompensationTerminalState,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub certified_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -382,12 +383,12 @@ pub struct MembershipCompensationCasToken {
     pub admission_id: ProtocolOpaqueId,
     pub delegation_digest: Hash,
     pub expected_state: MembershipCompensationExpectedState,
-    pub destination_service_id: Did,
+    pub destination_service_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 

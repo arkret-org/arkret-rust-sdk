@@ -1,6 +1,7 @@
 //! Agent-lifecycle and agent-key payloads.
 
 use arkret_models_identity::handle::HandleVisibility;
+use arkret_wire::DidCoreId;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -31,8 +32,8 @@ pub enum AgentProvisionAccountabilityScope {
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionPayload {
     pub schema: AgentProvisionSchema,
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub agent_slug: String,
@@ -131,8 +132,8 @@ pub struct AgentActionApprovePayload {
     pub request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_id: Option<String>,
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub approved_payload_digest: Hash,
@@ -155,8 +156,8 @@ pub struct AgentActionRejectPayload {
     pub request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_id: Option<String>,
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(with = "canonical_timestamp")]
@@ -171,8 +172,8 @@ pub struct AgentActionRequestPayload {
     pub request_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_id: Option<String>,
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub request_canonical_digest: Hash,
@@ -203,8 +204,8 @@ pub struct AgentActionTarget {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentDeactivatePayload {
-    pub agent_id: ActorId,
-    pub controller_id: ActorId,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]
@@ -219,8 +220,8 @@ pub struct AgentDeactivatePayload {
 #[serde(deny_unknown_fields)]
 pub struct AgentDraftProposePayload {
     pub draft_id: String,
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub content_digest: Hash,
@@ -261,7 +262,7 @@ pub struct AgentKeyApprovalEvidence {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_request_id: Option<OpaqueLocalId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approved_by: Option<Did>,
+    pub approved_by: Option<DidCoreId>,
 }
 
 /// Counterpart for the `agent_key_scope.resources[].kind` enum in
@@ -305,7 +306,7 @@ pub struct AgentKeyScopeResource {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
+    pub service_id: Option<DidCoreId>,
 }
 
 /// Counterpart for
@@ -372,13 +373,13 @@ pub struct AgentKeySupersession {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorizePayload {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub key_id: NonEmptyString,
     /// DID URL for the runtime signing key, including its key fragment.
     pub verification_method: DidUrl,
     pub public_key_digest: Hash,
     pub signing_key_binding_digest: Hash,
-    pub accountable_principal_id: Did,
+    pub accountable_principal_id: DidCoreId,
     pub agent_key_scope: AgentKeyScope,
     pub audience: Vec<String>,
     #[serde(with = "canonical_timestamp")]
@@ -470,9 +471,9 @@ impl TryFrom<&Event> for AgentKeyAuthorizePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyRevokePayload {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub key_id: NonEmptyString,
-    pub revoked_by: Did,
+    pub revoked_by: DidCoreId,
     #[serde(with = "canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -484,8 +485,8 @@ pub struct AgentKeyRevokePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPausePayload {
-    pub agent_id: ActorId,
-    pub controller_id: ActorId,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]
@@ -499,8 +500,8 @@ pub struct AgentPausePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentResumePayload {
-    pub agent_id: ActorId,
-    pub controller_id: ActorId,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]
@@ -519,7 +520,7 @@ pub struct AgentResumePayload {
 pub struct AgentSidecarExposureAck {
     #[serde(with = "canonical_timestamp")]
     pub acknowledged_at: DateTime<Utc>,
-    pub acknowledged_by: Did,
+    pub acknowledged_by: DidCoreId,
     pub sidecar_refs: Vec<ObjectRef>,
 }
 
@@ -531,14 +532,14 @@ mod agent_key_authorize_payload_tests {
 
     fn authorize_event(kind: &str, payload_overrides: serde_json::Value) -> arkret_wire::Event {
         let mut payload = json!({
-            "agent_id": "did:web:agent.example",
+            "agent_id": "ak:did_core:web:agent.example",
             "key_id": "runtime-key-1",
             "verification_method": "did:web:agent.example#runtime-key-1",
             "public_key_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "signing_key_binding_digest":
                 "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "accountable_principal_id": "did:web:controller.example",
+            "accountable_principal_id": "ak:did_core:web:controller.example",
             "agent_key_scope": { "actions": ["ak.event.read"], "resources": [] },
             "audience": ["did:web:soland.local"],
             "issued_at": "2026-07-06T00:00:00.000Z",
@@ -548,7 +549,7 @@ mod agent_key_authorize_payload_tests {
                     "agent_pairing_request:01999999-0000-7000-8000-00000000feed",
                 "request_canonical_digest":
                     "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-                "approved_by": "did:web:controller.example"
+                "approved_by": "ak:did_core:web:controller.example"
             }
         });
         if let (Some(payload), Some(overrides)) =

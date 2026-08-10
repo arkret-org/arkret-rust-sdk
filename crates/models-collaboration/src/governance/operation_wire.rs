@@ -5,8 +5,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Did, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind, RealmId,
-    Result, SchemaId, XExtensionMap,
+    DidCoreId, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
+    RealmId, Result, SchemaId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -36,11 +36,11 @@ pub struct Policy {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-    pub created_by: Did,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -131,9 +131,9 @@ pub struct Invite {
     pub id: InviteId,
     pub schema: String,
     pub realm_id: RealmId,
-    pub inviter: Did,
+    pub inviter: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee: Option<Did>,
+    pub invitee: Option<DidCoreId>,
     /// Public durable target for private invite delivery (required by the
     /// schema `allOf` when `invitee` is set without `third_party_id`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -155,7 +155,7 @@ pub struct Invite {
     pub created_at: DateTime<Utc>,
     /// Reducer-derived actor that produced the most recent state update.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,

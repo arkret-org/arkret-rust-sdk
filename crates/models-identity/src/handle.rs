@@ -1,8 +1,8 @@
 use std::fmt;
 
 use arkret_wire::{
-    Did, Error, Result, human_identifier_skeleton, prepare_handle_localpart, prepare_idna_domain,
-    validate_canonical_handle_localpart, validate_canonical_idna_domain,
+    DidCoreId, Error, Result, human_identifier_skeleton, prepare_handle_localpart,
+    prepare_idna_domain, validate_canonical_handle_localpart, validate_canonical_idna_domain,
     validate_highly_restrictive_registration_identifier,
 };
 use serde::{Deserialize, Serialize};
@@ -181,24 +181,17 @@ pub fn is_valid_domain(s: &str) -> bool {
 /// The handle claim subject MUST be a holder / principal DID. It is NOT a
 /// Realm `actor_id` (`ak:actor:`), a server-local `account_id`
 /// (`ak:account:`), a service DID, an administrative identifier, or a
-/// generic resource id. We accept any `did:<method>:...` and reject the
-/// typed-id prefixes; a deployment-specific "is this a service DID"
-/// distinction is left to the issuer, but the typed-id rejection here
-/// catches the structural misuse the spec calls out.
+/// generic resource id. The type boundary already rejects non-core identifiers;
+/// a deployment-specific "is this a service DID" distinction is left to the
+/// issuer.
 ///
 /// On rejection returns [`Error::Protocol`] carrying the
 /// `handle_claim_subject_not_principal_did` wire code prefix.
-pub fn validate_handle_claim_subject(subject: &Did) -> Result<()> {
+pub fn validate_handle_claim_subject(subject: &DidCoreId) -> Result<()> {
     let s = subject.as_str();
-    if s.starts_with("ak:actor:") || s.starts_with("ak:account:") {
+    if !s.starts_with("ak:did_core:") {
         return Err(Error::Protocol(format!(
-            "handle_claim_subject_not_principal_did: subject must be a holder/principal DID, \
-             not a typed id ({s})"
-        )));
-    }
-    if !s.starts_with("did:") {
-        return Err(Error::Protocol(format!(
-            "handle_claim_subject_not_principal_did: subject must be a DID ({s})"
+            "handle_claim_subject_not_principal_did: subject must be a DID core id ({s})"
         )));
     }
     Ok(())

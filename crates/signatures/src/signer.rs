@@ -7,10 +7,10 @@
 //!
 //! ```
 //! use arkret_signatures::Ed25519PayloadSigner;
-//! use arkret_wire::{Did, DidUrl, PayloadSigner};
+//! use arkret_wire::{DidFullId, DidUrl, PayloadSigner};
 //!
 //! let seed = [0u8; 32];
-//! let did = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+//! let did = DidFullId::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
 //! let signer = Ed25519PayloadSigner::from_did_key_seed(
 //!     seed,
 //!     did,
@@ -27,7 +27,8 @@ use std::collections::BTreeMap;
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
 use arkret_wire::{
-    Did, DidUrl, Error as WireError, Hash, PayloadSignature, PayloadSigner, Result as WireResult,
+    DidFullId, DidUrl, Error as WireError, Hash, PayloadSignature, PayloadSigner,
+    Result as WireResult,
 };
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -42,13 +43,13 @@ use crate::{Error, Result};
 /// `PayloadSignature.verification_method`.
 pub struct Ed25519PayloadSigner {
     signing_key: SigningKey,
-    did: Did,
+    did: DidFullId,
     kid: DidUrl,
 }
 
 impl Ed25519PayloadSigner {
     /// Wrap an existing `ed25519_dalek::SigningKey`.
-    pub fn new(signing_key: SigningKey, did: Did, verification_method_id: DidUrl) -> Self {
+    pub fn new(signing_key: SigningKey, did: DidFullId, verification_method_id: DidUrl) -> Self {
         Self {
             signing_key,
             did,
@@ -58,7 +59,11 @@ impl Ed25519PayloadSigner {
 
     /// Convenience constructor that derives an ed25519 keypair from a 32-byte
     /// seed (RFC 8032 secret-key seed).
-    pub fn from_did_key_seed(seed: [u8; 32], did: Did, verification_method_id: DidUrl) -> Self {
+    pub fn from_did_key_seed(
+        seed: [u8; 32],
+        did: DidFullId,
+        verification_method_id: DidUrl,
+    ) -> Self {
         let signing_key = SigningKey::from_bytes(&seed);
         Self::new(signing_key, did, verification_method_id)
     }
@@ -70,7 +75,7 @@ impl Ed25519PayloadSigner {
 }
 
 impl PayloadSigner for Ed25519PayloadSigner {
-    fn signer_did(&self) -> &Did {
+    fn signer_did(&self) -> &DidFullId {
         &self.did
     }
 
@@ -185,8 +190,8 @@ mod tests {
 
     use super::*;
 
-    fn alice() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
+    fn alice() -> DidFullId {
+        DidFullId::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
     }
 
     fn space() -> RealmId {
@@ -220,7 +225,7 @@ mod tests {
     /// signer is body-agnostic — it signs bytes — so the round-trip property
     /// does not need a particular envelope type.
     fn sample_canonical_bytes() -> Vec<u8> {
-        br#"{"actor_id":"did:webvh:z6mkfixture:alice.example","kind":"ak.member.state"}"#.to_vec()
+        br#"{"actor_id":"ak:did_core:webvh:z6mkfixture","kind":"ak.member.state"}"#.to_vec()
     }
 
     #[test]
@@ -250,7 +255,7 @@ mod tests {
         // body names. What still has to hold is that the signature is bound to
         // the exact bytes.
         let err = verify_ed25519_payload_signature(
-            br#"{"actor_id":"did:webvh:z6mkfixture:bob.example","kind":"ak.member.state"}"#,
+            br#"{"actor_id":"ak:did_core:webvh:z6mkfixture","kind":"ak.message.create"}"#,
             &sig,
             &signer.verifying_key(),
         )

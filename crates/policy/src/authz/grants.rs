@@ -21,7 +21,7 @@ use arkret_models_collaboration::governance::grant_constraint::{
     CapabilitySubject, GrantConstraint, GrantConstraintEffect, GrantConstraintKind,
     GrantConstraintScope, GrantConstraintSubkind,
 };
-use arkret_wire::{AppletId, GrantId, Hash, SchemaId};
+use arkret_wire::{DidCoreId, GrantId, Hash, SchemaId};
 
 use super::*;
 
@@ -35,7 +35,7 @@ use super::*;
 #[derive(Clone, Debug)]
 pub(crate) struct GrantProjection {
     pub(crate) id: String,
-    pub(crate) issuer: Did,
+    pub(crate) issuer: DidCoreId,
     pub(crate) subject: CapabilitySubject,
     pub(crate) actions: Vec<String>,
     pub(crate) capability_action_registry_digest: Option<Hash>,
@@ -45,7 +45,7 @@ pub(crate) struct GrantProjection {
     pub(crate) has_realm_root_authority_ref: bool,
     pub(crate) not_before: Option<DateTime<Utc>>,
     pub(crate) expires_at: Option<DateTime<Utc>>,
-    pub(crate) revoked_by: Option<Did>,
+    pub(crate) revoked_by: Option<DidCoreId>,
     pub(crate) revoked_at: Option<DateTime<Utc>>,
 }
 
@@ -139,7 +139,7 @@ impl GrantProjection {
 
     /// Subject DID when the grant names a concrete principal. Condition
     /// (selector) subjects return `None` — the engine fails closed on them.
-    pub(crate) fn subject_did(&self) -> Option<&Did> {
+    pub(crate) fn subject_did(&self) -> Option<&DidCoreId> {
         match &self.subject {
             CapabilitySubject::Did(did) => Some(did),
             CapabilitySubject::Selector(_) => None,
@@ -726,7 +726,7 @@ pub fn capability_grant_from_resolved_event(
     let grant = payload.grant;
     Ok(
         arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: arkret_wire::GrantId::from_event_id(&event.source_event_id),
+            id: GrantId::from_event_id(&event.source_event_id),
             schema: grant.schema,
             realm_id: grant.realm_id.or(default_realm_id),
             issuer: grant.issuer,
@@ -1221,26 +1221,6 @@ fn constraint_effect(value: GrantConstraintEffect) -> ConstraintEffect {
     }
 }
 
-fn rate_limit_scope(
-    value: Option<&str>,
-    constraint: &str,
-    required: bool,
-) -> Result<GrantRateLimitScope> {
-    match value {
-        Some("per_actor") => Ok(GrantRateLimitScope::PerActor),
-        Some("per_space") => Ok(GrantRateLimitScope::PerSpace),
-        Some("per_realm") => Ok(GrantRateLimitScope::PerRealm),
-        Some("global") => Ok(GrantRateLimitScope::Global),
-        Some(other) => Err(Error::Protocol(format!(
-            "{constraint} constraint has unknown constraint_scope '{other}'"
-        ))),
-        None if required => Err(Error::Protocol(format!(
-            "{constraint} constraint requires constraint_scope"
-        ))),
-        None => Ok(GrantRateLimitScope::Global),
-    }
-}
-
 fn rate_limit_scope_typed(
     value: Option<GrantConstraintScope>,
     constraint: &str,
@@ -1264,78 +1244,6 @@ fn optional_duration(value: Option<&str>) -> Result<Option<ConstraintDuration>> 
 
 fn nonempty_option<T: Clone>(values: &[T]) -> Option<Vec<T>> {
     (!values.is_empty()).then(|| values.to_vec())
-}
-
-fn datetime_field(
-    object: &serde_json::Map<String, Value>,
-    field: &str,
-) -> Result<Option<DateTime<Utc>>> {
-    object
-        .get(field)
-        .map(|value| serde_json::from_value(value.clone()).map_err(Error::from))
-        .transpose()
-}
-
-fn string_list(object: &serde_json::Map<String, Value>, field: &str) -> Vec<String> {
-    object
-        .get(field)
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(ToOwned::to_owned)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn optional_string_list(
-    object: &serde_json::Map<String, Value>,
-    field: &str,
-) -> Option<Vec<String>> {
-    object.get(field).and_then(Value::as_array).map(|items| {
-        items
-            .iter()
-            .filter_map(Value::as_str)
-            .map(ToOwned::to_owned)
-            .collect()
-    })
-}
-
-fn did_list(object: &serde_json::Map<String, Value>, field: &str) -> Result<Vec<Did>> {
-    object
-        .get(field)
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(|did| Did::new(did).map_err(Error::from))
-        .collect()
-}
-
-fn facet_list(object: &serde_json::Map<String, Value>, field: &str) -> Result<Vec<Facet>> {
-    object
-        .get(field)
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .map(|value| {
-            serde_json::from_value::<Facet>(value.clone())
-                .map_err(|err| Error::Protocol(format!("invalid facet in {field}: {err}")))
-        })
-        .collect()
-}
-
-fn duration_field(
-    object: &serde_json::Map<String, Value>,
-    field: &str,
-) -> Result<Option<ConstraintDuration>> {
-    object
-        .get(field)
-        .and_then(Value::as_str)
-        .map(parse_iso8601_duration)
-        .transpose()
 }
 
 /// Parse an ISO 8601 duration (`P…T…` per the spec constraint schema) into
@@ -1435,7 +1343,7 @@ pub struct CapabilityGrantBuilder {
     /// Producer-signed security scope of the Envelope this builder emits.
     scope_ref: arkret_wire::ScopeRef,
     /// The Envelope `actor_id` (signer / issuer of the grant).
-    actor_id: Did,
+    actor_id: DidCoreId,
     grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
 }
 
@@ -1445,7 +1353,7 @@ impl CapabilityGrantBuilder {
     /// at `build` time.
     pub fn new(
         scope_ref: arkret_wire::ScopeRef,
-        actor_id: Did,
+        actor_id: DidCoreId,
         grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
     ) -> Self {
         Self {
@@ -1456,7 +1364,7 @@ impl CapabilityGrantBuilder {
     }
 
     /// Override the grant subject.
-    pub fn with_subject(mut self, subject: Did) -> Self {
+    pub fn with_subject(mut self, subject: DidCoreId) -> Self {
         self.grant.subject = CapabilitySubject::Did(subject);
         self
     }
@@ -1498,13 +1406,12 @@ impl CapabilityGrantBuilder {
         authority_regrant_allowed: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
-            constraint.constraint_kind
-                != arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::AuthorityControl
+            constraint.constraint_kind != GrantConstraintKind::AuthorityControl
                 || constraint.constraint_subkind.is_some()
         });
         self.grant
             .constraints
-            .push(arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(
+            .push(GrantConstraint::authority_control(
                 u64::from(max_authority_depth),
                 authority_regrant_allowed,
             ));
@@ -1524,12 +1431,7 @@ impl CapabilityGrantBuilder {
     /// Replace the constraint list with spec-shaped typed
     /// `grant-constraint.schema.json` DTOs. They are validated at
     /// [`Self::build`] time via the engine projection.
-    pub fn with_constraints(
-        mut self,
-        constraints: Vec<
-            arkret_models_collaboration::governance::grant_constraint::GrantConstraint,
-        >,
-    ) -> Self {
+    pub fn with_constraints(mut self, constraints: Vec<GrantConstraint>) -> Self {
         self.grant.constraints = constraints;
         self
     }
@@ -1577,10 +1479,7 @@ impl CapabilityGrantBuilder {
         };
         arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityGrant>::new(
             self.scope_ref,
-            arkret_wire::ActorId::from(
-                arkret_wire::project_full_id_to_core_id(&self.actor_id)
-                    .map_err(|error| Error::Protocol(error.to_string()))?,
-            ),
+            self.actor_id,
             payload,
         )
         .map_err(|error| Error::Protocol(error.to_string()))?
@@ -1594,18 +1493,13 @@ impl CapabilityGrantBuilder {
 /// matching the Event signer to the target grant subject.
 pub fn build_capability_relinquish_event(
     scope_ref: arkret_wire::ScopeRef,
-    subject: Did,
+    subject: DidCoreId,
     actor_seq: u64,
     hlc: crate::Hlc,
     payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
 ) -> Result<crate::Event> {
     arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityRelinquish>::new(
-        scope_ref,
-        arkret_wire::ActorId::from(
-            arkret_wire::project_full_id_to_core_id(&subject)
-                .map_err(|error| Error::Protocol(error.to_string()))?,
-        ),
-        payload,
+        scope_ref, subject, payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
     .author_now(actor_seq, hlc)
@@ -1614,6 +1508,7 @@ pub fn build_capability_relinquish_event(
 
 #[cfg(test)]
 mod capability_grant_builder_tests {
+    use arkret_wire::AppletId;
     use serde_json::json;
 
     use super::*;
@@ -1631,12 +1526,16 @@ mod capability_grant_builder_tests {
         arkret_wire::ScopeRef::Realm { realm_id: realm() }
     }
 
-    fn alice() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn alice() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap()
     }
 
-    fn bob() -> Did {
-        Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
+    fn bob() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:bob.example").unwrap()
+    }
+
+    fn bob_principal() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:bob.example").unwrap()
     }
 
     fn hlc() -> crate::Hlc {
@@ -1680,12 +1579,18 @@ mod capability_grant_builder_tests {
         assert_eq!(event.kind, arkret_wire::EventKind::CapabilityGrant);
         // Genesis carries only the grant create body; its GrantId is derived
         // from the accepted EventId by the reducer.
-        assert!(event.payload.get("grant_id").is_none());
+        assert!(!event.payload.contains_key("grant_id"));
         let artifact = &event.payload["grant"];
         assert!(artifact.get("id").is_none());
         assert_eq!(artifact["schema"], SchemaId::CAPABILITY_V1);
-        assert_eq!(artifact["issuer"], "did:webvh:z6mkfixture:alice.example");
-        assert_eq!(artifact["subject"], "did:webvh:z6mkfixture:bob.example");
+        assert_eq!(
+            artifact["issuer"],
+            "ak:did_core:webvh:z6mkfixture:alice.example"
+        );
+        assert_eq!(
+            artifact["subject"],
+            "ak:did_core:webvh:z6mkfixture:bob.example"
+        );
         assert!(artifact.get("issued_at").is_some());
         assert_eq!(artifact["issuer_authority_refs"][0]["kind"], "realm_root");
         assert!(
@@ -1818,13 +1723,11 @@ mod capability_grant_builder_tests {
     #[test]
     fn authority_depth_builder_preserves_applet_authority_subkind() {
         let mut grant = base_grant();
-        grant.constraints.push(
-            arkret_models_collaboration::governance::grant_constraint::GrantConstraint::applet_authority(
-                AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
-                Did::new("did:web:calendar.example").unwrap(),
-                Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            ),
-        );
+        grant.constraints.push(GrantConstraint::applet_authority(
+            AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
+            DidCoreId::new("ak:did_core:web:calendar.example").unwrap(),
+            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+        ));
         let event = CapabilityGrantBuilder::new(scope(), alice(), grant)
             .with_authority_control(2, true)
             .build(1, hlc())
@@ -1856,7 +1759,7 @@ mod capability_grant_builder_tests {
         let parent = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
-            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
+            constraints: vec![GrantConstraint::authority_control(1, true)],
             ..base_grant()
         };
         let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
@@ -1868,7 +1771,7 @@ mod capability_grant_builder_tests {
             ],
             issuer: bob(),
             subject: CapabilitySubject::Did(
-                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap(),
             ),
             actions: vec!["ak.message.create".to_owned()],
             ..base_grant()
@@ -1894,7 +1797,7 @@ mod capability_grant_builder_tests {
             ],
             issuer: bob(),
             subject: CapabilitySubject::Did(
-                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap(),
             ),
             ..base_grant()
         };
@@ -1904,18 +1807,20 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_chain_verifier_accepts_multi_parent_union_and_derives_depth() {
-        let parent_create = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934").unwrap(),
-            actions: vec!["ak.message.create".to_owned()],
-            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
-            ..base_grant()
-        };
-        let parent_update = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
-            id: GrantId::new("ak:grant:AUg3kgXpMvW4kMuGtTepFkRVooX03jTSKInIfDj4dDvu").unwrap(),
-            actions: vec!["ak.message.revise".to_owned()],
-            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
-            ..base_grant()
-        };
+        let parent_create =
+            arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+                id: GrantId::new("ak:grant:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934").unwrap(),
+                actions: vec!["ak.message.create".to_owned()],
+                constraints: vec![GrantConstraint::authority_control(1, true)],
+                ..base_grant()
+            };
+        let parent_update =
+            arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+                id: GrantId::new("ak:grant:AUg3kgXpMvW4kMuGtTepFkRVooX03jTSKInIfDj4dDvu").unwrap(),
+                actions: vec!["ak.message.revise".to_owned()],
+                constraints: vec![GrantConstraint::authority_control(1, true)],
+                ..base_grant()
+            };
         let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:AfYjtj18lO9CeLkb1-l4BiiXSDtfZT21Z_Ez69OUDDEK").unwrap(),
             issuer_authority_refs: vec![
@@ -1928,10 +1833,10 @@ mod capability_grant_builder_tests {
             ],
             issuer: bob(),
             subject: CapabilitySubject::Did(
-                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap(),
             ),
             actions: vec!["ak.message.create".to_owned(), "ak.message.revise".to_owned()],
-            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(0, false)],
+            constraints: vec![GrantConstraint::authority_control(0, false)],
             ..base_grant()
         };
 
@@ -2107,7 +2012,7 @@ mod capability_grant_builder_tests {
             "effect": "allow",
             "evaluation_class": "grant_local",
             "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
-            "executed_by": "did:web:calendar.example",
+            "executed_by": "ak:did_core:web:calendar.example",
             "registration_epoch": epoch,
         }))
         .unwrap();
@@ -2128,7 +2033,7 @@ mod capability_grant_builder_tests {
                 "constraint_subkind": "applet_authority",
                 "effect": "allow",
                 "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
-                "executed_by": "did:web:calendar.example",
+                "executed_by": "ak:did_core:web:calendar.example",
             }))
             .is_err()
         );
@@ -2178,7 +2083,8 @@ mod capability_grant_builder_tests {
                 .unwrap(),
             reason: Some("no longer needed".to_owned()),
         };
-        let event = build_capability_relinquish_event(scope(), bob(), 7, hlc(), payload).unwrap();
+        let event =
+            build_capability_relinquish_event(scope(), bob_principal(), 7, hlc(), payload).unwrap();
         assert_eq!(event.kind, arkret_wire::EventKind::CapabilityRelinquish);
         assert!(event.authorization_ref.is_none());
         assert_eq!(event.actor_id, bob());

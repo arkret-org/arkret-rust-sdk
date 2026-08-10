@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorId, AppletId, AuthorizationRef, Did, Event, RealmId, Result, SchemaId};
+use arkret_wire::{AppletId, AuthorizationRef, DidCoreId, Event, RealmId, Result, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -26,8 +26,8 @@ pub struct GhostActorProvisionRequestBody {
     /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
     pub schema: GhostActorProvisionRequestSchema,
     pub applet_id: AppletId,
-    pub service_id: Did,
-    pub ghost_actor_id: Did,
+    pub service_id: DidCoreId,
+    pub ghost_actor_id: DidCoreId,
     pub protocol: String,
     pub tenant: String,
     pub external_user_id: String,
@@ -51,8 +51,8 @@ impl GhostActorProvisionRequestBody {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         applet_id: AppletId,
-        service_id: Did,
-        ghost_actor_id: Did,
+        service_id: DidCoreId,
+        ghost_actor_id: DidCoreId,
         protocol: impl Into<String>,
         tenant: impl Into<String>,
         external_user_id: impl Into<String>,
@@ -92,7 +92,7 @@ impl GhostActorProvisionRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GhostActorProvisionOutcome {
-    pub ghost_actor_id: Did,
+    pub ghost_actor_id: DidCoreId,
     pub profile_event_ref: String,
     pub accountability_grant_ref: String,
     pub authorization_ref: String,
@@ -119,14 +119,14 @@ impl AppletGhostOperations {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletDelegatedEventAuthorization {
-    pub executed_by: ActorId,
+    pub executed_by: DidCoreId,
     pub authorization_ref: AuthorizationRef,
     pub applet_id: AppletId,
 }
 
 impl AppletDelegatedEventAuthorization {
     pub fn new(
-        executed_by: ActorId,
+        executed_by: DidCoreId,
         authorization_ref: AuthorizationRef,
         applet_id: AppletId,
     ) -> Self {
@@ -182,7 +182,7 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
             },
-            Did::new(actor).unwrap(),
+            DidCoreId::new(actor.replace("did:", "ak:did_core:")).unwrap(),
             0,
             Hlc::new(format!("019041000000-0000-{suffix}")).unwrap(),
             serde_json::json!({"object": {}}),
@@ -198,14 +198,14 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
             },
-            Did::new("did:web:ghost.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:ghost.example").unwrap(),
             1,
             Hlc::new("019041000000-0000-00000000").unwrap(),
             serde_json::json!({"object": {}}),
         )
         .unwrap();
         let authorization = AppletDelegatedEventAuthorization::new(
-            Did::new("did:web:applet.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:applet.example").unwrap(),
             AuthorizationRef::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap(),
             AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
         );
@@ -230,8 +230,8 @@ mod tests {
         let profile = event("ak.profile.create", "did:web:ghost.example", "00000002");
         let request = GhostActorProvisionRequestBody::new(
             AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
-            Did::new("did:web:applet.example").unwrap(),
-            Did::new("did:web:ghost.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:applet.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:ghost.example").unwrap(),
             "slack",
             "tenant-1",
             "user-1",

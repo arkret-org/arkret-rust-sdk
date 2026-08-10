@@ -3,7 +3,7 @@ use arkret_signatures::webvh::{
     PrincipalInceptionInput, WebvhRelocationInput, prepare_portable_principal_inception,
     prepare_webvh_relocation,
 };
-use arkret_wire::Did;
+use arkret_wire::DidFullId;
 use chrono::{DateTime, Utc};
 use ed25519_dalek::SigningKey;
 use serde_json::{Value, json};
@@ -54,10 +54,12 @@ fn portable_relocation_preserves_scid_and_requires_direct_predecessor_link() {
     })
     .unwrap();
     let entries = vec![inception.log_entry.clone(), relocation.log_entry];
-    let target = Did::new(target_did.clone()).unwrap();
+    let target = DidFullId::new(target_did.clone()).unwrap();
     let verified = verify_did_webvh_v1_log(&target, &entries).unwrap();
     assert_eq!(verified.head_state["id"], target_did);
-    assert!(verify_did_webvh_v1_log(&Did::new(inception.did.clone()).unwrap(), &entries).is_err());
+    assert!(
+        verify_did_webvh_v1_log(&DidFullId::new(inception.did.clone()).unwrap(), &entries).is_err()
+    );
 
     let mut missing_link = successor_state.clone();
     missing_link["alsoKnownAs"] = json!([]);

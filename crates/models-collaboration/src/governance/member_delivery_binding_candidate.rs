@@ -19,7 +19,7 @@
 //!
 //! Any object lacking `proofs[]` MUST NOT be named a candidate.
 use arkret_models_identity::handle::{Handle, HandleHintBindingSource};
-use arkret_wire::{Did, EventId, Hash, Proof, SchemaId, canonical};
+use arkret_wire::{DidCoreId, EventId, Hash, Proof, SchemaId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ pub struct CandidateValidationContext {
     /// When present, the validator MUST reject candidates whose
     /// `subject_id` does not match byte-for-byte. This guards against
     /// directory caches reusing a candidate across reassignments.
-    pub expected_subject: Option<Did>,
+    pub expected_subject: Option<DidCoreId>,
 }
 
 impl CandidateValidationContext {
@@ -65,7 +65,7 @@ impl CandidateValidationContext {
     }
 
     #[must_use]
-    pub fn with_expected_subject(mut self, subject: Did) -> Self {
+    pub fn with_expected_subject(mut self, subject: DidCoreId) -> Self {
         self.expected_subject = Some(subject);
         self
     }
@@ -105,7 +105,7 @@ pub enum CandidateError {
         "candidate recipient_service_id ({outer}) does not match \
          member_delivery_binding.recipient_service_id ({inner})"
     )]
-    RecipientServiceIdMismatch { outer: String, inner: String },
+    RecipientDidCoreIdMismatch { outer: String, inner: String },
     #[error("candidate source_refs MUST NOT be empty")]
     MissingSourceRefs,
     #[error("candidate canonical-JSON serialisation failed: {0}")]
@@ -121,14 +121,14 @@ pub enum CandidateError {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBindingCandidate {
-    pub subject_id: Did,
+    pub subject_id: DidCoreId,
     /// Canonical `<localpart>:<domain>` handle (R3.1 wire rename from
     /// the prior `handle_uri` field).
     pub handle: Handle,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
     pub member_delivery_binding: DeliveryBindingHint,
-    pub issuer_service_id: Did,
+    pub issuer_service_id: DidCoreId,
     pub audience: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -238,11 +238,15 @@ mod tests {
     use super::*;
     use crate::governance::delivery_binding::{DeliveryMode, RecipientServiceKind};
 
-    fn fake_did(label: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
+    fn fake_principal(label: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()
     }
 
-    fn sample_hint(rs: &Did) -> DeliveryBindingHint {
+    fn fake_service(label: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()
+    }
+
+    fn sample_hint(rs: &DidCoreId) -> DeliveryBindingHint {
         let mut modes = BTreeSet::new();
         modes.insert(DeliveryMode::Events);
         modes.insert(DeliveryMode::Sync);
@@ -261,13 +265,13 @@ mod tests {
     }
 
     fn sample_candidate() -> MemberDeliveryBindingCandidate {
-        let rs = fake_did("principal");
+        let rs = fake_service("principal");
         MemberDeliveryBindingCandidate {
-            subject_id: fake_did("alice"),
+            subject_id: fake_principal("alice"),
             handle: Handle::parse("alice:acme.example").unwrap(),
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),
-            issuer_service_id: fake_did("principal"),
+            issuer_service_id: fake_service("principal"),
             audience: "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
             issued_at: Utc::now(),
@@ -303,7 +307,7 @@ mod tests {
     #[test]
     fn negative_subject_mismatch() {
         let c = sample_candidate();
-        let ctx = valid_context(&c).with_expected_subject(fake_did("mallory"));
+        let ctx = valid_context(&c).with_expected_subject(fake_principal("mallory"));
         match c.validate(&ctx).unwrap_err() {
             CandidateError::SubjectMismatch { .. } => {}
             other => panic!("expected SubjectMismatch, got {other:?}"),

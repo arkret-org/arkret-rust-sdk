@@ -1,3 +1,5 @@
+use arkret_wire::{DidCoreId, DidFullId};
+
 use crate::*;
 
 /// A resolution: the verified document plus the method evidence backing it.
@@ -41,10 +43,10 @@ impl ResolvedDid {
 /// Resolve DID documents for one or more DID methods.
 pub trait DidResolver {
     /// Return whether this resolver can handle the DID method or concrete DID.
-    fn supports(&self, did: &Did) -> bool;
+    fn supports(&self, did: &DidFullId) -> bool;
 
     /// Resolve a DID, returning the document **and** its method evidence.
-    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid>;
+    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid>;
 
     /// Resolve a DID and keep only the document.
     ///
@@ -52,7 +54,7 @@ pub trait DidResolver {
     /// a handle, looking up a public key for an ordinary signature check). An
     /// authority path MUST NOT use it: it drops exactly the material §5.2
     /// requires the evidence receipt to commit to.
-    fn resolve_did_document(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did_document(&self, did: &DidFullId) -> Result<DidDocument> {
         Ok(self.resolve_did(did)?.document)
     }
 }
@@ -61,7 +63,7 @@ pub trait DidResolver {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResolvedVerificationMethodKey {
-    pub did: Did,
+    pub did: DidFullId,
     /// Registered exemption from the `DidUrl` migration
     /// (`did-usage-and-verification.md` §2.2 / §6): this field stays a `String`.
     ///
@@ -81,7 +83,7 @@ pub struct ResolvedVerificationMethodKey {
     pub verification_method: String,
     pub public_key: arkret_signatures::PublicKeyMaterial,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub controller: Option<Did>,
+    pub controller: Option<DidFullId>,
 }
 
 impl ResolvedVerificationMethodKey {
@@ -91,7 +93,7 @@ impl ResolvedVerificationMethodKey {
     /// of the exemption described on that field. A relative reference
     /// (`#key-1`) is resolved against `did`; an already-absolute reference is
     /// validated as-is and MUST belong to `did`.
-    pub fn absolutize(&self, did: &Did) -> Result<DidUrl> {
+    pub fn absolutize(&self, did: &DidFullId) -> Result<DidUrl> {
         let reference = self.verification_method.trim();
         if reference.is_empty() {
             return Err(Error::Protocol(
@@ -114,7 +116,7 @@ impl ResolvedVerificationMethodKey {
 }
 
 /// Extract the controller DID portion from a DID URL verification method.
-pub fn verification_method_did(verification_method: &str) -> Result<Did> {
+pub fn verification_method_did(verification_method: &str) -> Result<DidFullId> {
     if verification_method.trim().is_empty() {
         return Err(Error::Protocol(
             "verification_method must not be empty".to_owned(),
@@ -128,7 +130,7 @@ pub fn verification_method_did(verification_method: &str) -> Result<Did> {
         (None, Some(query)) => query,
         (None, None) => verification_method.len(),
     };
-    Did::new(verification_method[..end].to_owned()).map_err(Error::from)
+    DidFullId::new(verification_method[..end].to_owned()).map_err(Error::from)
 }
 
 /// Resolve a verification method key from an already-resolved DID document.
@@ -234,7 +236,7 @@ fn to_signature_error(error: Error) -> arkret_signatures::Error {
 pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
     proof: &Proof,
-    binding_actor_id: &arkret_wire::ActorId,
+    binding_actor_id: &DidCoreId,
     context: &arkret_signatures::ProofVerificationContext,
     resolver: &R,
 ) -> Result<arkret_signatures::SignatureVerification>
@@ -405,7 +407,7 @@ mod tests {
 
     fn document(id: &str, method_id: &str) -> DidDocument {
         DidDocument {
-            id: Did::new(id).unwrap(),
+            id: DidFullId::new(id).unwrap(),
             verification_methods: BTreeMap::from([(
                 method_id.to_owned(),
                 "z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w".to_owned(),

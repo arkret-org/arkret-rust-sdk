@@ -181,14 +181,14 @@ impl From<PreparedNonReducerEvent> for PreparedStandardEvent {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        AuthContext, Did, DidUrl, Event, Hash, Hlc, Proof, RealmId, ScopeRef, SealId,
+        AuthContext, DidCoreId, DidUrl, Event, Hash, Hlc, Proof, RealmId, ScopeRef, SealId,
     };
     use serde_json::json;
 
     use super::*;
 
     fn message_event() -> Event {
-        let actor = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
+        let actor = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let mut event = arkret_wire::test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
@@ -207,7 +207,7 @@ mod tests {
         .unwrap();
         event.seal_ref = Some(SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap());
         event.auth_context = Some(AuthContext {
-            did: actor,
+            actor_id: actor,
             key_id: "agent-device".to_owned(),
             key_epoch: 0,
             credential_epoch: None,

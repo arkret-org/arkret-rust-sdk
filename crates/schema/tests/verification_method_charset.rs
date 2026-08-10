@@ -24,7 +24,7 @@ const CANONICAL: &str = "did:web:release.example#claim-key-1";
 
 fn issuer(verification_method: &str) -> Value {
     json!({
-        "id": "did:web:release.example",
+        "id": "ak:did_core:webvh:z6mkfixture",
         "verification_method": verification_method,
     })
 }
@@ -44,14 +44,14 @@ fn sdk_claim_issuer_rejects_fragments_wider_than_did_url() {
     }
 }
 
-/// `issuer.id` is a bare DID and `issuer.verification_method` is a DID URL;
-/// `did-usage-and-verification.md` §2.3 lists exactly this pairing, and the two
-/// value domains are disjoint.
+/// `issuer.id` is the stable actor identity core and
+/// `issuer.verification_method` is a DID URL; the two value domains are
+/// disjoint.
 #[test]
 fn sdk_claim_issuer_id_and_verification_method_are_disjoint() {
     assert!(
         serde_json::from_value::<SdkClaimIssuer>(issuer("did:web:release.example")).is_err(),
-        "a bare DID is not a verification method"
+        "an identity core is not a verification method"
     );
     assert!(
         serde_json::from_value::<SdkClaimIssuer>(json!({
@@ -59,6 +59,6 @@ fn sdk_claim_issuer_id_and_verification_method_are_disjoint() {
             "verification_method": CANONICAL,
         }))
         .is_err(),
-        "a DID URL is not a bare DID"
+        "a DID URL is not an identity core"
     );
 }

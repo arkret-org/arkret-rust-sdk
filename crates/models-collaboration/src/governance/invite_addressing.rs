@@ -9,8 +9,8 @@ use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    BlobRef, CoreId, Did, Error, EventId, Hash, InviteLocatorId, InviteReceiveAction, RealmId,
-    Result, SchemaId, ServiceId, UnknownInviteAction,
+    BlobRef, DidCoreId, Error, EventId, Hash, InviteLocatorId, InviteReceiveAction, RealmId,
+    Result, SchemaId, UnknownInviteAction,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -213,8 +213,8 @@ pub struct InviteLocatorRevokeOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteAddress {
-    pub subject_id: CoreId,
-    pub recipient_service_id: ServiceId,
+    pub subject_id: DidCoreId,
+    pub recipient_service_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route_assistance: Option<RouteAssistance>,
@@ -224,8 +224,8 @@ pub struct InviteAddress {
 
 impl InviteAddress {
     pub fn principal_server(
-        subject_id: CoreId,
-        recipient_service_id: ServiceId,
+        subject_id: DidCoreId,
+        recipient_service_id: DidCoreId,
         service_resolution: ServiceResolutionCarrier,
     ) -> Self {
         Self {
@@ -256,7 +256,7 @@ impl InviteAddress {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryTarget {
-    pub recipient_service_id: ServiceId,
+    pub recipient_service_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_kind: Option<String>,
@@ -264,7 +264,7 @@ pub struct InviteDeliveryTarget {
 
 impl InviteDeliveryTarget {
     pub fn principal_server(
-        recipient_service_id: ServiceId,
+        recipient_service_id: DidCoreId,
         service_resolution: ServiceResolutionCarrier,
     ) -> Self {
         Self {
@@ -300,8 +300,8 @@ impl InviteDeliveryTarget {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalLocator {
     pub schema: String,
-    pub subject_id: CoreId,
-    pub recipient_service_id: ServiceId,
+    pub subject_id: DidCoreId,
+    pub recipient_service_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route_assistance: Option<RouteAssistance>,
@@ -373,7 +373,7 @@ impl PrincipalLocator {
 }
 
 fn validate_service_resolution_carrier(
-    expected_service_id: &ServiceId,
+    expected_service_id: &DidCoreId,
     carrier: &ServiceResolutionCarrier,
 ) -> Result<()> {
     if let ServiceResolutionCarrier::Inline { inline } = carrier
@@ -432,6 +432,7 @@ pub use arkret_models_identity::proof::DetachedPayloadProof;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum IntroductionEvidence {
     LocatorRef {
         principal_locator: PrincipalLocator,
@@ -452,7 +453,7 @@ pub enum IntroductionEvidence {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         member_delivery_binding_candidate: Option<Box<MemberDeliveryBindingCandidate>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        resolved_by: Option<Did>,
+        resolved_by: Option<DidCoreId>,
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",
@@ -557,7 +558,7 @@ pub enum DisclosedOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteReceivePolicy {
     pub schema: String,
-    pub subject_id: Did,
+    pub subject_id: DidCoreId,
     pub holder_allowed_introduction_kinds: Vec<String>,
     pub explicit_address_behavior: InviteReceiveAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -568,17 +569,17 @@ pub struct InviteReceivePolicy {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub denied_handle_domains: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_handle_issuers: Vec<Did>,
+    pub trusted_handle_issuers: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_directory_services: Vec<Did>,
+    pub trusted_directory_services: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_principal_services: Vec<Did>,
+    pub trusted_principal_services: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub denied_principal_services: Vec<Did>,
+    pub denied_principal_services: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub denied_subjects: Vec<Did>,
+    pub denied_subjects: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosure: Option<DisclosurePolicy>,
 }
@@ -590,7 +591,7 @@ impl InviteReceivePolicy {
     /// The subject is already a validated DID so callers cannot silently
     /// substitute a placeholder principal when identity parsing fails.
     #[must_use]
-    pub fn spec_default(subject_id: Did) -> Self {
+    pub fn spec_default(subject_id: DidCoreId) -> Self {
         Self {
             schema: SchemaId::INVITE_RECEIVE_POLICY_V1.to_owned(),
             subject_id,
@@ -642,13 +643,15 @@ pub struct DisclosurePolicy {
 #[cfg(test)]
 mod tests {
     use arkret_models_identity::handle::HandleBindingState;
-    use arkret_wire::{DidUrl, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface};
+    use arkret_wire::{
+        DidFullId, DidUrl, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface,
+    };
 
     use super::*;
 
     #[test]
     fn invite_receive_policy_spec_default_is_fail_closed() {
-        let subject_id = Did::new("did:web:alice.example").unwrap();
+        let subject_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
         let policy = InviteReceivePolicy::spec_default(subject_id.clone());
 
         assert_eq!(policy.schema, SchemaId::INVITE_RECEIVE_POLICY_V1);
@@ -769,17 +772,13 @@ mod tests {
     fn principal_locator_serializes_canonical_timestamps() {
         let issued_at = test_time();
         let expires_at = issued_at + chrono::Duration::minutes(15);
+        let recipient_service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturepsbob").unwrap();
         let recipient_full_id =
-            arkret_wire::FullId::new("did:webvh:z6mkfixturepsbob:ps.bob.example").unwrap();
+            DidFullId::new("did:webvh:z6mkfixturepsbob:ps.bob.example").unwrap();
         let locator = PrincipalLocator {
             schema: SchemaId::PRINCIPAL_LOCATOR_V1.to_owned(),
-            subject_id: arkret_wire::project_full_id_to_core_id(
-                &arkret_wire::FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
-            )
-            .unwrap(),
-            recipient_service_id: ServiceId::from(
-                arkret_wire::project_full_id_to_core_id(&recipient_full_id).unwrap(),
-            ),
+            subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            recipient_service_id,
             service_resolution: ServiceResolutionCarrier::CurrentRecordUrl {
                 current_record_url:
                     "https://ps.bob.example/_arkret/open/service-resolution/current".to_owned(),
@@ -872,7 +871,7 @@ mod tests {
     fn invite_receive_policy_skips_empty_disclosure_fields() {
         let policy = InviteReceivePolicy {
             schema: SchemaId::INVITE_RECEIVE_POLICY_V1.to_owned(),
-            subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             holder_allowed_introduction_kinds: vec!["consent_grant".to_owned()],
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: None,
@@ -892,7 +891,7 @@ mod tests {
         assert!(value.get("disclosure").is_none());
 
         let policy = InviteReceivePolicy {
-            denied_subjects: vec![Did::new("did:webvh:z6mkfixture:mallory.example").unwrap()],
+            denied_subjects: vec![DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()],
             disclosure: Some(DisclosurePolicy {
                 high_trust: Some(DisclosureLevel::Outcome),
                 discovery_trust: Some(DisclosureLevel::Opaque),
@@ -916,7 +915,7 @@ mod tests {
             .with_timezone(&Utc);
         let claim = HandleClaim {
             handle: Some(handle.clone()),
-            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example").unwrap()),
+            subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             binding_state: Some(HandleBindingState::Verified),
             expires_at: Some(expires_at),
             proofs: vec![PayloadProof {
@@ -936,7 +935,7 @@ mod tests {
             handle,
             handle_claim: Box::new(claim),
             member_delivery_binding_candidate: None,
-            resolved_by: Some(Did::new("did:webvh:z6mkfixture:directory.example").unwrap()),
+            resolved_by: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             resolved_at: Some(resolved_at),
         };
         assert_eq!(evidence.kind(), "handle_claim");

@@ -1,7 +1,7 @@
 use arkret_models_identity::{IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS};
 use arkret_wire::{
-    ActorId, CoreId, DeviceId, Did, Error, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
-    RealmId, Result, canonical,
+    DeviceId, DidCoreId, Error, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit, RealmId,
+    Result, canonical,
 };
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +16,8 @@ use crate::events_payloads::{
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PcrGenesisSubmitRequestBody {
-    pub account_authority_id: Did,
-    pub principal_id: CoreId,
+    pub account_authority_id: DidCoreId,
+    pub principal_id: DidCoreId,
     pub pcr_realm_id: RealmId,
     pub idempotency_key: IdempotencyKey,
     pub registration_request_digest: Hash,
@@ -44,9 +44,9 @@ impl PcrGenesisSubmitRequestBody {
             || self.log_head_digest != proof.log_head_digest
             || self.control_key_digest != proof.control_key_digest
             || proof.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
-            || create.actor_id != ActorId::from(self.principal_id.clone())
+            || create.actor_id != self.principal_id.clone()
             || create.realm_id != self.pcr_realm_id
-            || authorize.actor_id != ActorId::from(self.principal_id.clone())
+            || authorize.actor_id != self.principal_id.clone()
             || authorize.realm_id != self.pcr_realm_id
         {
             return Err(Error::Protocol(
@@ -97,7 +97,8 @@ impl PcrGenesisSubmitRequestBody {
             format!("{}#{}", proof.full_id, descriptor.device_id);
         let authorized_by_root = matches!(
             &authorize_payload.authorized_by,
-            DeviceOrPrincipalRef::Did(did) if did == &proof.full_id
+            DeviceOrPrincipalRef::Principal(principal_id)
+                if principal_id == &proof.principal_id
         );
         if authorize_payload.authorization_binding_kind
             != DeviceAuthorizationBindingKind::RootAnchored
@@ -129,7 +130,7 @@ impl PcrGenesisSubmitRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PcrGenesisSubmitOutcome {
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub pcr_realm_id: RealmId,
     pub accepted_device_id: DeviceId,
     pub receipt: EventBatchReceipt,
@@ -153,9 +154,9 @@ impl PcrGenesisSubmitOutcome {
         if self.principal_id != request.principal_id
             || self.pcr_realm_id != request.pcr_realm_id
             || self.accepted_device_id != descriptor.device_id
-            || scope.principal_id != request.identity_creation_control_proof.full_id
+            || scope.principal_id != request.principal_id
             || scope.realm_id != request.pcr_realm_id
-            || scope.audience != request.account_authority_id
+            || scope.audience.as_core_id() != request.account_authority_id.as_core_id()
             || scope.did_version_id != request.did_version_id
             || scope.log_head_digest != request.log_head_digest
             || scope.control_key_digest != request.control_key_digest

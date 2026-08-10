@@ -17,7 +17,7 @@ use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
 use crate::primitives::Proof;
-use crate::{Did, Hash, ProofContextId};
+use crate::{DidCoreId, Hash, ProofContextId};
 
 pub const MAX_MANIFEST_DEPENDENCY_REFS: usize = 64;
 pub const MAX_MANIFEST_PAYLOAD_SCHEMA_REFS: usize = 256;
@@ -119,7 +119,7 @@ pub struct ExtensionManifest {
     pub namespace: String,
     pub protocol_layer_kind: ProtocolLayerKind,
     pub manifest_digest: Hash,
-    pub publisher_id: Did,
+    pub publisher_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub published_at: DateTime<Utc>,
     pub dependency_refs: Vec<RegistryContentRef>,
@@ -202,7 +202,7 @@ impl Default for ManifestKernelLimits {
 pub trait ExtensionManifestProofVerifier {
     fn verify(
         &self,
-        publisher_id: &Did,
+        publisher_id: &DidCoreId,
         verification_method: &str,
         signing_bytes: &[u8],
         detached_jws: &str,
@@ -857,13 +857,13 @@ mod tests {
     impl ExtensionManifestProofVerifier for TestProofVerifier {
         fn verify(
             &self,
-            publisher_id: &Did,
+            publisher_id: &DidCoreId,
             verification_method: &str,
             signing_bytes: &[u8],
             detached_jws: &str,
         ) -> Result<()> {
             self.calls.fetch_add(1, Ordering::Relaxed);
-            assert_eq!(publisher_id.as_str(), "did:web:publisher.example");
+            assert_eq!(publisher_id.as_str(), "ak:did_core:web:publisher.example");
             assert_eq!(
                 verification_method,
                 "did:web:publisher.example#manifest-signing"
@@ -908,7 +908,8 @@ mod tests {
             namespace: format!("ak.{name}"),
             protocol_layer_kind: layer,
             manifest_digest: hash(0),
-            publisher_id: Did::new("did:web:publisher.example".to_owned()).expect("fixture DID"),
+            publisher_id: DidCoreId::new("ak:did_core:web:publisher.example".to_owned())
+                .expect("fixture DID"),
             published_at,
             dependency_refs,
             payload_schema_refs: vec![content_ref(&format!("ak.schema.{name}.v1"), hash(seed + 1))],

@@ -52,14 +52,16 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_models_crypto::encrypted_envelope::EncryptedPayload;
-    use arkret_wire::{BlobRef, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId};
+    use arkret_wire::{
+        BlobRef, DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash, RealmId,
+    };
     use chrono::Utc;
 
     use super::*;
     use crate::errors::Error;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
     fn device() -> DeviceId {

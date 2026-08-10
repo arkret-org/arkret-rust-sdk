@@ -105,7 +105,7 @@ mod tests {
         let created_at = Utc::now();
         KeyBackup {
             backup_id: BackupId::new("ak:backup:01964137-0000-7000-8000-000000000000").unwrap(),
-            actor_id: arkret_wire::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor_id: arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             device_id: Some(
                 arkret_wire::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000")
                     .unwrap(),
@@ -151,7 +151,7 @@ mod tests {
                 subdomain: "aead".to_owned(),
                 aead_aad: arkret_models_crypto::KeyBackupDomainSeparationAad {
                     schema: "ak.schema.key_backup.v1".to_owned(),
-                    actor_id: arkret_wire::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                    actor_id: arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                     device_id: Some("ak:device:01964137-0000-7000-8000-000000000000".to_owned()),
                     backup_kind: arkret_models_crypto::BackupKind::SecretStorage,
                     backup_version: "kb_1".to_owned(),

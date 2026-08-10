@@ -326,8 +326,8 @@ fn signal_nonce_context(binding: &SignalAeadBinding<'_>) -> Result<AeadNonceCont
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        DeviceId, Did, DidUrl, RealmId, ScopeRef, SealId, SignalClass, SignalKeyRef, SignalProof,
-        proof_kind,
+        DeviceId, DidCoreId, DidUrl, RealmId, ScopeRef, SealId, SignalClass, SignalKeyRef,
+        SignalProof, proof_kind,
     };
     use chrono::{DateTime, Duration, TimeZone, Utc};
 
@@ -357,7 +357,7 @@ mod tests {
         "\"realm_id\":\"ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0\"},",
         "\"seal_ref\":\"ak:seal:sha256:",
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
-        "\"sender_actor_id\":\"did:webvh:z6mkfixture:alice.example\",",
+        "\"sender_actor_id\":\"ak:did_core:webvh:z6mkfixturealice\",",
         "\"sender_device_id\":\"ak:device:01904100-0000-7000-8000-000000000006\",",
         "\"sent_at\":\"2026-07-28T12:00:00.000Z\",",
         "\"signal_class\":\"session\"}"
@@ -376,7 +376,7 @@ mod tests {
     struct BindingParts {
         realm_id: RealmId,
         scope_ref: ScopeRef,
-        sender_actor_id: Did,
+        sender_actor_id: DidCoreId,
         sender_device_id: DeviceId,
         seal_ref: SealId,
         key_ref: SignalKeyRef,
@@ -391,7 +391,7 @@ mod tests {
                     realm_id: realm_id.clone(),
                 },
                 realm_id,
-                sender_actor_id: Did::new(sender_actor.to_owned()).unwrap(),
+                sender_actor_id: DidCoreId::new(sender_actor.to_owned()).unwrap(),
                 sender_device_id: DeviceId::new(sender_device.to_owned()).unwrap(),
                 seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
                 key_ref: SignalKeyRef {
@@ -423,12 +423,12 @@ mod tests {
 
     fn alice_and_bob() -> (ArkretMlsGroup, ArkretMlsGroup) {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new(ALICE_DEVICE.to_owned()).unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
             DeviceId::new(BOB_DEVICE.to_owned()).unwrap(),
         )
         .unwrap();
@@ -559,8 +559,8 @@ mod tests {
     fn nonce_is_the_exporter_prefix_followed_by_a_be64_counter() {
         let (alice_group, _bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
-        let alice_parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
-        let bob_parts = BindingParts::new("did:webvh:z6mkfixture:bob.example", BOB_DEVICE);
+        let alice_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
+        let bob_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturebob", BOB_DEVICE);
         let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
 
         let nonce = alice_group
@@ -587,7 +587,7 @@ mod tests {
     /// `ak.signal_exporter_aead.v1`, and nothing that depends on AEAD output.
     #[test]
     fn aad_is_the_canonical_pre_encryption_immutable_header() {
-        let parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
+        let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
         let aad = parts.binding(7).aad_bytes("AAAAAAAAAAAAAAAA").unwrap();
         let aad = std::str::from_utf8(&aad).unwrap();
         assert_eq!(aad, SIGNAL_AAD_ANCHOR, "canonical signal AAD drifted");
@@ -599,7 +599,7 @@ mod tests {
     fn seal_and_open_round_trip_between_two_members() {
         let (mut alice_group, bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
-        let parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
+        let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
         let binding = parts.binding(epoch);
 
         let seal = alice_group.seal_signal_payload(&binding, TYPING).unwrap();
@@ -643,8 +643,8 @@ mod tests {
     fn sender_nonce_domain_is_enforced_in_both_directions() {
         let (mut alice_group, bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
-        let alice_parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
-        let bob_parts = BindingParts::new("did:webvh:z6mkfixture:bob.example", BOB_DEVICE);
+        let alice_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
+        let bob_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturebob", BOB_DEVICE);
 
         let error = alice_group
             .seal_signal_payload(&bob_parts.binding(epoch), b"spoof")
@@ -682,7 +682,7 @@ mod tests {
     fn nonce_counter_is_monotonic_and_persisted() {
         let (mut alice_group, _bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
-        let parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
+        let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
 
         let mut nonces = Vec::new();
         for expected_counter in 0..3u64 {
@@ -709,7 +709,7 @@ mod tests {
     fn sealed_payload_completes_a_valid_signal_envelope() {
         let (mut alice_group, bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
-        let parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
+        let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
         let binding = parts.binding(epoch);
         let seal = alice_group.seal_signal_payload(&binding, TYPING).unwrap();
 
@@ -726,8 +726,8 @@ mod tests {
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!(
-                    "{}#{}",
-                    parts.sender_actor_id, parts.sender_device_id
+                    "did:webvh:z6mkfixturealice:alice.example#{}",
+                    parts.sender_device_id
                 ))
                 .unwrap(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
@@ -752,7 +752,7 @@ mod tests {
     fn bounds_and_epoch_are_enforced_before_sealing() {
         let (mut alice_group, _bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
-        let parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
+        let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
 
         let oversized = vec![0u8; MAX_SIGNAL_PLAINTEXT_BYTES + 1];
         let error = alice_group

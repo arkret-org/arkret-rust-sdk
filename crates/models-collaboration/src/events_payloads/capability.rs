@@ -1,5 +1,7 @@
 //! Capability event payloads.
 
+use arkret_wire::DidCoreId;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -10,7 +12,7 @@ pub struct CapabilityGrantCreateBody {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub subject: CapabilitySubject,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,

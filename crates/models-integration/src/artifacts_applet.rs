@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, Did, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId, ReasonCode,
-    SchemaId, WireResourceSelector, XExtensionMap,
+    CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId,
+    ReasonCode, SchemaId, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -316,7 +316,7 @@ pub struct Applet {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub applet_id: AppletIdentifier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
+    pub service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<AppletError>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

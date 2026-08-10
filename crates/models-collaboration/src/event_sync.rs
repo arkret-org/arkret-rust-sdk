@@ -7,10 +7,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    ActorId, CbaProofBundle, ControlProposalAck, ControlProposalDecision,
-    ControlProposalDecisionPolicy, Did, Error, Event, EventFederationSubmission, EventId,
-    FederatedDeviceSigningKeyEvidence, Hash, Hlc, RealmId, Result, SchemaId, Seal, SealBasis,
-    SealId,
+    CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
+    DidCoreId, Error, Event, EventFederationSubmission, EventId, FederatedDeviceSigningKeyEvidence,
+    Hash, Hlc, RealmId, Result, SchemaId, Seal, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -105,13 +104,13 @@ pub enum ActorAggregateFrontierKind {
 pub enum EventsFrontierSelector {
     RealmActor {
         realm_id: RealmId,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
     },
     RealmSeal {
         realm_id: RealmId,
     },
     ActorAggregate {
-        actor_id: ActorId,
+        actor_id: DidCoreId,
     },
 }
 
@@ -173,7 +172,7 @@ pub enum EventsFrontierView {
 struct RealmActorFrontierDigestTranscript<'a> {
     kind: &'static str,
     realm_id: &'a RealmId,
-    actor_id: &'a ActorId,
+    actor_id: &'a DidCoreId,
     next_actor_seq: u64,
     frontier_event_ids: &'a [EventId],
 }
@@ -185,7 +184,7 @@ struct RealmActorFrontierDigestTranscript<'a> {
 pub struct RealmActorFrontierView {
     pub kind: RealmActorFrontierKind,
     pub realm_id: RealmId,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub next_actor_seq: u64,
     pub frontier_event_ids: Vec<EventId>,
     pub frontier_digest: Hash,
@@ -194,7 +193,7 @@ pub struct RealmActorFrontierView {
 impl RealmActorFrontierView {
     pub fn new(
         realm_id: RealmId,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         next_actor_seq: u64,
         frontier_event_ids: Vec<EventId>,
         digest_suite: DigestSuite,
@@ -220,7 +219,7 @@ impl RealmActorFrontierView {
 
     pub fn compute_digest(
         realm_id: &RealmId,
-        actor_id: &ActorId,
+        actor_id: &DidCoreId,
         next_actor_seq: u64,
         frontier_event_ids: &[EventId],
         digest_suite: DigestSuite,
@@ -299,7 +298,7 @@ impl RealmActorFrontierView {
 #[serde(deny_unknown_fields)]
 pub struct ActorAggregateFrontierView {
     pub kind: ActorAggregateFrontierKind,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub realms: Vec<RealmActorFrontierView>,
 }
 
@@ -659,13 +658,13 @@ pub struct EventsFrontierFederationPeerState {
     pub frontier_root: Hash,
     /// Per-actor sequence upper bounds returned to an authorized peer.
     #[serde(default)]
-    pub actor_seq_upper_bounds: BTreeMap<Did, u64>,
+    pub actor_seq_upper_bounds: BTreeMap<DidCoreId, u64>,
     /// Optional witness / receipt-service attestations over the frontier.
     #[serde(default)]
     pub witness_receipts: Vec<BTreeMap<String, Value>>,
     /// RFC 3339 (`Z`-suffixed) instant the issuer observed this frontier.
     pub observed_at: String,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     /// Service signature object over the peer frontier response.
     pub signature: BTreeMap<String, Value>,
 }
@@ -678,7 +677,7 @@ pub struct EventsFrontierFederationPeerState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EventsFrontierAnonymousHealthState {
     pub peer_role: FrontierPeerRole,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub healthy: bool,
     /// Wall-clock instant the frontier snapshot was generated. Used for
     /// staleness detection only — not signed.
@@ -1120,7 +1119,7 @@ mod tests {
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
         AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, ControlProposalAckKind,
-        DeviceId, DidKey, DidUrl, Hash, IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof,
+        DeviceId, DidUrl, Hash, IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof,
         PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
@@ -1129,7 +1128,7 @@ mod tests {
 
     #[test]
     fn realm_actor_frontier_distinguishes_empty_and_seq_zero_histories() {
-        let actor_id = ActorId::new("ak:did_core:web:alice.example").unwrap();
+        let actor_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
         let realm_id =
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
         RealmActorFrontierView::new(
@@ -1164,7 +1163,7 @@ mod tests {
         frontier_event_ids.sort();
         let frontier = RealmActorFrontierView::new(
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            ActorId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             43,
             frontier_event_ids,
             DigestSuite::Sha256,
@@ -1195,7 +1194,7 @@ mod tests {
             "prev_refs": [],
             "seal_ref": format!("ak:seal:sha256:{}", "e".repeat(64)),
             "auth_context": {
-                "did": "did:web:alice.example",
+                "actor_id": "ak:did_core:web:alice.example",
                 "key_id": "ak:device:01904100-0000-7000-8000-000000000002",
                 "key_epoch": 1
             },
@@ -1221,13 +1220,13 @@ mod tests {
                 "kind": "realm",
                 "realm_id": "ak:realm:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM"
             },
-            "actor_id": "did:web:alice.example",
+            "actor_id": "ak:did_core:web:alice.example",
             "actor_seq": 1,
             "created_at": "2026-07-21T07:00:00.000Z",
             "hlc": "01970e589d21-0000-a13f9c2e",
             "prev_refs": [],
             "payload": {
-                "principal_id": "did:web:alice.example",
+                "principal_id": "ak:did_core:web:alice.example",
                 "device_id": "ak:device:01904100-0000-7000-8000-000000000002",
                 "device_public_key": "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
                 "legacy_authority_binding": {
@@ -1236,7 +1235,7 @@ mod tests {
                     "authorization_ref": "did:web:alice.example#legacy-device-authority"
                 }
             },
-            "executed_by": "did:web:auth.example",
+            "executed_by": "ak:did_core:web:auth.example",
             "authorization_ref": "did:web:alice.example#legacy-device-authority",
             "proofs": [{
                 "kind": "detached_jws",
@@ -1248,7 +1247,7 @@ mod tests {
         }))
         .unwrap();
         FederatedDeviceSigningKeyEvidence {
-            actor_id: Did::new("did:web:alice.example").unwrap(),
+            actor_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
             verification_method: DidUrl::new(
                 "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000002",
@@ -1271,7 +1270,7 @@ mod tests {
         assert!(evidence.matches_event_proof(&event, &evidence.verification_method));
 
         let mut wrong_actor = evidence;
-        wrong_actor.actor_id = Did::new("did:web:mallory.example").unwrap();
+        wrong_actor.actor_id = DidFullId::new("did:web:mallory.example").unwrap();
         assert!(!wrong_actor.matches_event_proof(&event, &wrong_actor.verification_method));
     }
 
@@ -1363,7 +1362,7 @@ mod tests {
             basis_ref: LeaseBasisRef::Seal(
                 SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             ),
-            actor_id: Did::new("did:web:alice.example").unwrap(),
+            actor_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
             scope_ref: event.scope_ref.clone(),
             action: event.kind.as_str().to_owned(),
@@ -1387,7 +1386,7 @@ mod tests {
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             authorization_lease_id: authorization_lease.authorization_lease_id.clone(),
             received_at: issued_at,
-            service_id: Did::new("did:web:ingress.example").unwrap(),
+            service_id: DidCoreId::new("ak:did_core:web:ingress.example").unwrap(),
             authority_set_ref,
             proofs: Vec::new(),
         };
@@ -1677,7 +1676,7 @@ mod tests {
             .authorization_lease
             .as_mut()
             .expect("fixture uses delayed federation")
-            .actor_id = Did::new("did:web:mallory.example").unwrap();
+            .actor_id = DidCoreId::new("ak:did_core:web:mallory.example").unwrap();
         assert!(foreign_actor.validate_federation_transport().is_err());
     }
 }

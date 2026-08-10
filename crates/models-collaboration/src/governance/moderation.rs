@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, Hash, RealmId, SchemaId, ScopeRef};
+use arkret_wire::{DidCoreId, Hash, RealmId, SchemaId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -38,7 +38,7 @@ pub struct ModerationReportOutcome {
     /// `routed_to | did[]` shape in `content-moderation.md` /
     /// `service-http-binding.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub routed_to: Vec<Did>,
+    pub routed_to: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,7 +74,7 @@ pub struct ModerationReportRequestBody {
     pub report_reason_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub reporter: Did,
+    pub reporter: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -95,7 +95,7 @@ pub struct ModerationReport {
     pub report_reason_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub reporter: Did,
+    pub reporter: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,7 +111,7 @@ impl ModerationReport {
         realm_id: RealmId,
         target_ref: impl Into<String>,
         report_reason_code: impl Into<String>,
-        reporter: Did,
+        reporter: DidCoreId,
     ) -> Self {
         Self {
             schema: Some(SchemaId::MODERATION_REPORT_V1.to_owned()),

@@ -21,7 +21,8 @@ pub use arkret_wire::CircleId;
 /// types from this module.
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    Did, EncryptionProfile, EventId, EventInitialSubmission, HistoryVisibility, RealmId, SchemaId,
+    DidCoreId, EncryptionProfile, EventId, EventInitialSubmission, HistoryVisibility, RealmId,
+    SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -213,11 +214,11 @@ pub struct Circle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
-    pub created_by: Did,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -227,7 +228,7 @@ pub struct Circle {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CirclePendingMlsRemoval {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     /// Exact membership/device-trust frontier that caused this MLS-backed
     /// Circle scope to require a Remove commit. For device revocation this
     /// MUST name the accepted `ak.device.revoke` or the Realm governance
@@ -237,7 +238,7 @@ pub struct CirclePendingMlsRemoval {
 }
 
 impl CirclePendingMlsRemoval {
-    pub fn principal_id(&self) -> &Did {
+    pub fn principal_id(&self) -> &DidCoreId {
         &self.principal_id
     }
 
@@ -278,12 +279,12 @@ pub struct CircleView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewer_membership: Option<CircleMembership>,
     #[serde(default)]
-    pub members: Vec<Did>,
-    pub created_by: Did,
+    pub members: Vec<DidCoreId>,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -358,7 +359,7 @@ pub struct CircleMemberRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleMembershipOutcome {
     pub circle_id: CircleId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub membership: CircleMembership,
 }
 
@@ -752,7 +753,7 @@ pub enum CircleScopeError {
         "circle member {circle_member} is not an active parent-Realm member \
          (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
     )]
-    MemberNotInRealm { circle_member: Did },
+    MemberNotInRealm { circle_member: DidCoreId },
     #[error(
         "circle membership is not a strict subset of realm membership \
          (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
@@ -848,7 +849,7 @@ impl Circle {
         realm_id: RealmId,
         title: impl Into<String>,
         display: CircleDisplay,
-        created_by: Did,
+        created_by: DidCoreId,
     ) -> Self {
         Self {
             id: Some(id),
@@ -887,7 +888,7 @@ impl Circle {
         realm_id: RealmId,
         title: impl Into<String>,
         display: CircleDisplay,
-        created_by: Did,
+        created_by: DidCoreId,
     ) -> Self {
         Self {
             id: None,
@@ -939,10 +940,10 @@ impl Circle {
     /// member outside the Realm set"), otherwise the first offending
     /// Circle member.
     pub fn assert_members_strict_subset(
-        circle_members: &[Did],
-        realm_members: &[Did],
+        circle_members: &[DidCoreId],
+        realm_members: &[DidCoreId],
     ) -> Result<(), CircleScopeError> {
-        let realm: BTreeSet<&Did> = realm_members.iter().collect();
+        let realm: BTreeSet<&DidCoreId> = realm_members.iter().collect();
         for member in circle_members {
             if !realm.contains(member) {
                 return Err(CircleScopeError::MemberNotInRealm {
@@ -975,7 +976,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL".to_owned())
                 .unwrap();
-        let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
+        let actor: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
         let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
         let parsed: Circle = serde_json::from_value(json).unwrap();
@@ -992,7 +993,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AZiQUXWgexBvj0pdmSuNERtMTAFCjqds5-eP8K9OsgEo".to_owned())
                 .unwrap();
-        let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
+        let actor: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationPolicy {
             native_agent: Some(ParticipationBits {
@@ -1024,7 +1025,7 @@ mod tests {
     #[test]
     fn pending_mls_removal_carries_precise_membership_frontier() {
         let value = serde_json::json!({
-            "principal_id": "did:webvh:z6mkfixture:bob.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "membership_frontier": [
                 "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
             ]
@@ -1033,7 +1034,7 @@ mod tests {
 
         assert_eq!(
             parsed.principal_id().as_str(),
-            "did:webvh:z6mkfixture:bob.example"
+            "ak:did_core:webvh:z6mkfixture"
         );
         assert_eq!(
             parsed.membership_frontier()[0].as_str(),
@@ -1058,7 +1059,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AYkxMogpjqRFcRiejZN897KN1bjKnAjkbNCCRbsgxeHR".to_owned())
                 .unwrap();
-        let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
+        let actor: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let parent = ParticipationBits {
             reply_message: true,
@@ -1110,14 +1111,14 @@ mod tests {
 
     #[test]
     fn strict_subset_accepts_empty_circle() {
-        let realm: Vec<Did> = vec!["did:webvh:z6mkfixture:alice.example".parse().unwrap()];
+        let realm: Vec<DidCoreId> = vec!["ak:did_core:webvh:z6mkfixturealice".parse().unwrap()];
         Circle::assert_members_strict_subset(&[], &realm).unwrap();
     }
 
     #[test]
     fn strict_subset_rejects_outsider() {
-        let alice: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
-        let bob: Did = "did:webvh:z6mkfixture:bob.example".parse().unwrap();
+        let alice: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
+        let bob: DidCoreId = "ak:did_core:webvh:z6mkfixturebob".parse().unwrap();
         let realm = vec![alice];
         let err =
             Circle::assert_members_strict_subset(std::slice::from_ref(&bob), &realm).unwrap_err();

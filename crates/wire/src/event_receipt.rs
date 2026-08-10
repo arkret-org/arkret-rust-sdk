@@ -5,7 +5,7 @@
 //! payload-agnostic proof-binding containers: they reference events only by
 //! identifier and canonical digest.
 
-use arkret_identifiers::{Did, EventId, Hash, RealmId, ReceiptId};
+use arkret_identifiers::{DidCoreId, EventId, Hash, RealmId, ReceiptId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -36,7 +36,7 @@ pub enum PcrGenesisReceiptScopeKind {
 #[serde(deny_unknown_fields)]
 pub struct PcrGenesisReceiptScope {
     pub kind: PcrGenesisReceiptScopeKind,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub realm_id: RealmId,
     pub did_version_id: String,
     pub log_head_digest: Hash,
@@ -48,7 +48,7 @@ pub struct PcrGenesisReceiptScope {
     pub hpke_key_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub audience: Did,
+    pub audience: DidCoreId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -56,7 +56,7 @@ pub struct PcrGenesisReceiptScope {
 #[serde(deny_unknown_fields)]
 pub struct EventBatchOrdinaryReceiptScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -75,7 +75,7 @@ pub enum DeviceReanchorReceiptScopeKind {
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorReceiptScope {
     pub kind: DeviceReanchorReceiptScopeKind,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub realm_id: RealmId,
     pub did_version_id: NonEmptyString,
     pub registry_head: Hash,
@@ -103,7 +103,7 @@ pub struct EventBatchReceiptFrontier {
 pub struct EventBatchReceipt {
     pub schema: String,
     pub receipt_id: ReceiptId,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub scope: EventBatchReceiptScope,
     pub frontier: EventBatchReceiptFrontier,
     pub events: Vec<EventBatchReceiptEvent>,
@@ -281,7 +281,7 @@ impl EventBatchReceipt {
 
 // `event-envelope.schema.json#/$defs/event_proof` is modelled by
 // [`crate::primitives::Proof`]. A second, incompatible `EventProof` struct used
-// to live here with `verification_method: Did`, which rejected every legal wire
+// to live here with `verification_method: DidCoreId`, which rejected every legal wire
 // value (the schema pattern requires a `#fragment`). It had zero constructors
 // and zero readers across all repositories, so it was removed rather than
 // migrated; `EventProofAudience` below is still used by
@@ -324,10 +324,10 @@ mod event_batch_receipt_tests {
         let mut receipt = EventBatchReceipt {
             schema: "ak.schema.event_batch_receipt.v1".to_owned(),
             receipt_id: ReceiptId::new("ak:receipt:0196419b-0000-7000-8000-000000000003").unwrap(),
-            issuer: Did::new("did:web:service.example").unwrap(),
+            issuer: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-                principal_id: Did::new("did:web:alice.example").unwrap(),
+                principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
                 realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                     .unwrap(),
                 did_version_id: NonEmptyString::new("1-fixture").unwrap(),

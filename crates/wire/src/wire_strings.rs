@@ -1043,7 +1043,7 @@ mod tests {
 
     #[test]
     fn did_and_did_url_value_domains_are_disjoint() {
-        use arkret_identifiers::Did;
+        use arkret_identifiers::DidFullId;
 
         // Every accepted DID URL carries a fragment, so it is never a bare DID.
         for sample in DID_URL_ACCEPTED {
@@ -1052,8 +1052,8 @@ mod tests {
                 "{sample:?} must be a valid DidUrl"
             );
             assert!(
-                Did::new(*sample).is_err(),
-                "{sample:?} must not be a valid Did"
+                DidFullId::new(*sample).is_err(),
+                "{sample:?} must not be a valid DidFullId"
             );
         }
 
@@ -1063,10 +1063,13 @@ mod tests {
             "did:webvh:z6mkfixture:alice.example",
             "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
             "did:webvh:example.test:orgs:org1",
-            "did:webvh:example.test/tenant1",
+            "did:webvh:example.test:tenant1",
         ];
         for sample in BARE_DIDS {
-            assert!(Did::new(*sample).is_ok(), "{sample:?} must be a valid Did");
+            assert!(
+                DidFullId::new(*sample).is_ok(),
+                "{sample:?} must be a valid DidFullId"
+            );
             assert!(
                 DidUrl::new(*sample).is_err(),
                 "{sample:?} must not be a valid DidUrl"
@@ -1074,9 +1077,9 @@ mod tests {
         }
 
         // The two headline cases, spelled out.
-        assert!(Did::new("did:web:x#key-1").is_err());
+        assert!(DidFullId::new("did:web:x#key-1").is_err());
         assert!(DidUrl::new("did:web:x#key-1").is_ok());
-        assert!(Did::new("did:web:x").is_ok());
+        assert!(DidFullId::new("did:web:x").is_ok());
         assert!(DidUrl::new("did:web:x").is_err());
     }
 

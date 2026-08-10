@@ -1,10 +1,9 @@
-#[cfg(feature = "embedded-artifacts")]
 use arkret_canonical::canonical;
 use arkret_schema::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_schema::*;
 use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, SchemaId};
 #[cfg(feature = "embedded-artifacts")]
-use arkret_wire::{Did, DidUrl, Hash, Proof};
+use arkret_wire::{DidCoreId, DidUrl, Hash, Proof};
 use serde_json::json;
 
 fn required_profiles() -> [ConformanceProfile; 11] {
@@ -84,7 +83,7 @@ fn event_value() -> serde_json::Value {
     json!({
         "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg",
         "space_id": "ak:space:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB",
-        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "actor_id": "ak:did_core:webvh:z6mkfixture",
         "kind": "ak.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00.000Z",
@@ -263,7 +262,7 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
         .find(|vector| vector["vector_id"] == "ak.vector.encoding.signature_binding_payload.v1")
         .unwrap();
     let input = &vector["input"];
-    let actor = Did::new(input["actor_id"].as_str().unwrap()).unwrap();
+    let actor = DidCoreId::new(input["actor_id"].as_str().unwrap()).unwrap();
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new(input["verification_method"].as_str().unwrap()).unwrap(),

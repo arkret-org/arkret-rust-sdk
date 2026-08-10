@@ -8,9 +8,8 @@ use std::collections::BTreeSet;
 
 use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
-    Base64UrlString, CoreId, DeviceId, Did, DidUrl, EventId, FederatedDeviceSigningKeyEvidence,
-    Hash, KeyPackageRef, NonEmptyString, ProtocolOperationId, RealmId, StrandId,
-    TypedTrustDomainId,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, FederatedDeviceSigningKeyEvidence, Hash,
+    KeyPackageRef, NonEmptyString, RealmId, ServiceOperationId, StrandId, TypedTrustDomainId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,7 +25,7 @@ use crate::mls_records::MlsKeyPackageRecord;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadRequestBody {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub key_packages: Vec<KeyPackageUploadEntry>,
     pub device_signature: KeyOperationSignature,
@@ -50,7 +49,7 @@ pub struct KeyPackagesUploadRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadUnsignedRequest {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub key_packages: Vec<KeyPackageUploadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -146,13 +145,13 @@ pub fn keypackages_upload_signing_input(
 
 #[derive(Serialize)]
 struct KeyPackageUploadEntryUnsigned<'a> {
-    principal_id: &'a Did,
+    principal_id: &'a DidCoreId,
     device_id: &'a DeviceId,
     key_package: KeyPackageUploadEntry,
 }
 
 pub fn keypackage_upload_entry_signing_input(
-    principal_id: &Did,
+    principal_id: &DidCoreId,
     device_id: &DeviceId,
     entry: &KeyPackageUploadEntry,
 ) -> arkret_canonical::Result<Vec<u8>> {
@@ -207,7 +206,7 @@ pub struct KeyPackageClaimProof {
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub audience: Did,
+    pub audience: DidCoreId,
     pub proof_purpose: KeyPackageClaimProofPurpose,
     pub jws: String,
 }
@@ -216,9 +215,9 @@ pub struct KeyPackageClaimProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimRequestBody {
-    pub target_principal_id: Did,
+    pub target_principal_id: DidCoreId,
     pub intended_realm_id: RealmId,
-    pub requester: Did,
+    pub requester: DidCoreId,
     pub required_capabilities: Vec<String>,
     pub claim_nonce: Base64UrlString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -269,7 +268,7 @@ impl KeyPackagesClaimRequestBody {
 
     pub fn validate_proof_shape(
         &self,
-        authority_service_id: &Did,
+        authority_service_id: &DidCoreId,
         verifier_now: DateTime<Utc>,
     ) -> Result<Vec<u8>, arkret_wire::Error> {
         let nonce = arkret_canonical::base64url_decode(self.claim_nonce.as_str())?;
@@ -280,7 +279,7 @@ impl KeyPackagesClaimRequestBody {
             ));
         }
         let proof = &self.holder_acceptance_proof;
-        if &proof.audience != authority_service_id
+        if proof.audience.as_core_id() != authority_service_id.as_core_id()
             || proof.payload_digest != self.payload_digest()?
             || !proof
                 .verification_method
@@ -324,12 +323,13 @@ pub const SELF_KEYPACKAGE_CLAIM_RECEIPT_SIGNATURE_DOMAIN: &str =
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SelfKeyPackageClaimReceipt {
-    pub operation_id: ProtocolOperationId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub operation_id: ServiceOperationId,
     pub claim_request_id: Base64UrlString,
     pub request_digest: Hash,
     pub claims_digest: Hash,
-    pub source_service_id: CoreId,
-    pub destination_service_id: CoreId,
+    pub source_service_id: DidCoreId,
+    pub destination_service_id: DidCoreId,
     pub request: KeyPackagesClaimRequestBody,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub claimed_at: DateTime<Utc>,
@@ -343,7 +343,7 @@ impl SelfKeyPackageClaimReceipt {
         &self,
         claims: &[KeyPackageClaimRecord],
     ) -> Result<(), &'static str> {
-        if self.operation_id.as_str() != "ak.self.keys.keypackages.command.claim"
+        if self.operation_id != ServiceOperationId::SelfKeysKeypackagesCommandClaim
             || self.claim_request_id != self.request.claim_nonce
             || self.source_service_id != self.destination_service_id
             || self.claimed_at >= self.expires_at
@@ -382,10 +382,10 @@ impl SelfKeyPackageClaimReceipt {
     pub fn agent_observation_binding(
         &self,
     ) -> (
-        &ProtocolOperationId,
+        &ServiceOperationId,
         &Hash,
-        &CoreId,
-        &CoreId,
+        &DidCoreId,
+        &DidCoreId,
         &Base64UrlString,
     ) {
         (
@@ -428,7 +428,7 @@ pub enum PeerKeyPackageRequesterAuthorization {
     },
     NativeAgent {
         verification_method: DidUrl,
-        requester_agent_id: CoreId,
+        requester_agent_id: DidCoreId,
         agent_key_authorize_event_id: EventId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         signed_at: DateTime<Utc>,
@@ -441,8 +441,8 @@ pub enum PeerKeyPackageRequesterAuthorization {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimUnsignedRequest {
     pub claim_request_id: Base64UrlString,
-    pub target_principal_id: CoreId,
-    pub requester: CoreId,
+    pub target_principal_id: DidCoreId,
+    pub requester: DidCoreId,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -455,7 +455,7 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_keypackage_ref: Option<KeyPackageRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_agent_id: Option<CoreId>,
+    pub target_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -476,8 +476,8 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimTransportBinding {
-    pub source_service_id: CoreId,
-    pub destination_service_id: CoreId,
+    pub source_service_id: DidCoreId,
+    pub destination_service_id: DidCoreId,
     pub source_trust_domain: TypedTrustDomainId,
     pub destination_trust_domain: TypedTrustDomainId,
 }
@@ -495,8 +495,8 @@ pub struct PeerKeyPackagesClaimAuthorizationDraft {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimRequestBody {
     pub claim_request_id: Base64UrlString,
-    pub target_principal_id: CoreId,
-    pub requester: CoreId,
+    pub target_principal_id: DidCoreId,
+    pub requester: DidCoreId,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -509,7 +509,7 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_keypackage_ref: Option<KeyPackageRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_agent_id: Option<CoreId>,
+    pub target_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -644,8 +644,8 @@ pub struct PeerKeyPackageClaimReceipt {
     pub claim_request_id: Base64UrlString,
     pub request_digest: Hash,
     pub claims_digest: Hash,
-    pub source_service_id: CoreId,
-    pub destination_service_id: CoreId,
+    pub source_service_id: DidCoreId,
+    pub destination_service_id: DidCoreId,
     pub request: PeerKeyPackagesClaimUnsignedRequest,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub claimed_at: DateTime<Utc>,
@@ -741,8 +741,8 @@ pub struct KeyPackageClaimTerminalReceipt {
     pub terminal_state: KeyPackageClaimTerminalState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_package_refs: Option<KeyPackageRefArray>,
-    pub source_service_id: CoreId,
-    pub destination_service_id: CoreId,
+    pub source_service_id: DidCoreId,
+    pub destination_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub terminal_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -907,7 +907,8 @@ fn validate_target_claim_evidence(
             let binding = &snapshot.core.signing_key_binding;
             let observation = &evidence.current_observation;
             if binding.core.agent_id.as_str() != claim.principal_id.as_str()
-                || claim.agent_id.as_ref() != Some(&claim.principal_id)
+                || claim.agent_id.as_ref().map(DidCoreId::as_core_id)
+                    != Some(claim.principal_id.as_core_id())
                 || claim.device_id.is_some()
                 || claim.agent_verification_method.as_ref()
                     != Some(&binding.core.verification_method)
@@ -974,7 +975,7 @@ fn validate_peer_claim_fields(
             return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
         }
         if let Some(agent_id) = &request.target_agent_id
-            && agent_id != &request.target_principal_id
+            && agent_id.as_core_id() != request.target_principal_id.as_core_id()
         {
             return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
         }
@@ -998,7 +999,7 @@ struct PeerKeyPackageAuthorizationMetadata<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     device_authorize_event_id: Option<&'a EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    requester_agent_id: Option<&'a CoreId>,
+    requester_agent_id: Option<&'a DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     agent_key_authorize_event_id: Option<&'a EventId>,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
@@ -1057,8 +1058,8 @@ struct PeerKeyPackageClaimReceiptUnsigned<'a> {
     claim_request_id: &'a Base64UrlString,
     request_digest: &'a Hash,
     claims_digest: &'a Hash,
-    source_service_id: &'a CoreId,
-    destination_service_id: &'a CoreId,
+    source_service_id: &'a DidCoreId,
+    destination_service_id: &'a DidCoreId,
     request: &'a PeerKeyPackagesClaimUnsignedRequest,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     claimed_at: DateTime<Utc>,
@@ -1091,9 +1092,9 @@ pub struct RecipientMlsDurableReceipt {
     pub domain: NonEmptyString,
     pub claim_request_id: Base64UrlString,
     pub key_package_ref: NonEmptyString,
-    pub recipient_principal_id: CoreId,
+    pub recipient_principal_id: DidCoreId,
     pub recipient: RecipientMlsDurableSigner,
-    pub recipient_service_id: CoreId,
+    pub recipient_service_id: DidCoreId,
     pub realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub mls_epoch: u64,
@@ -1105,13 +1106,14 @@ pub struct RecipientMlsDurableReceipt {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum RecipientMlsDurableSigner {
     Device {
         recipient_device_id: DeviceId,
         device_verification_method: DidUrl,
     },
     NativeAgent {
-        recipient_agent_id: CoreId,
+        recipient_agent_id: DidCoreId,
         recipient_agent_verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
         recipient_agent_signer_evidence: CurrentAgentSignerEvidence,
@@ -1124,20 +1126,20 @@ struct RecipientMlsDurableReceiptWire {
     domain: NonEmptyString,
     claim_request_id: Base64UrlString,
     key_package_ref: NonEmptyString,
-    recipient_principal_id: CoreId,
+    recipient_principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     device_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    recipient_agent_id: Option<CoreId>,
+    recipient_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     agent_key_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_agent_signer_evidence: Option<CurrentAgentSignerEvidence>,
-    recipient_service_id: CoreId,
+    recipient_service_id: DidCoreId,
     realm_id: RealmId,
     mls_group_id: NonEmptyString,
     mls_epoch: u64,
@@ -1293,7 +1295,7 @@ impl RecipientMlsDurableReceipt {
                     .agent_authority_snapshot
                     .core
                     .signing_key_binding;
-                if recipient_agent_id != &self.recipient_principal_id
+                if recipient_agent_id.as_core_id() != self.recipient_principal_id.as_core_id()
                     || binding.core.agent_id.as_str() != recipient_agent_id.as_str()
                     || binding.core.verification_method != *recipient_agent_verification_method
                     || binding.agent_key_authorize_event_id != *agent_key_authorize_event_id
@@ -1314,7 +1316,7 @@ pub enum KeyPackageConsumer {
         consumer_device_id: DeviceId,
     },
     NativeAgent {
-        consumer_agent_id: CoreId,
+        consumer_agent_id: DidCoreId,
         consumer_agent_verification_method: DidUrl,
         consumer_agent_key_authorize_event_id: EventId,
     },
@@ -1323,7 +1325,7 @@ pub enum KeyPackageConsumer {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug)]
 pub struct KeyPackagesConsumeRequestBody {
-    pub owner_account_id: CoreId,
+    pub owner_account_id: DidCoreId,
     pub key_package_refs: KeyPackageRefArray,
     pub consumer: KeyPackageConsumer,
     pub claim_ids: Vec<NonEmptyString>,
@@ -1339,7 +1341,7 @@ pub struct KeyPackagesConsumeRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug)]
 pub struct KeyPackagesConsumeUnsignedRequest {
-    pub owner_account_id: CoreId,
+    pub owner_account_id: DidCoreId,
     pub key_package_refs: KeyPackageRefArray,
     pub consumer: KeyPackageConsumer,
     pub claim_ids: Vec<NonEmptyString>,
@@ -1354,12 +1356,12 @@ pub struct KeyPackagesConsumeUnsignedRequest {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct KeyPackagesConsumeRequestBodyWire {
-    owner_account_id: CoreId,
+    owner_account_id: DidCoreId,
     key_package_refs: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    consumer_agent_id: Option<CoreId>,
+    consumer_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1381,12 +1383,12 @@ struct KeyPackagesConsumeRequestBodyWire {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct KeyPackagesConsumeUnsignedRequestWire {
-    owner_account_id: CoreId,
+    owner_account_id: DidCoreId,
     key_package_refs: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    consumer_agent_id: Option<CoreId>,
+    consumer_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1408,7 +1410,7 @@ fn keypackage_consumer_to_wire(
     consumer: &KeyPackageConsumer,
 ) -> (
     Option<DeviceId>,
-    Option<CoreId>,
+    Option<DidCoreId>,
     Option<DidUrl>,
     Option<EventId>,
 ) {
@@ -1431,7 +1433,7 @@ fn keypackage_consumer_to_wire(
 
 fn keypackage_consumer_from_wire<E: serde::de::Error>(
     device_id: Option<DeviceId>,
-    agent_id: Option<CoreId>,
+    agent_id: Option<DidCoreId>,
     agent_method: Option<DidUrl>,
     agent_authorize_event_id: Option<EventId>,
 ) -> Result<KeyPackageConsumer, E> {
@@ -1591,10 +1593,9 @@ impl KeyPackagesConsumeRequestBody {
             consumer_agent_verification_method,
             ..
         } = &self.consumer
+            && self.signature.kid.as_str() != consumer_agent_verification_method.as_str()
         {
-            if self.signature.kid.as_str() != consumer_agent_verification_method.as_str() {
-                return Err("Native Agent consume signature kid mismatch");
-            }
+            return Err("Native Agent consume signature kid mismatch");
         }
         Ok(())
     }
@@ -1693,7 +1694,7 @@ pub struct KeyPackageConsumeReceipt {
     pub realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub mls_epoch: u64,
-    pub source_service_id: CoreId,
+    pub source_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub consumed_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -1753,7 +1754,7 @@ pub struct KeyPackagesConsumeOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeRequestBody {
-    pub owner_account_id: Did,
+    pub owner_account_id: DidCoreId,
     pub key_package_refs: KeyPackageRefArray,
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
@@ -1765,7 +1766,7 @@ pub struct KeyPackagesRevokeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeUnsignedRequest {
-    pub owner_account_id: Did,
+    pub owner_account_id: DidCoreId,
     pub key_package_refs: KeyPackageRefArray,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1879,7 +1880,7 @@ mod tests {
         let draft: PeerKeyPackagesClaimAuthorizationDraft = serde_json::from_value(json!({
             "request": request.unsigned_request(),
             "transport_binding": {
-                "source_service_id": "did:webvh:z6mkfixture:server-alpha.example",
+                "source_service_id": "ak:did_core:webvh:z6mkfixture",
                 "destination_service_id": "did:webvh:z6mkfixture:server-beta.example",
                 "source_trust_domain": "ak:trust_domain:fixture.example",
                 "destination_trust_domain": "ak:trust_domain:fixture.example"
@@ -1923,7 +1924,7 @@ mod tests {
     #[test]
     fn keypackage_write_transcripts_match_canonical_fixture() {
         let upload: KeyPackagesUploadUnsignedRequest = serde_json::from_value(json!({
-            "principal_id": "did:webvh:z6mkfixture:agent.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
             "key_packages": [{
                 "keypackage_id": "keypackage-fixture-001",
@@ -1956,7 +1957,7 @@ mod tests {
         );
 
         let consume: KeyPackagesConsumeUnsignedRequest = serde_json::from_value(json!({
-            "owner_account_id": "did:webvh:z6mkfixture:owner.example",
+            "owner_account_id": "ak:did_core:webvh:z6mkfixture",
             "key_package_refs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
             "consumer_device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
             "claim_ids": ["claim-fixture-001"],
@@ -1965,7 +1966,7 @@ mod tests {
                 "domain": "ak.mls.recipient-durable-receipt.v1",
                 "claim_request_id": "AAAAAAAAAAAAAAAAAAAAAA",
                 "key_package_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-                "recipient_principal_id": "did:webvh:z6mkfixture:owner.example",
+                "recipient_principal_id": "ak:did_core:webvh:z6mkfixture",
                 "recipient_device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
                 "recipient_service_id": "did:webvh:z6mkfixture:receiver.example",
                 "realm_id": "ak:realm:AQm8-GxHDA39B0LFejfDiju4m_f8zeD-8ax0TgXneIXl",
@@ -2001,7 +2002,7 @@ mod tests {
         assert!(!consume_input.contains(":null"));
 
         let revoke: KeyPackagesRevokeUnsignedRequest = serde_json::from_value(json!({
-            "owner_account_id": "did:webvh:z6mkfixture:owner.example",
+            "owner_account_id": "ak:did_core:webvh:z6mkfixture",
             "key_package_refs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
             "device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
             "reason": "authorization_superseded"
@@ -2025,7 +2026,7 @@ mod tests {
     fn keypackage_record_upload_projection_is_shared_and_closed() {
         let mut record: MlsKeyPackageRecord = serde_json::from_value(json!({
             "keypackage_id": "keypackage-fixture-001",
-            "principal_id": "did:webvh:z6mkfixture:agent.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
             "key_package": "AA",
             "keypackage_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",

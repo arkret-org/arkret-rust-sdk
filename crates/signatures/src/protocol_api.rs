@@ -82,7 +82,8 @@ use arkret_canonical::canonical;
 pub use arkret_wire::PRODUCTION_ALGORITHMS;
 pub use arkret_wire::Proof as ProtocolProof;
 use arkret_wire::{
-    ActorId, Audience, Did, DidUrl, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload,
+    Audience, DidCoreId, DidFullId, DidUrl, Hash, Proof, ProofBindingRequirements,
+    SignatureBindingPayload,
 };
 use chrono::{DateTime, Duration, Utc};
 pub use error::{Error, Result};
@@ -133,7 +134,7 @@ pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ak.http-message-signature.v1";
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignatureBinding {
     pub payload_digest: Hash,
-    pub signer: ActorId,
+    pub signer: DidCoreId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -146,7 +147,7 @@ pub struct DetachedSignatureBinding {
 impl DetachedSignatureBinding {
     pub fn from_payload<T: Serialize>(
         payload: &T,
-        signer: ActorId,
+        signer: DidCoreId,
         verification_method: DidUrl,
     ) -> Result<Self> {
         Ok(Self {
@@ -233,11 +234,11 @@ pub trait DetachedVerifier {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationMethodDocument {
-    pub did: Did,
+    pub did: DidFullId,
     pub verification_method: DidUrl,
     pub public_key_multibase: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub controller: Option<Did>,
+    pub controller: Option<DidFullId>,
 }
 
 pub trait DidVerificationMethodResolver {
@@ -277,7 +278,7 @@ impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProofVerificationContext {
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub expected_payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub now: DateTime<Utc>,
@@ -286,14 +287,14 @@ pub struct ProofVerificationContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Audience>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
+    pub service_id: Option<DidCoreId>,
     pub replay_window: Duration,
     #[serde(default)]
     pub binding_requirements: ProofBindingRequirements,
 }
 
 impl ProofVerificationContext {
-    pub fn new(actor_id: ActorId, expected_payload_digest: Hash) -> Self {
+    pub fn new(actor_id: DidCoreId, expected_payload_digest: Hash) -> Self {
         Self {
             actor_id,
             expected_payload_digest,
@@ -357,9 +358,7 @@ where
 
     let method = resolver.resolve_verification_method(&proof.verification_method)?;
     let controller = method.controller.as_ref().unwrap_or(&method.did);
-    if arkret_wire::ActorId::from(arkret_wire::project_full_id_to_core_id(controller)?)
-        != context.actor_id
-    {
+    if arkret_wire::project_full_id_to_core_id(controller)? != context.actor_id {
         return Err(Error::Protocol(
             "proof verification method controller mismatch".to_owned(),
         ));
@@ -378,7 +377,7 @@ where
     })
 }
 
-fn audience_contains_service(audience: Option<&Audience>, service_id: &Did) -> bool {
+fn audience_contains_service(audience: Option<&Audience>, service_id: &DidCoreId) -> bool {
     match audience {
         Some(Audience::Single(value)) => value == service_id.as_str(),
         Some(Audience::Multiple(values)) => values.iter().any(|value| value == service_id.as_str()),
@@ -421,8 +420,12 @@ mod tests {
 
     use super::*;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidFullId {
+        DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
+    }
+
+    fn actor(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
     /// SDK-SOTA-01 / SDK-CRY-02: `ES256` and `ML-DSA-65` are wire-reserved
@@ -456,7 +459,7 @@ mod tests {
     fn detached_signature_validates_core_proof_binding() {
         let binding = DetachedSignatureBinding::from_payload(
             &json!({"hello": "world"}),
-            ActorId::from(arkret_wire::project_full_id_to_core_id(&did("alice")).unwrap()),
+            actor("alice"),
             DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         )
         .unwrap();
@@ -475,13 +478,13 @@ mod tests {
 
     #[test]
     fn proof_verifier_resolves_method_binds_service_and_replay_window() {
-        let actor = did("alice");
+        let actor_full = did("alice");
         let payload_digest =
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .unwrap();
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
-            did: actor.clone(),
+            did: actor_full,
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,
@@ -492,19 +495,14 @@ mod tests {
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
-            audience: Some(Audience::Single(
-                "did:webvh:z6mkfixture:service.example".to_owned(),
-            )),
+            audience: Some(Audience::Single(actor("service").to_string())),
             proof_purpose: None,
             jws: "sig".to_owned(),
         };
-        let mut context = ProofVerificationContext::new(
-            ActorId::from(arkret_wire::project_full_id_to_core_id(&actor).unwrap()),
-            payload_digest,
-        );
+        let mut context = ProofVerificationContext::new(actor("alice"), payload_digest);
         context.domain = proof.domain.clone();
         context.audience = proof.audience.clone();
-        context.service_id = Some(did("service"));
+        context.service_id = Some(DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice").unwrap());
 
         let verified = verify_proof_with_resolver(&proof, &context, &resolver, |method, proof| {
             Ok(method.public_key_multibase == "zKey" && proof.jws == "sig")
@@ -528,13 +526,13 @@ mod tests {
 
     #[test]
     fn proof_verifier_cross_domain_context_requires_explicit_binding() {
-        let actor = did("alice");
+        let actor_full = did("alice");
         let payload_digest =
             Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                 .unwrap();
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
-            did: actor.clone(),
+            did: actor_full,
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,
@@ -551,11 +549,7 @@ mod tests {
             proof_purpose: None,
             jws: "sig".to_owned(),
         };
-        let context = ProofVerificationContext::new(
-            ActorId::from(arkret_wire::project_full_id_to_core_id(&actor).unwrap()),
-            payload_digest,
-        )
-        .cross_domain(
+        let context = ProofVerificationContext::new(actor("alice"), payload_digest).cross_domain(
             "ak:trust_domain:example.net",
             Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()),
         );

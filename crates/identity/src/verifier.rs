@@ -64,7 +64,7 @@
 //! it is an identity-anchor path and belongs on the ordinary API.
 
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
-use arkret_wire::{Did, DidUrl, Event, Hash, Proof, TypedTrustDomainId};
+use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Hash, Proof, TypedTrustDomainId};
 use chrono::{DateTime, Utc};
 
 use crate::binding::{
@@ -94,18 +94,21 @@ pub enum BindingVerifyError {
     /// The removed resolver-driven verifier accepted an `issuer`
     /// argument and never compared it; this path compares it.
     #[error("DID document id `{document_id}` does not match issuer `{issuer}`")]
-    DocumentIssuerMismatch { document_id: Did, issuer: Did },
+    DocumentIssuerMismatch {
+        document_id: DidFullId,
+        issuer: DidFullId,
+    },
     /// The verification method is not controlled by the issuer DID.
     #[error("verification_method `{verification_method}` is not controlled by issuer `{issuer}`")]
     VerificationMethodIssuerMismatch {
         verification_method: String,
-        issuer: Did,
+        issuer: DidFullId,
     },
     /// The authority document does not declare the required verification
     /// relationship.
     #[error("DID document for `{did}` has no `{relationship}` relationship")]
     VerificationRelationshipMissing {
-        did: Did,
+        did: DidFullId,
         relationship: &'static str,
     },
     /// The presented method is not active in the required relationship.
@@ -114,7 +117,7 @@ pub enum BindingVerifyError {
     )]
     VerificationMethodRelationshipMismatch {
         verification_method: String,
-        did: Did,
+        did: DidFullId,
         relationship: &'static str,
     },
     /// An externally-named verification method did not carry an explicit
@@ -124,7 +127,7 @@ pub enum BindingVerifyError {
     )]
     VerificationMethodControllerMismatch {
         verification_method: String,
-        authority: Did,
+        authority: DidFullId,
         actual_controller: String,
     },
     /// The DID document has no matching verification-method entry.
@@ -133,7 +136,7 @@ pub enum BindingVerifyError {
     )]
     VerificationMethodNotFound {
         verification_method: String,
-        did: Did,
+        did: DidFullId,
         available: Vec<String>,
     },
     /// The stored verification material is not a usable Ed25519 public key.
@@ -204,7 +207,7 @@ pub fn verify_jws_with_document(
     canonical_bytes: &[u8],
     jws: &str,
     verification_method: &DidUrl,
-    issuer: &Did,
+    issuer: &DidFullId,
     document: &DidDocument,
 ) -> Result<(), BindingVerifyError> {
     if canonical_bytes.is_empty() {
@@ -246,7 +249,7 @@ pub fn verify_jws_with_document_relationship(
     canonical_bytes: &[u8],
     jws: &str,
     verification_method: &DidUrl,
-    authority: &Did,
+    authority: &DidFullId,
     document: &DidDocument,
     relationship: DidVerificationRelationship,
 ) -> Result<(), BindingVerifyError> {
@@ -287,7 +290,7 @@ fn verify_jws_against_document_key(
 fn require_verification_relationship(
     document: &DidDocument,
     verification_method: &DidUrl,
-    authority: &Did,
+    authority: &DidFullId,
     relationship: DidVerificationRelationship,
 ) -> Result<(), BindingVerifyError> {
     let property = relationship.property_name();
@@ -344,7 +347,10 @@ fn require_verification_relationship(
     Ok(())
 }
 
-fn absolutize_document_reference<'a>(did: &Did, reference: &'a str) -> std::borrow::Cow<'a, str> {
+fn absolutize_document_reference<'a>(
+    did: &DidFullId,
+    reference: &'a str,
+) -> std::borrow::Cow<'a, str> {
     if reference.starts_with('#') {
         std::borrow::Cow::Owned(format!("{}{}", did.as_str(), reference))
     } else {
@@ -488,7 +494,7 @@ pub fn public_key_material_from_binding(
 pub fn verify_event_proof_with_binding(
     proof: &Proof,
     envelope_bytes: &[u8],
-    actor_id: &arkret_wire::ActorId,
+    actor_id: &DidCoreId,
     accepted: &AcceptedDidBinding,
 ) -> Result<(), BindingVerifyError> {
     let binding = accepted.binding();
@@ -615,7 +621,7 @@ fn lookup_verification_method_material<'a>(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BindingResolveRequest {
     /// The bare DID to establish or refresh a binding for.
-    pub did: Did,
+    pub did: DidFullId,
     /// Local trust domain the acceptance is scoped to.
     pub trust_domain: TypedTrustDomainId,
     /// The single purpose being authorized.
@@ -653,26 +659,29 @@ pub enum BindingResolveError {
     /// The resolver chain could not resolve the DID.
     #[error("DID resolve failed for `{did}`: {source}")]
     Resolve {
-        did: Did,
+        did: DidFullId,
         #[source]
         source: Box<crate::IdentityError>,
     },
     /// The resolved document is for a different DID.
     #[error("resolved document id `{document_id}` does not match requested DID `{requested}`")]
-    DocumentIssuerMismatch { document_id: Did, requested: Did },
+    DocumentIssuerMismatch {
+        document_id: DidFullId,
+        requested: DidFullId,
+    },
     /// The requested verification method is absent from the resolved document.
     #[error(
         "verification_method `{verification_method}` not found in resolved document for `{did}` (have {available:?})"
     )]
     VerificationMethodNotFound {
         verification_method: String,
-        did: Did,
+        did: DidFullId,
         available: Vec<String>,
     },
     /// The canonical evidence receipt could not be built or digested.
     #[error("evidence receipt failed for `{did}`: {source}")]
     Evidence {
-        did: Did,
+        did: DidFullId,
         #[source]
         source: DigestError,
     },
@@ -844,8 +853,8 @@ mod tests {
         SigningKey::from_bytes(&[9u8; 32])
     }
 
-    fn did() -> Did {
-        Did::new("did:webvh:z6mkfixture:verifier.example".to_owned()).expect("valid did")
+    fn did() -> DidFullId {
+        DidFullId::new("did:webvh:z6mkfixture:verifier.example".to_owned()).expect("valid did")
     }
 
     fn document(key_id: &str) -> DidDocument {
@@ -935,7 +944,8 @@ mod tests {
         // The removed resolver-driven verifier took `issuer` and never used it.
         let canonical = br#"{"hello":"world"}"#;
         let jws = sign_jws_ed25519(canonical, &signing_key()).expect("sign");
-        let other = Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+        let other =
+            DidFullId::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
         let error = verify_jws_with_document(
             canonical,
             &jws,
@@ -955,7 +965,8 @@ mod tests {
         let canonical = br#"{"hello":"world"}"#;
         let jws = sign_jws_ed25519(canonical, &signing_key()).expect("sign");
         let mut foreign = document(&format!("{}#key-1", did()));
-        foreign.id = Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+        foreign.id =
+            DidFullId::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
         let error =
             verify_jws_with_document(canonical, &jws, &verification_method(), &did(), &foreign)
                 .unwrap_err();
@@ -1102,7 +1113,8 @@ mod tests {
                 kind: "ak.message.create".into(),
                 realm_id: realm(),
                 scope_ref: ScopeRef::Realm { realm_id: realm() },
-                actor_id: did(),
+                actor_id: arkret_wire::project_full_id_to_core_id(&did())
+                    .expect("registered DID adapter"),
                 actor_seq: 1,
                 created_at: Utc
                     .with_ymd_and_hms(2026, 4, 26, 0, 0, 0)
@@ -1512,11 +1524,11 @@ mod tests {
     }
 
     impl DidResolver for OneShotResolver {
-        fn supports(&self, _did: &Did) -> bool {
+        fn supports(&self, _did: &DidFullId) -> bool {
             true
         }
 
-        fn resolve_did(&self, _did: &Did) -> crate::Result<ResolvedDid> {
+        fn resolve_did(&self, _did: &DidFullId) -> crate::Result<ResolvedDid> {
             self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(ResolvedDid::new(
                 self.document.clone(),
@@ -1555,10 +1567,12 @@ mod tests {
                 crate::WebvhLogEvidence {
                     history_head: "3-QmFixtureHead".to_owned(),
                     witnesses: vec![crate::WebvhWitnessRow {
-                        witness_did: Did::new("did:webvh:z6mkfixture:witness.example".to_owned())
-                            .expect("valid did"),
-                        controlling_organization: Did::new(
+                        witness_did: DidFullId::new(
                             "did:webvh:z6mkfixture:witness.example".to_owned(),
+                        )
+                        .expect("valid did"),
+                        controlling_organization: DidFullId::new(
+                            "did:webvh:z6mkfixture:witness-org.example".to_owned(),
                         )
                         .expect("valid did"),
                     }],
@@ -1609,7 +1623,7 @@ mod tests {
             .expect("resolve");
 
         let witness =
-            Did::new("did:webvh:z6mkfixture:witness.example".to_owned()).expect("valid did");
+            DidFullId::new("did:webvh:z6mkfixture:witness.example".to_owned()).expect("valid did");
         assert_eq!(
             accepted.binding().evidence_dependencies().witness_dids,
             vec![witness.clone()]

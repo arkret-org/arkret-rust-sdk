@@ -9,7 +9,10 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
-use arkret_wire::{EventInitialSubmission, IdempotencyKey, SchemaId};
+use arkret_wire::{
+    DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey, SchemaId,
+    project_full_id_to_core_id,
+};
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
 use crate::events_payloads::agent::{
@@ -48,7 +51,7 @@ pub struct AgentRuntimeKeyPossessionProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: AgentRuntimeKeyAlgorithm,
     pub challenge: OpaqueLocalId,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
@@ -62,7 +65,7 @@ pub struct AgentRuntimeKeyPossessionProof {
 #[serde(deny_unknown_fields)]
 struct AgentRuntimeKeyBinding<'a> {
     kind: &'static str,
-    agent_id: &'a Did,
+    agent_id: &'a DidCoreId,
     pairing_request_id: &'a OpaqueLocalId,
     verification_method: &'a DidUrl,
     public_key_digest: Hash,
@@ -71,7 +74,7 @@ struct AgentRuntimeKeyBinding<'a> {
 
 /// Sole SDK helper for the stable identity of a runtime-key request.
 pub fn agent_runtime_key_binding_digest(
-    agent_id: &Did,
+    agent_id: &DidCoreId,
     pairing_request_id: &OpaqueLocalId,
     verification_method: &DidUrl,
     public_key: &PublicKey,
@@ -138,7 +141,7 @@ impl AgentRuntimeKeyPossessionProof {
     #[allow(clippy::too_many_arguments)]
     pub fn validate_shape(
         &self,
-        agent_id: &Did,
+        agent_id: &DidCoreId,
         pairing_request_id: &OpaqueLocalId,
         verification_method: &DidUrl,
         public_key: &PublicKey,
@@ -154,12 +157,21 @@ impl AgentRuntimeKeyPossessionProof {
             || &self.verification_method != verification_method
             || &self.challenge != pairing_request_id
             || self.runtime_key_binding_digest != *expected_binding_digest
-            || !verification_method
-                .as_str()
-                .starts_with(&format!("{agent_id}#"))
         {
             return Err(Error::Protocol(
                 "Agent runtime key proof/request binding mismatch".to_owned(),
+            ));
+        }
+        let controller = verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(controller, _)| controller)
+            .ok_or_else(|| {
+                Error::Protocol("Agent runtime verification method is not a DID URL".to_owned())
+            })?;
+        if project_full_id_to_core_id(&DidFullId::new(controller.to_owned())?)? != *agent_id {
+            return Err(Error::Protocol(
+                "Agent runtime verification method controller mismatch".to_owned(),
             ));
         }
         let public_key_bytes = arkret_canonical::base64url_decode(public_key.key.as_str())?;
@@ -201,12 +213,12 @@ impl AgentRuntimeKeyPossessionProof {
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_pairing_request_binding_digest(
     operation_id: &str,
-    controller_id: &Did,
-    agent_id: &Did,
+    controller_id: &DidCoreId,
+    agent_id: &DidCoreId,
     pairing_request_id: &OpaqueLocalId,
     pairing_code: &str,
     pairing_expires_at: DateTime<Utc>,
-    audience: &ServiceId,
+    audience: &DidCoreId,
     runtime_key_binding_digest: &Hash,
     proof: &AgentRuntimeKeyPossessionProof,
 ) -> Result<Hash> {
@@ -234,11 +246,11 @@ pub fn agent_key_pairing_request_binding_digest(
 pub struct AgentRequestedScopeDisclosure {
     pub schema: SchemaId,
     pub request_id: RequestId,
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub requested_scope: AgentKeyScope,
     pub requested_scope_digest: Hash,
-    pub verifier_did: Did,
+    pub verifier_service_id: DidCoreId,
     pub audience: NonEmptyString,
     pub challenge: NonEmptyString,
     #[serde(with = "canonical_timestamp")]
@@ -278,7 +290,7 @@ impl AgentRequestedScopeDisclosure {
             "payload_digest": payload_digest,
             "agent_id": self.agent_id,
             "controller_id": self.controller_id,
-            "verifier_did": self.verifier_did,
+            "verifier_service_id": self.verifier_service_id,
             "audience": self.audience,
             "challenge": self.challenge,
             "verification_method": proof.verification_method,
@@ -339,7 +351,7 @@ impl AgentRequestedScopeDisclosure {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyPairRequestBody {
     pub pairing_request_id: OpaqueLocalId,
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
     pub proof_of_possession: AgentRuntimeKeyPossessionProof,
@@ -388,7 +400,7 @@ impl AgentKeyPairOutcome {
 pub struct AgentRuntimeApprovalRequestBody {
     pub pairing_code: NonEmptyString,
     pub pairing_request_id: OpaqueLocalId,
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
     pub proof_of_possession: AgentRuntimeKeyPossessionProof,
@@ -406,7 +418,7 @@ pub struct AgentRuntimeApprovalRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalControllerProjection {
     pub pairing_request_id: OpaqueLocalId,
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
     pub proof_of_possession: AgentRuntimeKeyPossessionProof,
@@ -434,7 +446,7 @@ pub struct AgentRuntimeApprovalOutcome {
 pub struct AgentRuntimeApprovalStatusRequestBody {
     pub pairing_request_id: OpaqueLocalId,
     pub pairing_code: String,
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
 }
 
 /// Controller-decision status for an agent runtime key pairing request.
@@ -455,7 +467,7 @@ pub struct AgentRuntimeApprovalStatusOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_verification_method: Option<String>,
+    pub authorized_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_public_key_digest: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -477,7 +489,7 @@ pub enum AgentProvisionRequestBody {
     Commit {
         operation_id: ProtocolOperationId,
         idempotency_key: IdempotencyKey,
-        agent_id: Did,
+        agent_id: DidCoreId,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         slug: String,
@@ -592,14 +604,14 @@ pub enum AgentPairingMode {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentProvisionOutcome {
     AwaitingControllerEvent {
-        agent_id: Did,
+        agent_id: DidCoreId,
         controller_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
         requested_scope_digest: Hash,
     },
     AwaitingPcrGenesis {
-        agent_id: Did,
+        agent_id: DidCoreId,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
@@ -615,7 +627,7 @@ pub enum AgentProvisionOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentProvisionComplete {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
@@ -631,7 +643,7 @@ pub struct AgentProvisionComplete {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRenewPairingOutcome {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
@@ -655,8 +667,8 @@ pub struct AgentRenewPairingOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentPairingBootstrap {
     pub arkret_base_url: String,
-    pub service_id: Did,
-    pub agent_id: Did,
+    pub service_id: DidCoreId,
+    pub agent_id: DidCoreId,
     pub pairing_request_id: OpaqueLocalId,
     pub pairing_code: String,
     #[serde(with = "canonical_timestamp")]
@@ -723,7 +735,7 @@ impl AgentRuntimeState {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentProjection {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     pub slug: String,
@@ -952,13 +964,12 @@ impl AgentGrantAttachRequestBody {
                 ));
             }
         };
-        if ActorId::from(arkret_wire::project_full_id_to_core_id(&grant.issuer)?) != event.actor_id
+        if grant.issuer != event.actor_id
             || grant.realm_id.as_ref() != Some(&event.realm_id)
             || event.scope_ref.realm_id() != &event.realm_id
             || self.requested_scope_disclosure.agent_id != *subject
-            || ActorId::from(arkret_wire::project_full_id_to_core_id(
-                &self.requested_scope_disclosure.controller_id,
-            )?) != event.actor_id
+            || self.requested_scope_disclosure.controller_id.as_core_id()
+                != event.actor_id.as_core_id()
             || grant.actions.iter().any(|action| {
                 !self
                     .requested_scope_disclosure
@@ -1064,7 +1075,7 @@ pub enum PendingSidecarAccessReconciliationStage {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PendingSidecarAccessReconciliationItem {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub provisioning_phase: PendingSidecarAccessReconciliationStage,
     pub reason: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1125,20 +1136,20 @@ pub struct AgentSidecarParticipantAuthorityTranscript {
     pub domain: &'static str,
     pub sidecar_id: SidecarId,
     pub realm_id: RealmId,
-    pub controller_id: Did,
-    pub owned_agent_ids: Vec<Did>,
-    pub effective_agent_ids: Vec<Did>,
+    pub controller_id: DidCoreId,
+    pub owned_agent_ids: Vec<DidCoreId>,
+    pub effective_agent_ids: Vec<DidCoreId>,
 }
 
 impl AgentSidecarParticipantAuthorityTranscript {
     pub fn new(
         sidecar_id: SidecarId,
         realm_id: RealmId,
-        controller_id: Did,
-        owned_agent_ids: &[Did],
-        effective_agent_ids: &[Did],
+        controller_id: DidCoreId,
+        owned_agent_ids: &[DidCoreId],
+        effective_agent_ids: &[DidCoreId],
     ) -> Result<Self> {
-        let sorted_unique = |ids: &[Did]| {
+        let sorted_unique = |ids: &[DidCoreId]| {
             ids.windows(2)
                 .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes())
         };
@@ -1147,7 +1158,7 @@ impl AgentSidecarParticipantAuthorityTranscript {
             || !sorted_unique(effective_agent_ids)
             || owned_agent_ids
                 .iter()
-                .any(|agent_id| agent_id == &controller_id)
+                .any(|agent_id| agent_id.as_core_id() == controller_id.as_core_id())
             || effective_agent_ids
                 .iter()
                 .any(|agent_id| !owned.contains(agent_id))
@@ -1174,9 +1185,9 @@ impl AgentSidecarParticipantAuthorityTranscript {
 pub fn agent_sidecar_participant_authority_digest(
     sidecar_id: SidecarId,
     realm_id: RealmId,
-    controller_id: Did,
-    owned_agent_ids: &[Did],
-    effective_agent_ids: &[Did],
+    controller_id: DidCoreId,
+    owned_agent_ids: &[DidCoreId],
+    effective_agent_ids: &[DidCoreId],
 ) -> Result<Hash> {
     AgentSidecarParticipantAuthorityTranscript::new(
         sidecar_id,
@@ -1238,7 +1249,7 @@ pub struct AgentSidecar {
     pub id: SidecarId,
     pub schema: AgentSidecarSchema,
     pub realm_id: RealmId,
-    pub controller_id: Did,
+    pub controller_id: DidCoreId,
     pub encryption_profile: AgentSidecarEncryptionProfile,
     pub state: AgentSidecarState,
     #[serde(
@@ -1273,8 +1284,8 @@ impl AgentSidecar {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarView {
     pub sidecar: AgentSidecar,
-    pub owned_agent_ids: Vec<Did>,
-    pub effective_agent_ids: Vec<Did>,
+    pub owned_agent_ids: Vec<DidCoreId>,
+    pub effective_agent_ids: Vec<DidCoreId>,
     pub mls_context: AgentSidecarMlsContext,
     pub access_readiness: AgentSidecarAccessReadiness,
     pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
@@ -1378,7 +1389,7 @@ pub enum AgentSidecarViewStateSchema {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarViewState {
     pub schema: AgentSidecarViewStateSchema,
-    pub controller_id: Did,
+    pub controller_id: DidCoreId,
     pub sidecar_id: SidecarId,
     pub context_ref: AgentSidecarStrandContextRef,
     pub display_mode: AgentSidecarDisplayMode,
@@ -1583,10 +1594,10 @@ pub struct AgentSidecarExchangeRequestContext {
     pub source_track_ref: AgentSidecarSourceTrackRef,
     pub source_hlc: Hlc,
     pub client_order_key: NonEmptyString,
-    pub addressed_agent_ids: Vec<Did>,
+    pub addressed_agent_ids: Vec<DidCoreId>,
     pub completion_policy: AgentSidecarExchangeCompletionPolicy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub coordinator_agent_id: Option<Did>,
+    pub coordinator_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_frontier_anchor: Option<EventId>,
 }
@@ -1630,7 +1641,7 @@ impl AgentSidecarExchangeRequestContext {
 
     /// The initial coordinator: the explicit field, or the sole addressed
     /// Agent when the field is legally omitted.
-    pub fn effective_coordinator(&self) -> Result<&Did> {
+    pub fn effective_coordinator(&self) -> Result<&DidCoreId> {
         self.validate()?;
         Ok(self
             .coordinator_agent_id
@@ -1835,9 +1846,9 @@ pub struct AgentSidecarExchangeControl {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_reason_code: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_coordinator_agent_id: Option<Did>,
+    pub expected_coordinator_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub coordinator_agent_id: Option<Did>,
+    pub coordinator_agent_id: Option<DidCoreId>,
 }
 
 impl AgentSidecarExchangeControl {
@@ -2010,7 +2021,7 @@ pub enum AgentSidecarExchangeProjectionSchema {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeProjection {
     pub schema: AgentSidecarExchangeProjectionSchema,
-    pub controller_id: Did,
+    pub controller_id: DidCoreId,
     pub sidecar_id: SidecarId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub exchange_id: AgentSidecarExchangeId,
@@ -2020,15 +2031,15 @@ pub struct AgentSidecarExchangeProjection {
     pub source_frontier_anchor: Option<EventId>,
     pub source_hlc: Hlc,
     pub client_order_key: NonEmptyString,
-    pub addressed_agent_ids: Vec<Did>,
+    pub addressed_agent_ids: Vec<DidCoreId>,
     pub completion_policy: AgentSidecarExchangeCompletionPolicy,
-    pub coordinator_agent_id: Did,
+    pub coordinator_agent_id: DidCoreId,
     /// Request Event id for the initial assignment, or the accepted
     /// `reassign_coordinator` control Event id after reassignment.
     pub coordinator_assignment_event_id: EventId,
     /// Bookkeeping union of exchange-bound Agent actors; it never grants echo
     /// eligibility.
-    pub participating_agent_ids: Vec<Did>,
+    pub participating_agent_ids: Vec<DidCoreId>,
     pub private_request_event_id: EventId,
     /// Validated user-facing response Event ids in `(response HLC, Event id)`
     /// byte order. Appended only through the controller-device validation of
@@ -2159,8 +2170,8 @@ struct AgentRequestedScopeCommitment<'a> {
 /// Compute the immutable provision ceiling commitment fixed in the accepted
 /// Agent DID `ArkretPrincipalControlRealm` service entry.
 pub fn agent_requested_scope_digest(
-    agent_id: &Did,
-    controller_id: &Did,
+    agent_id: &DidCoreId,
+    controller_id: &DidCoreId,
     requested_scope: &AgentKeyScope,
 ) -> Result<Hash> {
     Hash::new(canonical::canonical_sha256(
@@ -2220,8 +2231,8 @@ impl AgentOperations {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct KeyState {
-    pub agent_id: ActorId,
-    pub controller_id: ActorId,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub pcr_recovery: AgentPcrRecoveryState,
@@ -2290,7 +2301,7 @@ mod tests {
         serde_json::json!({
             "pairing_code": "12345678",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
-            "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "agent_id": "ak:did_core:webvh:z6mkfixture",
             "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
             "public_key": {
                 "kty": "OKP",
@@ -2318,14 +2329,14 @@ mod tests {
         serde_json::json!({
             "schema": "ak.schema.agent_requested_scope_disclosure.v1",
             "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
-            "agent_id": "did:webvh:z6mkfixture:agent.example",
-            "controller_id": "did:webvh:z6mkfixture:controller.example",
+            "agent_id": "ak:did_core:webvh:z6mkfixture",
+            "controller_id": "ak:did_core:webvh:z6mkfixture",
             "requested_scope": {
                 "actions": ["ak.message.create"],
                 "resources": []
             },
             "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
-            "verifier_did": "did:webvh:z6mkfixture:verifier.example",
+            "verifier_service_id": "ak:did_core:webvh:z6mkfixture",
             "audience": "ak.gate.account.command.pair_agent_key",
             "challenge": "0123456789abcdef",
             "issued_at": "2026-08-03T00:00:00.000Z",
@@ -2372,30 +2383,31 @@ mod tests {
 
     #[test]
     fn sidecar_participant_authority_digest_is_stable() {
-        let agent = Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap();
+        let agent = DidCoreId::new("ak:did_core:webvh:z6mkfixtureassistant").unwrap();
         let digest = agent_sidecar_participant_authority_digest(
             SidecarId::new("ak:sidecar:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr").unwrap(),
             RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             std::slice::from_ref(&agent),
             std::slice::from_ref(&agent),
         )
         .unwrap();
         assert_eq!(
             digest.as_str(),
-            "sha256:89a6ae4de75b93f1480dee57da9f695e7a0616014c574c31e77006e0e2fd2e86"
+            "sha256:9a3317fbb363d1c141de2d74197e9c930039c72d0f778e607d6f3f09074ba3ee"
         );
     }
 
     #[test]
     fn sidecar_participant_authority_rejects_controller_in_agent_set() {
-        let controller = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let controller = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
+        let controller_as_agent = controller.clone();
         assert!(
             agent_sidecar_participant_authority_digest(
                 SidecarId::new("ak:sidecar:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr").unwrap(),
                 RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
-                controller.clone(),
-                &[controller],
+                controller,
+                &[controller_as_agent],
                 &[],
             )
             .is_err()
@@ -2404,12 +2416,12 @@ mod tests {
 
     #[test]
     fn sidecar_remove_reconciliation_requires_only_a_canonical_frontier() {
-        let agent_id = Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap();
+        let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkfixtureassistant").unwrap();
         let event_a =
             EventId::new("ak:event:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5").unwrap();
         let event_b =
             EventId::new("ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N").unwrap();
-        let mut membership_frontier = vec![event_a.clone(), event_b.clone()];
+        let mut membership_frontier = vec![event_a, event_b];
         membership_frontier.sort();
         let valid = PendingSidecarAccessReconciliationItem {
             agent_id,
@@ -2445,7 +2457,7 @@ mod tests {
             schema: AgentSidecarSchema::V1,
             realm_id: RealmId::new("ak:realm:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr")
                 .unwrap(),
-            controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
+            controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             encryption_profile: AgentSidecarEncryptionProfile::MlsRfc9420,
             state: AgentSidecarState::Active,
             state_changed_at: Some(timestamp),
@@ -2471,8 +2483,8 @@ mod tests {
         .unwrap()
     }
 
-    fn fixture_agent() -> Did {
-        Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap()
+    fn fixture_agent() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureassistant").unwrap()
     }
 
     fn fixture_request_context() -> AgentSidecarExchangeRequestContext {
@@ -2496,7 +2508,7 @@ mod tests {
     fn fixture_exchange_projection() -> AgentSidecarExchangeProjection {
         AgentSidecarExchangeProjection {
             schema: AgentSidecarExchangeProjectionSchema::V1,
-            controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
+            controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             sidecar_id: SidecarId::new("ak:sidecar:ATxk9k3t-DqTNiiB9n8GoSjjar3vZJvO3Dtpd1SzdHZF")
                 .unwrap(),
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
@@ -2550,7 +2562,7 @@ mod tests {
 
         let mut foreign_coordinator = projection.clone();
         foreign_coordinator.coordinator_agent_id =
-            Did::new("did:webvh:z6mkfixture:other.agents.example").unwrap();
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureother").unwrap();
         assert!(foreign_coordinator.validate().is_err());
 
         let mut complete_without_terminal = projection.clone();
@@ -2643,7 +2655,7 @@ mod tests {
         let mut multi = fixture_request_context();
         multi.addressed_agent_ids = vec![
             fixture_agent(),
-            Did::new("did:webvh:z6mkfixture:reviewer.agents.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturereviewer").unwrap(),
         ];
         assert!(
             AgentSidecarEventExchangeBinding::request(exchange_id.clone(), multi.clone()).is_err(),
@@ -2722,7 +2734,7 @@ mod tests {
         reassign.response_event_ids = None;
         reassign.expected_coordinator_agent_id = Some(fixture_agent());
         reassign.coordinator_agent_id =
-            Some(Did::new("did:webvh:z6mkfixture:reviewer.agents.example").unwrap());
+            Some(DidCoreId::new("ak:did_core:webvh:z6mkfixturereviewer").unwrap());
         assert!(reassign.terminal_result().unwrap().is_none());
         let mut identity_reassign = reassign;
         identity_reassign.coordinator_agent_id = Some(fixture_agent());
@@ -2768,8 +2780,8 @@ mod tests {
 
     #[test]
     fn requested_scope_commitment_is_domain_separated_and_stable() {
-        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
-        let controller_id = Did::new("did:webvh:z6mkcontroller:controller.example").unwrap();
+        let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkagent").unwrap();
+        let controller_id = DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap();
         let requested_scope: AgentKeyScope = serde_json::from_value(serde_json::json!({
             "actions": [
                 "ak.event.read",
@@ -2788,7 +2800,7 @@ mod tests {
 
         assert_eq!(
             digest.as_str(),
-            "sha256:fc25a74d604984484de924bf889d612ba574d4bb4970620c70dc603adf22a042"
+            "sha256:774ff4cc2f724fc735e6dba7f5b6031f180fac5fd77299df736e087ece69c133"
         );
         assert_eq!(
             digest,

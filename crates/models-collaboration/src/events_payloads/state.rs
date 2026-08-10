@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use arkret_wire::{DidCoreId, DidFullId};
+
 use crate::internal_prelude::*;
 
 fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
@@ -159,15 +161,23 @@ macro_rules! state_payload_with_subject {
     };
 }
 
-state_payload_with_subject!(OrganizationDiscoveryStatePayload, organization_did, Did);
+state_payload_with_subject!(
+    OrganizationDiscoveryStatePayload,
+    organization_principal_id,
+    DidFullId
+);
 state_payload_with_subject!(ResourceDiscoveryStatePayload, resource_id, NonEmptyString);
-state_payload_with_subject!(DidProofStatePayload, did, Did);
+state_payload_with_subject!(DidProofStatePayload, did, DidFullId);
 state_payload_with_subject!(
     IdentityDisclosurePolicyStatePayload,
     policy_id,
     NonEmptyString
 );
-state_payload_with_subject!(IdentityDisclosureReceiptStatePayload, holder_did, Did);
+state_payload_with_subject!(
+    IdentityDisclosureReceiptStatePayload,
+    holder_principal_id,
+    DidFullId
+);
 state_payload_with_subject!(
     IdentityPresentationRequestStatePayload,
     request_id,
@@ -190,7 +200,7 @@ pub type SchemaUpdateStatePayload = SchemaDefineStatePayload;
 #[serde(deny_unknown_fields)]
 pub struct OrganizationModerationPolicyStatePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization_did: Option<Did>,
+    pub organization_principal_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub organization_id: Option<NonEmptyString>,
     /// Spec-declared open moderation-policy value. `state` is independent status
@@ -206,7 +216,7 @@ pub struct OrganizationModerationPolicyStatePayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct OrganizationModerationPolicyStatePayloadWire {
-    organization_did: Option<Did>,
+    organization_principal_id: Option<DidCoreId>,
     organization_id: Option<NonEmptyString>,
     value: Option<Value>,
     state: Option<String>,
@@ -215,7 +225,7 @@ struct OrganizationModerationPolicyStatePayloadWire {
 
 impl OrganizationModerationPolicyStatePayload {
     pub fn validate(&self) -> Result<()> {
-        if self.organization_did.is_some() == self.organization_id.is_some() {
+        if self.organization_principal_id.is_some() == self.organization_id.is_some() {
             return schema_violation(
                 "organization moderation policy requires exactly one organization identifier",
             );
@@ -231,7 +241,7 @@ impl<'de> Deserialize<'de> for OrganizationModerationPolicyStatePayload {
     {
         let wire = OrganizationModerationPolicyStatePayloadWire::deserialize(deserializer)?;
         let payload = Self {
-            organization_did: wire.organization_did,
+            organization_principal_id: wire.organization_principal_id,
             organization_id: wire.organization_id,
             value: wire.value,
             state: wire.state,
@@ -348,7 +358,7 @@ impl<'de> Deserialize<'de> for StateConflictRecoveryPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NotaryFaultEquivocationPayload {
-    pub signer_id: Did,
+    pub signer_id: DidCoreId,
     pub seal_a: Seal,
     pub seal_b: Seal,
 }
@@ -367,7 +377,7 @@ pub struct NotaryCensorshipReceipt {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NotaryFaultCensorshipPayload {
-    pub signer_id: Did,
+    pub signer_id: DidCoreId,
     pub receipt: NotaryCensorshipReceipt,
     pub seal_ref: SealId,
     pub non_membership_proof: BTreeMap<String, Value>,

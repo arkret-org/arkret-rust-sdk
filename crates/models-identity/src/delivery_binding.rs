@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{DeviceId, Did, Error, EventId, Hash, Result, ServiceId};
+use arkret_wire::{DeviceId, DidCoreId, Error, EventId, Hash, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBinding {
-    pub recipient_service_id: ServiceId,
+    pub recipient_service_id: DidCoreId,
     #[serde(default = "default_recipient_service_kind")]
     pub recipient_service_kind: RecipientServiceKind,
     #[serde(default = "default_binding_scope")]
@@ -150,8 +150,8 @@ pub enum DeliveryStatus {
 /// MUST be scoped to the current Principal Server's service DID.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PushRouteScope {
-    pub recipient_service_id: Did,
-    pub principal_id: Did,
+    pub recipient_service_id: DidCoreId,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub push_route: String,
 }
@@ -159,12 +159,12 @@ pub struct PushRouteScope {
 /// Per-device push route binding payload (`ak.device.push_route`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DevicePushRoutePayload {
-    pub recipient_service_id: Did,
-    pub principal_id: Did,
+    pub recipient_service_id: DidCoreId,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub push_route: String,
     pub push_target_id: String,
-    pub push_gateway_did: Did,
+    pub push_gateway_service_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption_key: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -186,8 +186,8 @@ impl DevicePushRoutePayload {
 mod tests {
     use super::*;
 
-    fn fake_service(label: &str) -> ServiceId {
-        ServiceId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()
+    fn fake_service(label: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()
     }
 
     fn fake_event_id() -> EventId {

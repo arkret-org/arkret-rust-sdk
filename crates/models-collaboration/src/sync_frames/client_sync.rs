@@ -8,6 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_wire::DidCoreId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -167,7 +168,7 @@ pub struct TimelineOrderKey {
     /// Hybrid logical clock for the event.
     pub hlc: Option<Hlc>,
     /// Event actor.
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     /// Actor-local sequence.
     pub actor_seq: u64,
     /// Event ID tie-breaker.
@@ -349,11 +350,11 @@ pub struct SyncTokenBinding {
     /// Opaque token received from the sync service.
     pub token: String,
     /// Principal this token belongs to.
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     /// Device this token belongs to.
     pub device_id: DeviceId,
     /// Service that minted the token.
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     /// Canonical digest of filter and subscription shape.
     pub filter_digest: String,
     /// Stream positions captured by the token.
@@ -369,9 +370,9 @@ impl SyncTokenBinding {
     #[allow(clippy::too_many_arguments)]
     pub fn for_request(
         token: String,
-        principal_id: Did,
+        principal_id: DidCoreId,
         device_id: DeviceId,
-        service_id: Did,
+        service_id: DidCoreId,
         filter: Option<&SyncFilter>,
         subscriptions: Option<&SubscriptionConfig>,
         positions: Vec<SyncStreamPosition>,
@@ -391,9 +392,9 @@ impl SyncTokenBinding {
     /// Validate that the token is being resumed by the same principal/device/service/filter.
     pub fn validate_context(
         &self,
-        principal_id: &Did,
+        principal_id: &DidCoreId,
         device_id: &DeviceId,
-        service_id: &Did,
+        service_id: &DidCoreId,
         filter_digest: &str,
         now: DateTime<Utc>,
     ) -> Result<()> {
@@ -656,11 +657,13 @@ pub struct RealmUpdate {
 mod tests {
     use std::collections::BTreeMap;
 
+    use arkret_wire::{DidCoreId, project_full_id_to_core_id};
+
     use super::*;
 
-    fn actor(value: &str) -> ActorId {
-        let full_id = Did::new(value).unwrap();
-        ActorId::from(project_full_id_to_core_id(&full_id).unwrap())
+    fn actor(value: &str) -> DidCoreId {
+        let full_id = DidFullId::new(value).unwrap();
+        project_full_id_to_core_id(&full_id).unwrap()
     }
 
     #[test]
@@ -730,9 +733,9 @@ mod tests {
 
     #[test]
     fn token_binding_checks_principal_device_service_filter_and_expiry() {
-        let principal = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let principal = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
         let device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
-        let service = Did::new("did:webvh:z6mkfixture:sync.example").unwrap();
+        let service = DidCoreId::new("ak:did_core:webvh:z6mkfixturesync").unwrap();
         let filter = SyncFilter {
             realms: vec![
                 RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap(),
@@ -863,7 +866,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
         let actor = actor("did:webvh:z6mkfixture:alice.example");
-        let mut newer_hlc = arkret_wire::test_support::raw_event(
+        let mut newer_hlc = test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
                 realm_id: realm_id.clone(),
@@ -876,7 +879,7 @@ mod tests {
         .unwrap();
         newer_hlc.event_id =
             EventId::new("ak:event:AYnTVVCNBa4iXXbFlwzE8SaOYDUUHuMdVacBm9hSHVPf").unwrap();
-        let mut deeper = arkret_wire::test_support::raw_event(
+        let mut deeper = test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm { realm_id },
             actor,
@@ -930,7 +933,7 @@ mod tests {
     fn limited_timeline_creates_backfill_gap_and_request() {
         let realm_id =
             RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
-        let event = arkret_wire::test_support::raw_event(
+        let event = test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
                 realm_id: realm_id.clone(),

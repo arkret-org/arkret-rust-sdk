@@ -33,7 +33,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{AppletId, CircleId, Did, Hash};
+use arkret_wire::{AppletId, CircleId, DidCoreId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -221,7 +221,7 @@ pub enum GrantConstraint {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         applet_id: Option<AppletId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        executed_by: Option<Did>,
+        executed_by: Option<DidCoreId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         registration_epoch: Option<Hash>,
     },
@@ -1330,7 +1330,7 @@ mod tests {
             applet_id: Some(
                 AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             ),
-            executed_by: Some(Did::new("did:web:calendar.example").unwrap()),
+            executed_by: Some(DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),
             registration_epoch: Some(registration_epoch),
         };
         let wire = serde_json::to_value(&constraint).unwrap();
@@ -1341,7 +1341,7 @@ mod tests {
             serde_json::from_value::<GrantConstraint>(serde_json::json!({
                 "constraint_kind": "applet_delegation_binding",
                 "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
-                "executed_by": "did:web:calendar.example",
+                "executed_by": "ak:did_core:web:calendar.example",
                 "registration_epoch": format!("sha256:{}", "a".repeat(64))
             }))
             .is_err()
@@ -1357,7 +1357,7 @@ mod tests {
             validate_applet_authority_binding(
                 &grant,
                 applet_id,
-                "did:webvh:z6mkfixture:svc.example",
+                "ak:did_core:webvh:z6mkfixture",
                 &registration_epoch
             ),
             Err(AppletAuthorityBindingError::Missing)
@@ -1367,14 +1367,14 @@ mod tests {
             authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(AppletId::new(applet_id).unwrap()),
-            executed_by: Some(Did::new("did:webvh:z6mkfixture:svc.example").unwrap()),
+            executed_by: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             registration_epoch: Some(Hash::new(registration_epoch.clone()).unwrap()),
         });
         assert!(
             validate_applet_authority_binding(
                 &grant,
                 applet_id,
-                "did:webvh:z6mkfixture:svc.example",
+                "ak:did_core:webvh:z6mkfixture",
                 &registration_epoch
             )
             .is_ok()
@@ -1384,7 +1384,7 @@ mod tests {
             validate_applet_authority_binding(
                 &grant,
                 applet_id,
-                "did:webvh:z6mkfixture:svc.example",
+                "ak:did_core:webvh:z6mkfixture",
                 &different_epoch
             ),
             Err(AppletAuthorityBindingError::RegistrationEpochMismatch)

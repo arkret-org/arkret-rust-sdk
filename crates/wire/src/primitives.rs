@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::*;
-use crate::ProofContextId;
+use crate::{DidCoreId, DidFullId, ProofContextId};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1063,7 +1063,7 @@ impl Proof {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 
-    pub fn binding_payload(&self, actor_id: &ActorId) -> SignatureBindingPayload {
+    pub fn binding_payload(&self, actor_id: &DidCoreId) -> SignatureBindingPayload {
         SignatureBindingPayload {
             payload_digest: self.event_digest.clone(),
             actor_id: actor_id.clone(),
@@ -1085,13 +1085,13 @@ impl Proof {
     /// signature, not just compared as plaintext. `created_at` is emitted
     /// in canonical UTC `YYYY-MM-DDTHH:MM:SS.sssZ` form so the wire field
     /// and transcript contain the same byte-identical timestamp string.
-    pub fn canonical_binding_bytes(&self, actor_id: &ActorId) -> Result<Vec<u8>> {
+    pub fn canonical_binding_bytes(&self, actor_id: &DidCoreId) -> Result<Vec<u8>> {
         self.canonical_binding_bytes_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
     }
 
     fn canonical_binding_bytes_with_context(
         &self,
-        actor_id: &ActorId,
+        actor_id: &DidCoreId,
         context: &str,
     ) -> Result<Vec<u8>> {
         Ok(canonical::canonical_json_bytes(
@@ -1102,12 +1102,12 @@ impl Proof {
     /// The proof binding object as a [`serde_json::Value`] (key order is
     /// irrelevant — canonical JSON re-sorts by JCS). Shared by signer and
     /// verifier so both derive identical transcripts.
-    pub fn binding_object(&self, actor_id: &ActorId) -> Value {
+    pub fn binding_object(&self, actor_id: &DidCoreId) -> Value {
         self.binding_object_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
             .expect("the fixed event proof context is non-empty")
     }
 
-    fn binding_object_with_context(&self, actor_id: &ActorId, context: &str) -> Result<Value> {
+    fn binding_object_with_context(&self, actor_id: &DidCoreId, context: &str) -> Result<Value> {
         if context.trim().is_empty() {
             return Err(Error::Protocol(
                 "proof binding context must not be empty".to_owned(),
@@ -1277,7 +1277,7 @@ impl Proof {
 pub struct FactChainEcho {
     pub echo_id: String,
     pub subject_ref: String,
-    pub server_did: Did,
+    pub server_did: DidFullId,
     pub operation_hash: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commit_digest: Option<Hash>,
@@ -1333,7 +1333,7 @@ impl FactChainEcho {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignatureBindingPayload {
     pub payload_digest: Hash,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -1352,7 +1352,7 @@ mod tests {
         let mut echo = FactChainEcho {
             echo_id: "echo1".to_owned(),
             subject_ref: "ak:event:AUqXOT9Lj7xeL7HUnhfi7zyJzW1Z59QIVz7exmpHN2N6".to_owned(),
-            server_did: Did::new("did:webvh:z6mkfixture:server.example").unwrap(),
+            server_did: DidFullId::new("did:webvh:z6mkfixture:server.example").unwrap(),
             operation_hash: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             commit_digest: Some(Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap()),
             previous_echo_hash: None,

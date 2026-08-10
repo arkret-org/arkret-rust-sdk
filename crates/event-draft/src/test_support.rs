@@ -1,9 +1,6 @@
 //! Test-only raw projection fixtures.
 
-use arkret_wire::{
-    ActorId, Did, EventKind, Hlc, OperationId, OperationKind, RealmId, ScopeRef,
-    project_full_id_to_core_id,
-};
+use arkret_wire::{DidCoreId, EventKind, Hlc, OperationId, OperationKind, RealmId, ScopeRef};
 use serde_json::Value;
 
 use crate::ProjectedEventOperation;
@@ -20,16 +17,12 @@ pub fn raw_projected_operation(
     let fixture = arkret_wire::test_support::split_raw_projection_fixture_payload(payload)
         .expect("raw projection fixture payload is valid");
     let actor = fixture.actor_id.unwrap_or_else(|| {
-        Did::new("did:web:fixture.example").expect("fixed fixture actor is a DID")
+        DidCoreId::new("ak:did_core:web:fixture.example")
+            .expect("fixed fixture actor is a core DID id")
     });
-    let actor = ActorId::from(
-        project_full_id_to_core_id(&actor).expect("fixed fixture actor projects to a core id"),
-    );
     let event = arkret_wire::test_support::raw_event(
         kind.as_str(),
-        ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        },
+        ScopeRef::Realm { realm_id },
         actor,
         1,
         Hlc::new("01970e589d21-0000-a13f9c2e").expect("fixed fixture HLC is valid"),

@@ -21,9 +21,9 @@
 //! do X to that resource"; consent says "I, as the contacted party,
 //! accept this kind of contact from that peer".
 
-use arkret_identifiers::{CellRef, ConsentId, Did};
+use arkret_identifiers::{CellRef, ConsentId};
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraint;
-use arkret_wire::WireError;
+use arkret_wire::{DidCoreId, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -88,7 +88,7 @@ pub fn consent_cell_id(consent_id: &ConsentId) -> Result<CellRef, WireError> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConsentGrantValue {
     pub consent_id: ConsentId,
-    pub peer: Did,
+    pub peer: DidCoreId,
     pub scope: Scope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -113,7 +113,7 @@ pub struct ConsentGrantValue {
 /// are treated as no-consent.
 pub fn evaluate_consent(
     cell_state: &CellState,
-    peer: &Did,
+    peer: &DidCoreId,
     requested: Scope,
     now: DateTime<Utc>,
 ) -> bool {
@@ -162,12 +162,12 @@ mod tests {
         Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
     }
 
-    fn alice() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn alice() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap()
     }
 
-    fn bob() -> Did {
-        Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
+    fn bob() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:bob.example").unwrap()
     }
 
     fn consent_id() -> ConsentId {
@@ -184,7 +184,7 @@ mod tests {
     /// cannot author either, so these fixtures stand in for the reducer.
     fn grant_op(
         dot: &str,
-        peer: Did,
+        peer: DidCoreId,
         scope: Scope,
         not_before: Option<DateTime<Utc>>,
         expires_at: Option<DateTime<Utc>>,

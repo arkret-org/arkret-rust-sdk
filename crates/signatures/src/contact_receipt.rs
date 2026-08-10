@@ -62,7 +62,7 @@ mod tests {
     use arkret_models_collaboration::contact_operations::{
         ContactPeer, RequestAcceptanceReceiptCore,
     };
-    use arkret_wire::{Base64UrlString, Did, DidUrl, ProtocolSignature};
+    use arkret_wire::{Base64UrlString, DidCoreId, DidUrl, ProtocolSignature};
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::{DateTime, Utc};
@@ -72,7 +72,7 @@ mod tests {
 
     const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
     const CORE_DIGEST: &str =
-        "sha256:e30fc72c40df83bf8393b1e02f70a8302d1d1f5c26ab52eedcb9624a467c7c41";
+        "sha256:14d0ee1b476e812181b3c4b56bf64971e06ea74b2c18a306d591bc3a97d9755d";
 
     fn hash(fill: char) -> Hash {
         Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
@@ -85,10 +85,10 @@ mod tests {
         let mut receipt = RequestAcceptanceReceipt {
             core: RequestAcceptanceReceiptCore {
                 holder: ContactPeer::Human {
-                    principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
                 },
                 peer: ContactPeer::Human {
-                    principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
                 },
                 slot_version: 1,
                 slot_predecessor: None,
@@ -97,7 +97,7 @@ mod tests {
                 request_digest: hash('a'),
                 source_checkpoint: hash('b'),
                 accepted_at,
-                issuer: Did::new("did:web:ps.example").unwrap(),
+                issuer: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             },
             receipt_digest: hash('0'),
             signature: ProtocolSignature {
@@ -124,14 +124,14 @@ mod tests {
                 .unwrap(),
             concat!(
                 "{\"core\":{\"accepted_at\":\"2026-08-08T00:00:00.000Z\",",
-                "\"holder\":{\"kind\":\"human\",\"principal_id\":\"did:webvh:z6mkfixture:alice.example\"},",
-                "\"issuer\":\"did:web:ps.example\",",
-                "\"peer\":{\"kind\":\"human\",\"principal_id\":\"did:webvh:z6mkfixture:bob.example\"},",
+                "\"holder\":{\"kind\":\"human\",\"principal_id\":\"ak:did_core:webvh:z6mkfixturealice\"},",
+                "\"issuer\":\"ak:did_core:web:ps.example\",",
+                "\"peer\":{\"kind\":\"human\",\"principal_id\":\"ak:did_core:webvh:z6mkfixturebob\"},",
                 "\"request_digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
                 "\"request_event_ref\":\"ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD\",",
                 "\"slot_version\":1,",
                 "\"source_checkpoint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},",
-                "\"receipt_digest\":\"sha256:e30fc72c40df83bf8393b1e02f70a8302d1d1f5c26ab52eedcb9624a467c7c41\"}"
+                "\"receipt_digest\":\"sha256:14d0ee1b476e812181b3c4b56bf64971e06ea74b2c18a306d591bc3a97d9755d\"}"
             )
         );
         verify_contact_request_acceptance_receipt(

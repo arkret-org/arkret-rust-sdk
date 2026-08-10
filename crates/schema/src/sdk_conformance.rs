@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
 use arkret_canonical::canonical;
-use arkret_identifiers::Did;
-use arkret_wire::{DidUrl, SchemaId};
+use arkret_identifiers::DidFullId;
+use arkret_wire::{DidCoreId, DidUrl, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -45,8 +45,9 @@ pub struct SdkArtifactSubject {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// `spec/v1/artifacts/schemas/sdk-conformance-claim.schema.json#/$defs/issuer`.
 pub struct SdkClaimIssuer {
-    pub id: Did,
+    pub id: DidCoreId,
     pub verification_method: DidUrl,
 }
 
@@ -62,8 +63,6 @@ pub struct SdkConformanceProof {
 pub enum SdkConformanceProofAlgorithm {
     #[serde(rename = "Ed25519")]
     Ed25519,
-    #[serde(rename = "ES256")]
-    Es256,
     #[serde(rename = "ML-DSA-65")]
     MlDsa65,
 }
@@ -400,7 +399,7 @@ fn validate_did_url(field: &str, value: &str) -> Result<(), SdkConformanceClaimE
     if fragment.is_empty()
         || value.len() > 2048
         || value.chars().any(char::is_whitespace)
-        || Did::new(did).is_err()
+        || DidFullId::new(did).is_err()
     {
         return Err(SdkConformanceClaimError::InvalidField(field.to_owned()));
     }
@@ -469,7 +468,7 @@ mod tests {
             contract_digest: format!("sha256:{}", "3".repeat(64)),
             issued_at: "2026-07-11T00:00:00.000Z".parse().unwrap(),
             issuer: SdkClaimIssuer {
-                id: Did::new("did:webvh:z6mkfixture:release.example").unwrap(),
+                id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 verification_method: DidUrl::new(
                     "did:webvh:z6mkfixture:release.example#claim-key-1",
                 )

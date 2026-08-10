@@ -34,9 +34,9 @@ fn with_verification_method(mut value: Value, replacement: &str) -> Value {
 
 fn invite_claim_binding_proof(verification_method: &str) -> Value {
     json!({
-        "verification_service_id": "did:web:verify.example",
+        "verification_service_id": "ak:did_core:web:verify.example",
         "verification_method": verification_method,
-        "subject_id": "did:web:bob.example",
+        "subject_id": "ak:did_core:web:bob.example",
         "realm_id": "ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN",
         "audience": "did:web:realm.example",
         "claim_nonce": "nonce-claim-proof-1",

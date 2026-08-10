@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use arkret_identifiers::{CoreId, DeviceId, DeviceMessageId, Did};
+use arkret_identifiers::{DeviceId, DeviceMessageId, DidCoreId};
 use arkret_models_collaboration::events_payloads::{
-    MemberRepairRequestPayload, MemberRepairRequester, RealmKeyRequestPayload,
+    MemberRepairRequestPayload, RealmKeyRequestPayload,
 };
 use arkret_models_collaboration::objects::productivity::{
     FILE_TRANSFER_KEY_MESSAGE_KIND, FileTransferKeyMessage,
@@ -282,20 +282,21 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
     /// Build the one-recipient batch shape consumed by the send endpoint.
     pub fn single_recipient(
         self,
-        principal_id: Did,
+        actor_id: DidCoreId,
         device_id: DeviceId,
     ) -> Result<DeviceMessagesSendRequestBody> {
         let mut by_device = BTreeMap::new();
         by_device.insert(device_id, self.build()?);
         let mut messages = BTreeMap::new();
-        messages.insert(principal_id, by_device);
+        messages.insert(actor_id, by_device);
         Ok(DeviceMessagesSendRequestBody { messages })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use arkret_identifiers::{DeviceId, DeviceMessageId, Did, EventId, Hash, RealmId};
+    use arkret_identifiers::{DeviceId, DeviceMessageId, DidCoreId, EventId, Hash, RealmId};
+    use arkret_models_collaboration::events_payloads::MemberRepairRequester;
     use arkret_models_crypto::MlsWelcomeEnvelope;
     use arkret_wire::NonEmptyString;
     use chrono::{Duration, Utc};
@@ -307,7 +308,7 @@ mod tests {
         let content = MlsWelcomeEnvelope {
             group_id: "group-1".to_owned(),
             epoch: 4,
-            recipient_principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            recipient_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
                 .unwrap(),
             welcome: "d2VsY29tZQ".to_owned(),
@@ -341,7 +342,7 @@ mod tests {
         let content = MemberRepairRequestPayload {
             realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
                 .unwrap(),
-            requester_principal_id: CoreId::new("ak:did_core:webvh:z6mkfixture:alice.example")
+            requester_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example")
                 .unwrap(),
             requester: MemberRepairRequester::Device {
                 requester_device_id: DeviceId::new(

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Did, Error, EventId, Hash, ProfileId, Proof, RealmId, ReasonCode, Result, SchemaId,
+    DidCoreId, Error, EventId, Hash, ProfileId, Proof, RealmId, ReasonCode, Result, SchemaId,
     TypedTrustDomainId,
 };
 use chrono::{DateTime, Utc};
@@ -21,7 +21,7 @@ pub enum AccessKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditPolicyAccessPayload {
     pub realm_id: RealmId,
-    pub actor: Did,
+    pub actor: DidCoreId,
     pub access_kind: AccessKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub late_recovery_original_event_id: Option<EventId>,
@@ -154,7 +154,7 @@ pub struct RywActorFrontierEntry {
 pub struct RywFrontier {
     pub realm_frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub actor_frontier: BTreeMap<Did, RywActorFrontierEntry>,
+    pub actor_frontier: BTreeMap<DidCoreId, RywActorFrontierEntry>,
 }
 
 /// `ak.audit.ryw_receipt` event payload
@@ -168,7 +168,7 @@ pub struct RywFrontier {
 pub struct AuditRywReceipt {
     pub receipt_id: String,
     pub schema: String,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub issuer_role: RywIssuerRole,
     pub audit_event_id: EventId,
     pub audit_event_digest: Hash,
@@ -177,7 +177,7 @@ pub struct AuditRywReceipt {
     /// binding. Mixed into the canonical `audit_policy_version_digest`
     /// 4-tuple so receipts cannot be replayed across deployments.
     pub trust_domain: TypedTrustDomainId,
-    pub audit_actor_id: Did,
+    pub audit_actor_id: DidCoreId,
     pub frontier: RywFrontier,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,

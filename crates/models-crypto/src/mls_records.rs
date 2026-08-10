@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, CoreId, DeviceId, Did, DidUrl, EventId, FullId, Hash, NonEmptyString, Proof, RealmId,
+    DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, NonEmptyString, Proof, RealmId,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -22,12 +22,12 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MlsEndpointIdentity {
     HumanDevice {
-        principal_id: CoreId,
-        principal_full_id: FullId,
+        principal_id: DidCoreId,
+        principal_full_id: DidFullId,
         device_id: DeviceId,
     },
     NativeAgentRuntime {
-        agent_id: CoreId,
+        agent_id: DidCoreId,
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
     },
@@ -35,7 +35,7 @@ pub enum MlsEndpointIdentity {
 
 impl MlsEndpointIdentity {
     pub fn human_device(
-        principal_full_id: FullId,
+        principal_full_id: DidFullId,
         device_id: DeviceId,
     ) -> arkret_wire::Result<Self> {
         let principal_id = project_full_id_to_core_id(&principal_full_id)?;
@@ -47,7 +47,7 @@ impl MlsEndpointIdentity {
     }
 
     pub fn native_agent_runtime(
-        agent_id: CoreId,
+        agent_id: DidCoreId,
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
     ) -> arkret_wire::Result<Self> {
@@ -60,8 +60,8 @@ impl MlsEndpointIdentity {
                     "Native Agent MLS verification method has no fragment".to_owned(),
                 )
             })?;
-        let controller = FullId::new(controller.to_owned())?;
-        if project_full_id_to_core_id(&controller)? != agent_id {
+        let controller = DidFullId::new(controller.to_owned())?;
+        if project_full_id_to_core_id(&controller)?.as_str() != agent_id.as_str() {
             return Err(arkret_wire::Error::Protocol(
                 "Native Agent MLS verification method controller mismatch".to_owned(),
             ));
@@ -73,10 +73,10 @@ impl MlsEndpointIdentity {
         })
     }
 
-    pub fn actor_id(&self) -> &CoreId {
+    pub fn actor_id(&self) -> DidCoreId {
         match self {
-            Self::HumanDevice { principal_id, .. } => principal_id,
-            Self::NativeAgentRuntime { agent_id, .. } => agent_id,
+            Self::HumanDevice { principal_id, .. } => principal_id.clone(),
+            Self::NativeAgentRuntime { agent_id, .. } => agent_id.clone(),
         }
     }
 
@@ -93,7 +93,11 @@ impl MlsEndpointIdentity {
                 principal_id,
                 principal_full_id,
                 ..
-            } if &project_full_id_to_core_id(principal_full_id)? == principal_id => Ok(()),
+            } if project_full_id_to_core_id(principal_full_id)?.as_str()
+                == principal_id.as_str() =>
+            {
+                Ok(())
+            }
             Self::NativeAgentRuntime {
                 agent_id,
                 verification_method,
@@ -105,7 +109,7 @@ impl MlsEndpointIdentity {
             )
             .map(|_| ()),
             _ => Err(arkret_wire::Error::Protocol(
-                "human MLS endpoint FullId/CoreId mismatch".to_owned(),
+                "human MLS endpoint DidFullId/DidCoreId mismatch".to_owned(),
             )),
         }
     }
@@ -118,8 +122,8 @@ impl MlsEndpointIdentity {
 #[serde(deny_unknown_fields)]
 pub struct RealmPairwiseAuthorState {
     pub realm_id: RealmId,
-    pub pairwise_actor_id: ActorId,
-    pub pairwise_full_id: FullId,
+    pub pairwise_actor_id: DidCoreId,
+    pub pairwise_full_id: DidFullId,
     pub verification_method: DidUrl,
     /// Opaque handle into the platform secure signer; never private material.
     pub local_signing_key_ref: NonEmptyString,
@@ -163,14 +167,12 @@ impl RealmPairwiseAuthorState {
     ) -> arkret_wire::Result<()> {
         if !self.pairwise_full_id.as_str().starts_with("did:key:") {
             return Err(arkret_wire::Error::Protocol(
-                "pairwise author FullId must use did:key".to_owned(),
+                "pairwise author DidFullId must use did:key".to_owned(),
             ));
         }
-        if ActorId::from(project_full_id_to_core_id(&self.pairwise_full_id)?)
-            != self.pairwise_actor_id
-        {
+        if project_full_id_to_core_id(&self.pairwise_full_id)? != self.pairwise_actor_id {
             return Err(arkret_wire::Error::Protocol(
-                "pairwise FullId does not project to pairwise_actor_id".to_owned(),
+                "pairwise DidFullId does not project to pairwise_actor_id".to_owned(),
             ));
         }
         let (method_base, method_fragment) = self
@@ -280,7 +282,7 @@ pub enum MlsKeyPackageState {
 pub struct MlsKeyPackageRecord {
     /// Globally unique identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     /// MLS KeyPackage material (base64url).
     pub key_package: String,
@@ -351,7 +353,7 @@ mod tests {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsGroupStateRecord {
     pub group_id: String,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub epoch: u64,
     pub serialized_state: Vec<u8>,

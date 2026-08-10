@@ -1,6 +1,6 @@
 //! Third-party invite wire payloads.
 
-use arkret_wire::{Did, Error, Hash, Result};
+use arkret_wire::{DidCoreId, Error, Hash, Result};
 use serde::{Deserialize, Serialize};
 
 // ── ThirdPartyInvite (3PID) ─────────────────────────────────────────────
@@ -57,7 +57,7 @@ pub struct ThirdPartyInvite {
     #[serde(default = "single_claim")]
     pub max_claims: u32,
     /// DID of the auth server expected to verify the OOB code.
-    pub verification_service_id: Did,
+    pub verification_service_id: DidCoreId,
     /// Verifying public key for the verification proof chain.
     pub verification_public_key: String,
 }

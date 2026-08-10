@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_identifiers::{Did, RealmId, RelationId, ViewId};
+use arkret_identifiers::{RealmId, RelationId, ViewId};
 use arkret_models_collaboration::events_payloads::private_view_account_data_key;
 use arkret_models_collaboration::objects::queries::{
     CollectionConfig, CollectionGrouping, CollectionItemRender, FieldFilter, Filter, View,
@@ -8,14 +8,18 @@ use arkret_models_collaboration::objects::queries::{
 };
 use arkret_models_collaboration::objects::relation::Relation;
 use arkret_wire::{
-    ActorId, Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer,
-    ViewVisibility, project_full_id_to_core_id,
+    DidCoreId, Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer,
+    ViewVisibility,
 };
 use chrono::Utc;
 use serde_json::json;
 
-fn actor(value: &str) -> ActorId {
-    ActorId::from(project_full_id_to_core_id(&Did::new(value).unwrap()).unwrap())
+fn actor(value: &str) -> DidCoreId {
+    let core = value
+        .strip_prefix("did:webvh:")
+        .and_then(|rest| rest.split(':').next())
+        .expect("test helper expects did:webvh");
+    DidCoreId::new(format!("ak:did_core:webvh:{core}")).unwrap()
 }
 
 #[test]
@@ -130,7 +134,7 @@ fn collection_view() -> View {
         document: None,
         dashboard: None,
         sort: Vec::new(),
-        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        created_by: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         created_at: Utc::now(),
         updated_by: None,
         updated_at: None,
@@ -231,7 +235,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         document: None,
         dashboard: None,
         sort: Vec::new(),
-        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        created_by: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         created_at: Utc::now(),
         updated_by: None,
         updated_at: None,

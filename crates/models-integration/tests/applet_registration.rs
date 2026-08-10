@@ -8,14 +8,26 @@ use arkret_models_integration::{
     sign_registration,
 };
 use arkret_wire::{
-    AppletId, Did, DidUrl, Event, Hash, Hlc, PayloadSignature, PayloadSigner, PlanId, Proof,
-    RealmId, Result as WireResult, ScopeRef,
+    AppletId, DidCoreId, DidFullId, DidUrl, Hash, Hlc, PayloadSignature, PayloadSigner, PlanId,
+    Proof, RealmId, Result as WireResult, ScopeRef,
 };
 use chrono::Utc;
 use serde_json::{Value, json};
 
-fn did(name: &str) -> Did {
-    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+fn full(name: &str) -> DidFullId {
+    DidFullId::new(format!("did:webvh:{name}:{name}.example")).unwrap()
+}
+
+fn actor(name: &str) -> DidCoreId {
+    DidCoreId::new(format!("ak:did_core:webvh:{name}")).unwrap()
+}
+
+fn principal(name: &str) -> DidCoreId {
+    DidCoreId::new(format!("ak:did_core:webvh:{name}")).unwrap()
+}
+
+fn service(name: &str) -> DidCoreId {
+    DidCoreId::new(format!("ak:did_core:webvh:{name}")).unwrap()
 }
 
 fn realm() -> RealmId {
@@ -26,10 +38,10 @@ fn sample_epoch() -> Hash {
     Hash::new(format!("sha256:{}", "bb".repeat(32))).unwrap()
 }
 
-fn sample_epoch_evidence(service_id: &Did) -> AppletRegistrationEpochEvidence {
+fn sample_epoch_evidence(service_id: &DidCoreId) -> AppletRegistrationEpochEvidence {
     let document = DidDocument::new(
-        service_id.clone(),
-        format!("{service_id}#key-1"),
+        full(service_id.as_str().rsplit(':').next().unwrap()),
+        "key-1",
         "z6MkrJVnaZkeF7EsnJQ9xQY4bqG9tbeFqTzL7uTVs11FwUjT",
     );
     AppletRegistrationEpochEvidence::from_did_document(
@@ -47,10 +59,10 @@ fn sample_epoch_evidence(service_id: &Did) -> AppletRegistrationEpochEvidence {
 fn sample_wire_registration() -> WireAppletRegistration {
     WireAppletRegistration::new(
         "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
-        did("slackbridge"),
-        did("alice"),
+        service("slackbridge"),
+        principal("alice"),
         "https://applet.example/cx",
-        did("bot"),
+        actor("bot"),
         vec!["ak.applet.v1".to_owned()],
         AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::exclusive(
@@ -106,10 +118,11 @@ fn package_with_required_fields() -> AppletPackage {
     let mut package = AppletPackage::new(
         "applet_pkg_todo",
         "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
-        did("slackbridge"),
-        did("alice"),
+        service("slackbridge"),
+        full("slackbridge"),
+        principal("alice"),
         "https://applet.example/cx",
-        did("bot"),
+        actor("bot"),
         vec!["slack".to_owned()],
         AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::exclusive(
@@ -128,7 +141,7 @@ fn package_with_required_fields() -> AppletPackage {
         extra: Default::default(),
     });
     package.webhook_auth = WebhookAuth::http_message_signature(
-        format!("{}#key-1", package.service_id),
+        DidUrl::new(format!("{}#key-1", full("slackbridge"))).unwrap(),
         vec![HttpMessageSignatureAlgorithm::Ed25519],
     );
     package
@@ -258,7 +271,7 @@ fn install_commit_uses_only_caller_signed_formal_events() {
     let registration_event = arkret_wire::test_support::raw_event(
         "ak.applet.registration",
         scope.clone(),
-        did("admin"),
+        actor("admin"),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({"applet_id": "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"}),
@@ -267,7 +280,7 @@ fn install_commit_uses_only_caller_signed_formal_events() {
     let capability_grant_event = arkret_wire::test_support::raw_event(
         "ak.capability.grant",
         scope.clone(),
-        did("admin"),
+        actor("admin"),
         2,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
@@ -309,12 +322,12 @@ fn install_commit_uses_only_caller_signed_formal_events() {
 #[test]
 fn sign_registration_attaches_matching_payload_digest() {
     struct StubSigner {
-        did: Did,
+        did: DidFullId,
         verification_method: DidUrl,
     }
 
     impl PayloadSigner for StubSigner {
-        fn signer_did(&self) -> &Did {
+        fn signer_did(&self) -> &DidFullId {
             &self.did
         }
 
@@ -335,7 +348,7 @@ fn sign_registration_attaches_matching_payload_digest() {
     }
 
     let signer = StubSigner {
-        did: did("alice"),
+        did: full("alice"),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
     };
     let mut registration = sample_wire_registration();

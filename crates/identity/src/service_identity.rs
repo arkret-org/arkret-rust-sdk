@@ -16,7 +16,7 @@ use arkret_models_identity::service_identity::{
     CanonicalServiceUrl, ServiceDidDocument, ServiceRegistrationKey, ServiceRegistrationReceipt,
     ServiceWebvhInceptionOperation, service_registration_key_digest,
 };
-use arkret_wire::{FullId, ServiceId, ServiceKind, project_full_id_to_core_id};
+use arkret_wire::{DidCoreId, DidFullId, ServiceKind, project_full_id_to_core_id};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -24,9 +24,9 @@ use crate::{IdentityError, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ServiceIdentityKeyRef(String);
+pub struct DidCoreIdentityKeyRef(String);
 
-impl ServiceIdentityKeyRef {
+impl DidCoreIdentityKeyRef {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         if value.trim().is_empty() {
@@ -44,28 +44,28 @@ impl ServiceIdentityKeyRef {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ServiceIdentityProviderRef {
+pub struct DidCoreIdentityProviderRef {
     pub name: String,
     pub endpoint: CanonicalServiceUrl,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct LocalServiceIdentity {
-    pub service_id: ServiceId,
-    pub full_id: FullId,
+pub struct LocalDidCoreIdentity {
+    pub service_id: DidCoreId,
+    pub full_id: DidFullId,
     pub registration_key: ServiceRegistrationKey,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider: Option<ServiceIdentityProviderRef>,
-    pub signing_key_refs: Vec<ServiceIdentityKeyRef>,
-    pub active_signing_key_ref: ServiceIdentityKeyRef,
-    pub control_key_ref: ServiceIdentityKeyRef,
+    pub provider: Option<DidCoreIdentityProviderRef>,
+    pub signing_key_refs: Vec<DidCoreIdentityKeyRef>,
+    pub active_signing_key_ref: DidCoreIdentityKeyRef,
+    pub control_key_ref: DidCoreIdentityKeyRef,
     pub version_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub last_verified_at: DateTime<Utc>,
 }
 
-impl LocalServiceIdentity {
+impl LocalDidCoreIdentity {
     pub fn validate(&self) -> Result<()> {
         if self.signing_key_refs.is_empty()
             || !self.signing_key_refs.contains(&self.active_signing_key_ref)
@@ -75,10 +75,9 @@ impl LocalServiceIdentity {
                 "local service identity key references or version are inconsistent".to_owned(),
             ));
         }
-        if ServiceId::from(
-            project_full_id_to_core_id(&self.full_id)
-                .map_err(|error| IdentityError::Protocol(error.to_string()))?,
-        ) != self.service_id
+        if project_full_id_to_core_id(&self.full_id)
+            .map_err(|error| IdentityError::Protocol(error.to_string()))?
+            != self.service_id
         {
             return Err(IdentityError::Protocol(
                 "local service identity full_id does not project to service_id".to_owned(),
@@ -90,15 +89,15 @@ impl LocalServiceIdentity {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StoredServiceIdentity {
-    pub identity: LocalServiceIdentity,
+pub struct StoredDidCoreIdentity {
+    pub identity: LocalDidCoreIdentity,
     pub did_document: ServiceDidDocument,
     pub registration_receipt: ServiceRegistrationReceipt,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub stored_at: DateTime<Utc>,
 }
 
-impl StoredServiceIdentity {
+impl StoredDidCoreIdentity {
     pub fn validate(&self) -> Result<()> {
         self.identity.validate()?;
         self.did_document
@@ -121,16 +120,16 @@ impl StoredServiceIdentity {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ServiceIdentityBundle {
+pub struct DidCoreIdentityBundle {
     pub schema: String,
-    pub identity: StoredServiceIdentity,
+    pub identity: StoredDidCoreIdentity,
     pub webvh_history: Vec<ServiceWebvhInceptionOperation>,
     pub receipt_chain: Vec<ServiceRegistrationReceipt>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub exported_at: DateTime<Utc>,
 }
 
-impl ServiceIdentityBundle {
+impl DidCoreIdentityBundle {
     pub const SCHEMA: &'static str = "ak.service_identity_bundle.v1";
 
     pub fn validate(&self) -> Result<()> {
@@ -173,7 +172,7 @@ impl ServiceIdentityBundle {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ServiceIdentityDiagnostic {
+pub enum DidCoreIdentityDiagnostic {
     ProviderAmbiguous,
     ProviderNotConfigured,
     KeyMismatch,
@@ -185,12 +184,12 @@ pub enum ServiceIdentityDiagnostic {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
-pub enum ServiceIdentityState {
+pub enum DidCoreIdentityState {
     Ready {
-        identity: LocalServiceIdentity,
+        identity: LocalDidCoreIdentity,
     },
     DegradedStored {
-        identity: LocalServiceIdentity,
+        identity: LocalDidCoreIdentity,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         retry_at: DateTime<Utc>,
         last_error: String,
@@ -201,22 +200,22 @@ pub enum ServiceIdentityState {
         retry_at: DateTime<Utc>,
     },
     RegistrationKeyDrift {
-        identity: LocalServiceIdentity,
+        identity: LocalDidCoreIdentity,
         stored_key: ServiceRegistrationKey,
         computed_key: ServiceRegistrationKey,
     },
     Conflict {
-        stored_service_id: ServiceId,
-        provider_service_id: ServiceId,
+        stored_service_id: DidCoreId,
+        provider_service_id: DidCoreId,
     },
     Faulted {
-        diagnostic: ServiceIdentityDiagnostic,
+        diagnostic: DidCoreIdentityDiagnostic,
         next_action: String,
     },
 }
 
-impl ServiceIdentityState {
-    pub fn identity(&self) -> Option<&LocalServiceIdentity> {
+impl DidCoreIdentityState {
+    pub fn identity(&self) -> Option<&LocalDidCoreIdentity> {
         match self {
             Self::Ready { identity }
             | Self::DegradedStored { identity, .. }
@@ -286,7 +285,7 @@ impl ServiceIdentityState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResolvedService {
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_kind: ServiceKind,
     pub endpoint: CanonicalServiceUrl,
     pub supported_operations: Vec<String>,
@@ -322,8 +321,8 @@ pub enum IdentityBundleBackendAvailability {
 
 pub trait IdentityBundleBackend: Send + Sync {
     fn probe(&self) -> IdentityBundleBackendAvailability;
-    fn load(&self, key: &ServiceRegistrationKey) -> Result<Option<ServiceIdentityBundle>>;
-    fn store(&self, bundle: &ServiceIdentityBundle) -> Result<()>;
+    fn load(&self, key: &ServiceRegistrationKey) -> Result<Option<DidCoreIdentityBundle>>;
+    fn store(&self, bundle: &DidCoreIdentityBundle) -> Result<()>;
     fn delete(&self, key: &ServiceRegistrationKey) -> Result<()>;
 }
 
@@ -353,19 +352,19 @@ impl IdentityBundleBackend for FileIdentityBundleBackend {
         }
     }
 
-    fn load(&self, key: &ServiceRegistrationKey) -> Result<Option<ServiceIdentityBundle>> {
+    fn load(&self, key: &ServiceRegistrationKey) -> Result<Option<DidCoreIdentityBundle>> {
         let path = self.path_for(key)?;
         let bytes = match fs::read(&path) {
             Ok(bytes) => bytes,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(error) => return Err(io_protocol_error("read identity bundle", &path, error)),
         };
-        let bundle: ServiceIdentityBundle = serde_json::from_slice(&bytes)?;
+        let bundle: DidCoreIdentityBundle = serde_json::from_slice(&bytes)?;
         bundle.validate()?;
         Ok(Some(bundle))
     }
 
-    fn store(&self, bundle: &ServiceIdentityBundle) -> Result<()> {
+    fn store(&self, bundle: &DidCoreIdentityBundle) -> Result<()> {
         bundle.validate()?;
         fs::create_dir_all(&self.directory).map_err(|error| {
             io_protocol_error("create identity bundle directory", &self.directory, error)
@@ -421,19 +420,19 @@ impl IdentityBundleBackend for KeyStoreIdentityBundleBackend {
         }
     }
 
-    fn load(&self, key: &ServiceRegistrationKey) -> Result<Option<ServiceIdentityBundle>> {
+    fn load(&self, key: &ServiceRegistrationKey) -> Result<Option<DidCoreIdentityBundle>> {
         let id = self.storage_id(key)?;
         let bytes = match self.key_store.load(&id) {
             Ok(bytes) => bytes,
             Err(error) if error.is_not_found() => return Ok(None),
             Err(error) => return Err(error.into()),
         };
-        let bundle: ServiceIdentityBundle = serde_json::from_slice(bytes.as_slice())?;
+        let bundle: DidCoreIdentityBundle = serde_json::from_slice(bytes.as_slice())?;
         bundle.validate()?;
         Ok(Some(bundle))
     }
 
-    fn store(&self, bundle: &ServiceIdentityBundle) -> Result<()> {
+    fn store(&self, bundle: &DidCoreIdentityBundle) -> Result<()> {
         bundle.validate()?;
         let id = self.storage_id(&bundle.identity.identity.registration_key)?;
         Ok(self.key_store.store(&id, &serde_json::to_vec(bundle)?)?)
@@ -464,15 +463,15 @@ mod tests {
         ServiceWebvhInceptionParameters,
     };
     use arkret_wire::{
-        Did, DidUrl, Hash, PayloadProof, ServiceId, ServiceKind, project_full_id_to_core_id,
+        DidCoreId, DidFullId, DidUrl, Hash, PayloadProof, ServiceKind, project_full_id_to_core_id,
         proof_kind,
     };
     use chrono::{DateTime, Utc};
 
     use super::{
-        IdentityBundleBackend, KeyStoreIdentityBundleBackend, LocalServiceIdentity,
-        ServiceIdentityBundle, ServiceIdentityKeyRef, ServiceIdentityProviderRef,
-        ServiceIdentityState, StoredServiceIdentity,
+        DidCoreIdentityBundle, DidCoreIdentityKeyRef, DidCoreIdentityProviderRef,
+        DidCoreIdentityState, IdentityBundleBackend, KeyStoreIdentityBundleBackend,
+        LocalDidCoreIdentity, StoredDidCoreIdentity,
     };
 
     fn registration_key() -> ServiceRegistrationKey {
@@ -484,7 +483,7 @@ mod tests {
     }
 
     fn inception() -> ServiceWebvhInceptionOperation {
-        let did = Did::new("did:webvh:QmScid:identity.example:webvh:auth").unwrap();
+        let did = DidFullId::new("did:webvh:QmScid:identity.example:webvh:auth").unwrap();
         let signing_key = "z6MkiSigning".to_owned();
         let update_key = "z6MkiUpdate".to_owned();
         let signing_id = format!("{did}#did-key-1");
@@ -530,10 +529,9 @@ mod tests {
 
     fn receipt(operation: &ServiceWebvhInceptionOperation) -> ServiceRegistrationReceipt {
         let provider_full_id =
-            Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
-        let provider_service_id =
-            ServiceId::from(project_full_id_to_core_id(&provider_full_id).unwrap());
-        let service_id = ServiceId::from(project_full_id_to_core_id(&operation.state.id).unwrap());
+            DidFullId::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        let provider_service_id = project_full_id_to_core_id(&provider_full_id).unwrap();
+        let service_id = project_full_id_to_core_id(&operation.state.id).unwrap();
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
                 "ak:service_registration_receipt:{}",
@@ -547,7 +545,7 @@ mod tests {
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
             issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
-            provider_service_id: provider_service_id.clone(),
+            provider_service_id,
             proof: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{provider_full_id}#service-key"))
@@ -565,23 +563,21 @@ mod tests {
         receipt
     }
 
-    fn stored_identity() -> StoredServiceIdentity {
+    fn stored_identity() -> StoredDidCoreIdentity {
         let operation = inception();
         let receipt = receipt(&operation);
-        StoredServiceIdentity {
-            identity: LocalServiceIdentity {
-                service_id: ServiceId::from(
-                    project_full_id_to_core_id(&operation.state.id).unwrap(),
-                ),
+        StoredDidCoreIdentity {
+            identity: LocalDidCoreIdentity {
+                service_id: project_full_id_to_core_id(&operation.state.id).unwrap(),
                 full_id: operation.state.id.clone(),
                 registration_key: registration_key(),
-                provider: Some(ServiceIdentityProviderRef {
+                provider: Some(DidCoreIdentityProviderRef {
                     name: "provider".to_owned(),
                     endpoint: CanonicalServiceUrl::new("https://identity.example/").unwrap(),
                 }),
-                signing_key_refs: vec![ServiceIdentityKeyRef::new("signing-key").unwrap()],
-                active_signing_key_ref: ServiceIdentityKeyRef::new("signing-key").unwrap(),
-                control_key_ref: ServiceIdentityKeyRef::new("control-key").unwrap(),
+                signing_key_refs: vec![DidCoreIdentityKeyRef::new("signing-key").unwrap()],
+                active_signing_key_ref: DidCoreIdentityKeyRef::new("signing-key").unwrap(),
+                control_key_ref: DidCoreIdentityKeyRef::new("control-key").unwrap(),
                 version_id: operation.version_id.clone(),
                 last_verified_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
             },
@@ -650,7 +646,7 @@ mod tests {
                 .unwrap();
         request.validate().unwrap();
         let outcome = ServiceRegistrationOutcome {
-            service_id: ServiceId::from(project_full_id_to_core_id(&operation.state.id).unwrap()),
+            service_id: project_full_id_to_core_id(&operation.state.id).unwrap(),
             full_id: operation.state.id.clone(),
             did_document: operation.state.clone(),
             version_id: operation.version_id.clone(),
@@ -668,12 +664,12 @@ mod tests {
     fn service_registration_receipt_binds_claims_and_provider_controller() {
         let operation = inception();
         let receipt = receipt(&operation);
-        let service_id = ServiceId::from(project_full_id_to_core_id(&operation.state.id).unwrap());
+        let service_id = project_full_id_to_core_id(&operation.state.id).unwrap();
         receipt
             .validate_for(&registration_key(), &service_id, &operation.state.id)
             .unwrap();
         let provider_full_id =
-            Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+            DidFullId::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
         receipt
             .validate_provider_full_id(&provider_full_id)
             .unwrap();
@@ -696,8 +692,8 @@ mod tests {
     fn keystore_bundle_backend_round_trips_and_validates() {
         let operation = inception();
         let stored = stored_identity();
-        let bundle = ServiceIdentityBundle {
-            schema: ServiceIdentityBundle::SCHEMA.to_owned(),
+        let bundle = DidCoreIdentityBundle {
+            schema: DidCoreIdentityBundle::SCHEMA.to_owned(),
             receipt_chain: vec![stored.registration_receipt.clone()],
             identity: stored,
             webvh_history: vec![operation],
@@ -718,7 +714,7 @@ mod tests {
     fn degraded_stored_runs_but_cannot_mutate_identity() {
         let identity = stored_identity().identity;
         let retry_at: DateTime<Utc> = "2026-07-15T00:05:00.000Z".parse().unwrap();
-        let state = ServiceIdentityState::DegradedStored {
+        let state = DidCoreIdentityState::DegradedStored {
             identity,
             retry_at,
             last_error: "provider unavailable".to_owned(),
@@ -735,7 +731,7 @@ mod tests {
     #[test]
     fn registration_key_drift_serves_without_identity_mutation() {
         let identity = stored_identity().identity;
-        let state = ServiceIdentityState::RegistrationKeyDrift {
+        let state = DidCoreIdentityState::RegistrationKeyDrift {
             stored_key: identity.registration_key.clone(),
             computed_key: ServiceRegistrationKey::new(
                 ServiceKind::AuthServer,
@@ -752,9 +748,9 @@ mod tests {
 
     #[test]
     fn conflicting_provider_mapping_fails_closed() {
-        let state = ServiceIdentityState::Conflict {
-            stored_service_id: ServiceId::new("ak:did_core:webvh:QmStored").unwrap(),
-            provider_service_id: ServiceId::new("ak:did_core:webvh:QmProvider").unwrap(),
+        let state = DidCoreIdentityState::Conflict {
+            stored_service_id: DidCoreId::new("ak:did_core:webvh:QmStored").unwrap(),
+            provider_service_id: DidCoreId::new("ak:did_core:webvh:QmProvider").unwrap(),
         };
         assert!(state.identity().is_none());
         assert!(!state.is_ready());
@@ -762,13 +758,13 @@ mod tests {
         state.validate().unwrap();
         let serialized = serde_json::to_value(&state).unwrap();
         assert_eq!(
-            serde_json::from_value::<ServiceIdentityState>(serialized).unwrap(),
+            serde_json::from_value::<DidCoreIdentityState>(serialized).unwrap(),
             state
         );
 
-        let same_did = ServiceId::new("ak:did_core:webvh:QmStored").unwrap();
+        let same_did = DidCoreId::new("ak:did_core:webvh:QmStored").unwrap();
         assert!(
-            ServiceIdentityState::Conflict {
+            DidCoreIdentityState::Conflict {
                 stored_service_id: same_did.clone(),
                 provider_service_id: same_did,
             }

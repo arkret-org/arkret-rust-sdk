@@ -13,7 +13,7 @@ use arkret_models_identity::service_identity::CanonicalServiceUrl;
 use arkret_models_identity::{
     ServiceResolutionCarrier, ServiceResolutionRecord, validate_service_current_record_url,
 };
-use arkret_wire::{Hash, ServiceId, ServiceKind};
+use arkret_wire::{DidCoreId, Hash, ServiceKind};
 use reqwest::StatusCode;
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING, HeaderMap};
 
@@ -78,7 +78,7 @@ impl ServiceResolutionFetcher {
     pub async fn materialize(
         &self,
         carrier: &ServiceResolutionCarrier,
-        expected_service_id: &ServiceId,
+        expected_service_id: &DidCoreId,
     ) -> Result<UnverifiedServiceResolutionRecord> {
         carrier
             .validate_shape(expected_service_id)
@@ -166,7 +166,7 @@ impl ServiceResolutionFetcher {
         &self,
         current_record_url: &str,
         pinned_record_digest: Option<&Hash>,
-        expected_service_id: &ServiceId,
+        expected_service_id: &DidCoreId,
     ) -> Result<UnverifiedServiceResolutionRecord> {
         let parsed = reqwest::Url::parse(current_record_url)
             .map_err(|error| Error::Protocol(format!("invalid service resolution URL: {error}")))?;
@@ -295,7 +295,7 @@ mod tests {
 
     #[tokio::test]
     async fn public_fetcher_rejects_private_target_before_connecting() {
-        let service_id = ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let carrier = ServiceResolutionCarrier::CurrentRecordUrl {
             current_record_url: format!(
                 "https://127.0.0.1{}",

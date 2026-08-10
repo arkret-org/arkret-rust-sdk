@@ -5,6 +5,7 @@
 //! ephemeral containers, timelines, and the per-Realm roster entry
 //! carried by account-subscribe frames.
 
+use arkret_wire::DidCoreId;
 use serde::Serializer;
 
 use crate::internal_prelude::*;
@@ -31,7 +32,7 @@ pub enum AccountNotificationDataKind {
 pub struct AgentRuntimeApprovalNotificationData {
     pub kind: AccountNotificationDataKind,
     pub approval_request_id: OpaqueLocalId,
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub requested_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -171,9 +172,9 @@ pub struct NotificationContainer {
 pub struct DeviceMessageEnvelope {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
-    pub sender_principal_id: Did,
+    pub sender_principal_id: DidCoreId,
     pub sender_device_id: DeviceId,
-    pub recipient_principal_id: Did,
+    pub recipient_principal_id: DidCoreId,
     pub recipient_device_id: DeviceId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub sent_at: DateTime<Utc>,
@@ -191,9 +192,9 @@ pub struct DeviceMessageEnvelope {
 struct DeviceMessageEnvelopeWire {
     message_id: DeviceMessageId,
     kind: ProtocolKind,
-    sender_principal_id: Did,
+    sender_principal_id: DidCoreId,
     sender_device_id: DeviceId,
-    recipient_principal_id: Did,
+    recipient_principal_id: DidCoreId,
     recipient_device_id: DeviceId,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     sent_at: DateTime<Utc>,
@@ -285,8 +286,8 @@ pub struct EventContainer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeDeviceListChanges {
-    pub changed: Vec<Did>,
-    pub left: Vec<Did>,
+    pub changed: Vec<DidCoreId>,
+    pub left: Vec<DidCoreId>,
 }
 
 /// Counterpart for
@@ -309,7 +310,7 @@ pub struct Timeline {
 #[serde(deny_unknown_fields)]
 pub struct OrderedLogConflictDiagnostic {
     pub cell: String,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub issuer_seq: u64,
     pub reason: String,
     pub winner_event_id: EventId,
@@ -357,7 +358,7 @@ pub enum WindowStartNullableE2eeEpoch {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateAtWindowStart {
-    pub actor_profiles: BTreeMap<Did, WindowStartActorProfile>,
+    pub actor_profiles: BTreeMap<DidCoreId, WindowStartActorProfile>,
     pub realm_metadata: WindowStartRealmMetadata,
     pub e2ee_epoch: WindowStartNullableE2eeEpoch,
 }
@@ -370,7 +371,7 @@ pub struct AccountSubscribeRealmSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invited_member_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub heroes: Option<Vec<Did>>,
+    pub heroes: Option<Vec<DidCoreId>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -431,7 +432,7 @@ pub struct RealmSyncEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesSendRequestBody {
-    pub messages: BTreeMap<Did, BTreeMap<DeviceId, DeviceMessageTarget>>,
+    pub messages: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -474,7 +475,7 @@ pub struct ActorPrivateAccountDataUpdate {
 #[serde(deny_unknown_fields)]
 pub struct ActorPrivateReadCursorUpdate {
     pub schema: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
     pub read_scope: ReadCursorScope,
@@ -718,9 +719,9 @@ mod device_message_tests {
         json!({
             "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
-            "sender_principal_id": "did:webvh:z6mkfixture:alice.example",
+            "sender_principal_id": "ak:did_core:webvh:z6mkfixture",
             "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-            "recipient_principal_id": "did:webvh:z6mkfixture:alice.example",
+            "recipient_principal_id": "ak:did_core:webvh:z6mkfixture",
             "recipient_device_id": "ak:device:01904100-0000-7000-8000-000000000002",
             "sent_at": "2026-07-15T00:00:00.000Z",
             "expires_at": "2026-07-15T00:10:00.000Z",
@@ -777,14 +778,14 @@ pub enum MembershipState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberRosterEntry {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub membership: MembershipState,
     /// Disclosed principal / holder DID for this member. Required whenever
     /// any handle-claim / identity-event evidence is included (see
     /// [`Self::validate`]). Omitted when subject disclosure is not
     /// authorized for the caller.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub subject_id: Option<Did>,
+    pub subject_id: Option<DidCoreId>,
     /// Effective `ak.member.identity.update` event ids for this actor
     /// after replacement edges are applied.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -852,8 +853,8 @@ impl MemberRosterEntry {
 mod tests {
     use super::*;
 
-    fn fake_actor(label: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
+    fn fake_actor(label: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()
     }
 
     fn fake_event_ref(suffix: &str) -> EventId {

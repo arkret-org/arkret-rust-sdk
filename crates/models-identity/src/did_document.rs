@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, Error, Result};
+use arkret_wire::{DidCoreId, DidFullId, Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -28,7 +28,7 @@ pub fn validate_did_webvh_v1_method(parameters: &Value) -> Result<()> {
     Ok(())
 }
 
-pub fn did_web_document_url(did: &Did) -> Result<String> {
+pub fn did_web_document_url(did: &DidFullId) -> Result<String> {
     if did.method() != "web" {
         return Err(Error::Protocol("DID method is not did:web".to_owned()));
     }
@@ -76,7 +76,7 @@ pub fn did_web_document_url(did: &Did) -> Result<String> {
 /// Issuer proof attached to a handle-claim challenge.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandleAttestation {
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub proof: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -91,7 +91,7 @@ pub struct HandleAttestation {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DidDocument {
-    pub id: Did,
+    pub id: DidFullId,
     pub verification_methods: BTreeMap<String, String>,
     pub also_known_as: Vec<String>,
     pub updated_at: Option<DateTime<Utc>>,
@@ -254,7 +254,7 @@ impl<'de> Deserialize<'de> for DidDocument {
 }
 
 impl DidDocument {
-    pub fn new(id: Did, key_id: impl Into<String>, public_key: impl Into<String>) -> Self {
+    pub fn new(id: DidFullId, key_id: impl Into<String>, public_key: impl Into<String>) -> Self {
         Self {
             id,
             verification_methods: BTreeMap::from([(key_id.into(), public_key.into())]),
@@ -320,8 +320,8 @@ impl DidDocument {
 mod tests {
     use super::*;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidFullId {
+        DidFullId::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     #[test]
@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn did_web_url_supports_encoded_ports_and_paths() {
-        let did = Did::new("did:web:example.test%3A8443:users:alice").unwrap();
+        let did = DidFullId::new("did:web:example.test%3A8443:users:alice").unwrap();
         assert_eq!(
             did_web_document_url(&did).unwrap(),
             "https://example.test:8443/users/alice/did.json"

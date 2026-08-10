@@ -8,11 +8,12 @@ use arkret_models_collaboration::events_payloads::call::ParticipantBinding;
 use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
 };
+use arkret_wire::DidCoreId;
 /// Fixed ASCII domain-separation label that prefixes the participant-binding
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding
 /// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
 /// JSON of the seven authoritative fields.
-use arkret_wire::{CallId, DeviceId, Did, RealmId};
+use arkret_wire::{CallId, DeviceId, DidFullId, RealmId};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
@@ -89,7 +90,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 pub fn call_media_token_exchange(
     realm_id: RealmId,
     call_id: CallId,
-    actor_id: Did,
+    actor_id: DidCoreId,
     device_id: DeviceId,
     focus_id: impl Into<String>,
 ) -> CallMediaTokenExchangeRequestBody {
@@ -131,7 +132,7 @@ impl MediaServiceAnchors {
     /// [`with_keys`](Self::with_keys) / [`insert_key`](Self::insert_key) before
     /// passing it to [`verify_call_media_token_outcome`], otherwise signature
     /// verification fails closed with `token_issuer_unauthorised`.
-    pub fn new(service_ids: impl IntoIterator<Item = Did>) -> Self {
+    pub fn new(service_ids: impl IntoIterator<Item = DidFullId>) -> Self {
         Self {
             service_ids: service_ids
                 .into_iter()
@@ -177,7 +178,7 @@ impl MediaServiceAnchors {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CallMediaTokenVerification {
     /// The anchored media-service DID that issued the participant binding.
-    pub issuer_did: Did,
+    pub issuer_did: DidFullId,
     /// The verified participant identity (SFU-local handle).
     pub participant_identity: String,
 }
@@ -194,7 +195,7 @@ fn did_from_kid(kid: &str) -> &str {
 /// appear here.
 #[derive(Serialize)]
 struct ParticipantBindingSigningFields<'a> {
-    actor_id: &'a Did,
+    actor_id: &'a DidCoreId,
     call_id: &'a CallId,
     device_id: &'a DeviceId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
@@ -390,7 +391,7 @@ pub fn verify_call_media_token_outcome(
     )?;
 
     Ok(CallMediaTokenVerification {
-        issuer_did: Did::new(issuer_did.to_owned())?,
+        issuer_did: DidFullId::new(issuer_did.to_owned())?,
         participant_identity: outcome.participant_identity.clone(),
     })
 }
@@ -401,10 +402,14 @@ mod tests {
 
     use super::*;
 
-    const ISSUER_KID: &str = "did:webvh:z6mkfixture:media.example#media-token";
+    const ISSUER_KID: &str = "did:webvh:z6mkfixturemedia:media.example#media-token";
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidFullId {
+        DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
+    }
+
+    fn actor(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
     fn issuer_key() -> SigningKey {
@@ -421,7 +426,7 @@ mod tests {
         call_media_token_exchange(
             RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap(),
             CallId::new("ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1").unwrap(),
-            did("alice"),
+            actor("alice"),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
             "fra-1",
         )

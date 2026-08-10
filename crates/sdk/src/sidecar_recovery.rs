@@ -6,10 +6,7 @@ use arkret_models_collaboration::agent_operations::{
     AgentSidecarView,
 };
 use arkret_models_collaboration::sidecar_operations::SidecarContextRef;
-use arkret_wire::{
-    ActorId, Error, Event, EventId, EventKind, Result, ScopeRef, SidecarId, event_spec,
-    project_full_id_to_core_id,
-};
+use arkret_wire::{Error, Event, EventId, EventKind, Result, ScopeRef, SidecarId, event_spec};
 
 /// A controller-local source-context locator recovered from complete accepted
 /// native Sidecar history. It is not a wire projection and must never be uploaded.
@@ -63,9 +60,7 @@ pub fn recover_agent_sidecar_context_locators(
         let Some(sidecar) = sidecars_by_id.get(&payload.sidecar_id) else {
             continue;
         };
-        let controller_actor_id =
-            ActorId::from(project_full_id_to_core_id(&sidecar.controller_id)?);
-        if event.actor_id != controller_actor_id
+        if event.actor_id != sidecar.controller_id
             || event.realm_id != sidecar.realm_id
             || event.scope_ref
                 != (ScopeRef::Sidecar {

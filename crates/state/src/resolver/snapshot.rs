@@ -1,4 +1,4 @@
-use arkret_wire::DidUrl;
+use arkret_wire::{DidCoreId, DidUrl};
 
 use super::*;
 
@@ -117,8 +117,8 @@ pub struct ResolvedMessage {
     pub message_id: String,
     pub source_event_id: EventId,
     pub latest_event_id: EventId,
-    pub created_by: ActorId,
-    pub latest_actor_id: ActorId,
+    pub created_by: DidCoreId,
+    pub latest_actor_id: DidCoreId,
     pub latest_actor_seq: u64,
     pub latest_hlc: Option<crate::Hlc>,
     pub content: Value,
@@ -129,7 +129,7 @@ pub struct ResolvedMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedReaction {
     pub message_id: String,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub reaction_key: String,
     pub source_event_id: EventId,
     pub actor_seq: u64,

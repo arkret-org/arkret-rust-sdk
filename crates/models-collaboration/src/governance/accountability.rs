@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::{
-    Did, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError, canonical,
+    DidCoreId, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError, canonical,
     composite_subject, string_set_digest_component,
 };
 use chrono::{DateTime, Utc};
@@ -108,8 +108,8 @@ impl Eq for AccountabilityScope {}
 #[serde(deny_unknown_fields)]
 pub struct AccountabilityGrantPayload {
     pub schema: String,
-    pub issuer: Did,
-    pub subject: Did,
+    pub issuer: DidCoreId,
+    pub subject: DidCoreId,
     pub accountability_scope: AccountabilityScope,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
@@ -123,8 +123,8 @@ pub struct AccountabilityGrantPayload {
 impl AccountabilityGrantPayload {
     pub const SCHEMA: &'static str = SchemaId::ACCOUNTABILITY_GRANT_V1;
     pub fn new(
-        issuer: Did,
-        subject: Did,
+        issuer: DidCoreId,
+        subject: DidCoreId,
         accountability_scope: AccountabilityScope,
         not_before: DateTime<Utc>,
         expires_at: Option<DateTime<Utc>>,
@@ -233,7 +233,7 @@ impl AccountabilityGrantPayload {
 
     pub fn validate_for_profile(&self, profile: &ActorProfile, now: DateTime<Utc>) -> Result<()> {
         self.validate_lifecycle_at(now)?;
-        if arkret_wire::project_full_id_to_core_id(&self.subject)? != profile.principal_id {
+        if self.subject != profile.principal_id {
             return Err(WireError::Protocol(
                 "accountability_grant subject does not match actor profile principal_id".to_owned(),
             ));
@@ -241,10 +241,7 @@ impl AccountabilityGrantPayload {
         if !profile
             .accountable_principal_ids
             .iter()
-            .any(|principal_id| {
-                arkret_wire::project_full_id_to_core_id(&self.issuer)
-                    .is_ok_and(|issuer| principal_id == &issuer)
-            })
+            .any(|principal_id| principal_id.as_core_id() == self.issuer.as_core_id())
         {
             return Err(WireError::Protocol(
                 "accountability_grant issuer is not in actor profile accountable_principal_ids"

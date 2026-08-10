@@ -41,7 +41,8 @@ pub enum IdentifierError {
 }
 
 macro_rules! id_type {
-    ($name:ident, $expect:expr) => {
+    ($(#[$meta:meta])* $name:ident, $expect:expr) => {
+        $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
         pub struct $name(String);
@@ -385,7 +386,7 @@ macro_rules! declare_uuid_id_kinds {
 /// types are generated from, so neither direction can drift unnoticed.
 ///
 /// Identifiers that are not registry `special_forms` rows stay on plain
-/// [`id_type!`]: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
+/// [`id_type!`]: [`DidFullId`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
 /// prefix), [`OperationId`] (producer-allocated, but with no bare-uuid form)
 /// and [`DeviceMessageTransactionId`] (a payload field charset, not an id
 /// kind).
@@ -416,8 +417,8 @@ macro_rules! declare_special_form_id_kinds {
 /// `#key` fragment.
 ///
 /// Zero-allocation public validator for the DID scalar form. This is the same
-/// predicate used by `id_type!(Did, is_did)`, exposed for downstream callers
-/// that need validation without constructing a [`Did`].
+/// predicate used by `id_type!(DidFullId, is_did)`, exposed for downstream callers
+/// that need validation without constructing a [`DidFullId`].
 pub fn is_did(value: &str) -> bool {
     if value.len() > 2048 {
         return false;
@@ -447,7 +448,7 @@ pub fn is_did(value: &str) -> bool {
 
 /// Validate the stable DID-derived identity-core form registered by the
 /// protocol. A core id is deliberately not a DID and cannot be sent to a DID
-/// resolver without a separately verified current [`FullId`].
+/// resolver without a separately verified current [`DidFullId`].
 pub fn is_core_id(value: &str) -> bool {
     let Some(remainder) = value.strip_prefix("ak:did_core:") else {
         return false;
@@ -767,42 +768,44 @@ pub fn is_lowercase_typed_uuid(value: &str, version_nibble: u8) -> bool {
     true
 }
 
-id_type!(FullId, is_did);
-id_type!(CoreId, is_core_id);
-id_type!(PrincipalId, is_core_id);
-id_type!(ActorId, is_core_id);
-id_type!(ServiceId, is_core_id);
+id_type!(
+    /// Stable DID-derived identity core used for subject equality, historical
+    /// attribution, identity references, membership indexes, and the identity
+    /// component of business hash preimages.
+    ///
+    /// This is not a resolvable DID and must never be used as registration or
+    /// resolution input. It answers only "who" and is not, by itself, an
+    /// authorization proof; authorization must bind the applicable PCR,
+    /// registration, MLS, service, or Agent authority lineage.
+    DidCoreId,
+    is_core_id
+);
 
-macro_rules! core_role_conversions {
-    ($role:ident) => {
-        impl From<$role> for CoreId {
-            fn from(value: $role) -> Self {
-                Self(value.into_string())
-            }
-        }
-
-        impl From<CoreId> for $role {
-            fn from(value: CoreId) -> Self {
-                Self(value.into_string())
-            }
-        }
-    };
+impl DidCoreId {
+    /// Borrow this already-normalized identity core.
+    ///
+    /// This is a shape-neutral convenience for APIs that also accept projected
+    /// full DIDs; it performs no role or authority admission.
+    pub const fn as_core_id(&self) -> &Self {
+        self
+    }
 }
 
-core_role_conversions!(PrincipalId);
-core_role_conversions!(ActorId);
-core_role_conversions!(ServiceId);
-
-/// Compatibility name for protocol fields that still explicitly carry a
-/// resolvable bare DID. New code should prefer [`FullId`] so it cannot be
-/// confused with [`CoreId`].
-pub type Did = FullId;
+id_type!(
+    /// Canonical resolvable bare DID used only at registration, resolution,
+    /// proof verification-method, and method-evidence boundaries.
+    ///
+    /// It may legitimately change as resolution state evolves. It must not be
+    /// used for subject equality and is not, by itself, a business authority.
+    DidFullId,
+    is_did
+);
 
 /// Project a canonical resolvable DID through the active v1 method adapter.
 ///
 /// This deliberately implements only registry-active adapters. Generic code
 /// must never manufacture a core id by prefix substitution.
-pub fn project_full_id_to_core_id(full_id: &FullId) -> Result<CoreId> {
+pub fn project_full_id_to_core_id(full_id: &DidFullId) -> Result<DidCoreId> {
     let value = full_id.as_str();
     if let Some(remainder) = value.strip_prefix("did:webvh:") {
         let scid = remainder
@@ -810,16 +813,16 @@ pub fn project_full_id_to_core_id(full_id: &FullId) -> Result<CoreId> {
             .map(|(scid, _)| scid)
             .filter(|scid| !scid.is_empty())
             .ok_or_else(|| IdentifierError::InvalidId(value.to_owned()))?;
-        return CoreId::new(format!("ak:did_core:webvh:{scid}"));
+        return DidCoreId::new(format!("ak:did_core:webvh:{scid}"));
     }
     if value.starts_with("did:web:") {
         let method_specific_id = value
             .strip_prefix("did:web:")
             .expect("checked did:web prefix");
-        return CoreId::new(format!("ak:did_core:web:{method_specific_id}"));
+        return DidCoreId::new(format!("ak:did_core:web:{method_specific_id}"));
     }
     if let Some(method_specific_id) = value.strip_prefix("did:key:") {
-        return CoreId::new(format!("ak:did_core:key:{method_specific_id}"));
+        return DidCoreId::new(format!("ak:did_core:key:{method_specific_id}"));
     }
     Err(IdentifierError::InvalidId(format!(
         "no active DID method adapter for {value}"
@@ -836,7 +839,7 @@ pub fn project_full_id_to_core_id(full_id: &FullId) -> Result<CoreId> {
 // directions.
 declare_uuid_id_kinds! {
     // AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
-    // `agent_id` is a DID scalar, represented by `Did`.
+    // `agent_id` is a DID scalar, represented by `DidFullId`.
     // Audit release-session + attestation typed ids (id-kind-registry kinds
     // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
     AttestationId, "ak:attestation:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1041,19 +1044,19 @@ declare_special_form_id_kinds! {
     TypedTrustDomainId, "trust_domain", is_trust_domain;
 }
 
-/// Applet identity accepted by the v1 wire protocol: either a service DID or
-/// a typed `ak:applet:<uuidv7>` identifier.
+/// Applet identity accepted by the v1 wire protocol: either a stable service
+/// identity core or a typed `ak:applet:<uuidv7>` identifier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletIdentifier {
-    Did(Did),
+    Service(DidCoreId),
     Cx(AppletId),
 }
 
 impl AppletIdentifier {
     pub fn as_str(&self) -> &str {
         match self {
-            Self::Did(value) => value.as_str(),
+            Self::Service(value) => value.as_str(),
             Self::Cx(value) => value.as_str(),
         }
     }
@@ -1201,7 +1204,7 @@ fn sha256_digest(bytes: &[u8]) -> String {
     arkret_canonical::canonical::sha256_digest(bytes)
 }
 
-impl Did {
+impl DidFullId {
     /// Return the DID method name.
     pub fn method(&self) -> &str {
         self.0
@@ -1330,27 +1333,30 @@ mod tests {
 
     #[test]
     fn did_validation_rejects_handles() {
-        assert!(Did::new("did:webvh:z6mkfixture:alice.example").is_ok());
-        assert!(Did::new("alice.example").is_err());
+        assert!(DidFullId::new("did:webvh:z6mkfixture:alice.example").is_ok());
+        assert!(DidFullId::new("alice.example").is_err());
     }
 
     #[test]
     fn did_validation_accepts_uuid_method() {
-        assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
+        assert!(DidFullId::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
     }
 
     #[test]
-    fn applet_identifier_accepts_only_did_or_typed_applet_id() {
-        let did =
-            serde_json::from_str::<AppletIdentifier>(r#""did:webvh:z6mkfixture:applet.example""#)
-                .unwrap();
-        assert!(matches!(did, AppletIdentifier::Did(_)));
+    fn applet_identifier_accepts_only_service_core_or_typed_applet_id() {
+        let service =
+            serde_json::from_str::<AppletIdentifier>(r#""ak:did_core:webvh:z6mkfixture""#).unwrap();
+        assert!(matches!(service, AppletIdentifier::Service(_)));
 
         let typed = serde_json::from_str::<AppletIdentifier>(
             r#""ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d""#,
         )
         .unwrap();
         assert!(matches!(typed, AppletIdentifier::Cx(_)));
+        assert!(
+            serde_json::from_str::<AppletIdentifier>(r#""did:webvh:z6mkfixture:applet.example""#)
+                .is_err()
+        );
         assert!(serde_json::from_str::<AppletIdentifier>(r#""applet.example""#).is_err());
     }
 
@@ -1360,17 +1366,18 @@ mod tests {
     #[test]
     fn did_validation_rejects_method_punctuation() {
         // Method-segment with dot/dash/underscore/colon — all rejected.
-        assert!(Did::new("did:web.test:example").is_err()); // DRIFT-ALLOW: negative test
-        assert!(Did::new("did:web-test:example").is_err()); // DRIFT-ALLOW: negative test
-        assert!(Did::new("did:web_test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(DidFullId::new("did:web.test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(DidFullId::new("did:web-test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(DidFullId::new("did:web_test:example").is_err()); // DRIFT-ALLOW: negative test
         // Method-specific-id containing whitespace — rejected.
-        assert!(Did::new("did:webvh:z6mkfixture:exa mple").is_err());
-        assert!(Did::new("did:webvh:z6mkfixture:exa\tmple").is_err());
+        assert!(DidFullId::new("did:webvh:z6mkfixture:exa mple").is_err());
+        assert!(DidFullId::new("did:webvh:z6mkfixture:exa\tmple").is_err());
         // Pure alnum method — accepted.
-        assert!(Did::new("did:webvh:example").is_ok());
-        assert!(Did::new("did:webvh:z6mkfixture:host.example/path").is_ok());
-        assert!(Did::new("did:webvh:z6mkfixture:host.example/path#frag").is_err());
-        assert!(Did::new("did:webvh:z6mkfixture:host.example/path?versionId=1").is_err());
+        assert!(DidFullId::new("did:webvh:example").is_ok());
+        // A bare resolvable DID excludes DID URL path/query/fragment components.
+        assert!(DidFullId::new("did:webvh:z6mkfixture:host.example/path").is_err());
+        assert!(DidFullId::new("did:webvh:z6mkfixture:host.example/path#frag").is_err());
+        assert!(DidFullId::new("did:webvh:z6mkfixture:host.example/path?versionId=1").is_err());
     }
 
     #[test]
@@ -1821,19 +1828,19 @@ mod tests {
 
     #[test]
     fn full_and_core_id_method_adapter_kats() {
-        let webvh = FullId::new("did:webvh:zQ3shExampleScid:alice.example:webvh:user").unwrap();
+        let webvh = DidFullId::new("did:webvh:zQ3shExampleScid:alice.example:webvh:user").unwrap();
         assert_eq!(
             project_full_id_to_core_id(&webvh).unwrap().as_str(),
             "ak:did_core:webvh:zQ3shExampleScid"
         );
 
-        let web = FullId::new("did:web:peer-ps.example:users:alice").unwrap();
+        let web = DidFullId::new("did:web:peer-ps.example:users:alice").unwrap();
         assert_eq!(
             project_full_id_to_core_id(&web).unwrap().as_str(),
             "ak:did_core:web:peer-ps.example:users:alice"
         );
 
-        let key = FullId::new("did:key:z6MkruntimeExample").unwrap();
+        let key = DidFullId::new("did:key:z6MkruntimeExample").unwrap();
         assert_eq!(
             project_full_id_to_core_id(&key).unwrap().as_str(),
             "ak:did_core:key:z6MkruntimeExample"
@@ -1845,11 +1852,11 @@ mod tests {
             "did:web:example.test#key-1",
             "did:Web:example.test",
         ] {
-            assert!(FullId::new(invalid).is_err(), "{invalid} must fail");
+            assert!(DidFullId::new(invalid).is_err(), "{invalid} must fail");
         }
-        assert!(FullId::new(format!("did:web:{}", "a".repeat(2040))).is_ok());
-        assert!(FullId::new(format!("did:web:{}", "a".repeat(2041))).is_err());
-        assert!(CoreId::new("ak:did_core:web:peer-ps.example").is_ok());
-        assert!(CoreId::new("ak:did_core:web:peer-ps.example/path").is_err());
+        assert!(DidFullId::new(format!("did:web:{}", "a".repeat(2040))).is_ok());
+        assert!(DidFullId::new(format!("did:web:{}", "a".repeat(2041))).is_err());
+        assert!(DidCoreId::new("ak:did_core:web:peer-ps.example").is_ok());
+        assert!(DidCoreId::new("ak:did_core:web:peer-ps.example/path").is_err());
     }
 }

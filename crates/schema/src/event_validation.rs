@@ -41,7 +41,7 @@ impl EventSchemaExt for Event {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Did, EnvelopeActorKind, Hlc, RealmId, ReasonCode, ScopeRef};
+    use arkret_wire::{DidCoreId, EnvelopeActorKind, Hlc, RealmId, ReasonCode, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -53,7 +53,7 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
             },
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"content": {"kind": "ak.content.text", "body": "missing strand"}}),

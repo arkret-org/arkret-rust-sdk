@@ -12,7 +12,7 @@ use arkret_state::{
     join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    ActorId, AuthorizationRef, CellRef, Did, EncryptionProfile, Error, Event, EventKind,
+    AuthorizationRef, CellRef, DidCoreId, DidFullId, EncryptionProfile, Error, Event, EventKind,
     GenesisSalt, Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId,
     RealmId, Result, SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId,
     event_spec, project_full_id_to_core_id,
@@ -25,8 +25,10 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 /// Public inputs for the profile-closed managed Agent PCR Realm payload.
 #[derive(Clone, Debug)]
 pub struct ManagedAgentPcrCreatePayloadInput {
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    /// Resolvable DID admitted for the Agent and published as Realm notary.
+    pub agent_full_id: DidFullId,
+    pub controller_id: DidCoreId,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TypedTrustDomainId,
     pub capability_action_registry_digest: Hash,
@@ -38,7 +40,7 @@ pub fn build_managed_agent_pcr_create_payload(
     input: ManagedAgentPcrCreatePayloadInput,
 ) -> Result<RealmCreatePayload> {
     let notary = NotaryValue::single_did_with_org(
-        input.agent_id.clone(),
+        input.agent_full_id,
         vec![input.controller_id.clone()],
         input.controller_id.clone(),
         vec![input.controller_id.clone()],
@@ -64,15 +66,15 @@ pub fn build_managed_agent_pcr_create_payload(
     Ok(payload)
 }
 
-fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &ActorId) -> Result<bool> {
-    let matches = |full_id: &Did| -> Result<bool> {
-        Ok(ActorId::from(project_full_id_to_core_id(full_id)?) == *actor_id)
+fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &DidCoreId) -> Result<bool> {
+    let matches = |full_id: &DidFullId| -> Result<bool> {
+        Ok(project_full_id_to_core_id(full_id)? == *actor_id)
     };
     match notary {
         NotaryValue::SingleDid { did, .. } | NotaryValue::Mixed { did, .. } => matches(did),
         NotaryValue::Threshold { members, .. } | NotaryValue::OpenSet { members } => {
             for member in members {
-                if matches(member)? {
+                if member.as_core_id() == actor_id.as_core_id() {
                     return Ok(true);
                 }
             }
@@ -86,8 +88,8 @@ fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &ActorId) ->
 #[derive(Clone, Debug)]
 pub struct ManagedAgentPcrControlMaterial {
     pub realm_id: RealmId,
-    pub agent_id: ActorId,
-    pub controller_id: ActorId,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub authorization_ref: AuthorizationRef,
     /// The founding notary profile, exactly as the accepted create declared it.
     pub notary: NotaryValue,
@@ -391,8 +393,8 @@ fn apply_managed_agent_batch(
 #[derive(Clone, Debug)]
 pub struct ManagedAgentPcrGenesisAuthority {
     realm_id: RealmId,
-    agent_id: ActorId,
-    controller_id: ActorId,
+    agent_id: DidCoreId,
+    controller_id: DidCoreId,
     authorization_ref: AuthorizationRef,
     notary: NotaryValue,
     authority_set_ref: Hash,
@@ -438,13 +440,13 @@ impl ManagedAgentPcrGenesisAuthority {
         &self.realm_id
     }
 
-    pub fn agent_id(&self) -> &ActorId {
+    pub fn agent_id(&self) -> &DidCoreId {
         &self.agent_id
     }
 
     /// The delegated controller whose device key signs receipts under this
     /// authority.
-    pub fn controller_id(&self) -> &ActorId {
+    pub fn controller_id(&self) -> &DidCoreId {
         &self.controller_id
     }
 
@@ -472,7 +474,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
     let material = materialize_managed_agent_pcr_control(events, project)?;
-    if ActorId::from(project_full_id_to_core_id(signer.signer_did())?) != material.controller_id {
+    if project_full_id_to_core_id(signer.signer_did())? != material.controller_id {
         return Err(Error::Protocol(
             "managed Agent PCR Seal signer must be the delegated controller".to_owned(),
         ));

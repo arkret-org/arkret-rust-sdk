@@ -5,7 +5,7 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload, AgentSidecarExposureAck,
 };
-use arkret_wire::{ActorId, DidUrl, Event, Hlc, ScopeRef, event_spec};
+use arkret_wire::{DidCoreId, DidUrl, Event, Hlc, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
 
 use crate::{EventSpec, Result, TypedEventDraft};
@@ -18,8 +18,8 @@ use crate::{EventSpec, Result, TypedEventDraft};
 pub fn build_agent_key_authorize_event(
     payload: &AgentKeyAuthorizePayload,
     scope_ref: ScopeRef,
-    agent_actor_id: ActorId,
-    controller_id: ActorId,
+    agent_actor_id: DidCoreId,
+    controller_id: DidCoreId,
     controller_authorization_ref: DidUrl,
     actor_seq: u64,
     hlc: Hlc,
@@ -39,8 +39,8 @@ pub fn build_agent_key_authorize_event(
 pub fn build_agent_key_revoke_event(
     payload: &AgentKeyRevokePayload,
     scope_ref: ScopeRef,
-    agent_actor_id: ActorId,
-    controller_id: ActorId,
+    agent_actor_id: DidCoreId,
+    controller_id: DidCoreId,
     controller_authorization_ref: DidUrl,
     actor_seq: u64,
     hlc: Hlc,
@@ -53,8 +53,8 @@ pub fn build_agent_key_revoke_event(
 
 struct AgentLifecycleEventInput<P> {
     payload: P,
-    agent_id: ActorId,
-    controller_id: ActorId,
+    agent_id: DidCoreId,
+    controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     actor_seq: u64,
@@ -78,8 +78,8 @@ fn build_agent_lifecycle_event<K: EventSpec>(
 /// Build an unsigned controller-executed `ak.self.agent.pause` Event draft.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_pause_event(
-    agent_id: ActorId,
-    controller_id: ActorId,
+    agent_id: DidCoreId,
+    controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     reason: Option<String>,
@@ -110,8 +110,8 @@ pub fn build_agent_pause_event(
 /// Build an unsigned controller-executed `ak.self.agent.resume` Event draft.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_resume_event(
-    agent_id: ActorId,
-    controller_id: ActorId,
+    agent_id: DidCoreId,
+    controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
@@ -144,8 +144,8 @@ pub fn build_agent_resume_event(
 /// draft. Deactivation may start from either active or paused and is terminal.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_deactivate_event(
-    agent_id: ActorId,
-    controller_id: ActorId,
+    agent_id: DidCoreId,
+    controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     previous_status: AgentLifecycleState,
@@ -185,6 +185,7 @@ pub fn build_agent_deactivate_event(
 
 #[cfg(test)]
 mod tests {
+    use arkret_identifiers::{DidFullId, project_full_id_to_core_id};
     use arkret_models_collaboration::events_payloads::agent::{
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
     };
@@ -199,8 +200,12 @@ mod tests {
 
     use super::*;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidCoreId {
+        project_full_id_to_core_id(&full_id(name)).unwrap()
+    }
+
+    fn full_id(name: &str) -> DidFullId {
+        DidFullId::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn realm() -> RealmId {
@@ -224,12 +229,12 @@ mod tests {
             .expect("the registered contract must be evaluable")
     }
 
-    fn agent_key_cell(agent_id: &Did, key_id: &str) -> CellRef {
+    fn agent_key_cell(agent_id: &DidCoreId, key_id: &str) -> CellRef {
         let subject = composite_subject(&[agent_id.as_str(), key_id]).unwrap();
         CellRef::new(format!("ak:cell:ak.component.agent.key.v1:{subject}")).unwrap()
     }
 
-    fn agent_status_cell(agent_id: &Did) -> CellRef {
+    fn agent_status_cell(agent_id: &DidCoreId) -> CellRef {
         CellRef::new(format!("ak:cell:ak.component.agent.status.v1:{agent_id}")).unwrap()
     }
 
@@ -248,11 +253,15 @@ mod tests {
         }
     }
 
-    fn key_authorize_payload(agent_id: Did, controller_id: Did) -> AgentKeyAuthorizePayload {
+    fn key_authorize_payload(
+        agent_id: DidCoreId,
+        agent_full_id: &DidFullId,
+        controller_id: DidCoreId,
+    ) -> AgentKeyAuthorizePayload {
         AgentKeyAuthorizePayload {
-            agent_id: agent_id.clone(),
+            agent_id,
             key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
-            verification_method: DidUrl::new(format!("{agent_id}#runtime-key-1")).unwrap(),
+            verification_method: DidUrl::new(format!("{agent_full_id}#runtime-key-1")).unwrap(),
             public_key_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             signing_key_binding_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
             accountable_principal_id: controller_id.clone(),
@@ -282,13 +291,15 @@ mod tests {
     #[test]
     fn key_authorize_event_binds_controller_execution() {
         let agent_id = did("agent");
+        let agent_full_id = full_id("agent");
         let controller_id = did("controller");
+        let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
         let event = build_agent_key_authorize_event(
-            &key_authorize_payload(agent_id.clone(), controller_id.clone()),
+            &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
             scope(),
             agent_id.clone(),
             controller_id.clone(),
-            DidUrl::new(format!("{agent_id}#managed-controller")).unwrap(),
+            DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         )
@@ -309,13 +320,15 @@ mod tests {
     #[test]
     fn key_authorize_projects_atomic_replacement_pair() {
         let agent_id = did("agent");
+        let agent_full_id = full_id("agent");
         let controller_id = did("controller");
+        let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
         let event = build_agent_key_authorize_event(
-            &key_authorize_payload(agent_id.clone(), controller_id.clone()),
+            &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
             scope(),
             agent_id.clone(),
             controller_id,
-            DidUrl::new(format!("{agent_id}#managed-controller")).unwrap(),
+            DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         )
@@ -395,9 +408,10 @@ mod tests {
     #[test]
     fn lifecycle_events_bind_payload_and_status_transition() {
         let agent_id = did("agent");
+        let agent_full_id = full_id("agent");
         let controller_id = did("controller");
         let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
-        let authorization_ref = DidUrl::new(format!("{agent_id}#managed-controller")).unwrap();
+        let authorization_ref = DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap();
 
         let status_cell = agent_status_cell(&agent_id);
 

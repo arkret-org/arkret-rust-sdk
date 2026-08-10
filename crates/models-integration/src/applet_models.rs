@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 pub use arkret_wire::AppletIdentifier;
 use arkret_wire::{
-    AppletId, BlobRef, Did, Event, EventId, GrantId, Hash, ProtocolOperationId, RealmId,
+    AppletId, BlobRef, DidCoreId, Event, EventId, GrantId, Hash, ProtocolOperationId, RealmId,
     ReasonCode, ScopeRef,
 };
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ use crate::artifacts_applet::{
 pub struct AppletPingOutcome {
     pub ok: bool,
     pub applet_id: String,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub protocol_version: String,
 }
 
@@ -111,7 +111,7 @@ pub struct AppletInstallOutcome {
     pub applet_id: String,
     pub registration_event_ref: Option<EventId>,
     pub registration_epoch: Hash,
-    pub bot_actor_id: Did,
+    pub bot_actor_id: DidCoreId,
     pub capability_grant_refs: Vec<GrantId>,
     pub membership_event_refs: Vec<EventId>,
     pub e2ee_authorization_refs: Vec<EventId>,
@@ -150,7 +150,7 @@ pub struct AppletCapabilityRevokeIntent {
 #[serde(deny_unknown_fields)]
 pub struct AppletMembershipRemoveIntent {
     pub event_kind: String,
-    pub member_id: Did,
+    pub member_id: DidCoreId,
     pub membership: AppletManagedMembershipRemoval,
     pub reason_code: ReasonCode,
 }
@@ -248,7 +248,7 @@ pub struct AppletRevokeOutcome {
 pub struct AppletActorView {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

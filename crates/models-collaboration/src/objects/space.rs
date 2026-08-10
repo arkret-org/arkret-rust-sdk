@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    ActorId, BlobRef, CircleId, Error, RealmId, Result, SchemaId, SpaceId, SpaceState,
+    BlobRef, CircleId, DidCoreId, Error, RealmId, Result, SchemaId, SpaceId, SpaceState,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -60,11 +60,11 @@ pub struct Space {
     /// pick their scope.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child_scope_policy: Option<ChildScopePolicy>,
-    pub created_by: ActorId,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<ActorId>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -98,7 +98,7 @@ impl Space {
         realm_id: RealmId,
         kind: impl Into<String>,
         title: impl Into<String>,
-        created_by: ActorId,
+        created_by: DidCoreId,
     ) -> Self {
         Self {
             id: Some(id),
@@ -137,7 +137,7 @@ impl Space {
         realm_id: RealmId,
         kind: impl Into<String>,
         title: impl Into<String>,
-        created_by: ActorId,
+        created_by: DidCoreId,
     ) -> Self {
         Self {
             id: None,
@@ -223,12 +223,7 @@ mod tests {
             RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
             kind,
             "Work",
-            ActorId::from(
-                arkret_wire::project_full_id_to_core_id(
-                    &arkret_wire::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-                )
-                .unwrap(),
-            ),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         )
     }
 

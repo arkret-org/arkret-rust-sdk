@@ -6,7 +6,7 @@ pub use arkret_models_crypto::encrypted_attachment::{
     StreamEncryptionAlgorithm, StreamEncryptionScheme, WholeFileEncryptedAttachment,
     WholeFileEncryptionAlgorithm, WholeFileEncryptionScheme,
 };
-use arkret_wire::{BlobRef, Did, Hash, RealmId, SchemaId};
+use arkret_wire::{BlobRef, DidCoreId, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,7 @@ pub type MediaType = String;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignatureValue {
-    pub kid: Did,
+    pub kid: DidCoreId,
     pub signature_algorithm: String,
     pub sig: String,
 }
@@ -32,7 +32,7 @@ pub struct UploadReceipt {
     pub size_bytes: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
-    pub issuer_service_id: Did,
+    pub issuer_service_id: DidCoreId,
     pub signature: SignatureValue,
 }
 
@@ -53,11 +53,11 @@ pub struct Blob {
     pub encryption: Option<EncryptedAttachment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thumbnail_blob_ref: Option<BlobRef>,
-    pub created_by: Did,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -169,7 +169,7 @@ pub struct BlobPresignPayload {
     pub blob_ref: BlobRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer_service_id: Did,
+    pub issuer_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -178,7 +178,7 @@ pub struct BlobPresignPayload {
     pub nonce: String,
     pub access_scope: BlobPresignAccessScope,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience_hint: Option<Did>,
+    pub audience_hint: Option<DidCoreId>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

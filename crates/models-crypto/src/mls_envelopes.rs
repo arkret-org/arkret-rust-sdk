@@ -6,7 +6,7 @@
 //! extension trait — this crate holds the data shapes and the deterministic
 //! CBOR codec only.
 
-use arkret_wire::{DeviceId, Did, Hash};
+use arkret_wire::{DeviceId, DidCoreId, Hash};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -37,7 +37,7 @@ pub struct MlsCommitEnvelope {
 pub struct MlsWelcomeEnvelope {
     pub group_id: String,
     pub epoch: u64,
-    pub recipient_principal_id: Did,
+    pub recipient_principal_id: DidCoreId,
     pub recipient_device_id: DeviceId,
     pub welcome: String,
     pub welcome_hash: Hash,

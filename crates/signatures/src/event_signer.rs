@@ -181,8 +181,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, PayloadSignature,
-        PayloadSigner, RealmId, Result as WireResult, canonical,
+        Audience, DidCoreId, DidFullId, Event, EventId, EventRequirements, Hash, Hlc,
+        PayloadSignature, PayloadSigner, RealmId, Result as WireResult, canonical,
     };
     use chrono::{DateTime, TimeZone, Utc};
     use serde_json::json;
@@ -196,16 +196,16 @@ mod tests {
         ))
     }
 
-    fn alice() -> Did {
-        Did::new("did:web:alice.example").unwrap()
+    fn alice() -> DidFullId {
+        DidFullId::new("did:web:alice.example").unwrap()
     }
 
     fn vm_alice() -> DidUrl {
         DidUrl::new("did:web:alice.example#key-1").unwrap()
     }
 
-    fn bob() -> Did {
-        Did::new("did:web:bob.example").unwrap()
+    fn bob() -> DidFullId {
+        DidFullId::new("did:web:bob.example").unwrap()
     }
 
     fn make_event() -> Event {
@@ -214,9 +214,7 @@ mod tests {
             kind: "ak.message.create".into(),
             realm_id: realm(),
             scope_ref: arkret_wire::ScopeRef::Realm { realm_id: realm() },
-            actor_id: arkret_wire::ActorId::from(
-                arkret_wire::project_full_id_to_core_id(&alice()).unwrap(),
-            ),
+            actor_id: arkret_wire::project_full_id_to_core_id(&alice()).unwrap(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -245,18 +243,18 @@ mod tests {
     /// `Ed25519DetachedJwsSigner` shape, but lives in-crate so the
     /// `sign_event` tests don't pull the `signer` feature in.
     struct StubPayloadSigner {
-        did: Did,
+        did: DidFullId,
         kid: DidUrl,
     }
 
     impl StubPayloadSigner {
-        fn new(did: Did, kid: DidUrl) -> Self {
+        fn new(did: DidFullId, kid: DidUrl) -> Self {
             Self { did, kid }
         }
     }
 
     impl PayloadSigner for StubPayloadSigner {
-        fn signer_did(&self) -> &Did {
+        fn signer_did(&self) -> &DidFullId {
             &self.did
         }
 
@@ -332,10 +330,7 @@ mod tests {
     fn sign_event_with_executed_by_signs_over_executed_by() {
         let mut without = make_event();
         let mut with = make_event();
-        with.executed_by = Some(arkret_wire::ActorId::from(
-            arkret_wire::project_full_id_to_core_id(&Did::new("did:web:applet.example").unwrap())
-                .unwrap(),
-        ));
+        with.executed_by = Some(DidCoreId::new("ak:did_core:web:applet.example").unwrap());
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();

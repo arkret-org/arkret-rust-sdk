@@ -1,5 +1,7 @@
 //! Strand lifecycle and ordering event payloads.
 
+use arkret_wire::DidCoreId;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -265,7 +267,7 @@ pub struct StrandWatchExpectedValue {
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchSetPayload {
     pub strand_id: StrandId,
-    pub watcher_actor_id: ActorId,
+    pub watcher_actor_id: DidCoreId,
     /// `None` serializes as JSON `null`, clearing the cell.
     pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -279,7 +281,7 @@ impl StrandWatchSetPayload {
     /// non-self projection (ignored for `muted` by the reducer).
     pub fn set(
         strand_id: StrandId,
-        watcher_actor_id: ActorId,
+        watcher_actor_id: DidCoreId,
         level: StrandWatchLevel,
         level_public: Option<bool>,
     ) -> Self {
@@ -294,7 +296,7 @@ impl StrandWatchSetPayload {
 
     /// Clear the watch cell (`level: null`). Per the schema `allOf`,
     /// `level_public` is forced off on this path.
-    pub fn clear(strand_id: StrandId, watcher_actor_id: ActorId) -> Self {
+    pub fn clear(strand_id: StrandId, watcher_actor_id: DidCoreId) -> Self {
         Self {
             strand_id,
             watcher_actor_id,
@@ -394,26 +396,22 @@ mod presence_tests {
     fn watch_cell_ref_matches_the_registered_contract() {
         let payload = StrandWatchSetPayload::set(
             strand_id("000000000001"),
-            ActorId::from(
-                project_full_id_to_core_id(
-                    &Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
-                )
-                .unwrap(),
-            ),
+            project_full_id_to_core_id(
+                &DidFullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
+            )
+            .unwrap(),
             StrandWatchLevel::Participating,
             None,
         );
-        let event = arkret_wire::test_support::raw_event(
+        let event = test_support::raw_event(
             "ak.strand.watch.set",
             ScopeRef::Realm {
                 realm_id: realm_id(),
             },
-            ActorId::from(
-                project_full_id_to_core_id(
-                    &Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-                )
-                .unwrap(),
-            ),
+            project_full_id_to_core_id(
+                &DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            )
+            .unwrap(),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::to_value(&payload).unwrap(),

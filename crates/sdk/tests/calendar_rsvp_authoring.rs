@@ -8,9 +8,7 @@ use arkret::{
     CalendarEventFields, CalendarStatus, RsvpAuthoring, RsvpResponse, RsvpResponseBranch,
     RsvpStatus,
 };
-use arkret_wire::{
-    ActorId, Did, EventId, Hash, Hlc, RealmId, StrandId, project_full_id_to_core_id,
-};
+use arkret_wire::{DidFullId, EventId, Hash, Hlc, RealmId, StrandId, project_full_id_to_core_id};
 
 const BASIS_A: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const BASIS_B: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -66,10 +64,8 @@ fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret
                 [0x10; 32],
             )),
         },
-        ActorId::from(
-            project_full_id_to_core_id(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap())
-                .unwrap(),
-        ),
+        project_full_id_to_core_id(&DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap())
+            .unwrap(),
         1,
         Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
         causal_refs,

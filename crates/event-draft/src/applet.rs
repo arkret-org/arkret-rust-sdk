@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_integration::{
     AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope, AppletIdentifier,
 };
-use arkret_wire::{ActorId, Event, Hlc, NonEmptyString, RealmId, ScopeRef};
+use arkret_wire::{DidCoreId, Event, Hlc, NonEmptyString, RealmId, ScopeRef};
 use serde_json::Value;
 
 use crate::{EventDraftError, Result, TypedEventDraft};
@@ -15,7 +15,7 @@ use crate::{EventDraftError, Result, TypedEventDraft};
 pub struct AppletBridgeErrorBuilder {
     realm_id: RealmId,
     applet_id: AppletIdentifier,
-    actor_id: ActorId,
+    actor_id: DidCoreId,
     failed_transaction_ref: String,
     error_class: AppletBridgeErrorClass,
     error_code: String,
@@ -31,7 +31,7 @@ impl AppletBridgeErrorBuilder {
     pub fn new(
         realm_id: RealmId,
         applet_id: AppletIdentifier,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         failed_transaction_ref: impl Into<String>,
         error_class: AppletBridgeErrorClass,
         error_code: impl Into<String>,
@@ -120,7 +120,7 @@ mod tests {
             AppletIdentifier::Cx(
                 AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             ),
-            Did::new("did:webvh:z6mkfixture:bot.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap(),
             "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s",
             AppletBridgeErrorClass::ExternalNetwork,
             "external_rate_limited",
@@ -148,7 +148,7 @@ mod tests {
             AppletIdentifier::Cx(
                 AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             ),
-            Did::new("did:webvh:z6mkfixture:bot.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap(),
             "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s",
             AppletBridgeErrorClass::Schema,
             "invalid_external_ref",

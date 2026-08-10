@@ -1,6 +1,6 @@
 //! ICE configuration and call media token wire shapes.
 
-use arkret_wire::{CallId, DeviceId, Did, DidUrl, GrantId, Hash, RealmId, XExtensionMap};
+use arkret_wire::{CallId, DeviceId, DidCoreId, DidUrl, GrantId, Hash, RealmId, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ pub enum MediaIceMode {
 pub struct MediaIceConfigRequestBody {
     pub realm_id: RealmId,
     pub call_id: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub mode: MediaIceMode,
 }
@@ -38,7 +38,7 @@ pub struct MediaIceConfigRequestBody {
 pub struct MediaIceConfigOutcome {
     pub realm_id: RealmId,
     pub call_id: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub ice_servers: Vec<MediaIceServer>,
     pub ttl_seconds: u32,
@@ -219,7 +219,7 @@ pub struct CallMediaDesiredMedia {
 pub struct CallMediaTokenExchangeRequestBody {
     pub realm_id: RealmId,
     pub call_id: CallId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub focus_id: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -235,7 +235,7 @@ pub struct CallMediaParticipantBinding {
     pub realm_id: RealmId,
     pub call_id: CallId,
     pub focus_id: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub participant_identity: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

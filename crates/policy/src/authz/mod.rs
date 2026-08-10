@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::models::Facet;
-use crate::{Did, Error, RealmId, Result};
+use crate::{Error, RealmId, Result};
 
 mod approval;
 pub mod authority;

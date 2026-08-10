@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize, de};
 
 use crate::{
-    BlobRef, CircleId, Did, Error, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId,
+    BlobRef, CircleId, DidCoreId, Error, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId,
     RelationId, Result, SpaceId, StrandId, ViewId,
 };
 
@@ -81,7 +81,7 @@ pub struct WireResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schema_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -204,7 +204,7 @@ struct ResourceSelectorWire {
     #[serde(default)]
     event_id: Option<EventId>,
     #[serde(default)]
-    actor_id: Option<Did>,
+    actor_id: Option<DidCoreId>,
     #[serde(default)]
     schema_ref: Option<String>,
     #[serde(default)]

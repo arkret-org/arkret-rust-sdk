@@ -17,7 +17,7 @@ use crate::recovery_authority::{
     CanonicalPublicMaterial, RecoveryCompletionAttestation, RecoveryModelGenerationRef,
 };
 use crate::{
-    BackupId, BackupSeriesId, DeviceId, Did, DidUrl, EventId, EventInitialSubmission,
+    BackupId, BackupSeriesId, DeviceId, DidCoreId, DidFullId, DidUrl, EventId,
     EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoverySessionId, TransactionId,
 };
 
@@ -215,8 +215,8 @@ pub enum SecurityTransactionBinding {
 #[serde(deny_unknown_fields)]
 pub struct PreparedEventUnit {
     pub operation_id: String,
-    pub destination_service_id: Did,
-    pub audience: Did,
+    pub destination_service_id: DidCoreId,
+    pub audience: DidCoreId,
     pub request_schema: String,
     pub request: BTreeMap<String, Value>,
     pub canonical_request_base64url: String,
@@ -224,7 +224,7 @@ pub struct PreparedEventUnit {
 }
 
 impl PreparedEventUnit {
-    pub fn new<T: Serialize>(destination_service_id: Did, request: T) -> Result<Self> {
+    pub fn new<T: Serialize>(destination_service_id: DidCoreId, request: T) -> Result<Self> {
         let request = serde_json::to_value(request)?;
         let Value::Object(request) = request else {
             return Err(Error::Protocol(
@@ -249,15 +249,18 @@ impl PreparedEventUnit {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedEventSubmissionBatch {
-    pub destination_service_id: Did,
-    pub audience: Did,
+    pub destination_service_id: DidCoreId,
+    pub audience: DidCoreId,
     pub request: EventsSubmitBatchRequestBody,
     pub canonical_request_base64url: String,
     pub request_digest: Hash,
 }
 
 impl PreparedEventSubmissionBatch {
-    pub fn new(destination_service_id: Did, request: EventsSubmitBatchRequestBody) -> Result<Self> {
+    pub fn new(
+        destination_service_id: DidCoreId,
+        request: EventsSubmitBatchRequestBody,
+    ) -> Result<Self> {
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&request)?;
         Ok(Self {
             audience: destination_service_id.clone(),
@@ -268,7 +271,7 @@ impl PreparedEventSubmissionBatch {
         })
     }
 
-    fn validate_structural(&self, coordinator_service_id: &Did) -> Result<()> {
+    pub fn validate_structural(&self, coordinator_service_id: &DidCoreId) -> Result<()> {
         if &self.destination_service_id != coordinator_service_id
             || self.audience != self.destination_service_id
         {
@@ -295,7 +298,7 @@ impl PreparedEventSubmissionBatch {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedDidPublication {
-    pub registry_service_id: Did,
+    pub registry_service_id: DidCoreId,
     pub registry_endpoint: String,
     pub previous_entry_ref: String,
     pub expected_entry_ref: String,
@@ -426,8 +429,8 @@ pub struct SecurityTransactionTerminalResult {
 pub struct SecurityTransaction {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
-    pub principal_id: Did,
-    pub coordinator_service_id: Did,
+    pub principal_id: DidCoreId,
+    pub coordinator_service_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -449,7 +452,7 @@ pub struct SecurityTransaction {
 pub struct RecoveryTransactionCreateRequest {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub binding: RecoveryBinding,
@@ -463,7 +466,7 @@ pub struct RecoveryTransactionCreateRequest {
 pub struct SecurityRotationTransactionCreateRequest {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub binding: SecurityRotationBinding,
@@ -485,7 +488,7 @@ pub enum SecurityTransactionCreateRequest {
 impl RecoveryTransactionCreateRequest {
     pub fn new(
         transaction_id: TransactionId,
-        principal_id: Did,
+        principal_id: DidCoreId,
         expires_at: DateTime<Utc>,
         binding: RecoveryBinding,
         prepared_plan: RecoveryPreparedPlan,
@@ -515,7 +518,7 @@ impl RecoveryTransactionCreateRequest {
 impl SecurityRotationTransactionCreateRequest {
     pub fn from_prepared_rotations(
         transaction_id: TransactionId,
-        principal_id: Did,
+        principal_id: DidCoreId,
         expires_at: DateTime<Utc>,
         revoke_event_id: EventId,
         revoke_unit: PreparedEventUnit,
@@ -556,7 +559,7 @@ impl SecurityRotationTransactionCreateRequest {
 
     pub fn new(
         transaction_id: TransactionId,
-        principal_id: Did,
+        principal_id: DidCoreId,
         expires_at: DateTime<Utc>,
         binding: SecurityRotationBinding,
         prepared_plan: SecurityRotationPlan,
@@ -665,7 +668,7 @@ impl SecurityTransactionCreateRequest {
     /// executing the first external side effect.
     pub fn into_initial_resource(
         self,
-        coordinator_service_id: Did,
+        coordinator_service_id: DidCoreId,
         created_at: DateTime<Utc>,
     ) -> Result<(SecurityTransaction, Vec<u8>)> {
         let canonical_request = arkret_canonical::canonical::canonical_json_bytes(&self)?;
@@ -954,7 +957,7 @@ fn validate_canonical_digest<T: Serialize + ?Sized>(
 }
 
 impl PreparedEventUnit {
-    fn validate_structural(&self, coordinator_service_id: &Did) -> Result<()> {
+    fn validate_structural(&self, coordinator_service_id: &DidCoreId) -> Result<()> {
         if self.operation_id != "ak.self.events.command.submit"
             || self.request_schema
                 != "https://arkret.org/v1/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody"
@@ -979,7 +982,7 @@ impl PreparedEventUnit {
 
     fn events_submit_request(
         &self,
-        coordinator_service_id: &Did,
+        coordinator_service_id: &DidCoreId,
     ) -> Result<EventsSubmitBatchRequestBody> {
         self.validate_structural(coordinator_service_id)?;
         serde_json::from_value(serde_json::to_value(&self.request)?).map_err(|error| {
@@ -1074,7 +1077,7 @@ impl SecurityTransaction {
                 )));
             }
             validate_step_output_ref("accepted_steps[].output_ref", &accepted.output_ref)?;
-            if Did::new(accepted.acceptor_id.clone()).is_err()
+            if DidFullId::new(accepted.acceptor_id.clone()).is_err()
                 && DeviceId::new(accepted.acceptor_id.clone()).is_err()
             {
                 return Err(Error::Protocol(
@@ -1473,7 +1476,7 @@ mod tests {
     #[test]
     fn did_publication_endpoint_allows_only_https_or_loopback_http() {
         let mut publication = PreparedDidPublication {
-            registry_service_id: Did::new("did:web:registry.example").unwrap(),
+            registry_service_id: DidCoreId::new("ak:did_core:web:registry.example").unwrap(),
             registry_endpoint: "http://127.0.0.1:3000/_arkret/root/identity/submit-did-operation"
                 .to_owned(),
             previous_entry_ref: "did:web:alice.example?versionId=1-a".to_owned(),
@@ -1501,7 +1504,7 @@ mod tests {
                 .iter()
                 .map(|backup| {
                     json!({
-                        "actor_id": "did:webvh:z6mkfixture:alice.example",
+                        "actor_id": "ak:did_core:webvh:z6mkfixture",
                         "backup_id": backup.backup_id,
                         "backup_kind": backup_kind,
                         "ciphertext_digest": backup.ciphertext_digest,
@@ -1513,12 +1516,12 @@ mod tests {
         CanonicalPublicMaterial::canonical_json(value).unwrap()
     }
 
-    fn event_unit(coordinator: &Did, kind: &str) -> PreparedEventUnit {
+    fn event_unit(coordinator: &DidCoreId, kind: &str) -> PreparedEventUnit {
         let scope_ref = ScopeRef::Realm {
             realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
                 .unwrap(),
         };
-        let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let actor_id = DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let event = Event::new_at(
             kind,
             scope_ref.clone(),
@@ -1590,7 +1593,8 @@ mod tests {
 
     fn rotation(accepted: usize, state: SecurityTransactionState) -> SecurityTransaction {
         let created_at = Utc.with_ymd_and_hms(2026, 7, 28, 0, 0, 0).unwrap();
-        let coordinator_service_id = Did::new("did:webvh:z6mkfixture:coordinator.example").unwrap();
+        let coordinator_service_id =
+            DidFullId::new("did:webvh:z6mkfixture:coordinator.example").unwrap();
         let backup_binding = |kind, offset: u8| BackupRotationBinding {
             backup_kind: kind,
             previous_series_id: BackupSeriesId::new(format!(
@@ -1674,7 +1678,7 @@ mod tests {
         SecurityTransaction {
             transaction_id,
             kind: SecurityTransactionKind::SecurityRotation,
-            principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             coordinator_service_id,
             expires_at: created_at + Duration::hours(4),
             created_at,

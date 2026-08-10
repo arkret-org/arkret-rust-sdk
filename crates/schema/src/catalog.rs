@@ -91,7 +91,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "event_id": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
                 "kind": "ak.message.create",
                 "space_id": "ak:space:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
-                "actor_id": "did:webvh:z6mkfixture:alice.example",
+                "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "actor_seq": 1,
                 "created_at": "2026-05-02T00:00:00.000Z",
                 "hlc": "01970e589d21-0000-a13f9c2e",
@@ -114,7 +114,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             input: json!({
                 "event_id": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
                 "space_id": "ak:space:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
-                "actor_id": "did:webvh:z6mkfixture:alice.example",
+                "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "actor_seq": 1,
                 "kind": "ak.message.create",
                 "created_at": "2026-05-02T00:00:00.000Z",

@@ -2,7 +2,7 @@
 
 use arkret_models_crypto::{RecoveryPolicyPublishOutcome, RecoveryPolicyPublishRequest};
 use arkret_models_discovery::{
-    DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
+    DidCoreIdAllowlist, DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
     DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
     DirectoryOrganizationResolutionOutcome, DirectoryOrganizationSearchOutcome,
     DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
@@ -12,8 +12,7 @@ use arkret_models_discovery::{
     DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
     DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
     DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
-    DirectoryUserSearchOutcome, ServiceDescribe, ServiceEndpointBinding, ServiceIdAllowlist,
-    ServiceRequirements,
+    DirectoryUserSearchOutcome, ServiceDescribe, ServiceEndpointBinding, ServiceRequirements,
 };
 use arkret_models_identity::service_identity::{
     SERVICE_REGISTRATION_ENSURE_PATH, SERVICE_REGISTRATION_GET_PATH,
@@ -30,7 +29,7 @@ use arkret_models_identity::{
     OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
     PrincipalResolutionEvidence, ServiceResolutionRecord,
 };
-use arkret_wire::{CoreId, Did, ServiceId, ServiceKind};
+use arkret_wire::{DidCoreId, ServiceKind};
 use reqwest::Method;
 
 use crate::{Client, Error, Result};
@@ -40,7 +39,7 @@ impl Client {
     /// remote binding. Sensitive callers must independently verify it.
     pub async fn open_principal_resolution(
         &self,
-        principal_id: &CoreId,
+        principal_id: &DidCoreId,
         history_depth: Option<u16>,
         after_resolution_event_ref: Option<&str>,
     ) -> Result<PrincipalResolutionEvidence> {
@@ -65,7 +64,7 @@ impl Client {
     /// Fetch the current signed first-hop route record for one stable service id.
     pub async fn open_service_resolution(
         &self,
-        service_id: &ServiceId,
+        service_id: &DidCoreId,
     ) -> Result<ServiceResolutionRecord> {
         let encoded = url::form_urlencoded::byte_serialize(service_id.as_str().as_bytes())
             .collect::<String>();
@@ -133,7 +132,7 @@ impl Client {
         let description = self
             .describe_role_and_verify(service_kind, requirements)
             .await?;
-        ServiceIdAllowlist::new()
+        DidCoreIdAllowlist::new()
             .allow(binding.clone())
             .verify_description(&description)?;
         Ok(description)
@@ -289,7 +288,7 @@ impl Client {
 
     pub async fn organization_registration_get(
         &self,
-        organization_id: &Did,
+        organization_id: &DidCoreId,
     ) -> Result<OrganizationRegistrationOutcome> {
         let builder = self
             .request(Method::GET, ORGANIZATION_REGISTRATION_GET_PATH)?

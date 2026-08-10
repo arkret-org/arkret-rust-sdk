@@ -219,7 +219,7 @@ mod tests {
         let approval = serde_json::json!({
             "kind": "agent_runtime_approval",
             "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000004",
-            "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "agent_id": "ak:did_core:webvh:z6mkfixture",
             "requested_at": "2026-07-13T10:00:00.000Z",
             "expires_at": "2026-07-13T10:15:00.000Z"
         });

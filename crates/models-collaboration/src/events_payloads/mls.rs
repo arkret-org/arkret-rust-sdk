@@ -3,6 +3,7 @@
 use arkret_canonical::serde_helpers::{canonical_timestamp, serialize_canonical_timestamp};
 use arkret_models_crypto::{PeerKeyPackageClaimReceipt, SelfKeyPackageClaimReceipt};
 use arkret_models_identity::CurrentAgentSignerEvidence;
+use arkret_wire::DidCoreId;
 
 use crate::internal_prelude::*;
 
@@ -84,13 +85,14 @@ impl MlsClaimTrustBinding {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum MlsRequesterTrustBinding {
     RequesterDevice {
         requester_device_id: DeviceId,
         requester_device_authorize_event_id: EventId,
     },
     RequesterNativeAgent {
-        requester_agent_id: CoreId,
+        requester_agent_id: DidCoreId,
         requester_agent_verification_method: DidUrl,
         requester_agent_key_authorize_event_id: EventId,
         requester_agent_signer_evidence: CurrentAgentSignerEvidence,
@@ -115,7 +117,7 @@ pub enum MlsWelcomeRecipient {
         recipient_device_id: DeviceId,
     },
     NativeAgent {
-        recipient_agent_id: CoreId,
+        recipient_agent_id: DidCoreId,
         recipient_agent_verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
     },
@@ -200,7 +202,7 @@ pub struct MlsGenesisPayload {
     pub mls_group_id: MlsGroupId,
     pub effective_scope: ScopeRef,
     pub epoch: MlsGenesisEpoch,
-    pub creator_principal_id: Did,
+    pub creator_principal_id: DidCoreId,
     pub creator_device_id: DeviceId,
     pub cipher_suite: NonEmptyString,
     pub group_info_ref: BlobRef,
@@ -218,7 +220,7 @@ struct MlsGenesisPayloadWire {
     mls_group_id: MlsGroupId,
     effective_scope: ScopeRef,
     epoch: MlsGenesisEpoch,
-    creator_principal_id: Did,
+    creator_principal_id: DidCoreId,
     creator_device_id: DeviceId,
     cipher_suite: NonEmptyString,
     group_info_ref: BlobRef,
@@ -325,7 +327,7 @@ pub use arkret_models_crypto::MlsKeyPackageState;
 pub struct MlsKeypackagePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keypackage_id: Option<NonEmptyString>,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
@@ -355,7 +357,7 @@ pub struct MlsProposalPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_principal_id: Option<Did>,
+    pub target_principal_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -373,7 +375,7 @@ struct MlsProposalPayloadWire {
     #[serde(default)]
     proposal_digest: Option<Hash>,
     #[serde(default)]
-    target_principal_id: Option<Did>,
+    target_principal_id: Option<DidCoreId>,
     #[serde(default)]
     target_device_id: Option<DeviceId>,
     #[serde(default)]
@@ -428,7 +430,7 @@ pub struct MlsWelcomeClaimEnvelope {
     pub keypackage_digest: Hash,
     pub intended_realm_id: RealmId,
     pub claim_id: NonEmptyString,
-    pub requester_did: CoreId,
+    pub requester_actor_id: DidCoreId,
     pub trust_binding: MlsRequesterTrustBinding,
     pub nonce: NonEmptyString,
     pub welcome_digest: Hash,
@@ -442,7 +444,7 @@ pub struct MlsWelcomeClaimEnvelopeSigningInput {
     pub keypackage_digest: Hash,
     pub intended_realm_id: RealmId,
     pub claim_id: NonEmptyString,
-    pub requester_did: CoreId,
+    pub requester_actor_id: DidCoreId,
     pub trust_binding: MlsRequesterTrustBinding,
     pub nonce: NonEmptyString,
     pub welcome_digest: Hash,
@@ -522,13 +524,13 @@ struct MlsWelcomeClaimEnvelopeWire {
     keypackage_digest: Hash,
     intended_realm_id: RealmId,
     claim_id: NonEmptyString,
-    requester_did: CoreId,
+    requester_actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     requester_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     requester_device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    requester_agent_id: Option<CoreId>,
+    requester_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     requester_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -585,7 +587,7 @@ impl Serialize for MlsWelcomeClaimEnvelope {
             keypackage_digest: self.keypackage_digest.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             claim_id: self.claim_id.clone(),
-            requester_did: self.requester_did.clone(),
+            requester_actor_id: self.requester_actor_id.clone(),
             requester_device_id,
             requester_device_authorize_event_id,
             requester_agent_id,
@@ -645,7 +647,7 @@ impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
             keypackage_digest: wire.keypackage_digest,
             intended_realm_id: wire.intended_realm_id,
             claim_id: wire.claim_id,
-            requester_did: wire.requester_did,
+            requester_actor_id: wire.requester_actor_id,
             trust_binding,
             nonce: wire.nonce,
             welcome_digest: wire.welcome_digest,
@@ -661,13 +663,13 @@ struct MlsWelcomeClaimEnvelopeSigningInputWire {
     keypackage_digest: Hash,
     intended_realm_id: RealmId,
     claim_id: NonEmptyString,
-    requester_did: CoreId,
+    requester_actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_device_id: Option<DeviceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_device_authorize_event_id: Option<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    requester_agent_id: Option<CoreId>,
+    requester_agent_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_agent_verification_method: Option<DidUrl>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -723,7 +725,7 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
             keypackage_digest: self.keypackage_digest.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             claim_id: self.claim_id.clone(),
-            requester_did: self.requester_did.clone(),
+            requester_actor_id: self.requester_actor_id.clone(),
             requester_device_id,
             requester_device_authorize_event_id,
             requester_agent_id,
@@ -745,7 +747,7 @@ impl MlsWelcomeClaimEnvelope {
             keypackage_digest: self.keypackage_digest.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             claim_id: self.claim_id.clone(),
-            requester_did: self.requester_did.clone(),
+            requester_actor_id: self.requester_actor_id.clone(),
             trust_binding: self.trust_binding.clone(),
             nonce: self.nonce.clone(),
             welcome_digest: self.welcome_digest.clone(),
@@ -778,7 +780,7 @@ impl MlsWelcomeClaimEnvelope {
                 .agent_authority_snapshot
                 .core
                 .signing_key_binding;
-            if requester_agent_id != &self.requester_did
+            if requester_agent_id != &self.requester_actor_id
                 || self.signature.kid.as_str() != requester_agent_verification_method.as_str()
                 || binding.core.agent_id.as_str() != requester_agent_id.as_str()
                 || &binding.core.verification_method != requester_agent_verification_method
@@ -824,7 +826,7 @@ impl UnsignedMlsWelcomeClaimEnvelope {
             keypackage_digest: input.keypackage_digest,
             intended_realm_id: input.intended_realm_id,
             claim_id: input.claim_id,
-            requester_did: input.requester_did,
+            requester_actor_id: input.requester_actor_id,
             trust_binding: input.trust_binding,
             nonce: input.nonce,
             welcome_digest: input.welcome_digest,
@@ -849,7 +851,7 @@ impl UnsignedMlsWelcomeClaimEnvelope {
 pub struct MlsWelcomePayload {
     pub mls_group_id: MlsGroupId,
     pub epoch: u64,
-    pub recipient_principal_id: CoreId,
+    pub recipient_principal_id: DidCoreId,
     pub recipient: MlsWelcomeRecipient,
     pub sender_device_id: Option<DeviceId>,
     pub keypackage_ref: ObjectRef,
@@ -869,11 +871,11 @@ pub struct MlsWelcomePayload {
 struct MlsWelcomePayloadWire {
     mls_group_id: MlsGroupId,
     epoch: u64,
-    recipient_principal_id: CoreId,
+    recipient_principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    recipient_agent_id: Option<CoreId>,
+    recipient_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1047,7 +1049,7 @@ pub fn validate_mls_welcome_claim_envelope(
     claim: &KeyPackageClaimRecord,
     published: &MlsKeypackagePayload,
     intended_realm_id: &RealmId,
-    requester_did: &CoreId,
+    requester_actor_id: &DidCoreId,
     welcome_digest: &Hash,
     claim_nonce: &str,
     current_claim_device_authorize_event_id: Option<&str>,
@@ -1110,7 +1112,7 @@ pub fn validate_mls_welcome_claim_envelope(
             Some(claim_authorize_event_id),
             Some(evidence),
         ) if recipient_agent_id == claim_agent_id
-            && recipient_agent_id == &welcome.recipient_principal_id
+            && recipient_agent_id.as_core_id() == welcome.recipient_principal_id.as_core_id()
             && recipient_agent_verification_method == claim_method
             && agent_key_authorize_event_id == claim_authorize_event_id
             && evidence
@@ -1143,7 +1145,7 @@ pub fn validate_mls_welcome_claim_envelope(
         || envelope.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
         || envelope.intended_realm_id != *intended_realm_id
         || envelope.claim_id.as_str() != claim.claim_id
-        || envelope.requester_did != *requester_did
+        || envelope.requester_actor_id != *requester_actor_id
         || envelope.nonce.as_str() != claim_nonce
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
     {
@@ -1237,7 +1239,7 @@ mod tests {
             )
             .unwrap(),
             claim_id: NonEmptyString::new("ak:mls:kp:claim").unwrap(),
-            requester_did: CoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            requester_actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             trust_binding: MlsRequesterTrustBinding::RequesterDevice {
                 requester_device_id: DeviceId::new(
                     "ak:device:01904100-0000-7000-8000-000000000001",

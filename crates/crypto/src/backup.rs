@@ -57,7 +57,7 @@ use arkret_models_crypto::key_backup::{
 };
 use arkret_models_crypto::{KeyBackupPlaintext, PlaintextItem};
 use arkret_wire::{
-    AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, Did, Hash,
+    AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, DidCoreId, Hash,
     NonEmptyString,
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
@@ -738,7 +738,7 @@ pub fn estimate_passphrase_strength(passphrase: &str) -> u8 {
 #[allow(clippy::too_many_arguments)]
 pub fn build_key_backup_envelope(
     backup_id: BackupId,
-    actor_id: Did,
+    actor_id: DidCoreId,
     device_id: Option<DeviceId>,
     backup_kind: BackupKind,
     backup_version: &str,
@@ -771,7 +771,7 @@ pub fn build_key_backup_envelope(
 #[allow(clippy::too_many_arguments)]
 fn build_key_backup_envelope_in_series(
     backup_id: BackupId,
-    actor_id: Did,
+    actor_id: DidCoreId,
     device_id: Option<DeviceId>,
     backup_kind: BackupKind,
     backup_version: &str,
@@ -833,7 +833,7 @@ fn build_key_backup_envelope_in_series(
         .iter()
         .filter_map(|item| item.managed_principal_binding.clone())
         .map(|binding| {
-            arkret_canonical::canonical_json_bytes(&binding)
+            canonical_json_bytes(&binding)
                 .map(|canonical| (canonical, binding))
                 .map_err(|error| KeyBackupError::Canonical(error.to_string()))
         })
@@ -849,7 +849,7 @@ fn build_key_backup_envelope_in_series(
         items,
         extra: Default::default(),
     };
-    let plaintext_bytes = arkret_canonical::canonical_json_bytes(&plaintext)
+    let plaintext_bytes = canonical_json_bytes(&plaintext)
         .map_err(|error| KeyBackupError::Canonical(error.to_string()))?;
 
     // Truncate to whole seconds so the binding's canonical timestamp
@@ -1100,7 +1100,7 @@ pub fn key_backup_subdomain_key(
 /// `actor_id`, `device_id`, `backup_kind`, `backup_version`,
 /// `item_kind`, `schema_id`, and `created_at`.
 pub fn key_backup_aad(
-    actor_id: &Did,
+    actor_id: &DidCoreId,
     device_id: Option<&DeviceId>,
     backup_kind: BackupKind,
     backup_version: &str,

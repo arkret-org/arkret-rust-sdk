@@ -29,8 +29,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    ActorId, AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId,
-    SidecarId, project_full_id_to_core_id,
+    AppletId, CircleId, DeviceId, DidCoreId, EventId, GrantId, Hash, Hlc, RealmId, SealId,
+    SidecarId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -327,7 +327,7 @@ pub struct EventRequirements {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {
-    pub did: Did,
+    pub actor_id: DidCoreId,
     pub key_id: String,
     pub key_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -360,9 +360,9 @@ pub struct Event {
     /// payload and accepted references and reject a signed-but-wrong scope
     /// (`conformance/encoding.md` §6).
     pub scope_ref: ScopeRef,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<ActorId>,
+    pub executed_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -411,7 +411,7 @@ pub struct Event {
 pub struct ProjectedEventInput {
     pub kind: EventKind,
     pub event_id: EventId,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub authorization_ref: Option<AuthorizationRef>,
     pub actor_seq: u64,
     pub realm_id: RealmId,
@@ -485,7 +485,7 @@ pub struct FederatedDeviceGenerationState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FederatedCurrentDeviceProjection {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub device_record: FederatedDeviceRecord,
     pub generation_state: FederatedDeviceGenerationState,
@@ -494,7 +494,7 @@ pub struct FederatedCurrentDeviceProjection {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FederatedDeviceSigningKeyEvidence {
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub verification_method: DidUrl,
     pub device_signing_key: DidKey,
@@ -534,9 +534,7 @@ impl FederatedDeviceSigningKeyEvidence {
             ));
         }
         let receipt_scope = self.principal_genesis_receipt.pcr_genesis_scope()?;
-        if ActorId::from(project_full_id_to_core_id(
-            &self.current_device_projection.principal_id,
-        )?) != self.actor_id
+        if self.current_device_projection.principal_id != self.actor_id
             || self.current_device_projection.device_id != self.device_id
             || self
                 .current_device_projection
@@ -718,8 +716,7 @@ impl FederatedDeviceSigningKeyEvidence {
                                     .any(|(left, right)| right.as_str() != Some(left.as_str()))
                         })
                 })
-            || ActorId::from(project_full_id_to_core_id(&receipt_scope.principal_id)?)
-                != self.actor_id
+            || receipt_scope.principal_id != self.actor_id
             || receipt_scope.realm_id != create.realm_id
             || receipt_scope.create_digest != create_digest
             || receipt_scope.founding_authorize_digest != founding_authorize_digest
@@ -818,9 +815,9 @@ struct EventSer<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     realm_id: Option<&'a RealmId>,
     scope_ref: &'a ScopeRef,
-    actor_id: &'a ActorId,
+    actor_id: &'a DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    executed_by: &'a Option<ActorId>,
+    executed_by: &'a Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     authorization_ref: &'a Option<AuthorizationRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -906,9 +903,9 @@ struct EventWire {
     #[serde(default)]
     pub realm_id: Option<RealmId>,
     pub scope_ref: ScopeRef,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     #[serde(default)]
-    pub executed_by: Option<ActorId>,
+    pub executed_by: Option<DidCoreId>,
     #[serde(default)]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default)]
@@ -1506,7 +1503,7 @@ impl Event {
     pub(crate) fn new(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1531,7 +1528,7 @@ impl Event {
     pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1552,7 +1549,7 @@ impl Event {
     pub(crate) fn new_with_derived_id_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1588,7 +1585,7 @@ impl Event {
         event_id: EventId,
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1654,8 +1651,8 @@ mod event_wire_surface_tests {
         ScopeRef::Realm { realm_id: realm() }
     }
 
-    fn alice() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn alice() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
     fn base_event() -> Event {

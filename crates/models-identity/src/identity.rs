@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, Error, Hash, Result};
+use arkret_wire::{DidCoreId, DidFullId, Error, Hash, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -9,7 +9,7 @@ use crate::artifacts_device_identity::{IdentityReceipt, IdentityReceiptEvidence}
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityDescription {
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub registry_mode: String,
     #[serde(default)]
     pub supported_receipts: Vec<String>,
@@ -21,7 +21,7 @@ pub struct IdentityDescription {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityResolveRequestBody {
-    pub did: Did,
+    pub did: DidFullId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_evidence_kinds: Vec<String>,
 }
@@ -62,7 +62,7 @@ pub struct IdentityDocumentView {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DidOperationSubmitRequestBody {
-    pub did: Did,
+    pub did: DidFullId,
     pub did_method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
@@ -100,7 +100,7 @@ pub enum DidOperationSubmitStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidOperationSubmitOutcome {
     pub status: DidOperationSubmitStatus,
-    pub did: Did,
+    pub did: DidFullId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -131,7 +131,7 @@ pub struct IdentityReceiptListOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityLogListOutcome {
-    pub did: Did,
+    pub did: DidFullId,
     pub method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native_history: Option<bool>,
@@ -153,7 +153,7 @@ mod did_operation_tests {
 
     fn native_request() -> DidOperationSubmitRequestBody {
         DidOperationSubmitRequestBody {
-            did: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            did: DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             did_method: "webvh".to_owned(),
             seq: Some(0),
             prev_event_digest: None,

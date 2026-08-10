@@ -4,7 +4,8 @@ use arkret_event_draft::{
 };
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
 use arkret_wire::{
-    Did, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef, StrandId, event_spec,
+    DidCoreId, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef, StrandId,
+    event_spec,
 };
 use serde_json::json;
 
@@ -36,7 +37,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let envelope: OperationEnvelope = serde_json::from_value(json!({
         "operation_id": "ak:operation:01904100-0000-7000-8000-0198d483044c",
         "scope_ref": scope_ref(),
-        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "actor_id": "ak:did_core:webvh:z6mkfixture",
         "kind": EventKind::MessageCreate,
         "target_ref": "ak:thread:general",
         "causal": {
@@ -45,7 +46,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             "actor_seq": 7
         },
         "payload": {"body": "hello"},
-        "proofs": [proof.clone()]
+        "proofs": [proof]
     }))
     .unwrap();
     let mut different_proof = envelope.clone();
@@ -61,7 +62,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     envelope.validate_for_submit().unwrap();
 
     let encoded = serde_json::to_value(&envelope).unwrap();
-    assert_eq!(encoded["actor_id"], "did:webvh:z6mkfixture:alice.example");
+    assert_eq!(encoded["actor_id"], "ak:did_core:webvh:z6mkfixture");
     assert_eq!(encoded["kind"], "ak.message.create");
     assert_eq!(encoded["payload"]["body"], "hello");
     assert!(encoded.get("content").is_none());
@@ -106,7 +107,7 @@ fn event_draft_kind_registry_validates_kind_and_payload_container() {
     let envelope: OperationEnvelope = serde_json::from_value(json!({
         "operation_id": "ak:operation:01904100-0000-7000-8000-0198d483044c",
         "scope_ref": scope_ref(),
-        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "actor_id": "ak:did_core:webvh:z6mkfixture",
         "kind": EventKind::MessageCreate,
         "causal": {
             "deps": [],
@@ -141,7 +142,7 @@ fn operation_envelope_builder_derives_kind_from_typed_payload() {
     let builder = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         scope_ref(),
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         payload,

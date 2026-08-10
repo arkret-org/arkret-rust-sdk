@@ -1,6 +1,6 @@
 //! Moderation schema artifact counterparts and event payloads.
 
-use arkret_wire::EventKind;
+use arkret_wire::{DidCoreId, DidFullId};
 
 use crate::internal_prelude::*;
 
@@ -8,7 +8,7 @@ use crate::internal_prelude::*;
 pub type ModerationAppeal = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json#/$defs/actor_ref`.
-pub type ActorRef = Did;
+pub type ActorRef = DidFullId;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json#/$defs/appeal_id`.
 pub type AppealId = String;
@@ -91,7 +91,7 @@ pub type TargetRef = String;
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct FrankingProofSenderClaim {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: String,
     pub mls_group_id_digest: Hash,
 }
@@ -108,7 +108,7 @@ pub struct FrankingProof {
     pub ciphertext_digest: Hash,
     pub aad_digest: Hash,
     pub sender_claim: FrankingProofSenderClaim,
-    pub received_by: Did,
+    pub received_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     pub replay_nonce: String,
@@ -120,7 +120,7 @@ pub struct FrankingProof {
 pub struct FrankingProofEventTimeAnchor {
     pub event_id: EventId,
     pub realm_id: RealmId,
-    pub received_by: Did,
+    pub received_by: DidCoreId,
     pub received_at: DateTime<Utc>,
     pub ciphertext_digest: Hash,
 }
@@ -129,7 +129,7 @@ impl FrankingProofEventTimeAnchor {
     pub fn new(
         event_id: EventId,
         realm_id: RealmId,
-        received_by: Did,
+        received_by: DidCoreId,
         received_at: DateTime<Utc>,
         ciphertext_digest: Hash,
     ) -> Self {
@@ -147,7 +147,7 @@ impl FrankingProof {
     pub const TIME_ANCHOR_MAX_SKEW_SECS: i64 = 300;
 
     pub fn validate_event_time_anchor(&self, anchor: &FrankingProofEventTimeAnchor) -> Result<()> {
-        if self.kind != arkret_wire::event_kind_str::MODERATION_FRANKING_PROOF {
+        if self.kind != event_kind_str::MODERATION_FRANKING_PROOF {
             return Err(Error::Protocol(
                 "franking proof kind must be ak.moderation.franking_proof".to_owned(),
             ));
@@ -189,10 +189,12 @@ impl FrankingProof {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{DidFullId, project_full_id_to_core_id};
+
     use super::*;
 
-    fn did(value: &str) -> Did {
-        Did::new(value).unwrap()
+    fn did(value: &str) -> DidCoreId {
+        project_full_id_to_core_id(&DidFullId::new(value).unwrap()).unwrap()
     }
 
     fn event_id(value: &str) -> EventId {
@@ -223,11 +225,11 @@ mod tests {
             ciphertext_digest: hash('d'),
             aad_digest: hash('e'),
             sender_claim: FrankingProofSenderClaim {
-                actor_id: did("did:webvh:z6mkfixture:alice.example"),
+                actor_id: did("did:webvh:z6mkfixturealice:alice.example"),
                 device_id: "ak:device:01904100-0000-7000-8000-000000000333".to_owned(),
                 mls_group_id_digest: hash('f'),
             },
-            received_by: did("did:webvh:z6mkfixture:soland.local"),
+            received_by: did("did:webvh:z6mkfixturesoland:soland.local"),
             received_at: timestamp("2026-04-30T00:00:00.000Z"),
             replay_nonce: "nonce_0123456789".to_owned(),
             signature: "sig".to_owned(),
@@ -238,7 +240,7 @@ mod tests {
         FrankingProofEventTimeAnchor::new(
             event_id("ak:event:AY3aEHEku45kFksenyEUUeJDYGC8pcxJwaT9PypXoEZw"),
             realm_id(),
-            did("did:webvh:z6mkfixture:soland.local"),
+            did("did:webvh:z6mkfixturesoland:soland.local"),
             received_at,
             hash('d'),
         )
@@ -284,7 +286,7 @@ pub struct ModerationDecisionLiftPayload {
 pub struct ModerationDecisionPayload {
     pub target_ref: ObjectRef,
     pub decision: String,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub request_canonical_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
@@ -315,11 +317,11 @@ pub struct ModerationReportPayload {
     pub report_reason_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub reporter: Did,
+    pub reporter: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<ModerationReportProvenance>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_provider: Option<Did>,
+    pub source_provider: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_refs: Option<Vec<ObjectRef>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -337,7 +339,10 @@ pub enum ModerationReportProvenance {
 }
 
 impl ModerationReportPayload {
-    pub fn validate_provenance(&self, actor_id: &Did) -> std::result::Result<(), &'static str> {
+    pub fn validate_provenance(
+        &self,
+        actor_id: &DidCoreId,
+    ) -> std::result::Result<(), &'static str> {
         match self.provenance {
             None | Some(ModerationReportProvenance::SelfAuthored) => {
                 if self.source_provider.is_some() || actor_id != &self.reporter {

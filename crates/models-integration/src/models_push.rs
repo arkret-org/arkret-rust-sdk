@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use arkret_wire::{
-    DeviceId, Did, EventId, MessageId, NonEmptyString, ProfileId, RealmId, ReasonCode, SchemaId,
-    StrandId,
+    DeviceId, DidCoreId, EventId, MessageId, NonEmptyString, ProfileId, RealmId, ReasonCode,
+    SchemaId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -26,7 +26,7 @@ pub struct PushRegisterDeviceRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_service_id: Option<Did>,
+    pub recipient_service_id: Option<DidCoreId>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -331,7 +331,7 @@ pub struct PushNotificationEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sender_actor_id: Option<Did>,
+    pub sender_actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1262,7 +1262,7 @@ pub struct VisibleNotification {
     pub devices: Vec<DeviceRoute>,
     pub event_id: EventId,
     pub realm_id: RealmId,
-    pub sender_actor_id: Did,
+    pub sender_actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

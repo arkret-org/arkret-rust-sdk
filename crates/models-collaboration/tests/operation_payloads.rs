@@ -7,11 +7,13 @@ use arkret_models_crypto::{
     EncryptedEnvelope, MlsEncryptedPayload, PlainPayload, ProtectedPayload,
 };
 use arkret_schema::event_payload_validator_catalog;
-use arkret_wire::{ActorId, Did, MorphId, RealmId, SpaceId, StrandId, project_full_id_to_core_id};
+use arkret_wire::{
+    DidCoreId, DidFullId, MorphId, RealmId, SpaceId, StrandId, project_full_id_to_core_id,
+};
 use serde_json::json;
 
-fn actor(value: &str) -> ActorId {
-    ActorId::from(project_full_id_to_core_id(&Did::new(value).unwrap()).unwrap())
+fn actor(value: &str) -> DidCoreId {
+    project_full_id_to_core_id(&DidFullId::new(value).unwrap()).unwrap()
 }
 
 #[test]

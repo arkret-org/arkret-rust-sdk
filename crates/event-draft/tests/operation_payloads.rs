@@ -3,12 +3,12 @@ use arkret_event_draft::StrandCreateObject;
 use arkret_models_collaboration::events_payloads::{ObjectCreatePayload, StrandPatchPayload};
 use arkret_models_collaboration::objects::profiles::StrandTrackConfig;
 use arkret_schema::event_payload_validator_catalog;
-use arkret_wire::{Did, Patch, RealmId, SchemaId, StrandId};
+use arkret_wire::{DidCoreId, Patch, RealmId, SchemaId, StrandId};
 use serde_json::json;
 
 #[test]
 fn object_create_payload_wraps_strand_draft() {
-    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+    let actor = DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap();
     let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
     // A create object carries no id: the Strand id is derived from the create
     // Event's own `event_id` (spec `zh/models/common-fields.md` section 6.0).

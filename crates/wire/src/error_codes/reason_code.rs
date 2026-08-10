@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-10.5;
-//! sha256=033acc2ea1a9331093e4cfbeb17173580697b98833ad72aa4f6d3860ba1bb50f
+//! Input: registry/error-code-registry.json; version=2026-08-10.6;
+//! sha256=c7bbe83ba2d48204431a96c09ae9b122ec8633682942b2b936b99121f1494bf9
 //! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3370,7 +3370,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An MLS Welcome arrived with a `claim_envelope` whose canonical signing input does not match the Welcome's actual intended_realm_id / claim_id / requester_did, or the envelope signature does not chain to the requester's PCR current accepted device signing key and authorization Event. See zh/crypto-media/encryption-and-audit.md §2.6.",
+        description: "An MLS Welcome arrived with a `claim_envelope` whose canonical signing input does not match the Welcome's actual intended_realm_id / claim_id / requester_actor_id, or the envelope signature does not chain to the requester's PCR current accepted device signing key and authorization Event. See zh/crypto-media/encryption-and-audit.md §2.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::LAST_RESORT_NOT_SUPPORTED,

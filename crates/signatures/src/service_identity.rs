@@ -3,7 +3,7 @@
 use arkret_canonical::multibase::decode_ed25519_multibase;
 use arkret_models_identity::service_identity::{ServiceDidDocument, ServiceRegistrationReceipt};
 use arkret_wire::PayloadProof;
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::SigningKey;
 
 use crate::{Ed25519DetachedJwsVerifier, Error, Result, sign_ed25519_detached_jws};
 
@@ -58,7 +58,7 @@ pub fn verify_registration_receipt_proof(
     let public_key = crate::proof::PublicKeyMaterial::Ed25519Raw {
         bytes: public_key.to_vec(),
     };
-    Ed25519DetachedJwsVerifier::default()
+    Ed25519DetachedJwsVerifier
         .verify_detached_jws(
             &receipt.proof.jws,
             &receipt.proof_binding_bytes()?,
@@ -77,18 +77,16 @@ mod tests {
         CanonicalServiceUrl, ServiceDidVerificationMethod, ServiceRegistrationKey,
     };
     use arkret_wire::{
-        Did, DidUrl, FullId, Hash, PayloadProof, ServiceId, ServiceKind,
-        project_full_id_to_core_id, proof_kind,
+        DidFullId, DidUrl, Hash, PayloadProof, ServiceKind, project_full_id_to_core_id, proof_kind,
     };
 
     use super::*;
 
     fn receipt() -> ServiceRegistrationReceipt {
         let provider_full_id =
-            Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
-        let provider_service_id =
-            ServiceId::from(project_full_id_to_core_id(&provider_full_id).unwrap());
-        let full_id = Did::new("did:webvh:QmService:identity.example:webvh:auth").unwrap();
+            DidFullId::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        let provider_service_id = project_full_id_to_core_id(&provider_full_id).unwrap();
+        let full_id = DidFullId::new("did:webvh:QmService:identity.example:webvh:auth").unwrap();
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
                 "ak:service_registration_receipt:{}",
@@ -100,13 +98,13 @@ mod tests {
                 CanonicalServiceUrl::new("https://auth.example/").unwrap(),
             )
             .unwrap(),
-            service_id: ServiceId::from(project_full_id_to_core_id(&full_id).unwrap()),
+            service_id: project_full_id_to_core_id(&full_id).unwrap(),
             full_id,
             version_id: "1-QmVersion".to_owned(),
             log_head_digest: format!("sha256:{}", "a".repeat(64)),
             control_key_digest: format!("sha256:{}", "b".repeat(64)),
             issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
-            provider_service_id: provider_service_id.clone(),
+            provider_service_id,
             proof: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{provider_full_id}#service-key"))
@@ -131,7 +129,7 @@ mod tests {
         receipt.proof = sign_registration_receipt_proof(&receipt, &signing_key).unwrap();
         let public_key_multibase =
             ed25519_pubkey_to_did_key_multibase(&signing_key.verifying_key().to_bytes());
-        let provider_full_id = FullId::new(
+        let provider_full_id = DidFullId::new(
             receipt
                 .proof
                 .verification_method

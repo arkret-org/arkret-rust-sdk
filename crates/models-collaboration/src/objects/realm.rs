@@ -4,9 +4,10 @@ use std::collections::BTreeMap;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, CORE_REDUCER_PROFILE, CORE_SCHEMA_PROFILE, ControlProposalDecisionPolicy, Did, DidUrl,
-    Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule,
-    PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
+    BlobRef, CORE_REDUCER_PROFILE, CORE_SCHEMA_PROFILE, ControlProposalDecisionPolicy, DidCoreId,
+    DidUrl, Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility,
+    JoinRule, PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId,
+    canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -40,7 +41,7 @@ pub fn realm_object_is_principal_control(object: &Value) -> bool {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SyncEndpoint {
-    pub did: Did,
+    pub actor_id: DidCoreId,
     pub endpoint: String,
     pub role: String,
     pub service_kind: String,
@@ -86,7 +87,7 @@ pub struct Realm {
     /// `Space`.
     pub trust_domain: TypedTrustDomainId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub owning_organizations: Vec<Did>,
+    pub owning_organizations: Vec<DidCoreId>,
     pub schema_refs: Vec<String>,
     /// Product/profile fields carried by `realm.schema.json`. Security
     /// discriminators such as `purpose=principal_control` and
@@ -197,11 +198,11 @@ pub struct Realm {
     /// Declaration order mirrors `spec/v1/artifacts/schemas/realm.schema.json`
     /// (common-fields §3.2): `created_by` lives in the trailing audit cluster
     /// `… avatar_blob_ref, created_by, created_at, updated_by, updated_at`.
-    pub created_by: Did,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -249,10 +250,10 @@ pub struct DurabilityThreshold {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RealmRecoveryRecipient {
     pub recipient_id: String,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub controller_organization: Option<Did>,
+    pub controller_organization: Option<DidCoreId>,
 }
 
 /// Seal deployment profile for a Realm (data-structures.md §4 —
@@ -331,7 +332,7 @@ pub enum AuditWitnessIndependence {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAuditPolicy {
-    pub range_completeness_witnesses: Vec<Did>,
+    pub range_completeness_witnesses: Vec<DidCoreId>,
     pub witnessed_min_attestations: u8,
     pub witness_independence: AuditWitnessIndependence,
 }
@@ -360,7 +361,7 @@ impl Realm {
     pub fn new(
         id: RealmId,
         title: impl Into<String>,
-        created_by: Did,
+        created_by: DidCoreId,
         trust_domain: TypedTrustDomainId,
         reducer_profile: impl Into<String>,
         notary_profile: NotaryProfile,
@@ -576,14 +577,17 @@ impl Realm {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{DidCoreId, DidFullId};
+
     use super::*;
 
     fn realm() -> Realm {
-        let notary = Did::new("did:web:notary.example").unwrap();
+        let notary = DidFullId::new("did:web:notary.example").unwrap();
+        let notary_actor = DidCoreId::new("ak:did_core:web:notary.example").unwrap();
         Realm::new(
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             "Policy Realm",
-            notary.clone(),
+            notary_actor,
             TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
             NotaryProfile::SingleDid,

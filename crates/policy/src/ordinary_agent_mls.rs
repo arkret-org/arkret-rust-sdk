@@ -1,6 +1,6 @@
 //! Ordinary-Realm Native Agent MLS membership/key cross-binding.
 
-use arkret_wire::{Did, EventId};
+use arkret_wire::{DidCoreId, EventId};
 
 use crate::{AuthorGroupStateView, AuthorLeafCredential};
 
@@ -14,7 +14,7 @@ pub struct AgentMlsSignerClaim<'a> {
     pub group_id: &'a str,
     pub epoch: u64,
     pub group_state_ref: &'a str,
-    pub signer_id: &'a Did,
+    pub signer_id: &'a DidCoreId,
     pub signing_key: &'a [u8],
     pub agent_key_authorize_event_id: &'a EventId,
 }
@@ -65,8 +65,8 @@ mod tests {
     use super::*;
     use crate::AuthorLeaf;
 
-    fn fixture() -> (Did, EventId, Vec<u8>, AgentMlsSignerView) {
-        let signer = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+    fn fixture() -> (DidCoreId, EventId, Vec<u8>, AgentMlsSignerView) {
+        let signer = DidCoreId::new("ak:did_core:webvh:z6mkagent:agent.example").unwrap();
         let authorization =
             EventId::new("ak:event:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5").unwrap();
         let key = vec![7; 32];
@@ -90,7 +90,7 @@ mod tests {
 
     fn verify_fixture(
         view: &AgentMlsSignerView,
-        signer: &Did,
+        signer: &DidCoreId,
         authorization: &EventId,
         key: &[u8],
     ) -> Result<u32, AgentMlsLeafBindingError> {
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn duplicate_agent_leaf_is_rejected() {
-        let signer = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let signer = DidCoreId::new("ak:did_core:webvh:z6mkagent:agent.example").unwrap();
         let authorization =
             EventId::new("ak:event:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5").unwrap();
         let key = vec![7; 32];

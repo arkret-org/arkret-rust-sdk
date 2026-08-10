@@ -31,7 +31,7 @@ use serde_json::{Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{
-    ActorId, Bottom, BottomKind, CellRef, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
+    Bottom, BottomKind, CellRef, DidCoreId, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
     bottom_details, canonical,
 };
 
@@ -41,7 +41,7 @@ pub struct OrderedLog;
 /// An sealed op carrying issuer DID, used by [`OrderedLog::join_with_issuers`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IssuedOp {
-    pub issuer: ActorId,
+    pub issuer: DidCoreId,
     pub op: SealedOp,
 }
 
@@ -519,7 +519,7 @@ mod tests {
 
     fn issued(issuer_str: &str, seq: u64, value: Value, mid: u8) -> IssuedOp {
         IssuedOp {
-            issuer: ActorId::new(issuer_str.to_owned()).unwrap(),
+            issuer: DidCoreId::new(issuer_str.to_owned()).unwrap(),
             op: SealedOp::new(move_id(mid), append(seq, value)),
         }
     }
@@ -689,7 +689,7 @@ mod tests {
 
     #[test]
     fn same_op_value_different_op_field_is_equivocation() {
-        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+        let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let ops = vec![
             IssuedOp {
                 issuer: alice.clone(),
@@ -712,7 +712,7 @@ mod tests {
 
     #[test]
     fn max_event_digest_compares_decoded_octets_across_suites() {
-        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+        let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         // As UTF-8 wire strings "sha256:00.." > "blake3:ff..", but the decoded
         // octets order the other way. §4.2 compares octets, so blake3 wins.
         let ops = vec![
@@ -742,7 +742,7 @@ mod tests {
 
     #[test]
     fn distinct_op_under_same_event_digest_fails_closed() {
-        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+        let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let ops = vec![
             IssuedOp {
                 issuer: alice.clone(),
@@ -765,7 +765,7 @@ mod tests {
 
     #[test]
     fn fail_closed_slot_blocks_the_rest_of_the_prefix() {
-        let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+        let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let ops = vec![
             IssuedOp {
                 issuer: alice.clone(),
@@ -954,7 +954,7 @@ mod tests {
             issued("ak:did_core:webvh:z6mkfixturealice", 0, json!("good"), 1),
             // invalid: missing issuer_seq -> filtered
             IssuedOp {
-                issuer: ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+                issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
                 op: SealedOp::new(
                     move_id(2),
                     LatticeOp {

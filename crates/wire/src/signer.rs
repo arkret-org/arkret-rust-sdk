@@ -19,8 +19,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::Utc;
 
 use crate::{
-    Did, DidUrl, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature,
-    RealmId, Result, Seal, SealId, ThresholdSigKind, ThresholdSignature, canonical,
+    DidCoreId, DidFullId, DidUrl, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig,
+    PayloadSignature, RealmId, Result, Seal, SealId, ThresholdSigKind, ThresholdSignature,
+    canonical,
 };
 
 /// Trait implemented by Seal / notary signers (Ed25519 keypair, HSM,
@@ -28,7 +29,7 @@ use crate::{
 pub trait PayloadSigner {
     /// DID of the signing identity. For Seals this is one of the notary-set
     /// members.
-    fn signer_did(&self) -> &Did;
+    fn signer_did(&self) -> &DidFullId;
 
     /// The verification method id (e.g. `did:webvh:z6mkfixture:alice.example#key-1`)
     /// the signer will publish as `PayloadSignature.verification_method`.
@@ -177,7 +178,7 @@ impl Seal {
         state_root: Hash,
         hlc: Hlc,
         threshold: u32,
-        signers: Vec<Did>,
+        signers: Vec<DidCoreId>,
         aggregated_proof: String,
     ) -> Result<Seal> {
         Self::sign_threshold_kind(
@@ -205,7 +206,7 @@ impl Seal {
         hlc: Hlc,
         kind: crate::SealKind,
         threshold: u32,
-        signers: Vec<Did>,
+        signers: Vec<DidCoreId>,
         aggregated_proof: String,
     ) -> Result<Seal> {
         let sealed_at = Utc::now();
@@ -409,13 +410,13 @@ fn delta_control_root(delta: &[Hash]) -> Result<Hash> {
 /// trusting the partial body alone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialSignature {
-    pub signer_did: Did,
+    pub signer_did: DidFullId,
     pub signature: Vec<u8>,
     pub kid: DidUrl,
 }
 
 impl PartialSignature {
-    pub fn new(signer_did: Did, signature: Vec<u8>, kid: DidUrl) -> Self {
+    pub fn new(signer_did: DidFullId, signature: Vec<u8>, kid: DidUrl) -> Self {
         Self {
             signer_did,
             signature,
@@ -591,8 +592,13 @@ impl ThresholdAggregator {
         Ok(base64url_encode(lines.join("\n").as_bytes()))
     }
 
-    pub fn signers(&self) -> Vec<Did> {
-        self.partials.iter().map(|p| p.signer_did.clone()).collect()
+    pub fn signers(&self) -> Result<Vec<DidCoreId>> {
+        self.partials
+            .iter()
+            .map(|partial| -> Result<_> {
+                Ok(crate::project_full_id_to_core_id(&partial.signer_did)?)
+            })
+            .collect()
     }
 }
 
@@ -617,7 +623,7 @@ impl Seal {
         aggregator: &ThresholdAggregator,
     ) -> Result<Seal> {
         let proof = aggregator.aggregate_proof()?;
-        let signers = aggregator.signers();
+        let signers = aggregator.signers()?;
         Seal::sign_threshold(
             realm_id,
             predecessor_refs,
@@ -668,8 +674,12 @@ mod tests {
         RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
     }
 
-    fn alice() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
+    fn alice() -> DidFullId {
+        DidFullId::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
+    }
+
+    fn actor(scid: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:{scid}")).unwrap()
     }
 
     fn alice_kid() -> DidUrl {
@@ -696,12 +706,12 @@ mod tests {
     /// so test vectors don't need real ed25519. Real signers live in
     /// `arkret-signatures::signer`.
     struct StubSigner {
-        did: Did,
+        did: DidFullId,
         kid: DidUrl,
     }
 
     impl PayloadSigner for StubSigner {
-        fn signer_did(&self) -> &Did {
+        fn signer_did(&self) -> &DidFullId {
             &self.did
         }
 
@@ -757,10 +767,7 @@ mod tests {
             hash(0x77),
             hlc(),
             2,
-            vec![
-                alice(),
-                Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
-            ],
+            vec![actor("z6mkfixture"), actor("z6mkfixturebob")],
             "BLS_AGG".to_owned(),
         )
         .unwrap();
@@ -785,7 +792,7 @@ mod tests {
             hash(0x77),
             hlc(),
             5,
-            vec![alice()],
+            vec![actor("z6mkfixture")],
             "p".to_owned(),
         )
         .unwrap_err();
@@ -796,7 +803,7 @@ mod tests {
     fn seal_sign_multi_collects_one_sig_per_signer() {
         let alice = signer();
         let bob = StubSigner {
-            did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            did: DidFullId::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
             kid: bob_kid(),
         };
         let signers: &[&dyn PayloadSigner] = &[&alice, &bob];
@@ -833,8 +840,8 @@ mod tests {
     // Threshold aggregator
     // -------------------------------------------------------------------
 
-    fn bob() -> Did {
-        Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()
+    fn bob() -> DidFullId {
+        DidFullId::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()
     }
 
     fn bob_kid() -> DidUrl {

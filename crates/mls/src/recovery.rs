@@ -1,5 +1,5 @@
 use arkret_models_crypto::{MlsCommitEnvelope, MlsCommitSource, MlsWelcomeEnvelope};
-use arkret_wire::{DeviceId, Did};
+use arkret_wire::{DeviceId, DidCoreId};
 use serde::{Deserialize, Serialize};
 
 use crate::group::ArkretMlsGroup;
@@ -18,7 +18,7 @@ pub enum MlsDeviceWorkflowAction {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsDeviceWorkflowStep {
     pub action: MlsDeviceWorkflowAction,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub group_id: Option<String>,
     pub from_epoch: Option<u64>,
@@ -37,7 +37,7 @@ pub fn late_device_join_steps(welcome: &MlsWelcomeEnvelope) -> Vec<MlsDeviceWork
 }
 
 pub fn epoch_recovery_step(
-    principal_id: Did,
+    principal_id: DidCoreId,
     device_id: DeviceId,
     group_id: impl Into<String>,
     from_epoch: u64,
@@ -59,7 +59,7 @@ pub struct EpochRecoveryRequestBody {
     /// Group that needs recovery.
     pub group_id: String,
     /// Device requesting recovery.
-    pub requesting_principal: Did,
+    pub requesting_principal: DidCoreId,
     pub requesting_device: DeviceId,
     /// The epoch the device is currently at.
     pub local_epoch: u64,
@@ -85,7 +85,7 @@ impl EpochRecoveryRequestBody {
     /// Create a new epoch recovery request.
     pub fn new(
         group_id: impl Into<String>,
-        requesting_principal: Did,
+        requesting_principal: DidCoreId,
         requesting_device: DeviceId,
         local_epoch: u64,
         target_epoch: u64,

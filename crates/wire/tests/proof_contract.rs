@@ -1,5 +1,5 @@
 use arkret_wire::{
-    Audience, CriticalExtension, Did, DidUrl, Event, FeatureRef, Hash, Hlc, ProfileRef, Proof,
+    Audience, CriticalExtension, DidCoreId, DidUrl, FeatureRef, Hash, Hlc, ProfileRef, Proof,
     ProofBindingRequirements, RealmId,
 };
 use chrono::Utc;
@@ -67,7 +67,7 @@ fn proof_wrapper_rejects_duplicate_outer_algorithm_selector() {
 #[test]
 fn proof_validate_binding_matches_expected_fields() {
     let proof = valid_proof();
-    let expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    let expected = proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     assert!(proof.validate_binding(&expected).is_ok());
 }
 
@@ -75,7 +75,7 @@ fn proof_validate_binding_matches_expected_fields() {
 fn proof_validate_binding_rejects_mismatched_verification_method() {
     let proof = valid_proof();
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.verification_method = DidUrl::new("did:webvh:z6mkfixture:bob.example#key-1").unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -84,7 +84,7 @@ fn proof_validate_binding_rejects_mismatched_verification_method() {
 fn proof_validate_binding_rejects_mismatched_payload_digest() {
     let proof = valid_proof();
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.payload_digest =
         Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .unwrap();
@@ -95,7 +95,7 @@ fn proof_validate_binding_rejects_mismatched_payload_digest() {
 fn proof_validate_binding_rejects_mismatched_domain() {
     let proof = valid_proof();
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.domain = Some("other.example".to_owned());
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -105,7 +105,7 @@ fn proof_validate_binding_rejects_mismatched_audience() {
     let mut proof = valid_proof();
     proof.audience = Some(Audience::Single("svc-a".to_owned()));
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.audience = Some(Audience::Single("svc-b".to_owned()));
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -118,7 +118,7 @@ fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
         "did:webvh:z6mkfixture:service-b.example".to_owned(),
     ]));
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.audience = Some(Audience::Single(
         "did:webvh:z6mkfixture:service-b.example".to_owned(),
     ));
@@ -133,7 +133,7 @@ fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
         "did:webvh:z6mkfixture:service.example".to_owned(),
     ));
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.domain = None;
     expected.audience = None;
     assert!(proof.validate_binding(&expected).is_ok());
@@ -146,7 +146,7 @@ fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
         "did:webvh:z6mkfixture:service.example".to_owned(),
     ));
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.domain = Some("ak:trust_domain:example.net".to_owned());
     expected.audience = Some(Audience::Single(
         "did:webvh:z6mkfixture:service.example".to_owned(),
@@ -169,7 +169,7 @@ fn proof_validate_cross_domain_binding_requires_expected_context() {
         "did:webvh:z6mkfixture:service.example".to_owned(),
     ));
     let expected =
-        valid_proof().binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        valid_proof().binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
     assert!(
         error.to_string().contains("proof_binding_missing"),
@@ -199,7 +199,7 @@ fn proof_validate_rejects_empty_domain_or_audience() {
 fn proof_validate_binding_rejects_excessive_time_drift() {
     let proof = valid_proof();
     let mut expected =
-        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
     expected.created_at = "2026-04-26T01:00:00.000Z".parse().unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -211,7 +211,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
         arkret_wire::ScopeRef::Realm {
             realm_id: test_realm_id(),
         },
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -242,7 +242,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         arkret_wire::ScopeRef::Realm {
             realm_id: test_realm_id(),
         },
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -275,7 +275,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         arkret_wire::ScopeRef::Realm {
             realm_id: test_realm_id(),
         },
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -331,7 +331,7 @@ fn event_digest_includes_schema_profiles_features_and_critical_extensions() {
         arkret_wire::ScopeRef::Realm {
             realm_id: test_realm_id(),
         },
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),

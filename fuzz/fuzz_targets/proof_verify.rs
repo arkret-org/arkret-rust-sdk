@@ -7,7 +7,7 @@
 //! without panicking: a malformed proof or key is a rejection, never a crash
 //! and never a spurious "valid".
 
-use arkret_identifiers::Did;
+use arkret_identifiers::DidCoreId;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_ed25519_detached_jws_proof};
 use arkret_wire::Proof;
 use libfuzzer_sys::fuzz_target;
@@ -35,7 +35,7 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    let actor_id = Did::new("did:web:fuzz.example").expect("static did");
+    let actor_id = DidFullId::new("did:web:fuzz.example").expect("static did");
     // Verifier must return Ok/Err, never panic, on arbitrary canonical bytes +
     // arbitrary (parsed) proof + arbitrary key.
     let _ =

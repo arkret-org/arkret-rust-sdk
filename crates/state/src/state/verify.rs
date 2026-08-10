@@ -798,7 +798,7 @@ mod tests {
     use crate::lattice::{CellState, SealedOp};
     use crate::state::store::memory::MemoryCellRegistry;
     use crate::{
-        ActorId, CellRef, EventId, EventRequirements, Hash, Hlc, Precondition, PredicateOp,
+        CellRef, DidCoreId, EventId, EventRequirements, Hash, Hlc, Precondition, PredicateOp,
         RealmId, SealBasis, SealId,
     };
 
@@ -819,8 +819,8 @@ mod tests {
         .unwrap()
     }
 
-    fn actor() -> ActorId {
-        ActorId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap()
+    fn actor() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap()
     }
 
     fn control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {
@@ -877,7 +877,7 @@ mod tests {
                 "tag": grant_id,
                 "value": {
                     "id": grant_id,
-                    "issuer": "did:webvh:z6mkfixture:owner.example",
+                    "issuer": "ak:did_core:webvh:z6mkfixture",
                     "subject": subject,
                     "actions": ["ak.member.state"],
                     "resources": [{"kind": "Realm", "realm_id": realm().as_str()}]

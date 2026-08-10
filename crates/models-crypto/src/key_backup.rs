@@ -1,7 +1,6 @@
 //! Key backup envelope, recovery policy, and recovery receipt wire models.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::num::NonZeroU64;
 
 use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
@@ -9,7 +8,7 @@ use arkret_canonical::{
 use arkret_wire::{
     AttestationId, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
-    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
+    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl, Error, Event, EventId,
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
     LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId,
     ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId,
@@ -138,7 +137,7 @@ pub enum KeyBackupDeleteProof {
     /// on its own: the referenced recovery session MUST be unexpired, unconsumed
     /// and established by principal signing, recovery unlock or device quorum.
     TrustedRecoveryService {
-        service_id: Did,
+        service_id: DidCoreId,
         recovery_session_id: RecoverySessionId,
         #[serde(skip_serializing_if = "Option::is_none")]
         attestation_ref: Option<AttestationId>,
@@ -187,11 +186,11 @@ pub struct KeysBackupsDeleteChallenge {
     /// freshness values.
     pub nonce: Base64UrlString,
     pub operation: String,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub backup_id: BackupId,
     /// The service base origin this challenge is valid against.
     pub audience: NonEmptyString,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub request_id: Base64UrlString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -586,7 +585,7 @@ pub struct KeysBackupsReplaceOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupSummary {
     pub backup_id: BackupId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,
@@ -630,7 +629,7 @@ pub struct KeyBackupSummaryEncryption {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackup {
     pub backup_id: BackupId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,
@@ -1028,7 +1027,6 @@ impl KeyBackup {
         let authenticated_managed_principal_bindings = aad
             .managed_principal_bindings
             .iter()
-            .cloned()
             .map(|binding| {
                 arkret_canonical::canonical_json_bytes(&binding)
                     .map(|canonical| (canonical, binding))
@@ -1044,10 +1042,9 @@ impl KeyBackup {
             || aad.item_kinds != item_kinds
             || authenticated_managed_principal_bindings.len()
                 != aad.managed_principal_bindings.len()
-            || authenticated_managed_principal_bindings
+            || !authenticated_managed_principal_bindings
                 .into_values()
-                .collect::<Vec<_>>()
-                != managed_principal_bindings
+                .eq(managed_principal_bindings.iter())
             || aad.recipient_method != Some(self.encryption.recipient_method)
             || aad.recipient_key_ref != self.encryption.recipient_key_ref
         {
@@ -1091,17 +1088,16 @@ impl KeyBackup {
                 let kdf = encryption.kdf.as_ref().ok_or_else(|| {
                     Error::Protocol("passphrase_kdf requires encryption.kdf".to_owned())
                 })?;
-                if self.mixed_secret_storage {
-                    if kdf.name != KeyBackupKdfName::Argon2id
+                if self.mixed_secret_storage
+                    && (kdf.name != KeyBackupKdfName::Argon2id
                         || kdf.params.memory_kib.is_none_or(|value| value < 262_144)
                         || kdf.params.iterations.is_none_or(|value| value < 4)
-                        || kdf.params.parallelism.is_none_or(|value| value < 1)
-                    {
-                        return Err(Error::Protocol(
-                            "mixed secret-storage backups require the strengthened Argon2id profile"
-                                .to_owned(),
-                        ));
-                    }
+                        || kdf.params.parallelism.is_none_or(|value| value < 1))
+                {
+                    return Err(Error::Protocol(
+                        "mixed secret-storage backups require the strengthened Argon2id profile"
+                            .to_owned(),
+                    ));
                 }
             }
             KeyBackupRecipientMethod::SecretStorageKey => {
@@ -1543,7 +1539,7 @@ pub struct KeyBackupDomainSeparation {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupDomainSeparationAad {
     pub schema: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     /// The envelope's `device_id`, or `null` when it was sealed without an
     /// originating device (the top-level `device_id` is optional). The key is
     /// always present — never skipped, never an empty string — so the AAD
@@ -1589,8 +1585,8 @@ pub struct ManagedFrontierRef {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedPrincipalBinding {
-    pub managed_principal_id: Did,
-    pub controller_id: Did,
+    pub managed_principal_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub authorization_ref: String,
     pub managed_frontier_ref: ManagedFrontierRef,
@@ -1852,7 +1848,7 @@ pub struct RecoveryPolicy {
     /// Schema id (`ak.schema.recovery_policy.v1`).
     pub schema: String,
     pub policy_id: PolicyId,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     /// Monotonically increasing counter scoped by `principal_id`.
     pub version: u64,
     /// Predecessor `policy_id`; `None` only for the genesis policy.
@@ -2232,7 +2228,7 @@ impl RecoveryPolicy {
 #[derive(Clone, Debug)]
 pub struct UnsignedRecoveryPolicyBody {
     pub policy_id: PolicyId,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub version: u64,
     pub supersedes: Option<PolicyId>,
     pub trust_domain: TypedTrustDomainId,
@@ -2405,7 +2401,7 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicySummary {
     pub policy_id: PolicyId,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub version: u64,
     pub acceptance_basis: LeaseBasisRef,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2445,7 +2441,7 @@ pub struct RecoveryControlFrontier {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyActiveOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<Did>,
+    pub principal_id: Option<DidCoreId>,
     pub active_policy: Option<RecoveryPolicySummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
@@ -2540,7 +2536,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
 pub struct RecoveryPolicyPublishOutcome {
     pub ok: bool,
     pub policy_id: PolicyId,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub version: u64,
     pub acceptance_basis: LeaseBasisRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -2588,7 +2584,7 @@ pub struct RecoveryResharePolicy {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryShare {
     pub share_id: String,
-    pub holder: Did,
+    pub holder: DidCoreId,
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2632,7 +2628,7 @@ pub struct RecoveryPublicationAuthorizationRule {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryTrustedService {
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub audience: NonEmptyString,
     pub authorization_verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2878,7 +2874,7 @@ pub struct RecoveryReceipt {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
@@ -3028,7 +3024,7 @@ pub struct UnsignedRecoveryReceiptBody {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
@@ -3591,7 +3587,7 @@ mod encryption_validate_tests {
     fn unsigned_key_backup_fixture() -> KeyBackup {
         serde_json::from_value(serde_json::json!({
             "backup_id": "ak:backup:01964137-0000-7000-8000-000000000001",
-            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000002",
             "backup_kind": "secret_storage",
             "backup_version": "kb_1",
@@ -3619,7 +3615,7 @@ mod encryption_validate_tests {
                 "subdomain": "fixture",
                 "aead_aad": {
                     "schema": "ak.schema.key_backup.v1",
-                    "actor_id": "did:webvh:z6mkfixture:alice.example",
+                    "actor_id": "ak:did_core:webvh:z6mkfixture",
                     "device_id": "ak:device:01964137-0000-7000-8000-000000000002",
                     "backup_kind": "secret_storage",
                     "backup_version": "kb_1",
@@ -3789,7 +3785,7 @@ mod encryption_validate_tests {
         serde_json::json!({
             "schema": "ak.schema.recovery_policy.v1",
             "policy_id": "ak:policy:019a7360-0000-7000-8000-000000000001",
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "version": 1,
             "supersedes": null,
             "trust_domain": "ak:trust_domain:example.local",
@@ -3881,7 +3877,7 @@ mod encryption_validate_tests {
             "transaction_id": "ak:transaction:019a6aa0-0000-7000-8000-0000000000dd",
             "transaction_request_digest": format!("sha256:{}", "d".repeat(64)),
             "prepared_plan_digest": format!("sha256:{}", "e".repeat(64)),
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "recovery_session_id": "ak:recovery_session:019a6aa0-0000-7000-8000-0000000000aa",
             "policy_id": "ak:policy:019a6aa0-0000-7000-8000-0000000000bb",
             "policy_version": 1,

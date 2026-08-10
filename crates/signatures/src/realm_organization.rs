@@ -53,7 +53,7 @@ mod tests {
         RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
         RealmOrganizationRelationship, RealmOrganizationStatus,
     };
-    use arkret_wire::{Did, RealmId};
+    use arkret_wire::{DidCoreId, RealmId};
     use chrono::{DateTime, TimeZone, Utc};
 
     use super::*;
@@ -62,8 +62,12 @@ mod tests {
         RealmId::new("ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo").unwrap()
     }
 
-    fn org_did() -> Did {
-        Did::new("did:webvh:example.test:orgs:org1".to_owned()).unwrap()
+    fn org_principal() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:example.test:orgs:org1").unwrap()
+    }
+
+    fn org_actor() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:example.test:orgs:org1").unwrap()
     }
 
     fn now() -> DateTime<Utc> {
@@ -74,7 +78,7 @@ mod tests {
         RealmOrganizationPayload {
             statement_id: "org-stmt-1".to_owned(),
             realm_id: realm_id(),
-            organization_id: org_did(),
+            organization_id: org_principal(),
             relationship: RealmOrganizationRelationship::Owner,
             status: RealmOrganizationStatus::Active,
             control_scopes: vec![
@@ -89,7 +93,7 @@ mod tests {
             realm_frontier_digest: None,
             organization_policy_ref: None,
             authorization: RealmOrganizationAuthorization {
-                issuer: org_did(),
+                issuer: org_actor(),
                 issuer_role: RealmOrganizationIssuerRole::OrganizationDid,
                 verification_method: arkret_wire::DidUrl::new(
                     "did:webvh:example.test:orgs:org1#k1",

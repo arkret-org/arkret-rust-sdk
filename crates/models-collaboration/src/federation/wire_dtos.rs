@@ -4,7 +4,7 @@
 //! `arkret_event_draft::ProjectedEventOperation` are owned by `arkret-event-draft`, which
 //! keeps this model crate free of behavior dependencies.
 
-use arkret_wire::{Did, Hash, RealmId};
+use arkret_wire::{DidCoreId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,7 @@ pub struct FederationRealmMemberList {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MemberRef {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub membership: MembershipState,
 }
@@ -32,7 +32,7 @@ pub struct MemberRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationVerifyActorRequestBody {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -70,7 +70,7 @@ impl FederationVerifyActorRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationVerifyActorOutcome {
     pub valid: bool,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified_key_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

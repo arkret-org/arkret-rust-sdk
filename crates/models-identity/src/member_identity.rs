@@ -24,7 +24,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::{BlobRef, Did, DidUrl, EventId, Hash, RealmId, Result, SchemaId, canonical};
+use arkret_wire::{
+    BlobRef, DidCoreId, DidUrl, EventId, Hash, RealmId, Result, SchemaId, canonical,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,8 +44,8 @@ pub struct MemberIdentity {
     /// `ak.schema.member_identity.v1`.
     pub schema: String,
     pub realm_id: RealmId,
-    pub actor_id: Did,
-    pub subject_id: Did,
+    pub actor_id: DidCoreId,
+    pub subject_id: DidCoreId,
     pub display_profile: DisplayProfile,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub asserted_at: DateTime<Utc>,
@@ -62,8 +64,8 @@ impl MemberIdentity {
     /// callers can't drift from `ak.schema.member_identity.v1`.
     pub fn new(
         realm_id: RealmId,
-        actor_id: Did,
-        subject_id: Did,
+        actor_id: DidCoreId,
+        subject_id: DidCoreId,
         display_profile: DisplayProfile,
         asserted_at: DateTime<Utc>,
         proof: MemberIdentityProof,
@@ -196,7 +198,7 @@ impl IdentityPayloadCarrier {
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentityUpdatePayload {
     pub realm_id: RealmId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub segment: MemberIdentitySegment,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<MemberIdentityReplacementRef>,
@@ -302,7 +304,7 @@ where
 /// roster [`member_display_state_digest`].
 pub fn member_identity_effective_set_digest(
     realm_id: &RealmId,
-    actor_id: &Did,
+    actor_id: &DidCoreId,
     segment: MemberIdentitySegment,
     entries: &[EffectiveIdentityEntry],
 ) -> Result<String> {
@@ -332,7 +334,7 @@ pub fn member_identity_effective_set_digest(
 /// `verified_at` / proof-repacking refresh leaves it stable.
 pub fn member_display_state_digest(
     realm_id: &RealmId,
-    actor_id: &Did,
+    actor_id: &DidCoreId,
     entries: &[EffectiveIdentityEntry],
     handle_claims: &[RosterHandleClaimDigestEntry],
 ) -> Result<String> {
@@ -371,15 +373,19 @@ mod tests {
         RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
     }
 
-    fn fake_actor(label: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
+    fn fake_actor(label: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:{label}")).unwrap()
+    }
+
+    fn fake_principal(label: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:{label}")).unwrap()
     }
 
     fn sample_identity(name: &str) -> MemberIdentity {
         MemberIdentity::new(
             fake_realm(),
             fake_actor("alice"),
-            fake_actor("alice-principal"),
+            fake_principal("alice-principal"),
             DisplayProfile {
                 display_name: name.to_owned(),
                 avatar_blob_ref: None,

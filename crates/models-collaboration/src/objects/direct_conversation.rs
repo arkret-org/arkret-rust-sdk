@@ -4,8 +4,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    ActorId, Did, EncryptionProfile, Error, EventId, GenesisSalt, Hash, ObjectStage, ObjectState,
-    ProfileId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
+    DidCoreId, EncryptionProfile, Error, EventId, GenesisSalt, Hash, ObjectStage, ObjectState,
+    ProfileId, RealmId, Result, SchemaId, SecurityClass, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -81,22 +81,22 @@ pub enum CollaborationRealmRole {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationPairKeyParticipant {
-    pub did: ActorId,
-    pub stable_subject: ActorId,
+    pub actor_id: DidCoreId,
+    pub stable_subject: DidCoreId,
 }
 
 impl DirectConversationPairKeyParticipant {
-    pub fn unmapped(did: ActorId) -> Self {
+    pub fn unmapped(did: DidCoreId) -> Self {
         Self {
             stable_subject: did.clone(),
-            did,
+            actor_id: did,
         }
     }
 }
 
 #[derive(Serialize)]
 struct DirectConversationPairKeyMaterial {
-    participants: [ActorId; 2],
+    participants: [DidCoreId; 2],
     trust_domain_id: TypedTrustDomainId,
 }
 
@@ -186,8 +186,8 @@ pub fn direct_conversation_realm_create_payload(
 /// the unit non-canonical.
 pub fn direct_conversation_peer_membership_bootstrap(
     realm_id: RealmId,
-    founder: &ActorId,
-    participants: [ActorId; 2],
+    founder: &DidCoreId,
+    participants: [DidCoreId; 2],
     delivery_status: DeliveryStatus,
 ) -> Result<MembershipPayload> {
     if participants[0] == participants[1] {
@@ -218,7 +218,7 @@ pub fn direct_conversation_peer_membership_bootstrap(
 
 pub fn direct_conversation_member_join_payload(
     realm_id: RealmId,
-    participant: ActorId,
+    participant: DidCoreId,
     delivery_status: DeliveryStatus,
 ) -> MembershipPayload {
     MembershipPayload::join(
@@ -231,7 +231,7 @@ pub fn direct_conversation_member_join_payload(
 
 pub fn direct_conversation_main_strand_create_payload(
     realm_id: RealmId,
-    creator: ActorId,
+    creator: DidCoreId,
     created_at: DateTime<Utc>,
 ) -> StrandCreatePayload {
     let mut strand = Strand::new_create(realm_id, "Direct conversation", creator);
@@ -255,7 +255,7 @@ pub fn validate_direct_conversation_binding(
     trust_domain: TypedTrustDomainId,
     genesis: &RealmGenesis,
     realm_id: &RealmId,
-    active_members: &BTreeSet<Did>,
+    active_members: &BTreeSet<DidCoreId>,
     main_strand: &Strand,
 ) -> Result<()> {
     payload.validate_pair_key(trust_domain)?;
@@ -265,7 +265,8 @@ pub fn validate_direct_conversation_binding(
             "direct conversation binding object reference mismatch (schema_violation)".to_owned(),
         ));
     }
-    let participants: BTreeSet<Did> = payload.participants_unordered.iter().cloned().collect();
+    let participants: BTreeSet<DidCoreId> =
+        payload.participants_unordered.iter().cloned().collect();
     if participants.len() != 2 || &participants != active_members {
         return Err(Error::Protocol(
             "direct_conversation_member_count_invalid".to_owned(),
@@ -316,22 +317,22 @@ pub enum DirectConversationFounderBasis {
     /// the basis came into existence. The requester may have gone offline days earlier. Since
     /// base v1 defines no fallback, naming the possibly-absent party as founder would leave the
     /// pair unable to ever create the conversation.
-    Normal { request_issuer: Did },
+    Normal { request_issuer: DidCoreId },
     /// Concurrent requests from both sides. There is no responder, so the founder is the issuer of
     /// `requests[0]` under the ordering already registered for glare requests.
-    Glare { first_request_issuer: Did },
+    Glare { first_request_issuer: DidCoreId },
     /// controller-to-own-Agent conversations have no Contact basis at all. The founder is fixed to
     /// the controller so an Agent runtime key never needs Direct Conversation founding scope.
-    ControllerOwnedAgent { controller_id: Did },
+    ControllerOwnedAgent { controller_id: DidCoreId },
 }
 
 /// Derive the sole principal allowed to author the founding unit for `participants`.
 ///
 /// `participants` is the unordered pair; ordering of the argument does not matter.
 pub fn direct_conversation_founder(
-    participants: [Did; 2],
+    participants: [DidCoreId; 2],
     basis: &DirectConversationFounderBasis,
-) -> Result<Did> {
+) -> Result<DidCoreId> {
     let [left, right] = participants;
     if left == right {
         return Err(Error::Protocol(
@@ -364,8 +365,9 @@ pub fn direct_conversation_founder(
             }
         }
         DirectConversationFounderBasis::ControllerOwnedAgent { controller_id } => {
-            if *controller_id == left || *controller_id == right {
-                Ok(controller_id.clone())
+            let controller_actor = controller_id.clone();
+            if controller_actor == left || controller_actor == right {
+                Ok(controller_actor)
             } else {
                 Err(Error::Protocol(
                     "direct conversation controller-owned-Agent basis controller is not a pair participant"
@@ -381,8 +383,8 @@ pub fn direct_conversation_founder(
 /// Callers MUST NOT fall back to "whoever asked first" or to a timeout: waiting never grants create
 /// authority to the non-founder.
 pub fn direct_conversation_may_found(
-    actor: &Did,
-    participants: [Did; 2],
+    actor: &DidCoreId,
+    participants: [DidCoreId; 2],
     basis: &DirectConversationFounderBasis,
 ) -> Result<bool> {
     Ok(direct_conversation_founder(participants, basis)? == *actor)
@@ -390,14 +392,20 @@ pub fn direct_conversation_may_found(
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{DidCoreId, DidFullId, StrandId};
+
     use super::*;
 
-    fn did(value: &str) -> Did {
-        Did::new(value.to_owned()).unwrap()
+    fn full_id(value: &str) -> DidFullId {
+        DidFullId::new(value.to_owned()).unwrap()
     }
 
-    fn actor(value: &str) -> ActorId {
-        ActorId::from(arkret_wire::project_full_id_to_core_id(&did(value)).unwrap())
+    fn actor(value: &str) -> DidCoreId {
+        arkret_wire::project_full_id_to_core_id(&full_id(value)).unwrap()
+    }
+
+    fn principal(value: &str) -> DidCoreId {
+        arkret_wire::project_full_id_to_core_id(&full_id(value)).unwrap()
     }
 
     fn trust_domain() -> TypedTrustDomainId {
@@ -444,11 +452,11 @@ mod tests {
             "did:webvh:z6mkfixturealice:alice.example",
         ));
         let pairwise_bob = DirectConversationPairKeyParticipant {
-            did: ActorId::new("ak:did_core:webvh:z6mkpairwisebob").unwrap(),
+            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkpairwisebob").unwrap(),
             stable_subject: stable.clone(),
         };
         let stable_bob = DirectConversationPairKeyParticipant {
-            did: stable.clone(),
+            actor_id: stable.clone(),
             stable_subject: stable,
         };
 
@@ -469,7 +477,7 @@ mod tests {
 
     #[test]
     fn builder_emits_closed_profiled_e2ee_realm() {
-        let creator = did("did:webvh:z6mkfixturealice:alice.example");
+        let creator = full_id("did:webvh:z6mkfixturealice:alice.example");
         let payload = direct_conversation_realm_create_payload(
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
@@ -539,13 +547,13 @@ mod tests {
     }
 
     fn binding_payload() -> DirectConversationBoundPayload {
-        let alice = did("did:webvh:z6mkfixturealice:alice.example");
-        let bob = did("did:webvh:z6mkfixturebob:bob.example");
+        let alice = actor("did:webvh:z6mkfixturealice:alice.example");
+        let bob = actor("did:webvh:z6mkfixturebob:bob.example");
         DirectConversationBoundPayload {
             pair_key: direct_conversation_pair_key(
                 trust_domain(),
-                DirectConversationPairKeyParticipant::unmapped(actor(alice.as_str())),
-                DirectConversationPairKeyParticipant::unmapped(actor(bob.as_str())),
+                DirectConversationPairKeyParticipant::unmapped(alice.clone()),
+                DirectConversationPairKeyParticipant::unmapped(bob.clone()),
             )
             .unwrap(),
             participants_unordered: vec![alice, bob],
@@ -571,7 +579,7 @@ mod tests {
 
     #[test]
     fn validator_rejects_third_member_and_circle_scoped_main_strand() {
-        let creator = did("did:webvh:z6mkfixturealice:alice.example");
+        let creator = full_id("did:webvh:z6mkfixturealice:alice.example");
         let realm = direct_conversation_realm_create_payload(
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
@@ -611,7 +619,7 @@ mod tests {
             .is_ok()
         );
 
-        members.insert(did("did:webvh:z6mkfixture:carol.example"));
+        members.insert(actor("did:webvh:z6mkfixture:carol.example"));
         assert!(
             validate_direct_conversation_binding(
                 &payload,
@@ -623,7 +631,7 @@ mod tests {
             )
             .is_err()
         );
-        members.remove(&did("did:webvh:z6mkfixture:carol.example"));
+        members.remove(&actor("did:webvh:z6mkfixture:carol.example"));
         strand.scope_circle_id = Some(
             arkret_wire::CircleId::new(
                 "ak:circle:AQaY-AgUKie8pbyjuUgx-yC0rr0hNo4pI80rr9GC6eAd".to_owned(),
@@ -645,8 +653,8 @@ mod tests {
 
     #[test]
     fn normal_basis_founder_is_the_responder_not_the_requester() {
-        let alice = did("did:webvh:z6mkexample:alice.example");
-        let bob = did("did:webvh:z6mkexample:bob.example");
+        let alice = actor("did:webvh:z6mkexamplealice:alice.example");
+        let bob = actor("did:webvh:z6mkexamplebob:bob.example");
 
         // Alice sends the request, Bob accepts. Bob lit up the basis and is provably online at that
         // moment, so Bob founds. Naming Alice would pick the party most likely to be absent, and
@@ -673,8 +681,8 @@ mod tests {
 
     #[test]
     fn glare_basis_founder_is_the_first_request_issuer() {
-        let alice = did("did:webvh:z6mkexample:alice.example");
-        let bob = did("did:webvh:z6mkexample:bob.example");
+        let alice = actor("did:webvh:z6mkexamplealice:alice.example");
+        let bob = actor("did:webvh:z6mkexamplebob:bob.example");
         let basis = DirectConversationFounderBasis::Glare {
             first_request_issuer: alice.clone(),
         };
@@ -686,26 +694,28 @@ mod tests {
 
     #[test]
     fn controller_owned_agent_founder_is_fixed_to_the_controller() {
-        let controller = did("did:webvh:z6mkexample:alice.example");
-        let agent = did("did:webvh:z6mkexample:alice-agent.example");
+        let controller = principal("did:webvh:z6mkexamplealice:alice.example");
+        let controller_actor = actor("did:webvh:z6mkexamplealice:alice.example");
+        let agent = actor("did:webvh:z6mkexampleagent:alice-agent.example");
         let basis = DirectConversationFounderBasis::ControllerOwnedAgent {
-            controller_id: controller.clone(),
+            controller_id: controller,
         };
         // Fixed regardless of DID ordering, so an Agent runtime key never needs founding scope.
         assert_eq!(
-            direct_conversation_founder([agent.clone(), controller.clone()], &basis).unwrap(),
-            controller
+            direct_conversation_founder([agent.clone(), controller_actor.clone()], &basis).unwrap(),
+            controller_actor
         );
         assert!(
-            !direct_conversation_may_found(&agent.clone(), [agent, controller], &basis).unwrap()
+            !direct_conversation_may_found(&agent.clone(), [agent, controller_actor], &basis)
+                .unwrap()
         );
     }
 
     #[test]
     fn founder_derivation_rejects_malformed_pairs() {
-        let alice = did("did:webvh:z6mkexample:alice.example");
-        let bob = did("did:webvh:z6mkexample:bob.example");
-        let carol = did("did:webvh:z6mkexample:carol.example");
+        let alice = actor("did:webvh:z6mkexample:alice.example");
+        let bob = actor("did:webvh:z6mkexample:bob.example");
+        let carol = actor("did:webvh:z6mkexample:carol.example");
 
         // Issuer outside the pair: never guess the complement.
         assert!(

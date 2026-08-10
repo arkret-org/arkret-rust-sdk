@@ -1,6 +1,6 @@
 //! Identity-link cache projection helpers.
 
-use arkret_wire::{ActorId, DeviceId, PrincipalId, RealmId, Result, canonical};
+use arkret_wire::{DeviceId, DidCoreId, RealmId, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,9 +44,9 @@ pub fn compute_policy_frontier_digest(
 /// cached link must be re-derived.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IdentityLinkCacheEntry {
-    pub pairwise_actor_id: ActorId,
+    pub pairwise_actor_id: DidCoreId,
 
-    pub principal_id: PrincipalId,
+    pub principal_id: DidCoreId,
 
     pub device_id: DeviceId,
 

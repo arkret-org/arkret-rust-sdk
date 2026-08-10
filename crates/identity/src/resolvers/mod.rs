@@ -17,11 +17,12 @@ pub use policy::*;
 mod caching_tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use arkret_wire::DidFullId;
     use chrono::Utc;
 
     use super::*;
     use crate::helpers::did_key_material;
-    use crate::{Did, DidDocument, DidResolver, Error, Result};
+    use crate::{DidDocument, DidResolver, Error, Result};
 
     /// Controllable resolver stub that tracks upstream calls and can be
     /// switched into a forced-failure mode.
@@ -49,11 +50,11 @@ mod caching_tests {
     }
 
     impl DidResolver for StubResolver {
-        fn supports(&self, did: &Did) -> bool {
+        fn supports(&self, did: &DidFullId) -> bool {
             did.method() == "key"
         }
 
-        fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
+        fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.fail.load(Ordering::SeqCst) {
                 return Err(Error::Protocol("stub resolver forced failure".to_owned()));
@@ -68,10 +69,11 @@ mod caching_tests {
         }
     }
 
-    fn sample_did(suffix: &str) -> Did {
+    fn sample_did(suffix: &str) -> DidFullId {
         // Valid did:key Ed25519 multibase fixtures.
         let base = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH";
-        Did::new(format!("{base}{suffix}")).unwrap_or_else(|_| Did::new(base.to_owned()).unwrap())
+        DidFullId::new(format!("{base}{suffix}"))
+            .unwrap_or_else(|_| DidFullId::new(base.to_owned()).unwrap())
     }
 
     fn policy(ttl: Option<chrono::Duration>, fail_mode: ResolverFailMode) -> ResolverPolicy {
@@ -157,10 +159,12 @@ mod caching_tests {
         let base = Utc::now();
         let d1 = sample_did("");
         // Use distinct did:key identifiers to separate cache entries.
-        let d2 = Did::new("did:key:z6MkfGFvHcKHd9YEK5sBYqLqHs5GpD3xKCJQyZK7r2pHpkpf".to_owned())
-            .expect("valid did:key");
-        let d3 = Did::new("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
-            .expect("valid did:key");
+        let d2 =
+            DidFullId::new("did:key:z6MkfGFvHcKHd9YEK5sBYqLqHs5GpD3xKCJQyZK7r2pHpkpf".to_owned())
+                .expect("valid did:key");
+        let d3 =
+            DidFullId::new("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
+                .expect("valid did:key");
 
         resolver.resolve_with_freshness(&d1, base).expect("d1");
         resolver

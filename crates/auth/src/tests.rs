@@ -1,10 +1,10 @@
-use arkret_wire::Hash;
+use arkret_wire::{DidCoreId, DidFullId, Hash};
 
 use super::helpers::sha256_hex;
 use super::*;
 
-fn did(name: &str) -> Did {
-    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+fn did(name: &str) -> DidCoreId {
+    DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
 }
 
 fn device(id: &str) -> DeviceId {
@@ -611,7 +611,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     let issuer = did("issuer");
     let org = did("org");
     let guardian = did("guardian");
-    let controller = did("controller");
+    let controller = DidFullId::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
     let request = PresentationRequestBody {
         request_id: "presentation-1".to_owned(),
         subject: alice.clone(),
@@ -643,7 +643,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
             fail_closed: true,
         },
         created_at: Utc::now(),
-        verifier_did: None,
+        verifier_service_id: None,
         represented_org: None,
         verifier_authority_chain: Vec::new(),
     };
@@ -654,7 +654,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
         "claim-org",
         alice.clone(),
         issuer.clone(),
-        org,
+        org.clone(),
         vec!["writer".to_owned()],
     );
     let guardian_controller = PresentedClaim::guardian_controller(
@@ -683,7 +683,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     assert_eq!(
         accepted.disclosed_claims[1].value(),
         &serde_json::from_value(serde_json::json!({
-            "organization": "did:webvh:z6mkfixture:org.example"
+            "organization": org
         }))
         .unwrap()
     );
@@ -766,7 +766,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
 #[test]
 fn auth_uses_provider_did_proof_verifier_for_recovery() {
     let alice = did("alice");
-    let verification_method = "did:webvh:z6mkfixture:alice.example#key-1";
+    let verification_method = "did:webvh:z6mkfixturealice:alice.example#key-1";
     let mut auth = AuthManager::default();
     let request = auth
         .start_recovery(
@@ -776,7 +776,11 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
             },
         )
         .unwrap();
-    let document = DidDocument::new(alice.clone(), verification_method, "public-key");
+    let document = DidDocument::new(
+        DidFullId::new("did:webvh:z6mkfixturealice:alice.example").unwrap(),
+        verification_method,
+        "public-key",
+    );
     let proof = Proof {
         kind: "did-proof".to_owned(),
         verification_method: DidUrl::new(verification_method).unwrap(),

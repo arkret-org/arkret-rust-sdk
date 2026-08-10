@@ -10,7 +10,7 @@
 //!
 //! This module is wasm-safe: it depends only on the identity-domain wire
 //! shapes ([`Handle`], [`HandleClaim`], [`HandleBindingState`]) plus the
-//! `arkret-wire` primitives (`Did`/`Error`/`Result`) and `arkret-canonical`
+//! `arkret-wire` primitives (`DidFullId`/`Error`/`Result`) and `arkret-canonical`
 //! (JCS canonicalization + sha256), and pulls in no client / keystore /
 //! salvo / MLS native-only dependency. The umbrella `arkret` crate re-exports
 //! these symbols from `arkret::identity`, while wasm-only consumers (e.g.
@@ -18,7 +18,7 @@
 //! mirroring the algorithm by hand.
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, Error, Result};
+use arkret_wire::{DidCoreId, Error, Result};
 use chrono::{DateTime, Utc};
 
 use crate::{Handle, HandleBindingState, HandleClaim};
@@ -30,7 +30,7 @@ use crate::{Handle, HandleBindingState, HandleClaim};
 pub trait DidDocumentSnapshotResolver {
     fn resolve_metadata_primary_handle(
         &self,
-        subject: &Did,
+        subject: &DidCoreId,
         as_of: &DateTime<Utc>,
     ) -> Result<Option<String>>;
 }
@@ -47,7 +47,7 @@ pub struct NoHolderPreferenceResolver;
 impl DidDocumentSnapshotResolver for NoHolderPreferenceResolver {
     fn resolve_metadata_primary_handle(
         &self,
-        _subject: &Did,
+        _subject: &DidCoreId,
         _as_of: &DateTime<Utc>,
     ) -> Result<Option<String>> {
         Ok(None)
@@ -71,7 +71,7 @@ pub struct PrimaryHandleSelectInput<'a> {
     /// Realm policy `accepted_issuers` in trust order (earlier == more
     /// trusted). Claims whose issuer is absent from this list are dropped
     /// in Step 0.
-    pub accepted_issuers: &'a [String],
+    pub accepted_issuers: &'a [DidCoreId],
     /// `metadata.primary_handle` value at `resolution_as_of` (already
     /// materialised from the DID Document snapshot). `None` skips the
     /// holder-flagged layer.
@@ -151,7 +151,11 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
     }
     // issuer trust filter (mandatory pre-filter).
     match &c.issuer {
-        Some(issuer) if input.accepted_issuers.iter().any(|i| i == issuer) => {}
+        Some(issuer)
+            if input
+                .accepted_issuers
+                .iter()
+                .any(|candidate| candidate == issuer) => {}
         _ => return false,
     }
     // audience scope filter: present audience must equal context.
@@ -182,7 +186,7 @@ fn holder_flagged(c: &HandleClaim, holder_primary: Option<&str>) -> bool {
 fn tie_break_prefers(
     candidate: &HandleClaim,
     best: &HandleClaim,
-    accepted_issuers: &[String],
+    accepted_issuers: &[DidCoreId],
 ) -> bool {
     let cand_pos = issuer_position(candidate, accepted_issuers);
     let best_pos = issuer_position(best, accepted_issuers);
@@ -200,11 +204,11 @@ fn tie_break_prefers(
     }
 }
 
-fn issuer_position(c: &HandleClaim, accepted_issuers: &[String]) -> usize {
+fn issuer_position(c: &HandleClaim, accepted_issuers: &[DidCoreId]) -> usize {
     match &c.issuer {
         Some(issuer) => accepted_issuers
             .iter()
-            .position(|i| i == issuer)
+            .position(|candidate| candidate == issuer)
             .unwrap_or(usize::MAX),
         None => usize::MAX,
     }
@@ -273,7 +277,7 @@ pub enum MentionRender {
 /// degraded fallback ladder. `handle_at_time` is intentionally NOT used
 /// as the current display value — it is audit metadata only.
 pub fn render_mention(
-    subject_id: &Did,
+    subject_id: &DidCoreId,
     selection: &PrimaryHandleSelectInput<'_>,
     cached_handle: Option<&Handle>,
     display_name_at_time: Option<&str>,
@@ -345,8 +349,8 @@ mod tests {
 
     use super::*;
 
-    fn issuer(s: &str) -> String {
-        s.to_owned()
+    fn issuer(s: &str) -> DidCoreId {
+        DidCoreId::new(s).unwrap()
     }
 
     fn verified_claim(
@@ -358,8 +362,8 @@ mod tests {
     ) -> HandleClaim {
         HandleClaim {
             handle: Some(Handle::parse(handle).unwrap()),
-            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()),
-            issuer: Some(issuer_did.to_owned()),
+            subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
+            issuer: Some(DidCoreId::new(issuer_did).unwrap()),
             binding_state: Some(HandleBindingState::Verified),
             audience: audience.map(str::to_owned),
             created_at: Some(created),
@@ -368,8 +372,8 @@ mod tests {
         }
     }
 
-    fn subject() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
+    fn subject() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
     fn placeholder_payload_proof() -> PayloadProof {
@@ -406,21 +410,21 @@ mod tests {
         let later = now - chrono::Duration::hours(1);
         let expires = now + chrono::Duration::days(30);
         let acc = vec![
-            issuer("did:webvh:z6mkfixture:acme.example"),
-            issuer("did:webvh:z6mkfixture:other.example"),
+            issuer("ak:did_core:webvh:z6mkfixtureacme"),
+            issuer("ak:did_core:webvh:z6mkfixtureother"),
         ];
         let s = subject();
         // older claim with matching audience vs newer claim without.
         let matching = verified_claim(
             "alice:acme.example",
-            "did:webvh:z6mkfixture:acme.example",
+            "ak:did_core:webvh:z6mkfixtureacme",
             earlier,
             expires,
             Some("ak:realm:r1"),
         );
         let newer = verified_claim(
             "alice:other.example",
-            "did:webvh:z6mkfixture:other.example",
+            "ak:did_core:webvh:z6mkfixtureother",
             later,
             expires,
             None,
@@ -445,7 +449,7 @@ mod tests {
         let s = subject();
         let claim = verified_claim(
             "alice:rogue.example",
-            "did:webvh:z6mkfixture:rogue.example",
+            "ak:did_core:webvh:z6mkfixturerogue",
             now - chrono::Duration::hours(1),
             expires,
             None,
@@ -455,7 +459,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &snapshot,
-            accepted_issuers: &[issuer("did:webvh:z6mkfixture:acme.example")],
+            accepted_issuers: &[issuer("ak:did_core:webvh:z6mkfixtureacme")],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: now,
         };
@@ -468,7 +472,7 @@ mod tests {
         let expires = now + chrono::Duration::days(30);
         let mut a = verified_claim(
             "alice:acme.example",
-            "did:webvh:z6mkfixture:acme.example",
+            "ak:did_core:webvh:z6mkfixtureacme",
             now,
             expires,
             None,
@@ -510,8 +514,7 @@ mod tests {
 
     #[test]
     fn render_subject_degrades_through_name_then_truncated_did() {
-        let s = Did::new("did:webvh:z6mkfixture:averylongsubjectidentifier.example".to_owned())
-            .unwrap();
+        let s = DidCoreId::new("ak:did_core:webvh:averylongsubjectidentifier").unwrap();
         let input = PrimaryHandleSelectInput {
             subject_id: s.as_str(),
             context: None,

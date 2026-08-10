@@ -1,9 +1,7 @@
 //! Typed identity-resolution carriers shared by service discovery and
 //! high-risk service-to-service authentication.
 
-use arkret_wire::{
-    CoreId, Event, FullId, Hash, ProtocolSignature, RealmId, RequestId, Seal, ServiceId,
-};
+use arkret_wire::{DidCoreId, DidFullId, Event, Hash, ProtocolSignature, RealmId, RequestId, Seal};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -14,7 +12,7 @@ use crate::DidDocument;
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ResolutionCommitment {
-    pub full_id: FullId,
+    pub full_id: DidFullId,
     pub method_history_head: String,
     pub version_id: String,
 }
@@ -23,7 +21,7 @@ pub struct ResolutionCommitment {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionProjection {
-    pub full_id: FullId,
+    pub full_id: DidFullId,
     pub method_history_head: String,
     pub version_id: String,
     pub resolution_event_ref: String,
@@ -73,7 +71,7 @@ pub struct PrincipalResolutionCellProof {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionEvidence {
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub principal_genesis_event: PrincipalGenesisEvent,
@@ -115,8 +113,8 @@ pub enum ResolutionDidBindingMethodProofKind {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ResolutionDidBindingWitness {
-    pub witness_did: FullId,
-    pub controlling_organization: FullId,
+    pub witness_did: DidFullId,
+    pub controlling_organization: DidCoreId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -233,9 +231,9 @@ impl ResolutionMethodHistoryEvidence {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceResolutionRecordCore {
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_kind: String,
-    pub full_id: FullId,
+    pub full_id: DidFullId,
     pub method_history_head: String,
     pub version_id: String,
     pub resolution_event_ref: String,
@@ -263,6 +261,7 @@ pub struct ServiceResolutionRecord {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum ServiceResolutionCarrier {
     Inline {
         inline: ServiceResolutionRecord,
@@ -279,7 +278,7 @@ pub const MAX_SERVICE_CURRENT_RECORD_URL_BYTES: usize = 2_048;
 /// Canonical path of the unauthenticated transport locator for one service's
 /// current signed resolution record.
 #[must_use]
-pub fn canonical_service_current_record_path(service_id: &ServiceId) -> String {
+pub fn canonical_service_current_record_path(service_id: &DidCoreId) -> String {
     let mut encoded = String::with_capacity(service_id.as_str().len());
     for byte in service_id.as_str().bytes() {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
@@ -298,7 +297,7 @@ pub fn canonical_service_current_record_path(service_id: &ServiceId) -> String {
 /// method history, proof, freshness and route binding independently verified.
 pub fn validate_service_current_record_url(
     value: &str,
-    expected_service_id: &ServiceId,
+    expected_service_id: &DidCoreId,
 ) -> arkret_wire::Result<()> {
     if value.is_empty() || value.len() > MAX_SERVICE_CURRENT_RECORD_URL_BYTES {
         return Err(arkret_wire::Error::Protocol(
@@ -329,7 +328,7 @@ impl ServiceResolutionCarrier {
     /// Validate only the carrier shape and expected core-id binding.
     ///
     /// An inline or fetched record is not authorized by this check.
-    pub fn validate_shape(&self, expected_service_id: &ServiceId) -> arkret_wire::Result<()> {
+    pub fn validate_shape(&self, expected_service_id: &DidCoreId) -> arkret_wire::Result<()> {
         match self {
             Self::Inline { inline } => {
                 if &inline.record.service_id != expected_service_id {
@@ -355,9 +354,9 @@ impl ServiceResolutionRecord {
         struct Transcript<'a> {
             context: &'static str,
             payload_digest: Hash,
-            service_id: &'a ServiceId,
+            service_id: &'a DidCoreId,
             service_kind: &'a str,
-            full_id: &'a FullId,
+            full_id: &'a DidFullId,
             method_history_head: &'a str,
             version_id: &'a str,
             resolution_event_ref: &'a str,
@@ -421,12 +420,12 @@ pub struct AuthenticatedServiceResolution {
 impl AuthenticatedServiceResolution {
     pub fn validate_shape(
         &self,
-        expected_service_id: &ServiceId,
+        expected_service_id: &DidCoreId,
         now: DateTime<Utc>,
     ) -> arkret_wire::Result<()> {
         let record = &self.service_resolution_record.record;
         self.method_history_evidence.validate_shape()?;
-        let projected = ServiceId::from(arkret_wire::project_full_id_to_core_id(&record.full_id)?);
+        let projected = arkret_wire::project_full_id_to_core_id(&record.full_id)?;
         let boundary = self.method_history_evidence.boundary();
         let proof_controller = self
             .service_resolution_record
@@ -441,7 +440,7 @@ impl AuthenticatedServiceResolution {
             || boundary.to_method_history_head != record.method_history_head
             || boundary.to_version_id != record.version_id
             || self.method_history_evidence.evidence().document_digest
-                != arkret_wire::Hash::new(arkret_canonical::canonical_sha256(
+                != Hash::new(arkret_canonical::canonical_sha256(
                     &self.normalized_did_document,
                 )?)?
             || record.issued_at > record.refresh_after
@@ -470,7 +469,7 @@ pub enum ServiceRouteHandoverState {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRouteHandoverNoticeCore {
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_kind: String,
     pub handover_id: String,
     pub notice_revision: u32,
@@ -587,11 +586,11 @@ impl ServiceRouteHandoverNotice {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ServiceResolutionArtifactKey {
     ServiceResolutionRecord {
-        service_id: ServiceId,
+        service_id: DidCoreId,
         record_sequence: u64,
     },
     ServiceRouteHandoverNotice {
-        service_id: ServiceId,
+        service_id: DidCoreId,
         handover_id: String,
         notice_revision: u32,
     },
@@ -659,8 +658,8 @@ impl ServiceResolutionPublishRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceResolutionPublishAckCore {
     pub request_id: RequestId,
-    pub source_service_id: ServiceId,
-    pub receiver_service_id: ServiceId,
+    pub source_service_id: DidCoreId,
+    pub receiver_service_id: DidCoreId,
     pub realm_id: RealmId,
     pub request_digest: Hash,
     pub artifact_key: ServiceResolutionArtifactKey,
@@ -699,7 +698,7 @@ impl ServiceResolutionPublishAck {
 
     pub fn validate_request_binding(
         &self,
-        source_service_id: &ServiceId,
+        source_service_id: &DidCoreId,
         request: &ServiceResolutionPublishRequest,
     ) -> arkret_wire::Result<()> {
         let key = request.validate()?;
@@ -731,7 +730,7 @@ pub struct ServiceResolutionPublishOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceResolutionResolveRequest {
     pub realm_id: RealmId,
-    pub target_service_id: ServiceId,
+    pub target_service_id: DidCoreId,
     pub target_service_kind: String,
     pub known_record_sequence: u64,
     pub known_record_digest: Hash,
@@ -805,7 +804,7 @@ impl ServiceResolutionResolveOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceResolutionLastSeenFloor {
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_kind: String,
     pub record_sequence: u64,
     pub record_digest: Hash,
@@ -817,7 +816,7 @@ pub struct ServiceResolutionLastSeenFloor {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRouteNoticeState {
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_kind: String,
     pub handover_id: String,
     pub notice_revision: u32,
@@ -835,9 +834,9 @@ pub struct ServiceRouteNoticeState {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRouteCacheEntry {
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_kind: String,
-    pub full_id: FullId,
+    pub full_id: DidFullId,
     pub method_history_head: String,
     /// Native DID-method version coordinate from the verified signed record.
     pub version_id: String,
@@ -872,7 +871,7 @@ impl ServiceRouteCacheEntry {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RouteMirrorHint {
-    pub mirror_service_id: ServiceId,
+    pub mirror_service_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
 }
 
@@ -912,9 +911,8 @@ mod resolution_contract_tests {
 
     fn record(sequence: u64, previous_record_digest: Option<Hash>) -> ServiceResolutionRecord {
         let issued_at = Utc.with_ymd_and_hms(2026, 8, 10, 1, 0, 0).unwrap();
-        let full_id = FullId::new("did:webvh:z6mkfixture:service.example").unwrap();
-        let service_id =
-            ServiceId::from(arkret_wire::project_full_id_to_core_id(&full_id).unwrap());
+        let full_id = DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap();
+        let service_id = arkret_wire::project_full_id_to_core_id(&full_id).unwrap();
         ServiceResolutionRecord {
             record: ServiceResolutionRecordCore {
                 service_id,
@@ -958,8 +956,8 @@ mod resolution_contract_tests {
 
     #[test]
     fn webvh_scid_projection_ignores_mutable_location_suffix() {
-        let old = FullId::new("did:webvh:z6mkfixture:old.example:user").unwrap();
-        let new = FullId::new("did:webvh:z6mkfixture:new.example:user").unwrap();
+        let old = DidFullId::new("did:webvh:z6mkfixture:old.example:user").unwrap();
+        let new = DidFullId::new("did:webvh:z6mkfixture:new.example:user").unwrap();
         assert_eq!(
             arkret_wire::project_full_id_to_core_id(&old).unwrap(),
             arkret_wire::project_full_id_to_core_id(&new).unwrap()
@@ -994,7 +992,7 @@ mod resolution_contract_tests {
 
     #[test]
     fn current_record_carrier_requires_canonical_expected_service_https_url() {
-        let service_id = ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let canonical = format!(
             "https://service.example{}",
             canonical_service_current_record_path(&service_id)
@@ -1086,7 +1084,7 @@ mod resolution_contract_tests {
             },
         };
         assert!(ack.validate_request_binding(&source, &request).is_ok());
-        let wrong_source = ServiceId::from(CoreId::new("ak:did_core:web:other.example").unwrap());
+        let wrong_source = DidCoreId::new("ak:did_core:web:other.example").unwrap();
         assert!(
             ack.validate_request_binding(&wrong_source, &request)
                 .is_err()

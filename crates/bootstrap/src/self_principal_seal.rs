@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 use arkret_models_collaboration::event_sync::RealmSealFrontierView;
 use arkret_state::control_event_set_root;
 use arkret_wire::{
-    ActorId, Did, Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSignature, PayloadSigner,
-    Result, Seal, SealId, SealKind, project_full_id_to_core_id,
+    DidCoreId, DidFullId, Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSignature,
+    PayloadSigner, Result, Seal, SealId, SealKind, project_full_id_to_core_id,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -15,8 +15,8 @@ use serde_json::Value;
 use crate::projection::{CellWriteProjector, state_root_from_projection};
 use crate::self_principal::validate_self_principal_pcr_genesis_unit;
 
-fn signer_projects_to_actor(signer: &Did, actor_id: &ActorId) -> Result<bool> {
-    Ok(ActorId::from(project_full_id_to_core_id(signer)?) == *actor_id)
+fn signer_projects_to_actor(signer: &DidFullId, actor_id: &DidCoreId) -> Result<bool> {
+    Ok(project_full_id_to_core_id(signer)? == *actor_id)
 }
 
 /// Build and sign the first principal-control Seal after the closed bootstrap

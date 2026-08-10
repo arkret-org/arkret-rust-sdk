@@ -6,7 +6,7 @@ use arkret_models_collaboration::events_payloads::ActorProfileCreatePayload;
 use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
 use arkret_wire::{
-    ActorId, ActorKind, AppletId, BlobRef, CoreId, Event, Hlc, RealmId, SchemaId, ScopeRef,
+    ActorKind, AppletId, BlobRef, DidCoreId, Event, Hlc, RealmId, SchemaId, ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ use crate::{EventDraftError, Result};
 pub struct GhostActorProfileRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub actor_kind: ActorKind,
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,12 +29,12 @@ pub struct GhostActorProfileRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accountable_principal_ids: Vec<CoreId>,
+    pub accountable_principal_ids: Vec<DidCoreId>,
     pub profile_fields: GhostActorProfileFields,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<CoreId>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -45,7 +45,7 @@ impl GhostActorProfileRequest {
     /// and the profile id is derived from that create Event (spec
     /// `zh/models/common-fields.md` section 6.0).
     pub fn new(
-        principal_id: CoreId,
+        principal_id: DidCoreId,
         display_name: impl Into<String>,
         managed_by_applet: AppletId,
     ) -> Self {
@@ -81,7 +81,7 @@ impl GhostActorProfileRequest {
 
     pub fn with_accountable_principal_ids(
         mut self,
-        accountable_principal_ids: Vec<CoreId>,
+        accountable_principal_ids: Vec<DidCoreId>,
     ) -> Self {
         self.accountable_principal_ids = accountable_principal_ids;
         self
@@ -166,7 +166,7 @@ impl GhostActorProfileRequest {
         };
         let mut draft = crate::TypedEventDraft::<arkret_wire::event_spec::ProfileCreate>::new(
             scope_ref,
-            ActorId::from(self.principal_id.clone()),
+            self.principal_id.clone(),
             payload,
         )?;
         if let Some(authorization) = authorization {
@@ -186,8 +186,8 @@ mod tests {
 
     use super::*;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn principal(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn applet_id() -> AppletId {
@@ -196,8 +196,8 @@ mod tests {
 
     #[test]
     fn request_builds_schema_legal_profile_shape() {
-        let request = GhostActorProfileRequest::new(did("ghost"), "Ghost", applet_id())
-            .with_accountable_principal_ids(vec![did("owner")]);
+        let request = GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id())
+            .with_accountable_principal_ids(vec![principal("owner")]);
 
         let profile = request.to_actor_profile().unwrap();
 
@@ -210,8 +210,8 @@ mod tests {
 
     #[test]
     fn request_builds_profile_create_event() {
-        let request = GhostActorProfileRequest::new(did("ghost"), "Ghost", applet_id())
-            .with_accountable_principal_ids(vec![did("owner")]);
+        let request = GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id())
+            .with_accountable_principal_ids(vec![principal("owner")]);
         let event = request
             .profile_create_event(
                 ScopeRef::Realm {

@@ -1,5 +1,7 @@
 //! Key-backup active-series event payloads and transition validation.
 
+use arkret_wire::DidCoreId;
+
 use crate::internal_prelude::*;
 
 /// Top-level application fields declared by `auth_data.signed_fields`.
@@ -82,7 +84,7 @@ pub struct KeyBackupActiveSeriesFrontierRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupActiveSeries {
     pub schema: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub backup_kind: BackupKind,
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
@@ -103,7 +105,7 @@ pub struct KeyBackupActiveSeries {
 #[derive(Clone, Debug, Serialize)]
 pub struct UnsignedKeyBackupActiveSeries {
     schema: String,
-    actor_id: Did,
+    actor_id: DidCoreId,
     backup_kind: BackupKind,
     active_series_id: BackupSeriesId,
     series_pointer_version: u64,
@@ -119,7 +121,7 @@ pub struct UnsignedKeyBackupActiveSeries {
 impl UnsignedKeyBackupActiveSeries {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        actor_id: Did,
+        actor_id: DidCoreId,
         backup_kind: BackupKind,
         active_series_id: BackupSeriesId,
         series_pointer_version: u64,
@@ -264,7 +266,7 @@ impl KeyBackupActiveSeries {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyBackupActiveSeriesHead {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub backup_kind: BackupKind,
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
@@ -299,15 +301,15 @@ pub enum ControllerBackupTrustAnchorError {
 
 pub fn resolve_controller_backup_trust_anchor(
     outcome: &arkret_models_crypto::keys::KeysQueryOutcome,
-    principal: &Did,
+    principal: &DidCoreId,
     device_id: &DeviceId,
 ) -> std::result::Result<ControllerBackupTrustAnchor, ControllerBackupTrustAnchorError> {
     let record = outcome
         .device_keys
-        .get(principal)
+        .get(&principal.clone())
         .and_then(|devices| devices.get(device_id))
         .ok_or(ControllerBackupTrustAnchorError::DeviceUnknown)?;
-    let generation_state = outcome.device_generations.get(principal);
+    let generation_state = outcome.device_generations.get(&principal.clone());
     if !record.is_usable_in_generation(generation_state) {
         return Err(ControllerBackupTrustAnchorError::DeviceNotCurrent);
     }
@@ -480,7 +482,7 @@ mod tests {
 
     fn unsigned_fixture() -> UnsignedKeyBackupActiveSeries {
         UnsignedKeyBackupActiveSeries::new(
-            Did::new("did:web:alice.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             BackupKind::MlsHistory,
             BackupSeriesId::new("ak:backup_series:019a6760-0000-7000-8000-000000000001".to_owned())
                 .unwrap(),
@@ -506,7 +508,7 @@ mod tests {
     #[test]
     fn active_series_signing_transcript_kat_is_stable_across_typestates() {
         const EXPECTED: &str = concat!(
-            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":"did:web:alice.example","auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","signed_fields":["schema","actor_id","backup_kind","active_series_id","series_pointer_version","previous_series_ids","frontier_ref","issued_at"],"verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":"1-did:web:alice.example","frontier_digest":"sha256:"#,
+            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":"ak:did_core:web:alice.example","auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","signed_fields":["schema","actor_id","backup_kind","active_series_id","series_pointer_version","previous_series_ids","frontier_ref","issued_at"],"verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":"1-did:web:alice.example","frontier_digest":"sha256:"#,
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             r#"","seal_ref":"ak:seal:sha256:"#,
             "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

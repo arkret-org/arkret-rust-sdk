@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, Error, Hash, NonEmptyString, RealmId, Result};
+use arkret_wire::{DidCoreId, Error, Hash, NonEmptyString, RealmId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -59,10 +59,10 @@ pub struct AppletBridgeErrorPayload {
 pub struct AppletRegistrationPayload {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub applet_id: AppletIdentifier,
-    pub service_id: Did,
-    pub controller_id: Did,
+    pub service_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub base_url: String,
-    pub bot_actor_id: Did,
+    pub bot_actor_id: DidCoreId,
     pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
     pub namespaces: BTreeMap<String, Value>,
@@ -90,10 +90,10 @@ impl AppletRegistrationPayload {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         applet_id: AppletIdentifier,
-        service_id: Did,
-        controller_id: Did,
+        service_id: DidCoreId,
+        controller_id: DidCoreId,
         base_url: impl Into<String>,
-        bot_actor_id: Did,
+        bot_actor_id: DidCoreId,
         registration_epoch: Hash,
         webhook_auth: BTreeMap<String, Value>,
         proof: BTreeMap<String, Value>,
@@ -176,18 +176,14 @@ impl AppletRegistrationPayload {
 mod tests {
     use super::*;
 
-    fn did(value: &str) -> Did {
-        Did::new(value).unwrap()
-    }
-
     #[test]
     fn applet_registration_builder_rejects_empty_proof() {
         let payload = AppletRegistrationPayload::new(
-            AppletIdentifier::Did(did("did:webvh:z6mkfixture:applet.example")),
-            did("did:webvh:z6mkfixture:svc.example"),
-            did("did:webvh:z6mkfixture:controller.example"),
+            AppletIdentifier::Service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             "https://applet.example",
-            did("did:webvh:z6mkfixture:bot.example"),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             BTreeMap::new(),
             BTreeMap::new(),

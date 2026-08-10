@@ -3,9 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    ActorId, Audience, DeviceId, DeviceMessageTransactionId, Did, DidUrl, Error, EventId, Hash,
-    NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
-    Result, SchemaId, ServiceId, TypedTrustDomainId, XExtensionMap, canonical,
+    Audience, DeviceId, DeviceMessageTransactionId, DidCoreId, DidFullId, DidUrl, Error, EventId,
+    Hash, NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind,
+    ReceiptId, Result, SchemaId, TypedTrustDomainId, XExtensionMap, canonical,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -14,15 +15,26 @@ use serde_json::Value;
 /// Counterpart for `spec/v1/artifacts/schemas/identity-receipt.schema.json`.
 pub const IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT: &str = ProofContextId::IDENTITY_RECEIPT_PROOF_V1;
 
+fn verification_method_controller_core(verification_method: &DidUrl) -> Result<DidCoreId> {
+    let controller = verification_method
+        .as_str()
+        .split_once('#')
+        .map(|(controller, _)| controller)
+        .ok_or_else(|| {
+            Error::Protocol("verification_method requires a DID URL fragment".to_owned())
+        })?;
+    project_full_id_to_core_id(&DidFullId::new(controller)?).map_err(Into::into)
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityReceipt {
     pub schema: String,
     pub receipt_id: String,
-    pub did: Did,
+    pub did: DidFullId,
     pub seq: u64,
     pub head_event_digest: Hash,
-    pub registry_service_id: Did,
+    pub registry_service_id: DidCoreId,
     pub witness_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
@@ -105,11 +117,8 @@ impl IdentityReceipt {
                 "identity receipt proof created_at must equal receipt created_at".to_owned(),
             ));
         }
-        let expected_method_prefix = format!("{}#", self.registry_service_id);
-        if !self
-            .signature
-            .verification_method
-            .starts_with(&expected_method_prefix)
+        if verification_method_controller_core(&self.signature.verification_method)?
+            != self.registry_service_id
         {
             return Err(Error::Protocol(
                 "identity receipt verification_method must be controlled by registry_service_id"
@@ -143,18 +152,18 @@ impl IdentityReceipt {
 pub struct DidWebvhWitnessReceipt {
     pub schema: String,
     pub receipt_id: String,
-    pub did: Did,
+    pub did: DidFullId,
     pub version_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_head_digest: Option<Hash>,
-    pub witness_did: Did,
-    pub witness_verification_method: String,
-    pub controlling_organization: Did,
+    pub witness_did: DidFullId,
+    pub witness_verification_method: DidUrl,
+    pub controlling_organization: DidFullId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
-    pub issuer_service_id: Did,
+    pub issuer_service_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trust_domain: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -289,11 +298,8 @@ impl DidWebvhWitnessReceipt {
                     .to_owned(),
             ));
         }
-        let expected_issuer_method_prefix = format!("{}#", self.issuer_service_id);
-        if !self
-            .signature
-            .verification_method
-            .starts_with(&expected_issuer_method_prefix)
+        if verification_method_controller_core(&self.signature.verification_method)?
+            != self.issuer_service_id
         {
             return Err(Error::Protocol(
                 "did:webvh witness receipt proof must be controlled by issuer_service_id"
@@ -372,20 +378,20 @@ mod tests {
         let mut receipt = DidWebvhWitnessReceipt {
             schema: SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1.to_owned(),
             receipt_id: "ak:receipt:01984e00-0000-7000-8000-000000000001".to_owned(),
-            did: Did::new("did:webvh:z6mkfixture:subject.example").unwrap(),
+            did: DidFullId::new("did:webvh:z6mkfixture:subject.example").unwrap(),
             version_id: "1-QmFixtureVersion".to_owned(),
             log_head_digest: Some(
                 Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             ),
-            witness_did: Did::new(
+            witness_did: DidFullId::new(
                 "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L",
             )
             .unwrap(),
-            witness_verification_method: "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L#z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L".to_owned(),
-            controlling_organization: Did::new("did:web:org.example").unwrap(),
+            witness_verification_method: DidUrl::new("did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L#z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L").unwrap(),
+            controlling_organization: DidFullId::new("did:web:org.example").unwrap(),
             observed_at: created_at,
             source: Some("https://subject.example/.well-known/did-witness.json".to_owned()),
-            issuer_service_id: Did::new("did:webvh:z6mkfixture:starid.example").unwrap(),
+            issuer_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             trust_domain: Some("ak:trust_domain:example".to_owned()),
             audience: None,
             expires_at: created_at + chrono::Duration::hours(24),
@@ -424,6 +430,7 @@ mod tests {
         assert!(serde_json::from_value::<IdentityReceiptEvidence>(unknown).is_err());
     }
 
+    #[test]
     fn identity_receipt_uses_non_event_payload_proof() {
         let receipt = json!({
             "schema": "ak.schema.identity_receipt.v1",
@@ -432,7 +439,7 @@ mod tests {
             "seq": 1,
             "head_event_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "registry_service_id": "did:webvh:z6mkfixture:registry.example",
+            "registry_service_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",
             "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
@@ -465,7 +472,7 @@ mod tests {
             "seq": 1,
             "head_event_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "registry_service_id": "did:webvh:z6mkfixture:registry.example",
+            "registry_service_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",
             "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
@@ -502,8 +509,8 @@ mod tests {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStaleHandoverProof {
     pub frontier: Vec<EventId>,
-    pub recipient_service_id: ServiceId,
-    pub actor_id: ActorId,
+    pub recipient_service_id: DidCoreId,
+    pub actor_id: DidCoreId,
     pub witness: NonEmptyJsonObject,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
@@ -511,7 +518,7 @@ pub struct DeliveryBindingStaleHandoverProof {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStale {
-    pub new_recipient_service_id: ServiceId,
+    pub new_recipient_service_id: DidCoreId,
     pub new_service_resolution: crate::ServiceResolutionCarrier,
     pub handover_frontier: Vec<EventId>,
     pub handover_proof: DeliveryBindingStaleHandoverProof,

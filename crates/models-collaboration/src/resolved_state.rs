@@ -10,7 +10,7 @@
 //! allowed, keeping policy free of any dependency on the state runtime.
 
 use arkret_identifiers::Hlc;
-use arkret_wire::{ActorId, EventId, EventKind};
+use arkret_wire::{DidCoreId, EventId, EventKind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -25,7 +25,7 @@ pub struct ResolvedStateEvent {
     /// kinds.
     pub subject: String,
     pub source_event_id: EventId,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub actor_seq: u64,
     pub hlc: Option<Hlc>,
     pub content: Value,

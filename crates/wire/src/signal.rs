@@ -24,7 +24,10 @@ use crate::error::{Error, Result};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
-use crate::{DeviceId, Did, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical};
+use crate::{
+    DeviceId, DidCoreId, DidFullId, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical,
+    project_full_id_to_core_id,
+};
 
 /// Construction identifier of the v1 Signal payload.
 ///
@@ -156,7 +159,7 @@ pub struct SignalKeyRef {
 pub struct SignalAeadBinding<'a> {
     pub realm_id: &'a RealmId,
     pub scope_ref: &'a ScopeRef,
-    pub sender_actor_id: &'a Did,
+    pub sender_actor_id: &'a DidCoreId,
     pub sender_device_id: &'a DeviceId,
     pub seal_ref: &'a SealId,
     pub signal_class: SignalClass,
@@ -312,7 +315,7 @@ pub struct SignalProof {
 pub struct SignalEnvelope {
     pub realm_id: RealmId,
     pub scope_ref: ScopeRef,
-    pub sender_actor_id: Did,
+    pub sender_actor_id: DidCoreId,
     pub sender_device_id: DeviceId,
     pub seal_ref: SealId,
     pub signal_class: SignalClass,
@@ -431,21 +434,28 @@ impl SignalEnvelope {
                 "signal ciphertext exceeds {MAX_SIGNAL_CIPHERTEXT_CHARS} characters"
             )));
         }
-        // `signal.md` §1 — literal equality with `{sender_actor_id}#{sender_device_id}`.
-        // This is only the completeness condition of the directory lookup key,
-        // never a substitute for the device authorization itself: a fragment
-        // that merely looks like the device id, or a method controlled by
-        // another DID, would otherwise select a different directory row than
-        // the envelope claims to have been signed by.
-        let expected_verification_method = format!(
-            "{}#{}",
-            self.sender_actor_id.as_str(),
-            self.sender_device_id.as_str()
-        );
-        if self.proof.verification_method.as_str() != expected_verification_method {
-            return Err(Error::Protocol(format!(
-                "signal proof verification_method must equal '{expected_verification_method}'"
-            )));
+        // `signal.md` §1 — the bare full DID must project to the sender core id,
+        // and the fragment must equal the device id. This is only the
+        // completeness condition of the directory lookup key, never a
+        // substitute for current device authorization.
+        let (proof_controller, proof_fragment) = self
+            .proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "signal proof verification_method requires a DID URL fragment".to_owned(),
+                )
+            })?;
+        let proof_controller = project_full_id_to_core_id(&DidFullId::new(proof_controller)?)?;
+        if proof_controller != self.sender_actor_id
+            || proof_fragment != self.sender_device_id.as_str()
+        {
+            return Err(Error::Protocol(
+                "signal proof verification_method controller or fragment does not match the sender directory key"
+                    .to_owned(),
+            ));
         }
         if self.proof.created_at != self.sent_at {
             return Err(Error::Protocol(
@@ -606,8 +616,12 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 7, 28, 12, 0, 0).unwrap()
     }
 
-    fn actor() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn actor() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    }
+
+    fn actor_full() -> DidFullId {
+        DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn device() -> DeviceId {
@@ -640,7 +654,7 @@ mod tests {
             },
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(format!("{}#{}", actor(), device())).unwrap(),
+                verification_method: DidUrl::new(format!("{}#{}", actor_full(), device())).unwrap(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: sent_at(),
                 domain: None,
@@ -709,9 +723,12 @@ mod tests {
         // a device id, and a method controlled by another DID, both name a
         // different directory row than the envelope claims.
         for method in [
-            format!("{}#device-key", actor()),
-            format!("did:webvh:z6mkfixture:mallory.example#{}", device()),
-            format!("{}#ak:device:01904100-0000-7000-8000-bbbbbbbbbbbc", actor()),
+            format!("{}#device-key", actor_full()),
+            format!("did:webvh:z6mkother:mallory.example#{}", device()),
+            format!(
+                "{}#ak:device:01904100-0000-7000-8000-bbbbbbbbbbbc",
+                actor_full()
+            ),
         ] {
             let mut mutated = envelope(SignalClass::Session, 30);
             // `envelope_digest` removes `proof`, so it stays valid here and the

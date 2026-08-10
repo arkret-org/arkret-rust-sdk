@@ -1,7 +1,8 @@
+use arkret_wire::DidFullId;
 use serde::{Deserialize, Serialize};
 
 use super::merkle::sha256_digest;
-use crate::{Did, Error, Hash, PayloadSignature, RealmId, Result};
+use crate::{Error, Hash, PayloadSignature, RealmId, Result};
 
 /// Signed commitment from the snapshot generator. Receivers verify this
 /// proof against the generator DID before trusting any chunks. Once
@@ -11,7 +12,7 @@ use crate::{Did, Error, Hash, PayloadSignature, RealmId, Result};
 pub struct GeneratorProof {
     /// DID of the snapshot generator (typically the principal server's
     /// `service_id`).
-    pub generator_did: Did,
+    pub generator_did: DidFullId,
     /// Realm whose state this snapshot covers.
     pub realm_id: RealmId,
     /// Canonical state-root from `effective_seal_view` at the snapshot
@@ -36,7 +37,7 @@ pub struct GeneratorProof {
 
 #[derive(Serialize)]
 struct GeneratorProofBody<'a> {
-    generator_did: &'a Did,
+    generator_did: &'a DidFullId,
     realm_id: &'a RealmId,
     state_root: &'a Hash,
     merkle_root: &'a Hash,
@@ -49,7 +50,7 @@ impl GeneratorProof {
     /// Canonical bytes the generator signs and the receiver verifies
     /// against `signature.payload_digest`.
     pub fn body_bytes(
-        generator_did: &Did,
+        generator_did: &DidFullId,
         realm_id: &RealmId,
         state_root: &Hash,
         merkle_root: &Hash,
@@ -72,7 +73,7 @@ impl GeneratorProof {
     /// SHA-256 of the canonical body bytes — convenience helper for
     /// generators populating `signature.payload_digest`.
     pub fn body_digest(
-        generator_did: &Did,
+        generator_did: &DidFullId,
         realm_id: &RealmId,
         state_root: &Hash,
         merkle_root: &Hash,

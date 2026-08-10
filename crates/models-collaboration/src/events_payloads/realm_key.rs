@@ -1,6 +1,6 @@
 //! Realm-key request, delivery, durability, and audit event payloads.
 
-use arkret_wire::ProofContextId;
+use arkret_wire::{DidCoreId, DidFullId, ProofContextId};
 
 use crate::internal_prelude::*;
 
@@ -58,12 +58,12 @@ pub struct RealmKeyRequestScope {
 #[serde(deny_unknown_fields)]
 pub struct RealmKeyRequestPayload {
     pub key_scope: RealmKeyRequestScope,
-    pub recipient_principal_id: Did,
+    pub recipient_principal_id: DidCoreId,
     pub recipient_device_id: DeviceId,
     pub recipient_hpke_public_key: NonEmptyString,
     pub requested_source_kind: HistoryKeySource,
     pub target_source_ref: RealmKeySourceRef,
-    pub target_principal_id: Did,
+    pub target_principal_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
@@ -93,12 +93,11 @@ impl RealmKeyRequestPayload {
 /// Event bytes, Welcome, Commit, capability, or receipt: the receiving peer
 /// must re-read the accepted log and re-evaluate every repair gate before it
 /// authors the durable replacement-generation artifacts.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MemberRepairRequestPayload {
     pub realm_id: RealmId,
-    pub requester_principal_id: CoreId,
+    pub requester_principal_id: DidCoreId,
     #[serde(flatten)]
     pub requester: MemberRepairRequester,
     pub requester_keypackage_ref: NonEmptyString,
@@ -117,10 +116,69 @@ pub enum MemberRepairRequester {
         requester_device_id: DeviceId,
     },
     NativeAgent {
-        requester_agent_id: CoreId,
+        requester_agent_id: DidCoreId,
         requester_agent_verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
     },
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MemberRepairRequestPayloadWire {
+    realm_id: RealmId,
+    requester_principal_id: DidCoreId,
+    requester_device_id: Option<DeviceId>,
+    requester_agent_id: Option<DidCoreId>,
+    requester_agent_verification_method: Option<DidUrl>,
+    agent_key_authorize_event_id: Option<EventId>,
+    requester_keypackage_ref: NonEmptyString,
+    observed_active_generation_value_digest: Hash,
+    rejoin_event_id: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    created_at: DateTime<Utc>,
+}
+
+impl<'de> Deserialize<'de> for MemberRepairRequestPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MemberRepairRequestPayloadWire::deserialize(deserializer)?;
+        let requester = match (
+            wire.requester_device_id,
+            wire.requester_agent_id,
+            wire.requester_agent_verification_method,
+            wire.agent_key_authorize_event_id,
+        ) {
+            (Some(requester_device_id), None, None, None) => MemberRepairRequester::Device {
+                requester_device_id,
+            },
+            (
+                None,
+                Some(requester_agent_id),
+                Some(requester_agent_verification_method),
+                Some(agent_key_authorize_event_id),
+            ) => MemberRepairRequester::NativeAgent {
+                requester_agent_id,
+                requester_agent_verification_method,
+                agent_key_authorize_event_id,
+            },
+            _ => {
+                return Err(serde::de::Error::custom(
+                    "member repair requester must contain exactly one complete device or Native Agent branch",
+                ));
+            }
+        };
+        Ok(Self {
+            realm_id: wire.realm_id,
+            requester_principal_id: wire.requester_principal_id,
+            requester,
+            requester_keypackage_ref: wire.requester_keypackage_ref,
+            observed_active_generation_value_digest: wire.observed_active_generation_value_digest,
+            rejoin_event_id: wire.rejoin_event_id,
+            created_at: wire.created_at,
+        })
+    }
 }
 
 impl MemberRepairRequestPayload {
@@ -133,7 +191,7 @@ impl MemberRepairRequestPayload {
         if let MemberRepairRequester::NativeAgent {
             requester_agent_id, ..
         } = &self.requester
-            && requester_agent_id != &self.requester_principal_id
+            && requester_agent_id.as_core_id() != self.requester_principal_id.as_core_id()
         {
             return Err(Error::Protocol(
                 "ak.member.repair.request Native Agent id must equal requester_principal_id"
@@ -148,7 +206,7 @@ impl MemberRepairRequestPayload {
 #[serde(untagged)]
 pub enum RealmKeySourceRef {
     Device(DeviceId),
-    Service(Did),
+    Service(DidFullId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -168,9 +226,9 @@ pub struct RealmKeyShareAuditPayload {
     pub share_event_ref: EventId,
     pub result: RealmKeyShareResult,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_principal_id: Option<Did>,
+    pub recipient_principal_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -229,7 +287,7 @@ pub enum RealmKeyShareMaterial {
 #[derive(Clone, Debug, Serialize)]
 pub struct RealmKeySharePayload {
     pub share_kind: RealmKeyShareClass,
-    pub recipient_principal_id: Did,
+    pub recipient_principal_id: DidCoreId,
     /// Variant target. Flattened so the wire shape stays exactly the schema's
     /// `oneOf`, while cross-carrying or omitting a branch's fields becomes
     /// unrepresentable in Rust instead of a runtime check.
@@ -265,7 +323,7 @@ pub struct RealmKeySharePayload {
 #[serde(deny_unknown_fields)]
 struct RealmKeySharePayloadWire {
     share_kind: RealmKeyShareClass,
-    recipient_principal_id: Did,
+    recipient_principal_id: DidCoreId,
     #[serde(default)]
     recipient_device_id: Option<DeviceId>,
     #[serde(default)]
@@ -397,7 +455,7 @@ pub struct RealmKeyWithheldPayload {
     /// `ak.component.realm_key.delivery.v1` subject. v1 registers
     /// `member_device` only.
     pub share_kind: RealmKeyShareClass,
-    pub recipient_principal_id: Did,
+    pub recipient_principal_id: DidCoreId,
     pub recipient_device_id: DeviceId,
     pub sender_device_id: DeviceId,
     /// Accepted authorisation covering this refusal at the Event CBA basis. A
@@ -437,10 +495,8 @@ mod realm_key_request_tests {
     fn request(source: HistoryKeySource) -> RealmKeyRequestPayload {
         RealmKeyRequestPayload {
             key_scope: request_scope(),
-            recipient_principal_id: Did::new(
-                "did:webvh:example.test:users:01J0000000000000000000000A".to_owned(),
-            )
-            .unwrap(),
+            recipient_principal_id: DidCoreId::new("ak:did_core:webvh:example.test".to_owned())
+                .unwrap(),
             recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000b")
                 .unwrap(),
             recipient_hpke_public_key: NonEmptyString::new("cHVia2V5").unwrap(),
@@ -448,10 +504,8 @@ mod realm_key_request_tests {
             target_source_ref: RealmKeySourceRef::Device(
                 DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c").unwrap(),
             ),
-            target_principal_id: Did::new(
-                "did:webvh:example.test:users:01J0000000000000000000000D".to_owned(),
-            )
-            .unwrap(),
+            target_principal_id: DidCoreId::new("ak:did_core:webvh:example.test".to_owned())
+                .unwrap(),
             created_at: Utc::now(),
         }
     }
@@ -486,7 +540,7 @@ mod realm_key_share_tests {
     fn wire(share_kind: &str, extra: Value) -> Value {
         let mut base = serde_json::json!({
             "share_kind": share_kind,
-            "recipient_principal_id": "did:webvh:z6mkfixture:bob.example",
+            "recipient_principal_id": "ak:did_core:webvh:z6mkfixture",
             "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
             "source_authorization_ref": "ak:event:Adl8EVE0XuYmtOeRAa0WJVGy5DWansCGrXuwPONweuzs",
             "sender_device_signature": {"kid": "k", "signature_algorithm": "Ed25519", "sig": "AAAA"},

@@ -1,8 +1,6 @@
 //! The closed self-principal PCR bootstrap unit: the unsigned genesis builder,
 //! the two-slot submit request, and the validators both sides run.
 
-use std::collections::BTreeMap;
-
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::device_identity::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceOrPrincipalRef,
@@ -13,9 +11,10 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_wire::{
-    ActorId, CellRef, Did, EncryptionProfile, Error, Event, EventKind, EventRef, GenesisSalt, Hash,
-    Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef, SecurityClass,
-    TypedTrustDomainId, composite_subject, event_spec, project_full_id_to_core_id, proof_kind,
+    CellRef, DidCoreId, DidFullId, EncryptionProfile, Error, Event, EventKind, EventRef,
+    GenesisSalt, Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
+    SecurityClass, TypedTrustDomainId, composite_subject, event_spec, project_full_id_to_core_id,
+    proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -27,7 +26,9 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 /// Event of a self-principal PCR bootstrap unit.
 #[derive(Clone, Debug)]
 pub struct SelfPrincipalPcrCreateInput {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
+    /// Resolvable DID admitted for the principal and published as Realm notary.
+    pub principal_full_id: DidFullId,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TypedTrustDomainId,
     pub did_inception_ref: EventRef,
@@ -46,7 +47,7 @@ pub fn build_self_principal_pcr_create(
     project: CellWriteProjector<'_>,
 ) -> Result<Event> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
-    let actor_id = ActorId::from(project_full_id_to_core_id(&input.principal_id)?);
+    let actor_id = input.principal_id.clone();
     if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE
         || !input.did_inception_ref.critical
         || input.did_inception_ref.proof.is_some()
@@ -69,12 +70,12 @@ pub fn build_self_principal_pcr_create(
         SecurityClass::HighAssurance,
         EncryptionProfile::MlsRfc9420,
         NotaryProfile::SingleDid,
-        NotaryValue::single_did(input.principal_id.clone()),
+        NotaryValue::single_did(input.principal_full_id),
         input.capability_action_registry_digest.clone(),
     )?;
 
     let payload = RealmCreatePayload::new(genesis);
-    let event = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RealmCreate>::new(
+    let event = arkret_event_draft::TypedEventDraft::<event_spec::RealmCreate>::new(
         // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
         // carries no realm_id. Every Realm id, including a PCR, is derived
         // from the authored create Event.
@@ -141,7 +142,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     validate_event_proof_digests(authorize)?;
     let payload: DeviceAuthorizePayload =
         authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
-    if ActorId::from(project_full_id_to_core_id(&payload.principal_id)?) != create.actor_id
+    if payload.principal_id.as_core_id() != create.actor_id.as_core_id()
         || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored
         || payload.recovery_session_id.is_some()
     {
@@ -150,12 +151,21 @@ pub fn validate_self_principal_pcr_genesis_unit(
         ));
     }
     let authorized_by_matches = match &payload.authorized_by {
-        DeviceOrPrincipalRef::Did(did) => {
-            ActorId::from(project_full_id_to_core_id(did)?) == create.actor_id
+        DeviceOrPrincipalRef::Principal(principal_id) => {
+            principal_id.as_core_id() == create.actor_id.as_core_id()
         }
         DeviceOrPrincipalRef::DeviceId(_) => false,
     };
     let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
+    let NotaryValue::SingleDid {
+        did: principal_full_id,
+        ..
+    } = &create_payload.object.notary
+    else {
+        return Err(Error::Protocol(
+            "PCR genesis notary must identify the principal full DID".to_owned(),
+        ));
+    };
     let descriptor = create_payload
         .object
         .founding_device_descriptor
@@ -171,7 +181,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     if !authorized_by_matches
         || authorize.proofs.len() != 1
         || authorize.proofs[0].verification_method.as_str()
-            != format!("{}#{}", payload.principal_id, descriptor.device_id)
+            != format!("{}#{}", principal_full_id, descriptor.device_id)
         || descriptor.device_id != payload.device_id
         || descriptor.device_public_key != payload.device_public_key
         || descriptor.hpke_key != payload.hpke_key
@@ -256,9 +266,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
     let notary_matches = match &genesis.notary {
-        NotaryValue::SingleDid { did, .. } => {
-            ActorId::from(project_full_id_to_core_id(did)?) == event.actor_id
-        }
+        NotaryValue::SingleDid { did, .. } => project_full_id_to_core_id(did)? == event.actor_id,
         _ => false,
     };
     if genesis.schema != SchemaId::REALM_GENESIS_V1
@@ -294,13 +302,4 @@ fn validate_event_proof_digests(event: &Event) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-fn payload_map<T: serde::Serialize>(payload: &T) -> Result<BTreeMap<String, Value>> {
-    let Value::Object(map) = serde_json::to_value(payload)? else {
-        return Err(Error::Protocol(
-            "event payload must serialize to an object".to_owned(),
-        ));
-    };
-    Ok(map.into_iter().collect())
 }

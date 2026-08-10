@@ -3,7 +3,7 @@
 use std::num::NonZeroU64;
 
 use arkret_wire::{
-    Base64UrlString, DeviceId, Did, Hash, MimiRoomUri, MlsGroupId, NonEmptyString, ReasonCode,
+    Base64UrlString, DeviceId, DidCoreId, Hash, MimiRoomUri, MlsGroupId, NonEmptyString, ReasonCode,
 };
 use serde::{Deserialize, Serialize};
 
@@ -83,7 +83,7 @@ pub struct MimiNotificationRouting {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mimi_room_uri: Option<MimiRoomUri>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub target_providers: Vec<Did>,
+    pub target_providers: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,14 +101,14 @@ pub enum MimiDeliveryStatus {
 pub struct MimiDelivery {
     pub status: MimiDeliveryStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub delivered_to: Vec<Did>,
+    pub delivered_to: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MimiConsentTargetKind {
-    Did,
+    DidFullId,
     MimiUri,
     Handle,
     ProviderUser,
@@ -139,7 +139,7 @@ pub enum MimiConsentPurpose {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MimiIdentifierKind {
     MimiUri,
-    Did,
+    DidFullId,
     Handle,
     Phone,
     Email,
@@ -163,7 +163,7 @@ pub struct MimiIdentifierMatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mimi_uri: Option<MimiRoomUri>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject: Option<Did>,
+    pub subject: Option<DidCoreId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -173,7 +173,7 @@ pub struct MimiOhttpContext {
     pub context_id: NonEmptyString,
     pub request_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relay_provider: Option<Did>,
+    pub relay_provider: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encapsulated_request: Option<Base64UrlString>,
 }

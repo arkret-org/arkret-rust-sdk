@@ -1,4 +1,4 @@
-use arkret_wire::{Did, DidUrl, Hash, Proof, proof_kind};
+use arkret_wire::{DidCoreId, DidUrl, Hash, Proof, proof_kind};
 use chrono::{TimeZone, Timelike, Utc};
 
 fn proof_with_submillisecond_created_at() -> Proof {
@@ -21,7 +21,7 @@ fn proof_with_submillisecond_created_at() -> Proof {
 #[test]
 fn proof_wire_and_binding_use_the_same_canonical_millisecond_timestamp() {
     let proof = proof_with_submillisecond_created_at();
-    let actor_id = Did::new("did:web:alice.example").unwrap();
+    let actor_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
 
     let wire = serde_json::to_value(&proof).unwrap();
     let binding = proof.binding_object(&actor_id);

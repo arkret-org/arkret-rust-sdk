@@ -17,7 +17,7 @@
 //! All derivations output `KDF.Nh = 32` bytes (RFC 9420 §8 `MLS-Exporter`).
 
 use arkret_canonical::canonical::canonical_json_bytes;
-use arkret_wire::{CallId, DeviceId, Did, ExporterLabelId, RealmId, ReasonCode};
+use arkret_wire::{CallId, DeviceId, DidCoreId, ExporterLabelId, RealmId, ReasonCode};
 use serde::Serialize;
 use zeroize::Zeroizing;
 
@@ -97,7 +97,7 @@ pub struct RecordingKeyContext {
     pub call_id: CallId,
     pub focus_id: String,
     pub recording_id: String,
-    pub media_service_id: Did,
+    pub media_service_id: DidCoreId,
     pub recording_start_event_id: String,
 }
 
@@ -125,7 +125,7 @@ pub struct TranscriptKeyContext {
     pub call_id: CallId,
     pub focus_id: String,
     pub recording_id: String,
-    pub media_service_id: Did,
+    pub media_service_id: DidCoreId,
     pub transcript_start_event_id: String,
 }
 
@@ -276,7 +276,7 @@ mod tests {
                 call_id: call(),
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-recording-1".to_owned(),
-                media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+                media_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 recording_start_event_id: "ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml"
                     .to_owned(),
             },
@@ -323,7 +323,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             recording_id: String::new(),
-            media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+            media_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             recording_start_event_id: "ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml"
                 .to_owned(),
         };
@@ -336,7 +336,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             recording_id: "rtc-transcript-1".to_owned(),
-            media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+            media_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             transcript_start_event_id: "ak:event:AQ5uuUVXlrGqR79MEUmEPOIMYQIdRhgBIsTAtH3mgNpC"
                 .to_owned(),
         }
@@ -360,7 +360,7 @@ mod tests {
                 call_id: call(),
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-transcript-1".to_owned(),
-                media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+                media_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 recording_start_event_id: "ak:event:AQ5uuUVXlrGqR79MEUmEPOIMYQIdRhgBIsTAtH3mgNpC"
                     .to_owned(),
             },
@@ -393,7 +393,7 @@ mod tests {
             text,
             "{\"call_id\":\"ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1\",\
              \"focus_id\":\"fra-1\",\
-             \"media_service_id\":\"did:webvh:z6mkfixture:media.example\",\
+             \"media_service_id\":\"ak:did_core:webvh:z6mkfixture\",\
              \"realm_id\":\"ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs\",\
              \"recording_id\":\"rtc-transcript-1\",\
              \"transcript_start_event_id\":\"ak:event:AQ5uuUVXlrGqR79MEUmEPOIMYQIdRhgBIsTAtH3mgNpC\"}"

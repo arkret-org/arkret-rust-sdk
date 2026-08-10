@@ -1,7 +1,7 @@
 //! Moderation queue vocabulary and queue-item container
 //! (`moderation-queue-item.schema.json`).
 
-use arkret_wire::{Did, SchemaId};
+use arkret_wire::{DidCoreId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -69,7 +69,7 @@ pub struct ModerationQueueItem {
     pub priority: Option<ModerationQueuePriority>,
     pub visibility: ModerationQueueVisibility,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub assigned_to: Vec<Did>,
+    pub assigned_to: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_policy: Option<ModerationEvidencePolicy>,
     /// `ak:event:<44-char-token>` references to audit events recording queue
@@ -102,7 +102,7 @@ mod tests {
                 RealmId::new("ak:realm:AYXp4CiHLjKHg42IhFAbpOD0JiP1L-wLeEGGKcIuox_2").unwrap(),
                 "ak:message:AXB4Wy8AgJaUH7vqjxD-xwHRsqpfyTp-qM7_vrf4j7ol",
                 "spam",
-                Did::new("did:webvh:z6mkfixture:reporter.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturereporter").unwrap(),
             ),
             status: ModerationQueueStatus::Submitted,
             priority: Some(ModerationQueuePriority::Normal),

@@ -96,7 +96,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
         ),
         (
             "ak.profile.update",
-            "object_patch_payload",
+            "actor_profile_update_payload",
             json!({
                 "target_ref": "ak:actor_profile:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
@@ -229,10 +229,13 @@ fn invite_create_payload_shape_is_enforced() {
         return;
     };
     let payload = json!({
-        "invitee": "did:webvh:z6mkfixture:bob.example",
+        "invitee": "ak:did_core:webvh:z6mkfixture",
         "invite_delivery_target": {
-            "recipient_service_id": "did:webvh:z6mkfixture:server.example",
-            "recipient_service_kind": "principal_server"
+            "recipient_service_id": "ak:did_core:webvh:z6mkserver",
+            "recipient_service_kind": "principal_server",
+            "service_resolution": {
+                "current_record_url": "https://server.example/.well-known/arkret/service-resolution.json"
+            }
         },
         "introduction_evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "expires_at": "2026-06-14T10:00:00.000Z",

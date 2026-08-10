@@ -5,7 +5,7 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    ActorId, Audience, AuthorizationRef, CriticalExtension, DeviceMessageId, Event, EventId,
+    Audience, AuthorizationRef, CriticalExtension, DeviceMessageId, DidCoreId, Event, EventId,
     EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc, OperationId,
     OperationKind, Precondition, ProfileRef, Proof, ProofBindingRequirements, RealmId, ScopeRef,
     SealBasis, SealId, SignatureBindingPayload, canonical,
@@ -25,7 +25,7 @@ use crate::{EventDraftError, EventSpec, Result, TypedDeviceMessageTarget, device
 /// `sender`/`actor_id` or maintaining enrich/strip field lists.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionContext {
-    pub sender: ActorId,
+    pub sender: DidCoreId,
     pub actor_seq: u64,
     pub event_id: EventId,
     pub preconditions: Vec<Precondition>,
@@ -35,7 +35,7 @@ pub struct ProjectionContext {
     pub seal_ref: Option<SealId>,
     pub seal_basis: Option<SealBasis>,
     pub hlc: Option<Hlc>,
-    pub executed_by: Option<ActorId>,
+    pub executed_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub accepted_scope_ref: ScopeRef,
@@ -254,7 +254,7 @@ impl<K: LocalOperationSpec> LocalOperationDraft<K> {
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
     pub scope_ref: ScopeRef,
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub(crate) kind: EventKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<String>,
@@ -451,7 +451,7 @@ impl OperationEventConversion {
 pub struct OperationEnvelopeBuilder<K: EventSpec> {
     operation_id: OperationId,
     scope_ref: ScopeRef,
-    actor_id: ActorId,
+    actor_id: DidCoreId,
     target_ref: Option<String>,
     deps: Vec<OperationId>,
     hlc: Hlc,
@@ -466,7 +466,7 @@ impl<K: EventSpec> OperationEnvelopeBuilder<K> {
     pub fn new(
         operation_id: OperationId,
         scope_ref: ScopeRef,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: K::Payload,

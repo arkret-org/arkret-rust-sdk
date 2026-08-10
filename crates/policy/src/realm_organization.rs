@@ -6,7 +6,7 @@ use arkret_models_collaboration::{
     ObjectRef, RealmOrganizationControlScope, RealmOrganizationPayload,
     RealmOrganizationRelationship, RealmOrganizationStatus, SignatureMaterial,
 };
-use arkret_wire::{Did, ErrorCode, RealmId, ReasonCode};
+use arkret_wire::{DidCoreId, ErrorCode, RealmId, ReasonCode};
 use chrono::{DateTime, Utc};
 use thiserror::Error;
 
@@ -38,7 +38,7 @@ pub type RealmOrganizationVerificationResult<T> = Result<T, RealmOrganizationVer
 pub struct RealmOrganizationDelegation {
     /// Organization DID the delegation is anchored to. MUST equal the
     /// statement's `organization_id`; the helper rejects otherwise.
-    pub organization_id: Did,
+    pub organization_id: DidCoreId,
     /// Whether the delegation is currently live (not expired / not revoked).
     pub is_live: bool,
     /// Relationships the delegation's purpose authorizes. The statement's
@@ -61,7 +61,7 @@ pub trait RealmOrganizationDelegationResolver {
     fn resolve_delegation(
         &self,
         delegation_ref: &ObjectRef,
-        organization_id: &Did,
+        organization_id: &DidCoreId,
     ) -> Result<Option<RealmOrganizationDelegation>, Self::Error>;
 }
 
@@ -77,7 +77,7 @@ impl RealmOrganizationDelegationResolver for NoDelegationResolver {
     fn resolve_delegation(
         &self,
         _delegation_ref: &ObjectRef,
-        _organization_id: &Did,
+        _organization_id: &DidCoreId,
     ) -> Result<Option<RealmOrganizationDelegation>, Self::Error> {
         Ok(None)
     }
@@ -247,8 +247,12 @@ mod realm_organization_verifier_tests {
         RealmId::new("ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo").unwrap()
     }
 
-    fn org_did() -> Did {
-        Did::new("did:webvh:example.test:orgs:org1".to_owned()).unwrap()
+    fn org_principal() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:example.test:orgs:org1").unwrap()
+    }
+
+    fn org_actor() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:example.test:orgs:org1").unwrap()
     }
 
     fn now() -> DateTime<Utc> {
@@ -259,7 +263,7 @@ mod realm_organization_verifier_tests {
         RealmOrganizationPayload {
             statement_id: "org-stmt-1".to_owned(),
             realm_id: realm_id(),
-            organization_id: org_did(),
+            organization_id: org_principal(),
             relationship: RealmOrganizationRelationship::Owner,
             status: RealmOrganizationStatus::Active,
             control_scopes: vec![
@@ -274,7 +278,7 @@ mod realm_organization_verifier_tests {
             realm_frontier_digest: None,
             organization_policy_ref: None,
             authorization: RealmOrganizationAuthorization {
-                issuer: org_did(),
+                issuer: org_actor(),
                 issuer_role: RealmOrganizationIssuerRole::OrganizationDid,
                 verification_method: DidUrl::new("did:webvh:example.test:orgs:org1#k1").unwrap(),
                 delegation_ref: None,
@@ -287,7 +291,7 @@ mod realm_organization_verifier_tests {
 
     fn live_delegation() -> RealmOrganizationDelegation {
         RealmOrganizationDelegation {
-            organization_id: org_did(),
+            organization_id: org_principal(),
             is_live: true,
             covered_relationships: vec![RealmOrganizationRelationship::Owner],
             covered_control_scopes: vec![
@@ -304,7 +308,7 @@ mod realm_organization_verifier_tests {
         fn resolve_delegation(
             &self,
             _delegation_ref: &ObjectRef,
-            _organization_id: &Did,
+            _organization_id: &DidCoreId,
         ) -> Result<Option<RealmOrganizationDelegation>, Self::Error> {
             Ok(self.0.clone())
         }
@@ -317,7 +321,7 @@ mod realm_organization_verifier_tests {
         fn resolve_delegation(
             &self,
             _delegation_ref: &ObjectRef,
-            _organization_id: &Did,
+            _organization_id: &DidCoreId,
         ) -> Result<Option<RealmOrganizationDelegation>, Self::Error> {
             Err("delegation store unavailable")
         }

@@ -42,6 +42,8 @@ jobs:
           python tools/lint-event-derived-id-minting.py
       - name: Guard weak wire types and closed-schema boundaries
         run: |
+          python tools/test_identity_type_audit.py
+          python tools/identity_type_audit.py
           python tools/wire_value_audit.py --check
           python tools/deny_unknown_audit.py --check
       - run: cargo check -p arkret

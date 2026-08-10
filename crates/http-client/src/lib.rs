@@ -852,12 +852,13 @@ mod tests {
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
         use arkret_wire::{
-            ActorId, AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
+            AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
             AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
             AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, BlobRef, DeviceId,
-            Did, DidUrl, Event, EventId, EventInitialSubmission, EventRequirements, Hash, Hlc,
-            LeaseBasisRef, MimiRoomUri, NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef,
-            SealId, ServiceKind, StrandId, project_full_id_to_core_id, proof_kind,
+            DidCoreId, DidFullId, DidUrl, Event, EventId, EventInitialSubmission,
+            EventRequirements, Hash, Hlc, LeaseBasisRef, MimiRoomUri, NonEmptyString, PayloadProof,
+            RealmId, RiskTier, ScopeRef, SealId, ServiceKind, StrandId, project_full_id_to_core_id,
+            proof_kind,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -879,12 +880,10 @@ mod tests {
                 kind: "ak.message.create".into(),
                 realm_id: realm_id.clone(),
                 scope_ref: ScopeRef::Realm { realm_id },
-                actor_id: ActorId::from(
-                    project_full_id_to_core_id(
-                        &Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-                    )
-                    .unwrap(),
-                ),
+                actor_id: project_full_id_to_core_id(
+                    &DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                )
+                .unwrap(),
                 actor_seq: 1,
                 created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -955,7 +954,7 @@ mod tests {
                 basis_ref: LeaseBasisRef::Seal(
                     SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
                 ),
-                actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
                 scope_ref: event.scope_ref.clone(),
                 action: event.kind.as_str().to_owned(),
@@ -1123,7 +1122,7 @@ mod tests {
             assert!(parsed["event"].get("authorization_lease").is_none());
             assert_eq!(
                 parsed["authorization_lease"]["actor_id"],
-                "did:webvh:z6mkfixture:alice.example"
+                "ak:did_core:webvh:z6mkfixture"
             );
             assert_eq!(
                 parsed["authorization_lease"]["scope_ref"],
@@ -1701,7 +1700,7 @@ mod tests {
             let (client, capture) = spawn_capture_server(canned).await;
             let request = DirectConversationResolveRequestBody {
                 peer: ContactPeer::Human {
-                    principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 },
             };
 
@@ -1749,7 +1748,7 @@ mod tests {
             let (client, capture) = spawn_capture_server(
                 r#"{
                     "schema":"ak.schema.mimi_interop.v1",
-                    "service_id":"did:web:mimi.example.test",
+                    "service_id":"ak:did_core:web:mimi.example.test",
                     "service_kind":"mimi_provider",
                     "supported_profiles":["ak.profile.mimi_interop.v1"],
                     "mimi":{
@@ -1809,7 +1808,7 @@ mod tests {
                 realm_id: None,
                 target_ref: NonEmptyString::new("mimi://provider/rooms/room-1/messages/msg-1")
                     .unwrap(),
-                reporter: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                reporter: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 abuse_reason_code: NonEmptyString::new("spam").unwrap(),
                 evidence_package: None,
                 franking_proof: None,
@@ -1827,7 +1826,7 @@ mod tests {
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(parsed["abuse_reason_code"], "spam");
-            assert_eq!(parsed["reporter"], "did:webvh:z6mkfixture:alice.example");
+            assert_eq!(parsed["reporter"], "ak:did_core:webvh:z6mkfixture");
         }
 
         #[tokio::test]

@@ -1,5 +1,5 @@
 use arkret_models_identity::handle::Handle;
-use arkret_wire::Did;
+use arkret_wire::DidCoreId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,7 @@ pub struct Mention {
     /// Principal DID of the mentioned subject. The ONLY field that
     /// participates in actor attribution, authorization, resolution and
     /// render lookup.
-    pub subject_id: Did,
+    pub subject_id: DidCoreId,
     /// Snapshot of the subject's display name at compose time. Persistent
     /// snapshot semantics (anti-impersonation guard).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -40,7 +40,7 @@ pub struct Mention {
     /// Controller principal DID captured when the mention came from a
     /// controller-scoped agent selector. Audit metadata only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub controller_subject_id: Option<Did>,
+    pub controller_subject_id: Option<DidCoreId>,
     /// Controller handle snapshot from `@<controller-handle>/<agent_slug>`.
     /// Audit / search / fallback metadata only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -173,7 +173,7 @@ impl AudienceMention {
 impl Mention {
     /// Construct a mention from its authoritative `subject_id`. Audit
     /// metadata is attached via the builder setters.
-    pub fn new(subject_id: Did) -> Self {
+    pub fn new(subject_id: DidCoreId) -> Self {
         Self {
             kind: MentionKind::Mention,
             subject_id,
@@ -199,7 +199,7 @@ impl Mention {
 
     pub fn with_agent_selector_metadata(
         mut self,
-        controller_subject_id: Did,
+        controller_subject_id: DidCoreId,
         controller_handle_at_time: Handle,
         agent_slug_at_time: impl Into<String>,
     ) -> Self {
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn mention_minimal_shape_round_trips() {
-        let m = Mention::new(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap());
+        let m = Mention::new(DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap());
         let json = serde_json::to_value(&m).unwrap();
         assert_eq!(json["kind"], "mention");
         assert!(json.get("subject_id").is_some());
@@ -277,9 +277,9 @@ mod tests {
 
     #[test]
     fn mention_agent_selector_metadata_round_trips() {
-        let m = Mention::new(Did::new("did:webvh:z6mkfixture:agent.example".to_owned()).unwrap())
+        let m = Mention::new(DidCoreId::new("ak:did_core:webvh:z6mkfixtureagent").unwrap())
             .with_agent_selector_metadata(
-                Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned()).unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
                 Handle::parse("alice:example.com").unwrap(),
                 "summary",
             )
@@ -287,7 +287,7 @@ mod tests {
         let json = serde_json::to_value(&m).unwrap();
         assert_eq!(
             json["controller_subject_id"],
-            "did:webvh:z6mkfixture:example.com:users:alice"
+            "ak:did_core:webvh:z6mkfixturealice"
         );
         assert_eq!(json["controller_handle_at_time"], "alice:example.com");
         assert_eq!(json["agent_slug_at_time"], "summary");
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn mention_node_round_trips_actor_and_audience_variants() {
         let actor = MentionNode::mention(Mention::new(
-            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
         ));
         let actor_json = serde_json::to_value(&actor).unwrap();
         assert_eq!(actor_json["kind"], "mention");

@@ -6,6 +6,7 @@
 //! transport-bound one-shot `login_did_proof` flow is owned by
 //! `arkret-http-client`.
 
+use arkret_wire::DidCoreId;
 pub mod admin_key;
 mod claims;
 mod error;
@@ -22,7 +23,7 @@ use std::fmt;
 
 pub use admin_key::AdminKeyStore;
 use arkret_models_identity::{DidDocument, SignedSessionGrantClaims};
-use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof, RealmId};
+use arkret_wire::{DeviceId, DidUrl, EventKind, NonEmptyString, Proof, RealmId};
 use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
 use error::AuthError as Error;
@@ -39,7 +40,7 @@ pub struct PasswordUser {
     /// Username.
     pub username: String,
     /// User DID.
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     /// Password hash.
     pub password_hash: String,
     /// Whether MFA is required.
@@ -70,7 +71,7 @@ pub struct OidcAuthRequestBody {
 /// Passkey challenge.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PasskeyChallenge {
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub challenge: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -79,7 +80,7 @@ pub struct PasskeyChallenge {
 /// MFA challenge.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MfaChallenge {
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub code: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -131,7 +132,7 @@ impl fmt::Debug for AccountRecoveryMethod {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountRecoveryRequestBody {
     pub request_id: String,
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub method: AccountRecoveryMethod,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -160,7 +161,7 @@ impl AccountAuthState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RenewalCredentialMetadata {
     pub session_id: String,
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub device_id: DeviceId,
     pub session_credential_hash: String,
     pub renewal_credential_hash: String,
@@ -177,7 +178,7 @@ pub struct RenewalCredentialMetadata {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionRevocation {
     pub session_id: String,
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub device_id: DeviceId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
@@ -188,8 +189,8 @@ pub struct SessionRevocation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedAuthSession {
     pub session_id: String,
-    pub user_id: Did,
-    pub principal_id: Did,
+    pub user_id: DidCoreId,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -205,7 +206,7 @@ pub struct PersistedAuthSession {
 pub struct AuthStateSnapshot {
     pub password_users: BTreeMap<String, PasswordUser>,
     pub sessions: Vec<PersistedAuthSession>,
-    pub account_states: BTreeMap<Did, AccountAuthState>,
+    pub account_states: BTreeMap<DidCoreId, AccountAuthState>,
     pub renewal_credentials: BTreeMap<String, RenewalCredentialMetadata>,
     pub revoked_sessions: BTreeMap<String, SessionRevocation>,
     pub recovery_requests: BTreeMap<String, AccountRecoveryRequestBody>,
@@ -215,7 +216,7 @@ pub struct AuthStateSnapshot {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionPrincipalBinding {
     pub session_id: String,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,

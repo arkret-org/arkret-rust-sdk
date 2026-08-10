@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedPayload;
-use arkret_wire::{BlobRef, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId};
+use arkret_wire::{BlobRef, DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -122,7 +122,7 @@ pub struct WithheldKeyRecord {
     /// Session that the sender refused to share.
     pub session_id: String,
     /// Sending principal.
-    pub sender: Did,
+    pub sender: DidCoreId,
     /// Wire `code` (e.g. `m.blacklisted`).
     pub code: String,
     /// Mapped `UnableToDecryptReason` for renderer convenience.
@@ -181,7 +181,7 @@ impl SecretGossipRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OneTimeKeyClaim {
     /// Target principal.
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     /// Target device.
     pub device_id: DeviceId,
     /// One-time key algorithm (e.g. `signed_curve25519`).
@@ -295,7 +295,7 @@ pub struct KeyLifecycleEvent {
     /// Phase the key moved into.
     pub phase: KeyLifecyclePhase,
     /// Principal that performed the transition.
-    pub actor: Did,
+    pub actor: DidCoreId,
     /// Device that performed the transition.
     pub device_id: DeviceId,
     /// Wall-clock time of the transition.
@@ -363,7 +363,7 @@ pub enum UnableToDecryptReason {
 pub struct UnableToDecryptRecord {
     pub event_id: EventId,
     pub realm_id: RealmId,
-    pub sender: Did,
+    pub sender: DidCoreId,
     pub reason: UnableToDecryptReason,
     pub encrypted_content: EncryptedPayload,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -380,7 +380,7 @@ pub struct UnableToDecryptRecord {
 pub enum CryptoMachineRequestBody {
     UploadDeviceKeys(DeviceKeyBundle),
     QueryDeviceKeys {
-        users: Vec<Did>,
+        users: Vec<DidCoreId>,
     },
     ClaimOneTimeKeys(Vec<OneTimeKeyClaim>),
     EncryptEvent {

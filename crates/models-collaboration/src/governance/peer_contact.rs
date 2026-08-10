@@ -1,5 +1,5 @@
 use arkret_canonical::serde_helpers::optional_canonical_timestamp;
-use arkret_identifiers::{ActorId, Did, EventId, RealmId, ServiceId};
+use arkret_identifiers::{DidCoreId, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
 use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
 use chrono::{DateTime, Utc};
@@ -11,8 +11,8 @@ use crate::governance::invite_addressing::PrincipalLocator;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerContactAddress {
-    pub subject_id: ActorId,
-    pub recipient_service_id: ServiceId,
+    pub subject_id: DidCoreId,
+    pub recipient_service_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route_assistance: Option<RouteAssistance>,
@@ -24,8 +24,8 @@ impl PeerContactAddress {
     pub const RECIPIENT_SERVICE_KIND: &'static str = "principal_server";
 
     pub fn principal_server(
-        subject_id: ActorId,
-        recipient_service_id: ServiceId,
+        subject_id: DidCoreId,
+        recipient_service_id: DidCoreId,
         service_resolution: ServiceResolutionCarrier,
     ) -> Self {
         Self {
@@ -46,9 +46,7 @@ impl PeerContactAddress {
         self.service_resolution
             .validate_shape(&self.recipient_service_id)?;
         if let ServiceResolutionCarrier::Inline { inline } = &self.service_resolution {
-            let projected = ServiceId::from(arkret_wire::project_full_id_to_core_id(
-                &inline.record.full_id,
-            )?);
+            let projected = arkret_wire::project_full_id_to_core_id(&inline.record.full_id)?;
             if projected != self.recipient_service_id
                 || inline.record.service_kind != Self::RECIPIENT_SERVICE_KIND
             {
@@ -79,6 +77,7 @@ impl PeerContactAddress {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum ContactIntroductionEvidence {
     LocatorRef {
         principal_locator: PrincipalLocator,
@@ -94,7 +93,7 @@ pub enum ContactIntroductionEvidence {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         handle_claim: Box<HandleClaim>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        resolved_by: Option<Did>,
+        resolved_by: Option<DidCoreId>,
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use arkret_wire::DidFullId;
+
 use super::basics::*;
 use super::policy::*;
 use crate::helpers::*;
@@ -8,7 +10,7 @@ use crate::*;
 /// Limited `did:keri` resolver backed by explicitly registered documents.
 #[derive(Clone, Debug, Default)]
 pub struct DidKeriResolver {
-    documents: BTreeMap<Did, DidDocument>,
+    documents: BTreeMap<DidFullId, DidDocument>,
 }
 
 impl DidKeriResolver {
@@ -31,11 +33,11 @@ impl DidKeriResolver {
 }
 
 impl DidResolver for DidKeriResolver {
-    fn supports(&self, did: &Did) -> bool {
+    fn supports(&self, did: &DidFullId) -> bool {
         did.method() == "keri"
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
         if !self.supports(did) {
             return Err(Error::Protocol(
                 "unsupported DID method for did:keri resolver".to_owned(),
@@ -61,11 +63,11 @@ impl DidKeyResolver {
 }
 
 impl DidResolver for DidKeyResolver {
-    fn supports(&self, did: &Did) -> bool {
+    fn supports(&self, did: &DidFullId) -> bool {
         did.method() == "key" && did_key_material(did).is_some()
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
         let key = did_key_material(did)
             .ok_or_else(|| Error::Protocol("unsupported did:key form".to_owned()))?;
         // `did:key` is self-describing: there is no log, no witness set and
@@ -122,11 +124,11 @@ impl std::fmt::Debug for CompositeDidResolver {
 }
 
 impl DidResolver for CompositeDidResolver {
-    fn supports(&self, did: &Did) -> bool {
+    fn supports(&self, did: &DidFullId) -> bool {
         self.policy.permits(did) && self.resolvers.iter().any(|resolver| resolver.supports(did))
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
         self.policy.validate(did)?;
         self.resolvers
             .iter()
@@ -328,7 +330,7 @@ impl DidResolutionCache {
     }
 
     /// Return a fresh resolution and lazily evict an expired entry.
-    pub fn get(&self, did: &Did, now: DateTime<Utc>) -> Option<ResolvedDid> {
+    pub fn get(&self, did: &DidFullId, now: DateTime<Utc>) -> Option<ResolvedDid> {
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -339,7 +341,7 @@ impl DidResolutionCache {
     /// Insert a resolution with an explicit TTL.
     pub fn insert(
         &self,
-        did: Did,
+        did: DidFullId,
         resolved: ResolvedDid,
         now: DateTime<Utc>,
         ttl: chrono::Duration,
@@ -353,7 +355,7 @@ impl DidResolutionCache {
     }
 
     /// Read an entry without evicting it, including stale entries.
-    pub fn peek(&self, did: &Did) -> Option<CachedResolution> {
+    pub fn peek(&self, did: &DidFullId) -> Option<CachedResolution> {
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -406,7 +408,7 @@ impl DidResolutionCache {
         health.entries > 0 && health.fresh_entries == 0
     }
 
-    pub fn invalidate(&self, did: &Did) {
+    pub fn invalidate(&self, did: &DidFullId) {
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -473,7 +475,7 @@ impl<R: DidResolver> CachingDidResolver<R> {
     }
 
     /// Drop the cached entry for a DID.
-    pub fn invalidate(&self, did: &Did) {
+    pub fn invalidate(&self, did: &DidFullId) {
         self.cache.invalidate(did);
     }
 
@@ -494,7 +496,7 @@ impl<R: DidResolver> CachingDidResolver<R> {
     /// when the active policy is `AllowCachedOnError`.
     pub fn resolve_with_freshness(
         &self,
-        did: &Did,
+        did: &DidFullId,
         now: DateTime<Utc>,
     ) -> Result<(ResolvedDid, Freshness)> {
         // Keep expired entries around so an upstream failure can still fall back
@@ -532,11 +534,11 @@ impl<R: DidResolver> CachingDidResolver<R> {
 }
 
 impl<R: DidResolver> DidResolver for CachingDidResolver<R> {
-    fn supports(&self, did: &Did) -> bool {
+    fn supports(&self, did: &DidFullId) -> bool {
         self.inner.supports(did)
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
         let now = Utc::now();
         if let Some(resolved) = self.cache.get(did, now) {
             return Ok(resolved);

@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 
 pub(super) use arkret_canonical::canonical::sha256_hex;
+use arkret_wire::DidFullId;
 
 use super::*;
 
@@ -67,7 +68,7 @@ pub(super) fn normalize_handle(handle: &str) -> String {
     handle.trim().trim_start_matches('@').to_lowercase()
 }
 
-pub(super) fn did_web_document_url(did: &Did) -> Option<String> {
+pub(super) fn did_web_document_url(did: &DidFullId) -> Option<String> {
     let document_url = arkret_models_identity::did_web_document_url(did).ok()?;
     let encoded_authority = did.as_str().strip_prefix("did:web:")?.split(':').next()?;
     let authority = encoded_authority.replace("%3A", ":").replace("%3a", ":");
@@ -111,7 +112,7 @@ pub(super) fn is_allowed_did_webvh_log_content_type(content_type: &str) -> bool 
 /// (empty scid/host, or a path segment containing `/` or `..`). Public helper
 /// for downstream crates such as starid to parse did:webvh directly without
 /// going through SDK internals.
-pub fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<String>)> {
+pub fn did_webvh_parts(did: &DidFullId) -> Option<(String, String, Option<u16>, Vec<String>)> {
     let method_id = did.as_str().strip_prefix("did:webvh:")?;
     let mut parts = method_id.split(':');
     let scid = parts.next()?.to_owned();
@@ -140,23 +141,23 @@ pub fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<St
     Some((scid, host, port, path))
 }
 
-pub(super) fn did_webvh_scid(did: &Did) -> Option<String> {
+pub(super) fn did_webvh_scid(did: &DidFullId) -> Option<String> {
     did_webvh_parts(did).map(|(scid, ..)| scid)
 }
 
-pub(super) fn did_webvh_document_url(did: &Did) -> Option<String> {
+pub(super) fn did_webvh_document_url(did: &DidFullId) -> Option<String> {
     did_webvh_url(did, "did.json")
 }
 
-pub(super) fn did_webvh_log_url(did: &Did) -> Option<String> {
+pub(super) fn did_webvh_log_url(did: &DidFullId) -> Option<String> {
     did_webvh_url(did, "did.jsonl")
 }
 
-pub(super) fn did_webvh_witness_url(did: &Did) -> Option<String> {
+pub(super) fn did_webvh_witness_url(did: &DidFullId) -> Option<String> {
     did_webvh_url(did, "did-witness.json")
 }
 
-pub(super) fn did_webvh_url(did: &Did, leaf: &str) -> Option<String> {
+pub(super) fn did_webvh_url(did: &DidFullId, leaf: &str) -> Option<String> {
     let (_, host, port, path) = did_webvh_parts(did)?;
     if !host.contains('.') {
         return None;
@@ -175,7 +176,7 @@ pub(super) fn did_webvh_url(did: &Did, leaf: &str) -> Option<String> {
     }
 }
 
-pub(super) fn did_key_material(did: &Did) -> Option<String> {
+pub(super) fn did_key_material(did: &DidFullId) -> Option<String> {
     let method_id = did.as_str().strip_prefix("did:key:")?;
     let encoded = method_id.strip_prefix('z')?;
     let decoded = decode_base58btc(encoded)?;

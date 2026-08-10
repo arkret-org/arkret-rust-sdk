@@ -7,11 +7,13 @@ use arkret_models_collaboration::objects::mimi::{
     MimiCiphertext, MimiOpaquePayload, MimiRoomUpdate,
 };
 use arkret_models_collaboration::session_grant_bodies::SessionLoginOutcome;
-use arkret_wire::{Base64UrlString, DeviceId, Did, EventKind, Hash, MlsGroupId, NonEmptyString};
+use arkret_wire::{
+    Base64UrlString, DeviceId, DidCoreId, EventKind, Hash, MlsGroupId, NonEmptyString,
+};
 use serde_json::json;
 
-fn did(name: &str) -> Did {
-    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+fn did(name: &str) -> DidCoreId {
+    DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
 }
 
 fn device_id() -> DeviceId {
@@ -255,15 +257,12 @@ fn session_login_outcome_uses_typed_wire_fields() {
     let value = json!({
         "session_credential": "sx_token",
         "token_type": "Bearer",
-        "actor": "did:webvh:z6mkfixture:alice.example",
+        "actor": "ak:did_core:webvh:z6mkfixture",
         "device_id": "ak:device:01964137-0000-7000-8000-000000000001",
         "expires_at": "2026-04-28T12:00:00.000Z"
     });
     let outcome: SessionLoginOutcome = serde_json::from_value(value).unwrap();
-    assert_eq!(
-        outcome.actor.as_str(),
-        "did:webvh:z6mkfixture:alice.example"
-    );
+    assert_eq!(outcome.actor.as_str(), "ak:did_core:webvh:z6mkfixture");
     assert_eq!(
         outcome.device_id.as_str(),
         "ak:device:01964137-0000-7000-8000-000000000001"
@@ -271,7 +270,7 @@ fn session_login_outcome_uses_typed_wire_fields() {
 
     let serialized = serde_json::to_value(outcome).unwrap();
     assert_eq!(serialized["token_type"], "Bearer");
-    assert_eq!(serialized["actor"], "did:webvh:z6mkfixture:alice.example");
+    assert_eq!(serialized["actor"], "ak:did_core:webvh:z6mkfixture");
     assert_eq!(
         serialized["device_id"],
         "ak:device:01964137-0000-7000-8000-000000000001"

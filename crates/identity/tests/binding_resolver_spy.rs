@@ -25,7 +25,7 @@ use arkret_identity::verifier::{
 };
 use arkret_identity::{DidDocument, DidResolver, ResolvedDid, document_canonical_digest};
 use arkret_signatures::jws::sign_jws_ed25519;
-use arkret_wire::{Did, DidUrl, Hash, TypedTrustDomainId};
+use arkret_wire::{DidFullId, DidUrl, Hash, TypedTrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::SigningKey;
 
@@ -39,8 +39,8 @@ fn signing_key() -> SigningKey {
     SigningKey::from_bytes(&[17u8; 32])
 }
 
-fn did() -> Did {
-    Did::new("did:webvh:z6mkfixture:spy.example".to_owned()).expect("valid did")
+fn did() -> DidFullId {
+    DidFullId::new("did:webvh:z6mkfixture:spy.example".to_owned()).expect("valid did")
 }
 
 fn verification_method() -> DidUrl {
@@ -95,11 +95,11 @@ impl<R: DidResolver> CountingDidResolver<R> {
 }
 
 impl<R: DidResolver> DidResolver for CountingDidResolver<R> {
-    fn supports(&self, did: &Did) -> bool {
+    fn supports(&self, did: &DidFullId) -> bool {
         self.inner.supports(did)
     }
 
-    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<ResolvedDid> {
+    fn resolve_did(&self, did: &DidFullId) -> arkret_identity::Result<ResolvedDid> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         self.inner.resolve_did(did)
     }
@@ -109,11 +109,11 @@ impl<R: DidResolver> DidResolver for CountingDidResolver<R> {
 struct FixtureResolver;
 
 impl DidResolver for FixtureResolver {
-    fn supports(&self, did: &Did) -> bool {
+    fn supports(&self, did: &DidFullId) -> bool {
         did == &self::did()
     }
 
-    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<ResolvedDid> {
+    fn resolve_did(&self, did: &DidFullId) -> arkret_identity::Result<ResolvedDid> {
         if did != &self::did() {
             return Err(arkret_identity::IdentityError::Protocol(format!(
                 "fixture resolver does not handle {did}"

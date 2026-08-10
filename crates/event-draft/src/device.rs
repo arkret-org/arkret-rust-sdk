@@ -1,4 +1,4 @@
-use arkret_identifiers::{ActorId, Hlc};
+use arkret_identifiers::{DidCoreId, Hlc};
 use arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload;
 use arkret_wire::{Event, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
@@ -8,7 +8,7 @@ use crate::{Result, TypedEventDraft};
 /// Author a canonical `ak.device.authorize` control Event.
 pub fn build_device_authorize_event_at(
     scope_ref: ScopeRef,
-    actor_id: ActorId,
+    actor_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: DeviceAuthorizePayload,

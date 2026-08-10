@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use arkret_wire::{DeviceId, Did, EventId, RealmId};
+use arkret_wire::{DeviceId, DidCoreId, EventId, RealmId};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
@@ -68,7 +68,7 @@ pub enum PushPriority {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pusher {
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub device_id: DeviceId,
     pub platform: PushPlatform,
     pub push_gateway: String,
@@ -80,7 +80,7 @@ pub struct Pusher {
 }
 
 impl Pusher {
-    pub fn from_register(user_id: Did, request: PushRegisterDeviceRequestBody) -> Self {
+    pub fn from_register(user_id: DidCoreId, request: PushRegisterDeviceRequestBody) -> Self {
         Self {
             user_id,
             device_id: request.device_id,
@@ -200,7 +200,7 @@ fn default_push_rule_enabled() -> bool {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PushEventNotification {
     pub event_id: EventId,
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub event_kind: String,
@@ -585,8 +585,8 @@ impl IntegrationView {
 mod tests {
     use super::*;
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:{name}")).unwrap()
     }
 
     #[test]

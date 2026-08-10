@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
-    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, CoreId,
-    DeviceId, DeviceReanchorPreFenceBasis, Did, DidUrl, Error, EventId,
+    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
+    DeviceReanchorPreFenceBasis, DidCoreId, DidFullId, DidUrl, Error, EventId,
     FederatedDeviceSigningKeyEvidence, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
     RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId, ReasonCode, RecoverySessionId, Result,
     SchemaId, ScopeRef, TransactionId, TypedTrustDomainId, XExtensionMap,
@@ -225,7 +225,7 @@ pub struct KeyBackupUnlockProofAuthData {
 pub struct KeyBackupUnlockProof {
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub requesting_device_id: DeviceId,
     pub backup_id: BackupId,
     pub backup_kind: BackupKind,
@@ -338,7 +338,7 @@ impl UnsignedKeyBackupUnlockProofAuthData {
 #[derive(Clone, Debug)]
 pub struct UnsignedKeyBackupUnlockProof {
     recovery_session_id: RecoverySessionId,
-    principal_id: Did,
+    principal_id: DidCoreId,
     requesting_device_id: DeviceId,
     backup_id: BackupId,
     backup_kind: BackupKind,
@@ -356,7 +356,7 @@ impl UnsignedKeyBackupUnlockProof {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         recovery_session_id: RecoverySessionId,
-        principal_id: Did,
+        principal_id: DidCoreId,
         requesting_device_id: DeviceId,
         backup_id: BackupId,
         backup_kind: BackupKind,
@@ -439,7 +439,7 @@ impl UnsignedKeyBackupUnlockProof {
         struct UnsignedProof<'a> {
             schema: &'static str,
             recovery_session_id: &'a RecoverySessionId,
-            principal_id: &'a Did,
+            principal_id: &'a DidCoreId,
             requesting_device_id: &'a DeviceId,
             backup_id: &'a BackupId,
             backup_kind: BackupKind,
@@ -543,11 +543,11 @@ pub struct KeyPackageClaimRecord {
     pub claim_id: String,
     pub keypackage_ref: String,
     pub keypackage_digest: Hash,
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_id: Option<CoreId>,
+    pub agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_verification_method: Option<DidUrl>,
     pub key_package: String,
@@ -641,7 +641,7 @@ pub type AlgorithmKeyRecords = BTreeMap<NonEmptyString, KeyRecord>;
 #[serde(deny_unknown_fields)]
 pub struct BackupMetadata {
     pub backup_id: BackupId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
     pub backup_kind: BackupKind,
@@ -701,14 +701,14 @@ pub struct KeyRecord {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_algorithm_map`.
-pub type PrincipalDeviceAlgorithmMap = BTreeMap<Did, DeviceAlgorithmMap>;
+pub type PrincipalDeviceAlgorithmMap = BTreeMap<DidFullId, DeviceAlgorithmMap>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_key_records`.
-pub type PrincipalDeviceKeyRecords = BTreeMap<Did, DeviceKeyRecords>;
+pub type PrincipalDeviceKeyRecords = BTreeMap<DidFullId, DeviceKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/query_device_map`.
-pub type QueryDeviceMap = BTreeMap<Did, Vec<DeviceId>>;
+pub type QueryDeviceMap = BTreeMap<DidFullId, Vec<DeviceId>>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-policy.schema.json#/$defs/share`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -734,7 +734,7 @@ pub enum RecoveryShareCommitmentAlgorithm {
 #[serde(deny_unknown_fields)]
 pub struct Share {
     pub share_id: String,
-    pub holder: Did,
+    pub holder: DidCoreId,
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -790,7 +790,7 @@ impl RecoveryModelGenerationRef {
 #[serde(try_from = "GenericRecoveryTranscriptWire")]
 pub struct GenericRecoveryTranscript {
     pub kind: RecoveryProofKind,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     pub policy_id: PolicyId,
@@ -813,7 +813,7 @@ pub struct GenericRecoveryTranscript {
 #[serde(deny_unknown_fields)]
 struct GenericRecoveryTranscriptWire {
     kind: RecoveryProofKind,
-    principal_id: Did,
+    principal_id: DidCoreId,
     requesting_device_id: DeviceId,
     trust_domain: TypedTrustDomainId,
     policy_id: PolicyId,
@@ -875,7 +875,7 @@ impl GenericRecoveryTranscript {
 #[serde(try_from = "PrincipalSigningTranscriptWire")]
 pub struct PrincipalSigningTranscript {
     pub kind: RecoveryProofKind,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     pub policy_id: PolicyId,
@@ -897,7 +897,7 @@ pub struct PrincipalSigningTranscript {
 #[serde(deny_unknown_fields)]
 struct PrincipalSigningTranscriptWire {
     kind: RecoveryProofKind,
-    principal_id: Did,
+    principal_id: DidCoreId,
     requesting_device_id: DeviceId,
     trust_domain: TypedTrustDomainId,
     policy_id: PolicyId,
@@ -1087,7 +1087,7 @@ impl RecoveryPublicationAuthorityContext {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCreateRequestBody {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1213,7 +1213,7 @@ pub enum TrustedRecoveryServiceSessionProofKind {
 pub struct TrustedRecoveryServiceSessionProof {
     pub kind: TrustedRecoveryServiceSessionProofKind,
     pub challenge: Challenge,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub audience: NonEmptyString,
     pub verification_method: DidUrl,
     pub signature_algorithm: NonEmptyString,
@@ -1251,7 +1251,7 @@ where
 pub struct RecoverySessionState {
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     pub policy_id: PolicyId,
@@ -1339,7 +1339,7 @@ impl Serialize for RecoverySessionState {
 struct RecoverySessionStateWire {
     schema: String,
     recovery_session_id: RecoverySessionId,
-    principal_id: Did,
+    principal_id: DidCoreId,
     requesting_device_id: DeviceId,
     trust_domain: TypedTrustDomainId,
     policy_id: PolicyId,
@@ -1486,7 +1486,7 @@ pub enum SessionState {
 #[serde(deny_unknown_fields)]
 pub struct ThresholdRecoveryProofShareReleasesItem {
     pub share_id: NonEmptyString,
-    pub holder: Did,
+    pub holder: DidCoreId,
     pub transcript_digest: Hash,
     pub verification_method: DidUrl,
     pub signature_algorithm: NonEmptyString,

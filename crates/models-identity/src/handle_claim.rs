@@ -9,7 +9,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::{Did, Error, PayloadProof, Result, SchemaId};
+use arkret_wire::{DidCoreId, Error, PayloadProof, Result, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -23,7 +23,7 @@ use crate::handle::{
 /// Builder-side member delivery binding offered by a handle claim.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeliveryBindingHint {
-    pub recipient_service_id: Did,
+    pub recipient_service_id: DidCoreId,
     #[serde(default = "default_hint_recipient_service_kind")]
     pub recipient_service_kind: RecipientServiceKind,
     pub binding_source: HandleHintBindingSource,
@@ -54,11 +54,11 @@ pub struct HandleClaim {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub subject: Option<Did>,
+    pub subject: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer: Option<String>,
+    pub issuer: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer_service_id: Option<Did>,
+    pub issuer_service_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub binding_state: Option<HandleBindingState>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -157,7 +157,7 @@ impl HandleClaim {
     pub fn validate_remote_resolution(
         &self,
         expected_audience: Option<&str>,
-        expected_recipient_service_id: Option<&Did>,
+        expected_recipient_service_id: Option<&DidCoreId>,
         now: DateTime<Utc>,
     ) -> Result<()> {
         self.validate()?;
@@ -170,7 +170,7 @@ impl HandleClaim {
         if self.subject.is_none() {
             return Err(Error::Protocol("handle claim requires subject".to_owned()));
         }
-        if self.issuer.as_deref().is_none_or(str::is_empty) {
+        if self.issuer.is_none() {
             return Err(Error::Protocol("handle claim requires issuer".to_owned()));
         }
         if self.binding_state != Some(HandleBindingState::Verified) {
@@ -253,7 +253,7 @@ mod tests {
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_id: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
+                recipient_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned())
                     .unwrap(),
                 recipient_service_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
@@ -271,15 +271,15 @@ mod tests {
     fn handle_claim_serializes_current_wire_names_only() {
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
-            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()),
-            issuer: Some("did:webvh:z6mkfixture:issuer.example".to_owned()),
+            subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
+            issuer: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             binding_state: Some(HandleBindingState::Verified),
             claim_kind: Some(HandleClaimKind::HandleBinding),
             created_at: Some(Utc::now()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             proofs: vec![placeholder_payload_proof()],
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_id: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
+                recipient_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned())
                     .unwrap(),
                 recipient_service_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
@@ -316,8 +316,8 @@ mod tests {
         let wire = serde_json::json!({
             "schema": "ak.schema.handle_claim.v1",
             "handle": "alice:example.com",
-            "subject": "did:webvh:z6mkfixture:alice.example",
-            "issuer": "did:webvh:z6mkfixture:issuer.example",
+            "subject": "ak:did_core:webvh:z6mkfixture",
+            "issuer": "ak:did_core:webvh:z6mkfixture",
             "binding_state": "pending",
             "x_directory_cache_hint": {"served_at": "2026-07-15T00:00:00.000Z"},
             "server_attested_freshness": 42
@@ -333,11 +333,11 @@ mod tests {
     #[test]
     fn remote_resolution_requires_proof_audience_and_delivery_binding() {
         let audience = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
-        let recipient = Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap();
+        let recipient = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
-            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()),
-            issuer: Some("did:webvh:z6mkfixture:issuer.example".to_owned()),
+            subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
+            issuer: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             binding_state: Some(HandleBindingState::Verified),
             audience: Some(audience.to_owned()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),

@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 // a second nominal Rust type with identical literals.
 pub use arkret_wire::HistoryVisibility;
 use arkret_wire::{
-    Did, EventId, Hash, IdempotencyKey, KeyPackageClaimId, KeyPackageRef, ProtocolOpaqueId,
+    DidCoreId, EventId, Hash, IdempotencyKey, KeyPackageClaimId, KeyPackageRef, ProtocolOpaqueId,
     ProtocolSignature,
 };
 use chrono::{DateTime, Utc};
@@ -44,7 +44,7 @@ pub enum ReceiverEligibilityBasis {
     ActiveMember { member_ref: EventId },
     Invited { invite_ref: EventId },
     RemovedT0Visible { remove_ref: EventId },
-    WorldReadableRequester { requester_id: Did },
+    WorldReadableRequester { requester_id: DidCoreId },
     SharedAuthorized { share_authority_ref: EventId },
     RestrictedAuthorized { policy_authority_ref: EventId },
 }
@@ -100,7 +100,7 @@ pub struct CausalIngressReceipt {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     pub ingress_frontier: Vec<EventId>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -131,20 +131,20 @@ string_marker!(KeypackageNoWriteAction, NoWrite, "no_write");
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum KeypackageTerminalCommand {
     PublishedUnused {
-        owner_account_id: Did,
+        owner_account_id: DidCoreId,
         keypackage_ref: KeyPackageRef,
         action: KeypackageRetireAction,
         idempotency_key: IdempotencyKey,
     },
     ClaimedUnconsumed {
-        owner_account_id: Did,
+        owner_account_id: DidCoreId,
         keypackage_ref: KeyPackageRef,
         claim_id: KeyPackageClaimId,
         action: KeypackageRevokeAction,
         idempotency_key: IdempotencyKey,
     },
     Consumed {
-        owner_account_id: Did,
+        owner_account_id: DidCoreId,
         keypackage_ref: KeyPackageRef,
         action: KeypackageNoWriteAction,
     },
@@ -170,7 +170,7 @@ mod tests {
             json!({"kind":"active_member","member_ref":event_id("000000000001")}),
             json!({"kind":"invited","invite_ref":event_id("000000000002")}),
             json!({"kind":"removed_t0_visible","remove_ref":event_id("000000000003")}),
-            json!({"kind":"world_readable_requester","requester_id":"did:webvh:z6mkfixture:reader.example"}),
+            json!({"kind":"world_readable_requester","requester_id":"ak:did_core:webvh:z6mkfixture"}),
             json!({"kind":"shared_authorized","share_authority_ref":event_id("000000000004")}),
             json!({"kind":"restricted_authorized","policy_authority_ref":event_id("000000000005")}),
         ];
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn keypackage_terminal_command_enforces_state_action_pairing() {
         let retired: KeypackageTerminalCommand = serde_json::from_value(json!({
-            "owner_account_id":"did:webvh:z6mkfixture:owner.example",
+            "owner_account_id":"ak:did_core:webvh:z6mkfixture",
             "keypackage_ref":"kp-1",
             "expected_state":"published_unused",
             "action":"retire",
@@ -210,7 +210,7 @@ mod tests {
         ));
         assert!(
             serde_json::from_value::<KeypackageTerminalCommand>(json!({
-                "owner_account_id":"did:webvh:z6mkfixture:owner.example",
+                "owner_account_id":"ak:did_core:webvh:z6mkfixture",
                 "keypackage_ref":"kp-1",
                 "expected_state":"published_unused",
                 "action":"revoke",
@@ -228,7 +228,7 @@ mod tests {
             "qualified_ingress_id":"ingress-1",
             "received_at":"2026-08-03T00:00:00.000Z",
             "ingress_frontier":[event_id("000000000001")],
-            "issuer":"did:webvh:z6mkfixture:issuer.example",
+            "issuer":"ak:did_core:webvh:z6mkfixture",
             "signature":{
                 "verification_method":"did:webvh:z6mkfixture:issuer.example#key-1",
                 "created_at":"2026-08-03T00:00:00.000Z",

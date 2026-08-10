@@ -1,3 +1,5 @@
+use arkret_wire::DidCoreId;
+
 use super::*;
 
 /// Status of a grant proposal.
@@ -24,9 +26,9 @@ pub struct GrantProposal {
     /// The proposed grant (spec wire form).
     pub grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
     /// Actor who proposed the grant.
-    pub proposer: Did,
+    pub proposer: DidCoreId,
     /// Required approvers.
-    pub required_approvers: Vec<Did>,
+    pub required_approvers: Vec<DidCoreId>,
     /// Approval mode.
     pub approval_mode: ApprovalMode,
     /// Current status.
@@ -52,7 +54,7 @@ pub struct ProposalApproval {
     /// The proposal this approval is for.
     pub proposal_id: String,
     /// Actor providing the approval.
-    pub approver: Did,
+    pub approver: DidCoreId,
     /// Whether this is an approval or rejection.
     pub approved: bool,
     /// Optional reason.
@@ -79,8 +81,8 @@ impl ApprovalStrandManager {
     pub fn submit_proposal(
         &mut self,
         grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
-        proposer: Did,
-        required_approvers: Vec<Did>,
+        proposer: DidCoreId,
+        required_approvers: Vec<DidCoreId>,
         approval_mode: ApprovalMode,
         expires_at: Option<DateTime<Utc>>,
     ) -> GrantProposal {
@@ -105,7 +107,7 @@ impl ApprovalStrandManager {
     pub fn record_approval(
         &mut self,
         proposal_id: &str,
-        approver: Did,
+        approver: DidCoreId,
         approved: bool,
         reason: Option<String>,
     ) -> Result<GrantProposal> {
@@ -202,7 +204,7 @@ impl ApprovalStrandManager {
             return;
         };
 
-        let approvals: Vec<Did> = proposal
+        let approvals: Vec<DidCoreId> = proposal
             .approvals
             .iter()
             .filter(|a| a.approved)

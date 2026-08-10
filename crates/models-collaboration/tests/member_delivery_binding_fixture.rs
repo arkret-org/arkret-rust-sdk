@@ -22,7 +22,7 @@ use arkret_models_collaboration::governance::delivery_binding::{
     BindingSource, DeliveryStatus, MemberDeliveryBinding,
 };
 use arkret_schema::{embedded_error_code_identifiers, embedded_json_artifact};
-use arkret_wire::{Did, ServiceId, project_full_id_to_core_id};
+use arkret_wire::{DidFullId, project_full_id_to_core_id};
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/membership-delivery-binding-fixture.json";
@@ -51,11 +51,9 @@ fn registered_identifiers() -> std::collections::BTreeSet<String> {
 }
 
 fn assert_route_projects_to_binding(binding: &MemberDeliveryBinding, route: &str) {
-    let route = Did::new(route).expect("fixture route must be a full DID");
-    let projected = ServiceId::from(
-        project_full_id_to_core_id(&route)
-            .expect("fixture route method must have an active adapter"),
-    );
+    let route = DidFullId::new(route).expect("fixture route must be a full DID");
+    let projected = project_full_id_to_core_id(&route)
+        .expect("fixture route method must have an active adapter");
     assert_eq!(binding.recipient_service_id, projected);
 }
 

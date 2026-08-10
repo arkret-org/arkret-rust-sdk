@@ -66,7 +66,7 @@ fn directory_search_realms_request_uses_source_realm_id() {
         RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
     let request = DirectorySearchRealmsRequestBody {
         query: Some("release".to_owned()),
-        organization_did: None,
+        organization_principal_id: None,
         source_realm_id: Some(source_realm_id.clone()),
         requester: None,
         proof_challenge: Some("challenge-1".to_owned()),

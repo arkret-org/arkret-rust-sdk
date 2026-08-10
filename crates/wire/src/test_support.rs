@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{ActorId, Did, Event, EventId, Hlc, Result, ScopeRef};
+use crate::{DidCoreId, Event, EventId, Hlc, Result, ScopeRef};
 
 /// Envelope metadata historically embedded in raw projection fixture payloads.
 ///
@@ -26,7 +26,7 @@ struct RawProjectionFixtureEnvelope {
 
 #[doc(hidden)]
 pub struct RawProjectionFixtureParts {
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     pub event_id: Option<EventId>,
     pub payload: Value,
 }
@@ -40,7 +40,7 @@ pub fn split_raw_projection_fixture_payload(payload: Value) -> Result<RawProject
             crate::Error::Protocol(format!("invalid raw projection fixture: {error}"))
         })?;
     Ok(RawProjectionFixtureParts {
-        actor_id: fixture.sender.and_then(|value| Did::new(value).ok()),
+        actor_id: fixture.sender.and_then(|value| DidCoreId::new(value).ok()),
         event_id: fixture.event_id.and_then(|value| EventId::new(value).ok()),
         payload: Value::Object(fixture.payload),
     })
@@ -50,7 +50,7 @@ pub fn split_raw_projection_fixture_payload(payload: Value) -> Result<RawProject
 pub fn raw_event(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
-    actor_id: ActorId,
+    actor_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: Value,
@@ -63,7 +63,7 @@ pub fn raw_event(
 pub fn raw_event_at(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
-    actor_id: ActorId,
+    actor_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: Value,

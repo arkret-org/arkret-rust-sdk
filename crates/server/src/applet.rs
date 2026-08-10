@@ -245,7 +245,7 @@ mod tests {
         DidVerificationMethodResolver, StaticDidVerificationMethodResolver,
         VerificationMethodDocument,
     };
-    use arkret_wire::{Did, TypedTrustDomainId};
+    use arkret_wire::{DidCoreId, DidFullId, TypedTrustDomainId};
 
     use super::*;
     use crate::idempotency::IdempotencyDirection;
@@ -279,13 +279,13 @@ mod tests {
             Ok(AppletPingOutcome {
                 ok: true,
                 applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-                service_id: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
+                service_id: DidCoreId::new("ak:did_core:webvh:QmSvc").unwrap(),
                 protocol_version: "1.0".to_owned(),
             })
         }
         fn describe(&self) -> Result<ServiceDescribe> {
             let mut description = ServiceDescribe::development(
-                Did::new("did:webvh:QmSvc:svc.example").unwrap(),
+                DidFullId::new("did:webvh:QmSvc:svc.example").unwrap(),
                 TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
                 arkret_wire::ServiceKind::AppletService,
             );
@@ -350,7 +350,7 @@ mod tests {
 
     fn body() -> AppletTransactionRequestBody {
         AppletTransactionRequestBody {
-            source_service_id: Did::new("did:webvh:QmSrc:source.example").unwrap(),
+            source_service_id: DidCoreId::new("ak:did_core:webvh:QmSrc").unwrap(),
             events: Vec::new(),
             signals: None,
         }

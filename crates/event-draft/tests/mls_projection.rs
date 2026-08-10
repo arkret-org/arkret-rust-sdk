@@ -12,7 +12,7 @@ use arkret_event_draft::{MlsEnvelopeOperationExt, MlsWelcomeTargetExt};
 use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
-use arkret_wire::{DeviceId, DeviceMessageId, Did, Hash, OperationId, RealmId};
+use arkret_wire::{DeviceId, DeviceMessageId, DidCoreId, Hash, OperationId, RealmId};
 use chrono::Utc;
 
 fn hash(byte: char) -> Hash {
@@ -44,7 +44,7 @@ fn welcome_envelope() -> MlsWelcomeEnvelope {
     MlsWelcomeEnvelope {
         group_id: "Zml4dHVyZS1yZWFsbQ".to_owned(),
         epoch: 7,
-        recipient_principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+        recipient_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e")
             .unwrap(),
         welcome: "V0VMQ09NRQ".to_owned(),

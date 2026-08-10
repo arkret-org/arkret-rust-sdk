@@ -1,6 +1,6 @@
 //! Closed plaintext carried by encrypted `ak.call.signal` envelopes.
 
-use arkret_wire::{CallId, DeviceId, Did, Error, NonEmptyString, Result, canonical};
+use arkret_wire::{CallId, DeviceId, DidCoreId, Error, NonEmptyString, Result, canonical};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -163,7 +163,7 @@ pub struct CallMuteStateSignalData {
     #[serde(rename = "by")]
     pub changed_by: MuteChangedBy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Did>,
+    pub target_actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_id: Option<DeviceId>,
 }
@@ -245,7 +245,7 @@ pub enum CallModerationAction {
 pub struct CallModerationSignalData {
     pub action: CallModerationAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Did>,
+    pub target_actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

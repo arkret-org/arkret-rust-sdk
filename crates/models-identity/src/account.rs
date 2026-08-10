@@ -1,6 +1,6 @@
 use arkret_wire::{
-    CoreId, DeviceId, Did, DidUrl, Error, EventId, FullId, Hash, PayloadProof, RealmId, ReasonCode,
-    RequestId, Result, ServiceId, TypedTrustDomainId, canonical, project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, DidUrl, Error, EventId, Hash, PayloadProof, RealmId,
+    ReasonCode, RequestId, Result, TypedTrustDomainId, canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -282,7 +282,7 @@ pub struct AccountHandoffAuthenticationProof {
     pub proof_kind: AccountHandoffAuthenticationProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub issuer: String,
     pub client_id: String,
     pub redirect_uri: String,
@@ -344,7 +344,7 @@ impl AccountHandoffRequestBody {
 #[derive(Clone, Debug)]
 pub struct UnsignedAccountHandoffAuthenticationProof {
     pub challenge: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub issuer: String,
     pub client_id: String,
     pub redirect_uri: String,
@@ -504,8 +504,8 @@ pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 7
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReservedIdentityCreation {
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub operation_digest: Hash,
     pub did_operation: DidOperationSubmitRequestBody,
 }
@@ -550,8 +550,8 @@ pub enum AccountHandoffBinding {
         expires_at: DateTime<Utc>,
     },
     Bound {
-        principal_id: CoreId,
-        full_id: FullId,
+        principal_id: DidCoreId,
+        full_id: DidFullId,
     },
 }
 
@@ -620,7 +620,7 @@ pub struct IdentityAbandonmentChallengeRequestBody {
     pub request_id: RequestId,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub did_version_id: String,
 }
 
@@ -659,13 +659,13 @@ pub struct IdentityAbandonmentChallengeOutcome {
     pub challenge: String,
     pub purpose: IdentityAbandonmentPurpose,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub did_version_id: String,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub consequence_disclosure: [IdentityAbandonmentConsequence; 4],
     pub dpop_jkt: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -704,7 +704,7 @@ pub struct IdentityAbandonmentRequestBody {
     pub challenge: String,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub did_version_id: String,
 }
 
@@ -743,7 +743,7 @@ pub struct IdentityAbandonmentOutcome {
     pub request_id: RequestId,
     pub status: IdentityAbandonmentStatus,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub did_version_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub abandoned_at: DateTime<Utc>,
@@ -756,7 +756,7 @@ pub struct IdentityBindingChallengeRequestBody {
     pub request_id: RequestId,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub full_id: FullId,
+    pub full_id: DidFullId,
     pub did_operation: DidOperationSubmitRequestBody,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
@@ -791,13 +791,13 @@ pub enum IdentityBindingPurpose {
 #[serde(deny_unknown_fields)]
 pub struct DidBindingChallengeRequestBody {
     pub request_id: RequestId,
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
 }
 
 impl DidBindingChallengeRequestBody {
     pub fn canonical_request_digest(&self) -> Result<Hash> {
-        if project_full_id_to_core_id(&self.full_id)? != self.principal_id {
+        if project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str() {
             return Err(Error::Protocol(
                 "published DID full_id does not project to principal_id".to_owned(),
             ));
@@ -825,15 +825,15 @@ pub struct DidBindingChallengeOutcome {
     pub challenge: String,
     pub purpose: DidBindingPurpose,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub did_version_id: String,
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness_evidence: Option<String>,
     pub dpop_jkt: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -851,7 +851,7 @@ impl DidBindingChallengeOutcome {
             || self.origin.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
-            || project_full_id_to_core_id(&self.full_id)? != self.principal_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
         {
             return Err(Error::Protocol(
                 "published-DID binding challenge violates the closed transcript".to_owned(),
@@ -878,13 +878,13 @@ pub struct AccountRegistrationControlProof {
     pub purpose: DidBindingPurpose,
     pub request_canonical_digest: Hash,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub did_version_id: String,
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub dpop_jkt: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -911,7 +911,7 @@ impl AccountRegistrationControlProof {
             || self.signature.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
-            || project_full_id_to_core_id(&self.full_id)? != self.principal_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
             || controller != Some(self.full_id.as_str())
         {
             return Err(Error::Protocol(
@@ -959,7 +959,7 @@ pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
 pub struct InitialSessionGrantRequest {
     pub device_id: DeviceId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub requested_scope: Vec<String>,
 }
 
@@ -996,8 +996,8 @@ pub struct IdentityBindingChallengeOutcome {
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub operation_digest: Hash,
     pub did_version_id: String,
     pub log_head_digest: Hash,
@@ -1010,7 +1010,7 @@ pub struct IdentityBindingChallengeOutcome {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1035,8 +1035,8 @@ pub struct IdentityCreationControlProof {
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub operation_digest: Hash,
     pub did_version_id: String,
     pub log_head_digest: Hash,
@@ -1049,7 +1049,7 @@ pub struct IdentityCreationControlProof {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1109,8 +1109,8 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub operation_digest: Hash,
     pub did_version_id: String,
     pub log_head_digest: Hash,
@@ -1123,7 +1123,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     pub issued_at: DateTime<Utc>,
@@ -1193,7 +1193,7 @@ fn validate_identity_creation_control_proof_body(
         || body.lease_fence == 0
         || body.did_version_id.is_empty()
         || body.expires_at <= body.issued_at
-        || project_full_id_to_core_id(&body.full_id)? != body.principal_id
+        || project_full_id_to_core_id(&body.full_id)?.as_str() != body.principal_id.as_str()
     {
         return Err(Error::Protocol(
             "identity creation control proof has an invalid PCR genesis binding".to_owned(),
@@ -1244,7 +1244,7 @@ fn identity_creation_control_proof_signing_bytes(
 pub struct IdentityCreationRegistration {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub full_id: FullId,
+    pub full_id: DidFullId,
     pub did_operation: DidOperationSubmitRequestBody,
     pub control_proof: IdentityCreationControlProof,
     pub pcr_genesis_unit: arkret_wire::PcrGenesisUnit,
@@ -1267,11 +1267,11 @@ impl IdentityCreationRegistration {
             || self.lease_fence != self.control_proof.lease_fence
             || self.full_id != self.did_operation.did
             || self.full_id != self.control_proof.full_id
-            || project_full_id_to_core_id(&self.full_id)? != self.control_proof.principal_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str()
+                != self.control_proof.principal_id.as_str()
             || Hash::new(canonical::canonical_sha256(&self.did_operation)?)?
                 != self.control_proof.operation_digest
-            || self.pcr_genesis_unit.create().actor_id
-                != arkret_wire::ActorId::from(self.control_proof.principal_id.clone())
+            || self.pcr_genesis_unit.create().actor_id != self.control_proof.principal_id
             || self.pcr_genesis_unit.create().realm_id != self.control_proof.pcr_realm_id
             || Hash::new(canonical::canonical_sha256(
                 &self.pcr_genesis_unit.create().payload,
@@ -1332,10 +1332,10 @@ pub enum IdentityCreationOperationStatus {
 pub struct AccountBindingReceipt {
     pub binding_state: AccountBindingState,
     pub binding_kind: AccountBindingKind,
-    pub account_authority_id: Did,
+    pub account_authority_id: DidCoreId,
     pub account_subject: Hash,
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     pub did_version_id: String,
     pub control_key_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1362,6 +1362,19 @@ impl AccountBindingReceipt {
 
     pub fn validate_shape(&self) -> Result<()> {
         self.proof.validate_production()?;
+        let proof_controller = self
+            .proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(controller, _)| controller)
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "account binding receipt verification_method requires a fragment".to_owned(),
+                )
+            })?;
+        let proof_controller =
+            project_full_id_to_core_id(&DidFullId::new(proof_controller.to_owned())?)?;
         let branch_valid = match self.binding_kind {
             AccountBindingKind::PublishedDid => {
                 self.identity_creation_lease_id.is_none() && self.lease_fence.is_none()
@@ -1375,14 +1388,10 @@ impl AccountBindingReceipt {
         };
         if !branch_valid
             || self.did_version_id.is_empty()
-            || project_full_id_to_core_id(&self.full_id)? != self.principal_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
             || self.proof.created_at != self.issued_at
             || self.proof.payload_digest != self.canonical_payload_digest()?
-            || !self
-                .proof
-                .verification_method
-                .as_str()
-                .starts_with(&format!("{}#", self.account_authority_id))
+            || proof_controller != self.account_authority_id
         {
             return Err(Error::Protocol(
                 "account binding receipt proof does not bind the complete receipt".to_owned(),
@@ -1493,7 +1502,7 @@ mod account_handoff_tests {
                 proof_kind: AccountHandoffAuthenticationProofKind::OidcCodeExchange,
                 challenge: "challenge-0123456789".to_owned(),
                 request_canonical_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                audience: ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                audience: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 issuer: "https://auth.example".to_owned(),
                 client_id: "arkret-client".to_owned(),
                 redirect_uri: "https://client.example/callback".to_owned(),

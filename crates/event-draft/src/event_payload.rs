@@ -47,6 +47,7 @@ use arkret_models_collaboration::sync_frames::snapshot::RangeCompletenessAttesta
 use arkret_models_crypto::MlsCommitPayload;
 use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::delivery_binding::DevicePushRoutePayload;
+use arkret_models_identity::identity_resolution::PrincipalResolutionUpdatePayload;
 use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
 use arkret_models_integration::applet_audit_payload::{
     AppletBridgeErrorPayload, AppletRegistrationPayload,
@@ -177,6 +178,7 @@ macro_rules! event_payload_accessors {
 }
 
 event_payload_accessors! {
+    event_spec::IdentityResolutionUpdate => (as_identity_resolution_update, PrincipalResolutionUpdatePayload),
     event_spec::RealmCreate => (as_realm_create, RealmCreatePayload, |payload: &RealmCreatePayload| payload.object.validate()),
     event_spec::RealmProfile => (as_realm_profile, RealmProfile),
     event_spec::RealmAlias => (as_realm_alias, RealmAliasPayload),
@@ -396,7 +398,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        Did, EventId, EventKind, EventRequirements, Hlc, MessageId, RealmId, ScopeRef, StrandId,
+        DidCoreId, EventId, EventKind, EventRequirements, Hlc, MessageId, RealmId, ScopeRef,
+        StrandId,
     };
     use serde_json::json;
 
@@ -414,8 +417,8 @@ mod tests {
         ScopeRef::Realm { realm_id: realm() }
     }
 
-    fn alice() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn alice() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn base_event() -> Event {

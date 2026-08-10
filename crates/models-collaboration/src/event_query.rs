@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorId, Cursor, Did, RealmId};
+use arkret_wire::{Cursor, DidCoreId, RealmId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,7 +14,7 @@ use serde_json::Value;
 #[serde(deny_unknown_fields)]
 pub struct EventsDescribeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
 }
@@ -34,7 +34,7 @@ pub struct PeerEventsDescribeRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct EventsFrontierRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<ActorId>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
 }
@@ -75,7 +75,7 @@ pub struct EventsQueryPostRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub actors: Vec<Did>,
+    pub actors: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

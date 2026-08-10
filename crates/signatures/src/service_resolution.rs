@@ -5,7 +5,7 @@ use arkret_models_identity::{
     ServiceResolutionPublishAckCore, ServiceResolutionRecord, ServiceResolutionRecordCore,
     ServiceRouteHandoverNotice, ServiceRouteHandoverNoticeCore,
 };
-use arkret_wire::{Base64UrlString, DidUrl, FullId, ProtocolSignature, ServiceId};
+use arkret_wire::{Base64UrlString, DidCoreId, DidFullId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
 
@@ -60,7 +60,7 @@ pub fn sign_service_resolution_publish_ack(
 pub fn verify_service_route_handover_notice(
     notice: &ServiceRouteHandoverNotice,
     target_document: &DidDocument,
-    expected_service_id: &ServiceId,
+    expected_service_id: &DidCoreId,
     now: DateTime<Utc>,
 ) -> arkret_wire::Result<VerifyingKey> {
     notice.notice.validate_shape()?;
@@ -100,10 +100,10 @@ pub fn verify_service_resolution_publish_ack(
 }
 
 pub fn verify_full_to_core_binding(
-    full_id: &FullId,
-    expected_service_id: &ServiceId,
+    full_id: &DidFullId,
+    expected_service_id: &DidCoreId,
 ) -> arkret_wire::Result<()> {
-    let projected = ServiceId::from(arkret_wire::project_full_id_to_core_id(full_id)?);
+    let projected = arkret_wire::project_full_id_to_core_id(full_id)?;
     if &projected != expected_service_id {
         return Err(arkret_wire::Error::Protocol(
             "full_id does not project to expected service core id".to_owned(),
@@ -156,7 +156,7 @@ fn base64_value(value: String) -> arkret_wire::Result<Base64UrlString> {
 
 pub fn verify_authenticated_service_resolution(
     resolution: &AuthenticatedServiceResolution,
-    expected_service_id: &ServiceId,
+    expected_service_id: &DidCoreId,
     now: DateTime<Utc>,
 ) -> arkret_wire::Result<VerifyingKey> {
     resolution.validate_shape(expected_service_id, now)?;
@@ -253,7 +253,7 @@ mod tests {
         ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
         ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
     };
-    use arkret_wire::{FullId, Hash};
+    use arkret_wire::{DidCoreId, Hash};
     use chrono::TimeZone as _;
 
     use super::*;
@@ -262,11 +262,10 @@ mod tests {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
 
-    fn fixture() -> (AuthenticatedServiceResolution, ServiceId) {
+    fn fixture() -> (AuthenticatedServiceResolution, DidCoreId) {
         let signing_key = SigningKey::from_bytes(&[31_u8; 32]);
-        let full_id = FullId::new("did:web:agent-authority.example").unwrap();
-        let service_id =
-            ServiceId::from(arkret_wire::project_full_id_to_core_id(&full_id).unwrap());
+        let full_id = DidFullId::new("did:web:agent-authority.example").unwrap();
+        let service_id = arkret_wire::project_full_id_to_core_id(&full_id).unwrap();
         let method = DidUrl::new(format!("{full_id}#signing-1")).unwrap();
         let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
             signing_key.verifying_key().as_bytes(),
@@ -350,7 +349,7 @@ mod tests {
         successor.record.record_sequence = previous.record.record_sequence + 1;
         successor.record.previous_record_digest =
             Some(Hash::new(arkret_canonical::canonical_sha256(&previous).unwrap()).unwrap());
-        successor.record.full_id = FullId::new("did:web:agent-authority.example").unwrap();
+        successor.record.full_id = DidFullId::new("did:web:agent-authority.example").unwrap();
         assert!(verify_record_successor(&previous, &successor, successor.record.issued_at).is_ok());
 
         successor.record.record_sequence = previous.record.record_sequence;

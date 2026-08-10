@@ -1,5 +1,5 @@
 use arkret_wire::event_envelope::ScopeRef;
-use arkret_wire::{EventKind, MessageId, SchemaId};
+use arkret_wire::{DidCoreId, EventKind, MessageId, SchemaId};
 use serde_json::json;
 
 use super::*;
@@ -18,8 +18,8 @@ fn scope_ref() -> ScopeRef {
     }
 }
 
-fn actor_id() -> ActorId {
-    ActorId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()
+fn actor_id() -> DidCoreId {
+    DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()
 }
 
 fn test_event_id(seq: u64) -> EventId {
@@ -769,12 +769,12 @@ fn member_state_conflict_prefers_ban_semantics() {
     let leave = event(
         EventKind::MemberState,
         4,
-        json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "leave" }),
+        json!({ "actor_id": "ak:did_core:webvh:z6mkfixture", "membership": "leave" }),
     );
     let mut ban = event(
         EventKind::MemberState,
         5,
-        json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "ban" }),
+        json!({ "actor_id": "ak:did_core:webvh:z6mkfixture", "membership": "ban" }),
     );
     ban.hlc = leave.hlc.clone();
     ban.event_id = EventId::new("ak:event:AQYnSzOsjpbQwvhkPUY84qJbId-khcnM8adAPbU2oIa4").unwrap();
@@ -784,7 +784,7 @@ fn member_state_conflict_prefers_ban_semantics() {
 
     let resolved = state
         .resolved_state
-        .get("ak.member.state|did:webvh:z6mkfixture:alice.example")
+        .get("ak.member.state|ak:did_core:webvh:z6mkfixture")
         .unwrap();
     assert_eq!(resolved.content["membership"], "ban");
     assert_eq!(state.conflict_records.len(), 1);
@@ -802,7 +802,7 @@ fn capability_rebind_uses_deterministic_lww_order() {
         2,
         json!({
             "grant_id": "cap-chan-post",
-            "subject": "did:webvh:z6mkfixture:alice.example",
+            "subject": "ak:did_core:webvh:z6mkfixture",
             "actions": ["ak.message.create", "ak.reaction.add"]
         }),
     );
@@ -1194,10 +1194,9 @@ fn realm_organization_requires_subject_fields() {
     // Missing relationship must surface a protocol error, not a silent
     // realm_id fallback.
     let mut ev = realm_organization_event(1, "did:webvh:z6mkfixture:org-a.example.com", "member");
-    ev.payload = serde_json::from_value(
-        json!({ "organization_id": "did:webvh:z6mkfixture:org-a.example.com" }),
-    )
-    .unwrap();
+    ev.payload =
+        serde_json::from_value(json!({ "organization_id": "ak:did_core:webvh:z6mkfixture" }))
+            .unwrap();
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[ev]).unwrap_err();

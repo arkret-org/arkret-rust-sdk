@@ -12,8 +12,8 @@
 use arkret_wire::base64url::base64url_decode;
 use arkret_wire::event_envelope::{Event, ScopeRef};
 use arkret_wire::{
-    CellRef, Did, Error, Hash, NonEmptyString, ProfileId, RealmId, Result, SchemaId, Seal, SealId,
-    canonical,
+    CellRef, DidCoreId, Error, Hash, NonEmptyString, ProfileId, RealmId, Result, SchemaId, Seal,
+    SealId, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,7 +44,7 @@ pub const MLS_GOVERNANCE_FRONTIER_EVENTS_PER_CHUNK: usize = 32;
 #[serde(deny_unknown_fields)]
 pub struct MlsSecurityFrontierLeaf {
     pub leaf_index: u32,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub credential_ref: NonEmptyString,
 }
 

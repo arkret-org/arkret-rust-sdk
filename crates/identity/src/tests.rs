@@ -1,26 +1,24 @@
-use arkret_wire::{ActorId, Hlc, PrincipalId, RealmId, project_full_id_to_core_id};
+use arkret_wire::{DidCoreId, DidFullId, Hlc, RealmId, project_full_id_to_core_id};
 
 use super::*;
 
-fn did(name: &str) -> Did {
-    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+fn did(name: &str) -> DidFullId {
+    DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
 }
 
 // did:web-method fixtures for tests that exercise the `did:web` resolver
 // surface itself (DidWebResolver / key-log / registry receipt); the method
 // under test is did:web here, so these MUST stay did:web.
-fn did_web(name: &str) -> Did {
-    Did::new(format!("did:web:{name}.example")).unwrap()
+fn did_web(name: &str) -> DidFullId {
+    DidFullId::new(format!("did:web:{name}.example")).unwrap()
 }
 
-fn principal(name: &str) -> PrincipalId {
-    PrincipalId::from(project_full_id_to_core_id(&did(name)).unwrap())
+fn principal(name: &str) -> DidCoreId {
+    project_full_id_to_core_id(&did(name)).unwrap()
 }
 
-fn pairwise_actor(name: &str) -> ActorId {
-    ActorId::from(
-        project_full_id_to_core_id(&Did::new(format!("did:key:z{name}")).unwrap()).unwrap(),
-    )
+fn pairwise_actor(name: &str) -> DidCoreId {
+    project_full_id_to_core_id(&DidFullId::new(format!("did:key:z{name}")).unwrap()).unwrap()
 }
 
 fn realm() -> RealmId {
@@ -32,7 +30,7 @@ fn hlc() -> Hlc {
 }
 
 fn assertion_document(
-    authority: &Did,
+    authority: &DidFullId,
     verification_method: &DidUrl,
     signing_key: &SigningKey,
 ) -> DidDocument {
@@ -122,7 +120,7 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
 
 /// Build a fully valid 2-entry `did:webvh` log signed by `key1` (entry 1)
 /// then rotated to `key2` (entry 2). Returns `(did, jsonl_body)`.
-fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
+fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (DidFullId, Vec<u8>) {
     let host = "starid.example.com:users:alice";
     let update1 = vector_update_key(key1);
     let update2 = vector_update_key(key2);
@@ -142,7 +140,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
         "state": prelim_state,
     });
     let scid = vector_derive_scid(&prelim_entry1);
-    let did = Did::new(format!("did:webvh:{scid}:{host}")).unwrap();
+    let did = DidFullId::new(format!("did:webvh:{scid}:{host}")).unwrap();
     let state1 = json!({ "id": format!("did:webvh:{scid}:starid.example.com:users:alice") });
 
     // versionId hash for entry 1 commits to body with versionId = scid.
@@ -193,7 +191,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     (did, body.into_bytes())
 }
 
-fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogOutcome {
+fn vector_log_response(did: &DidFullId, body: Vec<u8>) -> DidWebvhLogOutcome {
     DidWebvhLogOutcome {
         url: DidWebvhResolver::log_url(did).unwrap(),
         content_type: "application/jsonl".to_owned(),
@@ -207,7 +205,7 @@ fn official_did_webvh_witness_vector_verifies_end_to_end() {
         "../tests/fixtures/did-webvh-witness-official.json"
     ))
     .expect("official witness fixture");
-    let did = Did::new(
+    let did = DidFullId::new(
         fixture
             .get("did")
             .and_then(Value::as_str)
@@ -264,7 +262,7 @@ fn malformed_did_webvh_witness_policy_never_rounds_down() {
 
 #[test]
 fn webvh_resolver_validates_url_shape() {
-    let did = Did::new("did:webvh:zabc:starid.example.com:users:alice").unwrap();
+    let did = DidFullId::new("did:webvh:zabc:starid.example.com:users:alice").unwrap();
     assert_eq!(
         DidWebvhResolver::document_url(&did).unwrap(),
         "https://starid.example.com/users/alice/did.json"
@@ -329,7 +327,7 @@ fn webvh_candidate_entry_is_verified_without_publishing_it() {
         state: &inception.log_entry["state"],
     })
     .unwrap();
-    let did = Did::new(inception.did).unwrap();
+    let did = DidFullId::new(inception.did).unwrap();
     let current_history = format!("{}\n", inception.log_entry).into_bytes();
     let candidate = serde_json::to_vec(&rotation.log_entry).unwrap();
     let verified = verify_did_webvh_v1_candidate_entry_bytes(
@@ -417,7 +415,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
         state: &inception.log_entry["state"],
     })
     .unwrap();
-    let did = Did::new(inception.did.clone()).unwrap();
+    let did = DidFullId::new(inception.did.clone()).unwrap();
     let entries = vec![inception.log_entry.clone(), rotation.log_entry.clone()];
 
     let verified = verify_did_webvh_v1_log(&did, &entries).unwrap();
@@ -529,7 +527,7 @@ fn webvh_rejects_wrong_scid_in_did() {
     let key2 = SigningKey::from_bytes(&[9u8; 32]);
     let (_did, body) = vector_valid_log(&key1, &key2);
     // Resolve against a DID whose SCID does not derive from the log.
-    let wrong = Did::new("did:webvh:zNOTtheRealScid:starid.example.com:users:alice").unwrap();
+    let wrong = DidFullId::new("did:webvh:zNOTtheRealScid:starid.example.com:users:alice").unwrap();
     let mut resolver = DidWebvhResolver::new();
     assert!(
         resolver
@@ -587,7 +585,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
         "state": json!({ "id": "did:webvh:{SCID}:starid.example.com:users:alice" }),
     });
     let scid = vector_derive_scid(&prelim_entry1);
-    let did = Did::new(format!("did:webvh:{scid}:{host}")).unwrap();
+    let did = DidFullId::new(format!("did:webvh:{scid}:{host}")).unwrap();
     let state = json!({ "id": format!("did:webvh:{scid}:starid.example.com:users:alice") });
 
     let mut e1 = json!({
@@ -658,9 +656,8 @@ fn webvh_rejects_missing_proof() {
 }
 
 #[test]
-fn identity_resolves_validates_rotates_and_migrates_dids() {
+fn identity_resolves_validates_and_rotates_dids() {
     let alice = did("alice");
-    let alice_v2 = did("alice-v2");
     let mut manager = IdentityManager::new();
     manager
         .upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1"))
@@ -675,15 +672,12 @@ fn identity_resolves_validates_rotates_and_migrates_dids() {
             .verification_methods
             .contains_key("key-2")
     );
-
-    manager.migrate_did(alice, alice_v2, "proof");
-    assert_eq!(manager.migrations().len(), 1);
 }
 
 #[test]
 fn identity_binds_validates_and_attests_handles() {
-    let alice = did("alice");
-    let issuer = did("issuer");
+    let alice = principal("alice");
+    let issuer = principal("issuer");
     let mut manager = IdentityManager::new();
 
     let claim = manager.bind_handle("@Alice", alice.clone());
@@ -700,7 +694,7 @@ fn identity_binds_validates_and_attests_handles() {
 
 #[test]
 fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
-    let alice = did("alice");
+    let alice = principal("alice");
     let challenge = "challenge-1";
     let handle = "alice@example.com";
     let proof = handle_claim_proof(handle, &alice, challenge);
@@ -737,10 +731,10 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
 
 #[test]
 fn did_resolver_adapters_resolve_web_key_and_keri() {
-    let web = Did::new("did:web:alice.example").unwrap();
-    let web_path = Did::new("did:web:example.com:users:alice").unwrap();
-    let keri = Did::new("did:keri:E123456789abcdef").unwrap();
-    let key = Did::new("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP").unwrap();
+    let web = DidFullId::new("did:web:alice.example").unwrap();
+    let web_path = DidFullId::new("did:web:example.com:users:alice").unwrap();
+    let keri = DidFullId::new("did:keri:E123456789abcdef").unwrap();
+    let key = DidFullId::new("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP").unwrap();
 
     let mut web_resolver = DidWebResolver::new();
     web_resolver
@@ -837,7 +831,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     );
     assert!(
         DidKeyResolver::new()
-            .resolve_did(&Did::new("did:key:z1111").unwrap())
+            .resolve_did(&DidFullId::new("did:key:z1111").unwrap())
             .is_err()
     );
 }
@@ -845,12 +839,13 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
 #[test]
 fn did_resolver_verifies_event_proof_from_did_document_key() {
     let signing_key = SigningKey::from_bytes(&[11u8; 32]);
-    let actor = did_web("alice");
-    let verification_method = DidUrl::new(format!("{actor}#key-1")).unwrap();
+    let actor_full_id = did_web("alice");
+    let actor_id = project_full_id_to_core_id(&actor_full_id).unwrap();
+    let verification_method = DidUrl::new(format!("{actor_full_id}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
-            actor.clone(),
+            actor_full_id,
             verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
@@ -859,7 +854,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
     let event = arkret_wire::test_support::raw_event(
         "ak.test.event",
         arkret_wire::ScopeRef::Realm { realm_id: realm() },
-        actor,
+        actor_id,
         1,
         hlc(),
         json!({"ok": true}),
@@ -890,13 +885,14 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
 #[test]
 fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     let signing_key = SigningKey::from_bytes(&[12u8; 32]);
-    let controller = did_web("controller");
-    let bridge = did_web("bridge");
-    let verification_method = DidUrl::new(format!("{bridge}#key-1")).unwrap();
+    let controller = project_full_id_to_core_id(&did_web("controller")).unwrap();
+    let bridge_full_id = did_web("bridge");
+    let bridge_id = project_full_id_to_core_id(&bridge_full_id).unwrap();
+    let verification_method = DidUrl::new(format!("{bridge_full_id}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
-            bridge.clone(),
+            bridge_full_id,
             verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
@@ -911,7 +907,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         json!({"ok": true}),
     )
     .unwrap();
-    event.executed_by = Some(bridge);
+    event.executed_by = Some(bridge_id);
     event.authorization_ref = Some(
         arkret_wire::AuthorizationRef::new("ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM")
             .unwrap(),
@@ -938,14 +934,16 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     assert!(verified.valid);
 }
 
+#[test]
 fn did_registry_receipt_verifies_detached_jws_binding() {
     let registry_key = SigningKey::from_bytes(&[24u8; 32]);
-    let registry = did_web("registry");
-    let verification_method = DidUrl::new(format!("{registry}#key-1")).unwrap();
+    let registry_full_id = did_web("registry");
+    let registry_service_id = project_full_id_to_core_id(&registry_full_id).unwrap();
+    let verification_method = DidUrl::new(format!("{registry_full_id}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(assertion_document(
-            &registry,
+            &registry_full_id,
             &verification_method,
             &registry_key,
         ))
@@ -957,7 +955,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
         alice,
         7,
         Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
-        registry,
+        registry_service_id,
         IdentityReceiptWitnessRole::Writer,
         &registry_key,
         &verification_method,
@@ -986,6 +984,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 #[test]
 fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controller() {
     let registry = did_web("registry-authority");
+    let registry_service_id = project_full_id_to_core_id(&registry).unwrap();
     let delegate = did_web("registry-delegate");
     let host = did_web("registry-host");
     let delegate_key = SigningKey::from_bytes(&[35u8; 32]);
@@ -996,7 +995,7 @@ fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controlle
         did("alice"),
         8,
         Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
-        registry.clone(),
+        registry_service_id.clone(),
         IdentityReceiptWitnessRole::Witness,
         &delegate_key,
         &delegate_method,
@@ -1022,7 +1021,7 @@ fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controlle
         did("alice"),
         9,
         Hash::new(format!("sha256:{}", "ef".repeat(32))).unwrap(),
-        registry.clone(),
+        registry_service_id,
         IdentityReceiptWitnessRole::Writer,
         &delegate_key,
         &host_method,
@@ -1054,11 +1053,12 @@ fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controlle
 
 #[test]
 fn handle_bidirectional_verification_succeeds_with_also_known_as() {
-    let alice = did("alice");
+    let alice_full_id = did("alice");
+    let alice = principal("alice");
     let mut manager = IdentityManager::new();
 
     // Create DID document with also_known_as listing the handle
-    let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
     doc.also_known_as = vec!["@alice".to_owned()];
     manager.upsert_document(doc).unwrap();
 
@@ -1073,12 +1073,13 @@ fn handle_bidirectional_verification_succeeds_with_also_known_as() {
 
 #[test]
 fn handle_bidirectional_verification_fails_without_also_known_as() {
-    let alice = did("alice");
+    let alice_full_id = did("alice");
+    let alice = principal("alice");
     let mut manager = IdentityManager::new();
 
     // DID document without also_known_as
     manager
-        .upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1"))
+        .upsert_document(DidDocument::new(alice_full_id, "key-1", "pubkey-1"))
         .unwrap();
 
     let claim = manager.bind_handle("@alice", alice.clone());
@@ -1095,10 +1096,11 @@ fn handle_bidirectional_verification_fails_without_also_known_as() {
 
 #[test]
 fn handle_bidirectional_verification_fails_when_claim_not_verified() {
-    let alice = did("alice");
+    let alice_full_id = did("alice");
+    let alice = principal("alice");
     let mut manager = IdentityManager::new();
 
-    let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
     doc.also_known_as = vec!["@alice".to_owned()];
     manager.upsert_document(doc).unwrap();
 
@@ -1115,11 +1117,12 @@ fn handle_bidirectional_verification_fails_when_claim_not_verified() {
 
 #[test]
 fn handle_bidirectional_verification_fails_for_wrong_did() {
-    let alice = did("alice");
-    let bob = did("bob");
+    let alice_full_id = did("alice");
+    let alice = principal("alice");
+    let bob = principal("bob");
     let mut manager = IdentityManager::new();
 
-    let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
     doc.also_known_as = vec!["@alice".to_owned()];
     manager.upsert_document(doc).unwrap();
 
@@ -1133,42 +1136,44 @@ fn handle_bidirectional_verification_fails_for_wrong_did() {
 
 #[test]
 fn unclaimed_handles_for_did_returns_unlisted_handles() {
-    let alice = did("alice");
+    let alice_full_id = did("alice");
+    let alice = principal("alice");
     let mut manager = IdentityManager::new();
 
-    let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+    let mut doc = DidDocument::new(alice_full_id.clone(), "key-1", "pubkey-1");
     doc.also_known_as = vec!["@alice".to_owned(), "@alice_alt".to_owned()];
     manager.upsert_document(doc).unwrap();
 
     // Claim one handle
-    manager.bind_handle("@alice", alice.clone());
+    manager.bind_handle("@alice", alice);
 
     // Should return the unclaimed one
-    let unclaimed = manager.unclaimed_handles_for_did(&alice);
+    let unclaimed = manager.unclaimed_handles_for_did(&alice_full_id);
     assert_eq!(unclaimed.len(), 1);
     assert_eq!(unclaimed[0], "@alice_alt");
 }
 
 #[test]
 fn unclaimed_handles_excludes_urls() {
-    let alice = did("alice");
+    let alice_full_id = did("alice");
     let mut manager = IdentityManager::new();
 
-    let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+    let mut doc = DidDocument::new(alice_full_id.clone(), "key-1", "pubkey-1");
     doc.also_known_as = vec!["@alice".to_owned(), "https://alice.example".to_owned()];
     manager.upsert_document(doc).unwrap();
 
-    let unclaimed = manager.unclaimed_handles_for_did(&alice);
+    let unclaimed = manager.unclaimed_handles_for_did(&alice_full_id);
     assert_eq!(unclaimed.len(), 1);
     assert_eq!(unclaimed[0], "@alice");
 }
 
 #[test]
 fn handle_bidirectional_with_case_insensitive_matching() {
-    let alice = did("alice");
+    let alice_full_id = did("alice");
+    let alice = principal("alice");
     let mut manager = IdentityManager::new();
 
-    let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
     doc.also_known_as = vec!["@Alice".to_owned()];
     manager.upsert_document(doc).unwrap();
 

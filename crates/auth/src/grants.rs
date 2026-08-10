@@ -1,3 +1,5 @@
+use arkret_wire::DidCoreId;
+
 use super::helpers::sha256_hex;
 use super::*;
 
@@ -228,7 +230,7 @@ pub struct PrincipalSessionGrantNotification {
     pub kind: SessionGrantNotificationKind,
     pub record: SessionGrantRecord,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub admin_actor: Option<Did>,
+    pub admin_actor: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }

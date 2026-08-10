@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use arkret_models_crypto::encrypted_envelope::{
     AadVisibilityCeiling, EncryptedEnvelopeAadVisibility,
 };
+use arkret_wire::{DidCoreId, DidFullId};
 
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
@@ -23,7 +24,7 @@ pub type InheritancePolicyStatus = String;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmOwnerTransferPatch {
-    pub controller_id: Did,
+    pub controller_id: DidCoreId,
     pub controller_epoch: u64,
 }
 
@@ -91,7 +92,7 @@ pub enum RebindAuthorization {
 /// service DIDs — where the **empty** list means "reject every recipient
 /// service" (fail-closed, never "unrestricted") — or exactly the one-element
 /// sentinel `["*"]`. Keeping the two cases in separate variants is what makes
-/// the fail-closed reading unmistakable at the call site; a bare `Vec<Did>`
+/// the fail-closed reading unmistakable at the call site; a bare `Vec<DidFullId>`
 /// could not carry the sentinel at all, since `*` is not a DID.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AllowedRecipientServices {
@@ -99,7 +100,7 @@ pub enum AllowedRecipientServices {
     /// allow-list dimension; `required_endorsers` still applies.
     Unrestricted,
     /// Closed allow-list. Empty = reject every recipient service.
-    Allowlist(Vec<Did>),
+    Allowlist(Vec<DidFullId>),
 }
 
 /// Wire token for [`AllowedRecipientServices::Unrestricted`].
@@ -135,7 +136,7 @@ impl<'de> Deserialize<'de> for AllowedRecipientServices {
         }
         entries
             .into_iter()
-            .map(|entry| Did::new(entry).map_err(serde::de::Error::custom))
+            .map(|entry| DidFullId::new(entry).map_err(serde::de::Error::custom))
             .collect::<std::result::Result<Vec<_>, _>>()
             .map(Self::Allowlist)
     }
@@ -315,7 +316,7 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_third_party_invite_verification_service_ids: Option<Vec<Did>>,
+    pub allowed_third_party_invite_verification_service_ids: Option<Vec<DidCoreId>>,
 }
 
 impl RealmPolicyBundlePayload {
@@ -519,7 +520,7 @@ pub struct RealmDeliveryBindingPolicyPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_recipient_services: Option<AllowedRecipientServices>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub required_endorsers: Option<BTreeSet<Did>>,
+    pub required_endorsers: Option<BTreeSet<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unroutable_membership_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1039,7 +1040,7 @@ impl RealmOrganizationIssuerRole {
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationAuthorization {
     /// Organization DID or delegated service DID that issued this statement.
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub issuer_role: RealmOrganizationIssuerRole,
     /// DID URL of a concrete verification method (bare DIDs are not valid).
     pub verification_method: DidUrl,
@@ -1050,7 +1051,7 @@ pub struct RealmOrganizationAuthorization {
     /// Optional human admin / service principal that initiated the decision.
     /// Does not become the organization principal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<Did>,
+    pub executed_by: Option<DidCoreId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub signed_at: DateTime<Utc>,
     /// Signature, threshold transcript, or governance-service attestation over
@@ -1075,7 +1076,7 @@ pub struct RealmOrganizationPayload {
     pub realm_id: RealmId,
     /// Organization principal DID that endorses / governs / sponsors /
     /// certifies / revokes the Realm relationship.
-    pub organization_id: Did,
+    pub organization_id: DidCoreId,
     pub relationship: RealmOrganizationRelationship,
     pub status: RealmOrganizationStatus,
     /// Machine-readable scopes covered by the organization's consent
@@ -1140,7 +1141,7 @@ impl RealmOrganizationPayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmSearchPolicyPayload {
     pub enabled_profile_refs: Vec<String>,
-    pub allowed_service_ids: Vec<Did>,
+    pub allowed_service_ids: Vec<DidCoreId>,
     pub data_classes: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index_retention_ms: Option<u64>,
@@ -1173,7 +1174,7 @@ struct OrganizationStatementTranscript<'a> {
     kind: &'a str,
     statement_id: &'a str,
     realm_id: &'a RealmId,
-    organization_id: &'a Did,
+    organization_id: &'a DidCoreId,
     relationship: &'a RealmOrganizationRelationship,
     status: &'a RealmOrganizationStatus,
     control_scopes: &'a [RealmOrganizationControlScope],
@@ -1197,12 +1198,12 @@ struct OrganizationStatementTranscript<'a> {
     realm_frontier_digest: Option<&'a Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     organization_policy_ref: Option<&'a ObjectRef>,
-    issuer: &'a Did,
+    issuer: &'a DidCoreId,
     issuer_role: &'a RealmOrganizationIssuerRole,
     #[serde(skip_serializing_if = "Option::is_none")]
     delegation_ref: Option<&'a ObjectRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    executed_by: Option<&'a Did>,
+    executed_by: Option<&'a DidCoreId>,
 }
 
 /// Canonical bytes the organization-side `authorization.proof` signs over.
@@ -1298,13 +1299,13 @@ mod realm_organization_tests {
         json!({
             "statement_id": "org-stmt-1",
             "realm_id": "ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo",
-            "organization_id": "did:webvh:example.test:orgs:01J0000000000000000000000A",
+            "organization_id": "ak:did_core:webvh:example.test",
             "relationship": "owner",
             "status": "active",
             "control_scopes": ["official_badge", "realm_admin"],
             "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
-                "issuer": "did:webvh:example.test:orgs:01J0000000000000000000000A",
+                "issuer": "ak:did_core:webvh:example.test",
                 "issuer_role": "organization_did",
                 "verification_method": "did:webvh:example.test:orgs:01J0000000000000000000000A#k1",
                 "signed_at": "2026-06-25T00:00:00.000Z",

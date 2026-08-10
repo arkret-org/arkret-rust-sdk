@@ -92,11 +92,11 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
         "kind": "ak.message.create",
         "event_id": "ak:event:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9",
         "created_at": "2026-04-26T00:00:00.000Z",
-        "actor_id": "did:webvh:z6mkfixture:alice.example",
+        "actor_id": "ak:did_core:webvh:z6mkfixture",
         "redacts": "ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p",
         "content": {"kind": "ak.content.text", "body": "secret plaintext"},
-        "reactions": [{"actor": "did:webvh:z6mkfixture:bob.example", "key": "+1"}],
-        "mentions": [{"actor_id": "did:webvh:z6mkfixture:bob.example"}],
+        "reactions": [{"actor": "ak:did_core:webvh:z6mkfixture", "key": "+1"}],
+        "mentions": [{"actor_id": "ak:did_core:webvh:z6mkfixture"}],
         "search_terms": ["secret", "plaintext"],
     });
     let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00.000Z")
@@ -121,10 +121,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
         json!("ak:event:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9")
     );
     assert_eq!(event["created_at"], json!("2026-04-26T00:00:00.000Z"));
-    assert_eq!(
-        event["actor_id"],
-        json!("did:webvh:z6mkfixture:alice.example")
-    );
+    assert_eq!(event["actor_id"], json!("ak:did_core:webvh:z6mkfixture"));
     assert_eq!(
         event["redacts"],
         json!("ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p")

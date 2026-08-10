@@ -1,6 +1,6 @@
 //! Byte-exact RFC 9420 exporter helpers shared by clients and conformance KATs.
 
-use arkret_wire::{DeviceId, Did, RealmId, canonical};
+use arkret_wire::{DeviceId, DidFullId, RealmId, canonical};
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use zeroize::Zeroizing;
@@ -85,7 +85,7 @@ pub fn derive_mention_routing_key(
 pub fn mention_routing_hmac(
     exporter_secret: &[u8],
     realm_id: &RealmId,
-    mentioned_did: &Did,
+    mentioned_did: &DidFullId,
 ) -> Result<[u8; MLS_HASH_LEN]> {
     let key = derive_mention_routing_key(exporter_secret, realm_id)?;
     mention_routing_hmac_from_key(&key, mentioned_did)
@@ -93,7 +93,7 @@ pub fn mention_routing_hmac(
 
 pub fn mention_routing_hmac_from_key(
     routing_key: &[u8],
-    mentioned_did: &Did,
+    mentioned_did: &DidFullId,
 ) -> Result<[u8; MLS_HASH_LEN]> {
     let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(routing_key)
         .map_err(|_| Error::Crypto("mention routing HMAC key is invalid".to_owned()))?;
@@ -156,7 +156,7 @@ mod tests {
         let case = fixture_case("mention_routing_hmac_did");
         let secret = case_exporter_secret(&case);
         let realm_id = RealmId::new(case["input"]["realm_id_utf8"].as_str().unwrap()).unwrap();
-        let did = Did::new(case["input"]["mentioned_did_utf8"].as_str().unwrap()).unwrap();
+        let did = DidFullId::new(case["input"]["mentioned_did_utf8"].as_str().unwrap()).unwrap();
         assert_eq!(
             MENTION_ROUTING_EXPORTER_LABEL,
             case["input"]["exporter_label"].as_str().unwrap()

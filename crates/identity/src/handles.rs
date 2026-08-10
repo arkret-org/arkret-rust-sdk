@@ -1,3 +1,5 @@
+use arkret_wire::{DidCoreId, DidFullId, project_full_id_to_core_id};
+
 use super::*;
 
 /// Visibility scope for a DID.
@@ -23,11 +25,11 @@ pub enum DidVisibility {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PairwiseActorBinding {
     /// Realm-scoped actor core id (unique per peer relationship).
-    pub pairwise_actor_id: ActorId,
+    pub pairwise_actor_id: DidCoreId,
     /// The stable principal core id represented by this actor.
-    pub principal_id: PrincipalId,
+    pub principal_id: DidCoreId,
     /// The counterparty principal core id this binding is scoped to.
-    pub peer_principal_id: PrincipalId,
+    pub peer_principal_id: DidCoreId,
     /// Optional space or context this binding is limited to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
@@ -43,9 +45,9 @@ pub struct PairwiseActorBinding {
 /// Proof required before revealing a pairwise DID's parent DID.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PairwiseActorResolutionProof {
-    pub pairwise_actor_id: ActorId,
-    pub requester: PrincipalId,
-    pub peer_principal_id: PrincipalId,
+    pub pairwise_actor_id: DidCoreId,
+    pub requester: DidCoreId,
+    pub peer_principal_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
     pub challenge: String,
@@ -57,9 +59,9 @@ pub struct PairwiseActorResolutionProof {
 impl PairwiseActorBinding {
     /// Create a new pairwise actor binding.
     pub fn new(
-        pairwise_actor_id: ActorId,
-        principal_id: PrincipalId,
-        peer_principal_id: PrincipalId,
+        pairwise_actor_id: DidCoreId,
+        principal_id: DidCoreId,
+        peer_principal_id: DidCoreId,
         scope: Option<String>,
     ) -> Self {
         Self {
@@ -86,7 +88,7 @@ impl PairwiseActorBinding {
     /// Build a deterministic proof allowing a scoped peer to resolve this binding.
     pub fn resolution_proof(
         &self,
-        requester: PrincipalId,
+        requester: DidCoreId,
         challenge: impl Into<String>,
     ) -> PairwiseActorResolutionProof {
         let challenge = challenge.into();
@@ -111,9 +113,9 @@ impl PairwiseActorBinding {
 
 /// Compute the deterministic proof for gated pairwise DID resolution.
 pub fn pairwise_actor_resolution_proof(
-    pairwise_actor_id: &ActorId,
-    requester: &PrincipalId,
-    peer_principal_id: &PrincipalId,
+    pairwise_actor_id: &DidCoreId,
+    requester: &DidCoreId,
+    peer_principal_id: &DidCoreId,
     scope: Option<&str>,
     challenge: &str,
 ) -> String {
@@ -132,9 +134,9 @@ pub fn pairwise_actor_resolution_proof(
 #[derive(Clone, Debug, Default)]
 pub struct PairwiseActorStore {
     /// Bindings indexed by pairwise actor core id.
-    by_pairwise: BTreeMap<ActorId, PairwiseActorBinding>,
+    by_pairwise: BTreeMap<DidCoreId, PairwiseActorBinding>,
     /// Reverse index: principal core id → all its pairwise actors.
-    by_principal: BTreeMap<PrincipalId, Vec<ActorId>>,
+    by_principal: BTreeMap<DidCoreId, Vec<DidCoreId>>,
 }
 
 impl PairwiseActorStore {
@@ -155,12 +157,12 @@ impl PairwiseActorStore {
     }
 
     /// Look up the binding for a pairwise DID.
-    pub fn get(&self, pairwise_actor_id: &ActorId) -> Option<&PairwiseActorBinding> {
+    pub fn get(&self, pairwise_actor_id: &DidCoreId) -> Option<&PairwiseActorBinding> {
         self.by_pairwise.get(pairwise_actor_id)
     }
 
     /// Resolve a pairwise DID to its parent DID.
-    pub fn resolve_principal(&self, pairwise_actor_id: &ActorId) -> Option<&PrincipalId> {
+    pub fn resolve_principal(&self, pairwise_actor_id: &DidCoreId) -> Option<&DidCoreId> {
         self.by_pairwise
             .get(pairwise_actor_id)
             .map(|binding| &binding.principal_id)
@@ -169,9 +171,9 @@ impl PairwiseActorStore {
     /// Resolve a pairwise DID to its parent DID only after validating proof.
     pub fn resolve_principal_with_proof(
         &self,
-        pairwise_actor_id: &ActorId,
+        pairwise_actor_id: &DidCoreId,
         proof: &PairwiseActorResolutionProof,
-    ) -> Result<&PrincipalId> {
+    ) -> Result<&DidCoreId> {
         let binding = self
             .by_pairwise
             .get(pairwise_actor_id)
@@ -210,14 +212,14 @@ impl PairwiseActorStore {
     }
 
     /// Check if a pairwise DID is valid (exists and not expired).
-    pub fn is_valid(&self, pairwise_actor_id: &ActorId) -> bool {
+    pub fn is_valid(&self, pairwise_actor_id: &DidCoreId) -> bool {
         self.by_pairwise
             .get(pairwise_actor_id)
             .is_some_and(|b| !b.is_expired())
     }
 
     /// List all pairwise DIDs for a parent DID.
-    pub fn pairwise_actor_ids_for(&self, principal: &PrincipalId) -> Vec<&PairwiseActorBinding> {
+    pub fn pairwise_actor_ids_for(&self, principal: &DidCoreId) -> Vec<&PairwiseActorBinding> {
         self.by_principal
             .get(principal)
             .map(|ids| {
@@ -230,7 +232,7 @@ impl PairwiseActorStore {
 
     /// Remove expired bindings.
     pub fn purge_expired(&mut self) {
-        let expired: Vec<ActorId> = self
+        let expired: Vec<DidCoreId> = self
             .by_pairwise
             .iter()
             .filter(|(_, b)| b.is_expired())
@@ -246,20 +248,6 @@ impl PairwiseActorStore {
     }
 }
 
-/// DID migration record.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidMigration {
-    /// Old DID.
-    pub from: Did,
-    /// New DID.
-    pub to: Did,
-    /// Migration proof.
-    pub proof: String,
-    /// Migration time.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub migrated_at: DateTime<Utc>,
-}
-
 /// Client-local handle claim challenge state tracked by [`IdentityManager`].
 ///
 /// This is NOT the wire handle-claim resource — that is
@@ -271,7 +259,7 @@ pub struct HandleClaimChallenge {
     /// Claimed handle.
     pub handle: String,
     /// DID of the principal claiming the handle.
-    pub subject: Did,
+    pub subject: DidCoreId,
     /// Validation challenge.
     pub challenge: String,
     /// Whether the claim is verified.
@@ -293,7 +281,7 @@ pub enum HandleProofProfile {
 pub struct ExternalHandleProof {
     pub profile: HandleProofProfile,
     pub handle: String,
-    pub subject: Did,
+    pub subject: DidCoreId,
     pub challenge: String,
     pub proof: String,
 }
@@ -324,7 +312,7 @@ impl ExternalHandleProof {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedHandleBinding {
     pub handle: String,
-    pub did: Did,
+    pub did: DidFullId,
     /// Canonical SHA-256 of the resolved DID document at verification time.
     pub document_hash: String,
     /// External proof linking the handle to the DID
@@ -379,7 +367,8 @@ impl VerifiedHandleBinding {
                 "handle in proof does not match requested handle".to_owned(),
             ));
         }
-        if handle_proof.subject != document.id {
+        let document_principal = project_full_id_to_core_id(&document.id)?;
+        if handle_proof.subject != document_principal {
             return Err(Error::Protocol(
                 "handle proof DID does not match document subject".to_owned(),
             ));
@@ -411,8 +400,7 @@ impl VerifiedHandleBinding {
 /// Identity manager.
 #[derive(Clone, Debug, Default)]
 pub struct IdentityManager {
-    documents: BTreeMap<Did, DidDocument>,
-    migrations: Vec<DidMigration>,
+    documents: BTreeMap<DidFullId, DidDocument>,
     handles: BTreeMap<String, HandleClaimChallenge>,
 }
 
@@ -430,14 +418,14 @@ impl IdentityManager {
     }
 
     /// Resolve a DID document.
-    pub fn resolve(&self, did: &Did) -> Option<&DidDocument> {
+    pub fn resolve(&self, did: &DidFullId) -> Option<&DidDocument> {
         self.documents.get(did)
     }
 
     /// Rotate or add a verification key.
     pub fn rotate_key(
         &mut self,
-        did: &Did,
+        did: &DidFullId,
         key_id: impl Into<String>,
         public_key: impl Into<String>,
     ) -> Result<()> {
@@ -452,20 +440,12 @@ impl IdentityManager {
         Ok(())
     }
 
-    /// Migrate one DID to another.
-    pub fn migrate_did(&mut self, from: Did, to: Did, proof: impl Into<String>) -> DidMigration {
-        let migration = DidMigration {
-            from,
-            to,
-            proof: proof.into(),
-            migrated_at: Utc::now(),
-        };
-        self.migrations.push(migration.clone());
-        migration
-    }
-
     /// Bind a handle and issue a validation challenge.
-    pub fn bind_handle(&mut self, handle: impl Into<String>, subject: Did) -> HandleClaimChallenge {
+    pub fn bind_handle(
+        &mut self,
+        handle: impl Into<String>,
+        subject: DidCoreId,
+    ) -> HandleClaimChallenge {
         let handle = normalize_handle(&handle.into());
         let challenge = sha256_hex(format!("{handle}:{}:{}", subject, Utc::now()).as_bytes());
         let claim = HandleClaimChallenge {
@@ -498,7 +478,7 @@ impl IdentityManager {
     pub fn attest_handle(
         &mut self,
         handle: &str,
-        issuer: Did,
+        issuer: DidCoreId,
         proof: impl Into<String>,
     ) -> Result<()> {
         let handle = normalize_handle(handle);
@@ -531,11 +511,15 @@ impl IdentityManager {
     ///
     /// If both conditions hold, the handle is considered bidirectionally verified:
     /// the DID document asserts the handle, and the handle claim proves the DID.
-    pub fn verify_handle_bidirectional(&self, handle: &str, subject: &Did) -> Result<()> {
+    pub fn verify_handle_bidirectional(&self, handle: &str, subject: &DidCoreId) -> Result<()> {
         let normalized = normalize_handle(handle);
         let document = self
             .documents
-            .get(subject)
+            .values()
+            .find(|document| {
+                project_full_id_to_core_id(&document.id)
+                    .is_ok_and(|core_id| core_id.as_str() == subject.as_str())
+            })
             .ok_or_else(|| Error::Protocol("DID document not found for user".to_owned()))?;
 
         // Check that the DID document lists the handle in also_known_as
@@ -573,7 +557,7 @@ impl IdentityManager {
 
     /// Return all handles listed in a DID document's `also_known_as` that
     /// are not yet claimed in this manager.
-    pub fn unclaimed_handles_for_did(&self, did: &Did) -> Vec<String> {
+    pub fn unclaimed_handles_for_did(&self, did: &DidFullId) -> Vec<String> {
         let Some(document) = self.documents.get(did) else {
             return Vec::new();
         };
@@ -592,15 +576,10 @@ impl IdentityManager {
             .cloned()
             .collect()
     }
-
-    /// Migration records.
-    pub fn migrations(&self) -> &[DidMigration] {
-        &self.migrations
-    }
 }
 
 /// Compute the expected proof for a handle claim.
-pub fn handle_claim_proof(handle: &str, subject: &Did, challenge: &str) -> String {
+pub fn handle_claim_proof(handle: &str, subject: &DidCoreId, challenge: &str) -> String {
     sha256_hex(format!("{}:{}:{}", normalize_handle(handle), subject, challenge).as_bytes())
 }
 

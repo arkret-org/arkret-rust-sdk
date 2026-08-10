@@ -18,8 +18,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::event_envelope::EventRef;
 use arkret_wire::{
-    CapabilityId, Did, DidUrl, Error, ErrorCode, EventInitialSubmission, Hash, NonEmptyString,
-    ProtocolKind, RealmId, ReasonCode, Result,
+    CapabilityId, DidCoreId, DidUrl, Error, ErrorCode, EventInitialSubmission, Hash,
+    NonEmptyString, ProtocolKind, RealmId, ReasonCode, Result,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -426,9 +426,9 @@ pub struct RealmEffectivePolicyOutcome {
 pub struct RealmLifecycleView {
     pub ok: bool,
     pub realm_id: RealmId,
-    pub owner: Did,
+    pub owner: DidCoreId,
     #[serde(default)]
-    pub members: Vec<Did>,
+    pub members: Vec<DidCoreId>,
     pub deleted: bool,
     #[serde(default)]
     pub archived: bool,
@@ -533,7 +533,7 @@ pub struct RealmEffectiveModerationPolicy {
     pub realm_id: RealmId,
     pub inheritance_mode: RealmModerationInheritanceMode,
     #[serde(default)]
-    pub inheritance_chain: Vec<Did>,
+    pub inheritance_chain: Vec<DidCoreId>,
     pub organization_policy_layers: Vec<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_policy: Option<BTreeMap<String, Value>>,
@@ -568,7 +568,7 @@ pub struct RealmModerationPolicyDocument {
     pub kind: String,
     pub realm_id: RealmId,
     pub policy: BTreeMap<String, Value>,
-    pub updated_by: Did,
+    pub updated_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
 }
@@ -618,7 +618,7 @@ pub struct RealmPolicyServerPolicySource {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_server_declaration`.
 pub struct RealmPolicyServerDeclarationPayload {
-    pub policy_server_did: Did,
+    pub policy_server_service_id: DidCoreId,
     pub policy_server_url: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub public_keys: Vec<DidUrl>,
@@ -770,7 +770,7 @@ impl RealmAliasPayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerView {
     pub realm_id: RealmId,
-    pub policy_server_did: Did,
+    pub policy_server_service_id: DidCoreId,
     pub policy_server_url: String,
     pub cache_ttl_seconds: u64,
     pub timeout_ms: u64,
@@ -913,7 +913,7 @@ pub struct CapabilityDerived {
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationRelationshipRow {
     pub statement_id: String,
-    pub organization_id: Did,
+    pub organization_id: DidCoreId,
     pub relationship: RealmOrganizationRelationship,
     pub status: RealmOrganizationStatus,
     pub control_scopes: Vec<RealmOrganizationControlScope>,
@@ -953,7 +953,7 @@ pub struct RealmOrganizationRelationshipList {
     /// are unverified claims and MUST NOT be rendered as official / governed /
     /// endorsed.
     #[serde(default)]
-    pub declared_organization_hints: Vec<Did>,
+    pub declared_organization_hints: Vec<DidCoreId>,
 }
 
 #[cfg(test)]
@@ -1265,7 +1265,7 @@ mod tests {
         assert!(
             serde_json::from_value::<RealmPolicyServerPayload>(serde_json::json!({
                 "tombstone": true,
-                "policy_server_did": "did:web:policy.example"
+                "policy_server_service_id": "ak:did_core:web:policy.example"
             }))
             .is_err()
         );

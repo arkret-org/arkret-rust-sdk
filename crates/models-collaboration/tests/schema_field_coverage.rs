@@ -86,7 +86,7 @@ fn sample_cursor() -> Value {
 fn events_query_post_request_body_matches_its_schema_definition() {
     let fully_populated: EventsQueryPostRequestBody = serde_json::from_value(json!({
         "realms": ["ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"],
-        "actors": ["did:web:alice.example"],
+        "actors": ["ak:did_core:web:alice.example"],
         "before": sample_cursor(),
         "after": sample_cursor(),
         "order": "descending",
@@ -188,7 +188,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "metadata_encryption_floor": "e2ee_required",
             "federation_policy": "restricted",
             "sync_endpoints": [{
-                "did": "did:webvh:z6mkfixture:sync.example",
+                "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "endpoint": "https://sync.example/_arkret",
                 "role": "primary",
                 "service_kind": "principal_server",
@@ -219,7 +219,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "applies_to": ["seal_include"]
             },
             "audit_policy": {
-                "range_completeness_witnesses": ["did:web:witness.example"],
+                "range_completeness_witnesses": ["ak:did_core:web:witness.example"],
                 "witnessed_min_attestations": 1,
                 "witness_independence": "distinct_did"
             },
@@ -239,7 +239,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             }],
             "preauth": { "require_consent": true },
             "allowed_third_party_invite_verification_service_ids": [
-                "did:web:verification.example"
+                "ak:did_core:web:verification.example"
             ]
         }))
         .expect("every schema-declared component is accepted by the typed bundle payload");
@@ -291,7 +291,7 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
     let receipt: ReadReceipt = serde_json::from_value(json!({
         "kind": "ak.receipt.read",
         "payload_sequence": 9,
-        "actor_id": "did:web:alice.example",
+        "actor_id": "ak:did_core:web:alice.example",
         "event_id": "ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
         "hlc": "01970e589d21-0001-a13f9c2e",
         "read_scope": {"kind": "realm"}
@@ -302,7 +302,7 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
     let presence: PresencePlaintext = serde_json::from_value(json!({
         "kind": "ak.presence",
         "payload_sequence": 2,
-        "actor_id": "did:web:alice.example",
+        "actor_id": "ak:did_core:web:alice.example",
         "state": "online",
         "status_message": "back in ten",
         "last_active_at": "2026-08-01T00:00:00.000Z",

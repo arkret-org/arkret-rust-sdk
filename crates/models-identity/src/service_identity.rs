@@ -11,7 +11,7 @@ use std::fmt;
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    Did, DidUrl, Error, FullId, Hash, PayloadProof, Result, ServiceId, ServiceKind,
+    DidCoreId, DidFullId, DidUrl, Error, Hash, PayloadProof, Result, ServiceKind,
     ServiceRegistrationReceiptId, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -210,7 +210,7 @@ pub struct ServiceDidVerificationMethod {
     pub id: String,
     #[serde(rename = "type")]
     pub method_type: String,
-    pub controller: FullId,
+    pub controller: DidFullId,
     pub public_key_multibase: String,
 }
 
@@ -231,7 +231,7 @@ pub struct ServiceDidEndpoint {
 pub struct ServiceDidDocument {
     #[serde(rename = "@context")]
     pub context: Vec<String>,
-    pub id: FullId,
+    pub id: DidFullId,
     #[serde(default)]
     pub also_known_as: Vec<String>,
     pub verification_method: Vec<ServiceDidVerificationMethod>,
@@ -471,14 +471,14 @@ impl ServiceWebvhInceptionOperation {
 pub struct ServiceRegistrationReceipt {
     pub registration_receipt_id: ServiceRegistrationReceiptId,
     pub registration_key: ServiceRegistrationKey,
-    pub service_id: ServiceId,
-    pub full_id: FullId,
+    pub service_id: DidCoreId,
+    pub full_id: DidFullId,
     pub version_id: String,
     pub log_head_digest: String,
     pub control_key_digest: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    pub provider_service_id: ServiceId,
+    pub provider_service_id: DidCoreId,
     pub proof: PayloadProof,
 }
 
@@ -523,7 +523,7 @@ impl ServiceRegistrationReceipt {
         struct Transcript<'a> {
             context: &'static str,
             payload_digest: &'a Hash,
-            provider_service_id: &'a ServiceId,
+            provider_service_id: &'a DidCoreId,
             registration_receipt_id: &'a ServiceRegistrationReceiptId,
             verification_method: &'a DidUrl,
             #[serde(
@@ -566,8 +566,8 @@ impl ServiceRegistrationReceipt {
 
     /// Validate the provider verification-method controller after independently
     /// resolving the provider's current complete DID.
-    pub fn validate_provider_full_id(&self, provider_full_id: &FullId) -> Result<()> {
-        let projected = ServiceId::from(project_full_id_to_core_id(provider_full_id)?);
+    pub fn validate_provider_full_id(&self, provider_full_id: &DidFullId) -> Result<()> {
+        let projected = project_full_id_to_core_id(provider_full_id)?;
         let provider_prefix = format!("{}#", provider_full_id);
         if projected != self.provider_service_id
             || !self.proof.verification_method.starts_with(&provider_prefix)
@@ -583,13 +583,13 @@ impl ServiceRegistrationReceipt {
     pub fn validate_for(
         &self,
         key: &ServiceRegistrationKey,
-        service_id: &ServiceId,
-        full_id: &FullId,
+        service_id: &DidCoreId,
+        full_id: &DidFullId,
     ) -> Result<()> {
         if &self.registration_key != key
             || &self.service_id != service_id
             || &self.full_id != full_id
-            || ServiceId::from(project_full_id_to_core_id(full_id)?) != *service_id
+            || project_full_id_to_core_id(full_id)? != *service_id
         {
             return Err(Error::Protocol(
                 "service registration receipt key, stable service id, or complete DID mismatch"
@@ -611,7 +611,7 @@ impl ServiceRegistrationReceipt {
 pub struct ServiceRegistrationEnsureRequestBody {
     pub service_kind: ServiceKind,
     pub public_base: CanonicalServiceUrl,
-    pub full_id: FullId,
+    pub full_id: DidFullId,
     pub inception_operation: ServiceWebvhInceptionOperation,
     pub idempotency_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -626,7 +626,7 @@ impl ServiceRegistrationEnsureRequestBody {
     ) -> Result<Self> {
         inception_operation.validate_for(&key)?;
         let full_id = inception_operation.state.id.clone();
-        let service_id = ServiceId::from(project_full_id_to_core_id(&full_id)?);
+        let service_id = project_full_id_to_core_id(&full_id)?;
         if let Some(receipt) = &previous_receipt {
             receipt.validate_for(&key, &service_id, &full_id)?;
         }
@@ -654,7 +654,7 @@ impl ServiceRegistrationEnsureRequestBody {
                     .to_owned(),
             ));
         }
-        let service_id = ServiceId::from(project_full_id_to_core_id(&self.full_id)?);
+        let service_id = project_full_id_to_core_id(&self.full_id)?;
         if self.idempotency_key != service_registration_idempotency_key(&key)? {
             return Err(Error::Protocol(
                 "service registration idempotency_key does not match the registration key"
@@ -672,8 +672,8 @@ impl ServiceRegistrationEnsureRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationOutcome {
-    pub service_id: ServiceId,
-    pub full_id: FullId,
+    pub service_id: DidCoreId,
+    pub full_id: DidFullId,
     pub did_document: ServiceDidDocument,
     pub version_id: String,
     pub registration_receipt: ServiceRegistrationReceipt,
@@ -683,7 +683,7 @@ pub struct ServiceRegistrationOutcome {
 impl ServiceRegistrationOutcome {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
         if self.did_document.id != self.full_id
-            || ServiceId::from(project_full_id_to_core_id(&self.full_id)?) != self.service_id
+            || project_full_id_to_core_id(&self.full_id)? != self.service_id
         {
             return Err(Error::Protocol(
                 "service registration outcome stable service id or complete DID mismatch"
@@ -778,7 +778,7 @@ fn is_multibase_base58(value: &str) -> bool {
 }
 
 fn is_did_url(value: &str) -> bool {
-    value
-        .split_once('#')
-        .is_some_and(|(did, fragment)| !fragment.is_empty() && Did::new(did.to_owned()).is_ok())
+    value.split_once('#').is_some_and(|(did, fragment)| {
+        !fragment.is_empty() && DidFullId::new(did.to_owned()).is_ok()
+    })
 }

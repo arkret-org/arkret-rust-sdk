@@ -1,5 +1,7 @@
 //! Circle event payloads.
 
+use arkret_wire::DidCoreId;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -37,7 +39,7 @@ pub struct CircleCreatePayload {
 #[serde(deny_unknown_fields)]
 pub struct CircleMemberStatePayload {
     pub circle_id: CircleId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub membership: CircleMembership,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -69,7 +71,7 @@ mod presence_tests {
     fn circle_membership_cas_preserves_missing_null_and_value() {
         let base = json!({
             "circle_id": "ak:circle:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j",
-            "actor_id": "did:web:alice.example",
+            "actor_id": "ak:did_core:web:alice.example",
             "membership": "join"
         });
         let missing: CircleMemberStatePayload = serde_json::from_value(base.clone()).unwrap();
@@ -106,7 +108,7 @@ mod presence_tests {
         ] {
             let payload: CircleMemberStatePayload = serde_json::from_value(json!({
                 "circle_id": "ak:circle:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j",
-                "actor_id": "did:web:alice.example",
+                "actor_id": "ak:did_core:web:alice.example",
                 "membership": wire
             }))
             .unwrap();

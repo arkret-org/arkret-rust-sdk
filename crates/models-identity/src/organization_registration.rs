@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    CoreId, Error, FullId, Hash, PayloadProof, ProofContextId, Result, ServiceId,
+    DidCoreId, DidFullId, Error, Hash, PayloadProof, ProofContextId, Result,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -100,9 +100,9 @@ impl OrganizationControlProof {
     pub fn validate_transcript_bindings(
         &self,
         challenge_id: &str,
-        organization_id: &CoreId,
-        full_id: &FullId,
-        local_admin_subject: &CoreId,
+        organization_id: &DidCoreId,
+        full_id: &DidFullId,
+        local_admin_subject: &DidCoreId,
         version_id: &str,
         log_head_digest: &Hash,
     ) -> Result<()> {
@@ -144,16 +144,16 @@ fn validate_scopes(scopes: &[OrganizationRegistrationScope]) -> Result<()> {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationChallengeRequestBody {
-    pub organization_id: CoreId,
-    pub full_id: FullId,
-    pub local_admin_subject: CoreId,
+    pub organization_id: DidCoreId,
+    pub full_id: DidFullId,
+    pub local_admin_subject: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
 }
 
 impl OrganizationRegistrationChallengeRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_scopes(&self.requested_scopes)?;
-        if project_full_id_to_core_id(&self.full_id)? != self.organization_id {
+        if project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str() {
             return Err(Error::Protocol(
                 "organization registration full_id does not project to organization_id".to_owned(),
             ));
@@ -167,14 +167,14 @@ impl OrganizationRegistrationChallengeRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationChallenge {
     pub challenge_id: String,
-    pub organization_id: CoreId,
-    pub full_id: FullId,
+    pub organization_id: DidCoreId,
+    pub full_id: DidFullId,
     pub purpose: String,
     pub nonce: String,
-    pub audience: ServiceId,
+    pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: String,
-    pub local_admin_subject: CoreId,
+    pub local_admin_subject: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -220,7 +220,7 @@ impl OrganizationRegistrationChallenge {
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
             || self.trust_domain.is_empty()
-            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
         {
             return Err(Error::Protocol(
                 "organization registration challenge contains an invalid id or binding".to_owned(),
@@ -256,9 +256,9 @@ pub enum OrganizationHandleAttestationStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationHandleAttestation {
-    pub subject: CoreId,
+    pub subject: DidCoreId,
     pub handle: String,
-    pub issuer: CoreId,
+    pub issuer: DidCoreId,
     pub audience: String,
     pub status: OrganizationHandleAttestationStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -269,13 +269,13 @@ pub struct OrganizationHandleAttestation {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationEnsureRequestBody {
-    pub organization_id: CoreId,
-    pub full_id: FullId,
+    pub organization_id: DidCoreId,
+    pub full_id: DidFullId,
     pub challenge_id: String,
     pub version_id: String,
     pub log_head_digest: Hash,
     pub control_proof: OrganizationControlProof,
-    pub local_admin_subject: CoreId,
+    pub local_admin_subject: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle_attestation: Option<OrganizationHandleAttestation>,
@@ -286,7 +286,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         self.control_proof.validate()?;
         validate_scopes(&self.requested_scopes)?;
         if self.version_id.is_empty()
-            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
             || !self
                 .challenge_id
                 .strip_prefix("ak:organization-registration-challenge:")
@@ -357,8 +357,8 @@ impl OrganizationRegistrationEnsureRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationRefreshRequestBody {
-    pub organization_id: CoreId,
-    pub full_id: FullId,
+    pub organization_id: DidCoreId,
+    pub full_id: DidFullId,
     pub challenge_id: String,
     pub version_id: String,
     pub log_head_digest: Hash,
@@ -369,7 +369,7 @@ impl OrganizationRegistrationRefreshRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.control_proof.validate()?;
         if self.version_id.is_empty()
-            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
             || !self
                 .challenge_id
                 .strip_prefix("ak:organization-registration-challenge:")
@@ -385,7 +385,7 @@ impl OrganizationRegistrationRefreshRequestBody {
     pub fn validate_for_challenge_at(
         &self,
         challenge: &OrganizationRegistrationChallenge,
-        current_local_admin_subject: &CoreId,
+        current_local_admin_subject: &DidCoreId,
         current_scopes: &[OrganizationRegistrationScope],
         now: DateTime<Utc>,
     ) -> Result<()> {
@@ -441,7 +441,7 @@ pub enum OrganizationRegistrationRevokeReason {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationRevokeRequestBody {
-    pub organization_id: CoreId,
+    pub organization_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<OrganizationRegistrationRevokeReason>,
 }
@@ -460,21 +460,21 @@ pub enum OrganizationRegistrationStatus {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationReceipt {
     pub registration_receipt_id: String,
-    pub organization_id: CoreId,
-    pub full_id: FullId,
+    pub organization_id: DidCoreId,
+    pub full_id: DidFullId,
     pub registration_generation: u64,
     pub version_id: String,
     pub log_head_digest: Hash,
     pub control_proof_kind: OrganizationControlProofKind,
     pub control_key_digest: Hash,
-    pub local_admin_subject: CoreId,
+    pub local_admin_subject: DidCoreId,
     pub delegated_scopes: Vec<OrganizationRegistrationScope>,
     pub status: OrganizationRegistrationStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub issuer_service_id: ServiceId,
+    pub issuer_service_id: DidCoreId,
     pub proof: PayloadProof,
 }
 
@@ -535,13 +535,13 @@ impl OrganizationRegistrationReceipt {
         self.proof.validate_production()?;
         if self.registration_generation == 0
             || self.version_id.is_empty()
-            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
+            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
             || self.expires_at <= self.issued_at
             || self.registration_receipt_id != self.expected_receipt_id()?
             || self.proof.payload_digest != self.expected_payload_digest()?
             || self.proof.created_at != self.issued_at
             || project_verification_method_to_core(&self.proof.verification_method)?
-                != CoreId::from(self.issuer_service_id.clone())
+                != self.issuer_service_id
         {
             return Err(Error::Protocol(
                 "organization registration receipt binding is invalid".to_owned(),
@@ -555,8 +555,8 @@ impl OrganizationRegistrationReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationOutcome {
-    pub organization_id: CoreId,
-    pub full_id: FullId,
+    pub organization_id: DidCoreId,
+    pub full_id: DidFullId,
     pub registration_generation: u64,
     pub version_id: String,
     pub registration_receipt: OrganizationRegistrationReceipt,
@@ -648,7 +648,7 @@ fn is_lower_hex_sha256(value: &str) -> bool {
 
 fn project_verification_method_to_core(
     verification_method: &arkret_wire::DidUrl,
-) -> Result<CoreId> {
+) -> Result<DidCoreId> {
     let controller = verification_method
         .as_str()
         .split_once('#')
@@ -658,7 +658,7 @@ fn project_verification_method_to_core(
                 "organization receipt verification_method requires a fragment".to_owned(),
             )
         })?;
-    project_full_id_to_core_id(&FullId::new(controller.to_owned())?).map_err(Into::into)
+    project_full_id_to_core_id(&DidFullId::new(controller.to_owned())?).map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -667,16 +667,16 @@ mod tests {
 
     use super::*;
 
-    fn full(value: &str) -> FullId {
-        FullId::new(value.to_owned()).expect("valid full DID")
+    fn full(value: &str) -> DidFullId {
+        DidFullId::new(value.to_owned()).expect("valid full DID")
     }
 
-    fn core(value: &str) -> CoreId {
+    fn core(value: &str) -> DidCoreId {
         project_full_id_to_core_id(&full(value)).expect("registered method adapter")
     }
 
-    fn service(value: &str) -> ServiceId {
-        ServiceId::from(core(value))
+    fn service(value: &str) -> DidCoreId {
+        project_full_id_to_core_id(&full(value)).expect("registered method adapter")
     }
 
     fn challenge_request() -> OrganizationRegistrationChallengeRequestBody {
@@ -838,7 +838,7 @@ mod tests {
             status: OrganizationRegistrationStatus::Active,
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
-            issuer_service_id: issuer.clone(),
+            issuer_service_id: issuer,
             proof: payload_proof(
                 issued_at,
                 &DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
@@ -874,7 +874,7 @@ mod tests {
             status: OrganizationRegistrationStatus::Active,
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
-            issuer_service_id: issuer.clone(),
+            issuer_service_id: issuer,
             proof: payload_proof(
                 issued_at,
                 &DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
@@ -921,7 +921,7 @@ mod tests {
             status: OrganizationRegistrationStatus::Active,
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
-            issuer_service_id: issuer.clone(),
+            issuer_service_id: issuer,
             proof: payload_proof(
                 issued_at,
                 &DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),

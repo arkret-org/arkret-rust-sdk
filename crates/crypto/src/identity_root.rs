@@ -3,9 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_models_crypto::{
-    GenericRecoveryTranscript, RecoveryIdentityModel, RecoveryModelGenerationRef,
-    RecoveryProofKind, RecoverySessionProof, RecoverySessionState, RecoverySessionUnlockProof,
-    RecoverySessionUnlockProofKind, SessionState,
+    GenericRecoveryTranscript, RecoveryModelGenerationRef, RecoveryProofKind, RecoverySessionProof,
+    RecoverySessionState, RecoverySessionUnlockProof, RecoverySessionUnlockProofKind, SessionState,
 };
 use arkret_wire::{Base64UrlString, DidUrl, Hash, NonEmptyString};
 use ed25519_dalek::{Signer as _, SigningKey};

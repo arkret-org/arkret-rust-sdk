@@ -20,6 +20,7 @@
 //! Producers never hand-build the JSON: the constructors on
 //! [`WebSocketServerFrame`] take the typed payload.
 
+use arkret_wire::DidCoreId;
 use arkret_wire::websocket_binding::{
     WEBSOCKET_HARD_MAX_FRAME_BYTES, WEBSOCKET_MAX_RETRY_AFTER_MS, WebSocketOperationId,
     WebSocketTransportError, validate_websocket_channel_id, validate_websocket_opaque_id,
@@ -142,7 +143,7 @@ pub struct WebSocketEventsOpenParameters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realms: Option<Vec<RealmId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actors: Option<Vec<Did>>,
+    pub actors: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

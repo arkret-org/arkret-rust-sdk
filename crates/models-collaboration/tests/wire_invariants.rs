@@ -13,7 +13,7 @@ use arkret_models_collaboration::object_lifecycle::{
 };
 use arkret_wire::signal::{SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME};
 use arkret_wire::{
-    ConsentId, DeviceId, Did, DidUrl, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
+    ConsentId, DeviceId, DidCoreId, DidUrl, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
     SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, StrandId, TypedAppealId,
     TypedTrustDomainId,
 };
@@ -24,8 +24,8 @@ fn realm() -> RealmId {
     RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
 }
 
-fn did() -> Did {
-    Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+fn did() -> DidCoreId {
+    DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()
 }
 
 fn device_id() -> DeviceId {
@@ -67,7 +67,11 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
         },
         proof: SignalProof {
             kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new(format!("{}#{}", did(), device_id())).unwrap(),
+            verification_method: DidUrl::new(format!(
+                "did:webvh:z6mkfixturealice:alice.example#{}",
+                device_id()
+            ))
+            .unwrap(),
             envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: sent_at,
             domain: None,
@@ -82,7 +86,7 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
 
 fn applet_transaction(signal: SignalEnvelope) -> AppletTransactionRequestBody {
     AppletTransactionRequestBody {
-        source_service_id: Did::new("did:webvh:z6mkfixture:applet.example").unwrap(),
+        source_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         events: Vec::new(),
         signals: Some(vec![signal]),
     }
@@ -133,7 +137,7 @@ fn applet_transaction_signal_lane_rejects_a_plaintext_ephemeral_envelope() {
     // are now inside `encrypted_payload`, so the legacy shape must not parse
     // and must not be reconstructible from the outer header.
     let legacy = json!({
-        "source_service_id": "did:webvh:z6mkfixture:applet.example",
+        "source_service_id": "ak:did_core:webvh:z6mkfixture",
         "events": [],
         "signals": [{
             "kind": "ak.presence",
@@ -242,7 +246,7 @@ fn third_party_invite_rejects_mode_mismatch() {
         lookup_table_ref: None,
         pepper_id: None,
         max_claims: 1,
-        verification_service_id: Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
+        verification_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         verification_public_key: "z6MkVK".to_owned(),
     };
     assert!(invite.validate_minimal().is_err());
@@ -326,10 +330,10 @@ fn consent_revoke_requires_observed_dots() {
     assert!(
         serde_json::from_value::<ConsentRevokePayload>(json!({
             "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
-            "peer": "did:web:bob.example",
+            "peer": "ak:did_core:web:bob.example",
             "scope": "invite",
             "observed_dots": [{
-                "actor_id": "did:web:alice.example",
+                "actor_id": "ak:did_core:web:alice.example",
                 "actor_seq": 7
             }]
         }))

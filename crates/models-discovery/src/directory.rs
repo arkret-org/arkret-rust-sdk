@@ -12,8 +12,8 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    BlobRef, Did, Error, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, Proof, RealmId,
-    Result, SchemaId, SealBasis, ServiceId,
+    BlobRef, DidCoreId, Error, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, Proof,
+    RealmId, Result, SchemaId, SealBasis,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -28,11 +28,11 @@ pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_did: Option<Did>,
+    pub organization_principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<Did>,
+    pub requester: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -93,7 +93,7 @@ pub struct RealmPreview {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_did: Option<Did>,
+    pub organization_principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub join_rule: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -101,7 +101,7 @@ pub struct RealmPreview {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub owning_organizations: Vec<Did>,
+    pub owning_organizations: Vec<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -185,7 +185,7 @@ pub enum RealmJoinCandidateSource {
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinCandidate {
     pub realm_id: RealmId,
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     pub service_kind: RealmJoinCandidateServiceKind,
     pub role: RealmJoinCandidateRole,
@@ -230,7 +230,7 @@ pub struct DirectoryResolveRealmRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signed_link: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<Did>,
+    pub requester: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -285,7 +285,7 @@ pub enum TargetKind {
 pub struct DirectoryResolveTargetRequestBody {
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<Did>,
+    pub requester: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -357,7 +357,7 @@ pub struct DirectoryOrganizationSearchOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationPreview {
-    pub organization_did: Did,
+    pub organization_principal_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -392,7 +392,7 @@ pub struct OrganizationPreview {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveOrganizationRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_did: Option<Did>,
+    pub organization_principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -417,7 +417,7 @@ pub struct DirectorySearchActorsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_did: Option<Did>,
+    pub organization_principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -437,13 +437,13 @@ pub struct DirectoryActorSearchOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorPreview {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_did: Option<Did>,
+    pub organization_principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -538,7 +538,7 @@ pub enum UserSearchMembership {
 pub struct DirectoryResolveHandleRequestBody {
     pub handle: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected_did: Option<Did>,
+    pub expected_principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -555,7 +555,7 @@ pub struct DirectoryResolveHandleRequestBody {
     /// DID or service DID of the requester. Required by directory policy for
     /// `member_add` / `invite` disclosure.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<Did>,
+    pub requester: Option<DidCoreId>,
     /// Target Realm ID or inviting service DID the result must be bound to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
@@ -575,13 +575,13 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub controller_handle: Handle,
     pub agent_slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected_agent_did: Option<Did>,
+    pub expected_actor_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     pub intent: DirectoryIntent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub requester: Did,
+    pub requester: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
 }
@@ -590,8 +590,8 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
-    pub controller_subject: Did,
-    pub subject: Did,
+    pub controller_subject: DidCoreId,
+    pub subject: DidCoreId,
     pub agent_slug: String,
     pub verified: bool,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -640,13 +640,13 @@ impl DirectoryAgentSelectorResolutionOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryListHandlesForSubjectRequestBody {
     /// Holder/principal DID reverse-lookup key. NOT a Realm actor_id.
-    pub subject: Did,
+    pub subject: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub intent: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<Did>,
+    pub requester: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -683,7 +683,7 @@ pub struct DirectoryPushRegisterResourceFilter {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryPushRegisterRequestBody {
-    pub subscriber_did: Did,
+    pub subscriber_principal_id: DidCoreId,
     pub resource_filter: DirectoryPushRegisterResourceFilter,
     pub webhook_endpoint: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -714,7 +714,7 @@ pub struct DirectoryAnnounceRequestBody {
     pub source_refs: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    pub principal_server_did: Did,
+    pub principal_server_service_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ttl_seconds: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -775,7 +775,7 @@ pub struct DirectoryTakedownAppealRequestBody {
     pub takedown_id: String,
     /// Realm/applet ak-id, actor DID, or handle the takedown targets.
     pub resource_id: String,
-    pub appellant_did: Did,
+    pub appellant_actor_id: DidCoreId,
     /// `sha256:<hex>` digest of the appeal argument / evidence bundle.
     pub argument_digest: Hash,
     pub requested_outcome: DirectoryTakedownAppealOutcomeRequest,
@@ -811,11 +811,11 @@ pub struct DirectoryTakedownAppealOutcome {
 pub struct UserSearchOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
-    /// `discovery-directory.md` §9: `results[].did` is **conditional** —
+    /// `discovery-directory.md` §9: `results[].principal_id` is conditional.
     /// the directory MAY omit it when the caller is not authorized to learn
     /// the subject DID (returning a handle / display preview only).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub did: Option<Did>,
+    pub principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -845,7 +845,7 @@ pub struct DirectoryUserSearchOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryHandleResolutionOutcome {
-    pub did: Did,
+    pub principal_id: DidCoreId,
     pub handle: String,
     #[serde(default)]
     pub verified: bool,
@@ -892,7 +892,7 @@ pub struct DirectoryHandleResolutionOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySubjectHandleList {
-    pub subject: Did,
+    pub subject: DidCoreId,
     #[serde(default)]
     #[cfg_attr(
         feature = "openapi",
@@ -939,23 +939,31 @@ mod agent_selector_outcome_tests {
 
     use arkret_models_identity::claim_presentation::AgentSelectorClaim;
     use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
-    use arkret_wire::{Did, DidUrl, Hash, PayloadProof, SchemaId};
+    use arkret_wire::{DidCoreId, DidUrl, Hash, PayloadProof, SchemaId};
     use chrono::Utc;
 
     use super::DirectoryAgentSelectorResolutionOutcome;
 
-    fn did(value: &str) -> Did {
-        Did::new(value.to_owned()).unwrap()
+    fn principal(_value: &str) -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    }
+
+    fn actor(_value: &str) -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    }
+
+    fn service(_value: &str) -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
     fn selector_claim() -> AgentSelectorClaim {
         AgentSelectorClaim {
             schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
-            controller_subject: did("did:webvh:z6mkfixture:example.com:users:alice"),
+            controller_subject: principal("did:webvh:z6mkfixture:example.com:users:alice"),
             agent_slug: "summary".to_owned(),
-            subject: did("did:webvh:z6mkfixture:agent.example"),
-            issuer: did("did:webvh:z6mkfixture:example.com"),
-            issuer_service_id: Some(did("did:webvh:z6mkfixture:example.com")),
+            subject: principal("did:webvh:z6mkfixture:agent.example"),
+            issuer: actor("did:webvh:z6mkfixture:example.com"),
+            issuer_service_id: Some(service("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
             audience: Some("ak:realm:ASOikrLmQRDmUfDmMaw1Bx-NCkNptz9Sw2olIhr_M_23".to_owned()),

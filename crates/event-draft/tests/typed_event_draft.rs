@@ -1,14 +1,14 @@
 use arkret_canonical::canonical_json_bytes;
 use arkret_event_draft::TypedEventDraft;
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
-use arkret_wire::{Did, EventKind, Hlc, RealmId, ScopeRef, StrandId, event_spec};
+use arkret_wire::{DidCoreId, EventKind, Hlc, RealmId, ScopeRef, StrandId, event_spec};
 use chrono::{TimeZone, Utc};
 
-fn fixture() -> (ScopeRef, Did, MessageCreatePayload) {
+fn fixture() -> (ScopeRef, DidCoreId, MessageCreatePayload) {
     let scope = ScopeRef::Realm {
         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir").unwrap(),
     };
-    let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let actor = DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap();
     let payload = MessageCreatePayload::with_content(
         StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
         "main",
@@ -54,9 +54,9 @@ fn typed_authoring_is_byte_compatible_with_the_legacy_canonical_chain() {
 /// ```compile_fail
 /// # use arkret_event_draft::TypedEventDraft;
 /// # use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload, RealmCreatePayload};
-/// # use arkret_wire::{Did, RealmId, ScopeRef, StrandId, event_spec};
+/// # use arkret_wire::{DidCoreId, RealmId, ScopeRef, StrandId, event_spec};
 /// # let scope = ScopeRef::Realm { realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir").unwrap() };
-/// # let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+/// # let actor = DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap();
 /// # let message = MessageCreatePayload::with_content(StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(), "main", ContentBlock::text("hello"));
 /// let _ = TypedEventDraft::<event_spec::RealmCreate>::new(scope, actor, message);
 /// ```

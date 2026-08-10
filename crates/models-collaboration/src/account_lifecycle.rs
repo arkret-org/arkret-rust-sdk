@@ -18,8 +18,8 @@ use arkret_models_identity::account::{
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
-    AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, CoreId, Cursor, DeviceId, Did,
-    DidUrl, Event, EventBatchReceipt, EventId, EventInitialSubmission, FullId, Hash,
+    AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId, DidCoreId,
+    DidFullId, DidUrl, Event, EventBatchReceipt, EventId, EventInitialSubmission, Hash,
     NonEmptyString, PayloadProof, RealmId, ReasonCode, ReceiptId, Result, ScopeRef,
     ServiceOperationId, SessionGrantId, canonical, project_full_id_to_core_id,
 };
@@ -47,8 +47,8 @@ pub enum ConsentState {
 pub struct ConsentCellView {
     pub ok: bool,
     pub cell_id: String,
-    pub holder_did: Did,
-    pub peer_did: Did,
+    pub holder_principal_id: DidCoreId,
+    pub peer_principal_id: DidCoreId,
     pub consent_scope: ConsentScope,
     pub state: ConsentState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -117,9 +117,9 @@ pub struct ConsentRevokeRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentRequestRequestBody {
-    pub holder_did: Did,
+    pub holder_principal_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub peer_did: Option<Did>,
+    pub peer_principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub consent_scope: Option<ConsentScope>,
 }
@@ -164,7 +164,7 @@ pub struct AccountLifecycleProof {
     pub proof_kind: String,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    pub audience: String,
+    pub audience: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -184,15 +184,15 @@ pub struct SessionGrantAppletSelector {
     pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
+    pub service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<String>,
 }
 
 impl AccountLifecycleProof {
     pub fn session_revoke_request_digest(
-        actor_id: &Did,
-        service_id: &Did,
+        actor_id: &DidCoreId,
+        service_id: &DidCoreId,
         session_device_id: &DeviceId,
         target_grant_id: Option<&SessionGrantId>,
         target_device_id: Option<&DeviceId>,
@@ -236,11 +236,11 @@ pub const ACCOUNT_STATUS_RECEIPT_CONTEXT: &str = "ak.account_status.ingress_rece
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusAuthorityEvidence {
-    pub account_authority_id: Did,
-    pub issuer_service_id: Did,
+    pub account_authority_id: DidCoreId,
+    pub issuer_service_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub account_id: NonEmptyString,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub binding_version: u64,
     pub authority_ref: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -322,9 +322,9 @@ impl AccountStatusAuthoringBasisRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusAuthoringBasisOutcome {
     pub account_id: NonEmptyString,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
-    pub issuer_service_id: Did,
+    pub issuer_service_id: DidCoreId,
     pub actor_frontier: RealmActorFrontierView,
     pub seal_frontier: RealmSealFrontierView,
 }
@@ -343,10 +343,7 @@ impl AccountStatusAuthoringBasisOutcome {
             || self.principal_control_realm_id != evidence.principal_control_realm_id
             || self.issuer_service_id != evidence.issuer_service_id
             || self.actor_frontier.realm_id != evidence.principal_control_realm_id
-            || self.actor_frontier.actor_id
-                != arkret_wire::ActorId::from(project_full_id_to_core_id(
-                    &evidence.issuer_service_id,
-                )?)
+            || self.actor_frontier.actor_id != evidence.issuer_service_id.clone()
             || self.seal_frontier.realm_id != evidence.principal_control_realm_id
         {
             return Err(arkret_wire::Error::Protocol(
@@ -372,9 +369,9 @@ pub struct AccountStatusReceipt {
     pub event_id: EventId,
     pub event_digest: Hash,
     pub account_id: NonEmptyString,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
-    pub receiver_service_id: Did,
+    pub receiver_service_id: DidCoreId,
     pub account_status_frontier_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -478,10 +475,7 @@ impl AccountStatusPublicationRequestBody {
                 "account status publication must carry ak.account.status".to_owned(),
             ));
         }
-        if event.actor_id
-            != arkret_wire::ActorId::from(project_full_id_to_core_id(
-                &self.authority_evidence.issuer_service_id,
-            )?)
+        if event.actor_id != self.authority_evidence.issuer_service_id.clone()
             || event.realm_id != self.authority_evidence.principal_control_realm_id
             || event.scope_ref.circle_id().is_some()
             || event.scope_ref.realm_id() != &self.authority_evidence.principal_control_realm_id
@@ -551,7 +545,7 @@ pub struct AccountStatusPublicationOutcome {
     pub status: AccountStatusPublicationStatus,
     pub event_id: EventId,
     pub account_id: NonEmptyString,
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_status_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -568,7 +562,7 @@ pub struct AccountStatusPublicationOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountView {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub primary_handle_claim: Option<HandleClaim>,
@@ -594,8 +588,8 @@ pub struct AccountView {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegisterRequestBody {
-    pub principal_id: CoreId,
-    pub full_id: FullId,
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -618,7 +612,7 @@ impl AccountRegisterRequestBody {
                     .to_owned(),
             ));
         }
-        if project_full_id_to_core_id(&self.full_id)? != self.principal_id {
+        if project_full_id_to_core_id(&self.full_id)? != *self.principal_id.as_core_id() {
             return Err(arkret_wire::Error::Protocol(
                 "account register full_id does not project to principal_id".to_owned(),
             ));
@@ -657,7 +651,7 @@ impl AccountRegisterRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegisterOutcome {
-    pub principal_id: CoreId,
+    pub principal_id: DidCoreId,
     pub state: AccountStatus,
     #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -732,7 +726,7 @@ impl AccountRegisterOutcome {
                 ),
                 (
                     "receipt principal_id",
-                    receipt_scope.principal_id == request.full_id,
+                    receipt_scope.principal_id == request.principal_id,
                 ),
                 (
                     "receipt realm_id",
@@ -810,7 +804,7 @@ pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_epoch: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
+    pub service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

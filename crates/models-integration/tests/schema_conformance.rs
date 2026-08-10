@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use arkret_models_integration::applet::AppletRegistrationEpochTranscript;
 use arkret_models_integration::{AppletIdentifier, AppletRegistrationPayload};
 use arkret_schema::embedded_json_artifact;
-use arkret_wire::{Did, Hash};
+use arkret_wire::{DidCoreId, Hash};
 use serde_json::{Value, json};
 
 #[test]
@@ -56,10 +56,6 @@ fn applet_registration_epoch_fixture_executes_against_owner() {
 
 #[test]
 fn applet_registration_builder_validates_against_catalog() {
-    fn did(value: &str) -> Did {
-        Did::new(value).unwrap()
-    }
-
     let webhook_auth: BTreeMap<String, Value> = [(
         "key_ref".to_owned(),
         json!("did:webvh:z6mkfixture:applet.example#svc"),
@@ -70,11 +66,11 @@ fn applet_registration_builder_validates_against_catalog() {
         .into_iter()
         .collect();
     let payload = AppletRegistrationPayload::new(
-        AppletIdentifier::Did(did("did:webvh:z6mkfixture:applet.example")),
-        did("did:webvh:z6mkfixture:svc.example"),
-        did("did:webvh:z6mkfixture:controller.example"),
+        AppletIdentifier::Service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         "https://applet.example",
-        did("did:webvh:z6mkfixture:bot.example"),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
         webhook_auth,
         proof,
@@ -84,10 +80,7 @@ fn applet_registration_builder_validates_against_catalog() {
     .with_requested_scopes(vec!["ak.message.create".to_owned()])
     .with_receive_events(true);
     let value = payload.to_value().unwrap();
-    assert_eq!(
-        value["service_id"],
-        json!("did:webvh:z6mkfixture:svc.example")
-    );
+    assert_eq!(value["service_id"], json!("ak:did_core:webvh:z6mkfixture"));
     assert_eq!(
         value["claimed_profiles"],
         json!(["ak.profile.applet_service.v1"])

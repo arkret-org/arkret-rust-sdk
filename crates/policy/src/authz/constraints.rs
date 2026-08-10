@@ -1,5 +1,5 @@
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{AppletId, Hash};
+use arkret_wire::{AppletId, DidCoreId, Hash};
 
 use super::*;
 
@@ -138,7 +138,7 @@ pub enum Constraint {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         applet_id: Option<AppletId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        executed_by: Option<Did>,
+        executed_by: Option<DidCoreId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         registration_epoch: Option<Hash>,
     },
@@ -154,7 +154,7 @@ pub enum Constraint {
         #[serde(default = "default_false")]
         approval_required: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
-        approval_actor_ids: Option<Vec<Did>>,
+        approval_actor_ids: Option<Vec<DidCoreId>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         timeout: Option<ConstraintDuration>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -169,7 +169,7 @@ pub enum Constraint {
     /// Claim-based constraint
     ClaimBased {
         required_claims: Vec<ClaimRequirement>,
-        trusted_issuers: Vec<Did>,
+        trusted_issuers: Vec<DidCoreId>,
         #[serde(default)]
         claim_refresh_required: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -180,7 +180,7 @@ pub enum Constraint {
         #[serde(default = "default_false")]
         accountability_required: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
-        responsible_actor: Option<Did>,
+        responsible_actor: Option<DidCoreId>,
     },
     /// Encryption requirement constraint
     EncryptionRequirement {
@@ -705,9 +705,9 @@ pub fn update_earliest_future(
 pub struct ClaimRequirement {
     pub claim_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer: Option<Did>,
+    pub issuer: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization: Option<Did>,
+    pub organization: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -719,11 +719,11 @@ pub struct ClaimRequirement {
 pub struct VerifiedClaim {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claim_id: Option<String>,
-    pub subject: Did,
+    pub subject: DidCoreId,
     pub claim_kind: String,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization: Option<Did>,
+    pub organization: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

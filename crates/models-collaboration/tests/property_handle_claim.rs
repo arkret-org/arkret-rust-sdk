@@ -11,11 +11,11 @@
 //!     `member_delivery_binding` is present, both `handle` + `audience` + `expires_at` MUST also be
 //!     present.
 
-use arkret_identifiers::Did;
 use arkret_models_identity::{
     DeliveryBindingHint, Handle, HandleBindingState, HandleClaim, HandleHintBindingSource,
     RecipientServiceKind,
 };
+use arkret_wire::DidCoreId;
 use chrono::{Duration, Utc};
 use proptest::prelude::*;
 
@@ -112,7 +112,7 @@ proptest! {
     ) {
         let mut claim = HandleClaim {
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_id: Did::new("did:webvh:z6mkfixture:recipient.example".to_owned()).unwrap(),
+                recipient_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
                 recipient_service_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: Default::default(),

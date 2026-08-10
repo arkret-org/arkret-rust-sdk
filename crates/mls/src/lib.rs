@@ -56,8 +56,8 @@ mod tests {
         MlsGroupStateSink,
     };
     use arkret_wire::{
-        CORE_REDUCER_PROFILE, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, ProfileId,
-        RealmId, ScopeRef,
+        CORE_REDUCER_PROFILE, DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash,
+        ProfileId, RealmId, ScopeRef,
     };
     use chrono::Utc;
 
@@ -189,7 +189,7 @@ mod tests {
         let group_id = base64url_encode(group_id_bytes);
         let binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c1").unwrap(),
         )
         .unwrap();
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn public_group_state_material_round_trips_through_rfc_validation() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
         )
         .unwrap();
@@ -235,14 +235,14 @@ mod tests {
         assert_eq!(leaves[0].leaf_index, 0);
         assert_eq!(
             leaves[0].principal_id.as_str(),
-            "did:webvh:z6mkfixture:alice.example"
+            "ak:did_core:webvh:z6mkfixturealice"
         );
     }
 
     #[test]
     fn update_governance_binding_enters_group_context_extension() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c2").unwrap(),
         )
         .unwrap();
@@ -282,12 +282,12 @@ mod tests {
         let group_id = base64url_encode(group_id_bytes);
         let genesis_binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1ca").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1cb").unwrap(),
         )
         .unwrap();
@@ -319,17 +319,17 @@ mod tests {
         let group_id = base64url_encode(group_id_bytes);
         let genesis_binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1da").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1db").unwrap(),
         )
         .unwrap();
         let carol = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecarol").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1dc").unwrap(),
         )
         .unwrap();
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn governance_binding_verification_fails_closed_when_extension_missing() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c3").unwrap(),
         )
         .unwrap();
@@ -405,7 +405,7 @@ mod tests {
     #[test]
     fn governance_binding_verification_rejects_profile_downgrade() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c4").unwrap(),
         )
         .unwrap();
@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn governance_binding_verification_rejects_stale_security_frontier_digest() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
         )
         .unwrap();
@@ -476,12 +476,12 @@ mod tests {
         // pins the contract `chat.rs` relies on when binding governance
         // payloads to the local group's schedule.
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -511,11 +511,11 @@ mod tests {
     #[test]
     fn key_package_private_state_restores_welcome_join() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob_principal = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+        let bob_principal = DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap();
         let bob_device = DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap();
         let bob = ArkretMlsIdentity::new_basic(bob_principal.clone(), bob_device.clone()).unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
@@ -559,12 +559,12 @@ mod tests {
         // is the primitive the reaction routing tag (encryption-and-audit.md
         // §2.9) and SFrame keys are built on.
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000016").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000001e").unwrap(),
         )
         .unwrap();
@@ -615,12 +615,12 @@ mod tests {
         // After Add, both Alice and Bob are members; both DIDs MUST appear
         // in the snapshot. After Remove, only the surviving DID remains.
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -631,21 +631,23 @@ mod tests {
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
-            vec![Did::new("did:webvh:z6mkfixture:alice.example").unwrap()],
+            vec![DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()],
         );
 
         let _ = alice_group.add_member(&bob_key_package).unwrap();
         let members = alice_group.member_principal_ids();
         assert_eq!(members.len(), 2);
-        assert!(members.contains(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap()));
-        assert!(members.contains(&Did::new("did:webvh:z6mkfixture:bob.example").unwrap()));
+        assert!(members.contains(&DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()));
+        assert!(members.contains(&DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap()));
 
         let _ = alice_group
-            .remove_member_by_principal(&Did::new("did:webvh:z6mkfixture:bob.example").unwrap())
+            .remove_member_by_principal(
+                &DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            )
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
-            vec![Did::new("did:webvh:z6mkfixture:alice.example").unwrap()],
+            vec![DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()],
         );
     }
 
@@ -656,7 +658,7 @@ mod tests {
     #[test]
     fn self_update_commit_advances_epoch_and_returns_typed_envelope() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
@@ -686,12 +688,12 @@ mod tests {
     #[test]
     fn openmls_group_can_add_member_encrypt_and_decrypt() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -717,17 +719,17 @@ mod tests {
     #[test]
     fn openmls_group_can_add_multiple_members_in_one_commit() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -766,12 +768,12 @@ mod tests {
     #[test]
     fn message_crypto_encrypts_decrypts_and_verifies_opaque_digest() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -799,12 +801,12 @@ mod tests {
     #[test]
     fn message_crypto_encrypts_with_aad_and_verifies_digest() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -855,12 +857,12 @@ mod tests {
     #[test]
     fn openmls_state_persists_through_crypto_store_record() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -893,17 +895,17 @@ mod tests {
     #[test]
     fn multi_device_workflow_applies_missed_commits_and_models_recovery() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -934,7 +936,7 @@ mod tests {
             .unwrap();
         assert_eq!(bob_group.epoch(), alice_group.epoch());
         let recovery = epoch_recovery_step(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_group.group_id(),
             bob_group.epoch() + 1,
@@ -955,7 +957,7 @@ mod tests {
     #[test]
     fn message_crypto_preserves_encrypted_content_without_available_key() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
@@ -991,12 +993,12 @@ mod tests {
     #[test]
     fn encrypted_timeline_preserves_then_decrypts_after_welcome_arrives() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -1025,17 +1027,17 @@ mod tests {
     #[test]
     fn epoch_recovery_request_and_response_catch_up_offline_device() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -1058,7 +1060,7 @@ mod tests {
         // Create a recovery request.
         let request = EpochRecoveryRequestBody::new(
             bob_group.group_id(),
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_epoch_before,
             alice_group.epoch(),
@@ -1090,7 +1092,7 @@ mod tests {
     fn epoch_recovery_request_validates_range() {
         let request = EpochRecoveryRequestBody::new(
             "",
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             3,
@@ -1099,7 +1101,7 @@ mod tests {
 
         let request = EpochRecoveryRequestBody::new(
             "group1",
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             5,
@@ -1110,17 +1112,17 @@ mod tests {
     #[test]
     fn welcome_recipient_must_match_identity() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let mallory = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:mallory.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturemallory").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000010").unwrap(),
         )
         .unwrap();
@@ -1143,17 +1145,17 @@ mod tests {
     #[test]
     fn remove_member_by_principal_advances_epoch_and_emits_commit() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -1170,7 +1172,7 @@ mod tests {
             ArkretMlsGroup::join_from_welcome(charlie, &add_charlie.welcome).unwrap();
 
         let epoch_before = alice_group.epoch();
-        let target = Did::new("did:webvh:z6mkfixture:charlie.example").unwrap();
+        let target = DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap();
         let result = alice_group.remove_member_by_principal(&target).unwrap();
 
         // Epoch advanced by exactly one Commit.
@@ -1183,24 +1185,24 @@ mod tests {
         assert_eq!(result.removed_principals.len(), 1);
         assert_eq!(
             result.removed_principals[0].as_str(),
-            "did:webvh:z6mkfixture:charlie.example"
+            "ak:did_core:webvh:z6mkfixturecharlie"
         );
     }
 
     #[test]
     fn remove_members_by_principal_batches_one_commit() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -1215,21 +1217,25 @@ mod tests {
 
         let epoch_before = alice_group.epoch();
         let targets = [
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
         ];
         let result = alice_group.remove_members_by_principal(&targets).unwrap();
 
         assert_eq!(alice_group.epoch(), epoch_before + 1);
         assert_eq!(result.proposals.len(), 2);
         assert_eq!(result.removed_leaves.len(), 2);
-        let mut removed: Vec<&str> = result.removed_principals.iter().map(Did::as_str).collect();
+        let mut removed: Vec<&str> = result
+            .removed_principals
+            .iter()
+            .map(DidCoreId::as_str)
+            .collect();
         removed.sort_unstable();
         assert_eq!(
             removed,
             vec![
-                "did:webvh:z6mkfixture:bob.example",
-                "did:webvh:z6mkfixture:charlie.example",
+                "ak:did_core:webvh:z6mkfixturebob",
+                "ak:did_core:webvh:z6mkfixturecharlie",
             ]
         );
         assert_eq!(
@@ -1238,7 +1244,7 @@ mod tests {
                 .into_iter()
                 .map(|principal| principal.to_string())
                 .collect::<Vec<_>>(),
-            vec!["did:webvh:z6mkfixture:alice.example"]
+            vec!["ak:did_core:webvh:z6mkfixturealice"]
         );
     }
 
@@ -1248,7 +1254,7 @@ mod tests {
     #[test]
     fn remove_member_by_principal_errors_when_target_absent() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
@@ -1256,7 +1262,7 @@ mod tests {
             .create_group(b"ak:realm:AYl858-7mJ8AG_fd65EELfHOvwye1VBto0nFH9zkvWol")
             .unwrap();
 
-        let absent = Did::new("did:webvh:z6mkfixture:nobody.example").unwrap();
+        let absent = DidCoreId::new("ak:did_core:webvh:z6mkfixturenobody").unwrap();
         let err = alice_group.remove_member_by_principal(&absent);
         assert!(matches!(err, Err(Error::Protocol(_))));
     }
@@ -1264,7 +1270,7 @@ mod tests {
     #[test]
     fn encrypted_envelope_v1_conforms_and_round_trips_losslessly() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
         )
         .unwrap();
@@ -1365,12 +1371,12 @@ mod tests {
     #[test]
     fn remove_member_by_leaf_accepts_raw_index() {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -1387,7 +1393,7 @@ mod tests {
         assert_eq!(result.removed_leaves, vec![1]);
         assert_eq!(
             result.removed_principals[0].as_str(),
-            "did:webvh:z6mkfixture:bob.example"
+            "ak:did_core:webvh:z6mkfixturebob"
         );
     }
 
@@ -1400,7 +1406,7 @@ mod tests {
 
     fn exporter_aead_founder() -> ArkretMlsGroup {
         let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
         )
         .unwrap();

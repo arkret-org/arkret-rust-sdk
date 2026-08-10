@@ -1,3 +1,5 @@
+use arkret_wire::DidCoreId;
+
 use super::helpers::{
     constant_time_eq, hash_password, recovery_proof_matches, sha256_hex, verify_password,
 };
@@ -7,8 +9,8 @@ use super::*;
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthSession {
     pub session_id: String,
-    pub user_id: Did,
-    pub principal_id: Did,
+    pub user_id: DidCoreId,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub session_credential: String,
     pub renewal_credential: String,
@@ -40,12 +42,12 @@ impl fmt::Debug for AuthSession {
 pub struct AuthManager {
     password_users: BTreeMap<String, PasswordUser>,
     sessions: BTreeMap<String, AuthSession>,
-    sessions_by_user: BTreeMap<Did, VecDeque<String>>,
-    account_states: BTreeMap<Did, AccountAuthState>,
+    sessions_by_user: BTreeMap<DidCoreId, VecDeque<String>>,
+    account_states: BTreeMap<DidCoreId, AccountAuthState>,
     renewal_credentials: BTreeMap<String, RenewalCredentialMetadata>,
     revoked_sessions: BTreeMap<String, SessionRevocation>,
-    passkey_challenges: BTreeMap<Did, PasskeyChallenge>,
-    mfa_challenges: BTreeMap<Did, MfaChallenge>,
+    passkey_challenges: BTreeMap<DidCoreId, PasskeyChallenge>,
+    mfa_challenges: BTreeMap<DidCoreId, MfaChallenge>,
     recovery_requests: BTreeMap<String, AccountRecoveryRequestBody>,
     rate_limit_hook: Option<AuthRateLimitHook>,
     session_limit: usize,
@@ -85,7 +87,7 @@ impl AuthManager {
         &mut self,
         username: impl Into<String>,
         password: &str,
-        user_id: Did,
+        user_id: DidCoreId,
     ) -> Result<PasswordUser> {
         self.register_password_hash(username, hash_password(password)?, user_id)
     }
@@ -95,7 +97,7 @@ impl AuthManager {
         &mut self,
         username: impl Into<String>,
         password_hash: impl Into<String>,
-        user_id: Did,
+        user_id: DidCoreId,
     ) -> Result<PasswordUser> {
         let username = username.into();
         if self.password_users.contains_key(&username) {
@@ -227,7 +229,11 @@ impl AuthManager {
     }
 
     /// Complete an OIDC/OAuth2 login after upstream verification.
-    pub fn complete_oidc(&mut self, user_id: Did, device_id: DeviceId) -> Result<AuthSession> {
+    pub fn complete_oidc(
+        &mut self,
+        user_id: DidCoreId,
+        device_id: DeviceId,
+    ) -> Result<AuthSession> {
         self.check_rate_limit(AuthRateLimitContext {
             action: AuthRateLimitAction::OidcLogin,
             subject: None,
@@ -268,7 +274,7 @@ impl AuthManager {
     }
 
     /// Start a passkey challenge.
-    pub fn start_passkey(&mut self, user_id: Did) -> PasskeyChallenge {
+    pub fn start_passkey(&mut self, user_id: DidCoreId) -> PasskeyChallenge {
         let challenge = PasskeyChallenge {
             challenge: format!("passkey:{}", uuid::Uuid::now_v7()),
             user_id: user_id.clone(),
@@ -281,7 +287,7 @@ impl AuthManager {
     /// Verify a passkey response with the built-in local challenge helper.
     pub fn verify_passkey(
         &mut self,
-        user_id: &Did,
+        user_id: &DidCoreId,
         response: &str,
         device_id: DeviceId,
     ) -> Result<AuthSession> {
@@ -308,7 +314,7 @@ impl AuthManager {
     /// Verify a passkey response with an application-supplied WebAuthn verifier.
     pub fn verify_passkey_with_verifier<V>(
         &mut self,
-        user_id: &Did,
+        user_id: &DidCoreId,
         response: WebAuthnPasskeyOutcome,
         origin: impl Into<String>,
         relying_party_id: impl Into<String>,
@@ -349,7 +355,7 @@ impl AuthManager {
     }
 
     /// Issue an MFA challenge.
-    pub fn issue_mfa(&mut self, user_id: Did) -> MfaChallenge {
+    pub fn issue_mfa(&mut self, user_id: DidCoreId) -> MfaChallenge {
         let code =
             sha256_hex(format!("{}:{}", user_id, uuid::Uuid::now_v7()).as_bytes())[..6].to_owned();
         let challenge = MfaChallenge {
@@ -363,7 +369,7 @@ impl AuthManager {
     }
 
     /// Verify an MFA challenge.
-    pub fn verify_mfa(&mut self, user_id: &Did, code: &str) -> Result<()> {
+    pub fn verify_mfa(&mut self, user_id: &DidCoreId, code: &str) -> Result<()> {
         self.check_rate_limit(AuthRateLimitContext {
             action: AuthRateLimitAction::MfaVerify,
             subject: None,
@@ -386,7 +392,11 @@ impl AuthManager {
     }
 
     /// Create a session and enforce the concurrent session limit.
-    pub fn create_session(&mut self, user_id: Did, device_id: DeviceId) -> Result<AuthSession> {
+    pub fn create_session(
+        &mut self,
+        user_id: DidCoreId,
+        device_id: DeviceId,
+    ) -> Result<AuthSession> {
         self.ensure_account_active(&user_id)?;
         let now = Utc::now();
         let session = AuthSession {
@@ -510,7 +520,7 @@ impl AuthManager {
     }
 
     /// Active sessions for a user.
-    pub fn active_sessions(&self, user_id: &Did) -> Vec<&AuthSession> {
+    pub fn active_sessions(&self, user_id: &DidCoreId) -> Vec<&AuthSession> {
         self.sessions_by_user
             .get(user_id)
             .map(|session_ids| {
@@ -576,12 +586,12 @@ impl AuthManager {
     }
 
     /// Set an account state. Non-active states fail closed for login and refresh.
-    pub fn set_account_state(&mut self, user_id: Did, state: AccountAuthState) {
+    pub fn set_account_state(&mut self, user_id: DidCoreId, state: AccountAuthState) {
         self.account_states.insert(user_id, state);
     }
 
     /// Current account state. Missing state fails closed.
-    pub fn account_state(&self, user_id: &Did) -> AccountAuthState {
+    pub fn account_state(&self, user_id: &DidCoreId) -> AccountAuthState {
         self.account_states
             .get(user_id)
             .copied()
@@ -672,7 +682,7 @@ impl AuthManager {
     /// Start account recovery with a supported recovery method.
     pub fn start_recovery(
         &mut self,
-        user_id: Did,
+        user_id: DidCoreId,
         method: AccountRecoveryMethod,
     ) -> Result<AccountRecoveryRequestBody> {
         self.check_rate_limit(AuthRateLimitContext {
@@ -782,7 +792,9 @@ impl AuthManager {
                 "recovery method is not did proof".to_owned(),
             ));
         };
-        if did_document.id != request.user_id {
+        if arkret_wire::project_full_id_to_core_id(&did_document.id)?.as_str()
+            != request.user_id.as_str()
+        {
             return Err(Error::Protocol("did document subject mismatch".to_owned()));
         }
         did_document.validate()?;
@@ -829,7 +841,7 @@ impl AuthManager {
         Ok(())
     }
 
-    fn ensure_account_active(&self, user_id: &Did) -> Result<()> {
+    fn ensure_account_active(&self, user_id: &DidCoreId) -> Result<()> {
         let state = self.account_state(user_id);
         if state.is_active() {
             Ok(())

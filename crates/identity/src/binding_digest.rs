@@ -27,7 +27,7 @@
 //! invalidation to policy rotation and double-count one dimension.
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, Hash};
+use arkret_wire::{DidFullId, Hash};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -147,8 +147,8 @@ fn string_array(values: &[String]) -> Value {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebvhWitnessRow {
-    pub witness_did: Did,
-    pub controlling_organization: Did,
+    pub witness_did: DidFullId,
+    pub controlling_organization: DidFullId,
 }
 
 /// `did:webvh` method evidence row
@@ -370,9 +370,9 @@ impl EvidenceReceipt {
 #[serde(deny_unknown_fields)]
 pub struct EvidenceDependencies {
     /// Sorted, deduplicated; empty for proofless methods.
-    pub witness_dids: Vec<Did>,
+    pub witness_dids: Vec<DidFullId>,
     /// Sorted, deduplicated; empty for proofless methods.
-    pub witness_controlling_organizations: Vec<Did>,
+    pub witness_controlling_organizations: Vec<DidFullId>,
     /// Sorted, deduplicated; empty for proofless methods.
     pub history_heads: Vec<String>,
 }
@@ -417,11 +417,11 @@ fn dedup_sorted(mut values: Vec<String>) -> Vec<String> {
     values
 }
 
-fn typed_dids(values: Vec<String>) -> Result<Vec<Did>, DigestError> {
+fn typed_dids(values: Vec<String>) -> Result<Vec<DidFullId>, DigestError> {
     values
         .into_iter()
         .map(|value| {
-            Did::new(value).map_err(|error| DigestError::Canonicalization(error.to_string()))
+            DidFullId::new(value).map_err(|error| DigestError::Canonicalization(error.to_string()))
         })
         .collect()
 }
@@ -612,8 +612,8 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).expect("valid hash")
     }
 
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).expect("valid did")
+    fn did(name: &str) -> DidFullId {
+        DidFullId::new(format!("did:webvh:z6mkfixture:{name}.example")).expect("valid did")
     }
 
     fn webvh_evidence() -> MethodEvidence {

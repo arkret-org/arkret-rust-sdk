@@ -754,13 +754,13 @@ mod tests {
 
     fn root_anchored_device_authorize_payload() -> Value {
         json!({
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
             "device_public_key": "did:key:z6Mki3devicepublickey",
             "hpke_key": "z6LSdevicehpke",
             "algorithms": ["ed25519", "x25519-hpke"],
             "device_key_algorithm": "Ed25519",
-            "authorized_by": "did:webvh:z6mkfixture:alice.example",
+            "authorized_by": "ak:did_core:webvh:z6mkfixture",
             "not_before": "2026-06-30T00:00:00.000Z",
             "authorization_binding_kind": "root_anchored",
             "device_signature": "c2lnbmF0dXJl"
@@ -789,14 +789,14 @@ mod tests {
         json!({
             "statement_id": "org-stmt-1",
             "realm_id": "ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo",
-            "organization_id": "did:webvh:example.test:orgs:org1",
+            "organization_id": "ak:did_core:webvh:example.test",
             "relationship": "owner",
             "status": "active",
             "control_scopes": ["official_badge", "realm_admin"],
             "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
-                "issuer": "did:webvh:example.test:orgs:org1",
-                "issuer_role": "organization_did",
+                "issuer": "ak:did_core:webvh:example.test",
+                "issuer_role": "organization_principal_id",
                 "verification_method": "did:webvh:example.test:orgs:org1#k1",
                 "signed_at": "2026-06-25T00:00:00.000Z",
                 "proof": "c2ln"

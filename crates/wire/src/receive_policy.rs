@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Did;
+use crate::DidCoreId;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -46,13 +46,13 @@ pub struct ReceivePolicyConstraints {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_handle_domains: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trusted_handle_issuers: Option<Vec<Did>>,
+    pub trusted_handle_issuers: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trusted_directory_services: Option<Vec<Did>>,
+    pub trusted_directory_services: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trusted_principal_services: Option<Vec<Did>>,
+    pub trusted_principal_services: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub denied_principal_services: Option<Vec<Did>>,
+    pub denied_principal_services: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_subject_did_methods: Option<Vec<String>>,
 }

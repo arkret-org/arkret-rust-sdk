@@ -36,7 +36,7 @@ use arkret_models_identity::service_identity::{
     service_registration_local_id,
 };
 use arkret_models_identity::{IdentityCreationControlProof, UnsignedIdentityCreationControlProof};
-use arkret_wire::{Did, Hash, ServiceKind};
+use arkret_wire::{DidCoreId, DidFullId, Hash, ServiceKind};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
 use rand_core::RngCore;
@@ -162,7 +162,7 @@ pub struct PreparedPrincipalInception {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ValidatedPrincipalInception {
     /// Principal DID declared by the operation wrapper and DID document.
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     /// Canonical digest of the complete typed submit request.
     pub operation_digest: Hash,
     /// Method-native inception versionId.
@@ -181,7 +181,7 @@ pub struct ValidatedPrincipalInception {
 /// output.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidatedWebvhHistoryPoint {
-    pub did: Did,
+    pub did: DidFullId,
     pub version_id: String,
     pub version_time: DateTime<Utc>,
     pub document: Value,
@@ -192,7 +192,7 @@ pub struct ValidatedWebvhHistoryPoint {
 /// `at`. Hash-chain, pre-rotation commitment and every Data Integrity proof are
 /// checked before a point is returned.
 pub fn validate_webvh_history_at(
-    did: &Did,
+    did: &DidFullId,
     entries: &[Value],
     at: DateTime<Utc>,
 ) -> Result<ValidatedWebvhHistoryPoint, WebvhInceptionError> {
@@ -373,12 +373,14 @@ pub fn validate_principal_inception_operation(
         .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
     let control_key_digest = Hash::new(format!(
         "sha256:{}",
-        arkret_canonical::sha256_hex(&root_key_bytes)
+        arkret_canonical::sha256_hex(root_key_bytes)
     ))
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
 
+    let principal_id = arkret_wire::project_full_id_to_core_id(&request.did)
+        .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     Ok(ValidatedPrincipalInception {
-        principal_id: request.did.clone(),
+        principal_id,
         operation_digest,
         did_version_id: expected_version_id,
         log_head_digest,
@@ -394,11 +396,7 @@ pub fn verify_identity_creation_control_proof(
     proof: &IdentityCreationControlProof,
 ) -> Result<ValidatedPrincipalInception, WebvhInceptionError> {
     let validated = validate_principal_inception_operation(request)?;
-    let projected =
-        arkret_wire::project_full_id_to_core_id(&validated.principal_id).map_err(|error| {
-            WebvhInceptionError::InvalidProof(format!("invalid principal projection: {error}"))
-        })?;
-    if proof.principal_id != projected
+    if proof.principal_id != validated.principal_id
         || proof.operation_digest != validated.operation_digest
         || proof.did_version_id != validated.did_version_id
         || proof.log_head_digest != validated.log_head_digest
@@ -439,7 +437,7 @@ pub fn sign_identity_creation_control_proof(
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let signature = SigningKey::from_bytes(root_seed).sign(&signing_bytes);
     let signature = arkret_wire::Base64UrlString::new(base64url_encode(signature.to_bytes()))
-        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_owned()))?;
     proof
         .attach_signature(signature)
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))
@@ -750,7 +748,7 @@ fn validate_principal_rotation_history<'a>(
                     "principal history entry {sequence} is missing its state id"
                 ))
             })?;
-        let state_did = Did::new(state_id.to_owned())
+        let state_did = DidFullId::new(state_id.to_owned())
             .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
         if state_did.method() != "webvh" || state_id.split(':').nth(2) != Some(scid) {
             return Err(WebvhInceptionError::InvalidProof(format!(
@@ -881,7 +879,7 @@ fn validate_principal_rotation_history<'a>(
 pub fn prepare_principal_rotation(
     input: &PrincipalRotationInput<'_>,
 ) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
-    let did = Did::new(input.did.to_owned())
+    let did = DidFullId::new(input.did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     if did.method() != "webvh" {
         return Err(WebvhInceptionError::InvalidDid(
@@ -1048,9 +1046,9 @@ pub fn prepare_principal_rotation(
 pub fn prepare_webvh_relocation(
     input: &WebvhRelocationInput<'_>,
 ) -> Result<PreparedWebvhRelocation, WebvhInceptionError> {
-    let current_did = Did::new(input.current_did.to_owned())
+    let current_did = DidFullId::new(input.current_did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
-    let target_did = Did::new(input.target_did.to_owned())
+    let target_did = DidFullId::new(input.target_did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     if current_did.method() != "webvh" || target_did.method() != "webvh" {
         return Err(WebvhInceptionError::InvalidDid(
@@ -1698,7 +1696,7 @@ fn did_submit_body(
     prev_event_digest: Option<Hash>,
     operation: Value,
 ) -> Result<DidOperationSubmitRequestBody, WebvhInceptionError> {
-    let typed_did = Did::new(did.to_owned())
+    let typed_did = DidFullId::new(did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     let Value::Object(operation) = operation else {
         return Err(WebvhInceptionError::Canonical(
@@ -1955,7 +1953,7 @@ mod historical_verification_tests {
     use super::*;
 
     struct HistoryFixture {
-        did: Did,
+        did: DidFullId,
         first_time: DateTime<Utc>,
         second_time: DateTime<Utc>,
         first_key: String,
@@ -2026,7 +2024,7 @@ mod historical_verification_tests {
         rotation["proof"] =
             Value::Array(vec![build_proof(&rotation, &signing, &second_key).unwrap()]);
         HistoryFixture {
-            did: Did::new(did).unwrap(),
+            did: DidFullId::new(did).unwrap(),
             first_time,
             second_time,
             first_key,

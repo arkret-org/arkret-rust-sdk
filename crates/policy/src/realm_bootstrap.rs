@@ -16,8 +16,8 @@ use arkret_models_collaboration::events_payloads::{
     RealmOwnerTransferPayload, RealmProfile, RealmPurpose,
 };
 use arkret_wire::{
-    AuthorizationRef, Did, Error, Event, EventId, EventKind, Hash, Hlc, REALM_AUTHORITY_ROOT_CELL,
-    Result, ScopeRef, event_spec,
+    AuthorizationRef, DidCoreId, Error, Event, EventId, EventKind, Hash, Hlc,
+    REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef, event_spec,
 };
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ pub fn is_realm_bootstrap_followup_kind(kind: &EventKind) -> bool {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAuthorityRootValue {
-    pub controller_id: Did,
+    pub controller_id: DidCoreId,
     pub controller_epoch: u64,
     pub authority_generation: u64,
     pub capability_action_registry_digest: Hash,
@@ -59,7 +59,7 @@ impl RealmAuthorityRootValue {
     /// author's registry digest verbatim instead of substituting its own
     /// embedded snapshot, because the digest is a `state_root` leaf input and
     /// inferring it would fork genesis state across software versions.
-    pub fn genesis(controller_id: Did, capability_action_registry_digest: Hash) -> Self {
+    pub fn genesis(controller_id: DidCoreId, capability_action_registry_digest: Hash) -> Self {
         Self {
             controller_id,
             controller_epoch: 0,
@@ -78,30 +78,26 @@ impl RealmAuthorityRootValue {
 
 fn build_realm_authority_event<K: EventSpec>(
     scope_ref: ScopeRef,
-    actor_id: Did,
+    actor_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: K::Payload,
 ) -> Result<Event> {
-    let actor_id = arkret_wire::ActorId::from(
-        arkret_wire::project_full_id_to_core_id(&actor_id)
-            .map_err(|error| Error::Protocol(error.to_string()))?,
-    );
-    Ok(TypedEventDraft::<K>::new(scope_ref, actor_id, payload)
+    TypedEventDraft::<K>::new(scope_ref, actor_id, payload)
         .map_err(|error| Error::Protocol(error.to_string()))?
         .with_authorization_ref(
             AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
                 .expect("realm authority-root constant must be a valid authorization reference"),
         )
         .author_now(actor_seq, hlc)
-        .map_err(|error| Error::Protocol(error.to_string()))?)
+        .map_err(|error| Error::Protocol(error.to_string()))
 }
 
 /// Build an unsigned `ak.realm.owner.transfer` Event with the mandatory root
 /// authorization reference.
 pub fn build_realm_owner_transfer_event(
     scope_ref: ScopeRef,
-    actor_id: Did,
+    actor_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: RealmOwnerTransferPayload,
@@ -135,7 +131,7 @@ pub fn build_realm_owner_transfer_event(
 /// Build an unsigned destructive `ak.realm.authority.reset` Event.
 pub fn build_realm_authority_reset_event(
     scope_ref: ScopeRef,
-    actor_id: Did,
+    actor_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: RealmAuthorityResetPayload,
@@ -161,7 +157,7 @@ pub fn build_realm_authority_reset_event(
 /// that this SDK can resolve the requested registry snapshot.
 pub fn build_realm_authority_basis_update_event(
     scope_ref: ScopeRef,
-    actor_id: Did,
+    actor_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: RealmAuthorityBasisUpdatePayload,
@@ -451,7 +447,7 @@ fn genesis_authority_root(
         .ok_or(RealmBootstrapValidationError::RealmAuthorityRootMissing)?;
     let digest = Hash::new(digest.to_owned())
         .map_err(|_| RealmBootstrapValidationError::RealmAuthorityRootConflict)?;
-    let controller_id = Did::new(actor_id)
+    let controller_id = DidCoreId::new(actor_id)
         .map_err(|_| RealmBootstrapValidationError::RealmAuthorityRootConflict)?;
     Ok(RealmAuthorityRootValue::genesis(controller_id, digest))
 }
@@ -464,7 +460,7 @@ mod tests {
     use super::*;
 
     const REALM: &str = "ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR";
-    const ACTOR: &str = "did:web:founder.example";
+    const ACTOR: &str = "ak:did_core:webvh:z6mkfixture:founder.example";
     const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 
     fn event(kind: EventKind, payload: serde_json::Value) -> Event {
@@ -473,7 +469,7 @@ mod tests {
             ScopeRef::Realm {
                 realm_id: RealmId::new(REALM).unwrap(),
             },
-            Did::new(ACTOR).unwrap(),
+            DidCoreId::new(ACTOR).unwrap(),
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             payload,
@@ -496,7 +492,10 @@ mod tests {
                 "security_class": "standard",
                 "encryption_profile": "mls_rfc9420",
                 "notary_profile": "single_did",
-                "notary": {"kind": "single_did", "did": ACTOR},
+                "notary": {
+                    "kind": "single_did",
+                    "did": "did:webvh:z6mkfixture:founder.example"
+                },
                 "capability_action_registry_digest": DIGEST
             }}),
         )
@@ -672,7 +671,7 @@ mod tests {
     #[test]
     fn genesis_root_value_is_controller_epoch_and_generation_zero() {
         let value = RealmAuthorityRootValue::genesis(
-            Did::new(ACTOR).unwrap(),
+            DidCoreId::new(ACTOR).unwrap(),
             Hash::new(DIGEST.to_owned()).unwrap(),
         );
         assert_eq!(value.controller_epoch, 0);
@@ -699,9 +698,9 @@ mod tests {
         let scope = ScopeRef::Realm {
             realm_id: RealmId::new(REALM).unwrap(),
         };
-        let actor = Did::new(ACTOR).unwrap();
+        let actor = DidCoreId::new(ACTOR).unwrap();
         let expected = format!("sha256:{}", "1".repeat(64));
-        let successor = "did:web:successor.example";
+        let successor = "ak:did_core:web:successor.example";
         let transfer: RealmOwnerTransferPayload = serde_json::from_value(json!({
             "realm_id": REALM,
             "expected_state_digest": expected,
@@ -782,7 +781,7 @@ mod tests {
                 ScopeRef::Realm {
                     realm_id: RealmId::new(REALM).unwrap()
                 },
-                Did::new(ACTOR).unwrap(),
+                DidCoreId::new(ACTOR).unwrap(),
                 5,
                 Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
                 payload,

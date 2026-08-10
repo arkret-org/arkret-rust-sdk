@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AuthzDecision, DeviceId, Did, FreshnessState, Hash, RealmId, ReasonCode, Result,
+    AuthzDecision, DeviceId, DidCoreId, FreshnessState, Hash, RealmId, ReasonCode, Result,
     TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -46,7 +46,7 @@ pub fn compute_audit_policy_version_digest(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckSource {
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub service_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_ip_digest: Option<Hash>,
@@ -61,7 +61,7 @@ pub struct PolicyCheckSource {
 pub struct PolicyCheckRequestBody {
     pub request_id: String,
     pub realm_id: RealmId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub action: String,
@@ -81,10 +81,10 @@ pub struct PolicyCheckRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckBoundTo {
     pub realm_id: RealmId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub action: String,
     pub request_canonical_digest: Hash,
-    pub policy_server_id: Did,
+    pub policy_server_id: DidCoreId,
 }
 
 /// Round 4 — signature carrier for [`PolicyCheckOutcome`].

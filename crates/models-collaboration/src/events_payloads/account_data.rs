@@ -1,5 +1,6 @@
 //! Account-data event payloads.
 
+use arkret_wire::DidCoreId;
 use serde::de;
 
 use crate::internal_prelude::*;
@@ -101,7 +102,7 @@ impl<'de> Deserialize<'de> for AccountDataBody {
 pub struct AccountDataSetPayload {
     pub key: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub owner: Option<Did>,
+    pub owner: Option<DidCoreId>,
     /// Compare-and-set precondition. `0` creates a key that has never been
     /// written; every accepted write stores `expected_revision + 1`.
     pub expected_revision: u64,
@@ -130,7 +131,7 @@ pub struct AccountDataSetPayload {
 struct AccountDataSetPayloadWire {
     key: NonEmptyString,
     #[serde(default)]
-    owner: Option<Did>,
+    owner: Option<DidCoreId>,
     expected_revision: u64,
     #[serde(default)]
     body: AccountDataBody,

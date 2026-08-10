@@ -4,7 +4,7 @@
 //! and `spec/v1/artifacts/schemas/seal-transparency.schema.json`. Migrated
 //! from the `arkret` umbrella (`models::artifacts::self_ops`).
 
-use arkret_wire::{Did, Hash, PayloadProof, RealmId, SchemaId, SealId};
+use arkret_wire::{DidCoreId, Hash, PayloadProof, RealmId, SchemaId, SealId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct InclusionList {
     pub realm_id: RealmId,
-    pub signer_id: Did,
+    pub signer_id: DidCoreId,
     pub list_seq: u64,
     pub event_digests: Vec<Hash>,
     pub expiry_seal_count: u64,
@@ -75,7 +75,7 @@ pub struct SealTransparencyAuditorAttestation {
     pub from_index: u64,
     pub to_index: u64,
     pub head_entry_digest: Hash,
-    pub auditor_id: Did,
+    pub auditor_id: DidCoreId,
     pub checks: SealTransparencyChecks,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub attested_at: DateTime<Utc>,

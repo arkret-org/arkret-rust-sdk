@@ -9,9 +9,9 @@
 
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_wire::{
-    ActorId, Base64UrlString, CbaProofBundle, DidUrl, Event, EventFederationSubmission, EventId,
-    EventInitialSubmission, FederatedDeviceSigningKeyEvidence, FullId, Hash, IdempotencyKey,
-    PrincipalId, ProtocolOpaqueId, ProtocolSignature, RealmId, ScopeRef, ServiceId, StrandId,
+    Base64UrlString, CbaProofBundle, DidCoreId, DidFullId, DidUrl, Event,
+    EventFederationSubmission, EventId, EventInitialSubmission, FederatedDeviceSigningKeyEvidence,
+    Hash, IdempotencyKey, ProtocolSignature, RealmId, ScopeRef, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,7 @@ pub const DIRECT_CONVERSATION_FOUNDING_UNIT_DOMAIN: &[u8] =
     b"ak.direct-conversation.founding-unit.v1\n";
 pub const DIRECT_CONVERSATION_FOUNDING_RECEIPT_DOMAIN: &[u8] =
     b"ak.direct-conversation.founding-receipt.v1\n";
+pub const CONTACT_BASIS_DOMAIN: &[u8] = b"ak.contact.basis.v1\n";
 pub const PRINCIPAL_SERVICE_BINDING_DOMAIN: &[u8] = b"ak.principal-service-binding.v1\n";
 pub const PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN: &[u8] =
     b"ak.principal-service-binding-proof.v1\n";
@@ -33,7 +34,7 @@ pub const PRINCIPAL_SERVICE_CUTOVER_DOMAIN: &[u8] = b"ak.principal-service-cutov
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceVerificationMethod {
     pub id: DidUrl,
-    pub controller: FullId,
+    pub controller: DidFullId,
     #[serde(rename = "type")]
     pub method_type: MultikeyMethodType,
     pub public_key_multibase: String,
@@ -78,8 +79,8 @@ pub enum DidBindingMethodProofKind {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DidBindingWitness {
-    pub witness_did: FullId,
-    pub controlling_organization: FullId,
+    pub witness_did: DidFullId,
+    pub controlling_organization: DidCoreId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,8 +107,8 @@ pub struct DidBindingEvidenceReceipt {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AcceptedAtServiceBindingCore {
-    pub principal_id: PrincipalId,
-    pub service_id: ServiceId,
+    pub principal_id: DidCoreId,
+    pub service_id: DidCoreId,
     pub trust_domain: String,
     pub service_kind: PrincipalServiceKind,
     pub service_verification_method: ServiceVerificationMethod,
@@ -150,9 +151,8 @@ impl AcceptedAtServiceBindingCore {
     }
 
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        let controller_service_id = ServiceId::from(arkret_wire::project_full_id_to_core_id(
-            &self.service_verification_method.controller,
-        )?);
+        let controller_service_id =
+            arkret_wire::project_full_id_to_core_id(&self.service_verification_method.controller)?;
         let inline_resolution_matches = match &self.service_resolution {
             ServiceResolutionCarrier::Inline { inline } => {
                 inline.record.service_id == self.service_id
@@ -218,8 +218,8 @@ impl AcceptedAtServiceBindingCore {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AcceptedAtServiceBinding {
-    pub principal_id: PrincipalId,
-    pub service_id: ServiceId,
+    pub principal_id: DidCoreId,
+    pub service_id: DidCoreId,
     pub trust_domain: String,
     pub service_kind: PrincipalServiceKind,
     pub service_verification_method: ServiceVerificationMethod,
@@ -278,9 +278,8 @@ impl AcceptedAtServiceBinding {
     }
 
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        let controller_service_id = ServiceId::from(arkret_wire::project_full_id_to_core_id(
-            &self.service_verification_method.controller,
-        )?);
+        let controller_service_id =
+            arkret_wire::project_full_id_to_core_id(&self.service_verification_method.controller)?;
         if self.core().validate_shape().is_err()
             || controller_service_id != self.service_id
             || self.service_verification_method.id
@@ -316,8 +315,8 @@ impl AcceptedAtServiceBinding {
     /// Bind the principal proof method to a separately verified, method-native
     /// current full id. Shape validation cannot perform this projection: a
     /// stable `core_id` is not a DID URL base.
-    pub fn validate_principal_full_id(&self, full_id: &FullId) -> arkret_wire::Result<()> {
-        let projected = PrincipalId::from(arkret_wire::project_full_id_to_core_id(full_id)?);
+    pub fn validate_principal_full_id(&self, full_id: &DidFullId) -> arkret_wire::Result<()> {
+        let projected = arkret_wire::project_full_id_to_core_id(full_id)?;
         let proof_full_id = self
             .principal_authorization_proof
             .verification_method
@@ -407,10 +406,10 @@ pub struct PrincipalServiceBindingCommitOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalServiceCutover {
-    pub principal_id: PrincipalId,
+    pub principal_id: DidCoreId,
     pub trust_domain: String,
-    pub previous_service_id: ServiceId,
-    pub new_service_id: ServiceId,
+    pub previous_service_id: DidCoreId,
+    pub new_service_id: DidCoreId,
     pub previous_binding_digest: Hash,
     pub new_binding: AcceptedAtServiceBinding,
     pub cutover_sequence: u64,
@@ -452,7 +451,7 @@ pub struct PrincipalServiceBindingContinuity {
 }
 
 impl PrincipalServiceBindingContinuity {
-    pub fn validate_shape(&self, transport_source: &ServiceId) -> arkret_wire::Result<()> {
+    pub fn validate_shape(&self, transport_source: &DidCoreId) -> arkret_wire::Result<()> {
         self.accepted_binding.validate_shape()?;
         if self.cutovers.len() > 16 {
             return Err(arkret_wire::Error::Protocol(
@@ -496,6 +495,7 @@ impl PrincipalServiceBindingContinuity {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum DirectConversationFounderBasisEvidence {
     Human {
         basis_evidence_bundle: ContactBasisEvidenceBundle,
@@ -660,7 +660,7 @@ impl DirectConversationFoundingPlan {
 }
 
 impl DirectConversationFounderBasisEvidence {
-    pub fn participants_and_founder(&self) -> arkret_wire::Result<([ActorId; 2], ActorId)> {
+    pub fn participants_and_founder(&self) -> arkret_wire::Result<([DidCoreId; 2], DidCoreId)> {
         match self {
             Self::ControllerAgent { .. } => Err(arkret_wire::Error::Protocol(
                 "controller_agent founding evidence requires the accepted provision projection"
@@ -687,7 +687,7 @@ impl DirectConversationFounderBasisEvidence {
                 let root = root_basis_continuity_chain
                     .last()
                     .unwrap_or(basis_evidence_bundle);
-                let (full_participants, request_ref) = match &root.basis {
+                let (participants, request_ref) = match &root.basis {
                     crate::contact_operations::ContactBasis::Normal {
                         sorted_pair_members,
                         request_event_ref,
@@ -698,7 +698,7 @@ impl DirectConversationFounderBasisEvidence {
                         requests,
                     } => (sorted_pair_members.clone(), &requests[0].request_event_ref),
                 };
-                if full_participants[0].as_str() >= full_participants[1].as_str() {
+                if participants[0].as_str() >= participants[1].as_str() {
                     return Err(arkret_wire::Error::Protocol(
                         "direct conversation basis pair is not canonical and distinct".to_owned(),
                     ));
@@ -707,18 +707,18 @@ impl DirectConversationFounderBasisEvidence {
                     .request_receipts
                     .iter()
                     .find(|receipt| &receipt.core.request_event_ref == request_ref)
-                    .map(|receipt| receipt.core.holder.subject_id().clone())
+                    .map(|receipt| receipt.core.holder.contact_actor_id())
                     .ok_or_else(|| {
                         arkret_wire::Error::Protocol(
                             "direct conversation root basis request receipt is missing".to_owned(),
                         )
                     })?;
-                let full_founder = match &root.basis {
+                let founder = match &root.basis {
                     crate::contact_operations::ContactBasis::Normal { .. } => {
-                        if request_issuer == full_participants[0] {
-                            full_participants[1].clone()
-                        } else if request_issuer == full_participants[1] {
-                            full_participants[0].clone()
+                        if request_issuer == participants[0] {
+                            participants[1].clone()
+                        } else if request_issuer == participants[1] {
+                            participants[0].clone()
                         } else {
                             return Err(arkret_wire::Error::Protocol(
                                 "direct conversation request issuer is outside the pair".to_owned(),
@@ -727,16 +727,6 @@ impl DirectConversationFounderBasisEvidence {
                     }
                     crate::contact_operations::ContactBasis::Glare { .. } => request_issuer,
                 };
-                let participants = [
-                    ActorId::from(arkret_wire::project_full_id_to_core_id(
-                        &full_participants[0],
-                    )?),
-                    ActorId::from(arkret_wire::project_full_id_to_core_id(
-                        &full_participants[1],
-                    )?),
-                ];
-                let founder =
-                    ActorId::from(arkret_wire::project_full_id_to_core_id(&full_founder)?);
                 Ok((participants, founder))
             }
         }
@@ -745,7 +735,7 @@ impl DirectConversationFounderBasisEvidence {
     pub fn human_pair_key_and_authorization_core(
         &self,
         trust_domain_id: arkret_wire::TypedTrustDomainId,
-    ) -> arkret_wire::Result<(Hash, ActorId, DirectConversationFoundingAuthorizationCore)> {
+    ) -> arkret_wire::Result<(Hash, DidCoreId, DirectConversationFoundingAuthorizationCore)> {
         let Self::Human {
             basis_evidence_bundle,
             root_basis_continuity_chain,
@@ -776,12 +766,8 @@ impl DirectConversationFounderBasisEvidence {
             pair_key,
             founder,
             DirectConversationFoundingAuthorizationCore::Human {
-                current_contact_basis_id: ProtocolOpaqueId::new(
-                    basis_evidence_bundle.basis_id.to_string(),
-                )
-                .map_err(protocol_error)?,
-                founder_basis_id: ProtocolOpaqueId::new(root.basis_id.to_string())
-                    .map_err(protocol_error)?,
+                current_contact_basis_id: basis_evidence_bundle.basis_id.clone(),
+                founder_basis_id: root.basis_id.clone(),
                 accepted_contact_evidence_digest,
             },
         ))
@@ -791,17 +777,7 @@ impl DirectConversationFounderBasisEvidence {
 fn validate_contact_basis_evidence_bundle_shape(
     bundle: &ContactBasisEvidenceBundle,
 ) -> arkret_wire::Result<()> {
-    let basis_value = serde_json::to_value(&bundle.basis).map_err(protocol_error)?;
-    let mut basis_preimage = basis_value
-        .as_object()
-        .cloned()
-        .ok_or_else(|| protocol_error("Contact basis must be an object"))?;
-    basis_preimage.insert(
-        "domain".to_owned(),
-        serde_json::Value::String("ak.contact.basis.v1".to_owned()),
-    );
-    let expected_basis_id =
-        Hash::new(arkret_canonical::canonical_sha256(&basis_preimage)?).map_err(protocol_error)?;
+    let expected_basis_id = contact_basis_id(&bundle.basis)?;
     if bundle.basis_id != expected_basis_id || bundle.current_proofs.len() != 2 {
         return Err(protocol_error(
             "Contact basis id or current-proof cardinality is invalid",
@@ -912,7 +888,7 @@ fn validate_contact_basis_evidence_bundle_shape(
             if expected != actual
                 || attestations.iter().any(|attestation| {
                     attestation.complete_through == 0
-                        || attestation.issuer == attestation.peer
+                        || attestation.issuer.as_core_id() == attestation.peer.as_core_id()
                         || attestation
                             .request_receipt_digests
                             .iter()
@@ -931,6 +907,10 @@ fn validate_contact_basis_evidence_bundle_shape(
         }
     }
     Ok(())
+}
+
+fn contact_basis_id(basis: &crate::contact_operations::ContactBasis) -> arkret_wire::Result<Hash> {
+    domain_separated_sha256(CONTACT_BASIS_DOMAIN, basis)
 }
 
 fn protocol_error(error: impl std::fmt::Display) -> arkret_wire::Error {
@@ -1062,6 +1042,7 @@ impl DirectConversationClientLocalBlocker {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum DirectConversationResolveOutcome {
     /// No accepted Realm, and this principal is the derived founder.
     CreationRequired {
@@ -1160,8 +1141,8 @@ impl DirectConversationResolveOutcome {
 pub enum DirectConversationFoundingAuthorizationCore {
     /// human-to-human and Agent-to-third-party: founder derives from the Contact basis.
     Human {
-        current_contact_basis_id: ProtocolOpaqueId,
-        founder_basis_id: ProtocolOpaqueId,
+        current_contact_basis_id: Hash,
+        founder_basis_id: Hash,
         accepted_contact_evidence_digest: Hash,
     },
     /// controller-to-own-Agent: no Contact basis exists, founder is fixed to the controller.
@@ -1184,7 +1165,7 @@ pub enum DirectConversationFoundingAuthorizationCore {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationFoundingAcceptanceReceipt {
     pub pair_key: Hash,
-    pub founder_id: ActorId,
+    pub founder_id: DidCoreId,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
@@ -1192,7 +1173,7 @@ pub struct DirectConversationFoundingAcceptanceReceipt {
     /// Always `true` on the wire: the receipt is only emitted inside the slot-committing
     /// transaction.
     pub slot_committed: bool,
-    pub issuer_service_id: ServiceId,
+    pub issuer_service_id: DidCoreId,
     pub issuer_service_binding_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -1223,13 +1204,13 @@ impl DirectConversationFoundingAcceptanceReceipt {
         #[derive(Serialize)]
         struct ReceiptTranscript<'a> {
             pair_key: &'a Hash,
-            founder_id: &'a ActorId,
+            founder_id: &'a DidCoreId,
             realm_id: &'a RealmId,
             main_strand_id: &'a StrandId,
             founding_unit_digest: &'a Hash,
             authorization_core: &'a DirectConversationFoundingAuthorizationCore,
             slot_committed: bool,
-            issuer_service_id: &'a ServiceId,
+            issuer_service_id: &'a DidCoreId,
             issuer_service_binding_digest: &'a Hash,
             #[serde(
                 serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
@@ -1280,6 +1261,49 @@ impl DirectConversationFoundingAcceptanceReceipt {
 mod tests {
     use serde_json::json;
 
+    #[test]
+    fn contact_basis_id_matches_normative_known_answers() {
+        let cases = [
+            (
+                json!({
+                    "kind": "normal",
+                    "sorted_pair_members": [
+                        "ak:did_core:webvh:z6mkfixturealice",
+                        "ak:did_core:webvh:z6mkfixturebob"
+                    ],
+                    "request_event_ref": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
+                    "request_acceptance_receipt_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }),
+                "sha256:c81d66dd288ed62349579d189e5fc7a0d5dfb120f19137c1f92da2f30863eb0b",
+            ),
+            (
+                json!({
+                    "kind": "glare",
+                    "sorted_pair_members": [
+                        "ak:did_core:webvh:z6mkfixturealice",
+                        "ak:did_core:webvh:z6mkfixturebob"
+                    ],
+                    "requests": [
+                        {
+                            "request_event_ref": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
+                            "request_acceptance_receipt_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        },
+                        {
+                            "request_event_ref": "ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA",
+                            "request_acceptance_receipt_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                        }
+                    ]
+                }),
+                "sha256:ef49112795890fb948646e5b7cd40451bcca31977b43c0df5505006cb018378f",
+            ),
+        ];
+
+        for (basis, expected) in cases {
+            let basis = serde_json::from_value(basis).unwrap();
+            assert_eq!(contact_basis_id(&basis).unwrap().as_str(), expected);
+        }
+    }
+
     use super::*;
 
     fn event_ids() -> [EventId; 3] {
@@ -1312,8 +1336,8 @@ mod tests {
             "founding_unit_digest": "sha256:dc604271ea8bbefce03b4ef6916f12a01af81722e44b2f3640adc61d3a9e31dd",
             "authorization_core": {
                 "kind": "human",
-                "current_contact_basis_id": "01J8Z5Q6R7S8T9V0W1X2Y3Z4A5",
-                "founder_basis_id": "01J8Z5Q6R7S8T9V0W1X2Y3Z4A5",
+                "current_contact_basis_id": "sha256:c81d66dd288ed62349579d189e5fc7a0d5dfb120f19137c1f92da2f30863eb0b",
+                "founder_basis_id": "sha256:c81d66dd288ed62349579d189e5fc7a0d5dfb120f19137c1f92da2f30863eb0b",
                 "accepted_contact_evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
             "slot_committed": true,
@@ -1334,15 +1358,14 @@ mod tests {
         let receipt = receipt();
         assert_eq!(
             receipt.transcript_digest().unwrap().as_str(),
-            "sha256:a1aaed35c4232f0cd42f0b3789704101e161e4031244457f4d9b72b39e9370fb"
+            "sha256:6f4704a45de34c4b92d5f03932a107a1bb4d71d02944ba76c9c4dbe2b9527ad6"
         );
         assert_eq!(
             receipt.signing_input_bytes().unwrap(),
-            b"sha256:a1aaed35c4232f0cd42f0b3789704101e161e4031244457f4d9b72b39e9370fb"
+            b"sha256:6f4704a45de34c4b92d5f03932a107a1bb4d71d02944ba76c9c4dbe2b9527ad6"
         );
         let mut changed_proof = receipt.clone();
-        changed_proof.proof.jws =
-            arkret_wire::Base64UrlString::new("ZGlmZmVyZW50".to_owned()).unwrap();
+        changed_proof.proof.jws = Base64UrlString::new("ZGlmZmVyZW50".to_owned()).unwrap();
         assert_eq!(
             receipt.transcript_digest().unwrap(),
             changed_proof.transcript_digest().unwrap()

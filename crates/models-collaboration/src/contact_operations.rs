@@ -1,6 +1,6 @@
 use arkret_wire::{
-    Base64UrlString, ControlProposalAck, DeviceId, Did, Event, EventId, Hash, IdempotencyKey,
-    ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, ReservationHandle,
+    Base64UrlString, ControlProposalAck, DeviceId, DidCoreId, DidFullId, Event, EventId, Hash,
+    IdempotencyKey, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, ReservationHandle,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ pub enum StandardHolderBinding {
         device_binding: ProtocolOpaqueId,
     },
     AgentRuntime {
-        agent_id: Did,
+        agent_id: DidCoreId,
         device_id: DeviceId,
         agent_key_authorization_ref: EventId,
         verification_method: arkret_wire::DidUrl,
@@ -27,15 +27,24 @@ pub enum StandardHolderBinding {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactPeer {
-    Human { principal_id: Did },
-    Agent { agent_id: Did, controller_id: Did },
+    Human {
+        principal_id: DidCoreId,
+    },
+    Agent {
+        agent_id: DidCoreId,
+        controller_id: DidCoreId,
+    },
 }
 
 impl ContactPeer {
-    pub fn subject_id(&self) -> &Did {
+    /// Normalize a Contact participant to the actor role used by pair ordering
+    /// and Contact receipts. Human principals are actors in this protocol
+    /// context; this explicit conversion prevents a generic cross-role `From`.
+    pub fn contact_actor_id(&self) -> DidCoreId {
         match self {
-            Self::Human { principal_id } => principal_id,
-            Self::Agent { agent_id, .. } => agent_id,
+            Self::Human { principal_id } => DidCoreId::new(principal_id.as_str())
+                .expect("validated principal core is a valid actor core"),
+            Self::Agent { agent_id, .. } => agent_id.clone(),
         }
     }
 }
@@ -69,14 +78,14 @@ pub struct RequestAcceptanceReceiptCore {
     pub source_checkpoint: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
 }
 
 impl RequestAcceptanceReceiptCore {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         if self.slot_version == 0
             || (self.slot_version == 1) == self.slot_predecessor.is_some()
-            || self.holder.subject_id() == self.peer.subject_id()
+            || self.holder.contact_actor_id() == self.peer.contact_actor_id()
         {
             return Err(arkret_wire::Error::Protocol(
                 "invalid Contact request acceptance receipt core".to_owned(),
@@ -119,14 +128,20 @@ impl RequestAcceptanceReceipt {
                 "Contact request acceptance receipt core digest mismatch".to_owned(),
             ));
         }
-        if self
+        let signer = self
             .signature
             .verification_method
             .as_str()
             .split_once('#')
             .map(|(did, _)| did)
-            != Some(self.core.issuer.as_str())
-        {
+            .ok_or_else(|| {
+                arkret_wire::Error::Protocol(
+                    "Contact request acceptance receipt signer is not a DID URL".to_owned(),
+                )
+            })?;
+        let signer = DidFullId::new(signer)
+            .and_then(|full_id| arkret_wire::project_full_id_to_core_id(&full_id))?;
+        if signer != self.core.issuer {
             return Err(arkret_wire::Error::Protocol(
                 "Contact request acceptance receipt signer is not its issuer".to_owned(),
             ));
@@ -164,7 +179,7 @@ impl ContactNextPrepareInput {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactCurrentProof {
     pub basis_id: Hash,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub terminal: bool,
     pub head_event_ref: EventId,
     pub head_digest: Hash,
@@ -194,12 +209,12 @@ pub struct ContactBasisRequestRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactBasis {
     Normal {
-        sorted_pair_members: [Did; 2],
+        sorted_pair_members: [DidCoreId; 2],
         request_event_ref: EventId,
         request_acceptance_receipt_digest: Hash,
     },
     Glare {
-        sorted_pair_members: [Did; 2],
+        sorted_pair_members: [DidCoreId; 2],
         requests: [ContactBasisRequestRef; 2],
     },
 }
@@ -215,7 +230,7 @@ pub struct NormalResponseAcceptanceReceipt {
     pub no_outgoing_slot_proof: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -234,7 +249,7 @@ pub struct RejectAcceptanceReceipt {
     pub reject_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -667,6 +682,7 @@ pub enum ContactOperationOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum PeerContactSubmitRequestBody {
     Request {
         idempotency_key: IdempotencyKey,
@@ -738,8 +754,8 @@ pub enum PeerContactSubmitRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct GlareConcurrencyAttestation {
-    pub issuer: Did,
-    pub peer: Did,
+    pub issuer: DidCoreId,
+    pub peer: DidCoreId,
     pub request_receipt_digests: [Hash; 2],
     pub observed_frontier: Vec<EventId>,
     pub complete_through: u64,
@@ -779,10 +795,10 @@ pub struct PeerContactMirrorReceipt {
     pub signed_event_ref: EventId,
     pub signed_event_digest: Hash,
     pub disposition: PeerContactDisposition,
-    pub recipient_service_id: Did,
+    pub recipient_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -829,10 +845,10 @@ pub struct PeerContactControlReceipt {
     pub disposition: PeerContactDisposition,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result_digest: Option<Hash>,
-    pub recipient_service_id: Did,
+    pub recipient_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub signature: ProtocolSignature,
 }
 

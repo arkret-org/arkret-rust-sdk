@@ -30,8 +30,8 @@ mod models {
     pub use arkret_models_identity::ServiceResolutionCarrier;
     pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
-        ActorId, Did, EventId, FullId, Hash, HistoryVisibility, InviteId, PlaintextDataClassKind,
-        RealmId, ServiceId, SpaceId, StrandId, project_full_id_to_core_id,
+        DidCoreId, DidFullId, EventId, Hash, HistoryVisibility, InviteId, PlaintextDataClassKind,
+        RealmId, SpaceId, StrandId, project_full_id_to_core_id,
     };
 }
 
@@ -70,12 +70,10 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // invite transition (non-join): only `membership` is structurally required.
     let invite = MembershipPayload::transition(
         MembershipPayloadState::Invite,
-        ActorId::from(
-            project_full_id_to_core_id(
-                &FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
-            )
-            .unwrap(),
-        ),
+        project_full_id_to_core_id(
+            &DidFullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
+        )
+        .unwrap(),
         "space_create",
     );
     catalog
@@ -86,12 +84,10 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // required, but delivery_binding only when routable.
     let join = MembershipPayload::join(
         RealmId::new("ak:realm:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
-        ActorId::from(
-            project_full_id_to_core_id(
-                &FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
-            )
-            .unwrap(),
-        ),
+        project_full_id_to_core_id(
+            &DidFullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
+        )
+        .unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
@@ -119,24 +115,18 @@ fn membership_payload_strong_type_passes_spec_validator() {
 #[test]
 fn split_invite_payload_strong_types_pass_spec_validator() {
     use crate::models::{
-        FullId, Hash, InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload,
-        InviteDeliveryTarget, InviteId, InviteRevokePayload, InviteRevokeTargetState, ServiceId,
-        ServiceResolutionCarrier, project_full_id_to_core_id,
+        DidCoreId, Hash, InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload,
+        InviteDeliveryTarget, InviteId, InviteRevokePayload, InviteRevokeTargetState,
+        ServiceResolutionCarrier,
     };
     let catalog = event_payload_validator_catalog().unwrap();
 
     // Directed-create (anyOf branch: invitee + invite_delivery_target +
     // introduction_evidence_digest + expires_at), with an `x_role` extension.
     let create = InviteCreatePayload::new(
-        project_full_id_to_core_id(&FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
-            .unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
         InviteDeliveryTarget::principal_server(
-            ServiceId::from(
-                project_full_id_to_core_id(
-                    &FullId::new("did:webvh:z6mkfixtureps:ps.example").unwrap(),
-                )
-                .unwrap(),
-            ),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             ServiceResolutionCarrier::CurrentRecordUrl {
                 current_record_url: "https://ps.example/_arkret/open/service-resolution/current"
                     .to_owned(),
@@ -162,9 +152,7 @@ fn split_invite_payload_strong_types_pass_spec_validator() {
 
     let invite_id =
         InviteId::new("ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
-    let invitee =
-        project_full_id_to_core_id(&FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
-            .unwrap();
+    let invitee = DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap();
     let cancel = InviteCancelPayload::new(
         invite_id.clone(),
         invitee.clone(),
@@ -247,7 +235,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 #[test]
 fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     use crate::models::{
-        ActorId, FullId, ObjectLifecyclePayload, SpaceId, StrandId, StrandMovePayload,
+        DidFullId, ObjectLifecyclePayload, SpaceId, StrandId, StrandMovePayload,
         StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
         StrandWatchLevel, StrandWatchSetPayload, project_full_id_to_core_id,
     };
@@ -257,12 +245,10 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     let strand =
         || StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap();
     let actor = || {
-        ActorId::from(
-            project_full_id_to_core_id(
-                &FullId::new("did:webvh:z6mkfixturealice:alice.example").unwrap(),
-            )
-            .unwrap(),
+        project_full_id_to_core_id(
+            &DidFullId::new("did:webvh:z6mkfixturealice:alice.example").unwrap(),
         )
+        .unwrap()
     };
 
     // ak.strand.move — board/target Space ids + rank; from_space_id +
@@ -349,7 +335,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     // Validate the strong types directly against the named `$defs/*_payload`
     // schema_ref so this test stays pinned to the exact artifact shape.
     use crate::models::{
-        Did, HistoryKeyShareDefault, HistoryKeySource, HistorySharingPolicyPayload,
+        HistoryKeyShareDefault, HistoryKeySource, HistorySharingPolicyPayload,
         HistorySharingPolicyPayloadValue, HistorySharingPolicyPayloadValueAudit, HistoryVisibility,
         HistoryVisibilityPayload, PlaintextDataClassKind, PlaintextServiceVisibility,
         PlaintextVisibleService, PlaintextVisibleServicesPayload,
@@ -428,7 +414,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
 
     // plaintext_visible_services: required item fields strongly typed.
     let services = PlaintextVisibleServicesPayload::new(vec![PlaintextVisibleService::new(
-        Did::new("did:webvh:z6mkfixture:index.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureindex").unwrap(),
         "principal_server",
         vec![
             PlaintextDataClassKind::MessageContent,

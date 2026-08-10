@@ -1,12 +1,16 @@
-use arkret_wire::DidUrl;
+use arkret_wire::{DidFullId, DidUrl};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use super::{merkle, *};
-use crate::{Did, EventId, Hash, Hlc, PayloadSignature, RealmId, SnapshotId};
+use crate::{DidCoreId, EventId, Hash, Hlc, PayloadSignature, RealmId, SnapshotId};
 
-fn did() -> Did {
-    Did::new("did:webvh:z6mkfixture:generator.example".to_owned()).unwrap()
+fn actor() -> DidCoreId {
+    DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+}
+
+fn did() -> DidFullId {
+    DidFullId::new("did:webvh:z6mkfixture:generator.example").unwrap()
 }
 
 fn realm() -> RealmId {
@@ -67,10 +71,10 @@ fn manifest_for_items(
         chunks: descriptors,
         security_class: SnapshotSecurityClass::Standard,
         verification_hints: None,
-        created_by: did(),
+        created_by: actor(),
         created_at,
         authority_binding: AuthorityBinding {
-            issuer: did(),
+            issuer: actor(),
             authority_kind: SnapshotAuthorityKind::RealmPolicySnapshotIssuer,
             auth_state_digest: hash(1),
             auth_frontier: vec![snapshot_v1_event_id("000000000001")],
@@ -536,14 +540,14 @@ fn event_set_commitment_sorts_entries_before_hashing() {
     let a = EventSetLeaf {
         event_id: event_id("000000000001"),
         event_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         actor_seq: 1,
         hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
     };
     let b = EventSetLeaf {
         event_id: event_id("000000000002"),
         event_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-        actor_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+        actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         actor_seq: 1,
         hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
     };

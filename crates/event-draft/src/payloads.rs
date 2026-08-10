@@ -7,7 +7,7 @@ use arkret_models_collaboration::governance::agent_participation::AgentParticipa
 use arkret_models_collaboration::objects::profiles::StrandTrackConfig;
 use arkret_models_collaboration::objects::strand::StrandMetadata;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{CircleId, Did, ObjectStage, ObjectState, RealmId, SchemaId, StrandId};
+use arkret_wire::{CircleId, DidCoreId, ObjectStage, ObjectState, RealmId, SchemaId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,11 +44,11 @@ pub struct StrandCreateObject {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
     pub stage: ObjectStage,
-    pub created_by: Did,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -58,7 +58,7 @@ impl arkret_models_collaboration::events_payloads::ProtocolCreateObject for Stra
 
 impl StrandCreateObject {
     /// Build a create input. There is no id parameter — see [`Self::id`].
-    pub fn new(realm_id: RealmId, created_by: Did) -> Self {
+    pub fn new(realm_id: RealmId, created_by: DidCoreId) -> Self {
         Self {
             id: None,
             schema: SchemaId::STRAND_V1.to_owned(),

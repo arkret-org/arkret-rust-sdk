@@ -16,7 +16,7 @@ use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
     AnchorUnitLeaseBasis, AuthorizationLease, IngressReceipt, LeaseBasisRef,
 };
-use crate::{ActorId, RiskTier, ScopeRef, project_full_id_to_core_id};
+use crate::{DidCoreId, RiskTier, ScopeRef};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
@@ -316,7 +316,7 @@ pub struct EventFederationSubmission {
 /// `capability-action-registry.json`, so it belongs to the registry-aware
 /// caller, not to this wire-level gate.
 fn validate_lease_binds_event(event: &Event, lease: &AuthorizationLease) -> Result<()> {
-    if ActorId::from(project_full_id_to_core_id(&lease.actor_id)?) != event.actor_id {
+    if lease.actor_id != event.actor_id {
         return Err(Error::Protocol(
             "authorization lease actor_id does not match the Event actor".to_owned(),
         ));
@@ -366,13 +366,11 @@ fn validate_membership_compensation_evidence(
     evidence.validate_bindings()?;
     let core = &evidence.delegation.core;
     if event.kind.as_str() != "ak.member.state"
-        || event.executed_by.as_ref()
-            != Some(&ActorId::from(project_full_id_to_core_id(
-                &core.executor_service_id,
-            )?))
+        || event.executed_by.as_ref().map(DidCoreId::as_core_id)
+            != Some(core.executor_service_id.as_core_id())
         || event.authorization_ref.as_ref().map(|value| value.as_str())
             != Some(evidence.delegation.delegation_id.as_str())
-        || event.actor_id != ActorId::from(project_full_id_to_core_id(&core.join_actor_id)?)
+        || event.actor_id != core.join_actor_id
         || event.realm_id != core.resource
         || event
             .payload
@@ -523,7 +521,7 @@ mod tests {
     };
     use crate::{
         AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId,
-        DeviceId, Did, DidUrl, Hash, PayloadProof, Proof, RealmId, SchemaId, SealId, proof_kind,
+        DeviceId, DidUrl, Hash, PayloadProof, Proof, RealmId, SchemaId, SealId, proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
@@ -584,7 +582,7 @@ mod tests {
             )
             .unwrap(),
             basis_ref: intent.basis_ref.clone(),
-            actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             scope_ref: intent.scope_ref.clone(),
             action: intent.action.clone(),
@@ -615,7 +613,7 @@ mod tests {
         let mut event = Event::new(
             "ak.message.create",
             scope(),
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             1,
             crate::Hlc::new("000000000000-0000-00000000").unwrap(),
             serde_json::json!({}),
@@ -626,7 +624,7 @@ mod tests {
             _ => unreachable!(),
         });
         event.auth_context = Some(AuthContext {
-            did: event.actor_id.clone(),
+            actor_id: event.actor_id.clone(),
             key_id: "device-1".to_owned(),
             key_epoch: 1,
             credential_epoch: None,
@@ -729,7 +727,7 @@ mod tests {
         let mut event = Event::new(
             "ak.message.create",
             scope(),
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             1,
             crate::Hlc::new("000000000000-0000-00000000").unwrap(),
             serde_json::json!({}),

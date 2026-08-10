@@ -3,8 +3,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Cursor, Did, Error, Facet, FilterOp, NullsOrder, RealmId, RelationDirection, RelationKind,
-    Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer, ViewVisibility,
+    Cursor, DidCoreId, Error, Facet, FilterOp, NullsOrder, RealmId, RelationDirection,
+    RelationKind, Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer,
+    ViewVisibility,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -139,11 +140,11 @@ pub struct View {
     pub dashboard: Option<DashboardConfig>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sort: Vec<SortSpec>,
-    pub created_by: Did,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

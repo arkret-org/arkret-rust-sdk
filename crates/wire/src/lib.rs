@@ -4,6 +4,10 @@
 //! construction, transports, and framework adapters deliberately live in
 //! higher-level crates.
 
+// Registry generators intentionally spell the public constant ABI as
+// `&'static str`; keep that stable while allowing strict Clippy on the crate.
+#![allow(clippy::redundant_static_lifetimes)]
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};

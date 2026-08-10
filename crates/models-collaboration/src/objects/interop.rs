@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, EventId, Hash, PayloadProof, RealmId, SchemaId, StrandId};
+use arkret_wire::{DidCoreId, EventId, Hash, PayloadProof, RealmId, SchemaId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -98,7 +98,7 @@ pub struct ProviderDirectoryProof(pub PayloadProof);
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ProviderDirectory {
     pub schema: String,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub service_kind: String,
     pub supported_profiles: Vec<String>,
     pub mimi: ProviderDirectoryMimi,
@@ -153,9 +153,9 @@ pub struct RoomBindingPayload {
     pub profile: String,
     pub mimi_room_uri: MimiUri,
     pub binding_scope: RoomBindingPayloadBindingScope,
-    pub hub_provider: Did,
+    pub hub_provider: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub follower_providers: Option<Vec<Did>>,
+    pub follower_providers: Option<Vec<DidCoreId>>,
     pub local_provider_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,

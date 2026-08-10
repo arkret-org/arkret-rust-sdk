@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AuthzDecision, Did, FreshnessState, Hash, NotaryStatus, ReasonCode, WireResourceSelector,
+    AuthzDecision, DidCoreId, FreshnessState, Hash, NotaryStatus, ReasonCode, WireResourceSelector,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ use crate::governance::operation_wire::Invite;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AuthzCheckRequestBody {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub action: String,
     /// Optional resource selector (Realm / Strand / Space / Morph / etc.).
     #[serde(default, skip_serializing_if = "Option::is_none")]

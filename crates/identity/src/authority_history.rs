@@ -1,7 +1,7 @@
 //! Historical Account Authority verification for signed registration receipts.
 
 use arkret_models_identity::{AccountBindingReceipt, DidDocument, IdentityLogListOutcome};
-use arkret_wire::{Did, Hash};
+use arkret_wire::{DidCoreId, DidFullId, Hash};
 
 use crate::{
     BindingVerifyError, DidVerificationRelationship, verify_jws_with_document_relationship,
@@ -21,8 +21,8 @@ pub struct AuthorityHistoryUnavailable {
 pub trait AuthorityDidHistoryResolver {
     fn resolve_complete_history(
         &self,
-        did: &Did,
-    ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable>;
+        did: &DidFullId,
+    ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable>;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -53,7 +53,7 @@ pub enum AuthorityHistoryVerificationError {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VerifiedAccountBindingReceipt {
-    pub authority_id: Did,
+    pub authority_id: DidCoreId,
     pub authority_version_id: String,
     pub authority_log_head_digest: Hash,
     pub authority_document: DidDocument,
@@ -65,12 +65,21 @@ pub struct VerifiedAccountBindingReceipt {
 pub fn verify_account_binding_receipt_at_issuance(
     receipt: &AccountBindingReceipt,
     resolver: &dyn AuthorityDidHistoryResolver,
-) -> std::result::Result<VerifiedAccountBindingReceipt, AuthorityHistoryVerificationError> {
+) -> Result<VerifiedAccountBindingReceipt, AuthorityHistoryVerificationError> {
     receipt
         .validate_shape()
         .map_err(|error| AuthorityHistoryVerificationError::InvalidReceipt(error.to_string()))?;
-    let history = resolver.resolve_complete_history(&receipt.account_authority_id)?;
-    if history.did != receipt.account_authority_id || history.method != "did:webvh" {
+    let authority_full_id = crate::verification_method_did(
+        receipt.proof.verification_method.as_str(),
+    )
+    .map_err(|error| AuthorityHistoryVerificationError::InvalidReceipt(error.to_string()))?;
+    let projected_authority = arkret_wire::project_full_id_to_core_id(&authority_full_id)
+        .map_err(|error| AuthorityHistoryVerificationError::InvalidReceipt(error.to_string()))?;
+    if projected_authority.as_str() != receipt.account_authority_id.as_str() {
+        return Err(AuthorityHistoryVerificationError::AuthorityMismatch);
+    }
+    let history = resolver.resolve_complete_history(&authority_full_id)?;
+    if history.did != authority_full_id || history.method != "did:webvh" {
         return Err(AuthorityHistoryVerificationError::AuthorityMismatch);
     }
     if history.native_history == Some(false) {
@@ -81,7 +90,7 @@ pub fn verify_account_binding_receipt_at_issuance(
     }
 
     let point = arkret_signatures::webvh::validate_webvh_history_at(
-        &receipt.account_authority_id,
+        &authority_full_id,
         &history.entries,
         receipt.issued_at,
     )
@@ -95,7 +104,7 @@ pub fn verify_account_binding_receipt_at_issuance(
         &binding_bytes,
         &receipt.proof.jws,
         &receipt.proof.verification_method,
-        &receipt.account_authority_id,
+        &authority_full_id,
         &authority_document,
         DidVerificationRelationship::AssertionMethod,
     )
@@ -152,7 +161,8 @@ fn classify_receipt_proof_error(error: BindingVerifyError) -> AuthorityHistoryVe
 #[cfg(test)]
 mod tests {
     use arkret_models_identity::{
-        AccountBindingState, IdentityCreationOperationStatus, IdentityLogListOutcome,
+        AccountBindingKind, AccountBindingState, IdentityCreationOperationStatus,
+        IdentityLogListOutcome,
     };
     use arkret_signatures::webvh::{ServiceInceptionInput, prepare_service_inception};
     use arkret_wire::{DidUrl, PayloadProof};
@@ -172,8 +182,8 @@ mod tests {
     impl AuthorityDidHistoryResolver for FrozenResolver {
         fn resolve_complete_history(
             &self,
-            _did: &Did,
-        ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+            _did: &DidFullId,
+        ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
             Ok(self.outcome.clone())
         }
     }
@@ -183,8 +193,8 @@ mod tests {
     impl AuthorityDidHistoryResolver for UnavailableResolver {
         fn resolve_complete_history(
             &self,
-            _did: &Did,
-        ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+            _did: &DidFullId,
+        ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
             Err(AuthorityHistoryUnavailable {
                 message: "fixture transport unavailable".to_owned(),
             })
@@ -206,15 +216,21 @@ mod tests {
             },
         )
         .unwrap();
-        let authority_id = Did::new(inception.did.clone()).unwrap();
+        let authority_full_id = DidFullId::new(inception.did.clone()).unwrap();
+        let authority_id = arkret_wire::project_full_id_to_core_id(&authority_full_id).unwrap();
+        let principal_full_id = DidFullId::new("did:webvh:zprincipal:principal.example").unwrap();
         let verification_method = DidUrl::new(inception.did_key_id.clone()).unwrap();
         let mut receipt = AccountBindingReceipt {
             binding_state: AccountBindingState::Bound,
-            account_authority_id: authority_id.clone(),
+            binding_kind: AccountBindingKind::IdentityCreation,
+            account_authority_id: authority_id,
             account_subject: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-            principal_id: Did::new("did:webvh:zprincipal:principal.example").unwrap(),
-            identity_creation_lease_id: "identity-creation-lease-fixture".to_owned(),
-            lease_fence: 1,
+            principal_id: DidCoreId::new("ak:did_core:webvh:zprincipal").unwrap(),
+            full_id: principal_full_id,
+            did_version_id: "1-fixture".to_owned(),
+            control_key_digest: Hash::new(format!("sha256:{}", "44".repeat(32))).unwrap(),
+            identity_creation_lease_id: Some("identity-creation-lease-fixture".to_owned()),
+            lease_fence: Some(1),
             operation_status: IdentityCreationOperationStatus::Accepted,
             operation_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
             head_event_digest: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
@@ -238,7 +254,7 @@ mod tests {
         )
         .unwrap();
         let history = IdentityLogListOutcome {
-            did: authority_id,
+            did: authority_full_id,
             method: "did:webvh".to_owned(),
             native_history: Some(true),
             entries: vec![inception.log_entry.clone()],

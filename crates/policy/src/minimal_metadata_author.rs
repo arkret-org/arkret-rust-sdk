@@ -12,7 +12,7 @@
 //! already-authenticated historical group-state view and never accepts a
 //! directory client or resolver callback, so a caller cannot accidentally
 //! wire a network fallback through it.
-use arkret_wire::{ActorId, DidUrl, FullId, project_full_id_to_core_id};
+use arkret_wire::{DidCoreId, DidFullId, DidUrl, project_full_id_to_core_id};
 
 /// Credential carried by an active leaf in an [`AuthorGroupStateView`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -57,11 +57,11 @@ pub struct MinimalMetadataAuthorClaim<'a> {
     pub epoch: u64,
     /// `encrypted_content.key_ref.group_state_ref` from the envelope.
     pub group_state_ref: &'a str,
-    /// `Event.actor_id`, the realm-scoped pairwise Core ActorId. The raw leaf
-    /// credential identity is this CoreId, never the resolvable did:key.
-    pub actor_id: &'a ActorId,
+    /// `Event.actor_id`, the realm-scoped pairwise Core DidCoreId. The raw leaf
+    /// credential identity is this DidCoreId, never the resolvable did:key.
+    pub actor_id: &'a DidCoreId,
     /// Event proof verification method. Its controller MUST be a did:key
-    /// FullId whose active adapter projection equals `actor_id`.
+    /// DidFullId whose active adapter projection equals `actor_id`.
     pub proof_verification_method: &'a DidUrl,
     /// The proof's resolved public key, raw bytes (e.g. Ed25519 32 bytes via
     /// `arkret_signatures::proof::PublicKeyMaterial::ed25519_bytes`).
@@ -79,8 +79,8 @@ pub enum MinimalMetadataAuthorViolation {
     /// Envelope `group_state_ref` is not the winning group state for the
     /// epoch (rollback / non-winning fork).
     GroupStateRefNotWinning,
-    /// The proof method is not a did:key URL, or its FullId controller does
-    /// not project byte-for-byte to the Event Core ActorId.
+    /// The proof method is not a did:key URL, or its DidFullId controller does
+    /// not project byte-for-byte to the Event Core DidCoreId.
     ProofVerificationMethodMismatch,
     /// No active leaf carries a BasicCredential equal to `utf8(actor_id)`
     /// (covers removed leaves and never-member actors).
@@ -163,13 +163,13 @@ pub fn verify_minimal_metadata_author(
     if !controller.starts_with("did:key:") {
         return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
     }
-    let Ok(controller) = FullId::new(controller.to_owned()) else {
+    let Ok(controller) = DidFullId::new(controller.to_owned()) else {
         return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
     };
     let Ok(projected) = project_full_id_to_core_id(&controller) else {
         return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
     };
-    if ActorId::from(projected) != *claim.actor_id {
+    if projected != *claim.actor_id {
         return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
     }
 
@@ -198,10 +198,8 @@ pub fn verify_minimal_metadata_author(
 mod tests {
     use super::*;
 
-    fn actor() -> ActorId {
-        ActorId::from(
-            project_full_id_to_core_id(&FullId::new("did:key:z6MkpairwiseAlice").unwrap()).unwrap(),
-        )
+    fn actor() -> DidCoreId {
+        project_full_id_to_core_id(&DidFullId::new("did:key:z6MkpairwiseAlice").unwrap()).unwrap()
     }
 
     fn key(byte: u8) -> Vec<u8> {
@@ -227,7 +225,7 @@ mod tests {
         }
     }
 
-    fn claim<'a>(actor: &'a ActorId, proof_key: &'a [u8]) -> MinimalMetadataAuthorClaim<'a> {
+    fn claim<'a>(actor: &'a DidCoreId, proof_key: &'a [u8]) -> MinimalMetadataAuthorClaim<'a> {
         static PROOF_METHOD: std::sync::LazyLock<DidUrl> = std::sync::LazyLock::new(|| {
             DidUrl::new("did:key:z6MkpairwiseAlice#z6MkpairwiseAlice").unwrap()
         });

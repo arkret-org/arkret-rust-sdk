@@ -4,7 +4,7 @@
 //! `ServiceDescribe::verified_profiles`. Parsing and validation live here so
 //! services cannot drift on required fields, digest syntax or DID handling.
 
-use arkret_wire::Did;
+use arkret_wire::DidCoreId;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
@@ -15,7 +15,7 @@ pub struct VerifiedProfileArtifactEntry {
     pub verification_run_id: String,
     pub artifact_digest: String,
     pub artifact_ref: String,
-    pub verifier_did: Did,
+    pub verifier_service_id: DidCoreId,
     pub signature: String,
     pub timestamp: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -68,7 +68,7 @@ struct RawVerifiedEntry {
     #[serde(default)]
     artifact_ref: Option<String>,
     #[serde(default)]
-    verifier_did: Option<String>,
+    verifier_service_id: Option<String>,
     #[serde(default)]
     signature: Option<String>,
     #[serde(
@@ -132,11 +132,12 @@ pub fn parse_verified_profiles_artifact(
             });
             continue;
         };
-        let Some(verifier_did) = non_empty(raw.verifier_did).and_then(|value| Did::new(value).ok())
+        let Some(verifier_service_id) =
+            non_empty(raw.verifier_service_id).and_then(|value| DidCoreId::new(value).ok())
         else {
             dropped.push(DroppedVerifiedProfileEntry {
                 profile_id,
-                reason: "missing or invalid verifier_did",
+                reason: "missing or invalid verifier_service_id",
             });
             continue;
         };
@@ -160,7 +161,7 @@ pub fn parse_verified_profiles_artifact(
             verification_run_id,
             artifact_digest,
             artifact_ref,
-            verifier_did,
+            verifier_service_id,
             signature,
             timestamp,
             expires_at: raw.expires_at,
@@ -213,7 +214,7 @@ mod tests {
                         "service_role": "principal_server",
                         "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                         "artifact_ref": "file:///artifact.json",
-                        "verifier_did": "did:web:cotest.example",
+                        "verifier_service_id": "ak:did_core:web:cotest.example",
                         "signature": "signature",
                         "timestamp": "2026-05-20T00:00:00.000Z"
                     },

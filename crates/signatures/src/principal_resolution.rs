@@ -10,7 +10,7 @@ use arkret_models_identity::{
     PrincipalResolutionProjection, PrincipalResolutionUpdatePayload, ResolutionCommitment,
     ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
 };
-use arkret_wire::{CellRef, Did, Event, EventKind, FullId, Hash, ScopeRef, Seal};
+use arkret_wire::{CellRef, DidFullId, Event, EventKind, Hash, ScopeRef, Seal};
 
 const RESOLUTION_CELL: &str = "ak:cell:ak.component.identity.resolution.v1:null";
 const MAX_PREDECESSORS: usize = 256;
@@ -35,7 +35,7 @@ where
     VerifyEvent: Fn(&Event) -> arkret_wire::Result<()>,
     VerifySeal: Fn(&Seal) -> arkret_wire::Result<()>,
     VerifyMethod:
-        Fn(&FullId, &ResolutionMethodHistoryEvidence, &DidDocument) -> arkret_wire::Result<()>,
+        Fn(&DidFullId, &ResolutionMethodHistoryEvidence, &DidDocument) -> arkret_wire::Result<()>,
 {
     if evidence.predecessor_resolution_events.len() > MAX_PREDECESSORS {
         return protocol("principal resolution evidence exceeds the predecessor limit");
@@ -253,7 +253,7 @@ fn verify_method_binding<VerifyMethod>(
 ) -> arkret_wire::Result<()>
 where
     VerifyMethod:
-        Fn(&FullId, &ResolutionMethodHistoryEvidence, &DidDocument) -> arkret_wire::Result<()>,
+        Fn(&DidFullId, &ResolutionMethodHistoryEvidence, &DidDocument) -> arkret_wire::Result<()>,
 {
     let method_evidence = evidence.method_history_evidence.as_ref().ok_or_else(|| {
         arkret_wire::Error::Protocol(
@@ -272,7 +272,7 @@ where
         return protocol("method-history evidence DID Document digest mismatch");
     }
     let full_id = &projection.full_id;
-    let method = Did::new(full_id.to_string())?.method().to_owned();
+    let method = DidFullId::new(full_id.to_string())?.method().to_owned();
     verify_method_boundary(
         evidence,
         genesis,
@@ -399,14 +399,14 @@ mod tests {
         ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
         ResolutionDidBindingMethodProof, ResolutionDidBindingMethodProofKind,
     };
-    use arkret_wire::{ActorId, CoreId, DidUrl, Hlc, RealmId};
+    use arkret_wire::{DidCoreId, DidUrl, Hlc, RealmId};
     use chrono::{TimeZone as _, Utc};
 
     use super::*;
     use crate::Ed25519PayloadSigner;
 
     fn fixture() -> (PrincipalResolutionEvidence, DidDocument) {
-        let full_id = FullId::new("did:web:alice.example").unwrap();
+        let full_id = DidFullId::new("did:web:alice.example").unwrap();
         let principal_id = arkret_wire::project_full_id_to_core_id(&full_id).unwrap();
         let document: DidDocument = serde_json::from_value(serde_json::json!({
             "id": full_id,
@@ -424,7 +424,7 @@ mod tests {
         let genesis = arkret_wire::test_support::raw_event_at(
             EventKind::RealmCreate.as_str(),
             ScopeRef::RealmGenesis,
-            ActorId::from(principal_id.clone()),
+            principal_id.clone(),
             0,
             Hlc::new("019f00000000-0000-00000001").unwrap(),
             serde_json::json!({
@@ -446,7 +446,7 @@ mod tests {
             ScopeRef::Realm {
                 realm_id: genesis.realm_id.clone(),
             },
-            ActorId::from(principal_id.clone()),
+            principal_id.clone(),
             1,
             Hlc::new("019f00000000-0001-00000001").unwrap(),
             serde_json::to_value(update_payload).unwrap(),
@@ -467,7 +467,7 @@ mod tests {
         )]);
         let state_root = arkret_state::compute_state_root(&cells).unwrap();
         let inclusion = arkret_state::state_inclusion_proof(&cells, &cell_ref).unwrap();
-        let signer_did = Did::new("did:key:z6MkfixtureNotary").unwrap();
+        let signer_did = DidFullId::new("did:key:z6MkfixtureNotary").unwrap();
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [41; 32],
             signer_did.clone(),
@@ -487,7 +487,7 @@ mod tests {
             from_method_history_head: commitment.method_history_head.clone(),
             from_version_id: commitment.version_id.clone(),
             to_method_history_head: commitment.method_history_head.clone(),
-            to_version_id: commitment.version_id.clone(),
+            to_version_id: commitment.version_id,
         };
         let method_history_evidence = ResolutionMethodHistoryEvidence::DidWebDocument {
             adapter_version: "did:web:1".to_owned(),
@@ -501,7 +501,7 @@ mod tests {
         };
         (
             PrincipalResolutionEvidence {
-                principal_id: CoreId::new(principal_id.to_string()).unwrap(),
+                principal_id: DidCoreId::new(principal_id.to_string()).unwrap(),
                 principal_control_realm_id: RealmId::new(genesis.realm_id.to_string()).unwrap(),
                 principal_genesis_event: PrincipalGenesisEvent(genesis),
                 current_resolution_event: PrincipalCurrentResolutionEvent::Update(
@@ -537,7 +537,7 @@ mod tests {
     }
 
     fn webvh_fixture() -> (PrincipalResolutionEvidence, DidDocument) {
-        let full_id = FullId::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let full_id = DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let principal_id = arkret_wire::project_full_id_to_core_id(&full_id).unwrap();
         let document: DidDocument = serde_json::from_value(serde_json::json!({
             "id": full_id,
@@ -562,7 +562,7 @@ mod tests {
         let genesis = arkret_wire::test_support::raw_event_at(
             EventKind::RealmCreate.as_str(),
             ScopeRef::RealmGenesis,
-            ActorId::from(principal_id.clone()),
+            principal_id.clone(),
             0,
             Hlc::new("019f00000000-0000-00000011").unwrap(),
             serde_json::json!({
@@ -579,7 +579,7 @@ mod tests {
             ScopeRef::Realm {
                 realm_id: genesis.realm_id.clone(),
             },
-            ActorId::from(principal_id.clone()),
+            principal_id.clone(),
             1,
             Hlc::new("019f00000000-0001-00000011").unwrap(),
             serde_json::to_value(PrincipalResolutionUpdatePayload {
@@ -596,13 +596,13 @@ mod tests {
             ScopeRef::Realm {
                 realm_id: genesis.realm_id.clone(),
             },
-            ActorId::from(principal_id.clone()),
+            principal_id.clone(),
             2,
             Hlc::new("019f00000000-0002-00000011").unwrap(),
             serde_json::to_value(PrincipalResolutionUpdatePayload {
                 next: current.clone(),
                 previous_resolution_event_ref: middle_event.event_id.to_string(),
-                previous_method_history_head: middle.method_history_head.clone(),
+                previous_method_history_head: middle.method_history_head,
             })
             .unwrap(),
             Utc.with_ymd_and_hms(2026, 8, 10, 2, 0, 2).unwrap(),
@@ -622,7 +622,7 @@ mod tests {
         )]);
         let state_root = arkret_state::compute_state_root(&cells).unwrap();
         let inclusion = arkret_state::state_inclusion_proof(&cells, &cell_ref).unwrap();
-        let signer_did = Did::new("did:key:z6MkfixtureNotary").unwrap();
+        let signer_did = DidFullId::new("did:key:z6MkfixtureNotary").unwrap();
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [42; 32],
             signer_did.clone(),

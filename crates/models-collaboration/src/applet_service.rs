@@ -3,7 +3,7 @@
 //! The envelope embeds [`AppletTransactionRequestBody`], which carries wire
 //! `Event`s alongside an optional `SignalEnvelope` batch.
 
-use arkret_wire::{Did, Event};
+use arkret_wire::{DidCoreId, Event};
 use serde::{Deserialize, Serialize};
 
 use crate::http_bodies::AppletTransactionRequestBody;
@@ -23,14 +23,14 @@ pub struct AppletServiceTransaction {
 /// Applet service intent for acting as a virtual actor.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletServiceIntent {
-    pub service_id: Did,
-    pub actor_id: Did,
+    pub service_id: DidCoreId,
+    pub actor_id: DidCoreId,
     pub idempotency_prefix: String,
 }
 
 impl AppletServiceIntent {
     /// Create a virtual actor intent.
-    pub fn new(service_id: Did, actor_id: Did) -> Self {
+    pub fn new(service_id: DidCoreId, actor_id: DidCoreId) -> Self {
         Self {
             service_id,
             actor_id,

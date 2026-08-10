@@ -43,11 +43,11 @@ use arkret_models_identity::{
     IdentityBindingChallengeRequestBody, SessionGrantProofKind,
 };
 use arkret_wire::{
-    CoreId, DeviceId, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    DeviceId, DidCoreId, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
     PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
     PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_COMMIT, PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_PREPARE,
-    PayloadSigner, ServiceId,
+    PayloadSigner,
 };
 use chrono::{Duration, Utc};
 use reqwest::header::CONTENT_TYPE;
@@ -74,11 +74,11 @@ const DID_PROOF_FRESHNESS_WINDOW_SECS: i64 = 300;
 /// issuance operation.
 pub async fn login_did_proof<S>(
     client: &Client,
-    principal_id: CoreId,
+    principal_id: DidCoreId,
     device_id: DeviceId,
     signer: &S,
     challenge: &str,
-    audience: ServiceId,
+    audience: DidCoreId,
 ) -> Result<SessionGrantOutcome>
 where
     S: PayloadSigner + ?Sized,

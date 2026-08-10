@@ -1,7 +1,7 @@
 use arkret_event_draft::{
     EventDraftKindRegistry, OperationEnvelopeBuilder, OperationEventConversion,
 };
-use arkret_identifiers::{Did, Hlc, OperationId, RealmId};
+use arkret_identifiers::{DidCoreId, Hlc, OperationId, RealmId};
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
 use arkret_wire::{
     Audience, DidUrl, EventKind, Hash, Proof, ProofBindingRequirements, ScopeRef, StrandId,
@@ -33,7 +33,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     let mut operation = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
         test_scope(),
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         message_payload(),
@@ -74,7 +74,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     let operation = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
         test_scope(),
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         message_payload(),

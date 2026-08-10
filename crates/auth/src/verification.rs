@@ -1,3 +1,5 @@
+use arkret_wire::DidCoreId;
+
 use super::*;
 use crate::{DidUrl, NonEmptyString};
 
@@ -20,7 +22,7 @@ pub struct AuthRateLimitContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subject: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_id: Option<Did>,
+    pub user_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -42,7 +44,7 @@ pub enum PasswordHashAlgorithm {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PasswordVerificationRequestBody {
     pub username: String,
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub password: String,
     pub password_hash: String,
     pub algorithm: PasswordHashAlgorithm,
@@ -106,7 +108,7 @@ pub struct OidcVerificationRequestBody {
 /// Verified OIDC identity returned by an application verifier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OidcVerifiedIdentity {
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub issuer: String,
     pub subject: String,
     pub email: Option<String>,
@@ -142,7 +144,7 @@ pub struct WebAuthnPasskeyOutcome {
 /// WebAuthn/passkey ceremony verification request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PasskeyVerificationRequestBody {
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub challenge: PasskeyChallenge,
     pub response: WebAuthnPasskeyOutcome,
     pub origin: String,
@@ -155,7 +157,7 @@ pub struct PasskeyVerificationRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PasskeyVerification {
     pub verified: bool,
-    pub user_id: Did,
+    pub user_id: DidCoreId,
     pub credential_id: String,
 }
 
@@ -182,7 +184,7 @@ where
 /// DID proof verification request against a DID document verification method.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidProofVerificationRequestBody {
-    pub subject: Did,
+    pub subject: DidCoreId,
     pub did_document: DidDocument,
     pub verification_method: DidUrl,
     pub public_key: NonEmptyString,
@@ -193,7 +195,7 @@ pub struct DidProofVerificationRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidProofVerification {
     pub verified: bool,
-    pub subject: Did,
+    pub subject: DidCoreId,
     pub verification_method: DidUrl,
 }
 

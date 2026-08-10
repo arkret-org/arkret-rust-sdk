@@ -21,7 +21,7 @@ use crate::generated::ProofContextId;
 pub use crate::generated::{AuthoritySetPolicyKind, AuthoritySetSourceKind};
 use crate::primitives::{Audience, PayloadProof};
 use crate::{
-    AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, RealmId, ReceiptId, SchemaId, SealId,
+    AuthorizationLeaseId, DeviceId, DidCoreId, DidUrl, Hash, RealmId, ReceiptId, SchemaId, SealId,
     canonical,
 };
 
@@ -273,7 +273,7 @@ pub enum LeaseBasisRef {
 pub struct AuthorizationLease {
     pub authorization_lease_id: AuthorizationLeaseId,
     pub basis_ref: LeaseBasisRef,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub scope_ref: ScopeRef,
     pub action: String,
@@ -303,7 +303,7 @@ pub struct IngressReceipt {
     pub authorization_lease_id: AuthorizationLeaseId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub authority_set_ref: AuthoritySetRef,
     pub proofs: Vec<PayloadProof>,
 }
@@ -586,8 +586,8 @@ mod tests {
     use super::*;
     use crate::primitives::proof_kind;
 
-    fn actor() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn actor() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
     fn scope() -> ScopeRef {
@@ -675,7 +675,7 @@ mod tests {
             event_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
             authorization_lease_id: lease.authorization_lease_id.clone(),
             received_at,
-            service_id: Did::new("did:webvh:z6mkfixture:ingress.example").unwrap(),
+            service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             authority_set_ref: lease.authority_set_ref.clone(),
             proofs: Vec::new(),
         };

@@ -139,12 +139,12 @@ fn framework_independent_handler_shape_can_be_mocked() {
             match request {
                 ServerRequestBody::ServerDescribe => {
                     Ok(ServerOutcome::ServerDescribe(Box::new(ServiceDescribe {
-                        service_id: arkret_wire::ServiceId::new(
+                        service_id: arkret_wire::DidCoreId::new(
                             "ak:did_core:webvh:z6mkfixture",
                         )
                         .unwrap(),
                         service_resolution: arkret_models_identity::ResolutionCommitment {
-                            full_id: arkret_wire::FullId::new(
+                            full_id: arkret_wire::DidFullId::new(
                                 "did:webvh:z6mkfixture:svc.example",
                             )
                             .unwrap(),

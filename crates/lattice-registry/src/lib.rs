@@ -185,7 +185,7 @@ mod tests {
 
         let payload = json!({
             "recipient_service_id": "did:webvh:z6mkfixture:service.example",
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "push_route": "fcm"
         });
@@ -199,7 +199,7 @@ mod tests {
                 .unwrap(),
             composite_subject(&[
                 "did:webvh:z6mkfixture:service.example",
-                "did:webvh:z6mkfixture:alice.example",
+                "ak:did_core:webvh:z6mkfixture",
                 "ak:device:01904100-0000-7000-8000-000000000001",
                 "fcm",
             ])
@@ -768,7 +768,7 @@ mod tests {
         assert_eq!(mute.lattice(), SdkLatticeKind::CasRegister);
         let expected_mute_subject = composite_subject(&[
             call_id,
-            "did:webvh:z6mkfixture:bob.example",
+            "ak:did_core:webvh:z6mkfixture",
             "ak:device:01904100-0000-7000-8000-000000000044",
         ])
         .unwrap();
@@ -776,7 +776,7 @@ mod tests {
             mute.subject_for_effect(&json!({
                 "call_id": call_id,
                 "mute_override": {
-                    "actor_id": "did:webvh:z6mkfixture:bob.example",
+                    "actor_id": "ak:did_core:webvh:z6mkfixture",
                     "device_id": "ak:device:01904100-0000-7000-8000-000000000044"
                 }
             }))

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use arkret_wire::{
-    DeviceId, Did, DidUrl, Error, EventId, RecoveryModelGenerationRef, Result, SessionGrantId,
+    DeviceId, DidCoreId, DidUrl, Error, EventId, RecoveryModelGenerationRef, Result, SessionGrantId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -37,7 +37,7 @@ pub enum SessionGrantHolderBinding {
         device_binding: String,
     },
     AgentRuntime {
-        agent_id: Did,
+        agent_id: DidCoreId,
         device_id: DeviceId,
         agent_key_authorization_ref: EventId,
         verification_method: DidUrl,
@@ -335,11 +335,11 @@ pub struct SessionGrantCnf {
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantIssuancePreimage {
     pub schema: String,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub issuance_nonce: SessionGrantIssuanceNonce,
-    pub subject: Did,
+    pub subject: DidCoreId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience: Did,
+    pub audience: DidCoreId,
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
@@ -410,11 +410,11 @@ pub struct SignedSessionGrantClaims {
     pub kind: String,
     #[serde(rename = "jti")]
     pub grant_id: SessionGrantId,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub issuance_nonce: SessionGrantIssuanceNonce,
-    pub subject: Did,
+    pub subject: DidCoreId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience: Did,
+    pub audience: DidCoreId,
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
@@ -497,7 +497,7 @@ impl SignedSessionGrantClaims {
 #[allow(clippy::too_many_arguments)]
 fn validate_issuance_fields(
     schema: &str,
-    audience: &Did,
+    audience: &DidCoreId,
     scopes: &[String],
     not_before: DateTime<Utc>,
     expires_at: DateTime<Utc>,
@@ -603,14 +603,14 @@ mod tests {
         let mut claims = SignedSessionGrantClaims {
             kind: SESSION_GRANT_CREDENTIAL_KIND.to_owned(),
             grant_id: SessionGrantId::from_issuance_digest([0; 32]),
-            issuer: Did::new("did:web:issuer.example").unwrap(),
+            issuer: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
             issuance_nonce: SessionGrantIssuanceNonce::from_bytes([0x11; 32]),
-            subject: Did::new("did:web:alice.example").unwrap(),
+            subject: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             session_public_key: CanonicalSessionPublicJwk::new(
                 r#"{ "x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "kty":"OKP", "crv":"Ed25519" }"#,
             )
             .unwrap(),
-            audience: Did::new("did:web:service.example").unwrap(),
+            audience: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scopes: vec!["ak.self.events.command.submit".to_owned()],
             not_before: "2026-07-18T00:00:00.000Z".parse().unwrap(),
             expires_at: "2026-07-18T00:15:00.000Z".parse().unwrap(),
@@ -663,7 +663,7 @@ mod tests {
     #[test]
     fn rejects_tampered_claim_and_explicit_null_optional() {
         let mut tampered = claims();
-        tampered.audience = Did::new("did:web:other.example").unwrap();
+        tampered.audience = DidCoreId::new("ak:did_core:web:other.example").unwrap();
         assert!(tampered.validate().is_err());
 
         let mut value = serde_json::to_value(claims()).unwrap();
@@ -737,7 +737,7 @@ mod tests {
                 }
                 "audience" => {
                     value["audience"] =
-                        Value::String("did:webvh:z6mkfixture:other-service.example".to_owned());
+                        Value::String("ak:did_core:webvh:z6mkfixtureotherservice".to_owned());
                 }
                 "holder_binding.device_binding" => {
                     value["holder_binding"]["device_binding"] =
@@ -764,12 +764,11 @@ mod tests {
             let tampered: SignedSessionGrantClaims = serde_json::from_value(value).unwrap();
             assert!(tampered.validate().is_err(), "{name} must fail validation");
         }
-        for required in ["holder_binding_changed_without_jti_change"] {
-            assert!(
-                covered.contains(required),
-                "missing fixture coverage for {required}"
-            );
-        }
+        let required = "holder_binding_changed_without_jti_change";
+        assert!(
+            covered.contains(required),
+            "missing fixture coverage for {required}"
+        );
     }
 
     #[test]
@@ -803,11 +802,10 @@ mod tests {
                 "{name} must fail decoding"
             );
         }
-        for required in ["standard_missing_holder_binding"] {
-            assert!(
-                covered.contains(required),
-                "missing fixture coverage for {required}"
-            );
-        }
+        let required = "standard_missing_holder_binding";
+        assert!(
+            covered.contains(required),
+            "missing fixture coverage for {required}"
+        );
     }
 }

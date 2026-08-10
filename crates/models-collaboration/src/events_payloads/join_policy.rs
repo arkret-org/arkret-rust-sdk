@@ -2,6 +2,8 @@
 
 use std::num::NonZeroU64;
 
+use arkret_wire::DidCoreId;
+
 use crate::internal_prelude::*;
 
 /// Canonical DID method selector (`did:<lowercase-method>`), distinct from a
@@ -96,9 +98,9 @@ pub struct JoinPolicyPayloadGatesItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_did_methods: Option<Vec<DidMethod>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_principal_dids: Option<Vec<Did>>,
+    pub allowed_principal_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub denied_principal_dids: Option<Vec<Did>>,
+    pub denied_principal_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub questions: Option<Vec<JoinPolicyQuestion>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -161,7 +163,7 @@ pub enum JoinReviewerQuorumPreset {
 #[serde(deny_unknown_fields)]
 pub struct JoinReviewerQuorumMembers {
     pub threshold: NonZeroU64,
-    pub reviewers: Vec<Did>,
+    pub reviewers: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

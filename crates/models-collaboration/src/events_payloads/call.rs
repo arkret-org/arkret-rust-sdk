@@ -1,6 +1,6 @@
 //! Call-state and call-participant payloads.
 
-use arkret_wire::{ExporterLabelId, SchemaId};
+use arkret_wire::{DidCoreId, ExporterLabelId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +14,7 @@ pub struct ParticipantBinding {
     pub realm_id: RealmId,
     pub call_id: String,
     pub focus_id: String,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: String,
     pub participant_identity: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -44,7 +44,7 @@ pub struct CallParticipantMedia {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallParticipant {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -67,11 +67,11 @@ pub enum CallParticipantRemovalAction {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallParticipantRemoval {
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
     pub action: CallParticipantRemovalAction,
-    pub removed_by: Did,
+    pub removed_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub removed_at: DateTime<Utc>,
 }
@@ -87,7 +87,7 @@ pub enum CallRosterDelta {
     },
     Leave {
         observed_tag: EventId,
-        actor_id: Did,
+        actor_id: DidCoreId,
         device_id: String,
     },
 }
@@ -100,8 +100,8 @@ pub enum CallModerationDelta {
     },
     RestoreParticipant {
         observed_tag: EventId,
-        actor_id: Did,
-        restored_by: Did,
+        actor_id: DidCoreId,
+        restored_by: DidCoreId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
     },
@@ -118,13 +118,13 @@ pub enum CallMuteOverrideStatus {
 #[serde(deny_unknown_fields)]
 pub struct CallMuteOverride {
     pub status: CallMuteOverrideStatus,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio_muted: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video_muted: Option<bool>,
-    pub changed_by: Did,
+    pub changed_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -266,7 +266,7 @@ impl<'de> Deserialize<'de> for VisibleCaptureNotice {
 pub struct RecordingStartPayload {
     pub call_id: CallId,
     pub recording_id: CallRecordingId,
-    pub recording_agent: Did,
+    pub recording_agent: DidCoreId,
     pub capture_kind: RecordingCaptureKind,
     pub mode: RecordingMode,
     pub visible_notice: VisibleCaptureNotice,
@@ -353,7 +353,7 @@ pub struct CallRecordingEncryptionContext {
     pub call_id: CallId,
     pub focus_id: String,
     pub recording_id: CallRecordingId,
-    pub media_service_id: Did,
+    pub media_service_id: DidCoreId,
     pub recording_start_event_id: EventId,
 }
 
@@ -386,7 +386,7 @@ pub struct CallRecordingDeletionAudit {
     pub trigger: CallRecordingDeletionTrigger,
     pub outcome: CallRecordingDeletionOutcome,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requested_by: Option<Did>,
+    pub requested_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger_event_id: Option<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -422,7 +422,7 @@ pub struct CallRecordingArtifact {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<PolicyId>,
     pub retention: CallRecordingRetention,
-    pub produced_by: Did,
+    pub produced_by: DidCoreId,
     pub recording_initiator_capability_ref: GrantId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -474,7 +474,7 @@ impl CallRecordingArtifact {
                 "recording artifact encryption.context.focus_id is required",
             );
         }
-        if self.encryption.context.media_service_id != self.produced_by {
+        if self.encryption.context.media_service_id.as_core_id() != self.produced_by.as_core_id() {
             return schema_violation(
                 "recording artifact produced_by must match encryption.context.media_service_id",
             );
@@ -1059,7 +1059,7 @@ mod tests {
         let value = json!({
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "recording_id": "capture-1",
-            "recording_agent": "did:webvh:z6mkfixture:recorder.example",
+            "recording_agent": "ak:did_core:webvh:z6mkfixture",
             "capture_kind": "recording",
             "mode": "audio_video",
             "visible_notice": true,
@@ -1086,7 +1086,7 @@ mod tests {
         let cyclic_identity = json!({
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "recording_id": "capture-1",
-            "recording_agent": "did:webvh:z6mkfixture:recorder.example",
+            "recording_agent": "ak:did_core:webvh:z6mkfixture",
             "capture_kind": "recording",
             "mode": "audio_video",
             "visible_notice": true,
@@ -1157,9 +1157,9 @@ mod tests {
             "moderation_delta": {
                 "op": "remove_participant",
                 "removal": {
-                    "actor_id": "did:webvh:z6mkfixture:bob.example",
+                    "actor_id": "ak:did_core:webvh:z6mkfixture",
                     "action": "ban",
-                    "removed_by": "did:webvh:z6mkfixture:mod.example",
+                    "removed_by": "ak:did_core:webvh:z6mkfixture",
                     "removed_at": "2026-06-22T00:00:00.000Z"
                 }
             }
@@ -1169,7 +1169,7 @@ mod tests {
         let encoded = serde_json::to_value(payload).unwrap();
         assert_eq!(
             encoded["moderation_delta"]["removal"]["actor_id"],
-            "did:webvh:z6mkfixture:bob.example"
+            "ak:did_core:webvh:z6mkfixture"
         );
     }
 
@@ -1179,11 +1179,11 @@ mod tests {
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "mute_override": {
                 "status": "active",
-                "actor_id": "did:webvh:z6mkfixture:bob.example",
+                "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
                 "audio_muted": true,
                 "video_muted": false,
-                "changed_by": "did:webvh:z6mkfixture:mod.example",
+                "changed_by": "ak:did_core:webvh:z6mkfixture",
                 "changed_at": "2026-06-22T00:00:00.000Z",
                 "reason": "moderation"
             }
@@ -1195,11 +1195,11 @@ mod tests {
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "mute_override": {
                 "status": "cleared",
-                "actor_id": "did:webvh:z6mkfixture:bob.example",
+                "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
                 "audio_muted": true,
                 "video_muted": false,
-                "changed_by": "did:webvh:z6mkfixture:mod.example",
+                "changed_by": "ak:did_core:webvh:z6mkfixture",
                 "changed_at": "2026-06-22T00:00:00.000Z"
             }
         }))

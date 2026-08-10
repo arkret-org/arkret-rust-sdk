@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
-use arkret_wire::{Base64UrlString, DeviceId, Did, DidKey, EventId, NonEmptyString, ReasonCode};
+use arkret_wire::{DeviceId, DidCoreId, DidKey, EventId, NonEmptyString, ReasonCode};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_keys::{
@@ -191,12 +191,12 @@ impl QueryDeviceRecord {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryOutcome {
-    pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, QueryDeviceRecord>>,
+    pub device_keys: BTreeMap<DidCoreId, BTreeMap<DeviceId, QueryDeviceRecord>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<KeysOperationFailure>,
     /// Reducer-managed B-model device generation fence by principal.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub device_generations: BTreeMap<Did, DeviceGenerationState>,
+    pub device_generations: BTreeMap<DidCoreId, DeviceGenerationState>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -212,7 +212,7 @@ pub struct KeysClaimRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct KeysOperationFailure {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<Did>,
+    pub principal_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -234,6 +234,7 @@ pub struct KeysClaimOutcome {
 
 #[cfg(test)]
 mod device_generation_tests {
+    use arkret_wire::Base64UrlString;
     use serde_json::json;
 
     use super::*;

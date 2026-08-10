@@ -1,3 +1,5 @@
+use arkret_wire::DidCoreId;
+
 use super::*;
 
 /// Authorization context for evaluation.
@@ -7,7 +9,7 @@ pub struct AuthzContext {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub now: DateTime<Utc>,
     /// Actor making the request
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     /// Realm context.
     pub realm_id: Option<RealmId>,
     /// Operation being performed
@@ -123,7 +125,7 @@ pub struct AuthzCacheFrontier {
 
 impl AuthzContext {
     /// Create a new authorization context.
-    pub fn new(actor_id: Did, action: String, resource: Resource) -> Self {
+    pub fn new(actor_id: DidCoreId, action: String, resource: Resource) -> Self {
         Self {
             now: Utc::now(),
             actor_id,
@@ -286,7 +288,7 @@ impl PolicyEvaluationResult {
 pub struct PolicyModerationReport {
     pub report_id: String,
     pub policy_id: Option<String>,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub resource: Resource,
     pub effect: PolicyServerEffect,
     pub reason: String,
@@ -849,7 +851,7 @@ impl AuthzEngine {
                             .is_none_or(|claim_id| !ctx.revoked_claim_ids.contains(claim_id));
                         let freshness_basis = claim.refreshed_at.or(claim.issued_at);
                         claim.claim_kind == requirement.claim_kind
-                            && claim.subject == ctx.actor_id
+                            && claim.subject.as_str() == ctx.actor_id.as_str()
                             && trusted_issuers.contains(&claim.issuer)
                             && requirement
                                 .issuer
@@ -1508,12 +1510,12 @@ mod engine_wire_tests {
 
     use super::*;
 
-    fn alice() -> Did {
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn alice() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap()
     }
 
-    fn bob() -> Did {
-        Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
+    fn bob() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture:bob.example").unwrap()
     }
 
     fn constraint(
@@ -1741,7 +1743,7 @@ mod engine_wire_tests {
             "constraint_subkind": "approval",
             "effect": "require_review",
             "approval_required": true,
-            "approval_actor_ids": ["did:webvh:z6mkfixture:carol.example"],
+            "approval_actor_ids": ["ak:did_core:webvh:z6mkfixture:carol.example"],
         }))]);
         assert!(grant_requires_approval(&grant));
 
@@ -1756,14 +1758,14 @@ mod engine_wire_tests {
         let proposal = approvals.submit_proposal(
             grant.clone(),
             alice(),
-            vec![Did::new("did:webvh:z6mkfixture:carol.example").unwrap()],
+            vec![DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap()],
             ApprovalMode::Any,
             None,
         );
         approvals
             .record_approval(
                 &proposal.proposal_id,
-                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap(),
                 true,
                 None,
             )

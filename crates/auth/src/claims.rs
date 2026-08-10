@@ -1,3 +1,5 @@
+use arkret_wire::{DidCoreId, DidFullId};
+
 use super::helpers::{default_true, disclose_claim, validate_presented_claim};
 use super::*;
 
@@ -34,8 +36,8 @@ impl AuthClaimKind {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PresentedClaim {
     pub claim_id: String,
-    pub subject: Did,
-    pub issuer: Did,
+    pub subject: DidCoreId,
+    pub issuer: DidCoreId,
     claim_kind: AuthClaimKind,
     value: BTreeMap<String, Value>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -63,8 +65,8 @@ impl PresentedClaim {
 
     fn new(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
         claim_kind: AuthClaimKind,
         value: BTreeMap<String, Value>,
     ) -> Self {
@@ -96,8 +98,8 @@ impl PresentedClaim {
 
     pub fn verified_handle(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
         handle: impl Into<String>,
     ) -> Self {
         Self::new(
@@ -111,8 +113,8 @@ impl PresentedClaim {
 
     pub fn email_domain(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
         domain: impl Into<String>,
     ) -> Self {
         Self::new(
@@ -126,9 +128,9 @@ impl PresentedClaim {
 
     pub fn organization_membership(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
-        organization: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
+        organization: DidCoreId,
         roles: Vec<String>,
     ) -> Self {
         Self::new(
@@ -142,8 +144,8 @@ impl PresentedClaim {
 
     pub fn device_trust(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
         device_id: DeviceId,
         trust_state: impl Into<String>,
     ) -> Self {
@@ -160,10 +162,10 @@ impl PresentedClaim {
 
     pub fn guardian_controller(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
-        guardian: Did,
-        controller: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
+        guardian: DidCoreId,
+        controller: DidFullId,
     ) -> Self {
         Self::new(
             claim_id,
@@ -176,8 +178,8 @@ impl PresentedClaim {
 
     pub fn mfa_level(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
         level: impl Into<String>,
     ) -> Self {
         Self::new(
@@ -191,8 +193,8 @@ impl PresentedClaim {
 
     pub fn risk_level(
         claim_id: impl Into<String>,
-        subject: Did,
-        issuer: Did,
+        subject: DidCoreId,
+        issuer: DidCoreId,
         level: impl Into<String>,
     ) -> Self {
         Self::new(
@@ -250,7 +252,7 @@ impl From<PresentedClaim> for arkret_models_identity::DirectoryPresentedClaim {
 pub struct ClaimDisclosureRequirement {
     pub claim_kind: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_issuers: Vec<Did>,
+    pub trusted_issuers: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reveal_fields: Vec<String>,
     #[serde(default = "default_true")]
@@ -276,7 +278,7 @@ pub struct ClaimDisclosurePolicy {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PresentationRequestBody {
     pub request_id: String,
-    pub subject: Did,
+    pub subject: DidCoreId,
     pub audience: String,
     pub nonce: String,
     pub policy: ClaimDisclosurePolicy,
@@ -286,13 +288,13 @@ pub struct PresentationRequestBody {
     /// (`progressive-disclosure.md` §4). Wallets MUST authenticate this
     /// DID and refuse to disclose anything to an unverified verifier.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verifier_did: Option<Did>,
+    pub verifier_service_id: Option<DidCoreId>,
     /// Organization the verifier claims to represent. When set, the
-    /// wallet MUST trace `verifier_did → represented_org` through the
+    /// wallet MUST trace `verifier_service_id → represented_org` through the
     /// verifier authority chain before disclosure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub represented_org: Option<Did>,
-    /// Authority links proving `verifier_did` is acting on behalf of
+    pub represented_org: Option<DidCoreId>,
+    /// Authority links proving `verifier_service_id` is acting on behalf of
     /// `represented_org`. Empty means "verifier acts for itself"; a
     /// non-empty list MUST chain back to `represented_org`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -303,9 +305,9 @@ pub struct PresentationRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifierAuthorityLink {
     /// Subject of this link — the DID that delegated to the next.
-    pub from: Did,
+    pub from: DidCoreId,
     /// Recipient of the delegation.
-    pub to: Did,
+    pub to: DidCoreId,
     /// Capability or role token transferred (`org_member`, `verifier`,
     /// etc.).
     pub capability: String,
@@ -322,18 +324,18 @@ impl PresentationRequestBody {
     ///
     /// Returns `Ok(())` when:
     ///
-    /// 1. If `verifier_did` is `None`, the request is rejected.
+    /// 1. If `verifier_service_id` is `None`, the request is rejected.
     /// 2. If `represented_org` is `None`, the chain MUST be empty (verifier acts for itself).
-    /// 3. Otherwise the chain MUST start at `verifier_did`, end at `represented_org`, and every
-    ///    link MUST be unexpired at `now`.
+    /// 3. Otherwise the chain MUST start at `verifier_service_id`, end at `represented_org`, and
+    ///    every link MUST be unexpired at `now`.
     ///
     /// This validator does NOT verify the cryptographic proofs — it
     /// only enforces the chain shape. Callers SHOULD additionally
     /// verify each link's `proof` against the issuer's DID document.
     pub fn validate_verifier_authority(&self, now: DateTime<Utc>) -> Result<()> {
-        let Some(verifier) = &self.verifier_did else {
+        let Some(verifier) = &self.verifier_service_id else {
             return Err(Error::Protocol(
-                "presentation request missing verifier_did".to_owned(),
+                "presentation request missing verifier_service_id".to_owned(),
             ));
         };
         let Some(org) = &self.represented_org else {
@@ -346,20 +348,20 @@ impl PresentationRequestBody {
         };
         if self.verifier_authority_chain.is_empty() {
             // Verifier IS the org — accept.
-            if verifier == org {
+            if verifier.as_str() == org.as_str() {
                 return Ok(());
             }
             return Err(Error::Protocol(
-                "represented_org differs from verifier_did but no authority chain provided"
+                "represented_org differs from verifier_service_id but no authority chain provided"
                     .to_owned(),
             ));
         }
         // Walk the chain: every link MUST be unexpired and `to`
         // MUST connect to the next link's `from`.
         let chain = &self.verifier_authority_chain;
-        if &chain[0].from != verifier {
+        if chain[0].from.as_str() != verifier.as_str() {
             return Err(Error::Protocol(
-                "verifier_authority_chain does not start at verifier_did".to_owned(),
+                "verifier_authority_chain does not start at verifier_service_id".to_owned(),
             ));
         }
         for window in chain.windows(2) {
@@ -398,8 +400,8 @@ pub enum DisclosureProofFormat {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DisclosureProofAdapterBoundary {
     pub format: DisclosureProofFormat,
-    pub holder: Did,
-    pub issuer: Did,
+    pub holder: DidCoreId,
+    pub issuer: DidCoreId,
     pub audience: String,
     pub nonce: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -473,10 +475,10 @@ pub fn validate_presentation(
 
     // Verifier authority MUST be authenticated before any claim
     // processing per `progressive-disclosure.md` §4. A verifier with
-    // no `verifier_did` is treated as anonymous; only requests that
+    // no `verifier_service_id` is treated as anonymous; only requests that
     // explicitly opt in to anonymous disclosure (via empty policy
     // requirements) reach the loop below.
-    if let Some(verifier) = &request.verifier_did
+    if let Some(verifier) = &request.verifier_service_id
         && let Err(reason) = request.validate_verifier_authority(now)
     {
         rejected_claims.push(RejectedClaim {

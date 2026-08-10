@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_crypto::{
     EncryptedEnvelope, MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
 };
-use arkret_wire::{Error, Result, StrandId};
+use arkret_wire::{DidCoreId, Error, Result, StrandId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -872,7 +872,7 @@ impl DisappearingMessageExpiry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageAgentContext {
-    pub agent_id: Did,
+    pub agent_id: DidCoreId,
     pub operator_or_controller: String,
     pub execution_purpose: String,
     pub authorization_ref: String,

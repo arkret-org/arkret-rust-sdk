@@ -11,7 +11,8 @@ use arkret_models_crypto::{
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
-    DeviceId, Did, EncryptedPayloadScheme, Hash, MLS_CIPHERSUITES, ReasonCode, canonical,
+    DeviceId, DidCoreId, DidFullId, EncryptedPayloadScheme, Hash, MLS_CIPHERSUITES, ReasonCode,
+    canonical,
 };
 use chrono::Utc;
 use hkdf::Hkdf;
@@ -251,7 +252,7 @@ pub struct MlsRemoveMemberResult {
     /// contain duplicates if the principal had multiple leaves / devices in
     /// the same group). Useful for downstream `ak.device.revoke` event
     /// envelopes that index by principal.
-    pub removed_principals: Vec<Did>,
+    pub removed_principals: Vec<DidCoreId>,
 }
 
 // NOTE: `MlsRemoveMemberResult` / `MlsAddMemberResult` / `MlsAddMembersResult`
@@ -266,7 +267,7 @@ struct OpenMlsStateSnapshot {
     context: String,
     group_id: String,
     epoch: u64,
-    principal_id: Did,
+    principal_id: DidCoreId,
     device_id: DeviceId,
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
@@ -517,7 +518,11 @@ impl ArkretMlsGroup {
     }
 
     /// Derive the epoch-scoped mention-routing tag for one mentioned DID.
-    pub fn mention_routing_hmac(&self, realm_id: &str, mentioned_did: &Did) -> Result<[u8; 32]> {
+    pub fn mention_routing_hmac(
+        &self,
+        realm_id: &str,
+        mentioned_did: &DidFullId,
+    ) -> Result<[u8; 32]> {
         let routing_key = self.export_secret(
             crate::MENTION_ROUTING_EXPORTER_LABEL,
             realm_id.as_bytes(),
@@ -679,15 +684,15 @@ impl ArkretMlsGroup {
     /// Snapshot the current MLS group's member principals as canonical IDs.
     /// Iterates the OpenMLS `members()` view, parses each leaf's credential
     /// content as a UTF-8 DID string, and folds the results into a stable
-    /// (deduplicated, BTreeSet-sorted) `Vec<Did>`. Useful for `ak.audit.
+    /// (deduplicated, BTreeSet-sorted) `Vec<DidCoreId>`. Useful for `ak.audit.
     /// ryw_receipt.delivered_to_devices` and for downstream auditors that
     /// want to know "which principals does this commit reach".
     ///
-    /// Credentials that don't parse as a [`Did`] (e.g. opaque BasicCredential
+    /// Credentials that don't parse as a [`DidCoreId`] (e.g. opaque BasicCredential
     /// payloads) are silently skipped — the caller can
     /// detect this case by comparing `member_principal_ids().len()` against
     /// the group's true member count if it cares.
-    pub fn member_principal_ids(&self) -> Vec<Did> {
+    pub fn member_principal_ids(&self) -> Vec<DidCoreId> {
         let mut seen = std::collections::BTreeSet::new();
         for member in self.group.members() {
             if let Ok((did, _)) = decode_leaf_credential(member.credential.serialized_content()) {
@@ -713,7 +718,7 @@ impl ArkretMlsGroup {
                     if identity.starts_with(b"ak:did_core:key:") {
                         crate::AuthorLeafCredential::Basic {
                             // Minimal-metadata pairwise credentials carry the
-                            // Core ActorId itself. Preserve it byte-for-byte.
+                            // Core DidCoreId itself. Preserve it byte-for-byte.
                             identity: identity.to_vec(),
                         }
                     } else {
@@ -1064,7 +1069,10 @@ impl ArkretMlsGroup {
     /// index resolved from out-of-band device → leaf bookkeeping.
     ///
     /// Errors when the target principal has no leaf in this group.
-    pub fn remove_member_by_principal(&mut self, target: &Did) -> Result<MlsRemoveMemberResult> {
+    pub fn remove_member_by_principal(
+        &mut self,
+        target: &DidCoreId,
+    ) -> Result<MlsRemoveMemberResult> {
         self.remove_members_by_principal_with_optional_governance_binding(
             std::slice::from_ref(target),
             None,
@@ -1073,7 +1081,7 @@ impl ArkretMlsGroup {
 
     pub fn remove_member_by_principal_with_governance_binding(
         &mut self,
-        target: &Did,
+        target: &DidCoreId,
         governance_binding: &MlsGovernanceBindingPayload,
     ) -> Result<MlsRemoveMemberResult> {
         self.remove_members_by_principal_with_optional_governance_binding(
@@ -1092,14 +1100,14 @@ impl ArkretMlsGroup {
     /// removals.
     pub fn remove_members_by_principal(
         &mut self,
-        targets: &[Did],
+        targets: &[DidCoreId],
     ) -> Result<MlsRemoveMemberResult> {
         self.remove_members_by_principal_with_optional_governance_binding(targets, None)
     }
 
     pub fn remove_members_by_principal_with_governance_binding(
         &mut self,
-        targets: &[Did],
+        targets: &[DidCoreId],
         governance_binding: &MlsGovernanceBindingPayload,
     ) -> Result<MlsRemoveMemberResult> {
         self.remove_members_by_principal_with_optional_governance_binding(
@@ -1110,7 +1118,7 @@ impl ArkretMlsGroup {
 
     fn remove_members_by_principal_with_optional_governance_binding(
         &mut self,
-        targets: &[Did],
+        targets: &[DidCoreId],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
         if targets.is_empty() {
@@ -1119,7 +1127,7 @@ impl ArkretMlsGroup {
             ));
         }
 
-        let mut canonical_targets: Vec<&str> = targets.iter().map(Did::as_str).collect();
+        let mut canonical_targets: Vec<&str> = targets.iter().map(DidCoreId::as_str).collect();
         canonical_targets.sort_unstable();
         canonical_targets.dedup();
         let leaves: Vec<LeafNodeIndex> = self
@@ -1185,7 +1193,7 @@ impl ArkretMlsGroup {
         // Capture the decoded principal before commit so we can report
         // which principal each removed leaf belonged to even after the leaf
         // is gone from the post-commit group state.
-        let pre_commit: Vec<(LeafNodeIndex, Did)> = self
+        let pre_commit: Vec<(LeafNodeIndex, DidCoreId)> = self
             .group
             .members()
             .filter(|member| leaves.contains(&member.index))
@@ -1255,7 +1263,7 @@ impl ArkretMlsGroup {
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
 
         let mut removed_leaves: Vec<u32> = Vec::with_capacity(pre_commit.len());
-        let mut removed_principals: Vec<Did> = Vec::with_capacity(pre_commit.len());
+        let mut removed_principals: Vec<DidCoreId> = Vec::with_capacity(pre_commit.len());
         for (idx, principal) in pre_commit {
             removed_leaves.push(idx.u32());
             removed_principals.push(principal);
@@ -1741,7 +1749,7 @@ mod content_scheme_anchor_tests {
 
     fn founder() -> ArkretMlsGroup {
         ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new(DEVICE.to_owned()).unwrap(),
         )
         .unwrap()

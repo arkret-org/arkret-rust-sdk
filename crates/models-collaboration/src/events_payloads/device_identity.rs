@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
+use arkret_wire::DidCoreId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +20,7 @@ pub enum DeviceAuthorizationBindingKind {
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceAuthorizePayload {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub device_public_key: NonEmptyString,
     /// Device HPKE public key used for secret/key envelope sealing. Services
@@ -47,7 +48,7 @@ pub struct DeviceAuthorizePayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceAuthorizePayloadWire {
-    principal_id: Did,
+    principal_id: DidCoreId,
     device_id: DeviceId,
     device_public_key: NonEmptyString,
     hpke_key: NonEmptyString,
@@ -123,7 +124,7 @@ impl DeviceAuthorizePayload {
 /// The type is deliberately not serializable.
 #[derive(Clone, Debug)]
 pub struct UnsignedDeviceAuthorizePayload {
-    principal_id: Did,
+    principal_id: DidCoreId,
     device_id: DeviceId,
     device_public_key: NonEmptyString,
     hpke_key: NonEmptyString,
@@ -140,7 +141,7 @@ pub struct UnsignedDeviceAuthorizePayload {
 impl UnsignedDeviceAuthorizePayload {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        principal_id: Did,
+        principal_id: DidCoreId,
         device_id: DeviceId,
         device_public_key: NonEmptyString,
         hpke_key: NonEmptyString,
@@ -184,7 +185,7 @@ impl UnsignedDeviceAuthorizePayload {
             authorized_by: payload.authorized_by.clone(),
             scopes: payload.scopes.clone(),
             not_before: payload.not_before,
-            expires_at: payload.expires_at.clone(),
+            expires_at: payload.expires_at,
             authorization_binding_kind: payload.authorization_binding_kind,
             recovery_session_id: payload.recovery_session_id.clone(),
         }
@@ -207,8 +208,10 @@ impl UnsignedDeviceAuthorizePayload {
     pub fn validate_wire_constraints(&self) -> std::result::Result<(), &'static str> {
         self.validate_canonical_algorithms()?;
         match (&self.authorization_binding_kind, &self.authorized_by) {
-            (DeviceAuthorizationBindingKind::RootAnchored, DeviceOrPrincipalRef::Did(did))
-                if did == &self.principal_id => {}
+            (
+                DeviceAuthorizationBindingKind::RootAnchored,
+                DeviceOrPrincipalRef::Principal(principal_id),
+            ) if principal_id == &self.principal_id => {}
             (DeviceAuthorizationBindingKind::AcceptedDevice, DeviceOrPrincipalRef::DeviceId(_)) => {
             }
             _ => return Err("device_authorize_authorization_binding_mismatch"),
@@ -234,7 +237,7 @@ impl UnsignedDeviceAuthorizePayload {
         }
         let authorized_by = match &self.authorized_by {
             DeviceOrPrincipalRef::DeviceId(device_id) => device_id.as_str(),
-            DeviceOrPrincipalRef::Did(did) => did.as_str(),
+            DeviceOrPrincipalRef::Principal(principal_id) => principal_id.as_str(),
         };
         let mut scopes = self.scopes.clone();
         if let Some(scopes) = &mut scopes {
@@ -334,7 +337,7 @@ pub fn validate_root_anchored_authorize_payload_digest(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorPayload {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub did_version_id: NonEmptyString,
     pub previous_device_generation: NonEmptyString,
     pub new_device_generation: NonEmptyString,
@@ -345,7 +348,7 @@ pub struct DeviceReanchorPayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceReanchorPayloadWire {
-    principal_id: Did,
+    principal_id: DidCoreId,
     did_version_id: NonEmptyString,
     previous_device_generation: NonEmptyString,
     new_device_generation: NonEmptyString,
@@ -482,7 +485,7 @@ use arkret_wire::SchemaId;
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceListUpdatePayload {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub changed: Option<Vec<DeviceId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -501,7 +504,7 @@ pub struct DeviceListUpdatePayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceListUpdatePayloadWire {
-    principal_id: Did,
+    principal_id: DidCoreId,
     #[serde(default)]
     changed: Option<Vec<DeviceId>>,
     #[serde(default)]
@@ -555,7 +558,7 @@ impl<'de> Deserialize<'de> for DeviceListUpdatePayload {
 #[serde(untagged)]
 pub enum DeviceOrPrincipalRef {
     DeviceId(DeviceId),
-    Did(Did),
+    Principal(DidCoreId),
 }
 
 /// Counterpart for
@@ -563,7 +566,7 @@ pub enum DeviceOrPrincipalRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevokePayload {
-    pub principal_id: Did,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub revoked_by: DeviceOrPrincipalRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -629,7 +632,7 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
 /// active MLS generation rather than the founding group.
 pub struct DirectConversationBoundPayload {
     pub pair_key: Hash,
-    pub participants_unordered: Vec<Did>,
+    pub participants_unordered: Vec<DidCoreId>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
@@ -643,21 +646,17 @@ pub struct DirectConversationBoundPayload {
 impl DirectConversationBoundPayload {
     pub fn validate_pair_key(&self, trust_domain: TypedTrustDomainId) -> Result<()> {
         self.authorization_basis.validate_shape()?;
-        let [left, right]: [Did; 2] =
-            self.participants_unordered
-                .clone()
-                .try_into()
-                .map_err(|_| {
-                    Error::Protocol("direct conversation requires two participants".to_owned())
-                })?;
+        let [left, right]: [DidCoreId; 2] = self
+            .participants_unordered
+            .clone()
+            .try_into()
+            .map_err(|_| {
+                Error::Protocol("direct conversation requires two participants".to_owned())
+            })?;
         let expected = direct_conversation_pair_key(
             trust_domain,
-            DirectConversationPairKeyParticipant::unmapped(arkret_wire::ActorId::from(
-                arkret_wire::project_full_id_to_core_id(&left)?,
-            )),
-            DirectConversationPairKeyParticipant::unmapped(arkret_wire::ActorId::from(
-                arkret_wire::project_full_id_to_core_id(&right)?,
-            )),
+            DirectConversationPairKeyParticipant::unmapped(left),
+            DirectConversationPairKeyParticipant::unmapped(right),
         )?;
         if self.pair_key != expected {
             return Err(Error::Protocol(
@@ -684,7 +683,7 @@ impl DirectConversationBoundPayload {
         let mut participants = self
             .participants_unordered
             .iter()
-            .map(Did::as_str)
+            .map(DidCoreId::as_str)
             .collect::<Vec<_>>();
         participants.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
         let mut event_refs = self
@@ -722,7 +721,7 @@ mod tests {
 
     fn device_authorize_value() -> Value {
         json!({
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-a11ce0000001",
             "device_public_key": "z6MkDeviceKey",
             "hpke_key": "z6LSHpkeKey",
@@ -731,7 +730,7 @@ mod tests {
                 "ak.mls.v1"
             ],
             "device_key_algorithm": "Ed25519",
-            "authorized_by": "did:webvh:z6mkfixture:alice.example",
+            "authorized_by": "ak:did_core:webvh:z6mkfixture",
             "not_before": "2026-05-30T00:00:00.000Z",
             "authorization_binding_kind": "root_anchored",
             "device_signature": "c2ln"
@@ -837,14 +836,14 @@ mod tests {
         ))
         .unwrap();
         serde_json::from_value::<DeviceOrPrincipalRef>(json!(
-            "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw"
+            "ak:did_core:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw"
         ))
         .unwrap();
     }
 
     #[test]
     fn device_list_update_enforces_any_of_and_set_constraints() {
-        let principal_id = "did:webvh:z6mkfixture:alice.example";
+        let principal_id = "ak:did_core:webvh:z6mkfixturealice";
         assert!(
             serde_json::from_value::<DeviceListUpdatePayload>(json!({
                 "principal_id": principal_id
@@ -889,7 +888,7 @@ mod tests {
     #[test]
     fn device_reanchor_enforces_version_shape_generation_equality_and_basis() {
         let valid = json!({
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "did_version_id": "2-QmCurrent",
             "previous_device_generation": "1-QmPrevious",
             "new_device_generation": "2-QmCurrent",
@@ -990,7 +989,7 @@ mod tests {
     #[test]
     fn device_reanchor_pre_fence_basis_round_trips_both_frontier_roots() {
         let wire = json!({
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "did_version_id": "2-QmCurrent",
             "previous_device_generation": "1-QmPrevious",
             "new_device_generation": "2-QmCurrent",
@@ -1044,8 +1043,8 @@ mod tests {
         let payload = json!({
             "pair_key": "sha256:e8c24c1badc48eefa472a1700e87a6597a95aedfab8cbe3173f1622b9ad427b5",
             "participants_unordered": [
-                "did:webvh:z6mkfixture:bob.example",
-                "did:webvh:z6mkfixture:alice.example"
+                "ak:did_core:webvh:z6mkfixturebob",
+                "ak:did_core:webvh:z6mkfixturealice"
             ],
             "realm_id": "ak:realm:AVYxXzYx_KzaGx7X62doksaQR0ISkneyOwwF1k6ExHKy",
             "main_strand_id": "ak:strand:AcweNVvZUYNuOdCMey9HT7PQHKPbHPJwOFTgn_cx7yjo",
@@ -1061,7 +1060,7 @@ mod tests {
             "created_at": "2026-08-07T12:34:56.000Z"
         });
         let mut parsed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
-        let expected = "sha256:bb50b66aa3a8e808ea61743efb278f1d55d0849f534ce2ee6ab01e893ce15a58";
+        let expected = "sha256:bbac7fb0e474a60aac7e5e9f486ef21356641d2d5c50f3a71cb88160398a490e";
         assert_eq!(parsed.binding_digest().unwrap().as_str(), expected);
 
         parsed.participants_unordered.reverse();

@@ -1,5 +1,5 @@
 use arkret_canonical as canonical;
-use arkret_identifiers::{Did, MorphId, PolicyId, RealmId, StrandId, TypedTrustDomainId};
+use arkret_identifiers::{MorphId, PolicyId, RealmId, StrandId, TypedTrustDomainId};
 use arkret_models_collaboration::objects::profiles::{
     Morph, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
     validate_strand_track_name,
@@ -9,17 +9,22 @@ use arkret_models_collaboration::objects::realm::{
 };
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::{
-    ActorId, FederationPolicy, Hash, ObjectStage, ObjectState, SchemaId, project_full_id_to_core_id,
+    DidCoreId, DidFullId, FederationPolicy, Hash, ObjectStage, ObjectState, SchemaId,
+    project_full_id_to_core_id,
 };
 use chrono::Utc;
 use serde_json::json;
 
 fn single_did_notary(did: &str) -> arkret_wire::NotaryValue {
-    arkret_wire::NotaryValue::single_did(Did::new(did).unwrap())
+    arkret_wire::NotaryValue::single_did(DidFullId::new(did).unwrap())
 }
 
-fn actor(value: &str) -> ActorId {
-    ActorId::from(project_full_id_to_core_id(&Did::new(value).unwrap()).unwrap())
+fn actor(value: &str) -> DidCoreId {
+    if value.starts_with("ak:did_core:") {
+        DidCoreId::new(value).unwrap()
+    } else {
+        project_full_id_to_core_id(&DidFullId::new(value).unwrap()).unwrap()
+    }
 }
 
 #[test]
@@ -140,7 +145,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     let mut realm = Realm::new(
         RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
         "Seal Test",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
@@ -166,9 +171,9 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         .with_notary(NotaryValue::Threshold {
             threshold: 2,
             members: vec![
-                Did::new("did:webvh:z6mkfixture:a.example").unwrap(),
-                Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
-                Did::new("did:webvh:z6mkfixture:c.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturea").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureb").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturec").unwrap(),
             ],
             forensic_attribution: arkret_wire::ForensicAttribution::QuorumIntersection,
         })
@@ -181,7 +186,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     realm.preview_policy_id =
         Some(PolicyId::new("ak:policy:0196419b-0000-7000-8000-000000000003").unwrap());
     realm.sync_endpoints.push(SyncEndpoint {
-        did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
+        actor_id: actor("did:webvh:z6mkfixture:sync.example"),
         endpoint: "https://sync.example/_arkret".to_owned(),
         role: "primary".to_owned(),
         service_kind: "principal_server".to_owned(),
@@ -193,7 +198,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
     realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
-    realm.updated_by = Some(Did::new("did:webvh:z6mkfixture:bob.example").unwrap());
+    realm.updated_by = Some(actor("did:webvh:z6mkfixture:bob.example"));
 
     assert_eq!(
         realm.preview_policy_id.as_ref().map(PolicyId::as_str),
@@ -224,15 +229,15 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         "ak:policy:0196419b-0000-7000-8000-000000000003"
     );
     assert_eq!(
-        json["sync_endpoints"][0]["did"],
-        "did:webvh:z6mkfixture:sync.example"
+        json["sync_endpoints"][0]["actor_id"],
+        "ak:did_core:webvh:z6mkfixture"
     );
     assert_eq!(json["notary_profile"], "threshold");
     assert_eq!(json["digest_algorithm"], "blake3");
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);
     assert_eq!(json["max_authority_lifetime_ms"], 3_600_000);
     assert_eq!(json["bottom_escalation_after_ms"], 120_000);
-    assert_eq!(json["updated_by"], "did:webvh:z6mkfixture:bob.example");
+    assert_eq!(json["updated_by"], "ak:did_core:webvh:z6mkfixture");
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
         arkret_wire::CellFamilyId::STRAND_TRACKS_V1
@@ -259,8 +264,8 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         realm.bottom_escalation_after_ms
     );
     assert_eq!(
-        restored.updated_by.as_ref().map(Did::as_str),
-        realm.updated_by.as_ref().map(Did::as_str)
+        restored.updated_by.as_ref().map(DidCoreId::as_str),
+        realm.updated_by.as_ref().map(DidCoreId::as_str)
     );
 }
 
@@ -271,7 +276,7 @@ fn realm_anchor_fields_include_required_notary() {
     let realm = Realm::new(
         RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
         "No Seal Hint",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
@@ -301,7 +306,7 @@ fn realm_notary_profile_must_match_notary_kind() {
     let realm = Realm::new(
         RealmId::new("ak:realm:AdIeygO8cj8jUpcxH6i4a15i1zh2wq8eNKz5RgGEItdA").unwrap(),
         "Mismatched Notary",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::Threshold,
@@ -318,7 +323,7 @@ fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
     let realm = Realm::new(
         RealmId::new("ak:realm:ASc_XP_IqOBAY6GgbPMLFCeZmi0uBNaWvHazHgmn-B8K").unwrap(),
         "Digest Defaults",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
@@ -474,8 +479,8 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
 
 #[test]
 fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
-    let created_by_did = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-    let updated_by_did = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+    let created_by_did = actor("did:webvh:z6mkfixture:alice.example");
+    let updated_by_did = actor("did:webvh:z6mkfixture:bob.example");
     let created_by = actor(created_by_did.as_str());
     let updated_by = actor(updated_by_did.as_str());
     let now = Utc::now();
@@ -489,7 +494,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     );
     strand.state_changed_at = Some(now);
     strand.stage_changed_at = Some(now);
-    strand.updated_by = Some(updated_by.clone());
+    strand.updated_by = Some(updated_by);
     strand.updated_at = Some(now);
     assert_field_order(
         "Strand",
@@ -512,7 +517,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f4").unwrap());
     realm.federation_policy = Some(FederationPolicy::Restricted);
     realm.sync_endpoints.push(SyncEndpoint {
-        did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
+        actor_id: actor("did:webvh:z6mkfixture:sync.example"),
         endpoint: "https://sync.example/_arkret".to_owned(),
         role: "primary".to_owned(),
         service_kind: "principal_server".to_owned(),

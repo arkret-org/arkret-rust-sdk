@@ -14,15 +14,15 @@ use arkret_signatures::http_signature::{
     canonical_message, format_signature_header, format_signature_input_component_list,
     parse_signature_input, sign_message,
 };
-use arkret_wire::{Did, canonical};
+use arkret_wire::{DidCoreId, canonical};
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
 
 use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 pub struct SignedAppletTransactionOptions<'a> {
-    pub source_service_id: &'a Did,
-    pub destination_service_id: &'a Did,
+    pub source_service_id: &'a DidCoreId,
+    pub destination_service_id: &'a DidCoreId,
     pub key_id: &'a str,
     pub signing_key: &'a Ed25519SigningKey,
     pub created: Option<i64>,

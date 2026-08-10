@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-10.5;
-//! sha256=a9c839bac4b192cedb0ecedab010278b3a146b5c353bd2732c2a167731ca43d4 Entries: registered=236
+//! Input: registry/operation-registry.json; version=2026-08-10.6;
+//! sha256=aaf0415a7250085b77ef62a217b6ded56bd12a189597955a3eac1e3542289d25 Entries: registered=236
 
 use serde::{Deserialize, Serialize};
 
@@ -5269,7 +5269,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandGrant,
         http_method: "POST",
-        http_path: "/_arkret/self/consent/cells/{holder_did}/grant",
+        http_path: "/_arkret/self/consent/cells/{holder_principal_id}/grant",
         grpc: Some("SelfConsent/Grant"),
         mq: Some("self.consent.command.grant"),
         body_class: Some("non_streaming_json"),
@@ -5321,7 +5321,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandRevoke,
         http_method: "POST",
-        http_path: "/_arkret/self/consent/cells/{holder_did}/revoke",
+        http_path: "/_arkret/self/consent/cells/{holder_principal_id}/revoke",
         grpc: Some("SelfConsent/Revoke"),
         mq: Some("self.consent.command.revoke"),
         body_class: Some("non_streaming_json"),
@@ -5365,7 +5365,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentResourceGet,
         http_method: "GET",
-        http_path: "/_arkret/self/consent/cells/{holder_did}",
+        http_path: "/_arkret/self/consent/cells/{holder_principal_id}",
         grpc: Some("SelfConsent/Get"),
         mq: Some("self.consent.resource.get"),
         body_class: Some("non_streaming_json"),

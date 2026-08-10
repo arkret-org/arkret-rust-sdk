@@ -24,7 +24,7 @@ use arkret_state::lattice::{
 };
 use arkret_state::state::join_cell_seal_batches;
 use arkret_wire::{
-    ActorId, CellRef, EventId, Hash, LatticeOp, LatticeOpType, ProjectionEffect, RealmId,
+    CellRef, DidCoreId, EventId, Hash, LatticeOp, LatticeOpType, ProjectionEffect, RealmId,
     ReasonCode,
 };
 use serde_json::{Value, json};
@@ -109,7 +109,7 @@ fn op_append(value: Value, issuer_seq: u64) -> LatticeOp {
 
 fn issued(issuer: &str, suffix: &str, op: LatticeOp) -> IssuedOp {
     IssuedOp {
-        issuer: ActorId::new(issuer.to_owned()).expect("fixture issuer must be a valid core ID"),
+        issuer: DidCoreId::new(issuer.to_owned()).expect("fixture issuer must be a valid core ID"),
         op: SealedOp::new(move_id(suffix), op),
     }
 }
@@ -407,7 +407,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             // As UTF-8 wire strings "sha256:00.." sorts above "blake3:ff..",
             // but the decoded octets order the other way. §4.2 compares octets,
             // so the blake3 candidate must win.
-            let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+            let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
             let ops = vec![
                 IssuedOp {
                     issuer: alice.clone(),
@@ -435,7 +435,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
         ("ordered_log", "distinct_digest_preimage_same_event_digest_fails_closed") => {
             // `effect.op` is part of the digest preimage, so two different ops
             // under one typed digest are a collision.
-            let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+            let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
             let colliding = move_id("cc");
             let ops = vec![
                 IssuedOp {
@@ -460,7 +460,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             // digest preimage, so two such variants reach the lattice as the
             // same digest over the same canonical op — a duplicate, never a
             // collision.
-            let alice = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+            let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
             let shared = move_id("dd");
             let ops = vec![
                 IssuedOp {
@@ -902,7 +902,7 @@ fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
     let recovered = vector["valid_recovery_move"]["payload"]["resolved_value"].clone();
     assert_eq!(recovered, valid_case["expected"]["recovered_value"]);
 
-    let issuer = ActorId::new("ak:did_core:webvh:z6mkfixturerecovery".to_owned()).unwrap();
+    let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixturerecovery".to_owned()).unwrap();
     let set = |suffix: &str, value: Value| IssuedOp {
         issuer: issuer.clone(),
         op: SealedOp::new(move_id(suffix), op_set(value)),

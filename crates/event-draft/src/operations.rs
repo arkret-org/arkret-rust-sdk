@@ -596,7 +596,7 @@ pub mod protocol {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Did, GrantId, Hlc, RealmId, ScopeRef};
+    use arkret_wire::{DidCoreId, GrantId, Hlc, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -622,7 +622,7 @@ mod tests {
         OperationEnvelope {
             operation_id: OperationId::new(id).unwrap(),
             scope_ref: scope(),
-            actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             kind,
             target_ref: None,
             causal: CausalRef {

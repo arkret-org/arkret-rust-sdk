@@ -28,7 +28,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use arkret_wire::{Did, DidUrl, Hash, TypedTrustDomainId};
+use arkret_wire::{DidFullId, DidUrl, Hash, TypedTrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,10 @@ pub enum BindingStoreError {
     DocumentDigestMismatch { expected: Hash, actual: Hash },
     /// The supplied document belongs to a different DID than the binding.
     #[error("pinned document id `{document_id}` does not match the bound DID `{did}`")]
-    DocumentIdMismatch { document_id: Did, did: Did },
+    DocumentIdMismatch {
+        document_id: DidFullId,
+        did: DidFullId,
+    },
     /// The retained evidence receipt does not re-digest to the binding's
     /// `evidence_digest`, so the acceptance is not recomputable.
     #[error("retained evidence receipt digests to {actual}, not the binding digest {expected}")]
@@ -223,7 +226,7 @@ pub enum BindingFreshness {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BindingInvalidation {
     /// Match the bound DID.
-    pub did: Option<Did>,
+    pub did: Option<DidFullId>,
     /// Match the accepted concrete verification method (key rotation).
     pub verification_method: Option<DidUrl>,
     /// Match the pinned history head (witness fork).
@@ -234,9 +237,9 @@ pub struct BindingInvalidation {
     /// witness revocation arrives as a witness DID, and `evidence_digest` is
     /// one-way, so without this the only safe response is the `for_did` sweep
     /// that also invalidates every unaffected binding of that DID.
-    pub evidence_witness_did: Option<Did>,
+    pub evidence_witness_did: Option<DidFullId>,
     /// Match a witness controlling organization the evidence depends on (§5.6).
-    pub evidence_witness_organization: Option<Did>,
+    pub evidence_witness_organization: Option<DidFullId>,
     /// Match the local trust domain.
     pub trust_domain: Option<TypedTrustDomainId>,
     /// Match the acceptance purpose (controller / service delegation change).
@@ -247,7 +250,7 @@ pub struct BindingInvalidation {
 
 impl BindingInvalidation {
     /// Selector constrained to one DID.
-    pub fn for_did(did: Did) -> Self {
+    pub fn for_did(did: DidFullId) -> Self {
         Self {
             did: Some(did),
             ..Self::default()
@@ -275,7 +278,7 @@ impl BindingInvalidation {
     /// Stores that declare evidence-bearing methods MUST support this lookup:
     /// §5.6 makes reverse lookup by witness DID the minimum a selective
     /// invalidation needs.
-    pub fn for_evidence_witness(witness_did: Did) -> Self {
+    pub fn for_evidence_witness(witness_did: DidFullId) -> Self {
         Self {
             evidence_witness_did: Some(witness_did),
             ..Self::default()
@@ -284,7 +287,7 @@ impl BindingInvalidation {
 
     /// Selector constrained to one witness controlling organization (an
     /// organization merge determination collapses several witnesses into one).
-    pub fn for_evidence_witness_organization(organization: Did) -> Self {
+    pub fn for_evidence_witness_organization(organization: DidFullId) -> Self {
         Self {
             evidence_witness_organization: Some(organization),
             ..Self::default()
@@ -330,7 +333,7 @@ impl BindingInvalidation {
     }
 
     /// Narrow the selector to one DID.
-    pub fn with_did(mut self, did: Did) -> Self {
+    pub fn with_did(mut self, did: DidFullId) -> Self {
         self.did = Some(did);
         self
     }
@@ -619,11 +622,11 @@ mod tests {
         TypedTrustDomainId::new(format!("ak:trust_domain:{scope}")).expect("valid trust domain")
     }
 
-    fn did() -> Did {
-        Did::new("did:webvh:z6mkfixture:store.example".to_owned()).expect("valid did")
+    fn did() -> DidFullId {
+        DidFullId::new("did:webvh:z6mkfixture:store.example".to_owned()).expect("valid did")
     }
 
-    fn document_for(did: &Did, fragment: &str) -> DidDocument {
+    fn document_for(did: &DidFullId, fragment: &str) -> DidDocument {
         DidDocument {
             id: did.clone(),
             verification_methods: BTreeMap::from([(
@@ -638,7 +641,7 @@ mod tests {
     }
 
     struct Fixture {
-        did: Did,
+        did: DidFullId,
         trust_domain: TypedTrustDomainId,
         purpose: DidBindingPurpose,
         fragment: &'static str,
@@ -741,7 +744,7 @@ mod tests {
     fn accept_rejects_a_document_belonging_to_another_did() {
         let fixture = Fixture::new();
         let other_did =
-            Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+            DidFullId::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
         let accepted = fixture.accepted();
         let error = AcceptedDidBinding::new(
             accepted.binding().clone(),
@@ -804,7 +807,7 @@ mod tests {
     fn deserialization_rejects_a_document_for_another_did() {
         let accepted = Fixture::new().accepted();
         let other_did =
-            Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+            DidFullId::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
         let mut value = serde_json::to_value(&accepted).expect("serialize");
         value["document"]["id"] = serde_json::json!(other_did.as_str());
         assert!(serde_json::from_value::<AcceptedDidBinding>(value).is_err());

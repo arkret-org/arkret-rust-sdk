@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    Did, DidUrl, Error, Hash, PayloadProof, ProofContextId, Result, SchemaId, canonical,
+    DidCoreId, DidUrl, Error, Hash, PayloadProof, ProofContextId, Result, SchemaId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,8 +19,8 @@ pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
 #[serde(deny_unknown_fields)]
 pub struct DirectoryPresentedClaim {
     pub claim_id: String,
-    pub subject: Did,
-    pub issuer: Did,
+    pub subject: DidCoreId,
+    pub issuer: DidCoreId,
     pub claim_kind: String,
     pub value: BTreeMap<String, Value>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -47,9 +47,9 @@ pub struct DirectoryPresentedClaim {
 #[serde(deny_unknown_fields)]
 pub struct DirectoryRestrictedClaimPresentation {
     pub kind: String,
-    pub iss: Did,
+    pub iss: DidCoreId,
     pub verification_method: DidUrl,
-    pub audience: Did,
+    pub audience: DidCoreId,
     pub nonce: String,
     pub claim: DirectoryPresentedClaim,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,12 +74,12 @@ fn default_agent_selector_claim_schema() -> String {
 pub struct AgentSelectorClaim {
     #[serde(default = "default_agent_selector_claim_schema")]
     pub schema: String,
-    pub controller_subject: Did,
+    pub controller_subject: DidCoreId,
     pub agent_slug: String,
-    pub subject: Did,
-    pub issuer: Did,
+    pub subject: DidCoreId,
+    pub issuer: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer_service_id: Option<Did>,
+    pub issuer_service_id: Option<DidCoreId>,
     pub binding_state: HandleBindingState,
     pub visibility: HandleVisibility,
     #[serde(skip_serializing_if = "Option::is_none")]

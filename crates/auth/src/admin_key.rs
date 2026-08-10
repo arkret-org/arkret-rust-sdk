@@ -20,7 +20,7 @@
 //! chain.
 
 use arkret_keystore::{KeyBytes, KeyStore, KeyStoreError};
-use arkret_wire::Did;
+use arkret_wire::DidFullId;
 
 use crate::Result;
 
@@ -50,7 +50,7 @@ impl AdminKeyStore {
     /// `arkret:signer:admin:<application_id>:<did>`. Stable across
     /// processes so a key written by one server boot is readable by the
     /// next.
-    pub fn key_id(application_id: &str, admin_did: &Did) -> String {
+    pub fn key_id(application_id: &str, admin_did: &DidFullId) -> String {
         format!(
             "arkret:signer:admin:{application_id}:{}",
             admin_did.as_str()
@@ -60,26 +60,26 @@ impl AdminKeyStore {
     /// Load the raw signing seed for `admin_did`. Returns
     /// `KeyStoreError::NotFound` (wrapped in [`crate::AuthError::KeyStore`])
     /// when no key has been provisioned.
-    pub fn load_admin_key(&self, admin_did: &Did) -> Result<KeyBytes> {
+    pub fn load_admin_key(&self, admin_did: &DidFullId) -> Result<KeyBytes> {
         let id = Self::key_id(&self.application_id, admin_did);
         Ok(self.inner.load(&id)?)
     }
 
     /// Persist `key` as the signing seed for `admin_did`. Overwrites
     /// any existing key for the same admin.
-    pub fn store_admin_key(&self, admin_did: &Did, key: &[u8]) -> Result<()> {
+    pub fn store_admin_key(&self, admin_did: &DidFullId, key: &[u8]) -> Result<()> {
         let id = Self::key_id(&self.application_id, admin_did);
         Ok(self.inner.store(&id, key)?)
     }
 
     /// Drop the signing seed for `admin_did`. Idempotent.
-    pub fn delete_admin_key(&self, admin_did: &Did) -> Result<()> {
+    pub fn delete_admin_key(&self, admin_did: &DidFullId) -> Result<()> {
         let id = Self::key_id(&self.application_id, admin_did);
         Ok(self.inner.delete(&id)?)
     }
 
     /// True if `admin_did` has a signing key provisioned.
-    pub fn has_admin_key(&self, admin_did: &Did) -> Result<bool> {
+    pub fn has_admin_key(&self, admin_did: &DidFullId) -> Result<bool> {
         let id = Self::key_id(&self.application_id, admin_did);
         match self.inner.load(&id) {
             Ok(_) => Ok(true),
@@ -90,13 +90,13 @@ impl AdminKeyStore {
 
     /// Enumerate admin DIDs known to this store. Walks the backend's
     /// id list and filters by the per-admin id prefix.
-    pub fn list_admin_dids(&self) -> Result<Vec<Did>> {
+    pub fn list_admin_dids(&self) -> Result<Vec<DidFullId>> {
         let prefix = format!("arkret:signer:admin:{}:", self.application_id);
         let ids = self.inner.list()?;
         let mut out = Vec::new();
         for id in ids {
             if let Some(did_str) = id.strip_prefix(&prefix) {
-                let did = Did::new(did_str.to_owned()).map_err(|e| {
+                let did = DidFullId::new(did_str.to_owned()).map_err(|e| {
                     KeyStoreError::backend(format!("admin key id {id} has invalid DID suffix: {e}"))
                 })?;
                 out.push(did);
@@ -114,8 +114,8 @@ mod tests {
     use super::*;
     use crate::AuthError;
 
-    fn admin(did: &str) -> Did {
-        Did::new(did.to_owned()).unwrap()
+    fn admin(did: &str) -> DidFullId {
+        DidFullId::new(did.to_owned()).unwrap()
     }
 
     #[test]

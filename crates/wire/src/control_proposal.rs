@@ -14,7 +14,7 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::notary::NotaryValue;
 use crate::{
-    ActorId, AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash,
+    AuthorizationLease, CbaProofBundle, DidFullId, Event, EventSubmitContext, Hash,
     PayloadSignature, PayloadSigner, RealmId, canonical, project_full_id_to_core_id,
 };
 
@@ -150,9 +150,7 @@ impl ControlProposalAckIssueRequest {
             ));
         }
         self.authorization_lease.validate_structural()?;
-        if ActorId::from(project_full_id_to_core_id(
-            &self.authorization_lease.actor_id,
-        )?) != self.event.actor_id
+        if self.authorization_lease.actor_id != self.event.actor_id
             || self.authorization_lease.scope_ref != self.event.scope_ref
         {
             return Err(Error::Protocol(
@@ -249,7 +247,7 @@ fn signer_controller(signature: &PayloadSignature) -> Result<&str> {
         .verification_method
         .split_once('#')
         .expect("DidUrl always carries a fragment");
-    Did::new(controller)?;
+    DidFullId::new(controller)?;
     Ok(controller)
 }
 
@@ -543,12 +541,13 @@ impl ControlProposalAck {
                     "proposal member verification_method fragment is empty".to_owned(),
                 ));
             }
-            let did = Did::new(did).map_err(|error| {
+            let did = DidFullId::new(did).map_err(|error| {
                 Error::Protocol(format!(
                     "proposal member verification_method DID is invalid: {error}"
                 ))
             })?;
-            if !signers.insert(did) {
+            let actor_id = project_full_id_to_core_id(&did)?;
+            if !signers.insert(actor_id) {
                 return Err(Error::Protocol(
                     "Control Proposal Ack repeats an authority member".to_owned(),
                 ));
@@ -722,7 +721,10 @@ impl ControlProposalDecision {
         };
         let signers = proofs
             .iter()
-            .map(|proof| Did::new(signer_controller(proof)?).map_err(Into::into))
+            .map(|proof| -> Result<_> {
+                let full_id = DidFullId::new(signer_controller(proof)?)?;
+                Ok(project_full_id_to_core_id(&full_id)?)
+            })
             .collect::<Result<BTreeSet<_>>>()?;
         if !notary.proposal_quorum_met(&signers) {
             return Err(Error::Protocol(
@@ -892,15 +894,15 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
-    use crate::DidUrl;
+    use crate::{DidCoreId, DidUrl};
 
     struct FixtureSigner {
-        did: Did,
+        did: DidFullId,
         verification_method: DidUrl,
     }
 
     impl PayloadSigner for FixtureSigner {
-        fn signer_did(&self) -> &Did {
+        fn signer_did(&self) -> &DidFullId {
             &self.did
         }
 
@@ -966,7 +968,7 @@ mod tests {
     #[test]
     fn local_authority_ack_uses_the_canonical_signer_transcript() {
         let signer = FixtureSigner {
-            did: Did::new("did:webvh:z6mkfixture:authority.example").unwrap(),
+            did: DidFullId::new("did:webvh:z6mkfixture:authority.example").unwrap(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#device-1")
                 .unwrap(),
         };
@@ -1080,14 +1082,14 @@ mod tests {
         let first = ack().authority_acks.remove(0);
         let mut second = first.clone();
         second.signature.verification_method =
-            DidUrl::new("did:webvh:z6mkfixture:authority-b.example#notary-1").unwrap();
+            DidUrl::new("did:webvh:z6mkfixtureb:authority-b.example#notary-1").unwrap();
         second.signature.payload_digest = second.authority_ack_digest().unwrap();
         let profile = NotaryValue::Threshold {
             threshold: 2,
             members: vec![
-                Did::new("did:webvh:z6mkfixture:authority.example").unwrap(),
-                Did::new("did:webvh:z6mkfixture:authority-b.example").unwrap(),
-                Did::new("did:webvh:z6mkfixture:authority-c.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureb").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturec").unwrap(),
             ],
             forensic_attribution: crate::notary::ForensicAttribution::QuorumIntersection,
         };
@@ -1112,8 +1114,8 @@ mod tests {
                 .map(|member| member.signature.verification_method.as_str())
                 .collect::<Vec<_>>(),
             [
-                "did:webvh:z6mkfixture:authority-b.example#notary-1",
                 "did:webvh:z6mkfixture:authority.example#notary-1",
+                "did:webvh:z6mkfixtureb:authority-b.example#notary-1",
             ]
         );
     }

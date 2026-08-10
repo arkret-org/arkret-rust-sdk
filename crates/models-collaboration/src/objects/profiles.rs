@@ -7,8 +7,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    ActorId, CircleId, DeviceId, Did, DidUrl, Error, Hash, MorphId, ObjectStage, ObjectState,
-    PolicyId, PrincipalId, RealmId, Result, SchemaId, StrandId, TypedTrustDomainId, canonical,
+    CircleId, DeviceId, DidCoreId, DidUrl, Error, Hash, MorphId, ObjectStage, ObjectState,
+    PolicyId, RealmId, Result, SchemaId, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -303,11 +303,11 @@ pub struct Morph {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub stage_changed_at: Option<DateTime<Utc>>,
-    pub created_by: ActorId,
+    pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<ActorId>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -322,7 +322,7 @@ impl Morph {
         id: MorphId,
         realm_id: RealmId,
         morph_kind: impl Into<String>,
-        created_by: ActorId,
+        created_by: DidCoreId,
     ) -> Self {
         Self {
             id: Some(id),
@@ -410,8 +410,8 @@ pub struct IdentityLink {
     pub schema: String,
     #[serde(default = "identity_link_default_status")]
     pub status: IdentityLinkStatus,
-    pub pairwise_actor_id: ActorId,
-    pub principal_id: PrincipalId,
+    pub pairwise_actor_id: DidCoreId,
+    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
     pub trust_domain: TypedTrustDomainId,

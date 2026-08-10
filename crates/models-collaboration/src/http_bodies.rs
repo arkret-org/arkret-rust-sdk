@@ -8,11 +8,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalAck, Cursor, DeviceId, Did,
-    DidKey, Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri,
-    MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, ReasonCode,
-    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
-    StrandId, canonical,
+    Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalAck, Cursor, DeviceId,
+    DidCoreId, DidKey, Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt,
+    MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
+    ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope,
+    SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -297,7 +297,7 @@ pub struct EventsSubmitOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletTransactionRequestBody {
-    pub source_service_id: Did,
+    pub source_service_id: DidCoreId,
     #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
@@ -559,7 +559,7 @@ pub struct ProjectionSpaceRow {
     pub rank: Option<String>,
     pub state: ProjectionSpaceState,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<Did>,
+    pub created_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -620,19 +620,19 @@ pub struct ProjectionStrandRow {
     /// `assigned_to` Relations. Empty means the Strand is unassigned for
     /// this projection caller.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub assigned_actor_ids: Vec<Did>,
+    pub assigned_actor_ids: Vec<DidCoreId>,
     /// Active assignment Relation edges backing `assigned_actor_ids`.
     /// Clients use `relation_id` to tombstone an assignment during edits.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub assigned_to_relations: Vec<ProjectionAssignedToRelation>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<Did>,
+    pub created_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -648,7 +648,7 @@ pub struct ProjectionStrandRow {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionAssignedToRelation {
     pub relation_id: RelationId,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -673,7 +673,7 @@ pub struct ProjectionMorphRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<Did>,
+    pub created_by: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -820,7 +820,7 @@ pub struct BlobGetOutcome(pub Vec<u8>);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiKeyMaterialRequestBody {
-    pub requester: Did,
+    pub requester: DidCoreId,
     pub strand_id: StrandId,
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -859,7 +859,7 @@ pub struct MimiRoomUpdateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub confirmed_transcript_hash: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender_actor_id: Option<Did>,
+    pub sender_actor_id: Option<DidCoreId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -877,7 +877,7 @@ pub struct MimiRoomUpdateOutcome {
 pub struct MimiNotifyRequestBody {
     pub notification: MimiNotification,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub origin_provider: Option<Did>,
+    pub origin_provider: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub routing: Option<MimiNotificationRouting>,
 }
@@ -894,7 +894,7 @@ pub struct MimiNotifyOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiSubmitMessageRequestBody {
-    pub sender_actor_id: Did,
+    pub sender_actor_id: DidCoreId,
     pub device_id: DeviceId,
     pub ciphertext: MimiCiphertext,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -928,7 +928,7 @@ pub struct MimiGroupInfoOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRequestConsentRequestBody {
-    pub requester_id: Did,
+    pub requester_id: DidCoreId,
     pub target: MimiConsentTarget,
     pub purpose: MimiConsentPurpose,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -967,7 +967,7 @@ pub enum MimiConsentDecision {
 pub struct MimiUpdateConsentRequestBody {
     pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
-    pub actor_id: Did,
+    pub actor_id: DidCoreId,
     pub consent_event: EventInitialSubmission,
     pub signature: PayloadProof,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -987,12 +987,7 @@ impl MimiUpdateConsentRequestBody {
             MimiConsentDecision::Deny | MimiConsentDecision::Revoke => "ak.consent.revoke",
         };
         let event = &self.consent_event.event;
-        if event.kind.as_str() != expected_kind
-            || event.actor_id
-                != arkret_wire::ActorId::from(arkret_wire::project_full_id_to_core_id(
-                    &self.actor_id,
-                )?)
-        {
+        if event.kind.as_str() != expected_kind || event.actor_id != self.actor_id {
             return Err(Error::Protocol(
                 "MIMI consent decision, event kind, and actor binding mismatch".to_owned(),
             ));
@@ -1085,7 +1080,7 @@ pub struct MimiIdentifierQueryRequestBody {
     #[serde(default)]
     pub identifiers: Vec<MimiIdentifier>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<Did>,
+    pub requester: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub privacy_profile: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1111,7 +1106,7 @@ pub struct MimiReportAbuseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub target_ref: NonEmptyString,
-    pub reporter: Did,
+    pub reporter: DidCoreId,
     pub abuse_reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_package: Option<MimiOpaquePayload>,
@@ -1127,14 +1122,14 @@ pub struct MimiReportAbuseOutcome {
     pub report_id: ReportId,
     pub status: NonEmptyString,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub routed_to: Vec<Did>,
+    pub routed_to: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiProxyDownloadRequestBody {
     pub asset_ref: NonEmptyString,
-    pub requester: Did,
+    pub requester: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1158,7 +1153,7 @@ pub struct MimiProxyDownloadOutcome {
 #[cfg(test)]
 mod mimi_consent_tests {
     use arkret_wire::{
-        ActorId, Audience, DidUrl, EventKind, EventRequirements, ScopeRef,
+        Audience, DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, ScopeRef,
         project_full_id_to_core_id, proof_kind,
     };
     use chrono::TimeZone;
@@ -1177,7 +1172,7 @@ mod mimi_consent_tests {
             )
             .unwrap(),
             decision: MimiConsentDecision::Accept,
-            actor_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned()).unwrap(),
+            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
             consent_event: EventInitialSubmission {
                 event: Event {
                     event_id: EventId::new(
@@ -1195,13 +1190,11 @@ mod mimi_consent_tests {
                         )
                         .unwrap(),
                     },
-                    actor_id: ActorId::from(
-                        project_full_id_to_core_id(
-                            &Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
-                                .unwrap(),
-                        )
-                        .unwrap(),
-                    ),
+                    actor_id: project_full_id_to_core_id(
+                        &DidFullId::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
+                            .unwrap(),
+                    )
+                    .unwrap(),
                     executed_by: None,
                     authorization_ref: None,
                     applet_id: None,
@@ -1276,7 +1269,7 @@ mod mimi_consent_tests {
                 "context": "ak.mimi-operation-proof-v1",
                 "created_at": "2026-07-19T06:30:00.000Z",
                 "domain": "ak:trust_domain:example.com",
-                "issuer": "did:webvh:z6mkfixture:example.com:users:alice",
+                "issuer": "ak:did_core:webvh:z6mkfixture",
                 "operation_id": "ak.open.mimi.command.update_consent",
                 "payload_digest": request.payload_digest().unwrap(),
                 "verification_method": "did:webvh:z6mkfixture:example.com:users:alice#device-1"
@@ -1314,8 +1307,7 @@ mod mimi_consent_tests {
         assert!(wrong_decision.validate_consent_event().is_err());
 
         let mut wrong_actor = request.clone();
-        wrong_actor.actor_id =
-            Did::new("did:webvh:z6mkfixturemallory:example.com:users:mallory".to_owned()).unwrap();
+        wrong_actor.actor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturemallory").unwrap();
         assert!(wrong_actor.validate_consent_event().is_err());
 
         let mut wrong_consent = request;
@@ -1370,8 +1362,8 @@ pub struct DirectConversationSummary {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactAgentProjection {
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: DidCoreId,
+    pub controller_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1408,7 +1400,7 @@ pub struct ContactListRow {
     /// responses/invites to the peer's home server. Omitted for
     /// same-Principal-Server contacts (spec contact-operations.schema.json).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_service_id: Option<Did>,
+    pub peer_service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_conversation: Option<DirectConversationSummary>,
     /// Active agents controlled by this contact that currently accept direct
@@ -1440,7 +1432,7 @@ struct ContactListRowWire {
     #[serde(default)]
     effective_scopes: Option<ContactScopes>,
     #[serde(default)]
-    peer_service_id: Option<Did>,
+    peer_service_id: Option<DidCoreId>,
     #[serde(default)]
     direct_conversation: Option<DirectConversationSummary>,
     #[serde(default)]
@@ -1534,7 +1526,7 @@ pub struct ContactList {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountOidcCallbackOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<Did>,
+    pub principal_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_session_state: Option<SessionGrantOutcome>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1549,6 +1541,7 @@ pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum EventReadRow {
     Event(Event),
     Redacted(RedactedEventView),
@@ -1696,6 +1689,8 @@ pub struct RedactedEventView {
     pub kind: arkret_wire::EventKind,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub created_at: Option<DateTime<Utc>>,
     pub event_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2343,8 +2338,7 @@ mod federation_dependency_tests {
 #[cfg(test)]
 mod device_pairing_tests {
     use arkret_wire::{
-        ActorId, AuthContext, DidUrl, EventKind, EventRequirements, ScopeRef,
-        project_full_id_to_core_id, proof_kind,
+        AuthContext, DidCoreId, DidUrl, EventKind, EventRequirements, ScopeRef, proof_kind,
     };
 
     use super::*;
@@ -2370,7 +2364,8 @@ mod device_pairing_tests {
         let created_at = DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
-        let principal_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let principal_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
+        let principal_full_id = "did:webvh:z6mkfixturealice:alice.example";
         let authorizing_device =
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
         let target_device =
@@ -2420,7 +2415,7 @@ mod device_pairing_tests {
             kind: EventKind::DeviceAuthorize,
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
-            actor_id: ActorId::from(project_full_id_to_core_id(&principal_id).unwrap()),
+            actor_id: principal_id.clone(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -2435,7 +2430,7 @@ mod device_pairing_tests {
             preconditions: Vec::new(),
             seal_ref: Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
             auth_context: Some(AuthContext {
-                did: principal_id.clone(),
+                actor_id: principal_id,
                 key_id: authorizing_device.as_str().to_owned(),
                 key_epoch: 1,
                 credential_epoch: None,
@@ -2454,7 +2449,7 @@ mod device_pairing_tests {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!(
                     "{}#{}",
-                    principal_id, authorizing_device
+                    principal_full_id, authorizing_device
                 ))
                 .unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
@@ -2532,11 +2527,11 @@ mod contact_projection_tests {
 
     const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
 
-    fn accepted_row_fixture() -> serde_json::Value {
+    fn accepted_row_fixture() -> Value {
         json!({
             "peer": {
                 "kind": "human",
-                "principal_id": "did:webvh:z6mkfixture:bob.example"
+                "principal_id": "ak:did_core:webvh:z6mkfixturepeer"
             },
             "state": "accepted",
             "next_prepare_input": {
@@ -2550,11 +2545,11 @@ mod contact_projection_tests {
         })
     }
 
-    fn pending_incoming_row_fixture() -> serde_json::Value {
+    fn pending_incoming_row_fixture() -> Value {
         json!({
             "peer": {
                 "kind": "human",
-                "principal_id": "did:webvh:z6mkfixture:bob.example"
+                "principal_id": "ak:did_core:webvh:z6mkfixture"
             },
             "state": "pending_incoming",
             "request_event_ref": REQUEST_EVENT_REF,
@@ -2562,20 +2557,20 @@ mod contact_projection_tests {
                 "core": {
                     "holder": {
                         "kind": "human",
-                        "principal_id": "did:webvh:z6mkfixture:alice.example"
+                        "principal_id": "ak:did_core:webvh:z6mkfixtureholder"
                     },
                     "peer": {
                         "kind": "human",
-                        "principal_id": "did:webvh:z6mkfixture:bob.example"
+                        "principal_id": "ak:did_core:webvh:z6mkfixturepeer"
                     },
                     "slot_version": 1,
                     "request_event_ref": REQUEST_EVENT_REF,
                     "request_digest": format!("sha256:{}", "a".repeat(64)),
                     "source_checkpoint": format!("sha256:{}", "b".repeat(64)),
                     "accepted_at": "2026-08-08T00:00:00.000Z",
-                    "issuer": "did:web:ps.example"
+                    "issuer": "ak:did_core:web:ps.example"
                 },
-                "receipt_digest": "sha256:e30fc72c40df83bf8393b1e02f70a8302d1d1f5c26ab52eedcb9624a467c7c41",
+                "receipt_digest": "sha256:6b30aac5868d04189decfaf7599b236bee89ebd2b5adb2c96b7438b4536ac08d",
                 "signature": {
                     "verification_method": "did:web:ps.example#key-1",
                     "created_at": "2026-08-08T00:00:00.000Z",

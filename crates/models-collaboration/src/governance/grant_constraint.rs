@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AppletId, CircleId, Did, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
+    AppletId, CircleId, DidCoreId, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
     HistoryVisibility, RealmId, Result, SchemaId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -28,7 +28,7 @@ pub enum ApprovalWorkflowMode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CapabilitySubject {
-    Did(Did),
+    Did(DidCoreId),
     Selector(Value),
 }
 
@@ -192,15 +192,15 @@ pub enum GrantApprovalThreshold {
 pub struct GrantConstraintClaimRequirement {
     pub claim_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub issuer: Option<Did>,
+    pub issuer: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_issuers: Vec<Did>,
+    pub trusted_issuers: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject_matches_actor: Option<bool>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub value_constraints: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization: Option<Did>,
+    pub organization: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -402,7 +402,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_authority_depth: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub authority_path: Vec<Did>,
+    pub authority_path: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_regrant_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -412,7 +412,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<Did>,
+    pub executed_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_epoch: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -440,7 +440,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_mode: Option<ApprovalWorkflowMode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approval_actor_ids: Vec<Did>,
+    pub approval_actor_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_relation: Option<GrantApprovalRelation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -452,7 +452,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_threshold: Option<GrantApprovalThreshold>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approvers: Vec<Did>,
+    pub approvers: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accountability_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -462,7 +462,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub required_claims: Vec<GrantConstraintClaimRequirement>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_claim_issuers: Vec<Did>,
+    pub trusted_claim_issuers: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_refresh_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -486,7 +486,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_backup_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approved_key_issuers: Vec<Did>,
+    pub approved_key_issuers: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub depends_on_moderation_state: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
@@ -611,7 +611,7 @@ impl GrantConstraint {
     /// `constraint-schema.md` §7.3.
     pub fn applet_authority(
         applet_id: AppletId,
-        executed_by: Did,
+        executed_by: DidCoreId,
         registration_epoch: Hash,
     ) -> Self {
         let mut constraint = Self::new(
@@ -645,8 +645,10 @@ impl GrantConstraint {
         approval.approval_required = Some(true);
         approval.approval_mode = Some(ApprovalWorkflowMode::BeforeCommit);
         approval.approval_actor_ids = vec![
-            Did::new("did:webvh:z6mkfixture:controller.example").expect("scaffold DID is valid"),
-            Did::new("did:webvh:z6mkfixture:guardian.example").expect("scaffold DID is valid"),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller")
+                .expect("scaffold actor id is valid"),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureguardian")
+                .expect("scaffold actor id is valid"),
         ];
         approval.approval_relation = Some(GrantApprovalRelation::Controller);
 
@@ -662,13 +664,15 @@ impl GrantConstraint {
         claim.required_claims = vec![GrantConstraintClaimRequirement {
             claim_kind: "recovery_operator".to_owned(),
             issuer: Some(
-                Did::new("did:webvh:z6mkfixture:coauth.example").expect("scaffold DID is valid"),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturecoauth")
+                    .expect("scaffold actor id is valid"),
             ),
             trusted_issuers: Vec::new(),
             subject_matches_actor: None,
             value_constraints: BTreeMap::new(),
             organization: Some(
-                Did::new("did:webvh:z6mkfixture:example-org").expect("scaffold DID is valid"),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureexampleorg")
+                    .expect("scaffold principal id is valid"),
             ),
             status: Some("active".to_owned()),
             roles: vec!["backup_admin".to_owned()],
@@ -688,8 +692,9 @@ impl GrantConstraint {
         container_move.max_authority_depth = Some(0);
         container_move.approval_required = Some(true);
         container_move.approval_mode = Some(ApprovalWorkflowMode::ProposalThenApprove);
-        container_move.approval_actor_ids =
-            vec![Did::new("did:webvh:z6mkfixture:ops.example").expect("scaffold DID is valid")];
+        container_move.approval_actor_ids = vec![
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureops").expect("scaffold actor id is valid"),
+        ];
         container_move.approval_relation = Some(GrantApprovalRelation::Responsible);
 
         vec![approval, claim, container_move]
@@ -738,7 +743,7 @@ pub struct CapabilityGrant {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer: Did,
+    pub issuer: DidCoreId,
     pub subject: CapabilitySubject,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
@@ -769,7 +774,7 @@ pub struct CapabilityGrant {
     )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
+    pub updated_by: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -777,7 +782,7 @@ pub struct CapabilityGrant {
     )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub revoked_by: Option<Did>,
+    pub revoked_by: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -798,8 +803,8 @@ mod tests {
             "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer": "did:web:issuer.example",
-            "subject": "did:web:subject.example",
+            "issuer": "ak:did_core:web:issuer.example",
+            "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
             "issuer_authority_refs": [{
@@ -822,8 +827,8 @@ mod tests {
             "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer": "did:web:issuer.example",
-            "subject": "did:web:subject.example",
+            "issuer": "ak:did_core:web:issuer.example",
+            "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
             "issued_at": "2026-07-14T12:34:56.789Z",
@@ -838,7 +843,7 @@ mod tests {
     fn applet_authority_uses_registered_authority_control_shape() {
         let constraint = GrantConstraint::applet_authority(
             AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
-            Did::new("did:web:calendar.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:calendar.example").unwrap(),
             Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
         );
         let wire = serde_json::to_value(constraint).unwrap();
@@ -846,7 +851,7 @@ mod tests {
         assert_eq!(wire["constraint_kind"], "authority_control");
         assert_eq!(wire["constraint_subkind"], "applet_authority");
         assert_eq!(wire["evaluation_class"], "grant_local");
-        assert_eq!(wire["executed_by"], "did:web:calendar.example");
+        assert_eq!(wire["executed_by"], "ak:did_core:web:calendar.example");
         assert!(wire.get("applet_delegation_binding").is_none());
     }
 
@@ -861,8 +866,10 @@ mod tests {
             realm_id: Some(
                 RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             ),
-            issuer: Did::new("did:web:issuer.example").unwrap(),
-            subject: CapabilitySubject::Did(Did::new("did:web:subject.example").unwrap()),
+            issuer: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
+            subject: CapabilitySubject::Did(
+                DidCoreId::new("ak:did_core:web:subject.example").unwrap(),
+            ),
             actions: vec!["ak.event.read".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             capability_action_registry_digest: None,

@@ -1,5 +1,5 @@
 use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
-use arkret_wire::{Did, Error, PlaintextDataClassKind, Result};
+use arkret_wire::{DidCoreId, Error, PlaintextDataClassKind, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -23,7 +23,7 @@ pub enum PlaintextServiceVisibility {
 /// extension keys remain wire-compatible.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlaintextVisibleService {
-    pub service_id: Did,
+    pub service_id: DidCoreId,
     pub service_kind: String,
     pub purposes: Vec<String>,
     pub data_classes: Vec<PlaintextDataClassKind>,
@@ -38,7 +38,7 @@ pub struct PlaintextVisibleService {
 
 impl PlaintextVisibleService {
     pub fn new(
-        service_id: Did,
+        service_id: DidCoreId,
         service_kind: impl Into<String>,
         data_classes: Vec<PlaintextDataClassKind>,
         purposes: Vec<String>,

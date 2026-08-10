@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    ActorId, CoreId, Did, DidUrl, Error, EventId, Hash, InviteId, RealmId, Result, ServiceId,
-    StrandId, XExtensionMap, canonical,
+    DidCoreId, DidUrl, Error, EventId, Hash, InviteId, RealmId, Result, StrandId, XExtensionMap,
+    canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -65,7 +65,7 @@ pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<ActorId>,
+    pub actor_id: Option<DidCoreId>,
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_status: Option<DeliveryStatus>,
@@ -86,7 +86,7 @@ pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gate_proofs: Vec<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_service_ids: Vec<ServiceId>,
+    pub via_service_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
@@ -105,7 +105,7 @@ impl MembershipPayload {
     /// Build a non-`join` transition payload (`invite`/`knock`/`leave`/`ban`).
     pub fn transition(
         membership: MembershipPayloadState,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         reason: impl Into<String>,
     ) -> Self {
         Self {
@@ -126,7 +126,7 @@ impl MembershipPayload {
     /// `realm_id` + `actor_id` + `delivery_status` fields.
     pub fn join(
         realm_id: RealmId,
-        actor_id: ActorId,
+        actor_id: DidCoreId,
         delivery_status: DeliveryStatus,
         reason: impl Into<String>,
     ) -> Self {
@@ -191,7 +191,7 @@ impl MembershipPayload {
 /// and re-prefixed on serialize.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteCreatePayload {
-    pub invitee: CoreId,
+    pub invitee: DidCoreId,
     pub invite_delivery_target: InviteDeliveryTarget,
     pub introduction_evidence_digest: Hash,
     #[serde(with = "canonical_timestamp")]
@@ -203,7 +203,7 @@ pub struct InviteCreatePayload {
 
 impl InviteCreatePayload {
     pub fn new(
-        invitee: CoreId,
+        invitee: DidCoreId,
         invite_delivery_target: InviteDeliveryTarget,
         introduction_evidence_digest: Hash,
         expires_at: chrono::DateTime<chrono::Utc>,
@@ -290,7 +290,7 @@ pub enum InviteCancelTargetState {
 #[serde(deny_unknown_fields)]
 pub struct InviteCancelPayload {
     pub invite_id: InviteId,
-    pub invitee: CoreId,
+    pub invitee: DidCoreId,
     pub target_state: InviteCancelTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -299,7 +299,7 @@ pub struct InviteCancelPayload {
 impl InviteCancelPayload {
     pub fn new(
         invite_id: InviteId,
-        invitee: CoreId,
+        invitee: DidCoreId,
         target_state: InviteCancelTargetState,
     ) -> Self {
         Self {
@@ -337,7 +337,7 @@ pub enum InviteRevokeTargetState {
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee: Option<CoreId>,
+    pub invitee: Option<DidCoreId>,
     pub target_state: InviteRevokeTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -390,9 +390,9 @@ pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subjec
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimBindingProof {
-    pub verification_service_id: Did,
+    pub verification_service_id: DidCoreId,
     pub verification_method: DidUrl,
-    pub subject_id: Did,
+    pub subject_id: DidCoreId,
     pub realm_id: RealmId,
     pub audience: String,
     pub claim_nonce: String,
@@ -403,8 +403,8 @@ pub struct InviteClaimBindingProof {
 impl InviteClaimBindingProof {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        verification_service_id: Did,
-        subject_id: Did,
+        verification_service_id: DidCoreId,
+        subject_id: DidCoreId,
         realm_id: RealmId,
         claim_nonce: impl Into<String>,
         expires_at: impl Into<String>,
@@ -469,8 +469,8 @@ impl InviteClaimBindingProof {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimUnsignedBindingProof {
-    pub verification_service_id: Did,
-    pub subject_id: Did,
+    pub verification_service_id: DidCoreId,
+    pub subject_id: DidCoreId,
     pub realm_id: RealmId,
     pub audience: String,
     pub claim_nonce: String,
@@ -488,9 +488,9 @@ pub struct InviteClaimBindingProofBody {
     pub invite_digest: Hash,
     pub invite_id: InviteId,
     pub realm_id: RealmId,
-    pub subject_id: Did,
+    pub subject_id: DidCoreId,
     pub token_commitment: Hash,
-    pub verification_service_id: Did,
+    pub verification_service_id: DidCoreId,
 }
 
 impl InviteClaimBindingProofBody {
@@ -635,7 +635,7 @@ impl InviteSubjectProof {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteClaimPayload {
     pub invite_id: InviteId,
-    pub subject_id: Did,
+    pub subject_id: DidCoreId,
     pub token_commitment: Hash,
     pub claim_nonce: String,
     pub binding_proof: InviteClaimBindingProof,
@@ -666,24 +666,24 @@ impl InviteClaimPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteSubjectProofBody {
-    pub subject_id: Did,
+    pub subject_id: DidCoreId,
     pub invite_id: InviteId,
     pub realm_id: RealmId,
     pub token_commitment: Hash,
     pub claim_nonce: String,
     pub audience: String,
-    pub verification_service_id: Did,
+    pub verification_service_id: DidCoreId,
     pub binding_proof_digest: Hash,
 }
 
 impl InviteSubjectProofBody {
     pub fn new(
-        subject_id: Did,
+        subject_id: DidCoreId,
         invite_id: InviteId,
         realm_id: RealmId,
         token_commitment: Hash,
         claim_nonce: impl Into<String>,
-        verification_service_id: Did,
+        verification_service_id: DidCoreId,
         binding_proof_digest: Hash,
     ) -> Self {
         Self {
@@ -708,12 +708,12 @@ impl InviteSubjectProofBody {
         binding_proof_digest: impl Into<String>,
     ) -> Result<Self> {
         Ok(Self::new(
-            Did::new(subject_id.into())?,
+            DidCoreId::new(subject_id.into())?,
             InviteId::new(invite_id.into())?,
             RealmId::new(realm_id.into())?,
             Hash::new(token_commitment.into())?,
             claim_nonce,
-            Did::new(verification_service_id.into())?,
+            DidCoreId::new(verification_service_id.into())?,
             Hash::new(binding_proof_digest.into())?,
         ))
     }
@@ -887,17 +887,17 @@ mod tests {
         ));
     }
 
-    const SUBJECT: &str = "did:web:bob.example";
+    const SUBJECT: &str = "ak:did_core:webvh:z6mkfixturebob";
     const INVITE: &str = "ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz";
     const REALM: &str = "ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-";
     const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const SERVICE: &str = "did:web:verify.example";
+    const SERVICE: &str = "ak:did_core:web:verify.example";
     const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
     fn binding_proof() -> InviteClaimBindingProof {
         InviteClaimBindingProof::new(
-            Did::new(SERVICE).unwrap(),
-            Did::new(SUBJECT).unwrap(),
+            DidCoreId::new(SERVICE).unwrap(),
+            DidCoreId::new(SUBJECT).unwrap(),
             RealmId::new(REALM).unwrap(),
             "nonce-claim-proof-1",
             "2099-01-01T00:00:00.000Z",
@@ -961,9 +961,9 @@ mod tests {
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",
                 "\"invite_id\":\"ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz\",",
                 "\"realm_id\":\"ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\",",
-                "\"subject_id\":\"did:web:bob.example\",",
+                "\"subject_id\":\"ak:did_core:webvh:z6mkfixturebob\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
-                "\"verification_service_id\":\"did:web:verify.example\"}"
+                "\"verification_service_id\":\"ak:did_core:web:verify.example\"}"
             )
         );
     }

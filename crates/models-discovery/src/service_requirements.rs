@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, Did, Error, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceId, ServiceKind,
+    DeviceId, DidCoreId, Error, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -20,11 +20,10 @@ use crate::service_description::ServiceDescribe;
 /// mirroring `ArkretPrincipalServer`. See `zh/identity/identity-did.md` and
 /// `zh/crypto-media/device-lifecycle.md` §5.4. This is distinct from the
 /// snake_case [`ServiceKind`] used by `ServiceEndpointBinding`.
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceEndpointBinding {
-    pub service_id: ServiceId,
+    pub service_id: DidCoreId,
     pub service_kind: ServiceKind,
     pub endpoint: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -33,12 +32,12 @@ pub struct ServiceEndpointBinding {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ServiceIdAllowlist {
+pub struct DidCoreIdAllowlist {
     #[serde(default)]
-    pub services: BTreeMap<ServiceId, ServiceEndpointBinding>,
+    pub services: BTreeMap<DidCoreId, ServiceEndpointBinding>,
 }
 
-impl ServiceIdAllowlist {
+impl DidCoreIdAllowlist {
     pub fn new() -> Self {
         Self::default()
     }
@@ -52,11 +51,11 @@ impl ServiceIdAllowlist {
         self.services.insert(binding.service_id.clone(), binding);
     }
 
-    pub fn contains(&self, service_id: &ServiceId) -> bool {
+    pub fn contains(&self, service_id: &DidCoreId) -> bool {
         self.services.contains_key(service_id)
     }
 
-    pub fn binding(&self, service_id: &ServiceId) -> Option<&ServiceEndpointBinding> {
+    pub fn binding(&self, service_id: &DidCoreId) -> Option<&ServiceEndpointBinding> {
         self.services.get(service_id)
     }
 
@@ -106,7 +105,7 @@ pub enum RateLimitScopeKind {
     Actor,
     Ip,
     Device,
-    ServiceId,
+    DidCoreId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -153,7 +152,7 @@ pub struct HttpTraceMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -295,7 +294,7 @@ impl ServiceRequirements {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ProfileId, TypedTrustDomainId};
+    use arkret_wire::{DidCoreId, DidFullId, ProfileId, TypedTrustDomainId};
 
     use super::*;
     use crate::service_description::{
@@ -307,9 +306,9 @@ mod tests {
     #[test]
     fn verifies_required_service_profile_and_operation() {
         let description = ServiceDescribe {
-            service_id: ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             service_resolution: arkret_models_identity::ResolutionCommitment {
-                full_id: FullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+                full_id: DidFullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
                 method_history_head: "fixture-head".to_owned(),
                 version_id: "fixture-version".to_owned(),
             },
@@ -383,8 +382,8 @@ mod tests {
 
     #[test]
     fn service_id_allowlist_verifies_description_and_operations() {
-        let service_id = ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap();
-        let allowlist = ServiceIdAllowlist::new().allow(ServiceEndpointBinding {
+        let service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let allowlist = DidCoreIdAllowlist::new().allow(ServiceEndpointBinding {
             service_id: service_id.clone(),
             service_kind: ServiceKind::DirectoryService,
             endpoint: "https://svc.example/_arkret/find/directory".to_owned(),
@@ -393,7 +392,7 @@ mod tests {
         let description = ServiceDescribe {
             service_id,
             service_resolution: arkret_models_identity::ResolutionCommitment {
-                full_id: FullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+                full_id: DidFullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
                 method_history_head: "fixture-head".to_owned(),
                 version_id: "fixture-version".to_owned(),
             },

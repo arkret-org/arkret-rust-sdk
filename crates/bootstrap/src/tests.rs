@@ -10,7 +10,7 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    ActorId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl, Event, EventDigestSuiteCode,
+    AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidUrl, Event, EventDigestSuiteCode,
     EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc, NonEmptyString, NotarySig,
     PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
     SealId, SemanticRefProof, SemanticRefProofKind, TypedTrustDomainId, WireError,
@@ -32,7 +32,7 @@ use crate::{
 };
 
 struct FixtureSigner {
-    did: Did,
+    did: DidFullId,
     verification_method: DidUrl,
 }
 
@@ -56,7 +56,7 @@ fn fixture_realm(seed: u8) -> RealmId {
 }
 
 impl PayloadSigner for FixtureSigner {
-    fn signer_did(&self) -> &Did {
+    fn signer_did(&self) -> &DidFullId {
         &self.did
     }
 
@@ -92,6 +92,7 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
 fn bootstrap_unit() -> (Event, Event) {
     let input = input();
     let principal_id = input.principal_id.clone();
+    let principal_full_id = input.principal_full_id.clone();
     let mut create = build_self_principal_pcr_create(input, &registry_projection).unwrap();
     attach_fixture_proof(
         &mut create,
@@ -120,16 +121,18 @@ fn bootstrap_unit() -> (Event, Event) {
     authorize.refresh_content_bound_identity().unwrap();
     attach_fixture_proof(
         &mut authorize,
-        &DidUrl::new(format!("{}#{}", principal_id, founding_device_id())).unwrap(),
+        &DidUrl::new(format!("{}#{}", principal_full_id, founding_device_id())).unwrap(),
     );
     (create, authorize)
 }
 
 fn input() -> SelfPrincipalPcrCreateInput {
-    let principal_id = Did::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
+    let principal_full_id = DidFullId::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
+    let principal_id = project_full_id_to_core_id(&principal_full_id).unwrap();
     let created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
     SelfPrincipalPcrCreateInput {
         principal_id: principal_id.clone(),
+        principal_full_id,
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -154,7 +157,7 @@ fn founding_device_id() -> DeviceId {
 }
 
 fn founding_authorize_payload(
-    principal_id: &Did,
+    principal_id: &DidCoreId,
     not_before: chrono::DateTime<Utc>,
 ) -> DeviceAuthorizePayload {
     DeviceAuthorizePayload {
@@ -164,7 +167,7 @@ fn founding_authorize_payload(
         hpke_key: NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
         algorithms: vec![NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap()],
         device_key_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
-        authorized_by: DeviceOrPrincipalRef::Did(principal_id.clone()),
+        authorized_by: DeviceOrPrincipalRef::Principal(principal_id.clone()),
         scopes: None,
         not_before,
         expires_at: None,
@@ -177,7 +180,7 @@ fn founding_authorize_payload(
 }
 
 fn founding_device_descriptor(
-    principal_id: &Did,
+    principal_id: &DidCoreId,
     not_before: chrono::DateTime<Utc>,
 ) -> FoundingDeviceDescriptor {
     let payload =
@@ -296,7 +299,7 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
 fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
     let (create, authorize) = bootstrap_unit();
     let device_id = "ak:device:01904100-0000-7000-8000-000000000001";
-    let principal_id = input().principal_id;
+    let principal_id = input().principal_full_id;
     let signer = FixtureSigner {
         did: principal_id.clone(),
         verification_method: DidUrl::new(format!("{principal_id}#{device_id}")).unwrap(),
@@ -331,10 +334,14 @@ fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
 
 fn managed_agent_pcr_create() -> Event {
     let realm_id = RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
-    let agent = Did::new("did:web:agent.example").unwrap();
-    let controller = Did::new("did:web:controller.example").unwrap();
+    let agent_full = DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
+    let agent = project_full_id_to_core_id(&agent_full).unwrap();
+    let controller_full =
+        DidFullId::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
+    let controller = project_full_id_to_core_id(&controller_full).unwrap();
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: agent.clone(),
+        agent_full_id: agent_full.clone(),
         controller_id: controller.clone(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
@@ -346,10 +353,8 @@ fn managed_agent_pcr_create() -> Event {
     .unwrap();
     let mut create = arkret_wire::test_support::raw_event(
         EventKind::RealmCreate.to_string(),
-        ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        },
-        ActorId::from(project_full_id_to_core_id(&agent).unwrap()),
+        ScopeRef::Realm { realm_id },
+        agent,
         0,
         Hlc::new("01970e589d21-0007-a13f9c2e").unwrap(),
         payload.to_value().unwrap(),
@@ -358,10 +363,8 @@ fn managed_agent_pcr_create() -> Event {
     create.event_id =
         EventId::new("ak:event:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
     create.authorization_ref =
-        Some(AuthorizationRef::new(format!("{agent}#managed-controller")).unwrap());
-    create.executed_by = Some(ActorId::from(
-        project_full_id_to_core_id(&controller).unwrap(),
-    ));
+        Some(AuthorizationRef::new(format!("{agent_full}#managed-controller")).unwrap());
+    create.executed_by = Some(controller);
     create.refs.clear();
     create
 }
@@ -369,8 +372,9 @@ fn managed_agent_pcr_create() -> Event {
 #[test]
 fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
-        agent_id: Did::new("did:web:agent.example".to_owned()).unwrap(),
-        controller_id: Did::new("did:web:controller.example".to_owned()).unwrap(),
+        agent_id: DidCoreId::new("ak:did_core:web:agent.example".to_owned()).unwrap(),
+        agent_full_id: DidFullId::new("did:web:agent.example").unwrap(),
+        controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
@@ -488,7 +492,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
 fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     let create = managed_agent_pcr_create();
     let controller_actor = create.executed_by.clone().unwrap();
-    let controller = Did::new("did:web:controller.example").unwrap();
+    let controller = DidFullId::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
     let mut anchor = arkret_wire::test_support::raw_event(
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
@@ -558,14 +562,15 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
 
 #[test]
 fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
-    let controller = Did::new("did:webvh:z6mkfixture:controller.example").unwrap();
-    let agent = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
+    let controller_full = DidFullId::new("did:webvh:z6mkfixture:controller.example").unwrap();
+    let controller = DidCoreId::new("ak:did_core:webvh:z6mkfixture:controller.example").unwrap();
+    let agent = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent.example").unwrap();
     let event = build_agent_provision_event_draft(
         &controller,
         &fixture_realm(1),
         &agent,
         &fixture_realm(2),
-        &DidUrl::new(format!("{controller}#managed-agent")).unwrap(),
+        &DidUrl::new(format!("{controller_full}#managed-agent")).unwrap(),
         "summary",
         &Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
         HandleVisibility::Private,

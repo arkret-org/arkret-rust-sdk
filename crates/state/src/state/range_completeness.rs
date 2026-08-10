@@ -11,7 +11,7 @@ use arkret_models_collaboration::sync_frames::snapshot::{
     RangeCompletenessAttestation, RangeCompletenessAttestationEventRangeActorSeqRangesItem,
 };
 use arkret_wire::{
-    ActorId, Did, Event, EventId, Hash, RealmId, event_spec, project_full_id_to_core_id,
+    DidCoreId, DidFullId, Event, EventId, Hash, RealmId, event_spec, project_full_id_to_core_id,
 };
 use serde::Serialize;
 
@@ -36,7 +36,7 @@ pub struct VerifiedRangeCompleteness {
 
 #[derive(Serialize)]
 struct RangeLeaf<'a> {
-    actor_id: &'a ActorId,
+    actor_id: &'a DidCoreId,
     actor_seq: u64,
     event_id: &'a EventId,
     event_digest: &'a Hash,
@@ -263,7 +263,7 @@ pub fn full_realm_range_events(events: &[Event]) -> Result<Vec<Event>, RangeComp
 pub fn range_completeness_actor_seq_ranges(
     events: &[Event],
 ) -> Result<Vec<RangeCompletenessAttestationEventRangeActorSeqRangesItem>, RangeCompletenessError> {
-    let mut bounds = BTreeMap::<ActorId, (u64, u64)>::new();
+    let mut bounds = BTreeMap::<DidCoreId, (u64, u64)>::new();
     for event in events.iter().filter(|event| event.kind.is_reducer_input()) {
         bounds
             .entry(event.actor_id.clone())
@@ -294,7 +294,7 @@ fn validate_actor_ranges(
     payload: &RangeCompletenessAttestation,
     range_events: &[Event],
 ) -> Result<(), RangeCompletenessError> {
-    let mut previous_actor: Option<&ActorId> = None;
+    let mut previous_actor: Option<&DidCoreId> = None;
     let mut ranges = BTreeMap::new();
     for range in &payload.event_range.actor_seq_ranges {
         if range.from_seq_exclusive >= range.to_seq_inclusive as i64 {
@@ -354,7 +354,7 @@ fn validate_actor_ranges(
 fn validate_witnesses(
     payload: &RangeCompletenessAttestation,
     high_assurance: bool,
-    allowed_witnesses: &BTreeSet<Did>,
+    allowed_witnesses: &BTreeSet<DidCoreId>,
 ) -> Result<(), RangeCompletenessError> {
     let witnesses = &payload.witness_attestation.witnesses;
     match payload.witness_attestation.kind.as_str() {
@@ -369,7 +369,11 @@ fn validate_witnesses(
                     witness.issuer == payload.issuer
                         && witness
                             .verification_method
-                            .starts_with(&format!("{}#", payload.issuer))
+                            .as_str()
+                            .split_once('#')
+                            .and_then(|(controller, _)| DidFullId::new(controller).ok())
+                            .and_then(|controller| project_full_id_to_core_id(&controller).ok())
+                            .is_some_and(|controller| controller == payload.issuer)
                 })
             {
                 return Err(RangeCompletenessError::SchemaViolation(
@@ -439,7 +443,7 @@ pub fn verify_full_realm_range_completeness(
     accepted_events: &[Event],
     expected_realm: &RealmId,
     high_assurance: bool,
-    allowed_witnesses: &BTreeSet<Did>,
+    allowed_witnesses: &BTreeSet<DidCoreId>,
 ) -> Result<VerifiedRangeCompleteness, RangeCompletenessError> {
     verify_full_realm_range_completeness_with_suite(
         attestation_event,
@@ -459,7 +463,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
     expected_realm: &RealmId,
     digest_suite: arkret_canonical::DigestSuite,
     high_assurance: bool,
-    allowed_witnesses: &BTreeSet<Did>,
+    allowed_witnesses: &BTreeSet<DidCoreId>,
 ) -> Result<VerifiedRangeCompleteness, RangeCompletenessError> {
     if accepted_events.is_empty() {
         return Err(RangeCompletenessError::SchemaViolation(
@@ -478,10 +482,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
     if payload.schema != arkret_wire::SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1
         || payload.realm_id != *expected_realm
-        || ActorId::from(
-            project_full_id_to_core_id(&payload.issuer)
-                .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?,
-        ) != attestation_event.actor_id
+        || payload.issuer != attestation_event.actor_id
     {
         return Err(RangeCompletenessError::SchemaViolation(
             "attestation payload binding is invalid".to_owned(),
@@ -549,22 +550,25 @@ pub fn verify_full_realm_range_completeness_with_suite(
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_wire::{DidUrl, EventKind, EventRequirements, Proof, ScopeRef, proof_kind};
+    use arkret_wire::{
+        DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, Proof, ScopeRef,
+        project_full_id_to_core_id, proof_kind,
+    };
     use chrono::{TimeZone, Utc};
     use serde_json::{Value, json};
 
     use super::*;
 
     fn event(id: &str, seq: u64, kind: &str, prev_refs: Vec<EventId>) -> Event {
-        let actor_full = Did::new("did:web:alice.example").unwrap();
-        let actor = ActorId::from(project_full_id_to_core_id(&actor_full).unwrap());
+        let actor_full = DidFullId::new("did:web:alice.example").unwrap();
+        let actor = project_full_id_to_core_id(&actor_full).unwrap();
         let realm = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
         let mut event = Event {
             event_id: EventId::new(id).unwrap(),
             kind: EventKind::from(kind),
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: actor.clone(),
+            actor_id: actor,
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -609,7 +613,9 @@ mod tests {
             RangeCompletenessAttestationWitnessAttestationWitnessesItem,
         };
 
-        let issuer = Did::new("did:web:server.example").unwrap();
+        let issuer_full = DidFullId::new("did:webvh:z6mkfixture:server.example").unwrap();
+        let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let controlling_organization = DidCoreId::new("ak:did_core:webvh:z6mkfixtureorg").unwrap();
         let realm = events[0].realm_id.clone();
         let (from_frontier, to_frontier) = full_realm_range_frontiers(events).unwrap();
         let range_events = full_realm_range_events(events).unwrap();
@@ -640,8 +646,9 @@ mod tests {
                 witnesses: vec![
                     RangeCompletenessAttestationWitnessAttestationWitnessesItem {
                         issuer: issuer.clone(),
-                        verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
-                        controlling_organization: issuer.clone(),
+                        verification_method: DidUrl::new(format!("{issuer_full}#notary-key"))
+                            .unwrap(),
+                        controlling_organization,
                         attested_at: Some(created_at),
                         extra: BTreeMap::new(),
                     },
@@ -653,7 +660,7 @@ mod tests {
             arkret_canonical::sha256_digest(payload.proof_payload_bytes().unwrap());
         payload.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+            verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
             event_digest: Hash::new(payload_digest).unwrap(),
             created_at,
             domain: None,
@@ -670,7 +677,7 @@ mod tests {
             kind: EventKind::AttestationRangeCompleteness,
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: ActorId::from(project_full_id_to_core_id(&issuer).unwrap()),
+            actor_id: issuer,
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -694,7 +701,7 @@ mod tests {
         };
         event.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+            verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at,
             domain: None,
