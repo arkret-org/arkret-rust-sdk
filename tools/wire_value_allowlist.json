@@ -2424,15 +2424,14 @@
     },
     {
       "finding": "crates/models-discovery/src/directory.rs::DirectoryAnnounceRequestBody.discovery_state",
-      "classification": "open_json",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody/properties/discovery_state",
+      "decision": "raw",
+      "authority": "BTreeMap<String, Value>",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody/properties/discovery_state"
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "crates/models-discovery/src/directory.rs::DirectoryOrganizationResolutionOutcome.endorsements",
@@ -2472,26 +2471,26 @@
     },
     {
       "finding": "crates/models-discovery/src/directory.rs::DirectoryTakedownAppealRequestBody.governance_proof",
-      "classification": "open_json",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
+      "decision": "raw",
       "authority": "service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody/properties/governance_proof",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody/properties/governance_proof"
     },
     {
       "finding": "crates/models-discovery/src/directory.rs::DirectoryWithdrawRequestBody.governance_proof",
-      "classification": "open_json",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
+      "decision": "raw",
       "authority": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody/properties/governance_proof",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody/properties/governance_proof"
     },
     {

@@ -1,20 +1,20 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-10.1;
-//! sha256=e6a6a4e75204f14f85aef86ec8c81ea205c870d26a45e4f8d3545d16a2e3e8aa Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-10.2;
+//! sha256=ad20d94f864c621ea62db35f70d795a3dc353e205cd0e657db82009980b41111 Input: registry/
 //! exporter-label-registry.json; version=2026-08-08;
 //! sha256=065f7fc5f29a97a542f54805b594d8d702b3f7f41bd072135f225508fb9e5768 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
-//! sha256=e51b58edc46ab7e1ab337883dc9fa36ccebb7536bb06eafb1b4771f844078151 Input: registry/
+//! sha256=1a309e38062e1f5a2276bed378b0e195d5d88dc1d2564d72ee1ddbb77bcf9908 Input: registry/
 //! signature-alg-registry.json; version=2026-08-04.2;
-//! sha256=e381cf8a9c28a76f3c891897895d1e7188d648c7ab68f5888b6c75c67ed31d55 Input: registry/
+//! sha256=509de113ec94d2099974c90970849703a50770a18fd82151a405dcf6d2b472a3 Input: registry/
 //! hpke-suite-registry.json; version=2026-08-09;
-//! sha256=57e3969f9ff5233a573b1c831ae2506866be0a54cfcddaf248b05a467ffa74bd Input: registry/
+//! sha256=fc85822a5c2ded9301fc7de7672429b18456f8d81a2533b2a799e1de5a1d1c03 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-07-29;
-//! sha256=2c73b41567acd7880abcb4f73a2b09f28805517f41531ef9bfa9a1d018d63ac3 Input: registry/
+//! sha256=908f806c1a634aa468d5acd3c610c4849903dd00f95f3e139627d9ee01fb86d3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=39, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=40, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -36,6 +36,7 @@ pub enum ProofContextId {
     DeviceAuthorizePossessionProofV1,
     DidContinuityProofV1,
     DidWebvhWitnessReceiptProofV1,
+    DirectoryGovernanceRequestProofV1,
     DirectoryOperationProofV1,
     EventProofV1,
     ExtensionManifestProofV1,
@@ -79,6 +80,7 @@ impl ProofContextId {
         Self::DeviceAuthorizePossessionProofV1,
         Self::DidContinuityProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
+        Self::DirectoryGovernanceRequestProofV1,
         Self::DirectoryOperationProofV1,
         Self::EventProofV1,
         Self::ExtensionManifestProofV1,
@@ -130,6 +132,8 @@ impl ProofContextId {
     pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
         "ak.did-webvh-witness-receipt-proof-v1";
+    pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
+        "ak.directory-governance-request-proof-v1";
     pub const DIRECTORY_OPERATION_PROOF_V1: &'static str = "ak.directory-operation-proof-v1";
     pub const EVENT_PROOF_V1: &'static str = "ak.event-proof-v1";
     pub const EXTENSION_MANIFEST_PROOF_V1: &'static str = "ak.extension-manifest-proof-v1";
@@ -190,6 +194,7 @@ impl ProofContextId {
             Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
             Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
+            Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
             Self::DirectoryOperationProofV1 => Self::DIRECTORY_OPERATION_PROOF_V1,
             Self::EventProofV1 => Self::EVENT_PROOF_V1,
             Self::ExtensionManifestProofV1 => Self::EXTENSION_MANIFEST_PROOF_V1,
@@ -258,6 +263,9 @@ impl ProofContextId {
             }
             Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
             Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
+            Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
+                Some(Self::DirectoryGovernanceRequestProofV1)
+            }
             Self::DIRECTORY_OPERATION_PROOF_V1 => Some(Self::DirectoryOperationProofV1),
             Self::EVENT_PROOF_V1 => Some(Self::EventProofV1),
             Self::EXTENSION_MANIFEST_PROOF_V1 => Some(Self::ExtensionManifestProofV1),
@@ -633,6 +641,21 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/did-webvh-witness-receipt.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::DirectoryGovernanceRequestProofV1,
+        context: "ak.directory-governance-request-proof-v1",
+        object_family: "directory_governance_request",
+        binding_fields: &[
+            "payload_digest",
+            "operation_id",
+            "resource_id",
+            "verification_method",
+            "created_at",
+            "proof_purpose",
+            "audience",
+        ],
+        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof",
     },
     ProofContextDescriptor {
         id: ProofContextId::DirectoryOperationProofV1,

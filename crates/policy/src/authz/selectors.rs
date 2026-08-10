@@ -137,7 +137,8 @@ pub enum ResourceSelector {
     /// Actor selector (e.g. account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// AKP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
-    /// specific Circle by its `ak:circle:<uuid>` identifier. The Circle
+    /// specific Circle by its complete event-derived `ak:circle:<event-token>`
+    /// identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
     Circle {

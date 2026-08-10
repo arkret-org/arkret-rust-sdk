@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-09.20;
-//! sha256=bdbc0a4d0a84c7434c9493293fe1640a0461ea6bb68cbdb922d80b958d462f37 Entries: registered=225
+//! Input: registry/operation-registry.json; version=2026-08-10.2;
+//! sha256=f1a3286cd556c1a4eef7ac3d19fb78917f6c3de705e3a8e6f879b8347a0bfc6f Entries: registered=227
 
 use serde::{Deserialize, Serialize};
 
@@ -113,7 +113,9 @@ pub enum ServiceOperationId {
     SelfAccountDataResourceDelete,
     SelfAccountDataResourceGet,
     SelfAccountDataResourceReplace,
+    SelfAgentCommandAbandonProvisioning,
     SelfAgentCommandDeactivate,
+    SelfAgentCommandIssueProvisioningAbandonmentChallenge,
     SelfAgentCommandPause,
     SelfAgentCommandProvision,
     SelfAgentCommandRenewPairing,
@@ -341,7 +343,9 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_GET,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_AGENT_COMMAND_ABANDON_PROVISIONING,
     ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
+    ServiceOperationId::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE,
     ServiceOperationId::SELF_AGENT_COMMAND_PAUSE,
     ServiceOperationId::SELF_AGENT_COMMAND_PROVISION,
     ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING,
@@ -609,7 +613,9 @@ impl ServiceOperationId {
         Self::SelfAccountDataResourceDelete,
         Self::SelfAccountDataResourceGet,
         Self::SelfAccountDataResourceReplace,
+        Self::SelfAgentCommandAbandonProvisioning,
         Self::SelfAgentCommandDeactivate,
+        Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge,
         Self::SelfAgentCommandPause,
         Self::SelfAgentCommandProvision,
         Self::SelfAgentCommandRenewPairing,
@@ -908,7 +914,11 @@ impl ServiceOperationId {
     pub const SELF_ACCOUNT_DATA_RESOURCE_GET: &'static str = "ak.self.account_data.resource.get";
     pub const SELF_ACCOUNT_DATA_RESOURCE_REPLACE: &'static str =
         "ak.self.account_data.resource.replace";
+    pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING: &'static str =
+        "ak.self.agent.command.abandon_provisioning";
     pub const SELF_AGENT_COMMAND_DEACTIVATE: &'static str = "ak.self.agent.command.deactivate";
+    pub const SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE: &'static str =
+        "ak.self.agent.command.issue_provisioning_abandonment_challenge";
     pub const SELF_AGENT_COMMAND_PAUSE: &'static str = "ak.self.agent.command.pause";
     pub const SELF_AGENT_COMMAND_PROVISION: &'static str = "ak.self.agent.command.provision";
     pub const SELF_AGENT_COMMAND_RENEW_PAIRING: &'static str =
@@ -1257,7 +1267,13 @@ impl ServiceOperationId {
             Self::SelfAccountDataResourceDelete => Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
             Self::SelfAccountDataResourceGet => Self::SELF_ACCOUNT_DATA_RESOURCE_GET,
             Self::SelfAccountDataResourceReplace => Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
+            Self::SelfAgentCommandAbandonProvisioning => {
+                Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING
+            }
             Self::SelfAgentCommandDeactivate => Self::SELF_AGENT_COMMAND_DEACTIVATE,
+            Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge => {
+                Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE
+            }
             Self::SelfAgentCommandPause => Self::SELF_AGENT_COMMAND_PAUSE,
             Self::SelfAgentCommandProvision => Self::SELF_AGENT_COMMAND_PROVISION,
             Self::SelfAgentCommandRenewPairing => Self::SELF_AGENT_COMMAND_RENEW_PAIRING,
@@ -1617,7 +1633,13 @@ impl ServiceOperationId {
             Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE => Some(Self::SelfAccountDataResourceDelete),
             Self::SELF_ACCOUNT_DATA_RESOURCE_GET => Some(Self::SelfAccountDataResourceGet),
             Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE => Some(Self::SelfAccountDataResourceReplace),
+            Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING => {
+                Some(Self::SelfAgentCommandAbandonProvisioning)
+            }
             Self::SELF_AGENT_COMMAND_DEACTIVATE => Some(Self::SelfAgentCommandDeactivate),
+            Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE => {
+                Some(Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge)
+            }
             Self::SELF_AGENT_COMMAND_PAUSE => Some(Self::SelfAgentCommandPause),
             Self::SELF_AGENT_COMMAND_PROVISION => Some(Self::SelfAgentCommandProvision),
             Self::SELF_AGENT_COMMAND_RENEW_PAIRING => Some(Self::SelfAgentCommandRenewPairing),
@@ -4132,6 +4154,32 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAgentCommandAbandonProvisioning,
+        http_method: "POST",
+        http_path: "/_arkret/self/agent-provisioning-abandonments",
+        grpc: Some("SelfAgent/AbandonProvisioning"),
+        mq: Some("self.agent.command.abandon_provisioning"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "releases_only_service_local_slug_and_realm_id_claims_and_records_a_tombstone_audit_reservation_no_event_is_authored",
+            ),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandDeactivate,
         http_method: "POST",
         http_path: "/_arkret/self/agents/{agent_id}/deactivate",
@@ -4155,6 +4203,32 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.agent.deactivate"])),
             rationale: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAgentCommandIssueProvisioningAbandonmentChallenge,
+        http_method: "POST",
+        http_path: "/_arkret/self/agent-provisioning-abandonment-challenges",
+        grpc: Some("SelfAgent/IssueProvisioningAbandonmentChallenge"),
+        mq: Some("self.agent.command.issue_provisioning_abandonment_challenge"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_challenge_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_challenge_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
+            ),
         }),
     },
     ServiceOperationDescriptor {

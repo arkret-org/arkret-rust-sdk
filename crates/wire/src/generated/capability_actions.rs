@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-09.23;
-//! sha256=71cb5fc2172b803d4b96a90406dffa8e994b232839814c4e5fe2301cf67e16b4 Entries: registered=169
+//! Input: registry/capability-action-registry.json; version=2026-08-10.4;
+//! sha256=e6a6689bc18d36052ae56e13a2f16203124cd1aa29734457816fa8bc958f8bf5 Entries: registered=171
 
 use serde::{Deserialize, Serialize};
 
@@ -138,7 +138,9 @@ pub enum CapabilityActionId {
     SchemaUpdate,
     SelfAccountReadDescribe,
     SelfAccountStreamSubscribe,
+    SelfAgentCommandAbandonProvisioning,
     SelfAgentCommandDeactivate,
+    SelfAgentCommandIssueProvisioningAbandonmentChallenge,
     SelfAgentCommandPause,
     SelfAgentCommandProvision,
     SelfAgentCommandRenewPairing,
@@ -311,7 +313,9 @@ impl CapabilityActionId {
         Self::SchemaUpdate,
         Self::SelfAccountReadDescribe,
         Self::SelfAccountStreamSubscribe,
+        Self::SelfAgentCommandAbandonProvisioning,
         Self::SelfAgentCommandDeactivate,
+        Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge,
         Self::SelfAgentCommandPause,
         Self::SelfAgentCommandProvision,
         Self::SelfAgentCommandRenewPairing,
@@ -483,7 +487,11 @@ impl CapabilityActionId {
     pub const SCHEMA_UPDATE: &'static str = "ak.schema.update";
     pub const SELF_ACCOUNT_READ_DESCRIBE: &'static str = "ak.self.account.read.describe";
     pub const SELF_ACCOUNT_STREAM_SUBSCRIBE: &'static str = "ak.self.account.stream.subscribe";
+    pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING: &'static str =
+        "ak.self.agent.command.abandon_provisioning";
     pub const SELF_AGENT_COMMAND_DEACTIVATE: &'static str = "ak.self.agent.command.deactivate";
+    pub const SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE: &'static str =
+        "ak.self.agent.command.issue_provisioning_abandonment_challenge";
     pub const SELF_AGENT_COMMAND_PAUSE: &'static str = "ak.self.agent.command.pause";
     pub const SELF_AGENT_COMMAND_PROVISION: &'static str = "ak.self.agent.command.provision";
     pub const SELF_AGENT_COMMAND_RENEW_PAIRING: &'static str =
@@ -660,7 +668,13 @@ impl CapabilityActionId {
             Self::SchemaUpdate => Self::SCHEMA_UPDATE,
             Self::SelfAccountReadDescribe => Self::SELF_ACCOUNT_READ_DESCRIBE,
             Self::SelfAccountStreamSubscribe => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE,
+            Self::SelfAgentCommandAbandonProvisioning => {
+                Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING
+            }
             Self::SelfAgentCommandDeactivate => Self::SELF_AGENT_COMMAND_DEACTIVATE,
+            Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge => {
+                Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE
+            }
             Self::SelfAgentCommandPause => Self::SELF_AGENT_COMMAND_PAUSE,
             Self::SelfAgentCommandProvision => Self::SELF_AGENT_COMMAND_PROVISION,
             Self::SelfAgentCommandRenewPairing => Self::SELF_AGENT_COMMAND_RENEW_PAIRING,
@@ -836,7 +850,13 @@ impl CapabilityActionId {
             Self::SCHEMA_UPDATE => Some(Self::SchemaUpdate),
             Self::SELF_ACCOUNT_READ_DESCRIBE => Some(Self::SelfAccountReadDescribe),
             Self::SELF_ACCOUNT_STREAM_SUBSCRIBE => Some(Self::SelfAccountStreamSubscribe),
+            Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING => {
+                Some(Self::SelfAgentCommandAbandonProvisioning)
+            }
             Self::SELF_AGENT_COMMAND_DEACTIVATE => Some(Self::SelfAgentCommandDeactivate),
+            Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE => {
+                Some(Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge)
+            }
             Self::SELF_AGENT_COMMAND_PAUSE => Some(Self::SelfAgentCommandPause),
             Self::SELF_AGENT_COMMAND_PROVISION => Some(Self::SelfAgentCommandProvision),
             Self::SELF_AGENT_COMMAND_RENEW_PAIRING => Some(Self::SelfAgentCommandRenewPairing),

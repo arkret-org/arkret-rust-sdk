@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-09.7;
-//! sha256=0a1ba1b2de1d3c41e9e1c52a97e9cee72c1091c4930bbdc1ceacd0edad98ecdf
-//! Entries: reason_codes=460
+//! Input: registry/error-code-registry.json; version=2026-08-10.2;
+//! sha256=0e9130399e68c629159b4905118767e8ca9a5b064a007a65f4c115f625210dfe
+//! Entries: reason_codes=465
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -28,7 +28,12 @@ pub enum ReasonCode {
     AgentParticipationCeilingUnresolved,
     AgentParticipationCeilingWiden,
     AgentPaused,
+    AgentPcrGenesisAlreadyAccepted,
+    AgentPcrGenesisDeclarationConflict,
+    AgentPcrGenesisDeclarationMissing,
     AgentPcrRecoveryNotReady,
+    AgentProvisioningChallengeAlreadyConsumed,
+    AgentProvisioningChallengeExpired,
     AgentReplyNotPermitted,
     AgentRequestedScopeCommitmentInvalid,
     AgentRuntimeRequestConflict,
@@ -503,7 +508,17 @@ impl ReasonCode {
         "agent_participation_ceiling_unresolved";
     pub const AGENT_PARTICIPATION_CEILING_WIDEN: &'static str = "agent_participation_ceiling_widen";
     pub const AGENT_PAUSED: &'static str = "agent_paused";
+    pub const AGENT_PCR_GENESIS_ALREADY_ACCEPTED: &'static str =
+        "agent_pcr_genesis_already_accepted";
+    pub const AGENT_PCR_GENESIS_DECLARATION_CONFLICT: &'static str =
+        "agent_pcr_genesis_declaration_conflict";
+    pub const AGENT_PCR_GENESIS_DECLARATION_MISSING: &'static str =
+        "agent_pcr_genesis_declaration_missing";
     pub const AGENT_PCR_RECOVERY_NOT_READY: &'static str = "agent_pcr_recovery_not_ready";
+    pub const AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED: &'static str =
+        "agent_provisioning_challenge_already_consumed";
+    pub const AGENT_PROVISIONING_CHALLENGE_EXPIRED: &'static str =
+        "agent_provisioning_challenge_expired";
     pub const AGENT_REPLY_NOT_PERMITTED: &'static str = "agent_reply_not_permitted";
     pub const AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID: &'static str =
         "agent_requested_scope_commitment_invalid";
@@ -1054,7 +1069,16 @@ impl ReasonCode {
             }
             Self::AgentParticipationCeilingWiden => Self::AGENT_PARTICIPATION_CEILING_WIDEN,
             Self::AgentPaused => Self::AGENT_PAUSED,
+            Self::AgentPcrGenesisAlreadyAccepted => Self::AGENT_PCR_GENESIS_ALREADY_ACCEPTED,
+            Self::AgentPcrGenesisDeclarationConflict => {
+                Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT
+            }
+            Self::AgentPcrGenesisDeclarationMissing => Self::AGENT_PCR_GENESIS_DECLARATION_MISSING,
             Self::AgentPcrRecoveryNotReady => Self::AGENT_PCR_RECOVERY_NOT_READY,
+            Self::AgentProvisioningChallengeAlreadyConsumed => {
+                Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED
+            }
+            Self::AgentProvisioningChallengeExpired => Self::AGENT_PROVISIONING_CHALLENGE_EXPIRED,
             Self::AgentReplyNotPermitted => Self::AGENT_REPLY_NOT_PERMITTED,
             Self::AgentRequestedScopeCommitmentInvalid => {
                 Self::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID
@@ -1616,7 +1640,16 @@ impl ReasonCode {
             }
             Self::AGENT_PARTICIPATION_CEILING_WIDEN => Self::AgentParticipationCeilingWiden,
             Self::AGENT_PAUSED => Self::AgentPaused,
+            Self::AGENT_PCR_GENESIS_ALREADY_ACCEPTED => Self::AgentPcrGenesisAlreadyAccepted,
+            Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT => {
+                Self::AgentPcrGenesisDeclarationConflict
+            }
+            Self::AGENT_PCR_GENESIS_DECLARATION_MISSING => Self::AgentPcrGenesisDeclarationMissing,
             Self::AGENT_PCR_RECOVERY_NOT_READY => Self::AgentPcrRecoveryNotReady,
+            Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED => {
+                Self::AgentProvisioningChallengeAlreadyConsumed
+            }
+            Self::AGENT_PROVISIONING_CHALLENGE_EXPIRED => Self::AgentProvisioningChallengeExpired,
             Self::AGENT_REPLY_NOT_PERMITTED => Self::AgentReplyNotPermitted,
             Self::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID => {
                 Self::AgentRequestedScopeCommitmentInvalid
@@ -2315,9 +2348,34 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A request targeted an agent principal whose current `ak.component.agent.status.v1` cell is `paused`. Auth Server MUST reject new agent session grants, and any submit / sidecar / grant-management call by or for the paused agent MUST fail closed until `ak.self.agent.command.resume` lands. Distinct from `capability_denied` so callers can surface the recoverable lifecycle state. See zh/identity/key-management.md §3.6 §4.11.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_PCR_GENESIS_ALREADY_ACCEPTED,
+        applies_to: &["service_call", "pcr_genesis"],
+        description: "The managed Agent PCR genesis for the declared principal_control_realm_id was accepted between abandonment-challenge issuance and the abandonment confirmation, so the Agent now exists and its provisioning MUST NOT be abandoned. The service decides this from the principal_control_realm_id and allocation pinned by the challenge, MUST return this stable terminal outcome with zero writes, and MUST NOT release the slug or realm-id claim, record a tombstone or consume the challenge. Retiring an established Agent is ak.self.agent.command.deactivate. See zh/identity/key-management.md §3.6.3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_CONFLICT,
+        applies_to: &["service_call", "event_envelope"],
+        description: "A second ak.agent.provision declared a principal_control_realm_id that another accepted provision already claims. Inside one controller PCR the cas_register, bottom=reject claim cell rejects it; across controllers the Principal Server's local uniqueness index rejects it. Either way the write set is empty and the earlier claim is untouched. See zh/identity/key-management.md §3.6.3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_MISSING,
+        applies_to: &["pcr_genesis", "event_envelope"],
+        description: "A managed_agent_control ak.realm.create was submitted without an already accepted ak.agent.provision in the controller PCR whose payload.principal_control_realm_id equals retype(this genesis event_id). The genesis carries no ref to its provision, so this reverse look-up is the whole binding: no match MUST fail closed with zero writes, and the receiver MUST NOT materialize the Realm, the agent-status transition or any partial projection. See zh/identity/key-management.md §3.6.3.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_RECOVERY_NOT_READY,
         applies_to: &["service_call", "auth_decision"],
         description: "A Native Personal Agent runtime pairing commit was attempted while its controller-owned managed-PCR recovery projection was pending, stale, missing, or unverifiable. The endpoint MUST leave the pairing handle and every existing key/grant unchanged. The controller E2EE client must publish a current recovery_public_key mls_history series tail whose managed binding covers the Agent PCR accepted Seal frontier and MLS epoch, then retry the identical pairing request. See zh/identity/key-management.md §3.6.1 / §7.5.6.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED,
+        applies_to: &["service_call"],
+        description: "The agent-provisioning abandonment challenge was already consumed and the request is not a replay of the same request_id whose canonical intent matches the stored successful outcome. The service MUST reject it before any state transition; an exact replay returns the recorded terminal outcome and never produces a second tombstone. See zh/identity/key-management.md §3.6.3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_PROVISIONING_CHALLENGE_EXPIRED,
+        applies_to: &["service_call"],
+        description: "The persisted agent-provisioning abandonment challenge expired before first successful consumption. The service MUST reject before releasing any claim, and the controller must obtain a fresh challenge for the same provisioning. Distinct from prior consumption, which is a different terminal state. See zh/identity/key-management.md §3.6.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_REPLY_NOT_PERMITTED,
@@ -2876,7 +2934,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "A second accepted Direct Conversation Realm was observed for the same pair_key while both carried apparently valid founder admission and source acceptance receipts, indicating slot, cutover-fence or signature equivocation by a trusted current Principal Server. Both Realms freeze new Message, membership, policy, MLS and binding writes and all evidence is retained; implementations MUST NOT pick a winner by UUID or arrival order, tombstone either Realm, or migrate history. See zh/identity/contact-and-direct-conversation.md §5.7.",
+        description: "A second accepted Direct Conversation Realm was observed for the same pair_key while both carried apparently valid founder admission and source acceptance receipts, indicating slot, cutover-fence or signature equivocation by a trusted current Principal Server. Both Realms freeze new Message, membership, policy, MLS and binding writes and all evidence is retained; implementations MUST NOT pick a winner by Realm-token lexical order or arrival order, tombstone either Realm, or migrate history. See zh/identity/contact-and-direct-conversation.md §5.7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED,
@@ -3585,7 +3643,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::OBJECT_ID_NOT_EVENT_DERIVED,
         applies_to: &["event_envelope"],
-        description: "Sub-reason for schema_violation when a create Event carries an object identifier in its payload for an object kind whose id MUST be derived from the create Event's event_id. Create payloads MUST omit the id; the reducer materialises it by retyping the event_id UUID. See zh/models/common-fields.md.",
+        description: "Sub-reason for schema_violation when a create Event carries an object identifier in its payload for an object kind whose id MUST be derived from the create Event's event_id. Create payloads MUST omit the id; the reducer materialises it by retyping the complete event-derived EventId token. See zh/models/common-fields.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::OK,

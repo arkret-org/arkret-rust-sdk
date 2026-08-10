@@ -82,16 +82,16 @@
     "by_classification": {
       "independent": 40,
       "internal_or_fixture": 16,
-      "open_json": 142,
-      "polymorphic_boundary": 627
+      "open_json": 139,
+      "polymorphic_boundary": 630
     },
     "by_lifecycle": {
       "retained_boundary": 825
     },
     "by_decision": {
       "independent": 40,
-      "open": 142,
-      "raw": 643
+      "open": 139,
+      "raw": 646
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 315,
@@ -107,11 +107,11 @@
       "teabay": 7
     },
     "by_schema_shape": {
-      "closed": 4,
+      "closed": 6,
       "open_json": 9,
       "open_json_container": 33,
-      "open_map": 101,
-      "unknown": 678
+      "open_map": 98,
+      "unknown": 679
     }
   },
   "entries": [
@@ -5564,15 +5564,15 @@
       "discriminator": "resource_kind",
       "data_field": "discovery_state",
       "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody/properties/discovery_state",
-      "schema_shape": "open_map",
-      "classification": "open_json",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody/properties/discovery_state",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "decision": "raw",
+      "authority": "BTreeMap<String, Value>",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public BTreeMap<String, Value> field"
     },
     {
@@ -5669,14 +5669,14 @@
       "data_field": "governance_proof",
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody/properties/governance_proof",
-      "schema_shape": "open_map",
-      "classification": "open_json",
+      "schema_shape": "closed",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
+      "decision": "raw",
       "authority": "service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody/properties/governance_proof",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public BTreeMap<String, Value> field"
     },
     {
@@ -5695,14 +5695,14 @@
       "data_field": "governance_proof",
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody/properties/governance_proof",
-      "schema_shape": "open_map",
-      "classification": "open_json",
+      "schema_shape": "closed",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
+      "decision": "raw",
       "authority": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody/properties/governance_proof",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public BTreeMap<String, Value> field"
     },
     {
@@ -9768,7 +9768,7 @@
       "crate": null,
       "file": "inkson/src/views/chat/composer.rs",
       "path": "inkson/src/views/chat/composer.rs",
-      "line": 2161,
+      "line": 2163,
       "owner": "ChatComposer",
       "owner_repository": "inkson",
       "symbol": "ChatComposer",
@@ -9794,7 +9794,7 @@
       "crate": null,
       "file": "inkson/src/views/chat/composer.rs",
       "path": "inkson/src/views/chat/composer.rs",
-      "line": 1457,
+      "line": 1456,
       "owner": "ChatComposer",
       "owner_repository": "inkson",
       "symbol": "ChatComposer",
@@ -10808,7 +10808,7 @@
       "crate": null,
       "file": "soland/crates/http/src/routing/events/event_log/sdk_projection.rs",
       "path": "soland/crates/http/src/routing/events/event_log/sdk_projection.rs",
-      "line": 535,
+      "line": 528,
       "owner": "event_visibility_metadata",
       "owner_repository": "soland",
       "symbol": "event_visibility_metadata",

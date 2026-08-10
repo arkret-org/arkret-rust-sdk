@@ -91,32 +91,24 @@ impl ParticipationScope {
     }
 
     /// Stable account-data key used by participation projections.
+    ///
+    /// Each scope component remains a complete typed ID. Event-derived tokens
+    /// must never be reduced to an untyped suffix in account-data authority
+    /// keys.
     #[must_use]
     pub fn scope_key(&self) -> String {
         match self {
-            Self::Realm { realm_id } => format!("realm:{}", token_part(realm_id.as_str())),
+            Self::Realm { realm_id } => format!("realm:{realm_id}"),
             Self::Circle {
                 realm_id,
                 circle_id,
-            } => format!(
-                "circle:{}:{}",
-                token_part(realm_id.as_str()),
-                token_part(circle_id.as_str())
-            ),
+            } => format!("circle:{realm_id}:{circle_id}"),
             Self::Strand {
                 realm_id,
                 strand_id,
-            } => format!(
-                "strand:{}:{}",
-                token_part(realm_id.as_str()),
-                token_part(strand_id.as_str())
-            ),
+            } => format!("strand:{realm_id}:{strand_id}"),
         }
     }
-}
-
-fn token_part(typed_id: &str) -> &str {
-    typed_id.rsplit(':').next().unwrap_or(typed_id)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -231,7 +223,7 @@ pub struct AgentParticipationOutcome {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{RealmId, StrandId};
+    use arkret_wire::{CircleId, RealmId, StrandId};
 
     use super::*;
 
@@ -349,16 +341,35 @@ mod tests {
         let realm =
             RealmId::new("ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_".to_owned())
                 .unwrap();
+        let circle =
+            CircleId::new("ak:circle:ATJAIjBI0IsGktoRBk8hQVl6fL1XAnXvUYA7NmoAmBHA".to_owned())
+                .unwrap();
         let strand =
             StrandId::new("ak:strand:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH".to_owned())
                 .unwrap();
-        let scope = ParticipationScope::Strand {
-            realm_id: realm,
-            strand_id: strand,
-        };
+
         assert_eq!(
-            scope.scope_key(),
-            "strand:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH"
+            ParticipationScope::Realm {
+                realm_id: realm.clone(),
+            }
+            .scope_key(),
+            "realm:ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_"
+        );
+        assert_eq!(
+            ParticipationScope::Circle {
+                realm_id: realm.clone(),
+                circle_id: circle,
+            }
+            .scope_key(),
+            "circle:ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_:ak:circle:ATJAIjBI0IsGktoRBk8hQVl6fL1XAnXvUYA7NmoAmBHA"
+        );
+        assert_eq!(
+            ParticipationScope::Strand {
+                realm_id: realm,
+                strand_id: strand,
+            }
+            .scope_key(),
+            "strand:ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_:ak:strand:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH"
         );
     }
 }

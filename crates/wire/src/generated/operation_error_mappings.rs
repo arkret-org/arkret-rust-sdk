@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-09.20;
-//! sha256=bdbc0a4d0a84c7434c9493293fe1640a0461ea6bb68cbdb922d80b958d462f37 Input: registry/
-//! operations-error-mapping.json; version=2026-08-10.2;
-//! sha256=bb524066bdcb4fe2722a0434fb3341d4f56f56767a05eed393508fe2098d67a2 Input: registry/
-//! error-code-registry.json; version=2026-08-09.7;
-//! sha256=0a1ba1b2de1d3c41e9e1c52a97e9cee72c1091c4930bbdc1ceacd0edad98ecdf Entries: operations=225
+//! Input: registry/operation-registry.json; version=2026-08-10.2;
+//! sha256=f1a3286cd556c1a4eef7ac3d19fb78917f6c3de705e3a8e6f879b8347a0bfc6f Input: registry/
+//! operations-error-mapping.json; version=2026-08-10.4;
+//! sha256=98cba07c836bfdafd064a2e12f2cd7dbe5094a6cf2f658d5d7d4c20f79739380 Input: registry/
+//! error-code-registry.json; version=2026-08-10.2;
+//! sha256=0e9130399e68c629159b4905118767e8ca9a5b064a007a65f4c115f625210dfe Entries: operations=227
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -731,11 +731,31 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::CasConflict)],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfAgentCommandAbandonProvisioning,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::AgentProvisioningChallengeExpired),
+            OperationSpecificError::ReasonCode(
+                ReasonCode::AgentProvisioningChallengeAlreadyConsumed,
+            ),
+            OperationSpecificError::ReasonCode(ReasonCode::AgentPcrGenesisAlreadyAccepted),
+        ],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAgentCommandDeactivate,
         operation_specific: &[
             OperationSpecificError::ReasonCode(ReasonCode::AgentDeactivated),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::ControllerSignedEventRequired),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfAgentCommandIssueProvisioningAbandonmentChallenge,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ReasonCode(ReasonCode::AgentPcrGenesisAlreadyAccepted),
         ],
     },
     OperationErrorMappingDescriptor {

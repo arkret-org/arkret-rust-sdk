@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-09.9;
-//! sha256=5485e8d9b50b1d927bd89e3343afe641df7afb666d44a74820639dd3022ba6c4 Input: registry/
-//! capability-action-registry.json; version=2026-08-09.23;
-//! sha256=71cb5fc2172b803d4b96a90406dffa8e994b232839814c4e5fe2301cf67e16b4 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-10.1;
+//! sha256=507aafbdc8297028751c97e1419182a3841e42fc23fb25d202bbe3d206a9b693 Input: registry/
+//! capability-action-registry.json; version=2026-08-10.4;
+//! sha256=e6a6689bc18d36052ae56e13a2f16203124cd1aa29734457816fa8bc958f8bf5 Input: registry/
 //! schema-registry.json; version=2026-08-09.16;
 //! sha256=8d44669b0ac04d3ccca13c93ad44b9a913485f090bb428347edbaad22730e54d Input: registry/
-//! account-data-key-registry.json; version=2026-08-07;
-//! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842 Entries: id_kinds=55,
-//! special_forms=10, actions=169, schemas=181, account_data_patterns=24
+//! account-data-key-registry.json; version=2026-08-10;
+//! sha256=281aeb5dbec015ec79e13b02d2d641fea690936ee7b0c8290137a83560b72077 Entries: id_kinds=55,
+//! special_forms=10, actions=171, schemas=181, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2398,6 +2398,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfAgentCommandAbandonProvisioning,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "non_event_surface",
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandDeactivate,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
@@ -2409,6 +2422,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "operation_verb",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfAgentCommandIssueProvisioningAbandonmentChallenge,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandPause,

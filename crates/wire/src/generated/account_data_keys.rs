@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-07;
-//! sha256=3ca9b1e78a8275f159e28b6fad9cd7e8ce8a2ea0d75b58ddc1fa0c0db177d842
+//! Input: registry/account-data-key-registry.json; version=2026-08-10;
+//! sha256=281aeb5dbec015ec79e13b02d2d641fea690936ee7b0c8290137a83560b72077
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -82,8 +82,9 @@ impl AccountDataKey {
     /// `ak.agent.draft.v1:<agent_id>:<draft_id>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
     /// Account-Authority-owned versioned per-scope Agent participation selection. scope_key is
-    /// realm:&lt;realm_uuid&gt; | circle:&lt;realm_uuid&gt;:&lt;circle_uuid&gt; |
-    /// strand:&lt;realm_uuid&gt;:&lt;strand_uuid&gt;. The record stores only target_scope, the
+    /// realm:&lt;realm_id&gt; | circle:&lt;realm_id&gt;:&lt;circle_id&gt; |
+    /// strand:&lt;realm_id&gt;:&lt;strand_id&gt;, where every placeholder is the complete typed
+    /// token including its ak:&lt;kind&gt;: prefix. The record stores only target_scope, the
     /// required five-bit selection, and its CAS version. It grants no capability and copies no
     /// ceiling/effective value; target enforcement intersects current selection with current local
     /// governance/deployment ceilings, ordinary capability and lifecycle. See
