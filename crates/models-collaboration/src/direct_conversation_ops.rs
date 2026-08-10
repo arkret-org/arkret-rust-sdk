@@ -623,11 +623,10 @@ impl DirectConversationFoundingPlan {
                 .map_err(protocol_error)?;
         if member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
-            || member_payload.actor_id.as_ref().is_some_and(|actor_id| {
-                arkret_wire::project_full_id_to_core_id(actor_id)
-                    .map(ActorId::from)
-                    .is_ok_and(|actor_id| actor_id == create.actor_id)
-            })
+            || member_payload
+                .actor_id
+                .as_ref()
+                .is_some_and(|actor_id| actor_id == &create.actor_id)
             || member_payload.realm_id.as_ref() != Some(&realm_id)
         {
             return Err(founding_unit_invalid("founding peer membership mismatch"));
@@ -1306,8 +1305,8 @@ mod tests {
 
     fn receipt() -> DirectConversationFoundingAcceptanceReceipt {
         serde_json::from_value(json!({
-            "pair_key": "sha256:e8c24c1badc48eefa472a1700e87a6597a95aedfab8cbe3173f1622b9ad427b5",
-            "founder_id": "did:webvh:z6mkfixture:bob.example",
+            "pair_key": "sha256:71eac812be14d047f791749f9409bbdc6ab0af5999daa9077bc21f23bdfca1eb",
+            "founder_id": "ak:did_core:webvh:z6mkfixturebob",
             "realm_id": "ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
             "main_strand_id": "ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS",
             "founding_unit_digest": "sha256:dc604271ea8bbefce03b4ef6916f12a01af81722e44b2f3640adc61d3a9e31dd",
@@ -1318,7 +1317,7 @@ mod tests {
                 "accepted_contact_evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
             "slot_committed": true,
-            "issuer_service_id": "did:web:ps.example",
+            "issuer_service_id": "ak:did_core:web:ps.example",
             "issuer_service_binding_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "accepted_at": "2026-08-08T00:00:00.000Z",
             "proof": {
@@ -1335,11 +1334,11 @@ mod tests {
         let receipt = receipt();
         assert_eq!(
             receipt.transcript_digest().unwrap().as_str(),
-            "sha256:539b598278bee323b9c1479560f90eb224a6f704ebeaa449833e64fa365a2c14"
+            "sha256:a1aaed35c4232f0cd42f0b3789704101e161e4031244457f4d9b72b39e9370fb"
         );
         assert_eq!(
             receipt.signing_input_bytes().unwrap(),
-            b"sha256:539b598278bee323b9c1479560f90eb224a6f704ebeaa449833e64fa365a2c14"
+            b"sha256:a1aaed35c4232f0cd42f0b3789704101e161e4031244457f4d9b72b39e9370fb"
         );
         let mut changed_proof = receipt.clone();
         changed_proof.proof.jws =

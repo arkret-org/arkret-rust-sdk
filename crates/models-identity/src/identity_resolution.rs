@@ -6,6 +6,7 @@ use arkret_wire::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::DidDocument;
 
@@ -271,6 +272,81 @@ pub enum ServiceResolutionCarrier {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pinned_record_digest: Option<Hash>,
     },
+}
+
+pub const MAX_SERVICE_CURRENT_RECORD_URL_BYTES: usize = 2_048;
+
+/// Canonical path of the unauthenticated transport locator for one service's
+/// current signed resolution record.
+#[must_use]
+pub fn canonical_service_current_record_path(service_id: &ServiceId) -> String {
+    let mut encoded = String::with_capacity(service_id.as_str().len());
+    for byte in service_id.as_str().bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            use std::fmt::Write as _;
+            write!(&mut encoded, "%{byte:02X}").expect("writing to String cannot fail");
+        }
+    }
+    format!("/_arkret/open/services/{encoded}/resolution")
+}
+
+/// Validate a `current_record_url` as a bounded canonical transport locator.
+///
+/// This establishes no service authority: a fetched record still needs its
+/// method history, proof, freshness and route binding independently verified.
+pub fn validate_service_current_record_url(
+    value: &str,
+    expected_service_id: &ServiceId,
+) -> arkret_wire::Result<()> {
+    if value.is_empty() || value.len() > MAX_SERVICE_CURRENT_RECORD_URL_BYTES {
+        return Err(arkret_wire::Error::Protocol(
+            "service current-record URL length is out of bounds".to_owned(),
+        ));
+    }
+    let parsed = Url::parse(value).map_err(|error| {
+        arkret_wire::Error::Protocol(format!("service current-record URL is invalid: {error}"))
+    })?;
+    if parsed.scheme() != "https"
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+        || parsed.path() != canonical_service_current_record_path(expected_service_id)
+        || parsed.as_str() != value
+    {
+        return Err(arkret_wire::Error::Protocol(
+            "service current-record URL is not the canonical HTTPS locator for the expected service"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+impl ServiceResolutionCarrier {
+    /// Validate only the carrier shape and expected core-id binding.
+    ///
+    /// An inline or fetched record is not authorized by this check.
+    pub fn validate_shape(&self, expected_service_id: &ServiceId) -> arkret_wire::Result<()> {
+        match self {
+            Self::Inline { inline } => {
+                if &inline.record.service_id != expected_service_id {
+                    return Err(arkret_wire::Error::Protocol(
+                        "inline service resolution targets a different service".to_owned(),
+                    ));
+                }
+                validate_service_current_record_url(
+                    &inline.record.current_record_url,
+                    expected_service_id,
+                )
+            }
+            Self::CurrentRecordUrl {
+                current_record_url, ..
+            } => validate_service_current_record_url(current_record_url, expected_service_id),
+        }
+    }
 }
 
 impl ServiceResolutionRecord {
@@ -886,6 +962,47 @@ mod resolution_contract_tests {
             arkret_wire::project_full_id_to_core_id(&old).unwrap(),
             arkret_wire::project_full_id_to_core_id(&new).unwrap()
         );
+    }
+
+    #[test]
+    fn current_record_carrier_requires_canonical_expected_service_https_url() {
+        let service_id = ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let canonical = format!(
+            "https://service.example{}",
+            canonical_service_current_record_path(&service_id)
+        );
+        let carrier = ServiceResolutionCarrier::CurrentRecordUrl {
+            current_record_url: canonical.clone(),
+            pinned_record_digest: None,
+        };
+        carrier.validate_shape(&service_id).unwrap();
+
+        for invalid in [
+            canonical.replace("https://", "http://"),
+            canonical.replace("service.example", "user@service.example"),
+            format!("{canonical}?version=1"),
+            format!("{canonical}#fragment"),
+            canonical.replace("%3A", "%3a"),
+            canonical.replace("service.example", "SERVICE.EXAMPLE"),
+            canonical.replace("service.example", "service.example:443"),
+            canonical.replace("z6mkfixture", "other"),
+        ] {
+            assert!(
+                ServiceResolutionCarrier::CurrentRecordUrl {
+                    current_record_url: invalid,
+                    pinned_record_digest: None,
+                }
+                .validate_shape(&service_id)
+                .is_err()
+            );
+        }
+
+        let oversized = format!(
+            "https://{}{}",
+            "a".repeat(2_048),
+            canonical_service_current_record_path(&service_id)
+        );
+        assert!(validate_service_current_record_url(&oversized, &service_id).is_err());
     }
 
     #[test]

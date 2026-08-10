@@ -1,5 +1,5 @@
 use arkret_canonical::serde_helpers::optional_canonical_timestamp;
-use arkret_identifiers::{Did, EventId, RealmId};
+use arkret_identifiers::{Did, EventId, RealmId, ServiceId};
 use arkret_models_identity::handle::Handle;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use crate::governance::invite_addressing::PrincipalLocator;
 #[serde(deny_unknown_fields)]
 pub struct PeerContactAddress {
     pub subject_id: Did,
-    pub recipient_service_id: Did,
+    pub recipient_service_id: ServiceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_service_kind: Option<String>,
 }
@@ -46,4 +46,28 @@ pub enum ContactIntroductionEvidence {
     },
     SamePrincipalServer,
     ExplicitAddress,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn peer_contact_keeps_subject_resolution_material_separate_from_service_core() {
+        let value = serde_json::json!({
+            "subject_id": "did:webvh:z6mkSubject:subject.example",
+            "recipient_service_id": "ak:did_core:webvh:z6mkService",
+            "recipient_service_kind": "principal_server"
+        });
+        let address: PeerContactAddress = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(
+            address.subject_id.as_str(),
+            "did:webvh:z6mkSubject:subject.example"
+        );
+        assert_eq!(
+            address.recipient_service_id.as_str(),
+            "ak:did_core:webvh:z6mkService"
+        );
+        assert_eq!(serde_json::to_value(address).unwrap(), value);
+    }
 }

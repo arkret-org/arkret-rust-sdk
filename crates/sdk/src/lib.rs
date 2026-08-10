@@ -10,8 +10,8 @@
 //!
 //! ```rust
 //! use arkret::{
-//!     ContentBlock, Did, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId, TypedEventDraft,
-//!     event_spec,
+//!     ActorId, ContentBlock, FullId, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId,
+//!     TypedEventDraft, event_spec, project_full_id_to_core_id,
 //! };
 //!
 //! # fn main() -> arkret::Result<()> {
@@ -24,7 +24,9 @@
 //!     ScopeRef::Realm {
 //!         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?,
 //!     },
-//!     Did::new("did:webvh:z6mkfixture:alice.example")?,
+//!     ActorId::from(project_full_id_to_core_id(&FullId::new(
+//!         "did:webvh:z6mkfixture:alice.example",
+//!     )?)?),
 //!     payload,
 //! )?
 //! .author(
@@ -82,15 +84,16 @@ pub use arkret_hlc::{
 pub use arkret_http_client as http_client;
 pub use arkret_identifiers as identifiers;
 pub use arkret_identifiers::{
-    ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
+    ActorId, ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
-    DeviceMessageTransactionId, Did, EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash,
-    Hlc, InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
-    MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
-    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
-    SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TypedAppealId,
-    TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, CoreId, DeviceId,
+    DeviceMessageId, DeviceMessageTransactionId, Did, EventId, FilterId, FrameId, FrankingProofId,
+    FullId, GrantId, Hash, Hlc, InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId,
+    ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
+    PrincipalId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
+    RequestId, RtcParticipantId, SealId, ServiceId, SidecarId, SnapshotId, SpaceId, StrandId,
+    SubscriptionId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    project_full_id_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -110,6 +113,7 @@ pub use arkret_keystore::{
 pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
 pub use arkret_models_collaboration::call_signal::*;
+pub use arkret_models_collaboration::direct_conversation_ops::*;
 pub use arkret_models_collaboration::direct_conversation_repair::*;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
@@ -368,14 +372,14 @@ pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
     AccountDataKey, BindingKind, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileId,
-    DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass, EventKind, ExporterLabelId,
-    GenesisSalt, HPKE_SUITES, IdempotencyKey, KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES,
-    MLS_EXTENSIONS, MlsCiphersuiteId, PROOF_CONTEXTS, ProfileId, ProofContextId, ProtocolOpaqueId,
-    ProtocolOperationId, ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS,
-    ReservationHandle, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
-    SIGNATURE_ALGORITHMS, SchemaId, ServiceKind, ServiceOperationDescriptor, ServiceOperationId,
-    WireError, XExtensionMap, contains_query_auth_material, error_codes as error, event_spec,
-    is_query_auth_parameter,
+    DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass, EventInitialSubmission,
+    EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey, KeyPackageClaimId,
+    KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId, PROOF_CONTEXTS, ProfileId,
+    ProofContextId, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
+    QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
+    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
+    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, WireError, XExtensionMap,
+    contains_query_auth_material, error_codes as error, event_spec, is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};
@@ -541,7 +545,7 @@ pub mod calendar {
     use arkret_event_draft::RsvpAuthoring;
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
     use arkret_schema::project_registered_cell_writes;
-    use arkret_wire::{Did, Error, Event, Hash, Hlc, Result, ScopeRef};
+    use arkret_wire::{ActorId, Error, Event, Hash, Hlc, Result, ScopeRef};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
     ///
@@ -554,7 +558,7 @@ pub mod calendar {
         calendar: &CalendarEventFields,
         schedule: &crate::CalendarScheduleProjection,
         scope_ref: ScopeRef,
-        actor_id: Did,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         causal_refs: Vec<Hash>,

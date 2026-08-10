@@ -22,6 +22,7 @@ use arkret_models_collaboration::governance::delivery_binding::{
     BindingSource, DeliveryStatus, MemberDeliveryBinding,
 };
 use arkret_schema::{embedded_error_code_identifiers, embedded_json_artifact};
+use arkret_wire::{Did, ServiceId, project_full_id_to_core_id};
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/membership-delivery-binding-fixture.json";
@@ -47,6 +48,15 @@ fn binding_from_fixture(raw: &Value) -> MemberDeliveryBinding {
 
 fn registered_identifiers() -> std::collections::BTreeSet<String> {
     embedded_error_code_identifiers().expect("embedded error-code registry must load")
+}
+
+fn assert_route_projects_to_binding(binding: &MemberDeliveryBinding, route: &str) {
+    let route = Did::new(route).expect("fixture route must be a full DID");
+    let projected = ServiceId::from(
+        project_full_id_to_core_id(&route)
+            .expect("fixture route method must have an active adapter"),
+    );
+    assert_eq!(binding.recipient_service_id, projected);
 }
 
 #[test]
@@ -91,11 +101,7 @@ fn explicit_binding_parses_and_validates_to_expected_route() {
     let expected_route = vector["expected"]["delivery_route"]
         .as_str()
         .expect("expected delivery_route");
-    assert_eq!(
-        binding.recipient_service_id.as_str(),
-        expected_route,
-        "accepted binding must route to recipient_service_id"
-    );
+    assert_route_projects_to_binding(&binding, expected_route);
 }
 
 #[test]
@@ -112,9 +118,11 @@ fn did_document_default_binding_requires_digest() {
         .validate()
         .expect("did_document_default binding with digest must validate");
     assert_eq!(binding.binding_source, BindingSource::DidDocumentDefault);
-    assert_eq!(
-        Some(binding.recipient_service_id.as_str()),
-        vector["expected"]["delivery_route"].as_str(),
+    assert_route_projects_to_binding(
+        &binding,
+        vector["expected"]["delivery_route"]
+            .as_str()
+            .expect("expected delivery route"),
     );
     assert_eq!(
         binding.did_document_digest.as_ref().map(|d| d.as_str()),

@@ -9,16 +9,16 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
     let value = json!({
         "id": "ak:actor_profile:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",
         "schema": SchemaId::ACTOR_PROFILE_V1,
-        "principal_id": "did:webvh:z6mkfixture:ghost.example",
+        "principal_id": "ak:did_core:webvh:z6mkfixtureghost",
         "actor_kind": "integration",
         "display_name": "Ghost",
         "status": "locked",
-        "accountable_principal_ids": ["did:webvh:z6mkfixture:owner.example"],
+        "accountable_principal_ids": ["ak:did_core:webvh:z6mkfixtureowner"],
         "profile_fields": {
             "managed_by_applet": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         },
         "created_at": "2026-04-30T00:00:00.000Z",
-        "updated_by": "did:webvh:z6mkfixture:owner.example",
+        "updated_by": "ak:did_core:webvh:z6mkfixtureowner",
         "updated_at": "2026-04-30T00:01:00.000Z"
     });
     let profile: ActorProfile = serde_json::from_value(value).unwrap();
@@ -28,7 +28,7 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
     let bad = json!({
         "id": "ak:actor_profile:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",
         "schema": SchemaId::ACTOR_PROFILE_V1,
-        "principal_id": "did:webvh:z6mkfixture:ghost.example",
+        "principal_id": "ak:did_core:webvh:z6mkfixtureghost",
         "actor_kind": "integration",
         "display_name": "Ghost",
         "created_at": "2026-04-30T00:00:00.000Z",
@@ -48,18 +48,19 @@ fn service_registration_receipt_uses_the_spec_field_and_typed_id() {
             "service_kind": "auth_server",
             "public_base": "https://auth.example/"
         },
-        "service_id": "did:webvh:z6mkfixture:auth.example",
+        "service_id": "ak:did_core:webvh:z6mkfixtureauth",
+        "full_id": "did:webvh:z6mkfixtureauth:auth.example",
         "version_id": "1-zVersion",
         "log_head_digest": format!("sha256:{}", "b".repeat(64)),
         "control_key_digest": format!("sha256:{}", "c".repeat(64)),
         "issued_at": "2026-08-01T00:00:00.000Z",
-        "provider_service_id": "did:webvh:z6mkfixture:provider.example",
+        "provider_service_id": "ak:did_core:webvh:z6mkfixtureprovider",
         "proof": {
-            "type": "DataIntegrityProof",
-            "cryptosuite": "eddsa-jcs-2022",
-            "verificationMethod": "did:webvh:z6mkfixture:provider.example#key-1",
-            "proofPurpose": "assertionMethod",
-            "proofValue": "z1"
+            "kind": "detached_jws",
+            "verification_method": "did:webvh:z6mkfixtureprovider:provider.example#key-1",
+            "payload_digest": format!("sha256:{}", "d".repeat(64)),
+            "created_at": "2026-08-01T00:00:00.000Z",
+            "jws": "eyJhbGciOiJFZDI1NTE5In0..fixture"
         }
     });
 

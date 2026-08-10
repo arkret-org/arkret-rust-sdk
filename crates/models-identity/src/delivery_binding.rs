@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{DeviceId, Did, Error, EventId, Hash, Result};
+use arkret_wire::{DeviceId, Did, Error, EventId, Hash, Result, ServiceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBinding {
-    pub recipient_service_id: Did,
+    pub recipient_service_id: ServiceId,
     #[serde(default = "default_recipient_service_kind")]
     pub recipient_service_kind: RecipientServiceKind,
     #[serde(default = "default_binding_scope")]
@@ -186,8 +186,8 @@ impl DevicePushRoutePayload {
 mod tests {
     use super::*;
 
-    fn fake_did(label: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
+    fn fake_service(label: &str) -> ServiceId {
+        ServiceId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()
     }
 
     fn fake_event_id() -> EventId {
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn binding_requires_modes() {
         let mut b = MemberDeliveryBinding {
-            recipient_service_id: fake_did("rs"),
+            recipient_service_id: fake_service("rs"),
             recipient_service_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn binding_source_explicit_requires_acceptance_ref() {
         let b = MemberDeliveryBinding {
-            recipient_service_id: fake_did("rs"),
+            recipient_service_id: fake_service("rs"),
             recipient_service_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn member_delivery_binding_rejects_space_binding_scope() {
         let payload = serde_json::json!({
-            "recipient_service_id": "did:webvh:z6mkfixture:rs.example",
+            "recipient_service_id": "ak:did_core:webvh:z6mkfixturers",
             "recipient_service_kind": "principal_server",
             "binding_scope": "space",
             "binding_source": "explicit",
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn binding_source_did_document_default_requires_hash() {
         let b = MemberDeliveryBinding {
-            recipient_service_id: fake_did("rs"),
+            recipient_service_id: fake_service("rs"),
             recipient_service_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::DidDocumentDefault,

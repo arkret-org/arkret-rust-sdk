@@ -265,7 +265,7 @@ pub struct StrandWatchExpectedValue {
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchSetPayload {
     pub strand_id: StrandId,
-    pub watcher_actor_id: Did,
+    pub watcher_actor_id: ActorId,
     /// `None` serializes as JSON `null`, clearing the cell.
     pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -279,7 +279,7 @@ impl StrandWatchSetPayload {
     /// non-self projection (ignored for `muted` by the reducer).
     pub fn set(
         strand_id: StrandId,
-        watcher_actor_id: Did,
+        watcher_actor_id: ActorId,
         level: StrandWatchLevel,
         level_public: Option<bool>,
     ) -> Self {
@@ -294,7 +294,7 @@ impl StrandWatchSetPayload {
 
     /// Clear the watch cell (`level: null`). Per the schema `allOf`,
     /// `level_public` is forced off on this path.
-    pub fn clear(strand_id: StrandId, watcher_actor_id: Did) -> Self {
+    pub fn clear(strand_id: StrandId, watcher_actor_id: ActorId) -> Self {
         Self {
             strand_id,
             watcher_actor_id,
@@ -394,7 +394,12 @@ mod presence_tests {
     fn watch_cell_ref_matches_the_registered_contract() {
         let payload = StrandWatchSetPayload::set(
             strand_id("000000000001"),
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            ActorId::from(
+                project_full_id_to_core_id(
+                    &Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
+                )
+                .unwrap(),
+            ),
             StrandWatchLevel::Participating,
             None,
         );
@@ -403,7 +408,12 @@ mod presence_tests {
             ScopeRef::Realm {
                 realm_id: realm_id(),
             },
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            ActorId::from(
+                project_full_id_to_core_id(
+                    &Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                )
+                .unwrap(),
+            ),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::to_value(&payload).unwrap(),
@@ -424,7 +434,7 @@ mod presence_tests {
     fn watch_cas_normalizes_null_to_the_omitted_empty_value() {
         let payload: StrandWatchSetPayload = serde_json::from_value(json!({
             "strand_id": strand_id("000000000001"),
-            "watcher_actor_id": "did:web:alice.example",
+            "watcher_actor_id": "ak:did_core:web:alice.example",
             "level": null,
             "expected_value": null
         }))

@@ -723,7 +723,12 @@ mod tests {
         let mut description: ServiceDescribe = serde_json::from_value(json!({
             "protocol_version": "1.0",
             "service_kind": "principal_server",
-            "service_id": "did:web:server.local",
+            "service_id": "ak:did_core:web:server.local",
+            "service_resolution": {
+                "full_id": "did:web:server.local",
+                "method_history_head": "sha256:fixture",
+                "version_id": "fixture-v1"
+            },
             "trust_domain": "ak:trust_domain:server.local",
             "supported_profiles": [],
             "supported_operations": [],

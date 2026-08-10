@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Cursor, Did, RealmId};
+use arkret_wire::{ActorId, Cursor, Did, RealmId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -34,7 +34,7 @@ pub struct PeerEventsDescribeRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct EventsFrontierRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
 }

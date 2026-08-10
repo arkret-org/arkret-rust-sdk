@@ -856,9 +856,7 @@ fn message_revision_redaction_and_reaction_converge() {
 
     let reaction = state
         .reactions
-        .get(&format!(
-            "{message_id}|did:webvh:z6mkfixture:alice.example.com|+1"
-        ))
+        .get(&format!("{message_id}|{}|+1", actor_id()))
         .unwrap();
     assert!(reaction.active);
 }

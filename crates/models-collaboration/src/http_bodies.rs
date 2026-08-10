@@ -1157,7 +1157,10 @@ pub struct MimiProxyDownloadOutcome {
 
 #[cfg(test)]
 mod mimi_consent_tests {
-    use arkret_wire::{Audience, DidUrl, EventKind, EventRequirements, ScopeRef, proof_kind};
+    use arkret_wire::{
+        ActorId, Audience, DidUrl, EventKind, EventRequirements, ScopeRef,
+        project_full_id_to_core_id, proof_kind,
+    };
     use chrono::TimeZone;
     use serde_json::json;
 
@@ -1192,8 +1195,13 @@ mod mimi_consent_tests {
                         )
                         .unwrap(),
                     },
-                    actor_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
+                    actor_id: ActorId::from(
+                        project_full_id_to_core_id(
+                            &Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
+                                .unwrap(),
+                        )
                         .unwrap(),
+                    ),
                     executed_by: None,
                     authorization_ref: None,
                     applet_id: None,
@@ -1307,7 +1315,7 @@ mod mimi_consent_tests {
 
         let mut wrong_actor = request.clone();
         wrong_actor.actor_id =
-            Did::new("did:webvh:z6mkfixture:example.com:users:mallory".to_owned()).unwrap();
+            Did::new("did:webvh:z6mkfixturemallory:example.com:users:mallory".to_owned()).unwrap();
         assert!(wrong_actor.validate_consent_event().is_err());
 
         let mut wrong_consent = request;
@@ -2334,7 +2342,10 @@ mod federation_dependency_tests {
 
 #[cfg(test)]
 mod device_pairing_tests {
-    use arkret_wire::{AuthContext, DidUrl, EventKind, EventRequirements, ScopeRef, proof_kind};
+    use arkret_wire::{
+        ActorId, AuthContext, DidUrl, EventKind, EventRequirements, ScopeRef,
+        project_full_id_to_core_id, proof_kind,
+    };
 
     use super::*;
     use crate::events_payloads::{DeviceOrPrincipalRef, UnsignedDeviceAuthorizePayload};
@@ -2409,7 +2420,7 @@ mod device_pairing_tests {
             kind: EventKind::DeviceAuthorize,
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
-            actor_id: principal_id.clone(),
+            actor_id: ActorId::from(project_full_id_to_core_id(&principal_id).unwrap()),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

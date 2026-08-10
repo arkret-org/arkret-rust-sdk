@@ -17,7 +17,7 @@ use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_models_identity::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_wire::{
     ActorId, Base64UrlString, DeviceId, Did, DidUrl, Event, EventInitialSubmission, EventKind,
-    Hash, NonEmptyString, project_full_id_to_core_id,
+    Hash, NonEmptyString, ServiceId, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
@@ -235,7 +235,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             verification_method,
             signature_algorithm: AgentRuntimeKeyAlgorithm::Ed25519,
             challenge: self.bootstrap.pairing_request_id.clone(),
-            audience: self.bootstrap.service_id.clone(),
+            audience: ServiceId::from(project_full_id_to_core_id(&self.bootstrap.service_id)?),
             expires_at: proof_expires_at,
             created_at: proof_created_at,
             runtime_key_binding_digest,
@@ -656,6 +656,9 @@ mod tests {
         let agent_id = Did::new("did:webvh:z6mkfixture:runtime-builder.agent.example").unwrap();
         let controller_id = Did::new("did:webvh:z6mkfixture:controller.example").unwrap();
         let service_id = Did::new("did:webvh:z6mkfixture:service.example").unwrap();
+        let agent_actor_id = ActorId::from(project_full_id_to_core_id(&agent_id).unwrap());
+        let controller_actor_id =
+            ActorId::from(project_full_id_to_core_id(&controller_id).unwrap());
         let pairing_request_id = "agent_pairing_request:01970000-0000-7000-8000-000000000021";
         let issued_at = Utc.with_ymd_and_hms(2026, 7, 17, 0, 0, 0).unwrap();
         let requested_scope = AgentKeyScope {
@@ -716,13 +719,13 @@ mod tests {
             serde_json::from_value(builder.public_key().unwrap()).unwrap();
         let agent_key_id = NonEmptyString::new(verification_method.to_string()).unwrap();
         let binding_core = super::super::agent_evidence::prepare_agent_signing_key_binding_core(
-            agent_id.clone(),
+            agent_actor_id.clone(),
             agent_key_id.clone(),
             verification_method.clone(),
             &runtime_public_key,
             issued_at,
             None,
-            controller_id.clone(),
+            controller_actor_id.clone(),
         )
         .unwrap();
         let binding_core_digest =
@@ -773,14 +776,14 @@ mod tests {
             .build_key_pair_request(
                 disclosure,
                 super::super::agent_evidence::build_agent_signing_key_binding(
-                    agent_id.clone(),
+                    agent_actor_id,
                     agent_key_id,
                     verification_method.clone(),
                     signing_key.verifying_key().to_bytes(),
                     authorize_event_id,
                     issued_at,
                     None,
-                    controller_id.clone(),
+                    controller_actor_id,
                     DidUrl::new(format!("{controller_id}#key-1")).unwrap(),
                     &SigningKey::from_bytes(&[3_u8; 32]),
                 )

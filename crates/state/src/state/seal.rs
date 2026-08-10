@@ -1018,8 +1018,8 @@ mod tests {
         BottomMode, CellStore, ControlEventStore, SealStore, control_event_digest,
     };
     use crate::{
-        Did, Event, EventId, Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature,
-        Precondition, Predicate, PredicateOp, ProjectedOp, SealBasis, SealKind,
+        Event, EventId, Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, Precondition,
+        Predicate, PredicateOp, ProjectedOp, SealBasis, SealKind,
     };
 
     fn realm() -> RealmId {
@@ -1162,7 +1162,12 @@ mod tests {
         );
     }
 
-    fn completeness_event(event_id: &str, actor_id: &str, actor_seq: u64) -> Event {
+    fn completeness_event(
+        event_id: &str,
+        actor_id: &str,
+        verification_method: &str,
+        actor_seq: u64,
+    ) -> Event {
         serde_json::from_value(json!({
             "event_id": event_id,
             "kind": "ak.capability.grant",
@@ -1175,7 +1180,7 @@ mod tests {
             "payload": {},
             "proofs": [{
                 "kind": "detached_jws",
-                "verification_method": format!("{actor_id}#device-1"),
+                "verification_method": verification_method,
                 "event_digest": format!("sha256:{}", "a".repeat(64)),
                 "created_at": "2026-07-26T00:00:00.000Z",
                 "jws": "a..b"
@@ -1188,12 +1193,14 @@ mod tests {
     fn completeness_root_is_actor_sequence_enveloped_and_requires_exact_coverage() {
         let alice = completeness_event(
             "ak:event:AR-4MwpAcHt7pmjO-Cab9s-33ymPZefvcpl666_jGxiY",
-            "did:web:alice.example",
+            "ak:did_core:webvh:z6mkfixturealice",
+            "did:webvh:z6mkfixture:alice.example#device-1",
             7,
         );
         let bob = completeness_event(
             "ak:event:AUqzNZlfuL-7z087TbZhKOdYyKUNPAa2o_neyoFRh3o2",
-            "did:web:bob.example",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "did:webvh:z6mkfixture:bob.example#device-1",
             3,
         );
         let covered = [&alice, &bob]
@@ -1979,7 +1986,7 @@ mod tests {
         let grant_move = move_id(0x42);
         let conflict_a_move = move_id(0x51);
         let conflict_b_move = move_id(0x52);
-        let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+        let actor = ActorId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let target_value = json!({"policy_revision": 7});
         let grant_value = json!({
             "grant_id": grant_id,

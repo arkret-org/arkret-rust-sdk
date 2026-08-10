@@ -5,7 +5,7 @@
 //! Event admission receipt and is never reconstructed from a later snapshot.
 
 use arkret_wire::{
-    Base64UrlString, Did, DidUrl, Event, EventId, Hash, NonEmptyString, PrincipalId,
+    ActorId, Base64UrlString, DidUrl, Event, EventId, Hash, NonEmptyString, PrincipalId,
     ProtocolOperationId, RealmId, RequestId, SchemaId, Seal, SealId, ServiceId,
 };
 use chrono::{DateTime, Utc};
@@ -44,7 +44,7 @@ pub struct AgentControllerProof {
 #[serde(deny_unknown_fields)]
 pub struct AgentSigningKeyBindingCore {
     pub schema: NonEmptyString,
-    pub agent_id: Did,
+    pub agent_id: ActorId,
     pub agent_key_id: NonEmptyString,
     pub verification_method: DidUrl,
     pub public_key: AgentSigningPublicKey,
@@ -57,7 +57,7 @@ pub struct AgentSigningKeyBindingCore {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    pub controller_id: Did,
+    pub controller_id: ActorId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -76,7 +76,7 @@ pub struct AgentSigningKeyBinding {
 #[serde(deny_unknown_fields)]
 struct AgentSigningKeyBindingWire {
     schema: NonEmptyString,
-    agent_id: Did,
+    agent_id: ActorId,
     agent_key_id: NonEmptyString,
     verification_method: DidUrl,
     public_key: AgentSigningPublicKey,
@@ -88,7 +88,7 @@ struct AgentSigningKeyBindingWire {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     expires_at: Option<DateTime<Utc>>,
-    controller_id: Did,
+    controller_id: ActorId,
     agent_key_authorize_event_id: EventId,
     controller_proof: AgentControllerProof,
 }
@@ -173,7 +173,7 @@ pub struct AgentKeyCellEntry {
 #[serde(deny_unknown_fields)]
 pub struct AgentAuthorizationStateWitness {
     pub component: NonEmptyString,
-    pub agent_id: Did,
+    pub agent_id: ActorId,
     pub authorization_event_id: EventId,
     pub seal_id: SealId,
     pub state_root: Hash,
@@ -191,7 +191,7 @@ pub struct AgentAuthorizationStateWitness {
 #[serde(deny_unknown_fields)]
 pub struct AgentAuthorizationTransitionWitness {
     pub component: NonEmptyString,
-    pub agent_id: Did,
+    pub agent_id: ActorId,
     pub authorization_event_id: EventId,
     pub transition_event_id: EventId,
     pub transition_key_id: NonEmptyString,
@@ -242,8 +242,8 @@ pub enum AgentLifecycleProvenance {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentLifecycleWitness {
     pub component: NonEmptyString,
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: ActorId,
+    pub controller_id: ActorId,
     pub status: AgentLifecycleStatus,
     pub provenance: AgentLifecycleProvenance,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -272,7 +272,7 @@ pub struct AgentDetachedJws {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSnapshotLease {
     pub authority_kind: NonEmptyString,
-    pub authority_service_id: Did,
+    pub authority_service_id: ServiceId,
     pub verification_method: DidUrl,
     pub snapshot_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -286,7 +286,7 @@ pub struct AgentSnapshotLease {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentAuthoritySnapshotCore {
-    pub authority_service_id: Did,
+    pub authority_service_id: ServiceId,
     pub principal_control_realm_id: RealmId,
     pub frontier_seal_id: SealId,
     pub frontier_state_root: Hash,
@@ -398,8 +398,8 @@ pub struct AgentAdmissionEvidence {
 pub struct AgentCurrentObservation {
     pub operation_id: ProtocolOperationId,
     pub request_digest: Hash,
-    pub verifier_id: Did,
-    pub audience: Did,
+    pub verifier_id: ServiceId,
+    pub audience: ServiceId,
     pub challenge: NonEmptyString,
     pub agent_snapshot_digest: Hash,
     pub agent_key_seal_id: SealId,
@@ -422,7 +422,7 @@ pub struct AgentEventAdmissionReceipt {
     pub event_admitted_seal_id: SealId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub agent_id: Did,
+    pub agent_id: ActorId,
     pub verification_method: DidUrl,
     pub agent_key_authorize_event_id: EventId,
     pub admission_evidence_digest: Hash,
@@ -430,7 +430,7 @@ pub struct AgentEventAdmissionReceipt {
     pub agent_key_seal_id: SealId,
     pub agent_status_seal_id: SealId,
     pub controller_gate_attestation_digest: Hash,
-    pub receiver_service_id: Did,
+    pub receiver_service_id: ServiceId,
     pub proof: AgentDetachedJws,
 }
 
@@ -440,7 +440,7 @@ pub struct AgentEventAdmissionReceipt {
 pub struct AgentEvidenceOuterAttestation {
     pub domain: NonEmptyString,
     pub core_digest: Hash,
-    pub source_service_id: Did,
+    pub source_service_id: ServiceId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -530,20 +530,20 @@ pub enum AgentSignerEvidence {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentSignerEvidenceQuerySelector {
     CurrentAdmission {
-        agent_id: Did,
+        agent_id: ActorId,
         verification_method: DidUrl,
         operation_id: ProtocolOperationId,
         request_digest: Hash,
-        verifier_id: Did,
-        audience: Did,
+        verifier_id: ServiceId,
+        audience: ServiceId,
         challenge: NonEmptyString,
     },
     HistoricalEvent {
-        agent_id: Did,
+        agent_id: ActorId,
         verification_method: DidUrl,
         event_id: EventId,
         event_digest: Hash,
-        receiver_service_id: Did,
+        receiver_service_id: ServiceId,
     },
 }
 

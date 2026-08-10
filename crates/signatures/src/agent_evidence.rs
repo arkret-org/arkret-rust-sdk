@@ -16,9 +16,8 @@ use arkret_models_identity::agent_signer_evidence::{
     ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
-    ActorId, CellRef, Did, DidUrl, Event, EventId, FullId, Hash, NonEmptyString, PrincipalId,
-    ProfileId, ProtocolOperationId, RealmId, SchemaId, Seal, SealId, ServiceId,
-    project_full_id_to_core_id,
+    ActorId, CellRef, CoreId, DidUrl, Event, EventId, FullId, Hash, NonEmptyString, ProfileId,
+    ProtocolOperationId, RealmId, SchemaId, Seal, SealId, ServiceId, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::SigningKey;
@@ -120,7 +119,7 @@ pub fn verify_controller_account_gate_attestation(
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAgentSigningKey {
-    pub signer: Did,
+    pub signer: ActorId,
     pub key: [u8; 32],
     pub authorization_ref: EventId,
     pub snapshot_digest: Hash,
@@ -178,16 +177,16 @@ pub enum AgentSignerEvidenceVerdict {
 pub struct VerifiedAgentEvidenceState {
     admission_evidence_digest: Hash,
     snapshot_digest: Hash,
-    signer_id: Did,
+    signer_id: ActorId,
     authorization_event_id: EventId,
     key_seal_id: SealId,
     lifecycle_seal_id: SealId,
 }
 
 pub struct AgentEvidenceStateVerificationContext<'a> {
-    pub signer_id: &'a Did,
+    pub signer_id: &'a ActorId,
     pub agent_key_id: &'a NonEmptyString,
-    pub controller_id: &'a Did,
+    pub controller_id: &'a ActorId,
     pub agent_key_authorize_event_id: &'a EventId,
     pub authorize_public_key_digest: &'a Hash,
     pub authorize_signing_key_binding_digest: &'a Hash,
@@ -200,16 +199,16 @@ pub struct AgentEvidenceStateVerificationContext<'a> {
 /// The verified-state token has a private constructor and is bound to the
 /// exact admission/snapshot/witness digests.
 pub struct AgentEvidenceCommonContext<'a> {
-    pub signer_id: &'a Did,
+    pub signer_id: &'a ActorId,
     pub agent_key_id: &'a NonEmptyString,
-    pub controller_id: &'a Did,
+    pub controller_id: &'a ActorId,
     pub verification_method: &'a DidUrl,
     pub agent_key_authorize_event_id: &'a EventId,
     pub authorize_public_key_digest: &'a Hash,
     pub authorize_signing_key_binding_digest: &'a Hash,
-    pub expected_authority_service_id: &'a Did,
+    pub expected_authority_service_id: &'a ServiceId,
     pub expected_authority_verification_method: &'a DidUrl,
-    pub expected_account_authority_service_id: &'a Did,
+    pub expected_account_authority_service_id: &'a ServiceId,
     pub expected_account_authority_verification_method: &'a DidUrl,
     pub controller_public_key: &'a PublicKeyMaterial,
     pub authority_public_key: &'a PublicKeyMaterial,
@@ -224,8 +223,8 @@ pub struct CurrentAgentSignerEvidenceValidationContext<'a> {
     pub common: AgentEvidenceCommonContext<'a>,
     pub operation_id: &'a ProtocolOperationId,
     pub request_digest: &'a Hash,
-    pub verifier_id: &'a Did,
-    pub audience: &'a Did,
+    pub verifier_id: &'a ServiceId,
+    pub audience: &'a ServiceId,
     pub challenge: &'a NonEmptyString,
 }
 
@@ -235,7 +234,7 @@ pub struct HistoricalAgentSignerEvidenceValidationContext<'a> {
     pub event_digest: &'a Hash,
     pub realm_id: &'a RealmId,
     pub event_admitted_seal_id: &'a SealId,
-    pub receiver_service_id: &'a Did,
+    pub receiver_service_id: &'a ServiceId,
     /// Resolve the exact receiver assertion key identified by the detached
     /// JWS protected `kid` at the receipt acceptance time.
     pub resolve_receiver_historical_key:
@@ -394,7 +393,7 @@ pub fn agent_signing_key_binding_to_sign_bytes(
 }
 
 pub fn agent_authorization_cell_ref(
-    agent_id: &Did,
+    agent_id: &ActorId,
     agent_key_id: &NonEmptyString,
 ) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
     let subject = arkret_wire::composite_subject(&[agent_id.as_str(), agent_key_id.as_str()])
@@ -403,7 +402,9 @@ pub fn agent_authorization_cell_ref(
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
-fn agent_lifecycle_cell_ref(agent_id: &Did) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
+fn agent_lifecycle_cell_ref(
+    agent_id: &ActorId,
+) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
     let subject = arkret_wire::composite_subject(&[agent_id.as_str()])
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     NonEmptyString::new(format!("ak:cell:{AGENT_STATUS_COMPONENT}:{subject}"))
@@ -459,14 +460,14 @@ pub fn verify_agent_evidence_state(
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_signing_key_binding(
-    agent_id: Did,
+    agent_id: ActorId,
     agent_key_id: NonEmptyString,
     verification_method: DidUrl,
     agent_public_key: [u8; 32],
     agent_key_authorize_event_id: EventId,
     issued_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
-    controller_id: Did,
+    controller_id: ActorId,
     controller_verification_method: DidUrl,
     controller_signing_key: &SigningKey,
 ) -> Result<AgentSigningKeyBinding, AgentEvidenceRejectedReason> {
@@ -512,13 +513,13 @@ pub fn build_agent_signing_key_binding(
 /// that Event's content-bound identity exists.
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_agent_signing_key_binding_core(
-    agent_id: Did,
+    agent_id: ActorId,
     agent_key_id: NonEmptyString,
     verification_method: DidUrl,
     runtime_public_key: &arkret_models_collaboration::governance::agent_artifacts::PublicKey,
     issued_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
-    controller_id: Did,
+    controller_id: ActorId,
 ) -> Result<AgentSigningKeyBindingCore, AgentEvidenceRejectedReason> {
     let validated = validate_agent_runtime_public_key(runtime_public_key, &verification_method)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
@@ -529,7 +530,7 @@ pub fn prepare_agent_signing_key_binding_core(
             .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
         key: validated.public_key.key,
     };
-    if did_url_controller(&verification_method) != agent_id.as_str() {
+    if ActorId::from(did_url_controller_core_id(&verification_method)?) != agent_id {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
     Ok(AgentSigningKeyBindingCore {
@@ -554,8 +555,9 @@ pub fn materialize_agent_signing_key_binding(
     controller_verification_method: DidUrl,
 ) -> Result<AgentSigningKeyBindingToSign, AgentEvidenceRejectedReason> {
     if core.schema.as_str() != SchemaId::AGENT_SIGNING_KEY_BINDING_V1
-        || did_url_controller(&core.verification_method) != core.agent_id.as_str()
-        || did_url_controller(&controller_verification_method) != core.controller_id.as_str()
+        || ActorId::from(did_url_controller_core_id(&core.verification_method)?) != core.agent_id
+        || ActorId::from(did_url_controller_core_id(&controller_verification_method)?)
+            != core.controller_id
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
@@ -642,24 +644,27 @@ pub fn validate_agent_signing_key_binding_digest_domains(
 #[allow(clippy::too_many_arguments)]
 pub fn verify_agent_signing_key_binding(
     binding: &AgentSigningKeyBinding,
-    expected_agent_id: &Did,
+    expected_agent_id: &ActorId,
     expected_agent_key_id: &NonEmptyString,
-    expected_controller_id: &Did,
+    expected_controller_id: &ActorId,
     expected_verification_method: &DidUrl,
     expected_authorize_event_id: &EventId,
     expected_public_key_digest: &Hash,
     expected_binding_digest: &Hash,
     controller_public_key: &PublicKeyMaterial,
 ) -> Result<[u8; 32], AgentEvidenceRejectedReason> {
+    let method_agent_id = ActorId::from(did_url_controller_core_id(&binding.verification_method)?);
+    let proof_controller_id = ActorId::from(did_url_controller_core_id(
+        &binding.controller_proof.verification_method,
+    )?);
     if binding.schema.as_str() != SchemaId::AGENT_SIGNING_KEY_BINDING_V1
         || &binding.agent_id != expected_agent_id
         || &binding.agent_key_id != expected_agent_key_id
         || &binding.controller_id != expected_controller_id
         || &binding.verification_method != expected_verification_method
         || &binding.agent_key_authorize_event_id != expected_authorize_event_id
-        || did_url_controller(&binding.verification_method) != binding.agent_id.as_str()
-        || did_url_controller(&binding.controller_proof.verification_method)
-            != binding.controller_id.as_str()
+        || method_agent_id != binding.agent_id
+        || proof_controller_id != binding.controller_id
         || binding.controller_proof.kind.as_str() != DETACHED_JWS_KIND
         || binding.public_key.kty.as_str() != "OKP"
         || binding.public_key.algorithm.as_str() != "Ed25519"
@@ -777,7 +782,10 @@ pub fn validate_historical_agent_signer_evidence(
         }
         Err(reason) => return rejected(reason),
     };
-    if did_url_controller(&receipt_method) != context.receiver_service_id.as_str() {
+    if !did_url_controller_core_id(&receipt_method)
+        .map(ServiceId::from)
+        .is_ok_and(|service_id| service_id == *context.receiver_service_id)
+    {
         return rejected(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
     }
     let Some(receiver_key) = (context.resolve_receiver_historical_key)(
@@ -868,6 +876,11 @@ fn validate_common_evidence(
         controller_account_gate_attestation: gate,
     })?;
     let expected_outer_core_digest = outer_core_digest(evidence)?;
+    let lease_authority_service_id = ServiceId::from(did_url_controller_core_id(
+        &snapshot.lease.verification_method,
+    )?);
+    let outer_source_service_id =
+        ServiceId::from(did_url_controller_core_id(&outer.verification_method)?);
     if snapshot.snapshot_digest != expected_snapshot_digest
         || admission.admission_evidence_digest != expected_admission_digest
         || snapshot.lease.authority_kind.as_str() != "agent_authority"
@@ -875,14 +888,13 @@ fn validate_common_evidence(
         || snapshot.lease.authority_service_id != *context.expected_authority_service_id
         || snapshot.lease.verification_method != *context.expected_authority_verification_method
         || snapshot.lease.snapshot_digest != snapshot.snapshot_digest
-        || did_url_controller(&snapshot.lease.verification_method)
-            != snapshot.lease.authority_service_id.as_str()
+        || lease_authority_service_id != snapshot.lease.authority_service_id
         || snapshot.lease.issued_at >= snapshot.lease.expires_at
         || outer.domain.as_str() != OUTER_ATTESTATION_DOMAIN
         || outer.core_digest != expected_outer_core_digest
         || outer.source_service_id != *context.expected_authority_service_id
         || outer.verification_method != *context.expected_authority_verification_method
-        || did_url_controller(&outer.verification_method) != outer.source_service_id.as_str()
+        || outer_source_service_id != outer.source_service_id
         || outer.issued_at >= outer.expires_at
         || context.now < outer.issued_at
         || basis_time < snapshot.lease.issued_at
@@ -942,22 +954,8 @@ fn validate_common_evidence(
         || lifecycle.status != AgentLifecycleStatus::Active
         || lifecycle.cell_value != AgentLifecycleStatus::Active
         || gate.schema.as_str() != SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
-        || gate.principal_id
-            != PrincipalId::from(project_full_id_to_core_id(context.controller_id).map_err(
-                |_| {
-                    CommonEvidenceFailure::Rejected(AgentEvidenceRejectedReason::SigningKeyMismatch)
-                },
-            )?)
-        || gate.authority_service_id
-            != ServiceId::from(
-                project_full_id_to_core_id(context.expected_account_authority_service_id).map_err(
-                    |_| {
-                        CommonEvidenceFailure::Rejected(
-                            AgentEvidenceRejectedReason::SigningKeyMismatch,
-                        )
-                    },
-                )?,
-            )
+        || gate.principal_id.as_str() != context.controller_id.as_str()
+        || gate.authority_service_id != *context.expected_account_authority_service_id
         || gate.verification_method != *context.expected_account_authority_verification_method
         || gate.eligibility != ControllerAccountEligibility::Active
         || gate.status != ControllerAccountStatus::Active
@@ -1361,6 +1359,13 @@ fn rejected(reason: AgentEvidenceRejectedReason) -> AgentSignerEvidenceVerdict {
 
 fn did_url_controller(method: &DidUrl) -> &str {
     method.as_str().split_once('#').map_or("", |(did, _)| did)
+}
+
+fn did_url_controller_core_id(method: &DidUrl) -> Result<CoreId, AgentEvidenceRejectedReason> {
+    let controller = FullId::new(did_url_controller(method).to_owned())
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    project_full_id_to_core_id(&controller)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
 fn value_contains_authorization_record(

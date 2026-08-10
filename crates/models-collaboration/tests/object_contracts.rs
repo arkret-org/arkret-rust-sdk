@@ -8,12 +8,18 @@ use arkret_models_collaboration::objects::realm::{
     CellLatticeDeclaration, NotaryProfile, Realm, SyncEndpoint,
 };
 use arkret_models_collaboration::objects::strand::Strand;
-use arkret_wire::{FederationPolicy, Hash, ObjectStage, ObjectState, SchemaId};
+use arkret_wire::{
+    ActorId, FederationPolicy, Hash, ObjectStage, ObjectState, SchemaId, project_full_id_to_core_id,
+};
 use chrono::Utc;
 use serde_json::json;
 
 fn single_did_notary(did: &str) -> arkret_wire::NotaryValue {
     arkret_wire::NotaryValue::single_did(Did::new(did).unwrap())
+}
+
+fn actor(value: &str) -> ActorId {
+    ActorId::from(project_full_id_to_core_id(&Did::new(value).unwrap()).unwrap())
 }
 
 #[test]
@@ -22,7 +28,7 @@ fn strand_constructor_sets_protocol_shape() {
         StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
         RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
         "Payment refactor",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
     );
 
     assert_eq!(subject.schema, SchemaId::STRAND_V1);
@@ -48,7 +54,7 @@ fn strand_stage_is_optional_on_wire() {
         StrandId::new("ak:strand:AcKSRJZPkByig1GflJEt_bZDB7P97ojqBwYH1b1ueEW4").unwrap(),
         RealmId::new("ak:realm:AZ6K8FZoZ5exQI95ZRAfS7jlgIdfNkV6QLYAofxG2SGm").unwrap(),
         "Payment refactor",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
     );
     let mut value = serde_json::to_value(&strand).unwrap();
     assert_eq!(value.get("stage"), Some(&json!("draft")));
@@ -71,7 +77,7 @@ fn strand_discussion_constructor_sets_room_shape() {
         StrandId::new("ak:strand:AT_TSQZlyY7Fu85J33nzo3fSau9RjJOeu21RspghP1gC").unwrap(),
         RealmId::new("ak:realm:Ae45Cr1AeIit-Zrz1lJhczoDtaA38mI5e6z8nYtMnMW7").unwrap(),
         "Launch board discussion",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
     );
     assert!(strand.is_conversational());
     assert_eq!(strand.tracks.len(), 2, "synthesis + discussion expected");
@@ -97,7 +103,7 @@ fn synthesis_strand_is_not_conversational() {
         StrandId::new("ak:strand:AT_TSQZlyY7Fu85J33nzo3fSau9RjJOeu21RspghP1gC").unwrap(),
         RealmId::new("ak:realm:Ae45Cr1AeIit-Zrz1lJhczoDtaA38mI5e6z8nYtMnMW7").unwrap(),
         "Launch board synthesis",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
     );
     assert!(!strand.is_conversational());
 }
@@ -448,7 +454,7 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
         MorphId::new("ak:morph:AdF-OpLT-7la09L28Pgl41aEHXK3MEZNnwMNhc02Uz19").unwrap(),
         RealmId::new("ak:realm:AZaaHAEvC1DejakImwHCcJHb0F1pgE-Jd-3_9BGirbuW").unwrap(),
         "ak.demo.morph",
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        actor("did:webvh:z6mkfixture:alice.example"),
     );
     let value = serde_json::to_value(&morph).unwrap();
     assert_eq!(value["schema_refs"], json!([SchemaId::MORPH_V1]));
@@ -468,8 +474,10 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
 
 #[test]
 fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
-    let created_by = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-    let updated_by = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+    let created_by_did = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let updated_by_did = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+    let created_by = actor(created_by_did.as_str());
+    let updated_by = actor(updated_by_did.as_str());
     let now = Utc::now();
 
     // Strand — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
@@ -491,7 +499,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     let mut realm = Realm::new(
         RealmId::new("ak:realm:ATz4yMg8D3eSMJ7kiPNr0BF70hg3o_DBZklFZd5GZSuJ").unwrap(),
         "Order guard realm",
-        created_by.clone(),
+        created_by_did,
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
@@ -522,7 +530,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         lattice: "cas_register".to_owned(),
         bottom: Some("reject".to_owned()),
     });
-    realm.updated_by = Some(updated_by);
+    realm.updated_by = Some(updated_by_did);
     realm.updated_at = Some(now);
     let realm_keys = top_level_keys(&serde_json::to_string(&realm).unwrap());
     assert_field_order("Realm", &realm_keys);

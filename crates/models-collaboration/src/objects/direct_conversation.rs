@@ -186,8 +186,8 @@ pub fn direct_conversation_realm_create_payload(
 /// the unit non-canonical.
 pub fn direct_conversation_peer_membership_bootstrap(
     realm_id: RealmId,
-    founder: &Did,
-    participants: [Did; 2],
+    founder: &ActorId,
+    participants: [ActorId; 2],
     delivery_status: DeliveryStatus,
 ) -> Result<MembershipPayload> {
     if participants[0] == participants[1] {
@@ -218,7 +218,7 @@ pub fn direct_conversation_peer_membership_bootstrap(
 
 pub fn direct_conversation_member_join_payload(
     realm_id: RealmId,
-    participant: Did,
+    participant: ActorId,
     delivery_status: DeliveryStatus,
 ) -> MembershipPayload {
     MembershipPayload::join(
@@ -396,17 +396,21 @@ mod tests {
         Did::new(value.to_owned()).unwrap()
     }
 
+    fn actor(value: &str) -> ActorId {
+        ActorId::from(arkret_wire::project_full_id_to_core_id(&did(value)).unwrap())
+    }
+
     fn trust_domain() -> TypedTrustDomainId {
         TypedTrustDomainId::new("ak:trust_domain:example.test".to_owned()).unwrap()
     }
 
     #[test]
     fn pair_key_is_order_independent() {
-        let alice = DirectConversationPairKeyParticipant::unmapped(did(
-            "did:webvh:z6mkfixture:alice.example",
+        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
+            "did:webvh:z6mkfixturealice:alice.example",
         ));
-        let bob = DirectConversationPairKeyParticipant::unmapped(did(
-            "did:webvh:z6mkfixture:bob.example",
+        let bob = DirectConversationPairKeyParticipant::unmapped(actor(
+            "did:webvh:z6mkfixturebob:bob.example",
         ));
 
         let a = direct_conversation_pair_key(trust_domain(), alice.clone(), bob.clone()).unwrap();
@@ -418,29 +422,29 @@ mod tests {
 
     #[test]
     fn pair_key_matches_normative_known_answer() {
-        let alice = DirectConversationPairKeyParticipant::unmapped(did(
-            "did:webvh:z6mkfixture:alice.example",
+        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
+            "did:webvh:z6mkfixturealice:alice.example",
         ));
-        let bob = DirectConversationPairKeyParticipant::unmapped(did(
-            "did:webvh:z6mkfixture:bob.example",
+        let bob = DirectConversationPairKeyParticipant::unmapped(actor(
+            "did:webvh:z6mkfixturebob:bob.example",
         ));
 
         let pair_key = direct_conversation_pair_key(trust_domain(), alice, bob).unwrap();
 
         assert_eq!(
             pair_key.as_str(),
-            "sha256:e8c24c1badc48eefa472a1700e87a6597a95aedfab8cbe3173f1622b9ad427b5"
+            "sha256:71eac812be14d047f791749f9409bbdc6ab0af5999daa9077bc21f23bdfca1eb"
         );
     }
 
     #[test]
     fn pairwise_did_maps_to_stable_subject() {
-        let stable = did("did:webvh:z6mkfixture:bob.example");
-        let alice = DirectConversationPairKeyParticipant::unmapped(did(
-            "did:webvh:z6mkfixture:alice.example",
+        let stable = actor("did:webvh:z6mkfixturebob:bob.example");
+        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
+            "did:webvh:z6mkfixturealice:alice.example",
         ));
         let pairwise_bob = DirectConversationPairKeyParticipant {
-            did: did("did:peer:2.ezbobpairwise"),
+            did: ActorId::new("ak:did_core:webvh:z6mkpairwisebob").unwrap(),
             stable_subject: stable.clone(),
         };
         let stable_bob = DirectConversationPairKeyParticipant {
@@ -457,15 +461,15 @@ mod tests {
 
     #[test]
     fn pair_key_rejects_identical_stable_subjects() {
-        let alice = DirectConversationPairKeyParticipant::unmapped(did(
-            "did:webvh:z6mkfixture:alice.example",
+        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
+            "did:webvh:z6mkfixturealice:alice.example",
         ));
         assert!(direct_conversation_pair_key(trust_domain(), alice.clone(), alice).is_err());
     }
 
     #[test]
     fn builder_emits_closed_profiled_e2ee_realm() {
-        let creator = did("did:webvh:z6mkfixture:alice.example");
+        let creator = did("did:webvh:z6mkfixturealice:alice.example");
         let payload = direct_conversation_realm_create_payload(
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
@@ -535,13 +539,13 @@ mod tests {
     }
 
     fn binding_payload() -> DirectConversationBoundPayload {
-        let alice = did("did:webvh:z6mkfixture:alice.example");
-        let bob = did("did:webvh:z6mkfixture:bob.example");
+        let alice = did("did:webvh:z6mkfixturealice:alice.example");
+        let bob = did("did:webvh:z6mkfixturebob:bob.example");
         DirectConversationBoundPayload {
             pair_key: direct_conversation_pair_key(
                 trust_domain(),
-                DirectConversationPairKeyParticipant::unmapped(alice.clone()),
-                DirectConversationPairKeyParticipant::unmapped(bob.clone()),
+                DirectConversationPairKeyParticipant::unmapped(actor(alice.as_str())),
+                DirectConversationPairKeyParticipant::unmapped(actor(bob.as_str())),
             )
             .unwrap(),
             participants_unordered: vec![alice, bob],
@@ -567,7 +571,7 @@ mod tests {
 
     #[test]
     fn validator_rejects_third_member_and_circle_scoped_main_strand() {
-        let creator = did("did:webvh:z6mkfixture:alice.example");
+        let creator = did("did:webvh:z6mkfixturealice:alice.example");
         let realm = direct_conversation_realm_create_payload(
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
@@ -581,8 +585,12 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap();
         let payload = binding_payload();
-        let mut strand =
-            direct_conversation_main_strand_create_payload(realm_id, creator, Utc::now()).object;
+        let mut strand = direct_conversation_main_strand_create_payload(
+            realm_id,
+            actor(creator.as_str()),
+            Utc::now(),
+        )
+        .object;
         assert!(
             strand.id.is_none(),
             "create payload must omit the derived id"

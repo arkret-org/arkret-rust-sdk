@@ -7,8 +7,12 @@ use arkret_models_crypto::{
     EncryptedEnvelope, MlsEncryptedPayload, PlainPayload, ProtectedPayload,
 };
 use arkret_schema::event_payload_validator_catalog;
-use arkret_wire::{Did, MorphId, RealmId, SpaceId, StrandId};
+use arkret_wire::{ActorId, Did, MorphId, RealmId, SpaceId, StrandId, project_full_id_to_core_id};
 use serde_json::json;
+
+fn actor(value: &str) -> ActorId {
+    ActorId::from(project_full_id_to_core_id(&Did::new(value).unwrap()).unwrap())
+}
 
 #[test]
 fn agent_pair_activation_state_has_closed_two_phase_wire_values() {
@@ -53,7 +57,7 @@ fn encrypted_envelope() -> EncryptedEnvelope {
 
 #[test]
 fn space_create_object_uses_canonical_timestamp() {
-    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+    let actor = actor("did:webvh:z6mkfixture:alice.example");
     let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
     let space_id = SpaceId::new("ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
     let space = Space::new(space_id, realm_id, "board", "Board", actor);
@@ -64,7 +68,7 @@ fn space_create_object_uses_canonical_timestamp() {
 
 #[test]
 fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
-    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+    let actor = actor("did:webvh:z6mkfixture:alice.example");
     let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
     let morph_id = MorphId::new("ak:morph:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
     let mut morph = Morph::new(morph_id, realm_id, "document", actor).with_metadata_title("Spec");
@@ -304,7 +308,7 @@ fn message_create_payload_rejects_a_second_producer_chosen_identity() {
 
 #[test]
 fn morph_create_payload_rejects_both_content_carriers() {
-    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+    let actor = actor("did:webvh:z6mkfixture:alice.example");
     let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
     let morph_id = MorphId::new("ak:morph:AcsFZ3o2tOdN3EFpNceeLV-aI3jZkB9S34_4YIwJ5DLy").unwrap();
     let mut morph = Morph::new(morph_id, realm_id, "document", actor);

@@ -343,7 +343,10 @@ impl AccountStatusAuthoringBasisOutcome {
             || self.principal_control_realm_id != evidence.principal_control_realm_id
             || self.issuer_service_id != evidence.issuer_service_id
             || self.actor_frontier.realm_id != evidence.principal_control_realm_id
-            || self.actor_frontier.actor_id != evidence.issuer_service_id
+            || self.actor_frontier.actor_id
+                != arkret_wire::ActorId::from(project_full_id_to_core_id(
+                    &evidence.issuer_service_id,
+                )?)
             || self.seal_frontier.realm_id != evidence.principal_control_realm_id
         {
             return Err(arkret_wire::Error::Protocol(
@@ -707,7 +710,10 @@ impl AccountRegisterOutcome {
             })?;
             let initial = &identity_creation.initial_session;
             let constraints = [
-                ("grant principal_id", grant.principal_id == request.full_id),
+                (
+                    "grant principal_id",
+                    grant.principal_id == request.principal_id,
+                ),
                 (
                     "grant device_id",
                     grant.device_id.as_ref() == Some(&initial.device_id),

@@ -1243,8 +1243,8 @@ mod tests {
                     "ak:device:01904100-0000-7000-8000-000000000001",
                 )
                 .unwrap(),
-                requester_device_authorize_event_id: EventId::new(
-                    "ak:event:Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                requester_device_authorize_event_id: EventId::from_event_digest(
+                    &Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
                 )
                 .unwrap(),
             },

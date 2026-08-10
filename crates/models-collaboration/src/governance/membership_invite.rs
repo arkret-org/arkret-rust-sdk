@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    Did, DidUrl, Error, EventId, Hash, InviteId, RealmId, Result, StrandId, XExtensionMap,
-    canonical,
+    ActorId, CoreId, Did, DidUrl, Error, EventId, Hash, InviteId, RealmId, Result, ServiceId,
+    StrandId, XExtensionMap, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -65,7 +65,7 @@ pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
+    pub actor_id: Option<ActorId>,
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_status: Option<DeliveryStatus>,
@@ -86,7 +86,7 @@ pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gate_proofs: Vec<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_service_ids: Vec<Did>,
+    pub via_service_ids: Vec<ServiceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
@@ -105,7 +105,7 @@ impl MembershipPayload {
     /// Build a non-`join` transition payload (`invite`/`knock`/`leave`/`ban`).
     pub fn transition(
         membership: MembershipPayloadState,
-        actor_id: Did,
+        actor_id: ActorId,
         reason: impl Into<String>,
     ) -> Self {
         Self {
@@ -126,7 +126,7 @@ impl MembershipPayload {
     /// `realm_id` + `actor_id` + `delivery_status` fields.
     pub fn join(
         realm_id: RealmId,
-        actor_id: Did,
+        actor_id: ActorId,
         delivery_status: DeliveryStatus,
         reason: impl Into<String>,
     ) -> Self {
@@ -191,7 +191,7 @@ impl MembershipPayload {
 /// and re-prefixed on serialize.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteCreatePayload {
-    pub invitee: Did,
+    pub invitee: CoreId,
     pub invite_delivery_target: InviteDeliveryTarget,
     pub introduction_evidence_digest: Hash,
     #[serde(with = "canonical_timestamp")]
@@ -203,7 +203,7 @@ pub struct InviteCreatePayload {
 
 impl InviteCreatePayload {
     pub fn new(
-        invitee: Did,
+        invitee: CoreId,
         invite_delivery_target: InviteDeliveryTarget,
         introduction_evidence_digest: Hash,
         expires_at: chrono::DateTime<chrono::Utc>,
@@ -290,14 +290,18 @@ pub enum InviteCancelTargetState {
 #[serde(deny_unknown_fields)]
 pub struct InviteCancelPayload {
     pub invite_id: InviteId,
-    pub invitee: Did,
+    pub invitee: CoreId,
     pub target_state: InviteCancelTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
 
 impl InviteCancelPayload {
-    pub fn new(invite_id: InviteId, invitee: Did, target_state: InviteCancelTargetState) -> Self {
+    pub fn new(
+        invite_id: InviteId,
+        invitee: CoreId,
+        target_state: InviteCancelTargetState,
+    ) -> Self {
         Self {
             invite_id,
             invitee,
@@ -333,7 +337,7 @@ pub enum InviteRevokeTargetState {
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee: Option<Did>,
+    pub invitee: Option<CoreId>,
     pub target_state: InviteRevokeTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,

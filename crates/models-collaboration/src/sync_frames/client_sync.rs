@@ -658,6 +658,11 @@ mod tests {
 
     use super::*;
 
+    fn actor(value: &str) -> ActorId {
+        let full_id = Did::new(value).unwrap();
+        ActorId::from(project_full_id_to_core_id(&full_id).unwrap())
+    }
+
     #[test]
     fn sync_request_serializes_correctly() {
         let request = SyncRequestBody {
@@ -857,7 +862,7 @@ mod tests {
     fn timeline_order_key_uses_causal_depth_then_hlc_actor_sequence_and_event() {
         let realm_id =
             RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
-        let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let actor = actor("did:webvh:z6mkfixture:alice.example");
         let mut newer_hlc = arkret_wire::test_support::raw_event(
             "ak.message.create",
             ScopeRef::Realm {
@@ -930,7 +935,7 @@ mod tests {
             ScopeRef::Realm {
                 realm_id: realm_id.clone(),
             },
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor("did:webvh:z6mkfixture:alice.example"),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"hello"}),

@@ -223,7 +223,12 @@ mod tests {
             RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
             kind,
             "Work",
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            ActorId::from(
+                arkret_wire::project_full_id_to_core_id(
+                    &arkret_wire::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                )
+                .unwrap(),
+            ),
         )
     }
 

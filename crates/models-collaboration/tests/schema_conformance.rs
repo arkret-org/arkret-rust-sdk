@@ -27,10 +27,11 @@ mod models {
         RealmTombstonePayload,
     };
     pub use arkret_models_collaboration::object_patch::ObjectPatchPayload;
+    pub use arkret_models_identity::ServiceResolutionCarrier;
     pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
-        Did, EventId, Hash, HistoryVisibility, InviteId, PlaintextDataClassKind, RealmId, SpaceId,
-        StrandId,
+        ActorId, Did, EventId, FullId, Hash, HistoryVisibility, InviteId, PlaintextDataClassKind,
+        RealmId, ServiceId, SpaceId, StrandId, project_full_id_to_core_id,
     };
 }
 
@@ -69,7 +70,12 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // invite transition (non-join): only `membership` is structurally required.
     let invite = MembershipPayload::transition(
         MembershipPayloadState::Invite,
-        Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+        ActorId::from(
+            project_full_id_to_core_id(
+                &FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
+            )
+            .unwrap(),
+        ),
         "space_create",
     );
     catalog
@@ -80,7 +86,12 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // required, but delivery_binding only when routable.
     let join = MembershipPayload::join(
         RealmId::new("ak:realm:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
-        Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+        ActorId::from(
+            project_full_id_to_core_id(
+                &FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
+            )
+            .unwrap(),
+        ),
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
@@ -108,17 +119,29 @@ fn membership_payload_strong_type_passes_spec_validator() {
 #[test]
 fn split_invite_payload_strong_types_pass_spec_validator() {
     use crate::models::{
-        Did, Hash, InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload,
-        InviteDeliveryTarget, InviteId, InviteRevokePayload, InviteRevokeTargetState,
+        FullId, Hash, InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload,
+        InviteDeliveryTarget, InviteId, InviteRevokePayload, InviteRevokeTargetState, ServiceId,
+        ServiceResolutionCarrier, project_full_id_to_core_id,
     };
     let catalog = event_payload_validator_catalog().unwrap();
 
     // Directed-create (anyOf branch: invitee + invite_delivery_target +
     // introduction_evidence_digest + expires_at), with an `x_role` extension.
     let create = InviteCreatePayload::new(
-        Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+        project_full_id_to_core_id(&FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
+            .unwrap(),
         InviteDeliveryTarget::principal_server(
-            Did::new("did:webvh:z6mkfixture:ps.example").unwrap(),
+            ServiceId::from(
+                project_full_id_to_core_id(
+                    &FullId::new("did:webvh:z6mkfixtureps:ps.example").unwrap(),
+                )
+                .unwrap(),
+            ),
+            ServiceResolutionCarrier::CurrentRecordUrl {
+                current_record_url: "https://ps.example/_arkret/open/service-resolution/current"
+                    .to_owned(),
+                pinned_record_digest: None,
+            },
         ),
         Hash::new("sha256:".to_owned() + &"a".repeat(64)).unwrap(),
         chrono::Utc::now() + chrono::Duration::days(7),
@@ -139,7 +162,9 @@ fn split_invite_payload_strong_types_pass_spec_validator() {
 
     let invite_id =
         InviteId::new("ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
-    let invitee = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+    let invitee =
+        project_full_id_to_core_id(&FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
+            .unwrap();
     let cancel = InviteCancelPayload::new(
         invite_id.clone(),
         invitee.clone(),
@@ -222,16 +247,23 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 #[test]
 fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     use crate::models::{
-        Did, ObjectLifecyclePayload, SpaceId, StrandId, StrandMovePayload,
+        ActorId, FullId, ObjectLifecyclePayload, SpaceId, StrandId, StrandMovePayload,
         StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
-        StrandWatchLevel, StrandWatchSetPayload,
+        StrandWatchLevel, StrandWatchSetPayload, project_full_id_to_core_id,
     };
     let catalog = event_payload_validator_catalog().unwrap();
     let board = || SpaceId::new("ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap();
     let target = || SpaceId::new("ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
     let strand =
         || StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap();
-    let actor = || Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let actor = || {
+        ActorId::from(
+            project_full_id_to_core_id(
+                &FullId::new("did:webvh:z6mkfixturealice:alice.example").unwrap(),
+            )
+            .unwrap(),
+        )
+    };
 
     // ak.strand.move — board/target Space ids + rank; from_space_id +
     // expected_position optional. Destination is single-sourced by

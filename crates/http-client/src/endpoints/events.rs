@@ -1028,7 +1028,12 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
             },
-            arkret_wire::Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
+            arkret_wire::ActorId::from(
+                arkret_wire::project_full_id_to_core_id(
+                    &arkret_wire::Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
+                )
+                .unwrap(),
+            ),
             0,
             arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             serde_json::json!({

@@ -7,9 +7,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    Did, Error, Event, EventFederationSubmission, EventId, FederatedDeviceSigningKeyEvidence, Hash,
-    Hlc, RealmId, Result, SchemaId, Seal, SealBasis, SealId,
+    ActorId, CbaProofBundle, ControlProposalAck, ControlProposalDecision,
+    ControlProposalDecisionPolicy, Did, Error, Event, EventFederationSubmission, EventId,
+    FederatedDeviceSigningKeyEvidence, Hash, Hlc, RealmId, Result, SchemaId, Seal, SealBasis,
+    SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -102,9 +103,16 @@ pub enum ActorAggregateFrontierKind {
 /// Typed selector for canonical `QUERY /_arkret/self/events/frontier`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EventsFrontierSelector {
-    RealmActor { realm_id: RealmId, actor_id: Did },
-    RealmSeal { realm_id: RealmId },
-    ActorAggregate { actor_id: Did },
+    RealmActor {
+        realm_id: RealmId,
+        actor_id: ActorId,
+    },
+    RealmSeal {
+        realm_id: RealmId,
+    },
+    ActorAggregate {
+        actor_id: ActorId,
+    },
 }
 
 impl EventsFrontierSelector {
@@ -165,7 +173,7 @@ pub enum EventsFrontierView {
 struct RealmActorFrontierDigestTranscript<'a> {
     kind: &'static str,
     realm_id: &'a RealmId,
-    actor_id: &'a Did,
+    actor_id: &'a ActorId,
     next_actor_seq: u64,
     frontier_event_ids: &'a [EventId],
 }
@@ -177,7 +185,7 @@ struct RealmActorFrontierDigestTranscript<'a> {
 pub struct RealmActorFrontierView {
     pub kind: RealmActorFrontierKind,
     pub realm_id: RealmId,
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     pub next_actor_seq: u64,
     pub frontier_event_ids: Vec<EventId>,
     pub frontier_digest: Hash,
@@ -186,7 +194,7 @@ pub struct RealmActorFrontierView {
 impl RealmActorFrontierView {
     pub fn new(
         realm_id: RealmId,
-        actor_id: Did,
+        actor_id: ActorId,
         next_actor_seq: u64,
         frontier_event_ids: Vec<EventId>,
         digest_suite: DigestSuite,
@@ -212,7 +220,7 @@ impl RealmActorFrontierView {
 
     pub fn compute_digest(
         realm_id: &RealmId,
-        actor_id: &Did,
+        actor_id: &ActorId,
         next_actor_seq: u64,
         frontier_event_ids: &[EventId],
         digest_suite: DigestSuite,
@@ -291,7 +299,7 @@ impl RealmActorFrontierView {
 #[serde(deny_unknown_fields)]
 pub struct ActorAggregateFrontierView {
     pub kind: ActorAggregateFrontierKind,
-    pub actor_id: Did,
+    pub actor_id: ActorId,
     pub realms: Vec<RealmActorFrontierView>,
 }
 
@@ -1058,9 +1066,7 @@ impl EventsSubmitFederationBatchRequestBody {
                     .agent_authority_snapshot
                     .core
                     .signing_key_binding;
-                let binding_actor_id = arkret_wire::ActorId::from(
-                    arkret_wire::project_full_id_to_core_id(&binding.agent_id)?,
-                );
+                let binding_actor_id = binding.agent_id.clone();
                 let matches_event = self.transported_events().any(|event| {
                     if event.applet_id.is_some() {
                         return false;
@@ -1123,7 +1129,7 @@ mod tests {
 
     #[test]
     fn realm_actor_frontier_distinguishes_empty_and_seq_zero_histories() {
-        let actor_id = Did::new("did:web:alice.example").unwrap();
+        let actor_id = ActorId::new("ak:did_core:web:alice.example").unwrap();
         let realm_id =
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
         RealmActorFrontierView::new(
@@ -1158,7 +1164,7 @@ mod tests {
         frontier_event_ids.sort();
         let frontier = RealmActorFrontierView::new(
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            Did::new("did:web:alice.example").unwrap(),
+            ActorId::new("ak:did_core:web:alice.example").unwrap(),
             43,
             frontier_event_ids,
             DigestSuite::Sha256,
@@ -1166,7 +1172,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             frontier.frontier_digest.as_str(),
-            "sha256:d12fa2f7a07cb5bae2f5980e890dab3419963eff7e960dcb09e267644360bdae"
+            "sha256:cb4775b3b4590faa096cafd34b0dfd9abc77ad02729a451c0fe5dfdee10d5dc1"
         );
     }
 
@@ -1182,7 +1188,7 @@ mod tests {
                 "kind": "realm",
                 "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
             },
-            "actor_id": "did:web:alice.example",
+            "actor_id": "ak:did_core:web:alice.example",
             "actor_seq": 1,
             "created_at": "2026-07-21T08:00:00.000Z",
             "hlc": "01970e589d21-0001-a13f9c2e",
@@ -1357,7 +1363,7 @@ mod tests {
             basis_ref: LeaseBasisRef::Seal(
                 SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             ),
-            actor_id: event.actor_id.clone(),
+            actor_id: Did::new("did:web:alice.example").unwrap(),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
             scope_ref: event.scope_ref.clone(),
             action: event.kind.as_str().to_owned(),

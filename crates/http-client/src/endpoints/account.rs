@@ -43,11 +43,11 @@ use arkret_models_identity::{
     IdentityBindingChallengeRequestBody, SessionGrantProofKind,
 };
 use arkret_wire::{
-    DeviceId, Did, Hash, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    CoreId, DeviceId, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
     PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
     PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_COMMIT, PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_PREPARE,
-    PayloadSigner,
+    PayloadSigner, ServiceId,
 };
 use chrono::{Duration, Utc};
 use reqwest::header::CONTENT_TYPE;
@@ -74,11 +74,11 @@ const DID_PROOF_FRESHNESS_WINDOW_SECS: i64 = 300;
 /// issuance operation.
 pub async fn login_did_proof<S>(
     client: &Client,
-    principal_id: Did,
+    principal_id: CoreId,
     device_id: DeviceId,
     signer: &S,
     challenge: &str,
-    audience: Did,
+    audience: ServiceId,
 ) -> Result<SessionGrantOutcome>
 where
     S: PayloadSigner + ?Sized,
@@ -730,13 +730,13 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_request() -> SessionGrantRequestBody {
         serde_json::from_value(serde_json::json!({
-            "principal_id": "did:example:alice",
+            "principal_id": "ak:did_core:web:alice.example",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
             "proof": {
                 "proof_kind": "did_bound_signature",
                 "challenge": "0123456789abcdef",
                 "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
-                "audience": "did:example:service",
+                "audience": "ak:did_core:web:service.example",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "detached.jws"
             }
@@ -747,12 +747,12 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_outcome_json() -> String {
         serde_json::json!({
-            "principal_id": "did:example:alice",
+            "principal_id": "ak:did_core:web:alice.example",
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:04:00.000Z",
             "grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
-            "audience": "did:example:service"
+            "audience": "ak:did_core:web:service.example"
         })
         .to_string()
     }
@@ -766,7 +766,7 @@ mod tests {
                 "proof_kind": "did_bound_signature",
                 "challenge": "0123456789abcdef",
                 "request_canonical_digest": format!("sha256:{}", "11".repeat(32)),
-                "audience": "did:example:service",
+                "audience": "ak:did_core:web:service.example",
                 "issued_at": "2026-08-08T11:59:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "refresh.detached.jws"
@@ -782,7 +782,7 @@ mod tests {
             "grant_jwt": "successor.jwt",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "expires_at": "2026-08-08T12:04:00.000Z",
-            "audience": "did:example:service",
+            "audience": "ak:did_core:web:service.example",
             "scopes": [],
             "dpop_jkt": "holder-thumbprint",
             "previous_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"

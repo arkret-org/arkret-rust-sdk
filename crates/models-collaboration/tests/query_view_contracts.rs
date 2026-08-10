@@ -8,10 +8,15 @@ use arkret_models_collaboration::objects::queries::{
 };
 use arkret_models_collaboration::objects::relation::Relation;
 use arkret_wire::{
-    Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer, ViewVisibility,
+    ActorId, Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer,
+    ViewVisibility, project_full_id_to_core_id,
 };
 use chrono::Utc;
 use serde_json::json;
+
+fn actor(value: &str) -> ActorId {
+    ActorId::from(project_full_id_to_core_id(&Did::new(value).unwrap()).unwrap())
+}
 
 #[test]
 fn relation_requires_exact_wire_endpoints() {
@@ -30,7 +35,7 @@ fn relation_requires_exact_wire_endpoints() {
         fields: BTreeMap::new(),
         state: None,
         state_changed_at: None,
-        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        created_by: actor("did:webvh:z6mkfixture:alice.example"),
         created_at: Utc::now(),
         updated_by: None,
         updated_at: None,

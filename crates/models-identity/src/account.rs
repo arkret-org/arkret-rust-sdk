@@ -1,6 +1,6 @@
 use arkret_wire::{
     CoreId, DeviceId, Did, DidUrl, Error, EventId, FullId, Hash, PayloadProof, RealmId, ReasonCode,
-    RequestId, Result, TypedTrustDomainId, canonical, project_full_id_to_core_id,
+    RequestId, Result, ServiceId, TypedTrustDomainId, canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -282,7 +282,7 @@ pub struct AccountHandoffAuthenticationProof {
     pub proof_kind: AccountHandoffAuthenticationProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub issuer: String,
     pub client_id: String,
     pub redirect_uri: String,
@@ -344,7 +344,7 @@ impl AccountHandoffRequestBody {
 #[derive(Clone, Debug)]
 pub struct UnsignedAccountHandoffAuthenticationProof {
     pub challenge: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub issuer: String,
     pub client_id: String,
     pub redirect_uri: String,
@@ -620,7 +620,7 @@ pub struct IdentityAbandonmentChallengeRequestBody {
     pub request_id: RequestId,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub principal_id: Did,
+    pub principal_id: CoreId,
     pub did_version_id: String,
 }
 
@@ -659,13 +659,13 @@ pub struct IdentityAbandonmentChallengeOutcome {
     pub challenge: String,
     pub purpose: IdentityAbandonmentPurpose,
     pub account_subject: Hash,
-    pub principal_id: Did,
+    pub principal_id: CoreId,
     pub did_version_id: String,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub consequence_disclosure: [IdentityAbandonmentConsequence; 4],
     pub dpop_jkt: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -704,7 +704,7 @@ pub struct IdentityAbandonmentRequestBody {
     pub challenge: String,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub principal_id: Did,
+    pub principal_id: CoreId,
     pub did_version_id: String,
 }
 
@@ -743,7 +743,7 @@ pub struct IdentityAbandonmentOutcome {
     pub request_id: RequestId,
     pub status: IdentityAbandonmentStatus,
     pub account_subject: Hash,
-    pub principal_id: Did,
+    pub principal_id: CoreId,
     pub did_version_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub abandoned_at: DateTime<Utc>,
@@ -833,7 +833,7 @@ pub struct DidBindingChallengeOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness_evidence: Option<String>,
     pub dpop_jkt: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -884,7 +884,7 @@ pub struct AccountRegistrationControlProof {
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub dpop_jkt: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -959,7 +959,7 @@ pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
 pub struct InitialSessionGrantRequest {
     pub device_id: DeviceId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub requested_scope: Vec<String>,
 }
 
@@ -1010,7 +1010,7 @@ pub struct IdentityBindingChallengeOutcome {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1049,7 +1049,7 @@ pub struct IdentityCreationControlProof {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1123,7 +1123,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub origin: String,
     pub trust_domain: TypedTrustDomainId,
     pub issued_at: DateTime<Utc>,
@@ -1493,7 +1493,7 @@ mod account_handoff_tests {
                 proof_kind: AccountHandoffAuthenticationProofKind::OidcCodeExchange,
                 challenge: "challenge-0123456789".to_owned(),
                 request_canonical_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                audience: Did::new("did:webvh:z6mkfixture:account.example").unwrap(),
+                audience: ServiceId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 issuer: "https://auth.example".to_owned(),
                 client_id: "arkret-client".to_owned(),
                 redirect_uri: "https://client.example/callback".to_owned(),

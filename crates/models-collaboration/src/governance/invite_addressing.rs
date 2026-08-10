@@ -5,11 +5,12 @@
 //! and `invite-receive-policy.schema.json`.
 
 use arkret_models_identity::handle::Handle;
+use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    BlobRef, Did, Error, EventId, Hash, InviteLocatorId, InviteReceiveAction, RealmId, Result,
-    SchemaId, UnknownInviteAction,
+    BlobRef, CoreId, Did, Error, EventId, Hash, InviteLocatorId, InviteReceiveAction, RealmId,
+    Result, SchemaId, ServiceId, UnknownInviteAction,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -212,22 +213,35 @@ pub struct InviteLocatorRevokeOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteAddress {
-    pub subject_id: Did,
-    pub recipient_service_id: Did,
+    pub subject_id: CoreId,
+    pub recipient_service_id: ServiceId,
+    pub service_resolution: ServiceResolutionCarrier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route_assistance: Option<RouteAssistance>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_kind: Option<String>,
 }
 
 impl InviteAddress {
-    pub fn principal_server(subject_id: Did, recipient_service_id: Did) -> Self {
+    pub fn principal_server(
+        subject_id: CoreId,
+        recipient_service_id: ServiceId,
+        service_resolution: ServiceResolutionCarrier,
+    ) -> Self {
         Self {
             subject_id,
             recipient_service_id,
+            service_resolution,
+            route_assistance: None,
             recipient_service_kind: None,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
+        validate_service_resolution_carrier(&self.recipient_service_id, &self.service_resolution)?;
+        if let Some(route_assistance) = &self.route_assistance {
+            route_assistance.validate_shape()?;
+        }
         if let Some(service_kind) = &self.recipient_service_kind
             && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
@@ -242,15 +256,20 @@ impl InviteAddress {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryTarget {
-    pub recipient_service_id: Did,
+    pub recipient_service_id: ServiceId,
+    pub service_resolution: ServiceResolutionCarrier,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_kind: Option<String>,
 }
 
 impl InviteDeliveryTarget {
-    pub fn principal_server(recipient_service_id: Did) -> Self {
+    pub fn principal_server(
+        recipient_service_id: ServiceId,
+        service_resolution: ServiceResolutionCarrier,
+    ) -> Self {
         Self {
             recipient_service_id,
+            service_resolution,
             recipient_service_kind: None,
         }
     }
@@ -258,11 +277,13 @@ impl InviteDeliveryTarget {
     pub fn from_invite_address(address: &InviteAddress) -> Self {
         Self {
             recipient_service_id: address.recipient_service_id.clone(),
+            service_resolution: address.service_resolution.clone(),
             recipient_service_kind: address.recipient_service_kind.clone(),
         }
     }
 
     pub fn validate(&self) -> Result<()> {
+        validate_service_resolution_carrier(&self.recipient_service_id, &self.service_resolution)?;
         if let Some(service_kind) = &self.recipient_service_kind
             && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
@@ -279,8 +300,11 @@ impl InviteDeliveryTarget {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalLocator {
     pub schema: String,
-    pub subject_id: Did,
-    pub recipient_service_id: Did,
+    pub subject_id: CoreId,
+    pub recipient_service_id: ServiceId,
+    pub service_resolution: ServiceResolutionCarrier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route_assistance: Option<RouteAssistance>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_kind: Option<String>,
     #[serde(with = "canonical_timestamp")]
@@ -301,6 +325,8 @@ impl PrincipalLocator {
         InviteAddress {
             subject_id: self.subject_id.clone(),
             recipient_service_id: self.recipient_service_id.clone(),
+            service_resolution: self.service_resolution.clone(),
+            route_assistance: self.route_assistance.clone(),
             recipient_service_kind: self.recipient_service_kind.clone(),
         }
     }
@@ -308,6 +334,7 @@ impl PrincipalLocator {
     pub fn invite_delivery_target(&self) -> InviteDeliveryTarget {
         InviteDeliveryTarget {
             recipient_service_id: self.recipient_service_id.clone(),
+            service_resolution: self.service_resolution.clone(),
             recipient_service_kind: self.recipient_service_kind.clone(),
         }
     }
@@ -317,6 +344,10 @@ impl PrincipalLocator {
             return Err(Error::Protocol(
                 "principal_locator.schema mismatch".to_owned(),
             ));
+        }
+        validate_service_resolution_carrier(&self.recipient_service_id, &self.service_resolution)?;
+        if let Some(route_assistance) = &self.route_assistance {
+            route_assistance.validate_shape()?;
         }
         if let Some(service_kind) = &self.recipient_service_kind
             && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
@@ -339,6 +370,20 @@ impl PrincipalLocator {
         }
         Ok(())
     }
+}
+
+fn validate_service_resolution_carrier(
+    expected_service_id: &ServiceId,
+    carrier: &ServiceResolutionCarrier,
+) -> Result<()> {
+    if let ServiceResolutionCarrier::Inline { inline } = carrier
+        && &inline.record.service_id != expected_service_id
+    {
+        return Err(Error::Protocol(
+            "service_resolution inline record does not match recipient_service_id".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -724,10 +769,23 @@ mod tests {
     fn principal_locator_serializes_canonical_timestamps() {
         let issued_at = test_time();
         let expires_at = issued_at + chrono::Duration::minutes(15);
+        let recipient_full_id =
+            arkret_wire::FullId::new("did:webvh:z6mkfixturepsbob:ps.bob.example").unwrap();
         let locator = PrincipalLocator {
             schema: SchemaId::PRINCIPAL_LOCATOR_V1.to_owned(),
-            subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            recipient_service_id: Did::new("did:webvh:z6mkfixture:ps.bob.example").unwrap(),
+            subject_id: arkret_wire::project_full_id_to_core_id(
+                &arkret_wire::FullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
+            )
+            .unwrap(),
+            recipient_service_id: ServiceId::from(
+                arkret_wire::project_full_id_to_core_id(&recipient_full_id).unwrap(),
+            ),
+            service_resolution: ServiceResolutionCarrier::CurrentRecordUrl {
+                current_record_url:
+                    "https://ps.bob.example/_arkret/open/service-resolution/current".to_owned(),
+                pinned_record_digest: None,
+            },
+            route_assistance: None,
             recipient_service_kind: None,
             issued_at,
             expires_at,
@@ -738,10 +796,8 @@ mod tests {
                 proof_purpose: PrincipalLocatorProofPurpose::RecipientServiceAcceptance,
                 proof: DetachedPayloadProof {
                     kind: "detached_jws".to_owned(),
-                    verification_method: DidUrl::new(
-                        "did:webvh:z6mkfixture:ps.bob.example#server-key-1",
-                    )
-                    .unwrap(),
+                    verification_method: DidUrl::new(format!("{recipient_full_id}#server-key-1"))
+                        .unwrap(),
                     payload_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
                     created_at: issued_at,
                     domain: None,

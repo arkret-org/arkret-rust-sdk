@@ -48,7 +48,7 @@ pub struct AgentRuntimeKeyPossessionProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: AgentRuntimeKeyAlgorithm,
     pub challenge: OpaqueLocalId,
-    pub audience: Did,
+    pub audience: ServiceId,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
@@ -206,7 +206,7 @@ pub fn agent_key_pairing_request_binding_digest(
     pairing_request_id: &OpaqueLocalId,
     pairing_code: &str,
     pairing_expires_at: DateTime<Utc>,
-    audience: &Did,
+    audience: &ServiceId,
     runtime_key_binding_digest: &Hash,
     proof: &AgentRuntimeKeyPossessionProof,
 ) -> Result<Hash> {
@@ -2220,8 +2220,8 @@ impl AgentOperations {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct KeyState {
-    pub agent_id: Did,
-    pub controller_id: Did,
+    pub agent_id: ActorId,
+    pub controller_id: ActorId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub pcr_recovery: AgentPcrRecoveryState,
@@ -2262,6 +2262,30 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn key_state_uses_stable_core_actor_ids() {
+        let value = serde_json::json!({
+            "agent_id": "ak:did_core:webvh:z6mkagent",
+            "controller_id": "ak:did_core:webvh:z6mkcontroller",
+            "principal_control_realm_id": "ak:realm:AUf0Zz23_ZBqZYNvzHTY6qhhx-2YyO94WTorNCFnnvvN",
+            "controller_authorization_ref": "did:webvh:z6mkcontroller:controller.example#authorize-1",
+            "pcr_recovery": {"status": "pending"},
+            "requested_scope": {"actions": [], "resources": []},
+            "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
+            "active_authorizations": []
+        });
+        let parsed: KeyState = serde_json::from_value(value.clone()).expect("core ids parse");
+        assert_eq!(parsed.agent_id.as_str(), "ak:did_core:webvh:z6mkagent");
+        assert_eq!(
+            parsed.controller_id.as_str(),
+            "ak:did_core:webvh:z6mkcontroller"
+        );
+
+        let mut stale_full_id = value;
+        stale_full_id["agent_id"] = serde_json::json!("did:webvh:z6mkagent:agent.example");
+        assert!(serde_json::from_value::<KeyState>(stale_full_id).is_err());
+    }
+
     fn runtime_approval_request(runtime_attestation: Value) -> Value {
         serde_json::json!({
             "pairing_code": "12345678",
@@ -2279,7 +2303,7 @@ mod tests {
                 "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
                 "signature_algorithm": "Ed25519",
                 "challenge": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
-                "audience": "did:webvh:z6mkfixture:service.example",
+                "audience": "ak:did_core:webvh:z6mkfixture",
                 "created_at": "2026-07-20T00:00:00.000Z",
                 "expires_at": "2026-07-20T00:05:00.000Z",
                 "runtime_key_binding_digest": format!("sha256:{}", "1".repeat(64)),

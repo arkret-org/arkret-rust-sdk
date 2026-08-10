@@ -42,6 +42,8 @@ mod subscribe_body;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod http_did_resolver;
 pub mod key_backup_client;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod service_resolution_fetcher;
 
 pub use account_subscribe::AccountSubscribeFolder;
 pub use builder::ClientBuilder;
@@ -62,6 +64,11 @@ pub use endpoints::{
     login_did_proof,
 };
 pub use error::{Error, Result};
+#[cfg(not(target_arch = "wasm32"))]
+pub use service_resolution_fetcher::{
+    SERVICE_RESOLUTION_FETCH_MAX_BYTES, SERVICE_RESOLUTION_FETCH_TIMEOUT, ServiceResolutionFetcher,
+    UnverifiedServiceResolutionRecord,
+};
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Arkret-Wait-For";
@@ -845,12 +852,12 @@ mod tests {
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
         use arkret_wire::{
-            AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
+            ActorId, AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
             AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
             AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, BlobRef, DeviceId,
             Did, DidUrl, Event, EventId, EventInitialSubmission, EventRequirements, Hash, Hlc,
             LeaseBasisRef, MimiRoomUri, NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef,
-            SealId, ServiceKind, StrandId, proof_kind,
+            SealId, ServiceKind, StrandId, project_full_id_to_core_id, proof_kind,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -872,7 +879,12 @@ mod tests {
                 kind: "ak.message.create".into(),
                 realm_id: realm_id.clone(),
                 scope_ref: ScopeRef::Realm { realm_id },
-                actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                actor_id: ActorId::from(
+                    project_full_id_to_core_id(
+                        &Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                    )
+                    .unwrap(),
+                ),
                 actor_seq: 1,
                 created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -943,7 +955,7 @@ mod tests {
                 basis_ref: LeaseBasisRef::Seal(
                     SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
                 ),
-                actor_id: event.actor_id.clone(),
+                actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
                 scope_ref: event.scope_ref.clone(),
                 action: event.kind.as_str().to_owned(),
@@ -1105,10 +1117,7 @@ mod tests {
             );
             assert_eq!(parsed["event"]["kind"], "ak.message.create");
             assert_eq!(parsed["event"]["payload"]["body"], "hello");
-            assert_eq!(
-                parsed["event"]["actor_id"],
-                "did:webvh:z6mkfixture:alice.example"
-            );
+            assert_eq!(parsed["event"]["actor_id"], "ak:did_core:webvh:z6mkfixture");
             // The lease is publication evidence, not an Event field: it sits
             // next to the envelope and never inside it.
             assert!(parsed["event"].get("authorization_lease").is_none());
@@ -1343,7 +1352,12 @@ mod tests {
             let canned = r#"{
                 "protocol_version":"1.0",
                 "service_kind":"principal_server",
-                "service_id":"did:web:server.local",
+                "service_id":"ak:did_core:web:server.local",
+                "service_resolution":{
+                    "full_id":"did:web:server.local",
+                    "method_history_head":"sha256:fixture",
+                    "version_id":"fixture-v1"
+                },
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
                 "supported_operations":[],
@@ -1389,7 +1403,12 @@ mod tests {
             let canned = r#"{
                 "protocol_version":"1.0",
                 "service_kind":"principal_server",
-                "service_id":"did:web:server.local",
+                "service_id":"ak:did_core:web:server.local",
+                "service_resolution":{
+                    "full_id":"did:web:server.local",
+                    "method_history_head":"sha256:fixture",
+                    "version_id":"fixture-v1"
+                },
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
                 "supported_operations":[],
@@ -1474,7 +1493,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_read_queries_canonical_events_collection_with_json_content() {
-            let canned = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"limited":false}"#;
+            let canned = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let response = client

@@ -107,6 +107,10 @@ const SOURCES: &[(&str, &str)] = &[
     ("lib.rs", include_str!("../src/lib.rs")),
     ("request.rs", include_str!("../src/request.rs")),
     (
+        "service_resolution_fetcher.rs",
+        include_str!("../src/service_resolution_fetcher.rs"),
+    ),
+    (
         "subscribe_body.rs",
         include_str!("../src/subscribe_body.rs"),
     ),

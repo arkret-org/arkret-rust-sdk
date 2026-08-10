@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{Did, Error, Hash, PayloadProof, ProofContextId, Result};
+use arkret_wire::{
+    CoreId, Error, FullId, Hash, PayloadProof, ProofContextId, Result, ServiceId,
+    project_full_id_to_core_id,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -97,8 +100,9 @@ impl OrganizationControlProof {
     pub fn validate_transcript_bindings(
         &self,
         challenge_id: &str,
-        organization_id: &Did,
-        local_admin_subject: &Did,
+        organization_id: &CoreId,
+        full_id: &FullId,
+        local_admin_subject: &CoreId,
         version_id: &str,
         log_head_digest: &Hash,
     ) -> Result<()> {
@@ -108,6 +112,7 @@ impl OrganizationControlProof {
                 "context": ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1,
                 "challenge_id": challenge_id,
                 "organization_id": organization_id,
+                "full_id": full_id,
                 "local_admin_subject": local_admin_subject,
                 "version_id": version_id,
                 "log_head_digest": log_head_digest,
@@ -139,14 +144,21 @@ fn validate_scopes(scopes: &[OrganizationRegistrationScope]) -> Result<()> {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationChallengeRequestBody {
-    pub organization_id: Did,
-    pub local_admin_subject: Did,
+    pub organization_id: CoreId,
+    pub full_id: FullId,
+    pub local_admin_subject: CoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
 }
 
 impl OrganizationRegistrationChallengeRequestBody {
     pub fn validate(&self) -> Result<()> {
-        validate_scopes(&self.requested_scopes)
+        validate_scopes(&self.requested_scopes)?;
+        if project_full_id_to_core_id(&self.full_id)? != self.organization_id {
+            return Err(Error::Protocol(
+                "organization registration full_id does not project to organization_id".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -155,13 +167,14 @@ impl OrganizationRegistrationChallengeRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationChallenge {
     pub challenge_id: String,
-    pub organization_id: Did,
+    pub organization_id: CoreId,
+    pub full_id: FullId,
     pub purpose: String,
     pub nonce: String,
-    pub audience: Did,
+    pub audience: ServiceId,
     pub origin: String,
     pub trust_domain: String,
-    pub local_admin_subject: Did,
+    pub local_admin_subject: CoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -187,6 +200,7 @@ impl OrganizationRegistrationChallenge {
     ) -> Result<()> {
         request.validate()?;
         if self.organization_id != request.organization_id
+            || self.full_id != request.full_id
             || self.local_admin_subject != request.local_admin_subject
             || self.requested_scopes != request.requested_scopes
             || self.purpose != ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1
@@ -206,6 +220,7 @@ impl OrganizationRegistrationChallenge {
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
             || self.trust_domain.is_empty()
+            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
         {
             return Err(Error::Protocol(
                 "organization registration challenge contains an invalid id or binding".to_owned(),
@@ -241,9 +256,9 @@ pub enum OrganizationHandleAttestationStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationHandleAttestation {
-    pub subject: Did,
+    pub subject: CoreId,
     pub handle: String,
-    pub issuer: Did,
+    pub issuer: CoreId,
     pub audience: String,
     pub status: OrganizationHandleAttestationStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -254,12 +269,13 @@ pub struct OrganizationHandleAttestation {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationEnsureRequestBody {
-    pub organization_id: Did,
+    pub organization_id: CoreId,
+    pub full_id: FullId,
     pub challenge_id: String,
     pub version_id: String,
     pub log_head_digest: Hash,
     pub control_proof: OrganizationControlProof,
-    pub local_admin_subject: Did,
+    pub local_admin_subject: CoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle_attestation: Option<OrganizationHandleAttestation>,
@@ -270,6 +286,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         self.control_proof.validate()?;
         validate_scopes(&self.requested_scopes)?;
         if self.version_id.is_empty()
+            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
             || !self
                 .challenge_id
                 .strip_prefix("ak:organization-registration-challenge:")
@@ -299,6 +316,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         self.validate()?;
         let challenge_request = OrganizationRegistrationChallengeRequestBody {
             organization_id: self.organization_id.clone(),
+            full_id: self.full_id.clone(),
             local_admin_subject: self.local_admin_subject.clone(),
             requested_scopes: self.requested_scopes.clone(),
         };
@@ -311,6 +329,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         self.control_proof.validate_transcript_bindings(
             &self.challenge_id,
             &self.organization_id,
+            &self.full_id,
             &self.local_admin_subject,
             &self.version_id,
             &self.log_head_digest,
@@ -338,7 +357,8 @@ impl OrganizationRegistrationEnsureRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationRefreshRequestBody {
-    pub organization_id: Did,
+    pub organization_id: CoreId,
+    pub full_id: FullId,
     pub challenge_id: String,
     pub version_id: String,
     pub log_head_digest: Hash,
@@ -349,6 +369,7 @@ impl OrganizationRegistrationRefreshRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.control_proof.validate()?;
         if self.version_id.is_empty()
+            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
             || !self
                 .challenge_id
                 .strip_prefix("ak:organization-registration-challenge:")
@@ -364,13 +385,14 @@ impl OrganizationRegistrationRefreshRequestBody {
     pub fn validate_for_challenge_at(
         &self,
         challenge: &OrganizationRegistrationChallenge,
-        current_local_admin_subject: &Did,
+        current_local_admin_subject: &CoreId,
         current_scopes: &[OrganizationRegistrationScope],
         now: DateTime<Utc>,
     ) -> Result<()> {
         self.validate()?;
         let challenge_request = OrganizationRegistrationChallengeRequestBody {
             organization_id: self.organization_id.clone(),
+            full_id: self.full_id.clone(),
             local_admin_subject: current_local_admin_subject.clone(),
             requested_scopes: current_scopes.to_vec(),
         };
@@ -383,6 +405,7 @@ impl OrganizationRegistrationRefreshRequestBody {
         self.control_proof.validate_transcript_bindings(
             &self.challenge_id,
             &self.organization_id,
+            &self.full_id,
             current_local_admin_subject,
             &self.version_id,
             &self.log_head_digest,
@@ -418,7 +441,7 @@ pub enum OrganizationRegistrationRevokeReason {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationRevokeRequestBody {
-    pub organization_id: Did,
+    pub organization_id: CoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<OrganizationRegistrationRevokeReason>,
 }
@@ -437,20 +460,21 @@ pub enum OrganizationRegistrationStatus {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationReceipt {
     pub registration_receipt_id: String,
-    pub organization_id: Did,
+    pub organization_id: CoreId,
+    pub full_id: FullId,
     pub registration_generation: u64,
     pub version_id: String,
     pub log_head_digest: Hash,
     pub control_proof_kind: OrganizationControlProofKind,
     pub control_key_digest: Hash,
-    pub local_admin_subject: Did,
+    pub local_admin_subject: CoreId,
     pub delegated_scopes: Vec<OrganizationRegistrationScope>,
     pub status: OrganizationRegistrationStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub issuer_service_id: Did,
+    pub issuer_service_id: ServiceId,
     pub proof: PayloadProof,
 }
 
@@ -489,6 +513,7 @@ impl OrganizationRegistrationReceipt {
             "issuer_service_id": self.issuer_service_id,
             "registration_receipt_id": self.registration_receipt_id,
             "organization_id": self.organization_id,
+            "full_id": self.full_id,
             "verification_method": self.proof.verification_method,
             "created_at": self.proof.created_at,
             "domain": self.proof.domain,
@@ -510,15 +535,13 @@ impl OrganizationRegistrationReceipt {
         self.proof.validate_production()?;
         if self.registration_generation == 0
             || self.version_id.is_empty()
+            || project_full_id_to_core_id(&self.full_id)? != self.organization_id
             || self.expires_at <= self.issued_at
             || self.registration_receipt_id != self.expected_receipt_id()?
             || self.proof.payload_digest != self.expected_payload_digest()?
             || self.proof.created_at != self.issued_at
-            || self.issuer_service_id.method() != "webvh"
-            || !self
-                .proof
-                .verification_method
-                .starts_with(&format!("{}#", self.issuer_service_id))
+            || project_verification_method_to_core(&self.proof.verification_method)?
+                != CoreId::from(self.issuer_service_id.clone())
         {
             return Err(Error::Protocol(
                 "organization registration receipt binding is invalid".to_owned(),
@@ -532,7 +555,8 @@ impl OrganizationRegistrationReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationOutcome {
-    pub organization_id: Did,
+    pub organization_id: CoreId,
+    pub full_id: FullId,
     pub registration_generation: u64,
     pub version_id: String,
     pub registration_receipt: OrganizationRegistrationReceipt,
@@ -543,6 +567,7 @@ impl OrganizationRegistrationOutcome {
     pub fn validate(&self) -> Result<()> {
         self.registration_receipt.validate()?;
         if self.organization_id != self.registration_receipt.organization_id
+            || self.full_id != self.registration_receipt.full_id
             || self.registration_generation != self.registration_receipt.registration_generation
             || self.version_id != self.registration_receipt.version_id
         {
@@ -621,20 +646,44 @@ fn is_lower_hex_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
+fn project_verification_method_to_core(
+    verification_method: &arkret_wire::DidUrl,
+) -> Result<CoreId> {
+    let controller = verification_method
+        .as_str()
+        .split_once('#')
+        .map(|(controller, _)| controller)
+        .ok_or_else(|| {
+            Error::Protocol(
+                "organization receipt verification_method requires a fragment".to_owned(),
+            )
+        })?;
+    project_full_id_to_core_id(&FullId::new(controller.to_owned())?).map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use arkret_wire::DidUrl;
 
     use super::*;
 
-    fn did(value: &str) -> Did {
-        Did::new(value.to_owned()).expect("valid DID")
+    fn full(value: &str) -> FullId {
+        FullId::new(value.to_owned()).expect("valid full DID")
+    }
+
+    fn core(value: &str) -> CoreId {
+        project_full_id_to_core_id(&full(value)).expect("registered method adapter")
+    }
+
+    fn service(value: &str) -> ServiceId {
+        ServiceId::from(core(value))
     }
 
     fn challenge_request() -> OrganizationRegistrationChallengeRequestBody {
         OrganizationRegistrationChallengeRequestBody {
-            organization_id: did("did:webvh:zOrg:org.example"),
-            local_admin_subject: did("did:webvh:zAdmin:admin.example"),
+            organization_id: core("did:webvh:zOrg:org.example"),
+            full_id: full("did:webvh:zOrg:org.example"),
+            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
             requested_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
         }
     }
@@ -661,9 +710,10 @@ mod tests {
         let base = OrganizationRegistrationChallenge {
             challenge_id: format!("ak:organization-registration-challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
+            full_id: request.full_id.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
-            audience: did("did:webvh:zService:service.example"),
+            audience: service("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
             trust_domain: "example".to_owned(),
             local_admin_subject: request.local_admin_subject.clone(),
@@ -688,8 +738,9 @@ mod tests {
         assert!(
             serde_json::from_value::<OrganizationRegistrationChallengeRequestBody>(
                 serde_json::json!({
-                    "organization_id": "did:webvh:zOrg:org.example",
-                    "local_admin_subject": "did:webvh:zAdmin:admin.example",
+                    "organization_id": "ak:did_core:webvh:zOrg",
+                    "full_id": "did:webvh:zOrg:org.example",
+                    "local_admin_subject": "ak:did_core:webvh:zAdmin",
                     "requested_scopes": ["organization_profile_manage"],
                     "unexpected": true
                 })
@@ -707,9 +758,10 @@ mod tests {
         let challenge = OrganizationRegistrationChallenge {
             challenge_id: format!("ak:organization-registration-challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
+            full_id: request.full_id.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
-            audience: did("did:webvh:zService:service.example"),
+            audience: service("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
             trust_domain: "example".to_owned(),
             local_admin_subject: request.local_admin_subject.clone(),
@@ -720,11 +772,12 @@ mod tests {
         let version_id = "3-zQmPinnedVersion".to_owned();
         let log_head_digest = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
         let verification_method =
-            DidUrl::new(format!("{}#org-control-key-1", request.organization_id)).unwrap();
+            DidUrl::new(format!("{}#org-control-key-1", request.full_id)).unwrap();
         let transcript = serde_json::json!({
             "context": ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1,
             "challenge_id": challenge.challenge_id,
             "organization_id": request.organization_id,
+            "full_id": request.full_id,
             "local_admin_subject": request.local_admin_subject,
             "version_id": version_id,
             "log_head_digest": log_head_digest,
@@ -736,6 +789,7 @@ mod tests {
             Hash::new(arkret_canonical::canonical::canonical_sha256(&transcript).unwrap()).unwrap();
         let ensure = OrganizationRegistrationEnsureRequestBody {
             organization_id: request.organization_id.clone(),
+            full_id: request.full_id.clone(),
             challenge_id: challenge.challenge_id.clone(),
             version_id,
             log_head_digest,
@@ -755,7 +809,7 @@ mod tests {
         );
 
         let mut transferred = ensure;
-        transferred.local_admin_subject = did("did:webvh:zAttacker:attacker.example");
+        transferred.local_admin_subject = core("did:webvh:zAttacker:attacker.example");
         assert!(
             transferred
                 .validate_for_challenge_at(&challenge, created_at + chrono::Duration::seconds(1))
@@ -768,16 +822,18 @@ mod tests {
         let issued_at = DateTime::parse_from_rfc3339("2026-07-27T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let issuer = did("did:webvh:zService:service.example");
+        let issuer_full = full("did:webvh:zService:service.example");
+        let issuer = service(issuer_full.as_str());
         let mut receipt = OrganizationRegistrationReceipt {
             registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
-            organization_id: did("did:webvh:zOrg:org.example"),
+            organization_id: core("did:webvh:zOrg:org.example"),
+            full_id: full("did:webvh:zOrg:org.example"),
             registration_generation: 1,
             version_id: "3-zQmPinnedVersion".to_owned(),
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
             control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            local_admin_subject: did("did:webvh:zAdmin:admin.example"),
+            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
             delegated_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
             status: OrganizationRegistrationStatus::Active,
             issued_at,
@@ -785,7 +841,7 @@ mod tests {
             issuer_service_id: issuer.clone(),
             proof: payload_proof(
                 issued_at,
-                &DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+                &DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
             ),
         };
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
@@ -802,16 +858,18 @@ mod tests {
         let issued_at = DateTime::parse_from_rfc3339("2026-07-27T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let issuer = did("did:webvh:zService:service.example");
+        let issuer_full = full("did:webvh:zService:service.example");
+        let issuer = service(issuer_full.as_str());
         let mut receipt = OrganizationRegistrationReceipt {
             registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
-            organization_id: did("did:webvh:zOrg:org.example"),
+            organization_id: core("did:webvh:zOrg:org.example"),
+            full_id: full("did:webvh:zOrg:org.example"),
             registration_generation: 1,
             version_id: "3-zQmPinnedVersion".to_owned(),
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
             control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            local_admin_subject: did("did:webvh:zAdmin:admin.example"),
+            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
             delegated_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
             status: OrganizationRegistrationStatus::Active,
             issued_at,
@@ -819,13 +877,14 @@ mod tests {
             issuer_service_id: issuer.clone(),
             proof: payload_proof(
                 issued_at,
-                &DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+                &DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
             ),
         };
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
         let outcome = OrganizationRegistrationOutcome {
             organization_id: receipt.organization_id.clone(),
+            full_id: receipt.full_id.clone(),
             registration_generation: 1,
             version_id: receipt.version_id.clone(),
             registration_receipt: receipt,
@@ -846,16 +905,18 @@ mod tests {
         let issued_at = DateTime::parse_from_rfc3339("2026-07-27T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let issuer = did("did:webvh:zService:service.example");
+        let issuer_full = full("did:webvh:zService:service.example");
+        let issuer = service(issuer_full.as_str());
         let mut receipt = OrganizationRegistrationReceipt {
             registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
-            organization_id: did("did:webvh:zOrg:org.example"),
+            organization_id: core("did:webvh:zOrg:org.example"),
+            full_id: full("did:webvh:zOrg:org.example"),
             registration_generation: 1,
             version_id: "3-zQmPinnedVersion".to_owned(),
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
             control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            local_admin_subject: did("did:webvh:zAdmin:admin.example"),
+            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
             delegated_scopes: vec![OrganizationRegistrationScope::OrganizationRealmEndorse],
             status: OrganizationRegistrationStatus::Active,
             issued_at,
@@ -863,7 +924,7 @@ mod tests {
             issuer_service_id: issuer.clone(),
             proof: payload_proof(
                 issued_at,
-                &DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+                &DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
             ),
         };
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
