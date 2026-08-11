@@ -4,6 +4,8 @@ use arkret_wire::{DeviceId, DidCoreId, Error, EventId, Hash, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::ServiceResolutionCarrier;
+
 /// Per-Realm binding of a member to a concrete delivery target service.
 ///
 /// Authoritative source for Realm-scoped event / sync / to-device / push /
@@ -24,8 +26,7 @@ pub struct MemberDeliveryBinding {
     pub binding_scope: BindingScope,
     pub binding_source: BindingSource,
     pub delivery_modes: BTreeSet<DeliveryMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub service_endpoint: Option<String>,
+    pub service_resolution: ServiceResolutionCarrier,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did_document_digest: Option<Hash>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -91,6 +92,8 @@ impl MemberDeliveryBinding {
     /// Validate the schema-level conditional required fields enforced by
     /// `event-payload.schema.json` (`binding_source`-driven `allOf`).
     pub fn validate(&self) -> Result<()> {
+        self.service_resolution
+            .validate_shape(&self.recipient_service_id)?;
         if self.delivery_modes.is_empty() {
             return Err(Error::Protocol(
                 "member_delivery_binding.delivery_modes MUST NOT be empty".to_owned(),
@@ -194,6 +197,17 @@ mod tests {
         EventId::new("ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A").unwrap()
     }
 
+    fn fake_resolution(label: &str) -> ServiceResolutionCarrier {
+        let service_id = fake_service(label);
+        ServiceResolutionCarrier::CurrentRecordUrl {
+            current_record_url: format!(
+                "https://service.example{}",
+                crate::canonical_service_current_record_path(&service_id)
+            ),
+            pinned_record_digest: None,
+        }
+    }
+
     #[test]
     fn binding_requires_modes() {
         let mut b = MemberDeliveryBinding {
@@ -202,7 +216,7 @@ mod tests {
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: BTreeSet::new(),
-            service_endpoint: None,
+            service_resolution: fake_resolution("rs"),
             did_document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: Some(fake_event_id()),
@@ -223,7 +237,7 @@ mod tests {
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
-            service_endpoint: None,
+            service_resolution: fake_resolution("rs"),
             did_document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: None,
@@ -294,7 +308,7 @@ mod tests {
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::DidDocumentDefault,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
-            service_endpoint: None,
+            service_resolution: fake_resolution("rs"),
             did_document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: None,

@@ -2087,8 +2087,8 @@ mod tests {
             ),
             (
                 "ak.identity.disclosure_receipt",
-                json!({"holder_principal_id": "did:webvh:z6mkfixture:holder.example"}),
-                "did:webvh:z6mkfixture:holder.example",
+                json!({"holder_principal_id": "ak:did_core:webvh:z6mkfixture"}),
+                "ak:did_core:webvh:z6mkfixture",
             ),
             (
                 "ak.identity.presentation_request",

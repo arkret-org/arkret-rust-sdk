@@ -494,7 +494,7 @@ mod tests {
                 "notary_profile": "single_did",
                 "notary": {
                     "kind": "single_did",
-                    "did": "did:webvh:z6mkfixture:founder.example"
+                    "actor_id": ACTOR
                 },
                 "capability_action_registry_digest": DIGEST
             }}),

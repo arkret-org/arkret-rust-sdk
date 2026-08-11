@@ -577,21 +577,20 @@ impl Realm {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, DidFullId};
+    use arkret_wire::DidCoreId;
 
     use super::*;
 
     fn realm() -> Realm {
-        let notary = DidFullId::new("did:web:notary.example").unwrap();
         let notary_actor = DidCoreId::new("ak:did_core:web:notary.example").unwrap();
         Realm::new(
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             "Policy Realm",
-            notary_actor,
+            notary_actor.clone(),
             TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
             NotaryProfile::SingleDid,
-            NotaryValue::single_did(notary),
+            NotaryValue::single_did(notary_actor),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
         )
     }

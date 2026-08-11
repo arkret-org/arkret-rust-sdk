@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DidCoreId, DidFullId, Error, Result};
+use crate::{DidCoreId, Error, Result};
 
 /// Equivocation culprit-attribution mode for [`NotaryValue::Threshold`]
 /// committees (realm.schema.json `notary.forensic_attribution`;
@@ -49,7 +49,10 @@ pub enum ForensicAttribution {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NotaryValue {
     SingleDid {
-        did: DidFullId,
+        /// Core identity of the primary notary. The exact signing DID method
+        /// is proven by the accepted control evidence, not embedded in the
+        /// Realm cell value.
+        actor_id: DidCoreId,
         /// Explicit recovery-notary path. REQUIRED (non-empty) when
         /// `controller_organization` is declared; otherwise omitted.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -72,8 +75,9 @@ pub enum NotaryValue {
         members: Vec<DidCoreId>,
     },
     Mixed {
-        /// Primary notary DID (`did` per realm.schema.json).
-        did: DidFullId,
+        /// Core identity of the primary notary (`actor_id` per
+        /// realm.schema.json).
+        actor_id: DidCoreId,
         recovery_members: Vec<DidCoreId>,
     },
 }
@@ -81,10 +85,10 @@ pub enum NotaryValue {
 impl NotaryValue {
     /// Build an orgless `single_did` notary (personal / dev Realm). No
     /// controlling organization, no recovery path — matches the relaxed
-    /// `realm.schema.json` single_did genesis shape `{kind, did}`.
-    pub fn single_did(did: DidFullId) -> Self {
+    /// `realm.schema.json` single_did genesis shape `{kind, actor_id}`.
+    pub fn single_did(actor_id: DidCoreId) -> Self {
         NotaryValue::SingleDid {
-            did,
+            actor_id,
             recovery_members: Vec::new(),
             controller_organization: None,
             recovery_controller_organizations: Vec::new(),
@@ -94,13 +98,13 @@ impl NotaryValue {
     /// Build an org-controlled `single_did` notary with the explicit
     /// recovery-notary diversity path the reducer verifies.
     pub fn single_did_with_org(
-        did: DidFullId,
+        actor_id: DidCoreId,
         recovery_members: Vec<DidCoreId>,
         controller_organization: DidCoreId,
         recovery_controller_organizations: Vec<DidCoreId>,
     ) -> Self {
         NotaryValue::SingleDid {
-            did,
+            actor_id,
             recovery_members,
             controller_organization: Some(controller_organization),
             recovery_controller_organizations,
@@ -200,7 +204,7 @@ impl NotaryValue {
                 Ok(())
             }
             NotaryValue::Mixed {
-                did,
+                actor_id,
                 recovery_members,
             } => {
                 if recovery_members.is_empty() {
@@ -210,10 +214,10 @@ impl NotaryValue {
                 }
                 if recovery_members
                     .iter()
-                    .any(|member| full_id_matches_principal(did, member))
+                    .any(|member| actor_matches_principal(actor_id, member))
                 {
                     return Err(Error::Protocol(
-                        "NotaryValue::Mixed primary did must not appear in recovery_members"
+                        "NotaryValue::Mixed primary actor must not appear in recovery_members"
                             .to_owned(),
                     ));
                 }
@@ -235,11 +239,11 @@ impl NotaryValue {
     /// primary alone or the complete recovery set, but never a blend.
     pub fn proposal_quorum_met(&self, signers: &BTreeSet<DidCoreId>) -> bool {
         match self {
-            Self::SingleDid { did, .. } => {
+            Self::SingleDid { actor_id, .. } => {
                 signers.len() == 1
                     && signers
                         .iter()
-                        .all(|signer| actor_matches_full_id(signer, did))
+                        .all(|signer| actor_matches_principal(signer, actor_id))
             }
             Self::Threshold {
                 threshold, members, ..
@@ -259,13 +263,13 @@ impl NotaryValue {
                     })
             }
             Self::Mixed {
-                did,
+                actor_id,
                 recovery_members,
             } => {
                 (signers.len() == 1
                     && signers
                         .iter()
-                        .all(|signer| actor_matches_full_id(signer, did)))
+                        .all(|signer| actor_matches_principal(signer, actor_id)))
                     || (!recovery_members.is_empty()
                         && signers.len() == recovery_members.len()
                         && signers.iter().all(|signer| {
@@ -286,11 +290,11 @@ impl NotaryValue {
     /// triggers, which is a runtime predicate the caller checks.
     pub fn includes_signer_as_primary(&self, signer: &DidCoreId) -> bool {
         match self {
-            NotaryValue::SingleDid { did, .. } => actor_matches_full_id(signer, did),
+            NotaryValue::SingleDid { actor_id, .. } => actor_matches_principal(signer, actor_id),
             NotaryValue::Threshold { members, .. } | NotaryValue::OpenSet { members } => members
                 .iter()
                 .any(|member| actor_matches_principal(signer, member)),
-            NotaryValue::Mixed { did, .. } => actor_matches_full_id(signer, did),
+            NotaryValue::Mixed { actor_id, .. } => actor_matches_principal(signer, actor_id),
         }
     }
 
@@ -304,16 +308,6 @@ impl NotaryValue {
                     .any(|member| actor_matches_principal(signer, member))
         )
     }
-}
-
-fn actor_matches_full_id(actor_id: &DidCoreId, full_id: &DidFullId) -> bool {
-    crate::project_full_id_to_core_id(full_id)
-        .is_ok_and(|core_id| actor_id.as_core_id() == &core_id)
-}
-
-fn full_id_matches_principal(full_id: &DidFullId, principal_id: &DidCoreId) -> bool {
-    crate::project_full_id_to_core_id(full_id)
-        .is_ok_and(|core_id| principal_id.as_core_id() == &core_id)
 }
 
 fn actor_matches_principal(actor_id: &DidCoreId, principal_id: &DidCoreId) -> bool {
@@ -333,10 +327,6 @@ mod tests {
 
     use super::*;
 
-    fn full_did(s: &str) -> DidFullId {
-        DidFullId::new(s.to_owned()).unwrap()
-    }
-
     fn principal(s: &str) -> DidCoreId {
         DidCoreId::new(format!("ak:did_core:webvh:{s}")).unwrap()
     }
@@ -347,20 +337,20 @@ mod tests {
 
     #[test]
     fn single_did_validates() {
-        // Orgless personal Realm: `{kind, did}` only.
-        let v = NotaryValue::single_did(full_did("did:webvh:z6mkfixture:soland.example"));
+        // Orgless personal Realm: `{kind, actor_id}` only.
+        let v = NotaryValue::single_did(principal("soland"));
         v.validate().unwrap();
         let s = serde_json::to_string(&v).unwrap();
         assert_eq!(
             s,
-            r#"{"kind":"single_did","did":"did:webvh:z6mkfixture:soland.example"}"#
+            r#"{"kind":"single_did","actor_id":"ak:did_core:webvh:soland"}"#
         );
     }
 
     #[test]
     fn single_did_with_org_validates_and_requires_recovery() {
         let ok = NotaryValue::single_did_with_org(
-            full_did("did:webvh:z6mkfixture:notary.example"),
+            principal("notary"),
             vec![principal("recovery")],
             principal("org"),
             vec![principal("recovery-org")],
@@ -369,7 +359,7 @@ mod tests {
 
         // controller_organization without a recovery path is rejected.
         let bad = NotaryValue::SingleDid {
-            did: full_did("did:webvh:z6mkfixture:notary.example"),
+            actor_id: principal("notary"),
             recovery_members: vec![],
             controller_organization: Some(principal("org")),
             recovery_controller_organizations: vec![],
@@ -431,7 +421,7 @@ mod tests {
     #[test]
     fn mixed_empty_recovery_rejected() {
         let v = NotaryValue::Mixed {
-            did: full_did("did:webvh:z6mkfixture:soland.example"),
+            actor_id: principal("soland"),
             recovery_members: vec![],
         };
         let err = v.validate().unwrap_err();
@@ -441,7 +431,7 @@ mod tests {
     #[test]
     fn mixed_primary_in_recovery_rejected() {
         let v = NotaryValue::Mixed {
-            did: full_did("did:webvh:soland:notary.example"),
+            actor_id: principal("soland"),
             recovery_members: vec![principal("soland")],
         };
         let err = v.validate().unwrap_err();
@@ -454,7 +444,7 @@ mod tests {
         let bob = actor("bob");
         let charlie = actor("charlie");
 
-        let single = NotaryValue::single_did(full_did("did:webvh:alice:notary.example"));
+        let single = NotaryValue::single_did(principal("alice"));
         assert!(single.includes_signer_as_primary(&alice));
         assert!(!single.includes_signer_as_primary(&bob));
 
@@ -472,7 +462,7 @@ mod tests {
         assert!(!open.includes_signer_as_primary(&charlie));
 
         let mixed = NotaryValue::Mixed {
-            did: full_did("did:webvh:alice:notary.example"),
+            actor_id: principal("alice"),
             recovery_members: vec![principal("bob")],
         };
         assert!(mixed.includes_signer_as_primary(&alice));
@@ -483,7 +473,7 @@ mod tests {
 
     #[test]
     fn serializes_with_kind_discriminator() {
-        let v = NotaryValue::single_did(full_did("did:webvh:z6mkfixture:a.example"));
+        let v = NotaryValue::single_did(principal("a"));
         let s = serde_json::to_string(&v).unwrap();
         assert!(s.contains("\"kind\":\"single_did\""), "got {s}");
 
@@ -506,16 +496,16 @@ mod tests {
     fn deserializes_from_kind_tagged_json() {
         let raw = json!({
             "kind": "mixed",
-            "did": "did:webvh:z6mkfixture:soland.example",
+            "actor_id": "ak:did_core:webvh:soland",
             "recovery_members": ["ak:did_core:webvh:z6mkfixturebackup"]
         });
         let v: NotaryValue = serde_json::from_value(raw).unwrap();
         match v {
             NotaryValue::Mixed {
-                did,
+                actor_id,
                 recovery_members,
             } => {
-                assert_eq!(did.as_str(), "did:webvh:z6mkfixture:soland.example");
+                assert_eq!(actor_id.as_str(), "ak:did_core:webvh:soland");
                 assert_eq!(recovery_members.len(), 1);
             }
             _ => panic!("expected Mixed"),

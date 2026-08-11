@@ -48,6 +48,11 @@ pub fn build_self_principal_pcr_create(
 ) -> Result<Event> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
     let actor_id = input.principal_id.clone();
+    if project_full_id_to_core_id(&input.principal_full_id)? != input.principal_id {
+        return Err(Error::Protocol(
+            "self principal full DID does not project to principal_id".to_owned(),
+        ));
+    }
     if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE
         || !input.did_inception_ref.critical
         || input.did_inception_ref.proof.is_some()
@@ -70,7 +75,7 @@ pub fn build_self_principal_pcr_create(
         SecurityClass::HighAssurance,
         EncryptionProfile::MlsRfc9420,
         NotaryProfile::SingleDid,
-        NotaryValue::single_did(input.principal_full_id),
+        NotaryValue::single_did(input.principal_id),
         input.capability_action_registry_digest.clone(),
     )?;
 
@@ -158,12 +163,12 @@ pub fn validate_self_principal_pcr_genesis_unit(
     };
     let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let NotaryValue::SingleDid {
-        did: principal_full_id,
+        actor_id: notary_actor_id,
         ..
     } = &create_payload.object.notary
     else {
         return Err(Error::Protocol(
-            "PCR genesis notary must identify the principal full DID".to_owned(),
+            "PCR genesis notary must identify the principal actor".to_owned(),
         ));
     };
     let descriptor = create_payload
@@ -178,10 +183,18 @@ pub fn validate_self_principal_pcr_genesis_unit(
         &Value::Object(authorize.payload.clone().into_iter().collect()),
         arkret_canonical::DigestSuite::Sha256,
     )?;
+    let (verification_controller, verification_fragment) = authorize.proofs[0]
+        .verification_method
+        .as_str()
+        .split_once('#')
+        .ok_or_else(|| Error::Protocol("founding device proof requires a DID URL".to_owned()))?;
+    let verification_controller = DidFullId::new(verification_controller.to_owned())?;
+    let verification_controller = project_full_id_to_core_id(&verification_controller)?;
     if !authorized_by_matches
+        || notary_actor_id != &create.actor_id
         || authorize.proofs.len() != 1
-        || authorize.proofs[0].verification_method.as_str()
-            != format!("{}#{}", principal_full_id, descriptor.device_id)
+        || verification_controller != create.actor_id
+        || verification_fragment != descriptor.device_id.as_str()
         || descriptor.device_id != payload.device_id
         || descriptor.device_public_key != payload.device_public_key
         || descriptor.hpke_key != payload.hpke_key
@@ -266,7 +279,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
     let notary_matches = match &genesis.notary {
-        NotaryValue::SingleDid { did, .. } => project_full_id_to_core_id(did)? == event.actor_id,
+        NotaryValue::SingleDid { actor_id, .. } => actor_id == &event.actor_id,
         _ => false,
     };
     if genesis.schema != SchemaId::REALM_GENESIS_V1

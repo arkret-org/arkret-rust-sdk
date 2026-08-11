@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use arkret_models_crypto::encrypted_envelope::{
     AadVisibilityCeiling, EncryptedEnvelopeAadVisibility,
 };
-use arkret_wire::{DidCoreId, DidFullId};
+use arkret_wire::DidCoreId;
 
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
@@ -92,7 +92,7 @@ pub enum RebindAuthorization {
 /// service DIDs — where the **empty** list means "reject every recipient
 /// service" (fail-closed, never "unrestricted") — or exactly the one-element
 /// sentinel `["*"]`. Keeping the two cases in separate variants is what makes
-/// the fail-closed reading unmistakable at the call site; a bare `Vec<DidFullId>`
+/// the fail-closed reading unmistakable at the call site; a bare `Vec<DidCoreId>`
 /// could not carry the sentinel at all, since `*` is not a DID.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AllowedRecipientServices {
@@ -100,7 +100,7 @@ pub enum AllowedRecipientServices {
     /// allow-list dimension; `required_endorsers` still applies.
     Unrestricted,
     /// Closed allow-list. Empty = reject every recipient service.
-    Allowlist(Vec<DidFullId>),
+    Allowlist(Vec<DidCoreId>),
 }
 
 /// Wire token for [`AllowedRecipientServices::Unrestricted`].
@@ -136,7 +136,7 @@ impl<'de> Deserialize<'de> for AllowedRecipientServices {
         }
         entries
             .into_iter()
-            .map(|entry| DidFullId::new(entry).map_err(serde::de::Error::custom))
+            .map(|entry| DidCoreId::new(entry).map_err(serde::de::Error::custom))
             .collect::<std::result::Result<Vec<_>, _>>()
             .map(Self::Allowlist)
     }
@@ -1253,7 +1253,7 @@ mod realm_control_payload_tests {
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "notary": {
                 "kind": "single_did",
-                "did": "did:web:notary.example"
+                "actor_id": "ak:did_core:web:notary.example"
             }
         });
         let payload: RealmNotaryPayload = serde_json::from_value(value.clone()).unwrap();
@@ -1262,6 +1262,17 @@ mod realm_control_payload_tests {
         let mut unknown = value;
         unknown["notary"]["endpoint"] = json!("https://notary.example");
         assert!(serde_json::from_value::<RealmNotaryPayload>(unknown).is_err());
+    }
+
+    #[test]
+    fn recipient_service_allowlist_accepts_only_core_service_ids() {
+        let allowed: AllowedRecipientServices =
+            serde_json::from_value(json!(["ak:did_core:web:media.example"])).unwrap();
+        assert!(matches!(allowed, AllowedRecipientServices::Allowlist(_)));
+        assert!(
+            serde_json::from_value::<AllowedRecipientServices>(json!(["did:web:media.example"]))
+                .is_err()
+        );
     }
 
     #[test]

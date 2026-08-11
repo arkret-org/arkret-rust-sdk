@@ -39,8 +39,13 @@ pub struct ManagedAgentPcrCreatePayloadInput {
 pub fn build_managed_agent_pcr_create_payload(
     input: ManagedAgentPcrCreatePayloadInput,
 ) -> Result<RealmCreatePayload> {
+    if project_full_id_to_core_id(&input.agent_full_id)? != input.agent_id {
+        return Err(Error::Protocol(
+            "managed Agent full DID does not project to agent_id".to_owned(),
+        ));
+    }
     let notary = NotaryValue::single_did_with_org(
-        input.agent_full_id,
+        input.agent_id.clone(),
         vec![input.controller_id.clone()],
         input.controller_id.clone(),
         vec![input.controller_id.clone()],
@@ -67,11 +72,15 @@ pub fn build_managed_agent_pcr_create_payload(
 }
 
 fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &DidCoreId) -> Result<bool> {
-    let matches = |full_id: &DidFullId| -> Result<bool> {
-        Ok(project_full_id_to_core_id(full_id)? == *actor_id)
-    };
     match notary {
-        NotaryValue::SingleDid { did, .. } | NotaryValue::Mixed { did, .. } => matches(did),
+        NotaryValue::SingleDid {
+            actor_id: notary_actor_id,
+            ..
+        }
+        | NotaryValue::Mixed {
+            actor_id: notary_actor_id,
+            ..
+        } => Ok(notary_actor_id == actor_id),
         NotaryValue::Threshold { members, .. } | NotaryValue::OpenSet { members } => {
             for member in members {
                 if member.as_core_id() == actor_id.as_core_id() {

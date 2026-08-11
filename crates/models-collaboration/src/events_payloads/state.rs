@@ -176,7 +176,7 @@ state_payload_with_subject!(
 state_payload_with_subject!(
     IdentityDisclosureReceiptStatePayload,
     holder_principal_id,
-    DidFullId
+    DidCoreId
 );
 state_payload_with_subject!(
     IdentityPresentationRequestStatePayload,

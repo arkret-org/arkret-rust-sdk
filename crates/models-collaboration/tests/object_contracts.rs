@@ -16,7 +16,7 @@ use chrono::Utc;
 use serde_json::json;
 
 fn single_did_notary(did: &str) -> arkret_wire::NotaryValue {
-    arkret_wire::NotaryValue::single_did(DidFullId::new(did).unwrap())
+    arkret_wire::NotaryValue::single_did(actor(did))
 }
 
 fn actor(value: &str) -> DidCoreId {
@@ -158,7 +158,8 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Sha256);
     assert!(matches!(
         &realm.notary,
-        NotaryValue::SingleDid { did, .. } if did.as_str() == "did:webvh:z6mkfixture:alice.example"
+        NotaryValue::SingleDid { actor_id, .. }
+            if actor_id.as_str() == "ak:did_core:webvh:z6mkfixture"
     ));
     assert!(realm.revocation_freshness_window_ms.is_none());
     assert_eq!(realm.max_authority_lifetime_ms, 86_400_000);
@@ -289,7 +290,7 @@ fn realm_anchor_fields_include_required_notary() {
     assert!(!obj.contains_key("sync_endpoints"));
     assert_eq!(obj.get("notary_profile"), Some(&json!("single_did")));
     assert_eq!(json["notary"]["kind"], "single_did");
-    assert_eq!(json["notary"]["did"], "did:webvh:z6mkfixture:alice.example");
+    assert_eq!(json["notary"]["actor_id"], "ak:did_core:webvh:z6mkfixture");
     assert!(!obj.contains_key("revocation_freshness_window_ms"));
     assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));
     assert_eq!(

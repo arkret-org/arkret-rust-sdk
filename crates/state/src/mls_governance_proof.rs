@@ -966,7 +966,7 @@ mod tests {
         event.kind = "ak.realm.create".into();
         event.payload = BTreeMap::from([(
             "object".to_owned(),
-            json!({"notary": {"kind": "single_did", "did": "did:webvh:z6mkfixture:notary.example"}}),
+            json!({"notary": {"kind": "single_did", "actor_id": "ak:did_core:webvh:z6mkfixture"}}),
         )]);
         event.proofs.clear();
         let derived = event.derive_event_id().unwrap();
@@ -989,8 +989,8 @@ mod tests {
     ) -> std::result::Result<SealId, Error> {
         admit_event_derived_genesis_anchor(realm_id, create, candidate, |_, notary| {
             assert_eq!(
-                notary.get("did").and_then(Value::as_str),
-                Some("did:webvh:z6mkfixture:notary.example"),
+                notary.get("actor_id").and_then(Value::as_str),
+                Some("ak:did_core:webvh:z6mkfixture"),
                 "the notary handed to the callback is the one the creator designated"
             );
             Ok(())
@@ -1040,7 +1040,7 @@ mod tests {
         // ids exist to make detectable.
         create.payload = BTreeMap::from([(
             "object".to_owned(),
-            json!({"notary": {"kind": "single_did", "did": "did:webvh:z6mkfixture:attacker.example"}}),
+            json!({"notary": {"kind": "single_did", "actor_id": "ak:did_core:webvh:z6mkattacker"}}),
         )]);
         admit(&realm_id, &create, &candidate)
             .expect_err("content must reproduce the content-bound event_id");

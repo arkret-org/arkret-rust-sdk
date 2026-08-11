@@ -482,7 +482,7 @@ mod tests {
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
             NotaryProfile::SingleDid,
-            NotaryValue::single_did(creator),
+            NotaryValue::single_did(actor(creator.as_str())),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
@@ -584,7 +584,7 @@ mod tests {
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
             NotaryProfile::SingleDid,
-            NotaryValue::single_did(creator.clone()),
+            NotaryValue::single_did(actor(creator.as_str())),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             Utc::now(),
         )
