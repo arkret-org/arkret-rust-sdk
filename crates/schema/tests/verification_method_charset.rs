@@ -1,20 +1,12 @@
 //! Negative round-trip coverage for `SdkClaimIssuer.verification_method`.
 //!
-//! `sdk-conformance-claim.schema.json#/$defs/issuer` spells the fragment
-//! `[^\s]+`, the widest of the four spellings used across v1. The SDK enforces
-//! `common-ids#/$defs/did_url` (`[A-Za-z0-9._:-]+`) instead, so the code is
-//! stricter than this schema.
-//!
-//! See `crates/models-identity/tests/verification_method_charset.rs` for the
-//! full rationale and `review/spec-open/` gap G1
-//! (`verification-method-fragment-charset-inconsistent`). Together the three
-//! files are the complete list of what would have to change if the spec ever
-//! chose to widen instead of narrow.
+//! `sdk-conformance-claim.schema.json#/$defs/issuer` and the SDK both enforce
+//! the canonical `common-ids#/$defs/did_url` ASCII fragment character class.
 
 use arkret_schema::sdk_conformance::SdkClaimIssuer;
 use serde_json::{Value, json};
 
-const WIDER_THAN_DID_URL: &[&str] = &[
+const INVALID_DID_URLS: &[&str] = &[
     "did:web:release.example#key/1",
     "did:web:release.example#键1",
     "did:web:release.example#key%201",
@@ -30,16 +22,16 @@ fn issuer(verification_method: &str) -> Value {
 }
 
 #[test]
-fn sdk_claim_issuer_rejects_fragments_wider_than_did_url() {
+fn sdk_claim_issuer_rejects_invalid_did_url_fragments() {
     let accepted = issuer(CANONICAL);
     let parsed: SdkClaimIssuer = serde_json::from_value(accepted.clone()).unwrap();
     assert_eq!(parsed.verification_method, CANONICAL);
     assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
 
-    for wide in WIDER_THAN_DID_URL {
+    for invalid in INVALID_DID_URLS {
         assert!(
-            serde_json::from_value::<SdkClaimIssuer>(issuer(wide)).is_err(),
-            "SdkClaimIssuer must reject schema-wider fragment {wide}"
+            serde_json::from_value::<SdkClaimIssuer>(issuer(invalid)).is_err(),
+            "SdkClaimIssuer must reject invalid DID URL {invalid}"
         );
     }
 }

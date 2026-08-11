@@ -1396,6 +1396,19 @@ pub fn derived_object_id_for_kind(kind: &str, event_id: &EventId) -> Option<Stri
 /// [`derived_object_ids`] for a receiver that has only the envelope kind and
 /// event ID. Returns an empty vector for non-derived kinds.
 pub fn derived_object_ids_for_kind(kind: &str, event_id: &EventId) -> Vec<String> {
+    event_derived_id_kinds_for_kind(kind)
+        .into_iter()
+        .filter_map(|id_kind| retype_event_id(event_id, &format!("id:{id_kind}"), kind).ok())
+        .collect()
+}
+
+/// Registry-declared object-id kinds derived by an Event kind.
+///
+/// This is the receiver-side source for pre-schema checks which must reject a
+/// producer-carried object id before a closed payload schema reduces the error
+/// to a generic additional-property failure. Non-derived and unregistered
+/// Event kinds return an empty vector.
+pub fn event_derived_id_kinds_for_kind(kind: &str) -> Vec<String> {
     let Some(registry) = event_kind_registry().ok() else {
         return Vec::new();
     };
@@ -1417,19 +1430,20 @@ pub fn derived_object_ids_for_kind(kind: &str, event_id: &EventId) -> Vec<String
     // Realm-level ordered log whose subject says nothing about the object it
     // creates. Guessing from the event kind's middle segment would be wrong for
     // both.
-    let target_kinds: Vec<&str> = if let Some(id_kind) = row.get("id_kind").and_then(Value::as_str)
-    {
-        vec![id_kind]
+    if let Some(id_kind) = row.get("id_kind").and_then(Value::as_str) {
+        vec![id_kind.to_owned()]
     } else {
         row.get("id_kinds")
             .and_then(Value::as_array)
-            .map(|targets| targets.iter().filter_map(Value::as_str).collect())
+            .map(|targets| {
+                targets
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(ToOwned::to_owned)
+                    .collect()
+            })
             .unwrap_or_default()
-    };
-    target_kinds
-        .into_iter()
-        .filter_map(|id_kind| retype_event_id(event_id, &format!("id:{id_kind}"), kind).ok())
-        .collect()
+    }
 }
 
 /// Retype this create Event's `event_id` into the object-id kind the rule
@@ -1726,6 +1740,19 @@ mod tests {
             None,
             "the singular helper must fail closed for a multi-output Event"
         );
+    }
+
+    #[test]
+    fn event_derived_id_kinds_are_read_from_the_registry() {
+        assert_eq!(
+            event_derived_id_kinds_for_kind("ak.self.moderation.report"),
+            vec!["report", "moderation_queue_item"]
+        );
+        assert_eq!(
+            event_derived_id_kinds_for_kind("ak.circle.create"),
+            vec!["circle"]
+        );
+        assert!(event_derived_id_kinds_for_kind("ak.message.update").is_empty());
     }
 
     #[test]

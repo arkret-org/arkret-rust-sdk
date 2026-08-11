@@ -115,6 +115,177 @@ mod tests {
     }
 
     #[test]
+    fn spec_bound_or_sets_are_inert_and_cannot_materialize_bottom() {
+        let typed = default_lattice_registry();
+        let runtime = build_sdk_cell_registry();
+        let realm_id =
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
+        let families = [
+            arkret_wire::CellFamilyId::CAPABILITY_DERIVED_V1,
+            arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1,
+            arkret_wire::CellFamilyId::CONSENT_GRANT_V1,
+            arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1,
+            arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1,
+        ];
+
+        for (index, family) in families.into_iter().enumerate() {
+            let adapter = typed.lookup(family).unwrap();
+            assert_eq!(adapter.lattice(), SdkLatticeKind::OrSet);
+            assert_eq!(adapter.bottom_policy(), BottomPolicy::Inert);
+
+            let cell = CellRef::new(format!("ak:cell:{family}:coverage")).unwrap();
+            let binding = runtime.resolve(&realm_id, &cell).unwrap();
+            assert_eq!(binding.lattice.kind(), SdkLatticeKind::OrSet);
+            assert_eq!(binding.bottom_mode, BottomMode::Inert);
+            let move_id = Hash::new(format!(
+                "sha256:{}",
+                format!("{:02x}", index + 1).repeat(32)
+            ))
+            .unwrap();
+            let state = binding.lattice.join(
+                &cell,
+                &[SealedOp::new(
+                    move_id,
+                    LatticeOp {
+                        op_type: LatticeOpType::Add,
+                        tag: Some("dot".to_owned()),
+                        value: Some(json!({"active": true})),
+                        from: None,
+                        to: None,
+                        reason: None,
+                        issuer_seq: None,
+                    },
+                )],
+            );
+            assert!(matches!(state, CellState::Value(_)));
+        }
+
+        let principal_id = "ak:did_core:webvh:z6mkfixture";
+        let device_id = "ak:device:01904100-0000-7000-8000-000000000044";
+        let expected_device_subject = composite_subject(&[principal_id, device_id]).unwrap();
+        assert_eq!(
+            typed
+                .lookup(arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1)
+                .unwrap()
+                .subject_for_effect(&json!({
+                    "principal_id": principal_id,
+                    "device_id": device_id,
+                }))
+                .unwrap()
+                .as_deref(),
+            Some(expected_device_subject.as_str())
+        );
+        assert_eq!(
+            typed
+                .lookup(arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1)
+                .unwrap()
+                .subject_for_effect(&json!({"principal_id": principal_id}))
+                .unwrap()
+                .as_deref(),
+            Some(principal_id)
+        );
+        assert_eq!(
+            typed
+                .lookup_for_event_kind("ak.capability.relinquish")
+                .unwrap()
+                .cell_family(),
+            arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1
+        );
+        let grant_adapter = typed
+            .lookup(arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1)
+            .unwrap();
+        let event_id = arkret_wire::EventId::new(
+            "ak:event:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned(),
+        )
+        .unwrap();
+        let grant_id = arkret_wire::GrantId::from_event_id(&event_id);
+        assert_eq!(
+            grant_adapter
+                .subject_for_event("ak.capability.grant", &event_id, &json!({}))
+                .unwrap()
+                .as_deref(),
+            Some(grant_id.as_str())
+        );
+        assert_eq!(
+            grant_adapter
+                .subject_for_event(
+                    "ak.capability.relinquish",
+                    &event_id,
+                    &json!({"grant_id": grant_id.as_str()}),
+                )
+                .unwrap()
+                .as_deref(),
+            Some(grant_id.as_str())
+        );
+    }
+
+    #[test]
+    fn strand_tracks_exposes_distinct_concurrent_heads_and_deduplicates_replay() {
+        let strand_id = "ak:strand:0196419b-0000-7000-8000-000000000901";
+        let typed = default_lattice_registry();
+        let adapter = typed
+            .lookup(arkret_wire::CellFamilyId::STRAND_TRACKS_V1)
+            .unwrap();
+        assert_eq!(adapter.lattice(), SdkLatticeKind::MvRegister);
+        assert_eq!(adapter.bottom_policy(), BottomPolicy::Expose);
+        assert_eq!(
+            adapter
+                .subject_for_effect(&json!({"target_ref": strand_id}))
+                .unwrap()
+                .as_deref(),
+            Some(strand_id)
+        );
+
+        let realm_id =
+            RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
+                .unwrap();
+        let cell = CellRef::new(format!(
+            "ak:cell:{}:{strand_id}",
+            arkret_wire::CellFamilyId::STRAND_TRACKS_V1
+        ))
+        .unwrap();
+        let runtime = build_sdk_cell_registry();
+        let binding = runtime.resolve(&realm_id, &cell).unwrap();
+        assert_eq!(binding.lattice.kind(), SdkLatticeKind::MvRegister);
+        assert_eq!(binding.bottom_mode, BottomMode::Expose);
+
+        let set = |byte: u8, value: serde_json::Value| {
+            SealedOp::new(
+                Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
+                LatticeOp {
+                    op_type: LatticeOpType::Set,
+                    tag: None,
+                    value: Some(value),
+                    from: None,
+                    to: None,
+                    reason: None,
+                    issuer_seq: None,
+                },
+            )
+        };
+        let track_a = json!({"tracks": {"main": {"enabled": true}}});
+        let track_b = json!({"tracks": {"main": {"enabled": false}}});
+
+        assert_eq!(
+            binding
+                .lattice
+                .join(&cell, &[set(1, track_a.clone()), set(2, track_a.clone())]),
+            CellState::Value(track_a.clone())
+        );
+        match binding
+            .lattice
+            .join(&cell, &[set(3, track_a.clone()), set(4, track_b.clone())])
+        {
+            CellState::Bottom(bottom) => {
+                assert_eq!(bottom.heads, vec![track_a, track_b]);
+                assert_eq!(bottom.move_ids.len(), 2);
+            }
+            CellState::Value(value) => panic!("distinct concurrent heads resolved to {value}"),
+        }
+    }
+
+    #[test]
     fn canonical_fsm_contracts_resolve_all_templates_with_exact_closure() {
         let contracts = canonical_fsm_contracts().unwrap();
         assert_eq!(contracts.len(), 17);
@@ -325,7 +496,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::CONSENT_GRANT_V1)
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(kind.bottom_policy(), BottomPolicy::Inert);
         let payload = json!({"consent_id": "cnt:01HXYZ"});
         let subject = kind.subject_for_effect(&payload).unwrap();
         assert_eq!(subject.as_deref(), Some("cnt:01HXYZ"));

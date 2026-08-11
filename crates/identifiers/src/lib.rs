@@ -1153,9 +1153,8 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 /// `ak:transaction:<uuidv7>` and serves the `security-transaction.schema.json`
 /// family. The two share a word, not a value space: `:` is outside the charset
 /// above, so *every* `TransactionId` value violates this pattern. Typing the
-/// device-message field as `TransactionId` therefore made it impossible to
-/// author a conformant `ak.key.verification.*` content — see
-/// `arkret-work/review/code/2026-07-31-sdk-key-verification-transaction-id-off-spec.md`.
+/// device-message field as `TransactionId` would therefore make it impossible
+/// to author conformant `ak.key.verification.*` content.
 fn is_device_message_transaction_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128

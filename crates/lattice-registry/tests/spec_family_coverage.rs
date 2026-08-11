@@ -2,20 +2,12 @@
 //!
 //! `SPEC_LATTICE_BINDINGS` is generated from `event-kind-registry.json`;
 //! `default_lattice_registry()` is the hand-written companion supplying subject
-//! derivation and event-kind dispatch. The two lists are NOT expected to be
-//! equal — most families need no custom typed adapter — so a set-equality gate
-//! would be wrong. What is unambiguous in either reading is the stray
-//! direction: a hand-written adapter claiming a `cell_family` the generated
-//! spec bindings never declare can only be a stale or misspelled family id, and
-//! every Move routed to it is routed to nothing real.
-//!
-//! The reverse direction (which spec families genuinely require a typed
-//! adapter, and why several adapters' `lattice()` / `bottom_policy()` disagree
-//! with the generated bindings) is still an open protocol question — see O48 in
-//! the cleanup report. Do not turn this into a set-equality assertion without
-//! first settling which list is authoritative for which purpose.
+//! derivation and event-kind dispatch. Most spec families need no custom typed
+//! adapter, so the family sets are intentionally unequal. Every adapter that
+//! does exist must nevertheless expose exactly the generated lattice and bottom
+//! binding for its family.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_lattice_registry::{default_lattice_registry, lattice_bindings_for_sdk_registry};
 
@@ -36,6 +28,34 @@ fn typed_registry_declares_no_family_the_spec_bindings_do_not_know() {
          event-kind registry bindings do not declare; a Move routed to such a family reaches \
          an adapter no peer implementation shares"
     );
+}
+
+#[test]
+fn every_typed_adapter_matches_its_generated_lattice_binding() {
+    let generated: BTreeMap<_, _> = lattice_bindings_for_sdk_registry()
+        .into_iter()
+        .map(|(family, lattice, bottom)| (family, (lattice, bottom)))
+        .collect();
+    let typed = default_lattice_registry();
+
+    for family in typed.families() {
+        let adapter = typed
+            .lookup(family)
+            .expect("enumerated adapter must remain registered");
+        let (expected_lattice, expected_bottom) = generated
+            .get(family)
+            .unwrap_or_else(|| panic!("typed adapter {family} has no generated binding"));
+        assert_eq!(
+            adapter.lattice(),
+            *expected_lattice,
+            "typed adapter {family} drifted from the generated lattice"
+        );
+        assert_eq!(
+            adapter.bottom_policy().to_sdk_bottom_mode(),
+            *expected_bottom,
+            "typed adapter {family} drifted from the generated bottom policy"
+        );
+    }
 }
 
 #[test]

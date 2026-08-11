@@ -1,19 +1,10 @@
-//! Negative round-trip coverage for `verification_method` fields whose v1
-//! schema pattern is **wider** than the `DidUrl` charset the SDK enforces.
+//! Negative round-trip coverage for the canonical v1 `verification_method`
+//! DID URL fragment charset.
 //!
 //! `did-usage-and-verification.md` §2.2 requires every `verification_method` to
-//! be a DID URL, but the published schemas spell the fragment four different
-//! ways: `[A-Za-z0-9._:-]+` (`common-ids#/$defs/did_url`), `[^\s#]+`, `[^\s]+`,
-//! and "no pattern at all". `arkret_wire::DidUrl` deliberately implements the
-//! strictest of them, so for the fields below the **code is stricter than the
-//! schema**.
-//!
-//! The 2026-07-31 ruling kept the strict behaviour (every official fixture and
-//! every value in the nine implementation repositories already satisfies it).
-//! These tests pin that decision: they are the complete, per-field list of what
-//! would have to change if the spec ever chose to widen the charset instead.
-//! See `review/spec-open/` gap G1
-//! (`verification-method-fragment-charset-inconsistent`).
+//! be a DID URL. `common-ids.schema.json#/$defs/did_url` and every field below
+//! use the ASCII `[A-Za-z0-9._:-]+` fragment contract implemented by
+//! `arkret_wire::DidUrl`.
 //!
 //! Companion file for the `arkret-models-collaboration` and `arkret-schema`
 //! members of the same list.
@@ -22,11 +13,8 @@ use arkret_models_identity::member_identity::MemberIdentityProof;
 use arkret_models_identity::service_identity::ServiceWebvhDataIntegrityProof;
 use serde_json::{Value, json};
 
-/// Fragments that the wider schema patterns accept but `DidUrl` rejects.
-///
-/// `#key/1` is legal under `[^\s#]+` and `[^\s]+`; `#键1` is legal under both as
-/// well (neither excludes non-ASCII); `#key%201` is legal under `[^\s]+`.
-const WIDER_THAN_DID_URL: &[&str] = &[
+/// Fragments outside the canonical DID URL fragment character class.
+const INVALID_DID_URLS: &[&str] = &[
     "did:web:alice.example#key/1",
     "did:web:alice.example#键1",
     "did:web:alice.example#key%201",
@@ -64,49 +52,48 @@ fn service_webvh_proof(verification_method: &str) -> Value {
 }
 
 #[test]
-fn member_identity_proof_rejects_fragments_wider_than_did_url() {
-    // `member-identity.schema.json` fragment class: `[^\s#]+`.
+fn member_identity_proof_rejects_invalid_did_url_fragments() {
     let accepted = member_identity_proof(CANONICAL);
     let parsed: MemberIdentityProof = serde_json::from_value(accepted.clone()).unwrap();
     assert_eq!(parsed.verification_method, CANONICAL);
     assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
 
-    for wide in WIDER_THAN_DID_URL {
+    for invalid in INVALID_DID_URLS {
         let value = with_verification_method(
             member_identity_proof(CANONICAL),
             "verification_method",
-            wide,
+            invalid,
         );
         assert!(
             serde_json::from_value::<MemberIdentityProof>(value).is_err(),
-            "MemberIdentityProof must reject schema-wider fragment {wide}"
+            "MemberIdentityProof must reject invalid DID URL {invalid}"
         );
     }
 }
 
 #[test]
-fn service_webvh_data_integrity_proof_rejects_fragments_wider_than_did_url() {
-    // `service-operation-dtos.schema.json#/$defs/ServiceWebvhDataIntegrityProof`
-    // fragment class: `[^\s]+` — the widest of the four. Note the wire member is
-    // `verificationMethod` (camelCase); the migration does not change that.
+fn service_webvh_data_integrity_proof_rejects_invalid_did_url_fragments() {
+    // The wire member uses its registered camelCase spelling.
     let accepted = service_webvh_proof(CANONICAL);
     let parsed: ServiceWebvhDataIntegrityProof = serde_json::from_value(accepted.clone()).unwrap();
     assert_eq!(parsed.verification_method, CANONICAL);
     assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
 
-    for wide in WIDER_THAN_DID_URL {
-        let value =
-            with_verification_method(service_webvh_proof(CANONICAL), "verificationMethod", wide);
+    for invalid in INVALID_DID_URLS {
+        let value = with_verification_method(
+            service_webvh_proof(CANONICAL),
+            "verificationMethod",
+            invalid,
+        );
         assert!(
             serde_json::from_value::<ServiceWebvhDataIntegrityProof>(value).is_err(),
-            "ServiceWebvhDataIntegrityProof must reject schema-wider fragment {wide}"
+            "ServiceWebvhDataIntegrityProof must reject invalid DID URL {invalid}"
         );
     }
 }
 
-/// A bare DID is never a verification method, whatever the fragment charset
-/// debate settles on (`seal.schema.json#/$defs/signature`: "Bare DID is not
-/// valid for signatures").
+/// A bare DID is never a verification method
+/// (`seal.schema.json#/$defs/signature`: "Bare DID is not valid for signatures").
 #[test]
 fn bare_did_is_rejected_by_every_migrated_field() {
     const BARE: &str = "did:web:alice.example";

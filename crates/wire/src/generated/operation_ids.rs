@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-11.2;
-//! sha256=bf5a226389a02eaf0fecef2ea051cf58971dc7a89075aa40e6403e367db53951 Entries: registered=236
+//! sha256=0f9e2b94b17a909cfb7c1ada5f7926639525d5b0fa1920617faeeba03b429a1e Entries: registered=236
 
 use serde::{Deserialize, Serialize};
 
@@ -5223,7 +5223,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/circle-operations.schema.json#/$defs/circle_member_delete_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/circle-operations.schema.json#/$defs/circle_membership_outcome",
         ),

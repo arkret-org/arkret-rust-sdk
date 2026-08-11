@@ -500,6 +500,8 @@ mod event_batch_receipt_tests {
         ));
         receipt.validate().unwrap();
         receipt.events.reverse();
+        let reversed_digest = receipt.payload_digest().unwrap();
+        receipt.proofs[0].payload_digest = reversed_digest;
         let error = receipt.validate().unwrap_err();
         assert!(error.to_string().contains("canonical sorted"));
     }

@@ -50,6 +50,25 @@ pub enum BottomPolicy {
     Inert,
 }
 
+pub(crate) fn generated_lattice(cell_family: &str) -> SdkLatticeKind {
+    crate::generated::SPEC_LATTICE_BINDINGS
+        .iter()
+        .find_map(|(family, lattice, _)| (*family == cell_family).then_some(*lattice))
+        .unwrap_or_else(|| panic!("typed lattice adapter {cell_family} has no generated binding"))
+}
+
+pub(crate) fn generated_bottom_policy(cell_family: &str) -> BottomPolicy {
+    let mode = crate::generated::SPEC_LATTICE_BINDINGS
+        .iter()
+        .find_map(|(family, _, bottom)| (*family == cell_family).then_some(*bottom))
+        .unwrap_or_else(|| panic!("typed lattice adapter {cell_family} has no generated binding"));
+    match mode {
+        BottomMode::Reject => BottomPolicy::Reject,
+        BottomMode::Expose => BottomPolicy::Expose,
+        BottomMode::Inert => BottomPolicy::Inert,
+    }
+}
+
 impl BottomPolicy {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -91,6 +110,12 @@ pub enum LatticeKindError {
         observed: String,
         declared: &'static str,
     },
+    /// The adapter was invoked for an Event kind outside its declared dispatch
+    /// set.
+    UnknownEventKind {
+        observed: String,
+        cell_family: &'static str,
+    },
 }
 
 impl std::fmt::Display for LatticeKindError {
@@ -115,6 +140,13 @@ impl std::fmt::Display for LatticeKindError {
                     "cell_family `{observed}` is not handled by this LatticeKind ({declared})"
                 )
             }
+            Self::UnknownEventKind {
+                observed,
+                cell_family,
+            } => write!(
+                f,
+                "event kind `{observed}` does not dispatch to cell family `{cell_family}`"
+            ),
         }
     }
 }
@@ -154,6 +186,17 @@ pub trait LatticeKind: Send + Sync {
         _effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
         Ok(None)
+    }
+
+    /// Derive the subject with the Event fields available to registry contracts
+    /// whose subject does not live in the payload.
+    fn subject_for_event(
+        &self,
+        _event_kind: &str,
+        _envelope_event_id: &arkret_wire::EventId,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        self.subject_for_effect(effect_payload)
     }
 
     /// Durable Arkret event kinds whose projection feeds this cell

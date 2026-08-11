@@ -34,10 +34,10 @@ macro_rules! singleton_lattice {
                 Self::CELL_FAMILY
             }
             fn lattice(&self) -> SdkLatticeKind {
-                $lattice
+                generated_lattice(Self::CELL_FAMILY)
             }
             fn bottom_policy(&self) -> BottomPolicy {
-                $bottom
+                generated_bottom_policy(Self::CELL_FAMILY)
             }
             fn component(&self) -> ComponentDescriptor {
                 ComponentDescriptor {
@@ -96,10 +96,59 @@ macro_rules! per_subject_lattice {
                 Self::CELL_FAMILY
             }
             fn lattice(&self) -> SdkLatticeKind {
-                $lattice
+                generated_lattice(Self::CELL_FAMILY)
             }
             fn bottom_policy(&self) -> BottomPolicy {
-                $bottom
+                generated_bottom_policy(Self::CELL_FAMILY)
+            }
+            fn component(&self) -> ComponentDescriptor {
+                ComponentDescriptor {
+                    component_type: Self::CELL_FAMILY,
+                    component_version: 1,
+                    criticality: $criticality,
+                }
+            }
+            fn subject_for_effect(
+                &self,
+                effect_payload: &Value,
+            ) -> Result<Option<String>, LatticeKindError> {
+                effect_payload
+                    .get($subject_field)
+                    .and_then(Value::as_str)
+                    .map(|s| Some(s.to_owned()))
+                    .ok_or(LatticeKindError::MissingSubjectField {
+                        cell_family: Self::CELL_FAMILY,
+                        field: $subject_field,
+                    })
+            }
+            fn event_kinds(&self) -> &'static [&'static str] {
+                $event_kinds
+            }
+        }
+    };
+}
+
+macro_rules! spec_bound_per_subject_lattice {
+    (
+        $struct_name:ident,
+        $cell_family:expr,
+        $criticality:expr,
+        $subject_field:expr,
+        $event_kinds:expr
+    ) => {
+        pub struct $struct_name;
+        impl $struct_name {
+            pub const CELL_FAMILY: &'static str = $cell_family;
+        }
+        impl LatticeKind for $struct_name {
+            fn cell_family(&self) -> &'static str {
+                Self::CELL_FAMILY
+            }
+            fn lattice(&self) -> SdkLatticeKind {
+                generated_lattice(Self::CELL_FAMILY)
+            }
+            fn bottom_policy(&self) -> BottomPolicy {
+                generated_bottom_policy(Self::CELL_FAMILY)
             }
             fn component(&self) -> ComponentDescriptor {
                 ComponentDescriptor {
@@ -130,11 +179,9 @@ macro_rules! per_subject_lattice {
 
 // ────────────────────────── OrSet families ──────────────────────────
 
-per_subject_lattice!(
+spec_bound_per_subject_lattice!(
     ConsentGrant,
     arkret_wire::CellFamilyId::CONSENT_GRANT_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
     Criticality::Required,
     "consent_id",
     &["ak.consent.grant", "ak.consent.revoke"]
@@ -150,43 +197,153 @@ per_subject_lattice!(
     &["ak.moderation.decision", "ak.moderation.decision.lift"]
 );
 
-per_subject_lattice!(
-    CapabilityGrant,
-    arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "grant_id",
-    &["ak.capability.grant", "ak.capability.revoke"]
-);
+pub struct CapabilityGrant;
 
-per_subject_lattice!(
+impl CapabilityGrant {
+    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1;
+
+    fn referenced_grant_id(effect_payload: &Value) -> Result<Option<String>, LatticeKindError> {
+        effect_payload
+            .get("grant_id")
+            .and_then(Value::as_str)
+            .map(|grant_id| Some(grant_id.to_owned()))
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: Self::CELL_FAMILY,
+                field: "grant_id",
+            })
+    }
+}
+
+impl LatticeKind for CapabilityGrant {
+    fn cell_family(&self) -> &'static str {
+        Self::CELL_FAMILY
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        generated_lattice(Self::CELL_FAMILY)
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        generated_bottom_policy(Self::CELL_FAMILY)
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: Self::CELL_FAMILY,
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        Self::referenced_grant_id(effect_payload)
+    }
+
+    fn subject_for_event(
+        &self,
+        event_kind: &str,
+        envelope_event_id: &arkret_wire::EventId,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        match event_kind {
+            "ak.capability.grant" => Ok(Some(
+                arkret_wire::GrantId::from_event_id(envelope_event_id)
+                    .as_str()
+                    .to_owned(),
+            )),
+            "ak.capability.revoke" | "ak.capability.relinquish" => {
+                Self::referenced_grant_id(effect_payload)
+            }
+            observed => Err(LatticeKindError::UnknownEventKind {
+                observed: observed.to_owned(),
+                cell_family: Self::CELL_FAMILY,
+            }),
+        }
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &[
+            "ak.capability.grant",
+            "ak.capability.revoke",
+            "ak.capability.relinquish",
+        ]
+    }
+}
+
+spec_bound_per_subject_lattice!(
     CapabilityDerived,
     arkret_wire::CellFamilyId::CAPABILITY_DERIVED_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
     Criticality::Required,
     "grant_id",
     &["ak.capability.derived"]
 );
 
-per_subject_lattice!(
-    DeviceAuthorized,
-    arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "device_id",
-    &["ak.device.authorize", "ak.device.revoke"]
-);
+pub struct DeviceAuthorized;
 
-per_subject_lattice!(
+impl DeviceAuthorized {
+    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1;
+}
+
+impl LatticeKind for DeviceAuthorized {
+    fn cell_family(&self) -> &'static str {
+        Self::CELL_FAMILY
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        generated_lattice(Self::CELL_FAMILY)
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        generated_bottom_policy(Self::CELL_FAMILY)
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: Self::CELL_FAMILY,
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let principal_id = effect_payload
+            .get("principal_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: Self::CELL_FAMILY,
+                field: "principal_id",
+            })?;
+        let device_id = effect_payload
+            .get("device_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: Self::CELL_FAMILY,
+                field: "device_id",
+            })?;
+        arkret_wire::composite_subject(&[principal_id, device_id])
+            .map(Some)
+            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+                cell_family: Self::CELL_FAMILY,
+                reason: error.to_string(),
+            })
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.device.authorize", "ak.device.revoke"]
+    }
+}
+
+spec_bound_per_subject_lattice!(
     DeviceListUpdate,
     arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
     Criticality::Required,
-    "owner_did",
+    "principal_id",
     &["ak.device.list_update"]
 );
 
@@ -196,10 +353,10 @@ impl LatticeKind for AgentKey {
         arkret_wire::CellFamilyId::AGENT_KEY_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::OrSet
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -248,10 +405,10 @@ impl LatticeKind for KeyBackupActiveSeries {
         arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -348,10 +505,10 @@ impl LatticeKind for StrandWatch {
         arkret_wire::CellFamilyId::STRAND_WATCH_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -400,11 +557,11 @@ impl LatticeKind for IdentityAccountability {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -527,11 +684,11 @@ impl LatticeKind for CallRecording {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::Fsm
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -562,11 +719,11 @@ impl LatticeKind for CallTranscript {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::Fsm
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -597,11 +754,11 @@ impl LatticeKind for CallRecordingResult {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -632,11 +789,11 @@ impl LatticeKind for CallTranscriptResult {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -667,11 +824,11 @@ impl LatticeKind for CallMuteOverride {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -744,11 +901,11 @@ impl LatticeKind for InviteLifecycle {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::Fsm
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -847,11 +1004,11 @@ impl LatticeKind for RealmLink {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::Fsm
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -899,10 +1056,10 @@ impl LatticeKind for CircleMember {
         arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -1006,10 +1163,10 @@ impl LatticeKind for MemberIdentityLattice {
         arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::OrderedLog
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Expose
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -1056,10 +1213,10 @@ impl LatticeKind for ContactFactLog {
         arkret_wire::CellFamilyId::CONTACT_FACT_LOG_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::OrderedLog
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Expose
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -1133,11 +1290,11 @@ impl LatticeKind for AgentSelectorClaim {
     }
 
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::MvRegister
+        generated_lattice(self.cell_family())
     }
 
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Expose
+        generated_bottom_policy(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -1308,10 +1465,10 @@ impl LatticeKind for RealmOrganization {
         arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -1555,10 +1712,10 @@ impl LatticeKind for StrandMetadata {
         Self::CELL_FAMILY
     }
     fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
+        generated_lattice(self.cell_family())
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+        generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -1586,12 +1743,10 @@ impl LatticeKind for StrandMetadata {
     }
 }
 
-per_subject_lattice!(
+spec_bound_per_subject_lattice!(
     StrandTracks,
     arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
-    "strand_id",
+    "target_ref",
     &["ak.strand.tracks.update"]
 );

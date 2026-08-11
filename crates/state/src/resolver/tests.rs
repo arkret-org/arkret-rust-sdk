@@ -792,16 +792,16 @@ fn member_state_conflict_prefers_ban_semantics() {
 
 #[test]
 fn capability_rebind_uses_deterministic_lww_order() {
+    let grant_id = arkret_wire::GrantId::from_event_id(&test_event_id(2));
     let revoke = event(
         EventKind::CapabilityRevoke,
         1,
-        json!({ "grant_id": "cap-chan-post" }),
+        json!({ "grant_id": grant_id.as_str() }),
     );
     let grant = event(
         EventKind::CapabilityGrant,
         2,
         json!({
-            "grant_id": "cap-chan-post",
             "subject": "ak:did_core:webvh:z6mkfixture",
             "actions": ["ak.message.create", "ak.reaction.add"]
         }),
@@ -812,11 +812,11 @@ fn capability_rebind_uses_deterministic_lww_order() {
 
     let resolved = state
         .resolved_state
-        .get("ak.capability|cap-chan-post")
+        .get(&format!("ak.capability|{grant_id}"))
         .unwrap();
     assert_eq!(resolved.content["actions"][1], "ak.reaction.add");
-    assert!(state.capability_allows("cap-chan-post", "ak.reaction.add"));
-    assert!(!state.capability_allows("cap-chan-post", "message.delete"));
+    assert!(state.capability_allows(grant_id.as_str(), "ak.reaction.add"));
+    assert!(!state.capability_allows(grant_id.as_str(), "message.delete"));
 }
 
 #[test]

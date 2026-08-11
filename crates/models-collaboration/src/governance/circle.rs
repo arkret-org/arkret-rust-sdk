@@ -354,6 +354,19 @@ pub struct CircleMemberRequestBody {
     pub member_event: EventInitialSubmission,
 }
 
+/// Request body for `ak.self.circle.member.resource.delete`.
+///
+/// The signed Event is the sole source of the durable leave transition. The
+/// service verifies its Circle and target actor against the DELETE path and
+/// forwards the exact submission through ordinary Event admission.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CircleMemberDeleteRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub member_event: EventInitialSubmission,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

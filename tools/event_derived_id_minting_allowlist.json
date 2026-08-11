@@ -3,39 +3,9 @@
   "entries": [
     {
       "repo": "soland",
-      "path": "crates/http/src/ids.rs",
-      "verdict": "event_derived",
-      "reason": "The five retained generators for event-derived kinds (realm, space, event, relation, circle) plus `generate_view_id`, and the unit tests that exercise them. The file documents them as known defects with `Do not add callers`; the SDK runtime guard rejects each. Removing them is the outcome of the soland local-projection decision in arkret-work/work/active/2026-08-06-event-derived-id-handover.md section 3."
-    },
-    {
-      "repo": "soland",
-      "path": "crates/http/src/routing/extensions/applet_bridge/install.rs",
-      "verdict": "event_derived",
-      "reason": "Mints an Event id during Applet install. Handover section 3 site 4 of 5."
-    },
-    {
-      "repo": "soland",
-      "path": "crates/http/src/routing/identity/auth/device_pair.rs",
-      "verdict": "event_derived",
-      "reason": "`authorized_event_ref` names a device-authorization Event that was never authored; the in-file comment already states the fix is to author it. Not in the handover's list of five."
-    },
-    {
-      "repo": "soland",
       "path": "crates/server/tests/http_api/common.rs",
       "verdict": "test_fixture",
       "reason": "Synthetic Invite id used only by HTTP API fixture setup."
-    },
-    {
-      "repo": "soland",
-      "path": "crates/server/tests/http_api/devices_webrtc.rs",
-      "verdict": "test_fixture",
-      "reason": "Synthetic Call ids used only by WebRTC HTTP API fixtures."
-    },
-    {
-      "repo": "soland",
-      "path": "crates/server/tests/http_api/events.rs",
-      "verdict": "test_fixture",
-      "reason": "Synthetic Invite id used only by an HTTP API event fixture."
     },
     {
       "repo": "coauth",

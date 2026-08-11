@@ -1,12 +1,8 @@
-//! Negative round-trip coverage for `verification_method` fields whose v1
-//! schema pattern is **wider** than the `DidUrl` charset the SDK enforces.
+//! Negative round-trip coverage for the canonical v1 `verification_method`
+//! DID URL fragment charset.
 //!
 //! See `crates/models-identity/tests/verification_method_charset.rs` for the
-//! full rationale; this file covers the `arkret-models-collaboration` members of
-//! the same seven-field list and pins the exact values that would have to start
-//! being accepted if `review/spec-open/` gap G1
-//! (`verification-method-fragment-charset-inconsistent`) ever widened the
-//! charset instead of narrowing the schemas.
+//! shared contract; this file covers the `arkret-models-collaboration` members.
 
 use arkret_models_collaboration::governance::membership_invite::{
     InviteClaimBindingProof, InviteSubjectProof,
@@ -14,8 +10,8 @@ use arkret_models_collaboration::governance::membership_invite::{
 use arkret_models_collaboration::objects::profiles::IdentityLinkProof;
 use serde_json::{Value, json};
 
-/// Fragments the wider schema patterns accept but `DidUrl` rejects.
-const WIDER_THAN_DID_URL: &[&str] = &[
+/// Fragments outside the canonical DID URL fragment character class.
+const INVALID_DID_URLS: &[&str] = &[
     "did:web:alice.example#key/1",
     "did:web:alice.example#键1",
     "did:web:alice.example#key%201",
@@ -64,55 +60,49 @@ fn identity_link_proof(verification_method: &str) -> Value {
 }
 
 #[test]
-fn invite_claim_binding_proof_rejects_fragments_wider_than_did_url() {
-    // `event-payload.schema.json#/$defs/invite_claim_payload/.../binding_proof`
-    // fragment class: `[^\s#]+`.
+fn invite_claim_binding_proof_rejects_invalid_did_url_fragments() {
     let accepted = invite_claim_binding_proof(CANONICAL);
     let parsed: InviteClaimBindingProof = serde_json::from_value(accepted.clone()).unwrap();
     assert_eq!(parsed.verification_method, CANONICAL);
     assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
 
-    for wide in WIDER_THAN_DID_URL {
-        let value = with_verification_method(invite_claim_binding_proof(CANONICAL), wide);
+    for invalid in INVALID_DID_URLS {
+        let value = with_verification_method(invite_claim_binding_proof(CANONICAL), invalid);
         assert!(
             serde_json::from_value::<InviteClaimBindingProof>(value).is_err(),
-            "InviteClaimBindingProof must reject schema-wider fragment {wide}"
+            "InviteClaimBindingProof must reject invalid DID URL {invalid}"
         );
     }
 }
 
 #[test]
-fn invite_subject_proof_rejects_fragments_wider_than_did_url() {
-    // `event-payload.schema.json#/$defs/invite_claim_payload/.../subject_proof`
-    // fragment class: `[^\s#]+`.
+fn invite_subject_proof_rejects_invalid_did_url_fragments() {
     let accepted = invite_subject_proof(CANONICAL);
     let parsed: InviteSubjectProof = serde_json::from_value(accepted.clone()).unwrap();
     assert_eq!(parsed.verification_method, CANONICAL);
     assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
 
-    for wide in WIDER_THAN_DID_URL {
-        let value = with_verification_method(invite_subject_proof(CANONICAL), wide);
+    for invalid in INVALID_DID_URLS {
+        let value = with_verification_method(invite_subject_proof(CANONICAL), invalid);
         assert!(
             serde_json::from_value::<InviteSubjectProof>(value).is_err(),
-            "InviteSubjectProof must reject schema-wider fragment {wide}"
+            "InviteSubjectProof must reject invalid DID URL {invalid}"
         );
     }
 }
 
 #[test]
-fn identity_link_proof_rejects_fragments_wider_than_did_url() {
-    // `identity-link.schema.json#/properties/proof` fragment class: `[^\s#]+`.
-    // Its description already says "this is a DID URL, not a bare DID".
+fn identity_link_proof_rejects_invalid_did_url_fragments() {
     let accepted = identity_link_proof(CANONICAL);
     let parsed: IdentityLinkProof = serde_json::from_value(accepted.clone()).unwrap();
     assert_eq!(parsed.verification_method, CANONICAL);
     assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
 
-    for wide in WIDER_THAN_DID_URL {
-        let value = with_verification_method(identity_link_proof(CANONICAL), wide);
+    for invalid in INVALID_DID_URLS {
+        let value = with_verification_method(identity_link_proof(CANONICAL), invalid);
         assert!(
             serde_json::from_value::<IdentityLinkProof>(value).is_err(),
-            "IdentityLinkProof must reject schema-wider fragment {wide}"
+            "IdentityLinkProof must reject invalid DID URL {invalid}"
         );
     }
 }

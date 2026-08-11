@@ -1,9 +1,9 @@
 //! Circle governance endpoint methods on [`Client`].
 
 use arkret_models_collaboration::governance::circle::{
-    CircleArchiveRequestBody, CircleCreateRequestBody, CircleList, CircleMemberRequestBody,
-    CircleMembershipOutcome, CircleRestoreRequestBody, CircleScopeRotateOutcome,
-    CircleScopeRotateRequestBody, CircleTombstoneRequestBody, CircleView,
+    CircleArchiveRequestBody, CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody,
+    CircleMemberRequestBody, CircleMembershipOutcome, CircleRestoreRequestBody,
+    CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleTombstoneRequestBody, CircleView,
 };
 use reqwest::Method;
 
@@ -44,13 +44,13 @@ impl Client {
         &self,
         circle_id: &str,
         actor_id: &str,
+        request: &CircleMemberDeleteRequestBody,
     ) -> Result<CircleMembershipOutcome> {
         reject_path_segment(circle_id)?;
         reject_path_segment(actor_id)?;
-        self.delete(&format!(
-            "/_arkret/self/circles/{circle_id}/members/{actor_id}"
-        ))
-        .await
+        let path = format!("/_arkret/self/circles/{circle_id}/members/{actor_id}");
+        let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
+        self.send_json(builder).await
     }
 
     /// The three lifecycle actions differ only in the Event kind their body pins,

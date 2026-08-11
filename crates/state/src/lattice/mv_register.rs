@@ -47,14 +47,16 @@ impl Lattice for MvRegister {
             .iter()
             .filter(|e| self.validate_op(&e.op).is_ok())
             .collect();
-        match valid_ops.len() {
+        let mut heads = Vec::new();
+        for value in valid_ops.iter().filter_map(|entry| entry.op.value.clone()) {
+            if !heads.contains(&value) {
+                heads.push(value);
+            }
+        }
+        match heads.len() {
             0 => CellState::Value(Value::Null),
-            1 => CellState::Value(valid_ops[0].op.value.clone().unwrap_or(Value::Null)),
+            1 => CellState::Value(heads.pop().unwrap_or(Value::Null)),
             _ => {
-                let heads: Vec<Value> = valid_ops
-                    .iter()
-                    .filter_map(|e| e.op.value.clone())
-                    .collect();
                 let move_ids = valid_ops.iter().map(|e| e.move_id.clone()).collect();
                 let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
                 bottom.move_ids = move_ids;
@@ -156,6 +158,16 @@ mod tests {
             }
             _ => panic!("expected Bottom"),
         }
+    }
+
+    #[test]
+    fn identical_concurrent_values_collapse_to_one_head() {
+        let value = json!({"tracks": {"main": {"enabled": true}}});
+        let ops = vec![
+            SealedOp::new(move_id(1), set_op(value.clone())),
+            SealedOp::new(move_id(2), set_op(value.clone())),
+        ];
+        assert_eq!(MvRegister.join(&cell(), &ops), CellState::Value(value));
     }
 
     #[test]

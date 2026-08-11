@@ -102,10 +102,12 @@ impl RealmState {
                 .ok_or_else(|| {
                     Error::Protocol("member state requires payload.actor_id".to_owned())
                 }),
-            // Per spec event-kind-registry: all `ak.capability.*` kinds
-            // declare `cell_subject.field = payload.grant_id` over the shared
-            // `ak.component.capability.grant.v1` cell family.
-            "ak.capability.grant" | "ak.capability.revoke" | "ak.capability.derived" => self
+            // A grant mints its grant id from envelope.event_id; subsequent
+            // capability operations address that cell through payload.grant_id.
+            "ak.capability.grant" => Ok(arkret_wire::GrantId::from_event_id(&event.event_id)
+                .as_str()
+                .to_owned()),
+            "ak.capability.revoke" | "ak.capability.relinquish" | "ak.capability.derived" => self
                 .extract_optional_field::<String>(&event.payload, "grant_id")
                 .ok_or_else(|| {
                     Error::Protocol("capability event requires payload.grant_id".to_owned())
