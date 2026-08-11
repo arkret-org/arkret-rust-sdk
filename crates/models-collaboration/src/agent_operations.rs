@@ -1041,7 +1041,7 @@ impl AgentGrantDetachRequestBody {
         };
         let predicate = &precondition.predicate;
         if precondition.cell.as_str() != expected_cell
-            || predicate.op != arkret_wire::PredicateOp::HeadEq
+            || predicate.op != PredicateOp::HeadEq
             || predicate
                 .value
                 .as_ref()
@@ -2352,16 +2352,16 @@ mod tests {
     fn agent_grant_detach_request() -> AgentGrantDetachRequestBody {
         let realm_id =
             RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap();
-        let cell = arkret_wire::CellRef::new(format!(
+        let cell = CellRef::new(format!(
             "ak:cell:ak.component.capability.grant.v1:{DETACH_GRANT_ID}"
         ))
         .unwrap();
-        let event = arkret_wire::Event {
+        let event = Event {
             event_id: EventId::new("ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6")
                 .unwrap(),
             kind: EventKind::CapabilityRevoke,
             realm_id: realm_id.clone(),
-            scope_ref: arkret_wire::ScopeRef::Realm { realm_id },
+            scope_ref: ScopeRef::Realm { realm_id },
             actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
             executed_by: None,
             authorization_ref: None,
@@ -2374,10 +2374,10 @@ mod tests {
             prev_refs: Vec::new(),
             refs: Vec::new(),
             causal_refs: Vec::new(),
-            preconditions: vec![arkret_wire::Precondition {
+            preconditions: vec![Precondition {
                 cell,
-                predicate: arkret_wire::Predicate {
-                    op: arkret_wire::PredicateOp::HeadEq,
+                predicate: Predicate {
+                    op: PredicateOp::HeadEq,
                     value: Some(serde_json::json!([{
                         "dot": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6:0",
                         "value": {
@@ -2397,7 +2397,7 @@ mod tests {
             redacts: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
-            requirements: arkret_wire::EventRequirements::default(),
+            requirements: EventRequirements::default(),
         };
         AgentGrantDetachRequestBody {
             revoke_event: EventInitialSubmission::online(event),
@@ -2431,7 +2431,7 @@ mod tests {
         assert!(two_guards.validate().is_err());
 
         let mut wrong_cell = agent_grant_detach_request();
-        wrong_cell.revoke_event.event.preconditions[0].cell = arkret_wire::CellRef::new(format!(
+        wrong_cell.revoke_event.event.preconditions[0].cell = CellRef::new(format!(
             "ak:cell:ak.component.capability.grant.v1:{OTHER_GRANT_ID}"
         ))
         .unwrap();
