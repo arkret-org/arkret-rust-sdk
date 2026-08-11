@@ -641,7 +641,7 @@ impl FoundingDeviceDescriptor {
     /// this boundary so a bare multibase fragment cannot reach wire
     /// validation.
     pub fn from_authorize_payload(payload: &DeviceAuthorizePayload) -> Result<Self> {
-        if payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored
+        if payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
             || payload.recovery_session_id.is_some()
         {
             return Err(Error::Protocol(
@@ -698,6 +698,8 @@ pub struct RealmGenesis {
     pub genesis_salt: GenesisSalt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub founding_device_descriptor: Option<FoundingDeviceDescriptor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_resolution: Option<arkret_models_identity::ResolutionCommitment>,
     pub trust_domain: TypedTrustDomainId,
     pub schema_refs: Vec<String>,
     pub reducer_profile: String,
@@ -729,6 +731,7 @@ impl RealmGenesis {
             purpose,
             genesis_salt,
             founding_device_descriptor: None,
+            initial_resolution: None,
             trust_domain,
             schema_refs,
             reducer_profile: reducer_profile.into(),
@@ -747,6 +750,7 @@ impl RealmGenesis {
     pub fn principal_control(
         genesis_salt: GenesisSalt,
         founding_device_descriptor: Option<FoundingDeviceDescriptor>,
+        initial_resolution: arkret_models_identity::ResolutionCommitment,
         trust_domain: TypedTrustDomainId,
         schema_refs: Vec<String>,
         reducer_profile: impl Into<String>,
@@ -762,6 +766,7 @@ impl RealmGenesis {
             purpose: RealmPurpose::PrincipalControl,
             genesis_salt,
             founding_device_descriptor,
+            initial_resolution: Some(initial_resolution),
             trust_domain,
             schema_refs,
             reducer_profile: reducer_profile.into(),
@@ -794,6 +799,7 @@ impl RealmGenesis {
             purpose: RealmPurpose::ManagedAgentControl,
             genesis_salt,
             founding_device_descriptor: None,
+            initial_resolution: None,
             trust_domain,
             schema_refs,
             reducer_profile: reducer_profile.into(),
@@ -814,6 +820,11 @@ impl RealmGenesis {
             || self.reducer_profile.is_empty()
             || (!matches!(self.purpose, RealmPurpose::PrincipalControl)
                 && self.founding_device_descriptor.is_some())
+            || (self.purpose == RealmPurpose::PrincipalControl && self.initial_resolution.is_none())
+            || (!matches!(
+                self.purpose,
+                RealmPurpose::PrincipalControl | RealmPurpose::ManagedAgentControl
+            ) && self.initial_resolution.is_some())
             || (self.purpose == RealmPurpose::ManagedAgentControl
                 && self.founding_device_descriptor.is_some())
         {

@@ -171,12 +171,18 @@ pub struct ValidatedPrincipalInception {
     pub operation_digest: Hash,
     /// Method-native inception versionId.
     pub did_version_id: String,
+    /// Canonical method-native inception versionTime.
+    pub did_version_time: DateTime<Utc>,
     /// Canonical digest of the exact method-native inception log entry.
     pub log_head_digest: Hash,
     /// Digest of the active inception update key bytes.
     pub control_key_digest: Hash,
     /// The method-native identity root selected from `parameters.updateKeys[0]`.
     pub root_public_key_multibase: String,
+    /// Exact, validated DID URL verification method that signed entry 0.
+    pub root_verification_method: DidUrl,
+    /// The single method-native pre-rotation commitment in entry 0.
+    pub next_root_key_hash: String,
 }
 
 /// One cryptographically verified method-native history state selected at an
@@ -353,6 +359,41 @@ pub fn validate_principal_inception_operation(
         ));
     }
     verify_constructed_webvh_proof(&entry).map_err(WebvhInceptionError::InvalidProof)?;
+    let did_version_time = entry
+        .get("versionTime")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "principal inception must declare versionTime".to_owned(),
+            )
+        })?
+        .parse::<DateTime<Utc>>()
+        .map_err(|_| {
+            WebvhInceptionError::InvalidProof(
+                "principal inception versionTime must be canonical RFC3339".to_owned(),
+            )
+        })?;
+    let root_verification_method_value = entry
+        .pointer("/proof/0/verificationMethod")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "principal inception proof must declare verificationMethod".to_owned(),
+            )
+        })?;
+    let root_verification_method = DidUrl::new(root_verification_method_value.to_owned())
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_owned()))?;
+    let next_root_key_hash = entry
+        .pointer("/parameters/nextKeyHashes")
+        .and_then(Value::as_array)
+        .filter(|hashes| hashes.len() == 1)
+        .and_then(|hashes| hashes[0].as_str())
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "principal inception must declare exactly one next root commitment".to_owned(),
+            )
+        })?
+        .to_owned();
     let state = entry.get("state").ok_or_else(|| {
         WebvhInceptionError::InvalidProof(
             "principal inception must contain a DID document state".to_owned(),
@@ -387,9 +428,12 @@ pub fn validate_principal_inception_operation(
         principal_id,
         operation_digest,
         did_version_id: expected_version_id,
+        did_version_time,
         log_head_digest,
         control_key_digest,
         root_public_key_multibase: root_public_key_multibase.to_owned(),
+        root_verification_method,
+        next_root_key_hash,
     })
 }
 
@@ -2191,6 +2235,20 @@ mod historical_verification_tests {
         })
         .unwrap();
         (prepared, root_seed, created_at)
+    }
+
+    #[test]
+    fn validated_principal_inception_exposes_typed_resume_metadata() {
+        let (prepared, _, created_at) = registration_fixture();
+        let validated = validate_principal_inception_operation(&prepared.submit_body).unwrap();
+
+        assert_eq!(validated.did_version_id, prepared.version_id);
+        assert_eq!(validated.did_version_time, created_at);
+        assert_eq!(
+            validated.root_verification_method.as_str(),
+            prepared.root_verification_method
+        );
+        assert_eq!(validated.next_root_key_hash, prepared.next_root_key_hash);
     }
 
     #[test]

@@ -37,7 +37,7 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
     AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
-    AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
+    AccountOnboardingSnapshot, AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
     IdentityAbandonmentChallengeRequestBody, IdentityAbandonmentOutcome,
     IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
     IdentityBindingChallengeRequestBody, SessionGrantProofKind,
@@ -179,6 +179,16 @@ impl Client {
             .await?;
         outcome.validate()?;
         Ok(outcome)
+    }
+
+    /// Read the current server-authored onboarding projection using the live
+    /// DPoP-bound account handoff. Clients call this before reconciling local
+    /// onboarding artifacts after reload, callback, or an uncertain result.
+    pub async fn auth_account_onboarding_snapshot(&self) -> Result<AccountOnboardingSnapshot> {
+        let snapshot: AccountOnboardingSnapshot =
+            self.get("/_arkret/gate/account/onboarding").await?;
+        snapshot.validate()?;
+        Ok(snapshot)
     }
 
     /// `POST /_arkret/gate/account/identity-binding-challenges`

@@ -104,7 +104,7 @@ pub struct AccountRegistrationPolicyEvidence {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountRegistrationAuditOutcome {
     Accepted,
@@ -525,15 +525,251 @@ impl ReservedIdentityCreation {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityCreationLeaseState {
+    #[default]
+    Active,
+    Reserved,
+    DidPublished,
+    PcrAccepted,
+    AccountBound,
+    Completed,
+}
+
+impl IdentityCreationLeaseState {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Reserved => "reserved",
+            Self::DidPublished => "did_published",
+            Self::PcrAccepted => "pcr_accepted",
+            Self::AccountBound => "account_bound",
+            Self::Completed => "completed",
+        }
+    }
+
+    pub const fn ordinal(self) -> u8 {
+        match self {
+            Self::Active => 0,
+            Self::Reserved => 1,
+            Self::DidPublished => 2,
+            Self::PcrAccepted => 3,
+            Self::AccountBound => 4,
+            Self::Completed => 5,
+        }
+    }
+
+    pub const fn has_reserved_identity(self) -> bool {
+        !matches!(self, Self::Active)
+    }
+}
+
+impl TryFrom<&str> for IdentityCreationLeaseState {
+    type Error = String;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
+            "active" => Ok(Self::Active),
+            "reserved" => Ok(Self::Reserved),
+            "did_published" => Ok(Self::DidPublished),
+            "pcr_accepted" => Ok(Self::PcrAccepted),
+            "account_bound" => Ok(Self::AccountBound),
+            "completed" => Ok(Self::Completed),
+            other => Err(format!("unknown identity creation lease state: {other}")),
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityCreationGoal {
+    CompleteIdentity,
+    AbandonProvisionalIdentity,
+}
+
+/// Server-authored goal for the currently authenticated onboarding flow.
+///
+/// The abandonment variant is deliberately a closed product: a client cannot
+/// observe an abandonment goal without the exact durable challenge needed to
+/// continue it, nor can it infer authentication freshness from local grants.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "goal", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AccountOnboardingGoal {
+    CompleteIdentity,
+    AbandonProvisionalIdentity {
+        challenge: IdentityAbandonmentChallengeOutcome,
+        requires_fresh_authentication: bool,
+    },
+}
+
+impl AccountOnboardingGoal {
+    pub const fn kind(&self) -> IdentityCreationGoal {
+        match self {
+            Self::CompleteIdentity => IdentityCreationGoal::CompleteIdentity,
+            Self::AbandonProvisionalIdentity { .. } => {
+                IdentityCreationGoal::AbandonProvisionalIdentity
+            }
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityCreationCommandKind {
+    IssueIdentityBindingChallenge,
+    SubmitRegistration,
+    IssueAbandonmentChallenge,
+    ConfirmAbandonment,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityCreationLocalArtifactKind {
+    RegistrationCheckpoint,
+    PreparedRegistrationRequest,
+    AbandonmentChallenge,
+    FreshAccountHandoff,
+}
+
+/// Process-local availability of the recovery authority for identity creation.
+///
+/// This is deliberately separate from durable public checkpoints. A checkpoint
+/// can prove which identity was reserved, but it never proves that this process
+/// currently holds the secret that controls it. Likewise, `LocallyValidated`
+/// only means that the words matched during the current interaction and were
+/// durably retained by this device; it does not claim that the user memorized,
+/// exported, or otherwise backed them up.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityCreationRecoveryKeyState {
+    #[default]
+    Unavailable,
+    GeneratedPendingConfirmation,
+    RecoveredPendingConfirmation,
+    GeneratedLocallyValidatedDurable,
+    ExistingValidatedDurable,
+}
+
+impl IdentityCreationRecoveryKeyState {
+    pub const fn can_control_identity(self) -> bool {
+        matches!(
+            self,
+            Self::GeneratedLocallyValidatedDurable | Self::ExistingValidatedDurable
+        )
+    }
+
+    pub const fn needs_confirmation(self) -> bool {
+        matches!(
+            self,
+            Self::GeneratedPendingConfirmation | Self::RecoveredPendingConfirmation
+        )
+    }
+}
+
+/// Server-authored identity-creation state carried by an account handoff.
+///
+/// The lease state is the only onboarding phase authority. Clients may use
+/// local artifacts to satisfy the requirements derived from this value, but
+/// MUST NOT infer a different phase from local checkpoint presence.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationLease {
     pub identity_creation_lease_id: String,
     pub fence: u64,
+    #[serde(default)]
+    pub state: IdentityCreationLeaseState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reserved_identity: Option<ReservedIdentityCreation>,
+}
+
+impl IdentityCreationLease {
+    pub fn validate(&self) -> Result<()> {
+        if self.identity_creation_lease_id.is_empty() || self.fence == 0 {
+            return Err(Error::Protocol(
+                "identity creation lease identity or fence is invalid".to_owned(),
+            ));
+        }
+        if self.state.has_reserved_identity() != self.reserved_identity.is_some() {
+            return Err(Error::Protocol(
+                "identity creation lease state contradicts its reserved identity".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn allowed_goals(&self) -> &'static [IdentityCreationGoal] {
+        use IdentityCreationGoal::{AbandonProvisionalIdentity, CompleteIdentity};
+        match self.state {
+            IdentityCreationLeaseState::Active => &[CompleteIdentity],
+            IdentityCreationLeaseState::Reserved | IdentityCreationLeaseState::DidPublished => {
+                &[CompleteIdentity, AbandonProvisionalIdentity]
+            }
+            IdentityCreationLeaseState::PcrAccepted
+            | IdentityCreationLeaseState::AccountBound
+            | IdentityCreationLeaseState::Completed => &[CompleteIdentity],
+        }
+    }
+
+    pub fn allowed_commands(&self) -> &'static [IdentityCreationCommandKind] {
+        use IdentityCreationCommandKind::{
+            IssueAbandonmentChallenge, IssueIdentityBindingChallenge, SubmitRegistration,
+        };
+        match self.state {
+            IdentityCreationLeaseState::Active => &[IssueIdentityBindingChallenge],
+            IdentityCreationLeaseState::Reserved => &[
+                IssueIdentityBindingChallenge,
+                SubmitRegistration,
+                IssueAbandonmentChallenge,
+            ],
+            IdentityCreationLeaseState::DidPublished => {
+                &[SubmitRegistration, IssueAbandonmentChallenge]
+            }
+            IdentityCreationLeaseState::PcrAccepted | IdentityCreationLeaseState::AccountBound => {
+                &[SubmitRegistration]
+            }
+            IdentityCreationLeaseState::Completed => &[],
+        }
+    }
+
+    pub fn required_local_artifacts(
+        &self,
+        goal: IdentityCreationGoal,
+    ) -> Result<&'static [IdentityCreationLocalArtifactKind]> {
+        use IdentityCreationGoal::{AbandonProvisionalIdentity, CompleteIdentity};
+        use IdentityCreationLeaseState::{
+            AccountBound, Active, Completed, DidPublished, PcrAccepted, Reserved,
+        };
+        use IdentityCreationLocalArtifactKind::{
+            AbandonmentChallenge, FreshAccountHandoff, PreparedRegistrationRequest,
+            RegistrationCheckpoint,
+        };
+        if !self.allowed_goals().contains(&goal) {
+            return Err(Error::Protocol(
+                "identity creation goal is not allowed by the server state".to_owned(),
+            ));
+        }
+        Ok(match (self.state, goal) {
+            (Active, CompleteIdentity) => &[RegistrationCheckpoint],
+            (Reserved, CompleteIdentity) => &[RegistrationCheckpoint],
+            (DidPublished | PcrAccepted | AccountBound, CompleteIdentity) => {
+                &[RegistrationCheckpoint, PreparedRegistrationRequest]
+            }
+            (Completed, CompleteIdentity) => &[],
+            (Reserved | DidPublished, AbandonProvisionalIdentity) => {
+                &[AbandonmentChallenge, FreshAccountHandoff]
+            }
+            _ => unreachable!("goal membership was checked above"),
+        })
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -589,6 +825,95 @@ impl AccountHandoffOutcome {
                 "account handoff allowed_operations does not match the canonical closed set"
                     .to_owned(),
             ));
+        }
+        if let AccountHandoffBinding::IdentityCreationActive {
+            identity_creation_lease,
+        } = &self.binding
+        {
+            identity_creation_lease.validate()?;
+        }
+        Ok(())
+    }
+}
+
+/// Fresh Account-Authority projection of the authenticated holder's current
+/// onboarding state. This read model contains no credential and never accepts
+/// client-authored phase fields.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOnboardingSnapshot {
+    pub handoff_request_id: RequestId,
+    pub account_subject: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub observed_at: DateTime<Utc>,
+    pub binding: AccountHandoffBinding,
+    pub goal: AccountOnboardingGoal,
+}
+
+impl AccountOnboardingSnapshot {
+    pub fn validate(&self) -> Result<()> {
+        match &self.binding {
+            AccountHandoffBinding::IdentityCreationActive {
+                identity_creation_lease,
+            } => {
+                identity_creation_lease.validate()?;
+                if !identity_creation_lease
+                    .allowed_goals()
+                    .contains(&self.goal.kind())
+                {
+                    return Err(Error::Protocol(
+                        "account onboarding goal is not allowed by the server lease state"
+                            .to_owned(),
+                    ));
+                }
+                if let AccountOnboardingGoal::AbandonProvisionalIdentity { challenge, .. } =
+                    &self.goal
+                {
+                    let reserved = identity_creation_lease
+                        .reserved_identity
+                        .as_ref()
+                        .ok_or_else(|| {
+                            Error::Protocol(
+                                "account onboarding abandonment goal has no reserved identity"
+                                    .to_owned(),
+                            )
+                        })?;
+                    if challenge.identity_creation_lease_id
+                        != identity_creation_lease.identity_creation_lease_id
+                        || challenge.lease_fence != identity_creation_lease.fence
+                        || challenge.principal_id != reserved.principal_id
+                    {
+                        return Err(Error::Protocol(
+                            "account onboarding abandonment challenge does not match the lease"
+                                .to_owned(),
+                        ));
+                    }
+                    if challenge.account_subject != self.account_subject
+                        || challenge.expires_at <= self.observed_at
+                    {
+                        return Err(Error::Protocol(
+                            "account onboarding abandonment challenge is stale or belongs to another account"
+                                .to_owned(),
+                        ));
+                    }
+                }
+            }
+            AccountHandoffBinding::Bound { .. } => {
+                if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
+                    return Err(Error::Protocol(
+                        "a bound account cannot have a provisional abandonment goal".to_owned(),
+                    ));
+                }
+            }
+            AccountHandoffBinding::IdentityCreationBusy { .. } => {
+                if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
+                    return Err(Error::Protocol(
+                        "a busy identity-creation lease cannot expose another holder's goal"
+                            .to_owned(),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -1620,5 +1945,83 @@ mod account_handoff_tests {
         let mut unsupported = value;
         unsupported["preferred_locale"] = json!("fr");
         assert!(serde_json::from_value::<AccountHandoffOutcome>(unsupported).is_err());
+    }
+
+    #[test]
+    fn identity_creation_lease_state_is_the_closed_onboarding_authority() {
+        let mut lease = IdentityCreationLease {
+            identity_creation_lease_id: "lease-fixture".to_owned(),
+            fence: 1,
+            state: IdentityCreationLeaseState::Active,
+            expires_at: Utc::now() + chrono::Duration::minutes(15),
+            reserved_identity: None,
+        };
+        lease.validate().unwrap();
+        assert_eq!(
+            lease.allowed_goals(),
+            &[IdentityCreationGoal::CompleteIdentity]
+        );
+        assert_eq!(
+            lease.allowed_commands(),
+            &[IdentityCreationCommandKind::IssueIdentityBindingChallenge]
+        );
+
+        lease.state = IdentityCreationLeaseState::Reserved;
+        assert!(lease.validate().is_err());
+    }
+
+    #[test]
+    fn pcr_acceptance_removes_the_provisional_abandonment_goal() {
+        let lease = IdentityCreationLease {
+            identity_creation_lease_id: "lease-fixture".to_owned(),
+            fence: 1,
+            state: IdentityCreationLeaseState::PcrAccepted,
+            expires_at: Utc::now() + chrono::Duration::minutes(15),
+            reserved_identity: None,
+        };
+        assert_eq!(
+            lease.allowed_goals(),
+            &[IdentityCreationGoal::CompleteIdentity]
+        );
+        assert!(
+            lease
+                .required_local_artifacts(IdentityCreationGoal::AbandonProvisionalIdentity)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn onboarding_snapshot_is_a_closed_server_goal_projection() {
+        let snapshot = AccountOnboardingSnapshot {
+            handoff_request_id: handoff_request().request_id,
+            account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            observed_at: Utc::now(),
+            binding: AccountHandoffBinding::Bound {
+                principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:example.com").unwrap(),
+                full_id: DidFullId::new("did:webvh:z6mkfixture:example.com").unwrap(),
+            },
+            goal: AccountOnboardingGoal::CompleteIdentity,
+        };
+
+        snapshot.validate().unwrap();
+        let wire = serde_json::to_value(snapshot).unwrap();
+        assert_eq!(wire["goal"]["goal"], "complete_identity");
+        assert!(wire["binding"]["full_id"].is_string());
+    }
+
+    #[test]
+    fn public_progress_never_implies_recovery_key_possession_or_user_memory() {
+        for state in [
+            IdentityCreationRecoveryKeyState::Unavailable,
+            IdentityCreationRecoveryKeyState::GeneratedPendingConfirmation,
+            IdentityCreationRecoveryKeyState::RecoveredPendingConfirmation,
+        ] {
+            assert!(!state.can_control_identity());
+        }
+        assert!(
+            IdentityCreationRecoveryKeyState::GeneratedLocallyValidatedDurable
+                .can_control_identity()
+        );
+        assert!(IdentityCreationRecoveryKeyState::ExistingValidatedDurable.can_control_identity());
     }
 }

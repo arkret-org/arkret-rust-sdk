@@ -2779,6 +2779,41 @@ mod tests {
         );
     }
 
+    #[test]
+    fn realm_create_initial_resolution_projects_its_event_reference() {
+        let mut event = realm_create_event(json!([]));
+        let object = event
+            .payload
+            .get_mut("object")
+            .and_then(Value::as_object_mut)
+            .expect("realm create object");
+        object.insert("purpose".to_owned(), json!("principal_control"));
+        object.insert(
+            "initial_resolution".to_owned(),
+            json!({
+                "full_id": "did:webvh:z6mkfixture:alice.example",
+                "method_history_head": format!("sha256:{}", "a".repeat(64)),
+                "version_id": "1-fixture"
+            }),
+        );
+
+        let writes = project(&event);
+        let resolution = writes
+            .iter()
+            .find(|write| write.cell.as_str() == "ak:cell:ak.component.identity.resolution.v1:null")
+            .expect("initial resolution cell write");
+        assert_eq!(
+            resolution.op,
+            set_op(json!({
+                "full_id": "did:webvh:z6mkfixture:alice.example",
+                "method_history_head": format!("sha256:{}", "a".repeat(64)),
+                "version_id": "1-fixture",
+                "resolution_event_ref": event.event_id.as_str(),
+                "updated_at": "2026-07-26T00:00:00.000Z"
+            }))
+        );
+    }
+
     fn call_event(kind: EventKind, payload: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G",

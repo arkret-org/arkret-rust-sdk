@@ -930,7 +930,7 @@ impl FederatedDeviceSigningKeyEvidence {
                         .and_then(Value::as_str);
                     let authorized_by = event.payload.get("authorized_by").and_then(Value::as_str);
                     let proof_device_id = if expecting_root_authorize {
-                        if binding_kind != Some("root_anchored")
+                        if binding_kind != Some("registration_anchor")
                             || authorized_by != Some(self.actor_id.as_str())
                         {
                             return Err(Error::Protocol(

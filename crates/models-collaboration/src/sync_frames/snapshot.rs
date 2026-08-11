@@ -1,6 +1,6 @@
 //! Sync, realm, and snapshot schema artifact counterparts.
 
-use arkret_wire::{DidCoreId, PayloadProof, ProofContextId, SchemaId};
+use arkret_wire::{DidCoreId, PayloadProof, ProofContextId, SchemaId, UnsignedPayloadProof};
 
 use crate::internal_prelude::*;
 
@@ -97,9 +97,11 @@ impl RangeCompletenessAttestation {
         ))?)
     }
 
-    /// Canonical detached-proof transcript registered for the range
-    /// completeness object family.
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    /// Canonical detached-proof transcript used before a JWS exists.
+    ///
+    /// Producers must use the unsigned proof state rather than constructing a
+    /// production `PayloadProof` with an empty JWS.
+    pub fn proof_signing_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
         proof.validate_production()?;
         let payload_digest = self.payload_digest()?;
         if proof.payload_digest != payload_digest {
@@ -140,6 +142,13 @@ impl RangeCompletenessAttestation {
             binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
         Ok(canonical::canonical_json_bytes(&Value::Object(binding))?)
+    }
+
+    /// Canonical detached-proof transcript registered for the range
+    /// completeness object family.
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.proof_signing_bytes(&proof.unsigned())
     }
 }
 

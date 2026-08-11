@@ -948,6 +948,60 @@ pub enum PayloadProofPurpose {
     HolderAcceptance,
 }
 
+/// Fully typed proof metadata before a detached JWS exists.
+///
+/// Signing code must use this type instead of manufacturing an invalid
+/// [`PayloadProof`] with an empty `jws`. [`UnsignedPayloadProof::finalize`]
+/// is the only transition to the wire type and validates the completed proof.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnsignedPayloadProof {
+    pub kind: String,
+    pub verification_method: DidUrl,
+    pub payload_digest: Hash,
+    pub created_at: DateTime<Utc>,
+    pub domain: Option<String>,
+    pub audience: Option<Audience>,
+    pub proof_purpose: Option<PayloadProofPurpose>,
+}
+
+impl UnsignedPayloadProof {
+    pub fn validate_production(&self) -> Result<()> {
+        if self.kind != proof_kind::DETACHED_JWS {
+            return Err(Error::Protocol(format!(
+                "unsupported production proof kind: {}",
+                self.kind
+            )));
+        }
+        if self
+            .domain
+            .as_deref()
+            .is_some_and(|domain| domain.trim().is_empty())
+        {
+            return Err(Error::Protocol("proof domain must not be empty".to_owned()));
+        }
+        if let Some(audience) = &self.audience {
+            audience.validate_binding_value()?;
+        }
+        Ok(())
+    }
+
+    pub fn finalize(self, jws: impl Into<String>) -> Result<PayloadProof> {
+        self.validate_production()?;
+        let proof = PayloadProof {
+            kind: self.kind,
+            verification_method: self.verification_method,
+            payload_digest: self.payload_digest,
+            created_at: self.created_at,
+            domain: self.domain,
+            audience: self.audience,
+            proof_purpose: self.proof_purpose,
+            jws: jws.into(),
+        };
+        proof.validate_production()?;
+        Ok(proof)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -967,6 +1021,18 @@ pub struct PayloadProof {
 }
 
 impl PayloadProof {
+    pub fn unsigned(&self) -> UnsignedPayloadProof {
+        UnsignedPayloadProof {
+            kind: self.kind.clone(),
+            verification_method: self.verification_method.clone(),
+            payload_digest: self.payload_digest.clone(),
+            created_at: self.created_at,
+            domain: self.domain.clone(),
+            audience: self.audience.clone(),
+            proof_purpose: self.proof_purpose.clone(),
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.kind.is_empty() {
             return Err(Error::Protocol("proof kind must not be empty".to_owned()));

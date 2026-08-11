@@ -132,7 +132,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
     let created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
     SelfPrincipalPcrCreateInput {
         principal_id: principal_id.clone(),
-        principal_full_id,
+        principal_full_id: principal_full_id.clone(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -140,6 +140,11 @@ fn input() -> SelfPrincipalPcrCreateInput {
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             DID_INCEPTION_REF_ROLE,
         ),
+        initial_resolution: arkret_models_identity::ResolutionCommitment {
+            full_id: principal_full_id.clone(),
+            method_history_head: format!("sha256:{}", "a".repeat(64)),
+            version_id: "1-fixture".to_owned(),
+        },
         founding_device_descriptor: founding_device_descriptor(&principal_id, created_at),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),
@@ -171,7 +176,7 @@ fn founding_authorize_payload(
         scopes: None,
         not_before,
         expires_at: None,
-        authorization_binding_kind: DeviceAuthorizationBindingKind::RootAnchored,
+        authorization_binding_kind: DeviceAuthorizationBindingKind::RegistrationAnchor,
         device_signature: SignatureMaterial::NonEmptyString(
             NonEmptyString::new("signature").unwrap(),
         ),
@@ -241,6 +246,10 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
             REALM_NOTARY_CELL.to_owned(),
             REALM_REDUCER_PROFILE_CELL.to_owned(),
             REALM_AUTHORITY_ROOT_CELL.to_owned(),
+            format!(
+                "ak:cell:{}:null",
+                arkret_wire::CellFamilyId::IDENTITY_RESOLUTION_V1
+            ),
         ]
         .into_iter()
         .collect::<BTreeSet<_>>()
@@ -291,6 +300,28 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
     unrelated.prev_refs = vec![create.event_id.clone(), fixture_event_id(0x99)];
     assert!(
         validate_self_principal_pcr_genesis_unit(&create, &unrelated, &registry_projection)
+            .is_err()
+    );
+}
+
+#[test]
+fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_full_id() {
+    let (create, mut authorize) = bootstrap_unit();
+    let same_core_different_full_id =
+        DidFullId::new("did:webvh:z6mkfixture:other.example:bob").unwrap();
+    assert_eq!(
+        project_full_id_to_core_id(&same_core_different_full_id).unwrap(),
+        create.actor_id
+    );
+    authorize.proofs[0].verification_method = DidUrl::new(format!(
+        "{}#{}",
+        same_core_different_full_id,
+        founding_device_id()
+    ))
+    .unwrap();
+
+    assert!(
+        validate_self_principal_pcr_genesis_unit(&create, &authorize, &registry_projection)
             .is_err()
     );
 }

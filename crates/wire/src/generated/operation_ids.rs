@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-12.1;
-//! sha256=6c998431940f347ec2b24c686bd45b88b29974c8493aaa1157281c28101a0c78 Entries: registered=236
+//! Input: registry/operation-registry.json; version=2026-08-12.2;
+//! sha256=e7c3c9074162b355ebb2f1873877624279240179b25257cf157a36e644978451 Entries: registered=237
 
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +52,7 @@ pub enum ServiceOperationId {
     GateAccountCommandRevokeSession,
     GateAccountExchangeCompleteOidc,
     GateAccountExchangeCreateHandoff,
+    GateAccountReadOnboarding,
     OpenAgentPairingCommandSubmitRuntimeKeyRequest,
     OpenAgentPairingReadResolve,
     OpenAgentPairingReadRuntimeKeyRequestStatus,
@@ -291,6 +292,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
+    ServiceOperationId::GATE_ACCOUNT_READ_ONBOARDING,
     ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST,
     ServiceOperationId::OPEN_AGENT_PAIRING_READ_RESOLVE,
     ServiceOperationId::OPEN_AGENT_PAIRING_READ_RUNTIME_KEY_REQUEST_STATUS,
@@ -570,6 +572,7 @@ impl ServiceOperationId {
         Self::GateAccountCommandRevokeSession,
         Self::GateAccountExchangeCompleteOidc,
         Self::GateAccountExchangeCreateHandoff,
+        Self::GateAccountReadOnboarding,
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest,
         Self::OpenAgentPairingReadResolve,
         Self::OpenAgentPairingReadRuntimeKeyRequestStatus,
@@ -841,6 +844,7 @@ impl ServiceOperationId {
         "ak.gate.account.exchange.complete_oidc";
     pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF: &'static str =
         "ak.gate.account.exchange.create_handoff";
+    pub const GATE_ACCOUNT_READ_ONBOARDING: &'static str = "ak.gate.account.read.onboarding";
     pub const OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST: &'static str =
         "ak.open.agent_pairing.command.submit_runtime_key_request";
     pub const OPEN_AGENT_PAIRING_READ_RESOLVE: &'static str = "ak.open.agent_pairing.read.resolve";
@@ -1217,6 +1221,7 @@ impl ServiceOperationId {
             Self::GateAccountCommandRevokeSession => Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
             Self::GateAccountExchangeCompleteOidc => Self::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
             Self::GateAccountExchangeCreateHandoff => Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
+            Self::GateAccountReadOnboarding => Self::GATE_ACCOUNT_READ_ONBOARDING,
             Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest => {
                 Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST
             }
@@ -1592,6 +1597,7 @@ impl ServiceOperationId {
             Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF => {
                 Some(Self::GateAccountExchangeCreateHandoff)
             }
+            Self::GATE_ACCOUNT_READ_ONBOARDING => Some(Self::GateAccountReadOnboarding),
             Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST => {
                 Some(Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest)
             }
@@ -2929,6 +2935,28 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_only_service_local_dpop_handoff_lease_fence_and_account_binding_state_no_event_is_authored",
             ),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountReadOnboarding,
+        http_method: "GET",
+        http_path: "/_arkret/gate/account/onboarding",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/account_onboarding_snapshot",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("reads_only_the_current_service_local_account_onboarding_projection"),
         }),
     },
     ServiceOperationDescriptor {

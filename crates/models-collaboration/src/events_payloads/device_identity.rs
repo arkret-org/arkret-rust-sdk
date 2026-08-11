@@ -13,7 +13,8 @@ use crate::internal_prelude::*;
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DeviceAuthorizationBindingKind {
-    RootAnchored,
+    RegistrationAnchor,
+    PcrRecovery,
     AcceptedDevice,
 }
 
@@ -209,11 +210,15 @@ impl UnsignedDeviceAuthorizePayload {
         self.validate_canonical_algorithms()?;
         match (&self.authorization_binding_kind, &self.authorized_by) {
             (
-                DeviceAuthorizationBindingKind::RootAnchored,
+                DeviceAuthorizationBindingKind::RegistrationAnchor,
                 DeviceOrPrincipalRef::Principal(principal_id),
-            ) if principal_id == &self.principal_id => {}
-            (DeviceAuthorizationBindingKind::AcceptedDevice, DeviceOrPrincipalRef::DeviceId(_)) => {
-            }
+            ) if principal_id == &self.principal_id && self.recovery_session_id.is_none() => {}
+            (
+                DeviceAuthorizationBindingKind::PcrRecovery,
+                DeviceOrPrincipalRef::Principal(principal_id),
+            ) if principal_id == &self.principal_id && self.recovery_session_id.is_some() => {}
+            (DeviceAuthorizationBindingKind::AcceptedDevice, DeviceOrPrincipalRef::DeviceId(_))
+                if self.recovery_session_id.is_none() => {}
             _ => return Err("device_authorize_authorization_binding_mismatch"),
         }
         if let Some(scopes) = &self.scopes
@@ -260,7 +265,20 @@ impl UnsignedDeviceAuthorizePayload {
             "recovery_session_id": recovery_session_id,
             "authorization_binding_kind": self.authorization_binding_kind,
         });
-        let mut out = binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX.to_vec();
+        let mut out = match self.authorization_binding_kind {
+            DeviceAuthorizationBindingKind::RegistrationAnchor => {
+                binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX.to_vec()
+            }
+            DeviceAuthorizationBindingKind::PcrRecovery => {
+                binding_contexts::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX.to_vec()
+            }
+            DeviceAuthorizationBindingKind::AcceptedDevice => {
+                return Err(Error::Protocol(
+                    "accepted_device possession uses the pairing challenge attestation transcript"
+                        .to_owned(),
+                ));
+            }
+        };
         out.extend_from_slice(&canonical::canonical_json_bytes(&body)?);
         Ok(out)
     }
@@ -333,9 +351,13 @@ pub fn validate_root_anchored_authorize_payload_digest(
     digest_suite: canonical::DigestSuite,
 ) -> Result<()> {
     let authorize: DeviceAuthorizePayload = serde_json::from_value(payload.clone())?;
-    if authorize.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored {
+    if !matches!(
+        authorize.authorization_binding_kind,
+        DeviceAuthorizationBindingKind::RegistrationAnchor
+            | DeviceAuthorizationBindingKind::PcrRecovery
+    ) {
         return Err(Error::Protocol(
-            "root-anchored unit requires authorization_binding_kind=root_anchored".to_owned(),
+            "root-anchored unit requires a registration_anchor or pcr_recovery binding".to_owned(),
         ));
     }
     if device_authorize_payload_digest(payload, digest_suite)? != *committed_digest {
@@ -773,7 +795,7 @@ mod tests {
             "device_key_algorithm": "Ed25519",
             "authorized_by": "ak:did_core:webvh:z6mkfixture",
             "not_before": "2026-05-30T00:00:00.000Z",
-            "authorization_binding_kind": "root_anchored",
+            "authorization_binding_kind": "registration_anchor",
             "device_signature": "c2ln"
         })
     }
@@ -802,6 +824,16 @@ mod tests {
         accepted["authorized_by"] = json!("ak:device:01904100-0000-7000-8000-000000000002");
         serde_json::from_value::<DeviceAuthorizePayload>(accepted).unwrap();
 
+        let mut recovery = device_authorize_value();
+        recovery["authorization_binding_kind"] = json!("pcr_recovery");
+        recovery["recovery_session_id"] =
+            json!("ak:recovery_session:01904100-0000-7000-8000-000000000003");
+        serde_json::from_value::<DeviceAuthorizePayload>(recovery).unwrap();
+
+        let mut legacy = device_authorize_value();
+        legacy["authorization_binding_kind"] = json!("root_anchored");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(legacy).is_err());
+
         let mut mismatch = device_authorize_value();
         mismatch["authorization_binding_kind"] = json!("accepted_device");
         assert!(serde_json::from_value::<DeviceAuthorizePayload>(mismatch).is_err());
@@ -818,7 +850,18 @@ mod tests {
                 .as_bytes()
                 .starts_with(binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX)
         );
-        assert!(input.contains("\"authorization_binding_kind\":\"root_anchored\""));
+        assert!(input.contains("\"authorization_binding_kind\":\"registration_anchor\""));
+
+        let mut recovery = device_authorize_value();
+        recovery["authorization_binding_kind"] = json!("pcr_recovery");
+        recovery["recovery_session_id"] =
+            json!("ak:recovery_session:01904100-0000-7000-8000-000000000003");
+        let recovery: DeviceAuthorizePayload = serde_json::from_value(recovery).unwrap();
+        let recovery_input = recovery.device_possession_signature_input().unwrap();
+        assert!(
+            recovery_input
+                .starts_with(binding_contexts::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX)
+        );
     }
 
     #[test]

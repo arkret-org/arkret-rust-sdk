@@ -119,7 +119,7 @@ impl PcrGenesisSubmitRequestBody {
                 if principal_id == &proof.principal_id
         );
         if authorize_payload.authorization_binding_kind
-            != DeviceAuthorizationBindingKind::RootAnchored
+            != DeviceAuthorizationBindingKind::RegistrationAnchor
             || !authorized_by_root
             || descriptor.device_id != authorize_payload.device_id
             || descriptor.device_public_key != authorize_payload.device_public_key

@@ -10,6 +10,7 @@ use arkret_models_collaboration::events_payloads::{
     FoundingDeviceDescriptor, RealmCreatePayload, RealmGenesis,
 };
 use arkret_models_collaboration::objects::realm::NotaryProfile;
+use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
     CellRef, DidCoreId, DidFullId, EncryptionProfile, Error, Event, EventKind, EventRef,
     GenesisSalt, Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
@@ -32,6 +33,8 @@ pub struct SelfPrincipalPcrCreateInput {
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TypedTrustDomainId,
     pub did_inception_ref: EventRef,
+    /// Initial owner-published DID resolution state committed by PCR genesis.
+    pub initial_resolution: ResolutionCommitment,
     pub founding_device_descriptor: FoundingDeviceDescriptor,
     /// Genesis capability-action registry basis copied into the Realm's
     /// authority-root cell (`models/realm-and-space.md` section 2.5).
@@ -65,6 +68,7 @@ pub fn build_self_principal_pcr_create(
     let genesis = RealmGenesis::principal_control(
         input.genesis_salt,
         Some(input.founding_device_descriptor),
+        input.initial_resolution,
         input.trust_domain,
         vec![
             SchemaId::REALM_V1.to_owned(),
@@ -148,7 +152,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     let payload: DeviceAuthorizePayload =
         authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
     if payload.principal_id.as_core_id() != create.actor_id.as_core_id()
-        || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored
+        || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
         || payload.recovery_session_id.is_some()
     {
         return Err(Error::Protocol(
@@ -178,6 +182,11 @@ pub fn validate_self_principal_pcr_genesis_unit(
         .ok_or_else(|| {
             Error::Protocol("PCR genesis omits founding device descriptor".to_owned())
         })?;
+    let initial_resolution = create_payload
+        .object
+        .initial_resolution
+        .as_ref()
+        .ok_or_else(|| Error::Protocol("PCR genesis omits initial resolution".to_owned()))?;
     validate_root_anchored_authorize_payload_digest(
         &descriptor.founding_authorize_payload_digest,
         &Value::Object(authorize.payload.clone().into_iter().collect()),
@@ -189,11 +198,12 @@ pub fn validate_self_principal_pcr_genesis_unit(
         .split_once('#')
         .ok_or_else(|| Error::Protocol("founding device proof requires a DID URL".to_owned()))?;
     let verification_controller = DidFullId::new(verification_controller.to_owned())?;
-    let verification_controller = project_full_id_to_core_id(&verification_controller)?;
+    let verification_principal = project_full_id_to_core_id(&verification_controller)?;
     if !authorized_by_matches
         || notary_actor_id != &create.actor_id
         || authorize.proofs.len() != 1
-        || verification_controller != create.actor_id
+        || verification_principal != create.actor_id
+        || verification_controller != initial_resolution.full_id
         || verification_fragment != descriptor.device_id.as_str()
         || descriptor.device_id != payload.device_id
         || descriptor.device_public_key != payload.device_public_key
@@ -282,6 +292,15 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         NotaryValue::SingleDid { actor_id, .. } => actor_id == &event.actor_id,
         _ => false,
     };
+    let resolution_matches = genesis
+        .initial_resolution
+        .as_ref()
+        .is_some_and(|resolution| {
+            project_full_id_to_core_id(&resolution.full_id)
+                .is_ok_and(|principal_id| principal_id == event.actor_id)
+                && !resolution.method_history_head.is_empty()
+                && !resolution.version_id.is_empty()
+        });
     if genesis.schema != SchemaId::REALM_GENESIS_V1
         || genesis.purpose
             != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl
@@ -290,6 +309,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         || genesis.encryption_profile != EncryptionProfile::MlsRfc9420
         || genesis.notary_profile != NotaryProfile::SingleDid
         || !notary_matches
+        || !resolution_matches
     {
         return Err(Error::Protocol(
             "self principal PCR create payload violates create-locked profile".to_owned(),

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-12.1;
-//! sha256=6c998431940f347ec2b24c686bd45b88b29974c8493aaa1157281c28101a0c78 Input: registry/
-//! operations-error-mapping.json; version=2026-08-12.1;
-//! sha256=bdffb9e945acb200e1863bedb33ea7005d796d1f1f07dcb553eac16e02732260 Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-12.2;
+//! sha256=e7c3c9074162b355ebb2f1873877624279240179b25257cf157a36e644978451 Input: registry/
+//! operations-error-mapping.json; version=2026-08-12.2;
+//! sha256=042c745df28a8a27738f1a4531aa357fe079c3b75842843de8d5fbca1d95ee75 Input: registry/
 //! error-code-registry.json; version=2026-08-11.3;
-//! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878 Entries: operations=236
+//! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878 Entries: operations=237
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -345,6 +345,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
         ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountReadOnboarding,
+        operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::OpenAgentPairingCommandSubmitRuntimeKeyRequest,

@@ -61,7 +61,7 @@ pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
         .is_some()
     {
         cells.insert(format!(
-            "ak:cell:{}",
+            "ak:cell:{}:null",
             arkret_wire::CellFamilyId::IDENTITY_RESOLUTION_V1
         ));
     }
@@ -102,8 +102,9 @@ pub(crate) fn direct_projection(
 /// leaf set.
 ///
 /// Self PCR, managed Agent PCR and ordinary Realm producers all reach the
-/// receiver through the same contract. The five identity/security-root writes
-/// are always present. Profile, membership and policy cells are separate
+/// receiver through the same contract. The five Realm security-root writes
+/// are always present, and an `initial_resolution` adds the registered
+/// identity-resolution singleton. Profile, membership and policy cells are separate
 /// registered Events in branches whose bootstrap unit includes them. Only the targets are asserted:
 /// the lattice ops come from the registered `effect_projection` and restating
 /// them here would rebuild the producer-side effect table v1 removed.
@@ -202,4 +203,40 @@ pub(crate) fn state_root_from_projection(
     }
     compute_state_root(&joined)
         .map_err(|error| Error::Protocol(format!("bootstrap state root: {error}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::expected_realm_create_cells;
+    use arkret_wire::Event;
+    use serde_json::json;
+
+    #[test]
+    fn principal_genesis_expects_the_registered_singleton_resolution_cell() {
+        let event: Event = serde_json::from_value(json!({
+            "event_id": "ak:event:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G",
+            "kind": "ak.realm.create",
+            "scope_ref": {"kind": "realm_genesis"},
+            "actor_id": "ak:did_core:webvh:z6mkfixture",
+            "actor_seq": 0,
+            "created_at": "2026-08-11T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "payload": {
+                "object": {
+                    "initial_resolution": {
+                        "full_id": "did:webvh:z6mkfixture:alice.example",
+                        "method_history_head": format!("sha256:{}", "a".repeat(64)),
+                        "version_id": "1-fixture"
+                    }
+                }
+            },
+            "proofs": []
+        }))
+        .expect("realm create fixture");
+
+        let expected = expected_realm_create_cells(&event);
+        assert!(expected.contains("ak:cell:ak.component.identity.resolution.v1:null"));
+        assert!(!expected.contains("ak:cell:ak.component.identity.resolution.v1"));
+    }
 }

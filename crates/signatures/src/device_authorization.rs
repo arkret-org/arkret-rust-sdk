@@ -276,7 +276,14 @@ pub fn replay_federated_device_authorization(
                 verify_device_authorize_possession(&payload)?;
                 let candidate_key = did_key_public_key(payload.device_public_key.as_str())?;
                 let event_proof_key = match payload.authorization_binding_kind {
-                    DeviceAuthorizationBindingKind::RootAnchored if expecting_root_authorize => {
+                    DeviceAuthorizationBindingKind::RegistrationAnchor
+                        if expecting_root_authorize && replayed_generation.is_none() =>
+                    {
+                        candidate_key.clone()
+                    }
+                    DeviceAuthorizationBindingKind::PcrRecovery
+                        if expecting_root_authorize && replayed_generation.is_some() =>
+                    {
                         candidate_key.clone()
                     }
                     DeviceAuthorizationBindingKind::AcceptedDevice if !expecting_root_authorize => {

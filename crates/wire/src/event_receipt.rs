@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 use crate::event_envelope::PrincipalAuthorityInstance;
-use crate::primitives::PayloadProof;
+use crate::primitives::{PayloadProof, UnsignedPayloadProof};
 use crate::wire_strings::NonEmptyString;
 use crate::{ProofContextId, SchemaId, canonical};
 
@@ -219,7 +219,7 @@ impl EventBatchReceipt {
         Ok(Hash::new(canonical::canonical_sha256(&value)?)?)
     }
 
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    pub fn proof_signing_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
         proof.validate_production()?;
         let payload_digest = self.payload_digest()?;
         if proof.payload_digest != payload_digest || proof.created_at != self.created_at {
@@ -258,6 +258,11 @@ impl EventBatchReceipt {
         Ok(canonical::canonical_json_bytes(
             &serde_json::Value::Object(binding),
         )?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.proof_signing_bytes(&proof.unsigned())
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -483,7 +488,7 @@ mod event_batch_receipt_tests {
         };
 
         receipt.canonicalize_events().unwrap();
-        receipt.proofs.push(PayloadProof {
+        let unsigned_proof = UnsignedPayloadProof {
             kind: crate::proof_kind::DETACHED_JWS.to_owned(),
             verification_method: DidUrl::new("did:web:service.example#key-1").unwrap(),
             payload_digest: receipt.payload_digest().unwrap(),
@@ -491,8 +496,12 @@ mod event_batch_receipt_tests {
             domain: None,
             audience: None,
             proof_purpose: None,
-            jws: "AAAA..BBBB".to_owned(),
-        });
+        };
+        let signing_bytes = receipt.proof_signing_bytes(&unsigned_proof).unwrap();
+        assert!(unsigned_proof.clone().finalize("").is_err());
+        let proof = unsigned_proof.finalize("AAAA..BBBB").unwrap();
+        assert_eq!(receipt.proof_binding_bytes(&proof).unwrap(), signing_bytes);
+        receipt.proofs.push(proof);
         assert!(matches!(
             &receipt.events[0],
             EventBatchReceiptEvent::Item(item)
