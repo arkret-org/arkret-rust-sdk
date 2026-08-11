@@ -7,6 +7,9 @@ use arkret_models_crypto::encrypted_envelope::{
 };
 use arkret_wire::DidCoreId;
 
+use crate::events_payloads::device_identity::{
+    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, typed_device_authorize_payload_digest,
+};
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::governance::delivery_binding::BindingSource;
@@ -630,6 +633,44 @@ pub struct FoundingDeviceDescriptor {
 }
 
 impl FoundingDeviceDescriptor {
+    /// Build the root commitment from the shared typed authorize payload.
+    ///
+    /// The descriptor schema narrows `device_public_key` to a complete
+    /// Ed25519 `did:key`, while the reusable authorize payload deliberately
+    /// accepts any non-empty key representation. Parse through [`DidKey`] at
+    /// this boundary so a bare multibase fragment cannot reach wire
+    /// validation.
+    pub fn from_authorize_payload(payload: &DeviceAuthorizePayload) -> Result<Self> {
+        if payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RootAnchored
+            || payload.recovery_session_id.is_some()
+        {
+            return Err(Error::Protocol(
+                "founding device authorization must be root-anchored registration".to_owned(),
+            ));
+        }
+        let device_public_key = DidKey::new(payload.device_public_key.as_str().to_owned())
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        let descriptor = Self {
+            descriptor_version: 1,
+            device_id: payload.device_id.clone(),
+            device_public_key: NonEmptyString::new(device_public_key.to_string())
+                .map_err(|reason| Error::Protocol(reason.to_owned()))?,
+            device_key_digest: Hash::new(canonical::sha256_digest(device_public_key.as_bytes()))?,
+            device_key_algorithm: FoundingDeviceKeyAlgorithm::Ed25519,
+            device_key_purpose: FoundingDeviceKeyPurpose::EventSigningAndMlsIdentity,
+            hpke_key: payload.hpke_key.clone(),
+            hpke_key_digest: Hash::new(canonical::sha256_digest(payload.hpke_key.as_bytes()))?,
+            hpke_key_algorithm: FoundingDeviceHpkeKeyAlgorithm::X25519,
+            algorithms: payload.algorithms.clone(),
+            founding_authorize_payload_digest: typed_device_authorize_payload_digest(
+                payload,
+                canonical::DigestSuite::Sha256,
+            )?,
+        };
+        descriptor.validate()?;
+        Ok(descriptor)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.descriptor_version != 1
             || !self.device_public_key.as_str().starts_with("did:key:z")

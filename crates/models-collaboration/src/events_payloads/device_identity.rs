@@ -308,6 +308,25 @@ pub fn device_authorize_payload_digest(
     Ok(Hash::new(canonical::digest(digest_suite, &bytes))?)
 }
 
+/// Canonical digest for a locally constructed, typed
+/// [`DeviceAuthorizePayload`].
+///
+/// Producers should use this entry point so an untyped JSON value cannot be
+/// substituted while constructing a root commitment. Verifiers that already
+/// received wire JSON must continue to use [`device_authorize_payload_digest`]
+/// to hash the exact admitted payload object without a parse/reserialize
+/// round-trip.
+pub fn typed_device_authorize_payload_digest(
+    payload: &DeviceAuthorizePayload,
+    digest_suite: canonical::DigestSuite,
+) -> Result<Hash> {
+    payload
+        .validate_wire_constraints()
+        .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+    let bytes = canonical::canonical_json_bytes(payload)?;
+    Ok(Hash::new(canonical::digest(digest_suite, &bytes))?)
+}
+
 pub fn validate_root_anchored_authorize_payload_digest(
     committed_digest: &Hash,
     payload: &Value,
@@ -807,6 +826,11 @@ mod tests {
         let value = device_authorize_value();
         let digest =
             device_authorize_payload_digest(&value, canonical::DigestSuite::Sha256).unwrap();
+        let typed: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(
+            typed_device_authorize_payload_digest(&typed, canonical::DigestSuite::Sha256).unwrap(),
+            digest
+        );
         validate_root_anchored_authorize_payload_digest(
             &digest,
             &value,
@@ -835,6 +859,27 @@ mod tests {
                 canonical::DigestSuite::Sha256,
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn founding_descriptor_requires_a_complete_did_key() {
+        let bare: DeviceAuthorizePayload =
+            serde_json::from_value(device_authorize_value()).unwrap();
+        assert!(
+            crate::events_payloads::FoundingDeviceDescriptor::from_authorize_payload(&bare)
+                .is_err()
+        );
+
+        let mut complete_value = device_authorize_value();
+        complete_value["device_public_key"] = json!("did:key:z6MkDeviceKey");
+        let complete: DeviceAuthorizePayload = serde_json::from_value(complete_value).unwrap();
+        let descriptor =
+            crate::events_payloads::FoundingDeviceDescriptor::from_authorize_payload(&complete)
+                .unwrap();
+        assert_eq!(
+            descriptor.device_public_key.as_str(),
+            "did:key:z6MkDeviceKey"
         );
     }
 
