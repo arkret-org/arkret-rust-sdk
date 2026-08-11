@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use arkret_wire::{DidCoreId, DidFullId};
+use arkret_wire::{DidCoreId, DidFullId, TrustDomainId};
 
 use crate::internal_prelude::*;
 
@@ -81,22 +81,6 @@ fn reducer_profile_id_is_valid(value: &str) -> bool {
         })
 }
 
-fn trust_domain_id_is_valid(value: &str) -> bool {
-    let Some(body) = value.strip_prefix("ak:trust_domain:") else {
-        return false;
-    };
-    (1..=128).contains(&body.len())
-        && body
-            .bytes()
-            .next()
-            .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-        && body.bytes().all(|byte| {
-            byte.is_ascii_lowercase()
-                || byte.is_ascii_digit()
-                || matches!(byte, b'.' | b'_' | b'-' | b':')
-        })
-}
-
 fn policy_rule_id_is_valid(value: &str) -> bool {
     (1..=64).contains(&value.len())
         && value
@@ -112,11 +96,6 @@ validated_string_newtype!(
     ReducerProfileId,
     reducer_profile_id_is_valid,
     "invalid reducer profile id"
-);
-validated_string_newtype!(
-    TrustDomainId,
-    trust_domain_id_is_valid,
-    "invalid trust domain id"
 );
 validated_string_newtype!(
     PolicyRuleId,

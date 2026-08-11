@@ -600,7 +600,7 @@ pub fn is_service_registration_receipt_id(value: &str) -> bool {
 /// `^ak:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
 ///
 /// Zero-allocation public validator for the trust-domain wire form. This is
-/// the same predicate used by `id_type!(TypedTrustDomainId, is_trust_domain)`.
+/// the same predicate used by `id_type!(TrustDomainId, is_trust_domain)`.
 pub fn is_trust_domain(value: &str) -> bool {
     let Some(scope) = value.strip_prefix("ak:trust_domain:") else {
         return false;
@@ -1040,10 +1040,15 @@ declare_special_form_id_kinds! {
     ServiceRegistrationReceiptId,
         "service_registration_receipt",
         is_service_registration_receipt_id;
-    // Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
-    // Named `Typed…` because `TrustDomain` is the plain-string payload alias.
-    TypedTrustDomainId, "trust_domain", is_trust_domain;
+    // Deployment-scope replay-boundary identifier. The public name follows
+    // the same kind-aligned convention as RealmId/EventId/DidCoreId.
+    TrustDomainId, "trust_domain", is_trust_domain;
 }
+
+/// Backwards-compatible name retained while downstream crates migrate to
+/// [`TrustDomainId`]. New protocol and storage boundaries must use the
+/// kind-aligned canonical name.
+pub type TypedTrustDomainId = TrustDomainId;
 
 /// Applet identity accepted by the v1 wire protocol: either a stable service
 /// identity core or a typed `ak:applet:<uuidv7>` identifier.
@@ -1393,11 +1398,11 @@ mod tests {
 
     #[test]
     fn trust_domain_id_validates_scope() {
-        assert!(TypedTrustDomainId::new("ak:trust_domain:example.net").is_ok());
-        assert!(TypedTrustDomainId::new("ak:trust_domain:Example").is_err());
-        assert!(TypedTrustDomainId::new("ak:trust_domain:").is_err());
+        assert!(TrustDomainId::new("ak:trust_domain:example.net").is_ok());
+        assert!(TrustDomainId::new("ak:trust_domain:Example").is_err());
+        assert!(TrustDomainId::new("ak:trust_domain:").is_err());
         let too_long = format!("ak:trust_domain:{}", "a".repeat(129));
-        assert!(TypedTrustDomainId::new(too_long).is_err());
+        assert!(TrustDomainId::new(too_long).is_err());
     }
 
     #[test]
@@ -1478,8 +1483,8 @@ mod tests {
             ))
             .is_ok()
         );
-        assert_eq!(TypedTrustDomainId::ID_KIND, "trust_domain");
-        assert!(TypedTrustDomainId::new("ak:trust_domain:example.net").is_ok());
+        assert_eq!(TrustDomainId::ID_KIND, "trust_domain");
+        assert!(TrustDomainId::new("ak:trust_domain:example.net").is_ok());
     }
 
     #[test]

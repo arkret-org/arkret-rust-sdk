@@ -1,6 +1,6 @@
 //! Federation trust-domain message-signature helpers.
 
-use arkret_wire::TypedTrustDomainId;
+use arkret_wire::TrustDomainId;
 use arkret_wire::constants::{HEADER_DESTINATION_TRUST_DOMAIN, HEADER_SOURCE_TRUST_DOMAIN};
 
 // ── HTTP message-signature transcript extension ────────────────────────
@@ -13,8 +13,8 @@ use arkret_wire::constants::{HEADER_DESTINATION_TRUST_DOMAIN, HEADER_SOURCE_TRUS
 /// Wire shape: two lines, each with the header name in lower-case
 /// quoted form per RFC 9421 §2.2.
 pub fn federation_trust_domain_transcript_fragment(
-    source_trust_domain: &TypedTrustDomainId,
-    destination_trust_domain: &TypedTrustDomainId,
+    source_trust_domain: &TrustDomainId,
+    destination_trust_domain: &TrustDomainId,
 ) -> String {
     let header_name = |s: &str| s.to_ascii_lowercase();
 
@@ -33,9 +33,9 @@ mod tests {
 
     #[test]
     fn fragment_contains_only_the_two_trust_domain_headers() {
-        let source = TypedTrustDomainId::new("ak:trust_domain:source.example".to_owned()).unwrap();
+        let source = TrustDomainId::new("ak:trust_domain:source.example".to_owned()).unwrap();
         let destination =
-            TypedTrustDomainId::new("ak:trust_domain:destination.example".to_owned()).unwrap();
+            TrustDomainId::new("ak:trust_domain:destination.example".to_owned()).unwrap();
 
         let fragment = federation_trust_domain_transcript_fragment(&source, &destination);
 

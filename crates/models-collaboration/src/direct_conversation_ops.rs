@@ -12,7 +12,7 @@ use arkret_wire::{
     Base64UrlString, CbaProofBundle, DidCoreId, DidFullId, DidUrl, Event,
     EventFederationSubmission, EventId, EventInitialSubmission, FederatedDeviceSigningKeyEvidence,
     Hash, IdempotencyKey, PrincipalAuthorityInstance, ProtocolSignature, RealmId, ScopeRef,
-    StrandId,
+    StrandId, TrustDomainId,
 };
 pub use arkret_wire::{
     DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
@@ -73,7 +73,7 @@ pub struct AcceptedAtServiceBindingCore {
     pub principal_id: DidCoreId,
     pub authority_instance: PrincipalAuthorityInstance,
     pub service_id: DidCoreId,
-    pub trust_domain: String,
+    pub trust_domain: TrustDomainId,
     pub service_kind: PrincipalServiceKind,
     pub service_verification_method: ServiceVerificationMethod,
     pub endpoint_origins: Vec<String>,
@@ -188,7 +188,7 @@ pub struct AcceptedAtServiceBinding {
     pub principal_id: DidCoreId,
     pub authority_instance: PrincipalAuthorityInstance,
     pub service_id: DidCoreId,
-    pub trust_domain: String,
+    pub trust_domain: TrustDomainId,
     pub service_kind: PrincipalServiceKind,
     pub service_verification_method: ServiceVerificationMethod,
     pub endpoint_origins: Vec<String>,
@@ -361,7 +361,7 @@ pub struct PrincipalServiceBindingCommitOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalServiceCutover {
     pub principal_id: DidCoreId,
-    pub trust_domain: String,
+    pub trust_domain: TrustDomainId,
     pub previous_service_id: DidCoreId,
     pub new_service_id: DidCoreId,
     pub previous_binding_digest: Hash,
@@ -688,7 +688,7 @@ impl DirectConversationFounderBasisEvidence {
 
     pub fn human_pair_key_and_authorization_core(
         &self,
-        trust_domain_id: arkret_wire::TypedTrustDomainId,
+        trust_domain_id: TrustDomainId,
     ) -> arkret_wire::Result<(Hash, DidCoreId, DirectConversationFoundingAuthorizationCore)> {
         let Self::Human {
             basis_evidence_bundle,

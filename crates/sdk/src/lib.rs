@@ -93,7 +93,7 @@ pub use arkret_identifiers::{
     ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
     ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId,
     RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId,
-    TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    TransactionId, TrustDomainId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
     project_full_id_to_core_id,
 };
 pub use arkret_identity as identity;

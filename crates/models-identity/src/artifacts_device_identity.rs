@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_wire::{
     Audience, DeviceId, DeviceMessageTransactionId, DidCoreId, DidFullId, DidUrl, Error, EventId,
     Hash, NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind,
-    ReceiptId, Result, SchemaId, TypedTrustDomainId, XExtensionMap, canonical,
+    ReceiptId, Result, SchemaId, TrustDomainId, XExtensionMap, canonical,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -165,7 +165,7 @@ pub struct DidWebvhWitnessReceipt {
     pub source: Option<String>,
     pub issuer_service_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trust_domain: Option<String>,
+    pub trust_domain: Option<TrustDomainId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -283,9 +283,6 @@ impl DidWebvhWitnessReceipt {
                 ))
             })?;
         }
-        if let Some(trust_domain) = &self.trust_domain {
-            TypedTrustDomainId::new(trust_domain.clone())?;
-        }
         if self.expires_at <= self.created_at {
             return Err(Error::Protocol(
                 "did:webvh witness receipt expires_at must be later than created_at".to_owned(),
@@ -392,7 +389,7 @@ mod tests {
             observed_at: created_at,
             source: Some("https://subject.example/.well-known/did-witness.json".to_owned()),
             issuer_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            trust_domain: Some("ak:trust_domain:example".to_owned()),
+            trust_domain: Some(TrustDomainId::new("ak:trust_domain:example").unwrap()),
             audience: None,
             expires_at: created_at + chrono::Duration::hours(24),
             created_at,
@@ -418,6 +415,9 @@ mod tests {
     fn witness_receipt_is_a_closed_distinct_receipt_family() {
         let receipt = witness_receipt();
         receipt.validate_proof_binding().unwrap();
+        let mut invalid_wire_value = serde_json::to_value(&receipt).unwrap();
+        invalid_wire_value["trust_domain"] = json!("example");
+        assert!(serde_json::from_value::<DidWebvhWitnessReceipt>(invalid_wire_value).is_err());
         let evidence: IdentityReceiptEvidence =
             serde_json::from_value(serde_json::to_value(&receipt).unwrap()).unwrap();
         assert!(matches!(

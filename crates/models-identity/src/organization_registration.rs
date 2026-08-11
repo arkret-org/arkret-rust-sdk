@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    DidCoreId, DidFullId, Error, Hash, PayloadProof, ProofContextId, Result,
+    DidCoreId, DidFullId, Error, Hash, PayloadProof, ProofContextId, Result, TrustDomainId,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -173,7 +173,7 @@ pub struct OrganizationRegistrationChallenge {
     pub nonce: String,
     pub audience: DidCoreId,
     pub origin: String,
-    pub trust_domain: String,
+    pub trust_domain: TrustDomainId,
     pub local_admin_subject: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -219,7 +219,6 @@ impl OrganizationRegistrationChallenge {
                 .nonce
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-            || self.trust_domain.is_empty()
             || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
         {
             return Err(Error::Protocol(
@@ -715,12 +714,18 @@ mod tests {
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience: service("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
-            trust_domain: "example".to_owned(),
+            trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
             local_admin_subject: request.local_admin_subject.clone(),
             requested_scopes: request.requested_scopes.clone(),
             created_at: now - chrono::Duration::seconds(60),
             expires_at: now,
         };
+        let mut invalid_wire_value = serde_json::to_value(&base).unwrap();
+        invalid_wire_value["trust_domain"] = serde_json::json!("example");
+        assert!(
+            serde_json::from_value::<OrganizationRegistrationChallenge>(invalid_wire_value)
+                .is_err()
+        );
         assert!(base.validate_for_at(&request, now).is_err());
         let mut too_long = base;
         too_long.created_at = now;
@@ -763,7 +768,7 @@ mod tests {
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience: service("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
-            trust_domain: "example".to_owned(),
+            trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
             local_admin_subject: request.local_admin_subject.clone(),
             requested_scopes: request.requested_scopes.clone(),
             created_at,
