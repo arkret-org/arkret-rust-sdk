@@ -18,8 +18,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::event_envelope::EventRef;
 use arkret_wire::{
-    CapabilityId, DidCoreId, DidUrl, Error, ErrorCode, EventInitialSubmission, Hash,
-    NonEmptyString, ProtocolKind, RealmId, ReasonCode, Result,
+    CapabilityId, DidCoreId, DidUrl, Error, ErrorCode, EventInitialSubmission, EventKind, Hash,
+    NonEmptyString, PredicateOp, ProtocolKind, RealmId, ReasonCode, Result, ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -56,6 +56,10 @@ pub const REALM_MODERATION_POLICY_MERGE_STRATEGY_MOST_RESTRICTIVE: &str = "most_
 
 /// Canonical fanout source value for organization moderation policy projection.
 pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "organization_policy";
+
+/// The single null-subject CAS cell moved by `ak.realm.moderation_policy`.
+pub const REALM_MODERATION_POLICY_CELL_REF: &str =
+    "ak:cell:ak.component.realm.moderation_policy.v1:null";
 
 /// `failed_precondition` reason returned when a Realm moderation policy
 /// override needs organization approval.
@@ -554,11 +558,109 @@ pub struct RealmEffectiveModerationPolicy {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmModerationPolicyReplaceRequestBody {
-    #[serde(flatten)]
+    /// Closed `ak.realm.moderation_policy` Event authored and signed by the
+    /// caller. The service validates and forwards these exact bytes through
+    /// ordinary Event admission; it does not author a replacement Event or
+    /// inject the CAS precondition after signing.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub policy: BTreeMap<String, Value>,
+    pub moderation_policy_event: EventInitialSubmission,
+}
+
+impl RealmModerationPolicyReplaceRequestBody {
+    /// Validate the request bindings that are knowable before transport.
+    ///
+    /// The authenticated actor and accepted cell head remain receiver checks.
+    /// This gate pins the signed Event to the path Realm, the registered kind,
+    /// the closed policy payload, and the one complete CAS guard the service is
+    /// forbidden to add on the caller's behalf.
+    pub fn validate(&self, realm_id: &RealmId) -> Result<()> {
+        self.moderation_policy_event.validate_structural()?;
+        let event = &self.moderation_policy_event.event;
+        if event.kind != EventKind::RealmModerationPolicy {
+            return Err(Error::Protocol(
+                "Realm moderation-policy replacement requires an ak.realm.moderation_policy Event"
+                    .to_owned(),
+            ));
+        }
+        if &event.realm_id != realm_id
+            || event.scope_ref
+                != (ScopeRef::Realm {
+                    realm_id: realm_id.clone(),
+                })
+        {
+            return Err(Error::Protocol(
+                "Realm moderation-policy Event scope must equal the path Realm".to_owned(),
+            ));
+        }
+        self.policy()?;
+
+        let [precondition] = event.preconditions.as_slice() else {
+            return Err(Error::Protocol(
+                "Realm moderation-policy replacement requires exactly one signed head_eq precondition"
+                    .to_owned(),
+            ));
+        };
+        let predicate = &precondition.predicate;
+        let Some(expected_head) = predicate.value.as_ref() else {
+            return Err(Error::Protocol(
+                "Realm moderation-policy head_eq must name the complete settled cell value or explicit null"
+                    .to_owned(),
+            ));
+        };
+        if precondition.cell.as_str() != REALM_MODERATION_POLICY_CELL_REF
+            || predicate.op != PredicateOp::HeadEq
+            || predicate.values.is_some()
+            || predicate.predicate_id.is_some()
+            || !moderation_policy_head_is_complete(expected_head)
+        {
+            return Err(Error::Protocol(format!(
+                "Realm moderation-policy head_eq must exclusively guard {REALM_MODERATION_POLICY_CELL_REF} with the complete settled value or explicit null"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Return the complete policy object carried only by signed
+    /// `event.payload.value`.
+    pub fn policy(&self) -> Result<BTreeMap<String, Value>> {
+        if self.moderation_policy_event.event.kind != EventKind::RealmModerationPolicy {
+            return Err(Error::Protocol(
+                "Realm moderation-policy replacement requires an ak.realm.moderation_policy Event"
+                    .to_owned(),
+            ));
+        }
+        let payload: crate::events_payloads::StatePayload =
+            crate::events_payloads::event_wire::decode_payload_after_kind_validation(
+                &self.moderation_policy_event.event,
+            )?;
+        if payload.state.is_some() || payload.reason.is_some() {
+            return Err(Error::Protocol(
+                "Realm moderation-policy payload permits only value".to_owned(),
+            ));
+        }
+        let Some(Value::Object(policy)) = payload.value else {
+            return Err(Error::Protocol(
+                "Realm moderation-policy payload.value must be an object".to_owned(),
+            ));
+        };
+        Ok(policy.into_iter().collect())
+    }
+}
+
+fn moderation_policy_head_is_complete(head: &Value) -> bool {
+    if head.is_null() {
+        return true;
+    }
+    serde_json::from_value::<crate::events_payloads::StatePayload>(head.clone()).is_ok_and(
+        |payload| {
+            payload.state.is_none()
+                && payload.reason.is_none()
+                && matches!(payload.value, Some(Value::Object(_)))
+        },
+    )
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-11.4;
-//! sha256=24364c43105a9d691a65c476c3d99d9d5145b31c7bc568c867343a6a38e2aced Input: registry/
-//! operations-error-mapping.json; version=2026-08-10.8;
-//! sha256=b1fed2a6c1209adbb1041644e401e9fec0bc218a4616765ff24faf420c497af2 Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-11.5;
+//! sha256=e7b1a72e1c28564fb62914816c58d2612eb318e4df4639b28546b92a21c8c807 Input: registry/
+//! operations-error-mapping.json; version=2026-08-11.1;
+//! sha256=0673e3bba0b3a0b62ddbe39b83dd60792930c1637073a7d219f95e70187edce0 Input: registry/
 //! error-code-registry.json; version=2026-08-11.3;
 //! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878 Entries: operations=236
 
@@ -1456,9 +1456,12 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfRealmModerationPolicyResourceReplace,
-        operation_specific: &[OperationSpecificError::ReasonCode(
-            ReasonCode::RequiresOrganizationApproval,
-        )],
+        operation_specific: &[
+            OperationSpecificError::ReasonCode(ReasonCode::RequiresOrganizationApproval),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedBottom),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfRealmReadExport,
