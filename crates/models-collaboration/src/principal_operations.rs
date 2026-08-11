@@ -1,7 +1,9 @@
-use arkret_models_identity::{IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS};
+use arkret_models_identity::{
+    DidOperationSubmitRequestBody, IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS,
+};
 use arkret_wire::{
     DeviceId, DidCoreId, DidFullId, Error, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
-    RealmId, Result, canonical, project_full_id_to_core_id,
+    RealmId, RegistrationDidEvidence, Result, canonical, project_full_id_to_core_id,
 };
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +27,8 @@ pub struct PcrGenesisSubmitRequestBody {
     pub did_version_id: String,
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
+    pub registration_did_operation: DidOperationSubmitRequestBody,
+    pub registration_did_evidence: RegistrationDidEvidence,
     pub identity_creation_control_proof: IdentityCreationControlProof,
     pub genesis_unit: PcrGenesisUnit,
 }
@@ -32,6 +36,8 @@ pub struct PcrGenesisSubmitRequestBody {
 impl PcrGenesisSubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.identity_creation_control_proof.validate_shape()?;
+        self.registration_did_operation.validate()?;
+        self.registration_did_evidence.validate_shape()?;
         self.genesis_unit.validate_ordered_envelopes()?;
 
         let proof = &self.identity_creation_control_proof;
@@ -46,6 +52,15 @@ impl PcrGenesisSubmitRequestBody {
             || self.did_version_id != proof.did_version_id
             || self.log_head_digest != proof.log_head_digest
             || self.control_key_digest != proof.control_key_digest
+            || self.registration_did_operation.did != self.full_id
+            || Hash::new(canonical::canonical_sha256(
+                &self.registration_did_operation,
+            )?)? != proof.operation_digest
+            || self.registration_did_evidence.principal_id != self.principal_id
+            || self.registration_did_evidence.full_id != self.full_id
+            || self.registration_did_evidence.version_id != self.did_version_id
+            || self.registration_did_evidence.method_history_head != self.log_head_digest.as_str()
+            || self.registration_did_evidence.control_key_digest != self.control_key_digest
             || proof.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
             || create.actor_id != self.principal_id.clone()
             || create.realm_id != self.pcr_realm_id
@@ -163,6 +178,8 @@ impl PcrGenesisSubmitOutcome {
             || scope.did_version_id != request.did_version_id
             || scope.log_head_digest != request.log_head_digest
             || scope.control_key_digest != request.control_key_digest
+            || scope.registration_evidence_digest
+                != request.registration_did_evidence.canonical_digest()?
             || scope.accepted_device_id != descriptor.device_id
             || scope.device_key_digest != descriptor.device_key_digest
             || scope.hpke_key_digest != descriptor.hpke_key_digest

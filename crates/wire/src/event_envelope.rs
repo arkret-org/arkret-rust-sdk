@@ -613,6 +613,87 @@ pub struct RegistrationControlSignature {
     pub jws: Base64UrlString,
 }
 
+const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_DOMAIN: &str =
+    "ak.registration-did-evidence-control-proof-v1\n";
+
+/// Client-authored registration evidence before the Account Authority assigns
+/// the registry acceptance time.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct RegistrationDidEvidenceDraft {
+    pub principal_id: DidCoreId,
+    pub full_id: DidFullId,
+    pub adapter_version: String,
+    pub method_history_head: String,
+    pub version_id: String,
+    pub control_key_digest: Hash,
+    pub method_evidence: DidBindingEvidenceReceipt,
+    pub control_proof: RegistrationControlSignature,
+}
+
+impl RegistrationDidEvidenceDraft {
+    pub fn validate_shape(&self) -> Result<()> {
+        validate_registration_did_evidence_fields(
+            &self.principal_id,
+            &self.full_id,
+            &self.adapter_version,
+            &self.method_history_head,
+            &self.version_id,
+            &self.method_evidence,
+            &self.control_proof,
+        )
+    }
+
+    pub fn method_evidence_digest(&self) -> Result<Hash> {
+        self.validate_shape()?;
+        Hash::new(canonical::canonical_sha256(&self.method_evidence)?).map_err(Into::into)
+    }
+
+    pub fn canonical_control_proof_signing_bytes(&self) -> Result<Vec<u8>> {
+        self.validate_shape()?;
+        let value = serde_json::json!({
+            "context": "ak.registration-did-evidence-control-proof-v1",
+            "principal_id": &self.principal_id,
+            "full_id": &self.full_id,
+            "adapter_version": &self.adapter_version,
+            "method_history_head": &self.method_history_head,
+            "version_id": &self.version_id,
+            "control_key_digest": &self.control_key_digest,
+            "method_evidence_digest": self.method_evidence_digest()?,
+            "verification_method": &self.control_proof.verification_method,
+            "created_at": canonical::format_timestamp_canonical(self.control_proof.created_at),
+        });
+        let mut bytes = REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_DOMAIN
+            .as_bytes()
+            .to_vec();
+        bytes.extend(canonical::canonical_json_bytes(&value)?);
+        Ok(bytes)
+    }
+
+    pub fn accept(self, accepted_at: DateTime<Utc>) -> Result<RegistrationDidEvidence> {
+        self.validate_shape()?;
+        if accepted_at < self.control_proof.created_at {
+            return Err(Error::Protocol(
+                "registration evidence acceptance predates its control proof".to_owned(),
+            ));
+        }
+        let evidence = RegistrationDidEvidence {
+            principal_id: self.principal_id,
+            full_id: self.full_id,
+            adapter_version: self.adapter_version,
+            accepted_at,
+            method_history_head: self.method_history_head,
+            version_id: self.version_id,
+            control_key_digest: self.control_key_digest,
+            method_evidence: self.method_evidence,
+            control_proof: self.control_proof,
+        };
+        evidence.validate_shape()?;
+        Ok(evidence)
+    }
+}
+
 /// Frozen DID evidence captured when this PCR registration was accepted.
 /// It is historical input: verifiers must never replace it with a current DID
 /// document or current method head.
@@ -634,53 +715,96 @@ pub struct RegistrationDidEvidence {
 
 impl RegistrationDidEvidence {
     pub fn validate_shape(&self) -> Result<()> {
-        let controller = self
-            .control_proof
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(controller, _)| controller)
-            .ok_or_else(|| {
-                Error::Protocol("registration control proof has no fragment".to_owned())
-            })?;
-        let mut witness_ids = BTreeSet::new();
-        if self.adapter_version.trim().is_empty()
-            || self.method_history_head.trim().is_empty()
-            || self.version_id.trim().is_empty()
-            || project_full_id_to_core_id(&self.full_id)? != self.principal_id
-            || controller != self.full_id.as_str()
-            || self.control_proof.created_at > self.accepted_at
-            || self.method_evidence.method != self.full_id.method()
-            || self.method_evidence.method_proofs.iter().any(|proof| {
-                proof.history_head.is_empty()
-                    || proof
-                        .witnesses
-                        .windows(2)
-                        .any(|pair| pair[0].witness_did.as_str() >= pair[1].witness_did.as_str())
-                    || proof
-                        .witnesses
-                        .iter()
-                        .any(|witness| !witness_ids.insert(witness.witness_did.as_str().to_owned()))
-            })
-        {
+        validate_registration_did_evidence_fields(
+            &self.principal_id,
+            &self.full_id,
+            &self.adapter_version,
+            &self.method_history_head,
+            &self.version_id,
+            &self.method_evidence,
+            &self.control_proof,
+        )?;
+        if self.control_proof.created_at > self.accepted_at {
             return Err(Error::Protocol(
-                "registration DID evidence shape or identity binding mismatch".to_owned(),
+                "registration DID evidence predates its control proof".to_owned(),
             ));
-        }
-        match self.full_id.method() {
-            "webvh"
-                if self.method_evidence.method_proofs.len() == 1
-                    && self.method_evidence.method_proofs[0].history_head
-                        == self.method_history_head => {}
-            "web" | "key" if self.method_evidence.method_proofs.is_empty() => {}
-            _ => {
-                return Err(Error::Protocol(
-                    "registration DID evidence method proof mismatch".to_owned(),
-                ));
-            }
         }
         Ok(())
     }
+
+    pub fn canonical_digest(&self) -> Result<Hash> {
+        self.validate_shape()?;
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+
+    pub fn draft(&self) -> RegistrationDidEvidenceDraft {
+        RegistrationDidEvidenceDraft {
+            principal_id: self.principal_id.clone(),
+            full_id: self.full_id.clone(),
+            adapter_version: self.adapter_version.clone(),
+            method_history_head: self.method_history_head.clone(),
+            version_id: self.version_id.clone(),
+            control_key_digest: self.control_key_digest.clone(),
+            method_evidence: self.method_evidence.clone(),
+            control_proof: self.control_proof.clone(),
+        }
+    }
+
+    pub fn canonical_control_proof_signing_bytes(&self) -> Result<Vec<u8>> {
+        self.draft().canonical_control_proof_signing_bytes()
+    }
+}
+
+fn validate_registration_did_evidence_fields(
+    principal_id: &DidCoreId,
+    full_id: &DidFullId,
+    adapter_version: &str,
+    method_history_head: &str,
+    version_id: &str,
+    method_evidence: &DidBindingEvidenceReceipt,
+    control_proof: &RegistrationControlSignature,
+) -> Result<()> {
+    let controller = control_proof
+        .verification_method
+        .as_str()
+        .split_once('#')
+        .map(|(controller, _)| controller)
+        .ok_or_else(|| Error::Protocol("registration control proof has no fragment".to_owned()))?;
+    let mut witness_ids = BTreeSet::new();
+    if adapter_version.trim().is_empty()
+        || method_history_head.trim().is_empty()
+        || version_id.trim().is_empty()
+        || project_full_id_to_core_id(full_id)? != *principal_id
+        || controller != full_id.as_str()
+        || method_evidence.method != full_id.method()
+        || method_evidence.method_proofs.iter().any(|proof| {
+            proof.history_head.is_empty()
+                || proof
+                    .witnesses
+                    .windows(2)
+                    .any(|pair| pair[0].witness_did.as_str() >= pair[1].witness_did.as_str())
+                || proof
+                    .witnesses
+                    .iter()
+                    .any(|witness| !witness_ids.insert(witness.witness_did.as_str().to_owned()))
+        })
+    {
+        return Err(Error::Protocol(
+            "registration DID evidence shape or identity binding mismatch".to_owned(),
+        ));
+    }
+    match full_id.method() {
+        "webvh"
+            if method_evidence.method_proofs.len() == 1
+                && method_evidence.method_proofs[0].history_head == method_history_head => {}
+        "web" | "key" if method_evidence.method_proofs.is_empty() => {}
+        _ => {
+            return Err(Error::Protocol(
+                "registration DID evidence method proof mismatch".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -734,11 +858,12 @@ impl FederatedDeviceSigningKeyEvidence {
         if self.authority_instance.principal_id != self.actor_id
             || self.authority_instance.principal_server_id != self.principal_genesis_receipt.issuer
             || self.registration_did_evidence.principal_id != self.actor_id
-            || self.registration_did_evidence.accepted_at != receipt_scope.accepted_at
             || self.registration_did_evidence.version_id != receipt_scope.did_version_id
             || self.registration_did_evidence.method_history_head
                 != receipt_scope.log_head_digest.as_str()
             || self.registration_did_evidence.control_key_digest != receipt_scope.control_key_digest
+            || self.registration_did_evidence.canonical_digest()?
+                != receipt_scope.registration_evidence_digest
             || self.current_device_projection.principal_id != self.actor_id
             || self.current_device_projection.device_id != self.device_id
             || self

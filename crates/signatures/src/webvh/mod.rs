@@ -17,6 +17,8 @@ pub use inception::{
     prepare_service_inception_with_did_key_seed, prepare_service_registration_inception,
     prepare_service_registration_inception_with_did_key_seed, prepare_supplied_principal_inception,
     prepare_webvh_relocation, sign_identity_creation_control_proof,
-    validate_principal_did_document_profile, validate_principal_inception_operation,
-    validate_webvh_history_at, verify_identity_creation_control_proof, webvh_next_key_hash,
+    sign_registration_did_evidence_draft, validate_principal_did_document_profile,
+    validate_principal_inception_operation, validate_webvh_history_at,
+    verify_identity_creation_control_proof, verify_registration_did_evidence_draft,
+    webvh_next_key_hash,
 };

@@ -1246,6 +1246,7 @@ pub struct IdentityCreationRegistration {
     pub lease_fence: u64,
     pub full_id: DidFullId,
     pub did_operation: DidOperationSubmitRequestBody,
+    pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
     pub control_proof: IdentityCreationControlProof,
     pub pcr_genesis_unit: arkret_wire::PcrGenesisUnit,
     pub initial_session: InitialSessionGrantRequest,
@@ -1254,6 +1255,7 @@ pub struct IdentityCreationRegistration {
 impl IdentityCreationRegistration {
     pub fn validate(&self) -> Result<()> {
         self.control_proof.validate_shape()?;
+        self.registration_did_evidence_draft.validate_shape()?;
         self.pcr_genesis_unit.validate_ordered_envelopes()?;
         self.initial_session.validate()?;
         if self.initial_session.canonical_request_digest()?
@@ -1267,6 +1269,13 @@ impl IdentityCreationRegistration {
             || self.lease_fence != self.control_proof.lease_fence
             || self.full_id != self.did_operation.did
             || self.full_id != self.control_proof.full_id
+            || self.registration_did_evidence_draft.principal_id != self.control_proof.principal_id
+            || self.registration_did_evidence_draft.full_id != self.full_id
+            || self.registration_did_evidence_draft.version_id != self.control_proof.did_version_id
+            || self.registration_did_evidence_draft.method_history_head
+                != self.control_proof.log_head_digest.as_str()
+            || self.registration_did_evidence_draft.control_key_digest
+                != self.control_proof.control_key_digest
             || project_full_id_to_core_id(&self.full_id)?.as_str()
                 != self.control_proof.principal_id.as_str()
             || Hash::new(canonical::canonical_sha256(&self.did_operation)?)?

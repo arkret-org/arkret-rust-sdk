@@ -101,6 +101,8 @@ pub enum DidOperationSubmitStatus {
 pub struct DidOperationSubmitOutcome {
     pub status: DidOperationSubmitStatus,
     pub did: DidFullId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

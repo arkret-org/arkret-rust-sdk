@@ -42,6 +42,7 @@ pub struct PcrGenesisReceiptScope {
     pub did_version_id: String,
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
+    pub registration_evidence_digest: Hash,
     pub create_digest: Hash,
     pub founding_authorize_digest: Hash,
     pub accepted_device_id: crate::DeviceId,

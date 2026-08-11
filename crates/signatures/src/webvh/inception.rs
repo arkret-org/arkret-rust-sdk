@@ -36,7 +36,11 @@ use arkret_models_identity::service_identity::{
     service_registration_local_id,
 };
 use arkret_models_identity::{IdentityCreationControlProof, UnsignedIdentityCreationControlProof};
-use arkret_wire::{DidCoreId, DidFullId, Hash, ServiceKind};
+use arkret_wire::{
+    Base64UrlString, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
+    DidBindingMethodProofKind, DidCoreId, DidFullId, DidUrl, Hash, RegistrationControlSignature,
+    RegistrationDidEvidenceDraft, ServiceKind,
+};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
 use rand_core::RngCore;
@@ -426,6 +430,134 @@ pub fn verify_identity_creation_control_proof(
     Ok(validated)
 }
 
+/// Verify the dedicated frozen registration-evidence proof against the exact
+/// method-native inception operation. This never performs current resolution.
+pub fn verify_registration_did_evidence_draft(
+    request: &DidOperationSubmitRequestBody,
+    draft: &RegistrationDidEvidenceDraft,
+) -> Result<ValidatedPrincipalInception, WebvhInceptionError> {
+    draft
+        .validate_shape()
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    let validated = validate_principal_inception_operation(request)?;
+    let entry = Value::Object(request.operation.clone().into_iter().collect());
+    let document = entry.get("state").ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "registration evidence operation has no DID document state".to_owned(),
+        )
+    })?;
+    let document_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(document)
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let empty_witness_proofs_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(&Vec::<Value>::new())
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let method_proof = draft.method_evidence.method_proofs.first();
+    if draft.principal_id != validated.principal_id
+        || draft.full_id != request.did
+        || draft.adapter_version != WEBVH_METHOD_VERSION
+        || draft.version_id != validated.did_version_id
+        || draft.method_history_head != validated.log_head_digest.as_str()
+        || draft.control_key_digest != validated.control_key_digest
+        || draft.method_evidence.method != "webvh"
+        || draft.method_evidence.document_digest != document_digest
+        || draft.method_evidence.method_proofs.len() != 1
+        || method_proof.is_none_or(|proof| {
+            proof.history_head != validated.log_head_digest.as_str()
+                || !proof.witnesses.is_empty()
+                || proof.witness_proofs_digest != empty_witness_proofs_digest
+        })
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "registration DID evidence does not match the accepted inception operation".to_owned(),
+        ));
+    }
+    let key = crate::proof::PublicKeyMaterial::Ed25519Multibase {
+        value: validated.root_public_key_multibase.clone(),
+    };
+    let signing_bytes = draft
+        .canonical_control_proof_signing_bytes()
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    if !crate::proof::verify_detached_ed25519_signature(
+        &key,
+        &signing_bytes,
+        draft.control_proof.jws.as_str(),
+    ) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "registration DID evidence control signature is invalid".to_owned(),
+        ));
+    }
+    Ok(validated)
+}
+
+/// Build and sign the dedicated historical registration-evidence draft from
+/// the exact inception operation. The returned object deliberately has no
+/// `accepted_at`; the Account Authority assigns that after registry acceptance.
+pub fn sign_registration_did_evidence_draft(
+    request: &DidOperationSubmitRequestBody,
+    created_at: DateTime<Utc>,
+    root_seed: &[u8; SECRET_KEY_LENGTH],
+) -> Result<RegistrationDidEvidenceDraft, WebvhInceptionError> {
+    let validated = validate_principal_inception_operation(request)?;
+    let entry = Value::Object(request.operation.clone().into_iter().collect());
+    let document = entry.get("state").ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "registration evidence operation has no DID document state".to_owned(),
+        )
+    })?;
+    let document_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(document)
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let witness_proofs_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(&Vec::<Value>::new())
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let verification_method = DidUrl::new(format!("{}#registration-root", request.did))
+        .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
+    let mut draft = RegistrationDidEvidenceDraft {
+        principal_id: validated.principal_id,
+        full_id: request.did.clone(),
+        adapter_version: WEBVH_METHOD_VERSION.to_owned(),
+        method_history_head: validated.log_head_digest.to_string(),
+        version_id: validated.did_version_id,
+        control_key_digest: validated.control_key_digest,
+        method_evidence: DidBindingEvidenceReceipt {
+            kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            method: "webvh".to_owned(),
+            document_digest,
+            method_proofs: vec![DidBindingMethodProof {
+                kind: DidBindingMethodProofKind::WebvhLog,
+                history_head: validated.log_head_digest.to_string(),
+                witnesses: Vec::new(),
+                witness_proofs_digest,
+            }],
+        },
+        control_proof: RegistrationControlSignature {
+            verification_method,
+            created_at,
+            jws: Base64UrlString::new("AA".to_owned())
+                .map_err(|error| WebvhInceptionError::InvalidProof(error.to_owned()))?,
+        },
+    };
+    let signing_bytes = draft
+        .canonical_control_proof_signing_bytes()
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let signing_key = SigningKey::from_bytes(root_seed);
+    draft.control_proof.jws = Base64UrlString::new(base64url_encode(
+        signing_key.sign(&signing_bytes).to_bytes(),
+    ))
+    .map_err(|error| WebvhInceptionError::InvalidProof(error.to_owned()))?;
+    verify_registration_did_evidence_draft(request, &draft)?;
+    Ok(draft)
+}
+
 /// Sign an identity-creation control transcript with a borrowed cold root.
 /// The caller remains responsible for zeroizing and never persisting the seed.
 pub fn sign_identity_creation_control_proof(
@@ -436,7 +568,7 @@ pub fn sign_identity_creation_control_proof(
         .canonical_signing_bytes()
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let signature = SigningKey::from_bytes(root_seed).sign(&signing_bytes);
-    let signature = arkret_wire::Base64UrlString::new(base64url_encode(signature.to_bytes()))
+    let signature = Base64UrlString::new(base64url_encode(signature.to_bytes()))
         .map_err(|error| WebvhInceptionError::Canonical(error.to_owned()))?;
     proof
         .attach_signature(signature)
@@ -2034,6 +2166,62 @@ mod historical_verification_tests {
             entries: vec![inception.log_entry.clone(), rotation],
             second_seed,
         }
+    }
+
+    fn registration_fixture() -> (
+        PreparedPrincipalInception,
+        [u8; SECRET_KEY_LENGTH],
+        DateTime<Utc>,
+    ) {
+        let root_seed = [0x51; SECRET_KEY_LENGTH];
+        let next_seed = [0x52; SECRET_KEY_LENGTH];
+        let next_root_public_key_multibase = encode_ed25519_pubkey_multibase(
+            &SigningKey::from_bytes(&next_seed)
+                .verifying_key()
+                .to_bytes(),
+        );
+        let created_at = Utc.with_ymd_and_hms(2026, 8, 11, 2, 0, 0).unwrap();
+        let prepared = prepare_principal_inception(&PrincipalInceptionInput {
+            principal_endpoint: &Url::parse("https://registration.example/").unwrap(),
+            local_id: "alice",
+            also_known_as: &[],
+            version_time: created_at,
+            root_seed: &root_seed,
+            next_root_public_key_multibase: &next_root_public_key_multibase,
+        })
+        .unwrap();
+        (prepared, root_seed, created_at)
+    }
+
+    #[test]
+    fn frozen_registration_evidence_rejects_mutation_and_omission() {
+        let (prepared, root_seed, created_at) = registration_fixture();
+        let draft =
+            sign_registration_did_evidence_draft(&prepared.submit_body, created_at, &root_seed)
+                .unwrap();
+        verify_registration_did_evidence_draft(&prepared.submit_body, &draft).unwrap();
+
+        let mut mutated = draft.clone();
+        mutated.method_evidence.document_digest =
+            Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
+        assert!(verify_registration_did_evidence_draft(&prepared.submit_body, &mutated).is_err());
+
+        let mut invalid_signature = draft.clone();
+        invalid_signature.control_proof.jws = Base64UrlString::new("AA".to_owned()).unwrap();
+        assert!(
+            verify_registration_did_evidence_draft(&prepared.submit_body, &invalid_signature)
+                .is_err()
+        );
+
+        let mut omitted = serde_json::to_value(&draft).unwrap();
+        omitted.as_object_mut().unwrap().remove("method_evidence");
+        assert!(serde_json::from_value::<RegistrationDidEvidenceDraft>(omitted).is_err());
+        assert!(
+            draft
+                .clone()
+                .accept(created_at - Duration::milliseconds(1))
+                .is_err()
+        );
     }
 
     #[test]
