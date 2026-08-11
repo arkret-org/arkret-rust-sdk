@@ -746,6 +746,32 @@ pub struct PrincipalInceptionInput<'a> {
     pub next_root_public_key_multibase: &'a str,
 }
 
+/// Inputs for the controller-authored, PCR-independent inception of a managed
+/// Agent DID. The inception commits only the controller delegation; the PCR
+/// binding is added by a later, precommitted WebVH update.
+pub struct ManagedAgentInceptionInput<'a> {
+    pub principal_endpoint: &'a Url,
+    pub local_id: &'a str,
+    pub controller_id: &'a DidCoreId,
+    pub version_time: DateTime<Utc>,
+    pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
+    pub next_root_public_key_multibase: &'a str,
+}
+
+/// Inputs for the first managed Agent DID update, published only after the
+/// controller-authored PCR create has been accepted and its Realm id exists.
+pub struct ManagedAgentBindingUpdateInput<'a> {
+    pub did: &'a str,
+    pub local_id: &'a str,
+    pub previous_entries: &'a [Value],
+    pub version_time: DateTime<Utc>,
+    pub current_root_seed: &'a [u8; SECRET_KEY_LENGTH],
+    pub next_root_public_key_multibase: &'a str,
+    pub controller_id: &'a DidCoreId,
+    pub principal_control_realm_id: &'a arkret_wire::RealmId,
+    pub requested_scope_digest: &'a Hash,
+}
+
 /// Inputs for a client-authored WebVH inception. The client supplies the DID
 /// and update public keys plus the signed log proof; the server reconstructs
 /// the exact inception entry, verifies the proof locally, and submits the typed
@@ -786,6 +812,27 @@ pub fn prepare_principal_inception(
     prepare_principal_inception_with_portability(input, false)
 }
 
+/// Prepare the PCR-independent managed Agent DID inception. The returned
+/// operation is signed by controller-owned key material and contains no PCR
+/// Realm id, so its accepted history head can safely be committed by create.
+pub fn prepare_managed_agent_inception(
+    input: &ManagedAgentInceptionInput<'_>,
+) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
+    prepare_identity_inception(
+        input.principal_endpoint,
+        input.local_id,
+        &[],
+        input.version_time,
+        input.root_seed,
+        input.next_root_public_key_multibase,
+        false,
+        |did, service_endpoint| {
+            managed_agent_document_value(did, service_endpoint, input.controller_id, None)
+        },
+        validate_managed_agent_did_document_profile,
+    )
+}
+
 /// Prepare a principal inception that irrevocably opts into method-native
 /// same-SCID relocation. Portability cannot be introduced by a later entry.
 pub fn prepare_portable_principal_inception(
@@ -798,29 +845,54 @@ fn prepare_principal_inception_with_portability(
     input: &PrincipalInceptionInput<'_>,
     portable: bool,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
-    let (method_authority, https_authority) = authority_pair(input.principal_endpoint)?;
-    let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
-    let root_signing = SigningKey::from_bytes(input.root_seed);
+    prepare_identity_inception(
+        input.principal_endpoint,
+        input.local_id,
+        input.also_known_as,
+        input.version_time,
+        input.root_seed,
+        input.next_root_public_key_multibase,
+        portable,
+        |did, service_endpoint| {
+            principal_document_value(did, input.also_known_as, service_endpoint)
+        },
+        validate_principal_did_document_profile,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_identity_inception<F, V>(
+    principal_endpoint: &Url,
+    local_id: &str,
+    _also_known_as: &[String],
+    version_time_value: DateTime<Utc>,
+    root_seed: &[u8; SECRET_KEY_LENGTH],
+    next_root_public_key_multibase: &str,
+    portable: bool,
+    document_builder: F,
+    document_validator: V,
+) -> Result<PreparedPrincipalInception, WebvhInceptionError>
+where
+    F: FnOnce(&str, &str) -> Result<Value, WebvhInceptionError>,
+    V: Fn(&str, &Value, &[&str]) -> Result<(), WebvhInceptionError>,
+{
+    let (method_authority, https_authority) = authority_pair(principal_endpoint)?;
+    let local_id = normalize_local_id(local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
+    let root_signing = SigningKey::from_bytes(root_seed);
     let root_public_key_multibase =
         encode_ed25519_pubkey_multibase(&root_signing.verifying_key().to_bytes());
-    validate_principal_key_separation(
-        &root_public_key_multibase,
-        input.next_root_public_key_multibase,
-    )?;
-    let next_root_key_hash = webvh_next_key_hash(input.next_root_public_key_multibase)?;
+    validate_principal_key_separation(&root_public_key_multibase, next_root_public_key_multibase)?;
+    let next_root_key_hash = webvh_next_key_hash(next_root_public_key_multibase)?;
     let placeholder_did = format_webvh_did(&method_authority, WEBVH_SCID_PLACEHOLDER, &local_id);
-    let service_endpoint = trimmed_endpoint(input.principal_endpoint);
-    let version_time = input
-        .version_time
-        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let document_skeleton =
-        principal_document_value(&placeholder_did, input.also_known_as, &service_endpoint)?;
-    validate_principal_did_document_profile(
+    let service_endpoint = trimmed_endpoint(principal_endpoint);
+    let version_time = version_time_value.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let document_skeleton = document_builder(&placeholder_did, &service_endpoint)?;
+    document_validator(
         &placeholder_did,
         &document_skeleton,
         &[
             root_public_key_multibase.as_str(),
-            input.next_root_public_key_multibase,
+            next_root_public_key_multibase,
         ],
     )?;
     let mut entry_skeleton = json!({
@@ -859,8 +931,8 @@ fn prepare_principal_inception_with_portability(
     }
     verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
-    let document_url = identity_document_url(input.principal_endpoint, &did)?;
-    let log_url = identity_log_url(input.principal_endpoint, &did)?;
+    let document_url = identity_document_url(principal_endpoint, &did)?;
+    let log_url = identity_log_url(principal_endpoint, &did)?;
 
     Ok(PreparedPrincipalInception {
         did,
@@ -873,7 +945,7 @@ fn prepare_principal_inception_with_portability(
         submit_body,
         root_public_key_multibase,
         root_verification_method,
-        next_root_public_key_multibase: input.next_root_public_key_multibase.to_owned(),
+        next_root_public_key_multibase: next_root_public_key_multibase.to_owned(),
         next_root_key_hash,
         document_url,
         log_url,
@@ -1055,6 +1127,107 @@ fn validate_principal_rotation_history<'a>(
 pub fn prepare_principal_rotation(
     input: &PrincipalRotationInput<'_>,
 ) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
+    let current_root_public_key_multibase = encode_ed25519_pubkey_multibase(
+        &SigningKey::from_bytes(input.current_root_seed)
+            .verifying_key()
+            .to_bytes(),
+    );
+    validate_principal_did_document_profile(
+        input.did,
+        input.state,
+        &[
+            current_root_public_key_multibase.as_str(),
+            input.next_root_public_key_multibase,
+        ],
+    )?;
+    prepare_principal_rotation_inner(input)
+}
+
+/// Build the first post-create managed Agent DID update. The complete
+/// accepted inception is verified, its controller delegation is retained,
+/// and exactly one PCR service binding is added from the create-locked tuple.
+pub fn prepare_managed_agent_binding_update(
+    input: &ManagedAgentBindingUpdateInput<'_>,
+) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
+    if input.previous_entries.len() != 1 {
+        return Err(WebvhInceptionError::InvalidProof(
+            "managed Agent PCR binding must be the first update after inception".to_owned(),
+        ));
+    }
+    let inception = &input.previous_entries[0];
+    let inception_state = inception.get("state").ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "managed Agent inception is missing its DID document".to_owned(),
+        )
+    })?;
+    let inception_root = inception
+        .pointer("/parameters/updateKeys/0")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "managed Agent inception is missing its active root".to_owned(),
+            )
+        })?;
+    validate_managed_agent_did_document_profile(input.did, inception_state, &[inception_root])?;
+    if inception_state
+        .get("service")
+        .and_then(Value::as_array)
+        .is_none_or(|services| services.len() != 2)
+        || inception_state
+            .pointer("/service/1/serviceEndpoint/controller_did")
+            .and_then(Value::as_str)
+            != Some(input.controller_id.as_str())
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "managed Agent inception does not contain the expected controller-only delegation"
+                .to_owned(),
+        ));
+    }
+    let service_endpoint = inception_state
+        .pointer("/service/0/serviceEndpoint")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "managed Agent inception has no Principal Server endpoint".to_owned(),
+            )
+        })?;
+    let state = managed_agent_document_value(
+        input.did,
+        service_endpoint,
+        input.controller_id,
+        Some(ManagedAgentPcrBinding {
+            realm_id: input.principal_control_realm_id,
+            controller_id: input.controller_id,
+            requested_scope_digest: input.requested_scope_digest,
+        }),
+    )?;
+    let current_root_public_key_multibase = encode_ed25519_pubkey_multibase(
+        &SigningKey::from_bytes(input.current_root_seed)
+            .verifying_key()
+            .to_bytes(),
+    );
+    validate_managed_agent_did_document_profile(
+        input.did,
+        &state,
+        &[
+            current_root_public_key_multibase.as_str(),
+            input.next_root_public_key_multibase,
+        ],
+    )?;
+    prepare_principal_rotation_inner(&PrincipalRotationInput {
+        did: input.did,
+        local_id: input.local_id,
+        previous_entries: input.previous_entries,
+        version_time: input.version_time,
+        current_root_seed: input.current_root_seed,
+        next_root_public_key_multibase: input.next_root_public_key_multibase,
+        state: &state,
+    })
+}
+
+fn prepare_principal_rotation_inner(
+    input: &PrincipalRotationInput<'_>,
+) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
     let did = DidFullId::new(input.did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     if did.method() != "webvh" {
@@ -1147,15 +1320,6 @@ pub fn prepare_principal_rotation(
         ));
     }
     let next_root_key_hash = webvh_next_key_hash(input.next_root_public_key_multibase)?;
-    validate_principal_did_document_profile(
-        input.did,
-        input.state,
-        &[
-            current_root_public_key_multibase.as_str(),
-            input.next_root_public_key_multibase,
-        ],
-    )?;
-
     let version_time = input
         .version_time
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
@@ -1764,6 +1928,189 @@ fn principal_document_value(
     }))
 }
 
+struct ManagedAgentPcrBinding<'a> {
+    realm_id: &'a arkret_wire::RealmId,
+    controller_id: &'a DidCoreId,
+    requested_scope_digest: &'a Hash,
+}
+
+fn managed_agent_document_value(
+    did: &str,
+    service_endpoint: &str,
+    controller_id: &DidCoreId,
+    pcr_binding: Option<ManagedAgentPcrBinding<'_>>,
+) -> Result<Value, WebvhInceptionError> {
+    let authorization_ref = format!("{did}#managed-controller");
+    let mut services = vec![
+        json!({
+            "id": format!("{did}#soland"),
+            "type": "ArkretPrincipalServer",
+            "serviceEndpoint": service_endpoint,
+        }),
+        json!({
+            "id": authorization_ref,
+            "type": "ArkretManagedPrincipalController",
+            "serviceEndpoint": {
+                "controller_did": controller_id,
+                "purposes": [
+                    "agent_control_authoring",
+                    "principal_control_realm_bootstrap",
+                    "principal_control_realm_recovery"
+                ],
+            },
+        }),
+    ];
+    if let Some(binding) = pcr_binding {
+        if binding.controller_id != controller_id {
+            return Err(WebvhInceptionError::InvalidProof(
+                "managed Agent PCR binding controller does not match inception delegation"
+                    .to_owned(),
+            ));
+        }
+        services.push(json!({
+            "id": format!("{did}#arkret-principal-control-realm"),
+            "type": "ArkretPrincipalControlRealm",
+            "serviceEndpoint": {
+                "realm_id": binding.realm_id,
+                "controller_did": controller_id,
+                "authorization_ref": format!("{did}#managed-controller"),
+                "requested_scope_digest": binding.requested_scope_digest,
+            },
+        }));
+    }
+    Ok(json!({
+        "@context": ["https://www.w3.org/ns/did/v1"],
+        "id": did,
+        "alsoKnownAs": [],
+        "service": services,
+    }))
+}
+
+/// Validate the closed managed Agent DID document profile. Both the
+/// PCR-independent inception (two services) and its first binding successor
+/// (three services) are accepted; callers that require one phase must also
+/// check the service count and the expected controller/PCR tuple.
+pub fn validate_managed_agent_did_document_profile(
+    did: &str,
+    state: &Value,
+    forbidden_root_keys: &[&str],
+) -> Result<(), WebvhInceptionError> {
+    let object = state.as_object().ok_or_else(|| {
+        WebvhInceptionError::InvalidProof("managed Agent DID document must be an object".to_owned())
+    })?;
+    let allowed_fields = ["@context", "id", "alsoKnownAs", "service"];
+    if object.len() != allowed_fields.len()
+        || object
+            .keys()
+            .any(|field| !allowed_fields.contains(&field.as_str()))
+        || object.get("id").and_then(Value::as_str) != Some(did)
+        || object.get("@context") != Some(&json!(["https://www.w3.org/ns/did/v1"]))
+        || object.get("alsoKnownAs") != Some(&json!([]))
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "managed Agent DID document has fields outside the closed identity profile".to_owned(),
+        ));
+    }
+    let encoded = serde_json::to_string(state)
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    if forbidden_root_keys.iter().any(|key| encoded.contains(*key)) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "identity root keys must not appear in the managed Agent DID document".to_owned(),
+        ));
+    }
+    let services = object
+        .get("service")
+        .and_then(Value::as_array)
+        .filter(|services| matches!(services.len(), 2 | 3))
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "managed Agent DID document must contain its two inception services and at most one PCR binding"
+                    .to_owned(),
+            )
+        })?;
+    let expected_soland_id = format!("{did}#soland");
+    if services[0].get("id").and_then(Value::as_str) != Some(expected_soland_id.as_str())
+        || services[0].get("type").and_then(Value::as_str) != Some("ArkretPrincipalServer")
+        || services[0]
+            .get("serviceEndpoint")
+            .and_then(Value::as_str)
+            .is_none()
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "managed Agent Principal Server service is invalid".to_owned(),
+        ));
+    }
+    let authorization_ref = format!("{did}#managed-controller");
+    let controller = services[1].as_object().ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "managed Agent controller delegation must be an object".to_owned(),
+        )
+    })?;
+    let controller_endpoint = controller
+        .get("serviceEndpoint")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "managed Agent controller delegation endpoint is invalid".to_owned(),
+            )
+        })?;
+    let expected_purposes = json!([
+        "agent_control_authoring",
+        "principal_control_realm_bootstrap",
+        "principal_control_realm_recovery"
+    ]);
+    if controller.len() != 3
+        || controller.get("id").and_then(Value::as_str) != Some(authorization_ref.as_str())
+        || controller.get("type").and_then(Value::as_str)
+            != Some("ArkretManagedPrincipalController")
+        || controller_endpoint.len() != 2
+        || controller_endpoint
+            .get("controller_did")
+            .and_then(Value::as_str)
+            .and_then(|value| DidCoreId::new(value.to_owned()).ok())
+            .is_none()
+        || controller_endpoint.get("purposes") != Some(&expected_purposes)
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "managed Agent controller delegation is outside the closed profile".to_owned(),
+        ));
+    }
+    if let Some(binding) = services.get(2) {
+        let expected_binding_id = format!("{did}#arkret-principal-control-realm");
+        let endpoint = binding
+            .get("serviceEndpoint")
+            .and_then(Value::as_object)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(
+                    "managed Agent PCR binding endpoint is invalid".to_owned(),
+                )
+            })?;
+        if binding.as_object().is_none_or(|value| value.len() != 3)
+            || binding.get("id").and_then(Value::as_str) != Some(expected_binding_id.as_str())
+            || binding.get("type").and_then(Value::as_str) != Some("ArkretPrincipalControlRealm")
+            || endpoint.len() != 4
+            || endpoint
+                .get("realm_id")
+                .and_then(Value::as_str)
+                .and_then(|value| arkret_wire::RealmId::new(value.to_owned()).ok())
+                .is_none()
+            || endpoint.get("controller_did") != controller_endpoint.get("controller_did")
+            || endpoint.get("authorization_ref").and_then(Value::as_str)
+                != Some(authorization_ref.as_str())
+            || endpoint
+                .get("requested_scope_digest")
+                .and_then(Value::as_str)
+                .and_then(|value| Hash::new(value.to_owned()).ok())
+                .is_none()
+        {
+            return Err(WebvhInceptionError::InvalidProof(
+                "managed Agent PCR binding is outside the closed profile".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Validate the two mutually exclusive principal DID-document profiles and
 /// ensure no current or caller-known future root key is exposed as a DID Core
 /// verification method.
@@ -2356,5 +2703,73 @@ mod historical_verification_tests {
         let error = validate_webvh_history_at(&fixture.did, &fixture.entries, fixture.second_time)
             .unwrap_err();
         assert!(error.to_string().contains("deactivated"));
+    }
+
+    #[test]
+    fn managed_agent_inception_precedes_and_does_not_depend_on_pcr_binding() {
+        let endpoint = Url::parse("https://agents.example/").unwrap();
+        let controller_id = DidCoreId::new("ak:did_core:web:controller.example").unwrap();
+        let root_seed = [0x61; SECRET_KEY_LENGTH];
+        let next_seed = [0x62; SECRET_KEY_LENGTH];
+        let future_seed = [0x63; SECRET_KEY_LENGTH];
+        let next_public = encode_ed25519_pubkey_multibase(
+            &SigningKey::from_bytes(&next_seed)
+                .verifying_key()
+                .to_bytes(),
+        );
+        let future_public = encode_ed25519_pubkey_multibase(
+            &SigningKey::from_bytes(&future_seed)
+                .verifying_key()
+                .to_bytes(),
+        );
+        let inception_time = Utc.with_ymd_and_hms(2026, 8, 11, 6, 0, 0).unwrap();
+        let inception = prepare_managed_agent_inception(&ManagedAgentInceptionInput {
+            principal_endpoint: &endpoint,
+            local_id: "agent-01",
+            controller_id: &controller_id,
+            version_time: inception_time,
+            root_seed: &root_seed,
+            next_root_public_key_multibase: &next_public,
+        })
+        .unwrap();
+        let inception_services = inception.log_entry["state"]["service"].as_array().unwrap();
+        assert_eq!(inception_services.len(), 2);
+        assert!(
+            serde_json::to_string(&inception.log_entry)
+                .unwrap()
+                .find("ArkretPrincipalControlRealm")
+                .is_none()
+        );
+
+        let realm_id =
+            arkret_wire::RealmId::new("ak:realm:AZbOMvW-csKhom4LhjgFr2cuYB-cQ9oR21-cRX94cL9M")
+                .unwrap();
+        let scope_digest = Hash::new(format!("sha256:{}", "7".repeat(64))).unwrap();
+        let binding = prepare_managed_agent_binding_update(&ManagedAgentBindingUpdateInput {
+            did: &inception.did,
+            local_id: &inception.local_id,
+            previous_entries: std::slice::from_ref(&inception.log_entry),
+            version_time: inception_time + Duration::seconds(1),
+            current_root_seed: &next_seed,
+            next_root_public_key_multibase: &future_public,
+            controller_id: &controller_id,
+            principal_control_realm_id: &realm_id,
+            requested_scope_digest: &scope_digest,
+        })
+        .unwrap();
+        assert!(binding.version_id.starts_with("2-"));
+        let services = binding.log_entry["state"]["service"].as_array().unwrap();
+        assert_eq!(services.len(), 3);
+        assert_eq!(
+            services[2].pointer("/serviceEndpoint/realm_id"),
+            Some(&Value::String(realm_id.to_string()))
+        );
+        assert_eq!(
+            services[2].pointer("/serviceEndpoint/authorization_ref"),
+            Some(&Value::String(format!(
+                "{}#managed-controller",
+                inception.did
+            )))
+        );
     }
 }

@@ -8,6 +8,7 @@ use arkret_models_collaboration::events_payloads::{
     FoundingDeviceDescriptor, FoundingDeviceHpkeKeyAlgorithm, FoundingDeviceKeyAlgorithm,
     FoundingDeviceKeyPurpose, SignatureMaterial, device_authorize_payload_digest,
 };
+use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
     AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidUrl, Event, EventDigestSuiteCode,
@@ -53,6 +54,14 @@ fn fixture_event_id(seed: u8) -> EventId {
 
 fn fixture_realm(seed: u8) -> RealmId {
     RealmId::from_event_id(&fixture_event_id(seed))
+}
+
+fn fixture_resolution(full_id: DidFullId) -> ResolutionCommitment {
+    ResolutionCommitment {
+        full_id,
+        method_history_head: format!("sha256:{}", "8b".repeat(32)),
+        version_id: format!("1-{}", "Qm".to_owned() + &"a".repeat(44)),
+    }
 }
 
 impl PayloadSigner for FixtureSigner {
@@ -241,6 +250,10 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
             .map(|effect| effect.cell.as_str().to_owned())
             .collect::<BTreeSet<_>>(),
         [
+            format!(
+                "ak:cell:{}:null",
+                arkret_wire::CellFamilyId::IDENTITY_RESOLUTION_V1
+            ),
             REALM_GENESIS_CELL.to_owned(),
             REALM_CREATE_CELL.to_owned(),
             REALM_NOTARY_CELL.to_owned(),
@@ -372,6 +385,7 @@ fn managed_agent_pcr_create() -> Event {
     let controller = project_full_id_to_core_id(&controller_full).unwrap();
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: agent.clone(),
+        initial_resolution: fixture_resolution(agent_full.clone()),
         controller_id: controller.clone(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
@@ -401,8 +415,10 @@ fn managed_agent_pcr_create() -> Event {
 
 #[test]
 fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
+    let full_id = DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
-        agent_id: DidCoreId::new("ak:did_core:web:agent.example".to_owned()).unwrap(),
+        agent_id: project_full_id_to_core_id(&full_id).unwrap(),
+        initial_resolution: fixture_resolution(full_id),
         controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
@@ -446,6 +462,10 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
                 "ak:cell:{}:{}",
                 arkret_wire::CellFamilyId::AGENT_STATUS_V1,
                 create.actor_id
+            ),
+            format!(
+                "ak:cell:{}:null",
+                arkret_wire::CellFamilyId::IDENTITY_RESOLUTION_V1
             ),
             REALM_NOTARY_CELL.to_owned(),
             REALM_AUTHORITY_ROOT_CELL.to_owned(),

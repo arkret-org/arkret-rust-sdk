@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
 use arkret_models_collaboration::objects::realm::NotaryProfile;
+use arkret_models_identity::ResolutionCommitment;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
     CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
@@ -27,6 +28,10 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 pub struct ManagedAgentPcrCreatePayloadInput {
     pub agent_id: DidCoreId,
     pub controller_id: DidCoreId,
+    /// Exact, already accepted method-native inception position. The Agent
+    /// PCR commits this immutable pre-binding head; the Realm service entry is
+    /// published only by a later continuous DID update.
+    pub initial_resolution: ResolutionCommitment,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TypedTrustDomainId,
     pub capability_action_registry_digest: Hash,
@@ -37,6 +42,11 @@ pub struct ManagedAgentPcrCreatePayloadInput {
 pub fn build_managed_agent_pcr_create_payload(
     input: ManagedAgentPcrCreatePayloadInput,
 ) -> Result<RealmCreatePayload> {
+    if project_full_id_to_core_id(&input.initial_resolution.full_id)? != input.agent_id {
+        return Err(Error::Protocol(
+            "managed Agent initial_resolution full_id does not project to agent_id".to_owned(),
+        ));
+    }
     let notary = NotaryValue::single_did_with_org(
         input.agent_id.clone(),
         vec![input.controller_id.clone()],
@@ -45,6 +55,7 @@ pub fn build_managed_agent_pcr_create_payload(
     );
     let genesis = RealmGenesis::managed_agent_control(
         input.genesis_salt,
+        input.initial_resolution,
         input.trust_domain,
         vec![
             SchemaId::REALM_V1.to_owned(),
@@ -130,9 +141,10 @@ pub fn materialize_managed_agent_pcr_control(
         }
     }
     if creates.len() != 1 {
-        return Err(Error::Protocol(
-            "managed Agent PCR material requires exactly one canonical create Event".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "managed Agent PCR material requires exactly one canonical create Event (found {})",
+            creates.len()
+        )));
     }
     let (create, create_effects) = &creates[0];
     let create = *create;

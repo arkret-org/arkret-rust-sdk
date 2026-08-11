@@ -123,9 +123,9 @@ pub(crate) fn validate_realm_create_projection(
         .map(|effect| effect.cell.as_str().to_owned())
         .collect::<BTreeSet<_>>();
     if effects.len() != expected.len() || derived != expected {
-        return Err(Error::Protocol(
-            "Realm create does not derive its canonical registered genesis cells".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "Realm create does not derive its canonical registered genesis cells: expected {expected:?}, derived {derived:?}"
+        )));
     }
     Ok(())
 }

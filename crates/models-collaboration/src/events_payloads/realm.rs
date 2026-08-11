@@ -784,6 +784,7 @@ impl RealmGenesis {
     #[allow(clippy::too_many_arguments)]
     pub fn managed_agent_control(
         genesis_salt: GenesisSalt,
+        initial_resolution: arkret_models_identity::ResolutionCommitment,
         trust_domain: TypedTrustDomainId,
         schema_refs: Vec<String>,
         reducer_profile: impl Into<String>,
@@ -799,7 +800,7 @@ impl RealmGenesis {
             purpose: RealmPurpose::ManagedAgentControl,
             genesis_salt,
             founding_device_descriptor: None,
-            initial_resolution: None,
+            initial_resolution: Some(initial_resolution),
             trust_domain,
             schema_refs,
             reducer_profile: reducer_profile.into(),
@@ -827,6 +828,10 @@ impl RealmGenesis {
             ) && self.initial_resolution.is_some())
             || (self.purpose == RealmPurpose::ManagedAgentControl
                 && self.founding_device_descriptor.is_some())
+            || (matches!(
+                self.purpose,
+                RealmPurpose::PrincipalControl | RealmPurpose::ManagedAgentControl
+            ) != self.initial_resolution.is_some())
         {
             return Err(Error::Protocol(
                 "schema_violation: invalid Realm genesis identity branch".to_owned(),
@@ -834,6 +839,15 @@ impl RealmGenesis {
         }
         if let Some(descriptor) = &self.founding_device_descriptor {
             descriptor.validate()?;
+        }
+        if let Some(resolution) = &self.initial_resolution
+            && (resolution.method_history_head.is_empty()
+                || resolution.version_id.is_empty()
+                || project_full_id_to_core_id(&resolution.full_id).is_err())
+        {
+            return Err(Error::Protocol(
+                "schema_violation: invalid initial identity resolution".to_owned(),
+            ));
         }
         self.notary.validate()?;
         Ok(())

@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey, SchemaId,
-    project_full_id_to_core_id,
+    DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey,
+    PrincipalAuthorityInstance, SchemaId, project_full_id_to_core_id,
 };
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
@@ -481,6 +481,12 @@ pub enum AgentProvisionRequestBody {
     Prepare {
         operation_id: ProtocolOperationId,
         idempotency_key: IdempotencyKey,
+        /// Controller-authored, already accepted PCR-independent Agent
+        /// inception. The Principal Server verifies and pins its exact head.
+        full_id: DidFullId,
+        /// Exact controller PCR selected by this authenticated operation.
+        /// A core DID alone is never a sufficient authority-instance selector.
+        controller_authority_instance: PrincipalAuthorityInstance,
         slug: String,
         requested_scope: AgentKeyScope,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -607,6 +613,7 @@ pub enum AgentProvisionOutcome {
     AwaitingControllerEvent {
         agent_id: DidCoreId,
         full_id: DidFullId,
+        initial_resolution: arkret_models_identity::ResolutionCommitment,
         controller_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
@@ -615,6 +622,16 @@ pub enum AgentProvisionOutcome {
     AwaitingPcrGenesis {
         agent_id: DidCoreId,
         full_id: DidFullId,
+        initial_resolution: arkret_models_identity::ResolutionCommitment,
+        principal_control_realm_id: RealmId,
+        allocation_handle: ProtocolOpaqueId,
+        controller_authorization_ref: DidUrl,
+        requested_scope_digest: Hash,
+    },
+    AwaitingDidBinding {
+        agent_id: DidCoreId,
+        full_id: DidFullId,
+        initial_resolution: arkret_models_identity::ResolutionCommitment,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
@@ -632,6 +649,7 @@ pub enum AgentProvisionOutcome {
 pub struct AgentProvisionComplete {
     pub agent_id: DidCoreId,
     pub full_id: DidFullId,
+    pub initial_resolution: arkret_models_identity::ResolutionCommitment,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,

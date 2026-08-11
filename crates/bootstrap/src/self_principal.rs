@@ -56,6 +56,11 @@ pub fn build_self_principal_pcr_create(
             "self principal full DID does not project to principal_id".to_owned(),
         ));
     }
+    if input.initial_resolution.full_id != input.principal_full_id {
+        return Err(Error::Protocol(
+            "self principal initial_resolution does not match principal_full_id".to_owned(),
+        ));
+    }
     if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE
         || !input.did_inception_ref.critical
         || input.did_inception_ref.proof.is_some()
