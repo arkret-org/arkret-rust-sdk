@@ -341,7 +341,6 @@ fn managed_agent_pcr_create() -> Event {
     let controller = project_full_id_to_core_id(&controller_full).unwrap();
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: agent.clone(),
-        agent_full_id: agent_full.clone(),
         controller_id: controller.clone(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
@@ -373,7 +372,6 @@ fn managed_agent_pcr_create() -> Event {
 fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: DidCoreId::new("ak:did_core:web:agent.example".to_owned()).unwrap(),
-        agent_full_id: DidFullId::new("did:web:agent.example").unwrap(),
         controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),

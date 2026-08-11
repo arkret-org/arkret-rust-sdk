@@ -105,9 +105,9 @@ pub fn call_media_token_exchange(
     }
 }
 
-/// The set of media-service DIDs anchored by the current epoch's
-/// `ak.realm.media_service.service_id` (`media-service-binding.md` §2.1 / §3),
-/// together with the ed25519 verifying keys those DIDs publish.
+/// Verified media-service routes anchored by the current epoch's core
+/// `ak.realm.media_service.service_id`, together with each route's current full
+/// DID and the ed25519 keys published by that exact DID version.
 ///
 /// Token issuer `kid`s MUST resolve to one of these DIDs, otherwise the client
 /// rejects the token with `token_issuer_unauthorised`. The SDK is a pure
@@ -120,45 +120,72 @@ pub fn call_media_token_exchange(
 /// with `token_issuer_unauthorised`.
 #[derive(Clone, Debug, Default)]
 pub struct MediaServiceAnchors {
-    service_ids: BTreeMap<String, ()>,
+    routes: BTreeMap<DidCoreId, DidFullId>,
     /// Issuer verifying keys keyed by their full `kid` (`did:...#fragment`).
     keys: BTreeMap<String, VerifyingKey>,
 }
 
 impl MediaServiceAnchors {
-    /// Build an anchor set from the current epoch's media-service DIDs.
+    /// Build an anchor set from verified `(service core, current full DID)` routes.
     ///
     /// The returned set carries no verifying keys; callers MUST add them with
     /// [`with_keys`](Self::with_keys) / [`insert_key`](Self::insert_key) before
     /// passing it to [`verify_call_media_token_outcome`], otherwise signature
     /// verification fails closed with `token_issuer_unauthorised`.
-    pub fn new(service_ids: impl IntoIterator<Item = DidFullId>) -> Self {
-        Self {
-            service_ids: service_ids
-                .into_iter()
-                .map(|did| (did.as_str().to_owned(), ()))
-                .collect(),
-            keys: BTreeMap::new(),
+    pub fn new(routes: impl IntoIterator<Item = (DidCoreId, DidFullId)>) -> Result<Self> {
+        let mut verified_routes = BTreeMap::new();
+        for (service_id, full_id) in routes {
+            if arkret_wire::project_full_id_to_core_id(&full_id)? != service_id {
+                return Err(Error::Protocol(
+                    "media service route full DID does not project to service_id".to_owned(),
+                ));
+            }
+            if verified_routes.insert(service_id, full_id).is_some() {
+                return Err(Error::Protocol(
+                    "media service route set contains a duplicate service_id".to_owned(),
+                ));
+            }
         }
+        Ok(Self {
+            routes: verified_routes,
+            keys: BTreeMap::new(),
+        })
     }
 
     /// Register an issuer verifying key under its full `kid`
     /// (`did:...#fragment`). Returns `self` for builder-style chaining.
-    pub fn with_keys(mut self, keys: impl IntoIterator<Item = (String, VerifyingKey)>) -> Self {
+    pub fn with_keys(
+        mut self,
+        keys: impl IntoIterator<Item = (String, VerifyingKey)>,
+    ) -> Result<Self> {
         for (kid, key) in keys {
-            self.keys.insert(kid, key);
+            self.insert_key(kid, key)?;
         }
-        self
+        Ok(self)
     }
 
     /// Register a single issuer verifying key under its full `kid`.
-    pub fn insert_key(&mut self, kid: impl Into<String>, key: VerifyingKey) {
-        self.keys.insert(kid.into(), key);
+    pub fn insert_key(&mut self, kid: impl Into<String>, key: VerifyingKey) -> Result<()> {
+        let kid = kid.into();
+        if !kid.contains('#') || !self.contains(did_from_kid(&kid)) {
+            return Err(Error::Protocol(
+                "media service key kid is outside the verified current service routes".to_owned(),
+            ));
+        }
+        self.keys.insert(kid, key);
+        Ok(())
     }
 
     /// True when `did` (a bare DID, no `#fragment`) is anchored.
     pub fn contains(&self, did: &str) -> bool {
-        self.service_ids.contains_key(did)
+        self.routes.values().any(|full_id| full_id.as_str() == did)
+    }
+
+    /// True when the exact core/full route pair is present.
+    pub fn contains_route(&self, service_id: &DidCoreId, full_id: &DidFullId) -> bool {
+        self.routes
+            .get(service_id)
+            .is_some_and(|current| current == full_id)
     }
 
     /// Look up the verifying key for a full `kid` (`did:...#fragment`).
@@ -169,7 +196,7 @@ impl MediaServiceAnchors {
     /// True when the anchor set is empty (no media service declared); callers
     /// MUST treat this as fail-closed for issuer anchoring.
     pub fn is_empty(&self) -> bool {
-        self.service_ids.is_empty()
+        self.routes.is_empty()
     }
 }
 
@@ -418,8 +445,10 @@ mod tests {
 
     /// Anchor set carrying the issuer verifying key under [`ISSUER_KID`].
     fn anchors_with_issuer_key(key: &SigningKey) -> MediaServiceAnchors {
-        MediaServiceAnchors::new([did("media")])
+        MediaServiceAnchors::new([(actor("media"), did("media"))])
+            .unwrap()
             .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())])
+            .unwrap()
     }
 
     fn token_request() -> CallMediaTokenExchangeRequestBody {
@@ -530,8 +559,13 @@ mod tests {
         let outcome = signed_outcome(&request, &key, now + chrono::Duration::minutes(5));
 
         // Issuer DID not in the anchor set.
-        let anchors = MediaServiceAnchors::new([did("other")])
-            .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())]);
+        let anchors = MediaServiceAnchors::new([(actor("other"), did("other"))]).unwrap();
+        assert!(
+            anchors
+                .clone()
+                .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())])
+                .is_err()
+        );
         let err = verify_call_media_token_outcome(&request, &outcome, &anchors, now).unwrap_err();
         assert!(err.to_string().contains("token_issuer_unauthorised"));
 
@@ -553,7 +587,7 @@ mod tests {
         assert!(verify_call_media_token_outcome(&request, &good, &anchors, now).is_ok());
 
         // Anchor DID present but no verifying key registered → fail closed.
-        let keyless = MediaServiceAnchors::new([did("media")]);
+        let keyless = MediaServiceAnchors::new([(actor("media"), did("media"))]).unwrap();
         let err = verify_call_media_token_outcome(&request, &good, &keyless, now).unwrap_err();
         assert!(err.to_string().contains("token_issuer_unauthorised"));
 

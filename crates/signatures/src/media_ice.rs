@@ -227,8 +227,10 @@ mod tests {
     }
 
     fn anchors_with_issuer_key(key: &SigningKey) -> MediaServiceAnchors {
-        MediaServiceAnchors::new([did("media")])
+        MediaServiceAnchors::new([(actor("media"), did("media"))])
+            .unwrap()
             .with_keys([(MEDIA_KID.to_owned(), key.verifying_key())])
+            .unwrap()
     }
 
     fn sign_ice_outcome(
@@ -347,7 +349,7 @@ mod tests {
         tampered.ttl_seconds += 1;
         assert!(verify_ice_config_outcome(&tampered, &anchors).is_err());
 
-        let no_key = MediaServiceAnchors::new([did("media")]);
+        let no_key = MediaServiceAnchors::new([(actor("media"), did("media"))]).unwrap();
         let signed = signed_ice_outcome(MEDIA_KID, &key);
         assert!(verify_ice_config_outcome(&signed, &no_key).is_err());
     }

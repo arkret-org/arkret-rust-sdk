@@ -1,7 +1,10 @@
 //! Typed identity-resolution carriers shared by service discovery and
 //! high-risk service-to-service authentication.
 
-use arkret_wire::{DidCoreId, DidFullId, Event, Hash, ProtocolSignature, RealmId, RequestId, Seal};
+use arkret_wire::{
+    DidCoreId, DidFullId, Event, EventBatchReceipt, EventBatchReceiptEvent, EventKind, Hash,
+    PrincipalAuthorityInstance, ProtocolSignature, RealmId, RequestId, ScopeRef, Seal,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -72,7 +75,9 @@ pub struct PrincipalResolutionCellProof {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionEvidence {
     pub principal_id: DidCoreId,
+    pub authority_instance: PrincipalAuthorityInstance,
     pub principal_control_realm_id: RealmId,
+    pub principal_genesis_receipt: EventBatchReceipt,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub principal_genesis_event: PrincipalGenesisEvent,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -83,6 +88,58 @@ pub struct PrincipalResolutionEvidence {
     pub resolution_cell_proof: PrincipalResolutionCellProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method_history_evidence: Option<ResolutionMethodHistoryEvidence>,
+}
+
+impl PrincipalResolutionEvidence {
+    /// Validate the self-contained PCR authority selector and genesis anchor.
+    ///
+    /// This verifies canonical digests and every local reverse binding. Receipt
+    /// and Event signatures still require the caller's trusted key resolver.
+    pub fn validate_authority_binding(&self) -> arkret_wire::Result<()> {
+        self.authority_instance.validate()?;
+        self.principal_genesis_receipt.validate()?;
+        let receipt_scope = self.principal_genesis_receipt.pcr_genesis_scope()?;
+        let genesis = &self.principal_genesis_event.0;
+        genesis.verify_event_id_matches_content()?;
+
+        let receipt_digest = Hash::new(arkret_canonical::canonical_sha256(
+            &self.principal_genesis_receipt,
+        )?)?;
+        let genesis_digest = Hash::new(genesis.event_digest()?)?;
+        let expected_realm_id = RealmId::from_event_id(&genesis.event_id);
+        let receipt_covers_exact_genesis =
+            self.principal_genesis_receipt.events.iter().any(|event| {
+                matches!(
+                    event,
+                    EventBatchReceiptEvent::Item(item)
+                        if item.event_id == genesis.event_id
+                            && item.event_digest == genesis_digest
+                            && item.kind.as_str() == EventKind::RealmCreate.as_str()
+                )
+            });
+
+        if self.authority_instance.principal_id != self.principal_id
+            || self.authority_instance.pcr_realm_id != self.principal_control_realm_id
+            || self.authority_instance.principal_server_id != self.principal_genesis_receipt.issuer
+            || self.authority_instance.principal_genesis_receipt_digest != receipt_digest
+            || receipt_scope.principal_id != self.principal_id
+            || receipt_scope.realm_id != self.principal_control_realm_id
+            || receipt_scope.create_digest != genesis_digest
+            || genesis.kind != EventKind::RealmCreate
+            || genesis.scope_ref != ScopeRef::RealmGenesis
+            || genesis.actor_id != self.principal_id
+            || genesis.realm_id != self.principal_control_realm_id
+            || expected_realm_id != self.principal_control_realm_id
+            || !receipt_covers_exact_genesis
+            || self.accepted_seal.realm_id != self.principal_control_realm_id
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "principal resolution evidence authority/genesis reverse binding mismatch"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

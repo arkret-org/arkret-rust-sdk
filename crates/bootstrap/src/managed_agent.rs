@@ -12,10 +12,10 @@ use arkret_state::{
     join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, DidCoreId, DidFullId, EncryptionProfile, Error, Event, EventKind,
-    GenesisSalt, Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId,
-    RealmId, Result, SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId,
-    event_spec, project_full_id_to_core_id,
+    AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Error, Event, EventKind, GenesisSalt,
+    Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result,
+    SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId, event_spec,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -26,8 +26,6 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 #[derive(Clone, Debug)]
 pub struct ManagedAgentPcrCreatePayloadInput {
     pub agent_id: DidCoreId,
-    /// Resolvable DID admitted for the Agent and published as Realm notary.
-    pub agent_full_id: DidFullId,
     pub controller_id: DidCoreId,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TypedTrustDomainId,
@@ -39,11 +37,6 @@ pub struct ManagedAgentPcrCreatePayloadInput {
 pub fn build_managed_agent_pcr_create_payload(
     input: ManagedAgentPcrCreatePayloadInput,
 ) -> Result<RealmCreatePayload> {
-    if project_full_id_to_core_id(&input.agent_full_id)? != input.agent_id {
-        return Err(Error::Protocol(
-            "managed Agent full DID does not project to agent_id".to_owned(),
-        ));
-    }
     let notary = NotaryValue::single_did_with_org(
         input.agent_id.clone(),
         vec![input.controller_id.clone()],

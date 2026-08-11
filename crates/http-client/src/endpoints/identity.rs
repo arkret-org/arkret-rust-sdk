@@ -29,7 +29,7 @@ use arkret_models_identity::{
     OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
     PrincipalResolutionEvidence, ServiceResolutionRecord,
 };
-use arkret_wire::{DidCoreId, ServiceKind};
+use arkret_wire::{DidCoreId, Hash, ServiceKind};
 use reqwest::Method;
 
 use crate::{Client, Error, Result};
@@ -40,6 +40,7 @@ impl Client {
     pub async fn open_principal_resolution(
         &self,
         principal_id: &DidCoreId,
+        authority_instance_digest: &Hash,
         history_depth: Option<u16>,
         after_resolution_event_ref: Option<&str>,
     ) -> Result<PrincipalResolutionEvidence> {
@@ -51,7 +52,10 @@ impl Client {
         let encoded = url::form_urlencoded::byte_serialize(principal_id.as_str().as_bytes())
             .collect::<String>();
         let path = format!("/_arkret/open/principals/{encoded}/resolution");
-        let mut builder = self.public_request(Method::GET, &path)?;
+        let mut builder = self.public_request(Method::GET, &path)?.query(&[(
+            "authority_instance_digest",
+            authority_instance_digest.as_str(),
+        )]);
         if let Some(depth) = history_depth {
             builder = builder.query(&[("history_depth", depth)]);
         }
