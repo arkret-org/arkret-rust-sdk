@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-11.1;
 //! sha256=08cc5358116a87eb93b62d7c54a552d3f5046d78e18093e72cd679414f175fa9 Input: registry/
-//! capability-action-registry.json; version=2026-08-11.11;
-//! sha256=bc9fa81cf8cdd947967d68c9fe8abf75f5f14dfadd6c5c1003c7787814b8e351 Input: registry/
-//! schema-registry.json; version=2026-08-11.1;
-//! sha256=190d5089fe8a1cf8b066422905da535faf50bcb8287b181eb12f21d2957ba36d Input: registry/
+//! capability-action-registry.json; version=2026-08-12.1;
+//! sha256=71da09708636ef13e2f8b564333fa86eecafa85c7a67fd800d307ef986c8575a Input: registry/
+//! schema-registry.json; version=2026-08-12.1;
+//! sha256=838e6162eda014c234e8cfae0e5783661a32dc4b97207c6978424da379295b7b Input: registry/
 //! account-data-key-registry.json; version=2026-08-10;
 //! sha256=281aeb5dbec015ec79e13b02d2d641fea690936ee7b0c8290137a83560b72077 Entries: id_kinds=56,
-//! special_forms=11, actions=171, schemas=183, account_data_patterns=24
+//! special_forms=11, actions=171, schemas=184, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3371,6 +3371,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::MODERATION_APPEAL_V1,
         file: "schemas/moderation-appeal.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MODERATION_EVIDENCE_V1,
+        file: "schemas/moderation-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MODERATION_QUEUE_ITEM_V1,

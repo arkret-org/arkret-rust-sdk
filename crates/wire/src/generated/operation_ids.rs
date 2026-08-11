@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-11.9;
-//! sha256=7523a515996372ef1aa0998dfa959a6134dd65e14458bec9d57fa1525b8475cb Entries: registered=236
+//! Input: registry/operation-registry.json; version=2026-08-12.1;
+//! sha256=6c998431940f347ec2b24c686bd45b88b29974c8493aaa1157281c28101a0c78 Entries: registered=236
 
 use serde::{Deserialize, Serialize};
 
@@ -6275,13 +6275,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
-        request_schema_ref: Some("schemas/moderation-report.schema.json"),
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/moderation-report.schema.json#/$defs/moderation_report_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/ModerationReportOutcome",
         ),
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),

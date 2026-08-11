@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-11.1;
-//! sha256=190d5089fe8a1cf8b066422905da535faf50bcb8287b181eb12f21d2957ba36d Entries: schema_ids=183,
-//! active=183
+//! Input: registry/schema-registry.json; version=2026-08-12.1;
+//! sha256=838e6162eda014c234e8cfae0e5783661a32dc4b97207c6978424da379295b7b Entries: schema_ids=184,
+//! active=184
 
 use serde::{Deserialize, Serialize};
 
@@ -118,6 +118,7 @@ pub enum SchemaId {
     MimiOperationsV1,
     MlsGovernanceProofBundleV1,
     ModerationAppealV1,
+    ModerationEvidenceV1,
     ModerationQueueItemV1,
     ModerationReportV1,
     MorphCustomerRiskExtV1,
@@ -305,6 +306,7 @@ impl SchemaId {
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
         Self::ModerationAppealV1,
+        Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
         Self::MorphCustomerRiskExtV1,
@@ -492,6 +494,7 @@ impl SchemaId {
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
         Self::ModerationAppealV1,
+        Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
         Self::MorphCustomerRiskExtV1,
@@ -873,6 +876,7 @@ impl SchemaId {
     pub const MLS_GOVERNANCE_PROOF_BUNDLE_V1: &'static str =
         "ak.schema.mls_governance_proof_bundle.v1";
     pub const MODERATION_APPEAL_V1: &'static str = "ak.schema.moderation_appeal.v1";
+    pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
     pub const MODERATION_QUEUE_ITEM_V1: &'static str = "ak.schema.moderation_queue_item.v1";
     pub const MODERATION_REPORT_V1: &'static str = "ak.schema.moderation_report.v1";
     /// Reference additive extension business-field schema for the customer_risk example, used by
@@ -1187,6 +1191,7 @@ impl SchemaId {
             Self::MimiOperationsV1 => Self::MIMI_OPERATIONS_V1,
             Self::MlsGovernanceProofBundleV1 => Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
             Self::ModerationAppealV1 => Self::MODERATION_APPEAL_V1,
+            Self::ModerationEvidenceV1 => Self::MODERATION_EVIDENCE_V1,
             Self::ModerationQueueItemV1 => Self::MODERATION_QUEUE_ITEM_V1,
             Self::ModerationReportV1 => Self::MODERATION_REPORT_V1,
             Self::MorphCustomerRiskExtV1 => Self::MORPH_CUSTOMER_RISK_EXT_V1,
@@ -1405,6 +1410,7 @@ impl SchemaId {
             Self::MimiOperationsV1 => "schemas/mimi-operations.schema.json",
             Self::MlsGovernanceProofBundleV1 => "schemas/mls-governance-proof-bundle.schema.json",
             Self::ModerationAppealV1 => "schemas/moderation-appeal.schema.json",
+            Self::ModerationEvidenceV1 => "schemas/moderation-evidence.schema.json",
             Self::ModerationQueueItemV1 => "schemas/moderation-queue-item.schema.json",
             Self::ModerationReportV1 => "schemas/moderation-report.schema.json",
             Self::MorphCustomerRiskExtV1 => "schemas/morph-customer-risk-ext.schema.json",
@@ -1625,6 +1631,7 @@ impl SchemaId {
             Self::MIMI_OPERATIONS_V1 => Some(Self::MimiOperationsV1),
             Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1 => Some(Self::MlsGovernanceProofBundleV1),
             Self::MODERATION_APPEAL_V1 => Some(Self::ModerationAppealV1),
+            Self::MODERATION_EVIDENCE_V1 => Some(Self::ModerationEvidenceV1),
             Self::MODERATION_QUEUE_ITEM_V1 => Some(Self::ModerationQueueItemV1),
             Self::MODERATION_REPORT_V1 => Some(Self::ModerationReportV1),
             Self::MORPH_CUSTOMER_RISK_EXT_V1 => Some(Self::MorphCustomerRiskExtV1),

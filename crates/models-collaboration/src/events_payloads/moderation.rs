@@ -1,6 +1,8 @@
 //! Moderation schema artifact counterparts and event payloads.
 
-use arkret_wire::{DidCoreId, DidFullId};
+use arkret_wire::{
+    DeviceId, DidCoreId, DidFullId, DidUrl, FrankingProofId, project_full_id_to_core_id,
+};
 
 use crate::internal_prelude::*;
 
@@ -85,14 +87,50 @@ pub struct SubmitPayload {
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json#/$defs/target_ref`.
 pub type TargetRef = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/moderation-report.schema.json#/$defs/franking_proof`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/moderation-evidence.schema.json#/$defs/evidence_package`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ModerationEvidencePackage {
+    pub target_refs: Vec<ObjectRef>,
+    pub encryption: String,
+    pub recipient_public_key_ref: DidUrl,
+    pub encrypted_to: DidUrl,
+    pub ciphertext: String,
+    pub ciphertext_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plaintext_digest: Option<Hash>,
+    pub reporter_signature: String,
+}
+
+impl ModerationEvidencePackage {
+    pub fn validate_for_target(&self, target_ref: &str) -> Result<()> {
+        if self.target_refs.len() != 1
+            || self.target_refs[0] != target_ref
+            || self.encryption.trim().is_empty()
+            || self.ciphertext.is_empty()
+            || self.reporter_signature.trim().is_empty()
+            || self.recipient_public_key_ref != self.encrypted_to
+        {
+            return Err(Error::Protocol(
+                "moderation evidence package does not bind the exact target and recipient key"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/moderation-evidence.schema.json#/$defs/franking_proof`.
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct FrankingProofSenderClaim {
     pub actor_id: DidCoreId,
-    pub device_id: String,
+    pub device_id: DeviceId,
     pub mls_group_id_digest: Hash,
 }
 
@@ -101,7 +139,7 @@ pub struct FrankingProofSenderClaim {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct FrankingProof {
     pub kind: String,
-    pub franking_proof_id: String,
+    pub franking_proof_id: FrankingProofId,
     pub realm_id: RealmId,
     pub event_id: EventId,
     pub routing_metadata_digest: Hash,
@@ -109,6 +147,7 @@ pub struct FrankingProof {
     pub aad_digest: Hash,
     pub sender_claim: FrankingProofSenderClaim,
     pub received_by: DidCoreId,
+    pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     pub replay_nonce: String,
@@ -173,6 +212,20 @@ impl FrankingProof {
                     .to_owned(),
             ));
         }
+        let controller = self
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(controller, _)| controller)
+            .ok_or_else(|| {
+                Error::Protocol("franking proof verification_method has no fragment".to_owned())
+            })?;
+        if project_full_id_to_core_id(&DidFullId::new(controller.to_owned())?)? != self.received_by
+        {
+            return Err(Error::Protocol(
+                "franking proof verification_method does not belong to received_by".to_owned(),
+            ));
+        }
         let skew_secs = self
             .received_at
             .signed_duration_since(anchor.received_at)
@@ -218,7 +271,10 @@ mod tests {
     fn proof() -> FrankingProof {
         FrankingProof {
             kind: EventKind::ModerationFrankingProof.to_string(),
-            franking_proof_id: "ak:franking_proof:01904100-0000-7000-8000-000000000111".to_owned(),
+            franking_proof_id: FrankingProofId::new(
+                "ak:franking_proof:01904100-0000-7000-8000-000000000111",
+            )
+            .unwrap(),
             realm_id: realm_id(),
             event_id: event_id("ak:event:AY3aEHEku45kFksenyEUUeJDYGC8pcxJwaT9PypXoEZw"),
             routing_metadata_digest: hash('c'),
@@ -226,10 +282,14 @@ mod tests {
             aad_digest: hash('e'),
             sender_claim: FrankingProofSenderClaim {
                 actor_id: did("did:webvh:z6mkfixturealice:alice.example"),
-                device_id: "ak:device:01904100-0000-7000-8000-000000000333".to_owned(),
+                device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000333").unwrap(),
                 mls_group_id_digest: hash('f'),
             },
             received_by: did("did:webvh:z6mkfixturesoland:soland.local"),
+            verification_method: DidUrl::new(
+                "did:webvh:z6mkfixturesoland:soland.local#moderation-1",
+            )
+            .unwrap(),
             received_at: timestamp("2026-04-30T00:00:00.000Z"),
             replay_nonce: "nonce_0123456789".to_owned(),
             signature: "sig".to_owned(),
@@ -325,9 +385,9 @@ pub struct ModerationReportPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_refs: Option<Vec<ObjectRef>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_package: Option<BTreeMap<String, Value>>,
+    pub evidence_package: Option<ModerationEvidencePackage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub franking_proof: Option<BTreeMap<String, Value>>,
+    pub franking_proof: Option<FrankingProof>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -358,6 +418,58 @@ impl ModerationReportPayload {
                     );
                 }
             }
+        }
+        Ok(())
+    }
+
+    /// Validate the stricter self-service moderation-report operation face.
+    pub fn validate_self_endpoint(
+        &self,
+        actor_id: &DidCoreId,
+    ) -> std::result::Result<(), &'static str> {
+        self.validate_provenance(actor_id)?;
+        if self.provenance == Some(ModerationReportProvenance::MimiFacade)
+            || self.source_provider.is_some()
+        {
+            return Err("self moderation report forbids MIMI facade provenance");
+        }
+        if !matches!(
+            self.report_reason_code.as_str(),
+            "spam" | "harassment" | "hate_speech" | "nsfw" | "illegal" | "misinformation" | "other"
+        ) {
+            return Err("moderation report_reason_code is not registered");
+        }
+        if self.report_reason_code == "other"
+            && self
+                .description
+                .as_deref()
+                .is_none_or(|description| description.trim().is_empty())
+        {
+            return Err("moderation report reason other requires a non-empty description");
+        }
+        if self.target_ref.trim().is_empty() {
+            return Err("moderation report target_ref must not be empty");
+        }
+        if self.evidence_refs.as_ref().is_some_and(|refs| {
+            refs.iter()
+                .enumerate()
+                .any(|(index, value)| refs[..index].contains(value))
+        }) {
+            return Err("moderation report evidence_refs must be unique");
+        }
+        if self
+            .evidence_package
+            .as_ref()
+            .is_some_and(|package| package.validate_for_target(&self.target_ref).is_err())
+        {
+            return Err("moderation evidence package does not bind the report target");
+        }
+        if self
+            .franking_proof
+            .as_ref()
+            .is_some_and(|proof| proof.realm_id != self.realm_id)
+        {
+            return Err("moderation franking proof does not match the report Realm");
         }
         Ok(())
     }

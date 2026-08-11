@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-11.9;
-//! sha256=7523a515996372ef1aa0998dfa959a6134dd65e14458bec9d57fa1525b8475cb Input: registry/
-//! operations-error-mapping.json; version=2026-08-11.2;
-//! sha256=dd4f18c3d7d0c5b5e927bd9a79cad32f83fed13e770f1de414974062f0790eae Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-12.1;
+//! sha256=6c998431940f347ec2b24c686bd45b88b29974c8493aaa1157281c28101a0c78 Input: registry/
+//! operations-error-mapping.json; version=2026-08-12.1;
+//! sha256=bdffb9e945acb200e1863bedb33ea7005d796d1f1f07dcb553eac16e02732260 Input: registry/
 //! error-code-registry.json; version=2026-08-11.3;
 //! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878 Entries: operations=236
 
@@ -1346,7 +1346,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfModerationCommandReport,
-        operation_specific: &[],
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ReasonCode(ReasonCode::EvidenceRecipientMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfMorphReadList,
