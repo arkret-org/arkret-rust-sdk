@@ -510,7 +510,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
         || payload
             .proofs
             .iter()
-            .any(|proof| proof.event_digest.as_str() != payload_digest)
+            .any(|proof| proof.payload_digest.as_str() != payload_digest)
     {
         return Err(RangeCompletenessError::SchemaViolation(
             "attestation payload proof digest is invalid".to_owned(),
@@ -551,7 +551,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, Proof, ScopeRef,
+        DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, PayloadProof, Proof, ScopeRef,
         project_full_id_to_core_id, proof_kind,
     };
     use chrono::{TimeZone, Utc};
@@ -658,10 +658,10 @@ mod tests {
         };
         let payload_digest =
             arkret_canonical::sha256_digest(payload.proof_payload_bytes().unwrap());
-        payload.proofs.push(Proof {
+        payload.proofs.push(PayloadProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
-            event_digest: Hash::new(payload_digest).unwrap(),
+            payload_digest: Hash::new(payload_digest).unwrap(),
             created_at,
             domain: None,
             audience: None,
@@ -775,7 +775,7 @@ mod tests {
             .payload
             .get_mut("proofs")
             .and_then(Value::as_array_mut)
-            .unwrap()[0]["event_digest"] = json!(arkret_canonical::sha256_digest(
+            .unwrap()[0]["payload_digest"] = json!(arkret_canonical::sha256_digest(
             tampered_payload.proof_payload_bytes().unwrap()
         ));
         tampered.proofs[0].event_digest = Hash::new(tampered.event_digest().unwrap()).unwrap();
@@ -853,7 +853,7 @@ mod tests {
             .payload
             .get_mut("proofs")
             .and_then(Value::as_array_mut)
-            .unwrap()[0]["event_digest"] = json!(arkret_canonical::sha256_digest(
+            .unwrap()[0]["payload_digest"] = json!(arkret_canonical::sha256_digest(
             tampered_payload.proof_payload_bytes().unwrap()
         ));
         proof.proofs[0].event_digest = Hash::new(proof.event_digest().unwrap()).unwrap();

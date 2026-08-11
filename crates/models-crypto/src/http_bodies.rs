@@ -8,8 +8,9 @@ use std::collections::BTreeSet;
 
 use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, FederatedDeviceSigningKeyEvidence, Hash,
-    KeyPackageRef, NonEmptyString, RealmId, ServiceOperationId, StrandId, TypedTrustDomainId,
+    Base64UrlString, DeviceId, DidCoreId, DidFullId, DidUrl, EventId,
+    FederatedDeviceSigningKeyEvidence, Hash, KeyPackageRef, NonEmptyString, RealmId,
+    ServiceOperationId, StrandId, TypedTrustDomainId, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -279,12 +280,16 @@ impl KeyPackagesClaimRequestBody {
             ));
         }
         let proof = &self.holder_acceptance_proof;
+        let signer_matches_requester = proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .and_then(|(controller, _)| DidFullId::new(controller.to_owned()).ok())
+            .and_then(|controller| project_full_id_to_core_id(&controller).ok())
+            .is_some_and(|controller| controller == self.requester);
         if proof.audience.as_core_id() != authority_service_id.as_core_id()
             || proof.payload_digest != self.payload_digest()?
-            || !proof
-                .verification_method
-                .as_str()
-                .starts_with(&format!("{}#", self.requester))
+            || !signer_matches_requester
             || proof.created_at > verifier_now + Duration::seconds(60)
             || proof.created_at >= self.expires_at
             || self.expires_at > proof.created_at + Duration::seconds(300)

@@ -1,6 +1,6 @@
 //! Sync, realm, and snapshot schema artifact counterparts.
 
-use arkret_wire::{DidCoreId, SchemaId};
+use arkret_wire::{DidCoreId, PayloadProof, ProofContextId, SchemaId};
 
 use crate::internal_prelude::*;
 
@@ -73,7 +73,7 @@ pub struct RangeCompletenessAttestation {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     pub witness_attestation: RangeCompletenessAttestationWitnessAttestation,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 impl RangeCompletenessAttestation {
@@ -89,6 +89,57 @@ impl RangeCompletenessAttestation {
         })?;
         object.remove("proofs");
         Ok(canonical::canonical_json_bytes(&value)?)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            &self.proof_payload_bytes()?,
+        ))?)
+    }
+
+    /// Canonical detached-proof transcript registered for the range
+    /// completeness object family.
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        let payload_digest = self.payload_digest()?;
+        if proof.payload_digest != payload_digest {
+            return Err(Error::Protocol(
+                "range completeness proof payload_digest mismatch".to_owned(),
+            ));
+        }
+        let mut binding = serde_json::Map::from_iter([
+            (
+                "context".to_owned(),
+                Value::String(ProofContextId::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1.to_owned()),
+            ),
+            (
+                "payload_digest".to_owned(),
+                serde_json::to_value(&payload_digest)?,
+            ),
+            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
+            (
+                "scope".to_owned(),
+                serde_json::json!({
+                    "realm_id": self.realm_id,
+                    "event_range": self.event_range,
+                }),
+            ),
+            (
+                "verification_method".to_owned(),
+                serde_json::to_value(&proof.verification_method)?,
+            ),
+            (
+                "created_at".to_owned(),
+                serde_json::to_value(proof.created_at)?,
+            ),
+        ]);
+        if let Some(domain) = &proof.domain {
+            binding.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &proof.audience {
+            binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        Ok(canonical::canonical_json_bytes(&Value::Object(binding))?)
     }
 }
 

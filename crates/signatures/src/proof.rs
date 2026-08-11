@@ -35,7 +35,7 @@ use std::fmt;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
-use arkret_wire::{DidUrl, Hash, Proof, SignalEnvelope, proof_kind};
+use arkret_wire::{DidUrl, Hash, PayloadProof, Proof, SignalEnvelope, proof_kind};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -189,6 +189,25 @@ pub fn verify_ed25519_detached_jws_proof_with_digest_suite(
         public_key,
         digest_suite,
     )
+}
+
+/// Verify a non-Event detached payload proof over an object-family canonical
+/// binding transcript. The owning model constructs `binding_bytes` with its
+/// registered proof context and rejects a mismatched payload digest first.
+pub fn verify_ed25519_detached_jws_payload_proof(
+    proof: &PayloadProof,
+    binding_bytes: &[u8],
+    public_key: &PublicKeyMaterial,
+) -> std::result::Result<(), VerifierError> {
+    if binding_bytes.is_empty() {
+        return Err(VerifierError::Encoding(
+            "payload proof binding bytes must not be empty".to_owned(),
+        ));
+    }
+    proof
+        .validate_production()
+        .map_err(|error| VerifierError::Binding(error.to_string()))?;
+    verify_detached_jws_over(&proof.jws, binding_bytes, public_key)
 }
 
 /// Verify a [`SignalEnvelope`] against the sending device's key.

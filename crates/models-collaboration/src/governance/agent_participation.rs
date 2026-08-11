@@ -199,10 +199,21 @@ pub fn effective_participation(
     ceiling.intersect(selection)
 }
 
+/// Largest accepted version that can still be echoed into the next replace
+/// request under the closed schema.
+pub const MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION: u64 = i64::MAX as u64 - 1;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ParticipationNextReplaceInput {
+    pub expected_version: u64,
+}
+
 /// One controller-owned, versioned per-scope participation selection.
 /// Governance and deployment ceilings are evaluated at action time and are
 /// intentionally not copied into this authority record.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationEntry {
@@ -210,6 +221,51 @@ pub struct AgentParticipationEntry {
     pub scope: ParticipationScope,
     pub selection: ParticipationBits,
     pub version: u64,
+    pub next_replace_input: ParticipationNextReplaceInput,
+}
+
+impl AgentParticipationEntry {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.version == 0 || self.version > MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION {
+            return Err(
+                "agent participation entry version is outside the replace echo range".to_owned(),
+            );
+        }
+        if self.next_replace_input.expected_version != self.version {
+            return Err(
+                "agent participation next_replace_input.expected_version must equal version"
+                    .to_owned(),
+            );
+        }
+        Ok(())
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AgentParticipationEntryWire {
+    #[serde(rename = "target_scope")]
+    scope: ParticipationScope,
+    selection: ParticipationBits,
+    version: u64,
+    next_replace_input: ParticipationNextReplaceInput,
+}
+
+impl<'de> Deserialize<'de> for AgentParticipationEntry {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = AgentParticipationEntryWire::deserialize(deserializer)?;
+        let entry = Self {
+            scope: wire.scope,
+            selection: wire.selection,
+            version: wire.version,
+            next_replace_input: wire.next_replace_input,
+        };
+        entry.validate().map_err(serde::de::Error::custom)?;
+        Ok(entry)
+    }
 }
 
 /// Response for `ak.self.agent.participation.{set,get}`.
@@ -371,5 +427,51 @@ mod tests {
             .scope_key(),
             "strand:ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_:ak:strand:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH"
         );
+    }
+
+    #[test]
+    fn participation_entry_carries_exact_next_replace_echo() {
+        let value = serde_json::json!({
+            "target_scope": {
+                "kind": "realm",
+                "realm_id": "ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_"
+            },
+            "selection": {
+                "reply_message": true,
+                "reaction_add": false,
+                "reaction_remove": false,
+                "accept_third_party_mention": false,
+                "act_on_behalf": false
+            },
+            "version": 7,
+            "next_replace_input": { "expected_version": 7 }
+        });
+        let entry: AgentParticipationEntry = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(entry).unwrap(), value);
+
+        for invalid in [
+            {
+                let mut value = value.clone();
+                value.as_object_mut().unwrap().remove("next_replace_input");
+                value
+            },
+            {
+                let mut value = value.clone();
+                value["next_replace_input"]["expected_version"] = serde_json::json!(6);
+                value
+            },
+            {
+                let mut value = value.clone();
+                value["next_replace_input"]["unknown"] = serde_json::json!(true);
+                value
+            },
+            {
+                let mut value = value.clone();
+                value["next_replace_input"]["expected_version"] = serde_json::json!("7");
+                value
+            },
+        ] {
+            assert!(serde_json::from_value::<AgentParticipationEntry>(invalid).is_err());
+        }
     }
 }

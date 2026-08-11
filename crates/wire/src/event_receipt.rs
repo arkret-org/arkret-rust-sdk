@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 use crate::event_envelope::PrincipalAuthorityInstance;
-use crate::primitives::Proof;
+use crate::primitives::PayloadProof;
 use crate::wire_strings::NonEmptyString;
-use crate::{SchemaId, canonical};
+use crate::{ProofContextId, SchemaId, canonical};
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -168,7 +168,7 @@ pub struct EventBatchReceipt {
     pub events: Vec<EventBatchReceiptEvent>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -209,6 +209,56 @@ impl EventBatchReceipt {
         Ok(())
     }
 
+    pub fn payload_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("EventBatchReceipt serializes as an object")
+            .remove("proofs");
+        Ok(Hash::new(canonical::canonical_sha256(&value)?)?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        let payload_digest = self.payload_digest()?;
+        if proof.payload_digest != payload_digest || proof.created_at != self.created_at {
+            return Err(Error::Protocol(
+                "event batch receipt proof digest or created_at mismatch".to_owned(),
+            ));
+        }
+        let mut binding = serde_json::Map::from_iter([
+            (
+                "context".to_owned(),
+                serde_json::Value::String(ProofContextId::RECEIPT_PROOF_V1.to_owned()),
+            ),
+            (
+                "payload_digest".to_owned(),
+                serde_json::to_value(&payload_digest)?,
+            ),
+            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
+            (
+                "verification_method".to_owned(),
+                serde_json::to_value(&proof.verification_method)?,
+            ),
+            (
+                "created_at".to_owned(),
+                serde_json::to_value(proof.created_at)?,
+            ),
+        ]);
+        if let Some(domain) = &proof.domain {
+            binding.insert(
+                "domain".to_owned(),
+                serde_json::Value::String(domain.clone()),
+            );
+        }
+        if let Some(audience) = &proof.audience {
+            binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        Ok(canonical::canonical_json_bytes(
+            &serde_json::Value::Object(binding),
+        )?)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.schema != "ak.schema.event_batch_receipt.v1" {
             return Err(Error::Protocol(
@@ -219,6 +269,9 @@ impl EventBatchReceipt {
             return Err(Error::Protocol(
                 "event batch receipt requires events and proofs".to_owned(),
             ));
+        }
+        for proof in &self.proofs {
+            self.proof_binding_bytes(proof)?;
         }
         let canonical_events = self
             .events
@@ -425,19 +478,20 @@ mod event_batch_receipt_tests {
                 ),
             ],
             created_at: Utc::now(),
-            proofs: vec![Proof {
-                kind: "DataIntegrityProof".to_owned(),
-                verification_method: DidUrl::new("did:web:service.example#key-1").unwrap(),
-                event_digest: hash(0xdd),
-                created_at: Utc::now(),
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "AAAA..BBBB".to_owned(),
-            }],
+            proofs: Vec::new(),
         };
 
         receipt.canonicalize_events().unwrap();
+        receipt.proofs.push(PayloadProof {
+            kind: crate::proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new("did:web:service.example#key-1").unwrap(),
+            payload_digest: receipt.payload_digest().unwrap(),
+            created_at: receipt.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "AAAA..BBBB".to_owned(),
+        });
         assert!(matches!(
             &receipt.events[0],
             EventBatchReceiptEvent::Item(item)
