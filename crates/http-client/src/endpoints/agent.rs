@@ -5,12 +5,12 @@ use std::time::Duration;
 
 use arkret_models_collaboration::agent_operations::{
     AgentDeactivateRequestBody, AgentGrantAttachOutcome, AgentGrantAttachRequestBody,
-    AgentGrantDetachOutcome, AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome,
-    AgentList, AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
-    AgentRenewPairingOutcome, AgentRenewPairingRequestBody, AgentResumeRequestBody,
-    AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
-    AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody, AgentSidecarList,
-    AgentSidecarView, AgentView,
+    AgentGrantDetachOutcome, AgentGrantDetachRequestBody, AgentKeyPairOutcome,
+    AgentKeyPairRequestBody, AgentLifecycleOutcome, AgentList, AgentPauseRequestBody,
+    AgentProvisionOutcome, AgentProvisionRequestBody, AgentRenewPairingOutcome,
+    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentRuntimeApprovalOutcome,
+    AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusOutcome,
+    AgentRuntimeApprovalStatusRequestBody, AgentSidecarList, AgentSidecarView, AgentView,
 };
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, ParticipationReplaceRequestBody,
@@ -205,6 +205,7 @@ impl Client {
         &self,
         agent_id: &str,
         grant_id: &GrantId,
+        request: &AgentGrantDetachRequestBody,
     ) -> Result<AgentGrantDetachOutcome> {
         let path = format!(
             "{}/{}/grants/{}",
@@ -212,7 +213,8 @@ impl Client {
             agent_path_component(agent_id)?,
             agent_path_component(grant_id.as_str())?
         );
-        self.delete(&path).await
+        let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
+        self.send_json(builder).await
     }
 
     /// `GET /_arkret/self/agents/{agent_id}/participation`

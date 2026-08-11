@@ -1137,14 +1137,7 @@ fn derive_value_projection_value(
         let resolved = if let Some(path) = member.get("field").and_then(Value::as_str) {
             field_value(event, path).cloned()
         } else if let Some(path) = member.get("envelope_field").and_then(Value::as_str) {
-            match path {
-                "actor_id" => Some(Value::String(event.actor_id.as_str().to_owned())),
-                "created_at" => Some(Value::String(arkret_canonical::format_timestamp_canonical(
-                    event.created_at,
-                ))),
-                "realm_id" => Some(Value::String(event.realm_id.as_str().to_owned())),
-                _ => None,
-            }
+            projected_envelope_value(event, path)
         } else if let Some(component) = member.get("select") {
             let path = select_field_path(event, component, &kind)?;
             field_value(event, &path).cloned()
@@ -2217,6 +2210,29 @@ mod tests {
     ) -> Result<String, EventCellContractError> {
         let event = accountability_event(scope, status);
         derive_subject(&event, subject_rule(&event))
+    }
+
+    #[test]
+    fn object_value_projection_can_copy_the_accepted_event_id() {
+        let event = accountability_event(json!("employment"), "active");
+        let projected = ProjectedEventInput::from(&event);
+        let value = derive_value_projection_value(
+            &projected,
+            &json!({
+                "kind": "object",
+                "members": [{
+                    "name": "resolution_event_ref",
+                    "envelope_field": "event_id"
+                }]
+            }),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .expect("event_id is a registered envelope projection source");
+
+        assert_eq!(
+            value,
+            json!({"resolution_event_ref": event.event_id.as_str()})
+        );
     }
 
     #[test]

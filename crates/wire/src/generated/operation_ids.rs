@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-11.2;
-//! sha256=0f9e2b94b17a909cfb7c1ada5f7926639525d5b0fa1920617faeeba03b429a1e Entries: registered=236
+//! Input: registry/operation-registry.json; version=2026-08-11.4;
+//! sha256=24364c43105a9d691a65c476c3d99d9d5145b31c7bc568c867343a6a38e2aced Entries: registered=236
 
 use serde::{Deserialize, Serialize};
 
@@ -4591,7 +4591,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: None,
+        request_schema_ref: Some(
+            "schemas/agent-operations.schema.json#/$defs/agent_grant_detach_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/agent_grant_detach_outcome",
         ),

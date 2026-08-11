@@ -39,9 +39,11 @@ pub fn split_raw_projection_fixture_payload(payload: Value) -> Result<RawProject
         serde_json::from_value(payload).map_err(|error| {
             crate::Error::Protocol(format!("invalid raw projection fixture: {error}"))
         })?;
+    let actor_id = fixture.sender.map(DidCoreId::new).transpose()?;
+    let event_id = fixture.event_id.map(EventId::new).transpose()?;
     Ok(RawProjectionFixtureParts {
-        actor_id: fixture.sender.and_then(|value| DidCoreId::new(value).ok()),
-        event_id: fixture.event_id.and_then(|value| EventId::new(value).ok()),
+        actor_id,
+        event_id,
         payload: Value::Object(fixture.payload),
     })
 }
@@ -72,4 +74,53 @@ pub fn raw_event_at(
     Event::new_at(
         kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::split_raw_projection_fixture_payload;
+
+    #[test]
+    fn raw_projection_sender_rejects_a_full_did_instead_of_falling_back() {
+        let error = split_raw_projection_fixture_payload(json!({
+            "sender": "did:web:alice.example",
+            "membership": "join"
+        }))
+        .err()
+        .expect("a full DID is not a stable Event actor id");
+
+        assert!(
+            error.to_string().contains("did:web:alice.example"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn raw_projection_sender_accepts_a_core_id_and_removes_the_overlay() {
+        let parts = split_raw_projection_fixture_payload(json!({
+            "sender": "ak:did_core:web:alice.example",
+            "membership": "join"
+        }))
+        .expect("a stable core actor id is valid");
+
+        assert_eq!(
+            parts.actor_id.as_ref().map(|actor| actor.as_str()),
+            Some("ak:did_core:web:alice.example")
+        );
+        assert_eq!(parts.payload, json!({"membership": "join"}));
+    }
+
+    #[test]
+    fn raw_projection_event_id_rejects_an_invalid_overlay() {
+        let error = split_raw_projection_fixture_payload(json!({
+            "event_id": "event-not-typed",
+            "membership": "join"
+        }))
+        .err()
+        .expect("an invalid Event id must not fall back to a derived fixture id");
+
+        assert!(error.to_string().contains("event-not-typed"), "{error}");
+    }
 }

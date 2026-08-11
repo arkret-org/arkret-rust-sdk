@@ -490,6 +490,7 @@ pub enum AgentProvisionRequestBody {
         operation_id: ProtocolOperationId,
         idempotency_key: IdempotencyKey,
         agent_id: DidCoreId,
+        full_id: DidFullId,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         slug: String,
@@ -605,6 +606,7 @@ pub enum AgentPairingMode {
 pub enum AgentProvisionOutcome {
     AwaitingControllerEvent {
         agent_id: DidCoreId,
+        full_id: DidFullId,
         controller_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
@@ -612,6 +614,7 @@ pub enum AgentProvisionOutcome {
     },
     AwaitingPcrGenesis {
         agent_id: DidCoreId,
+        full_id: DidFullId,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         controller_authorization_ref: DidUrl,
@@ -628,6 +631,7 @@ pub enum AgentProvisionOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentProvisionComplete {
     pub agent_id: DidCoreId,
+    pub full_id: DidFullId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
@@ -991,6 +995,72 @@ impl AgentGrantAttachRequestBody {
 pub struct AgentGrantAttachOutcome {
     pub ok: bool,
     pub grant_id: GrantId,
+}
+
+/// Request body for `ak.self.agent.grant.resource.delete`.
+///
+/// The controller supplies the complete signed revoke Move. The service only
+/// checks its path/target bindings and forwards it through ordinary Event
+/// admission; it never authors the revoke or adds the CAS guard.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentGrantDetachRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub revoke_event: EventInitialSubmission,
+}
+
+impl AgentGrantDetachRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        let event = &self.revoke_event.event;
+        if event.kind != EventKind::CapabilityRevoke {
+            return Err(Error::Protocol(
+                "Agent grant detach requires an ak.capability.revoke Event".to_owned(),
+            ));
+        }
+        event.validate_proof_bindings()?;
+        let payload: crate::events_payloads::capability::CapabilityRevokePayload =
+            decode_payload_after_kind_validation(event)?;
+        if payload
+            .grant_ref
+            .as_ref()
+            .is_some_and(|grant_ref| grant_ref != &payload.grant_id)
+        {
+            return Err(Error::Protocol(
+                "Agent grant detach payload grant_ref must equal grant_id".to_owned(),
+            ));
+        }
+        let expected_cell = format!(
+            "ak:cell:ak.component.capability.grant.v1:{}",
+            payload.grant_id
+        );
+        let [precondition] = event.preconditions.as_slice() else {
+            return Err(Error::Protocol(
+                "Agent grant detach requires exactly one signed head_eq precondition".to_owned(),
+            ));
+        };
+        let predicate = &precondition.predicate;
+        if precondition.cell.as_str() != expected_cell
+            || predicate.op != arkret_wire::PredicateOp::HeadEq
+            || predicate
+                .value
+                .as_ref()
+                .and_then(Value::as_array)
+                .is_none_or(Vec::is_empty)
+            || predicate.values.is_some()
+            || predicate.predicate_id.is_some()
+        {
+            return Err(Error::Protocol(
+                "Agent grant detach head_eq must name the complete target grant cell head"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn payload(&self) -> Result<crate::events_payloads::capability::CapabilityRevokePayload> {
+        decode_payload_after_kind_validation(&self.revoke_event.event)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2215,6 +2285,7 @@ pub enum AgentOperations {
     AgentDeactivateRequestBody(AgentDeactivateRequestBody),
     AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
     AgentGrantAttachOutcome(AgentGrantAttachOutcome),
+    AgentGrantDetachRequestBody(AgentGrantDetachRequestBody),
     AgentGrantDetachOutcome(AgentGrantDetachOutcome),
     AgentSidecarEnsureRequestBody(crate::sidecar_operations::SidecarEnsureRequestBody),
     AgentSidecarEnsureOutcome(crate::sidecar_operations::SidecarEnsureOutcome),
@@ -2269,9 +2340,139 @@ pub struct KeyState {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use chrono::{TimeZone, Timelike};
 
     use super::*;
+
+    const DETACH_GRANT_ID: &str = "ak:grant:AU4F2tD66XxDdxMbkmhDwjv3NLmV3MuNzo4ZaaUG__we";
+    const OTHER_GRANT_ID: &str = "ak:grant:AU1_A5a8MMz_OdxEleQlWPFn-ljdJteaJv3ZZ9APkcrZ";
+
+    fn agent_grant_detach_request() -> AgentGrantDetachRequestBody {
+        let realm_id =
+            RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap();
+        let cell = arkret_wire::CellRef::new(format!(
+            "ak:cell:ak.component.capability.grant.v1:{DETACH_GRANT_ID}"
+        ))
+        .unwrap();
+        let event = arkret_wire::Event {
+            event_id: EventId::new("ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6")
+                .unwrap(),
+            kind: EventKind::CapabilityRevoke,
+            realm_id: realm_id.clone(),
+            scope_ref: arkret_wire::ScopeRef::Realm { realm_id },
+            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
+            executed_by: None,
+            authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
+            actor_kind: None,
+            actor_seq: 7,
+            created_at: "2026-08-11T00:00:00.000Z".parse().unwrap(),
+            hlc: None,
+            prev_refs: Vec::new(),
+            refs: Vec::new(),
+            causal_refs: Vec::new(),
+            preconditions: vec![arkret_wire::Precondition {
+                cell,
+                predicate: arkret_wire::Predicate {
+                    op: arkret_wire::PredicateOp::HeadEq,
+                    value: Some(serde_json::json!([{
+                        "dot": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6:0",
+                        "value": {
+                            "grant_id": DETACH_GRANT_ID,
+                            "realm_id": "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
+                            "subject": "ak:did_core:webvh:z6mkfixtureagent"
+                        }
+                    }])),
+                    values: None,
+                    predicate_id: None,
+                },
+            }],
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: None,
+            payload: BTreeMap::from([("grant_id".to_owned(), serde_json::json!(DETACH_GRANT_ID))]),
+            redacts: None,
+            unsigned: BTreeMap::new(),
+            proofs: Vec::new(),
+            requirements: arkret_wire::EventRequirements::default(),
+        };
+        AgentGrantDetachRequestBody {
+            revoke_event: EventInitialSubmission::online(event),
+        }
+    }
+
+    #[test]
+    fn agent_grant_detach_accepts_exact_revoke_cell_guard() {
+        agent_grant_detach_request()
+            .validate()
+            .expect("exact signed revoke contract");
+    }
+
+    #[test]
+    fn agent_grant_detach_rejects_wrong_kind_guard_count_cell_head_and_grant_ref() {
+        let mut wrong_kind = agent_grant_detach_request();
+        wrong_kind.revoke_event.event.kind = EventKind::MessageCreate;
+        assert!(wrong_kind.validate().is_err());
+
+        let mut no_guard = agent_grant_detach_request();
+        no_guard.revoke_event.event.preconditions.clear();
+        assert!(no_guard.validate().is_err());
+
+        let mut two_guards = agent_grant_detach_request();
+        let second_guard = two_guards.revoke_event.event.preconditions[0].clone();
+        two_guards
+            .revoke_event
+            .event
+            .preconditions
+            .push(second_guard);
+        assert!(two_guards.validate().is_err());
+
+        let mut wrong_cell = agent_grant_detach_request();
+        wrong_cell.revoke_event.event.preconditions[0].cell = arkret_wire::CellRef::new(format!(
+            "ak:cell:ak.component.capability.grant.v1:{OTHER_GRANT_ID}"
+        ))
+        .unwrap();
+        assert!(wrong_cell.validate().is_err());
+
+        let mut empty_head = agent_grant_detach_request();
+        empty_head.revoke_event.event.preconditions[0]
+            .predicate
+            .value = Some(serde_json::json!([]));
+        assert!(empty_head.validate().is_err());
+
+        let mut mismatched_ref = agent_grant_detach_request();
+        mismatched_ref
+            .revoke_event
+            .event
+            .payload
+            .insert("grant_ref".to_owned(), serde_json::json!(OTHER_GRANT_ID));
+        assert!(mismatched_ref.validate().is_err());
+    }
+
+    #[test]
+    fn agent_provision_outcome_serializes_allocated_full_id() {
+        let outcome = AgentProvisionOutcome::AwaitingControllerEvent {
+            agent_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureagent").unwrap(),
+            full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+            controller_realm_id: RealmId::new(
+                "ak:realm:AUf0Zz23_ZBqZYNvzHTY6qhhx-2YyO94WTorNCFnnvvN",
+            )
+            .unwrap(),
+            allocation_handle: ProtocolOpaqueId::new("allocation.fixture.signature").unwrap(),
+            controller_authorization_ref: DidUrl::new(
+                "did:webvh:z6mkfixtureagent:agent.example#managed-controller",
+            )
+            .unwrap(),
+            requested_scope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+        };
+
+        let value = serde_json::to_value(outcome).unwrap();
+        assert_eq!(value["status"], "awaiting_controller_event");
+        assert_eq!(value["full_id"], "did:webvh:z6mkfixtureagent:agent.example");
+    }
 
     #[test]
     fn key_state_uses_stable_core_actor_ids() {
