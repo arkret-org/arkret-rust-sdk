@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-11.5;
-//! sha256=e7b1a72e1c28564fb62914816c58d2612eb318e4df4639b28546b92a21c8c807 Input: registry/
-//! operations-error-mapping.json; version=2026-08-11.1;
-//! sha256=0673e3bba0b3a0b62ddbe39b83dd60792930c1637073a7d219f95e70187edce0 Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-11.9;
+//! sha256=7523a515996372ef1aa0998dfa959a6134dd65e14458bec9d57fa1525b8475cb Input: registry/
+//! operations-error-mapping.json; version=2026-08-11.2;
+//! sha256=dd4f18c3d7d0c5b5e927bd9a79cad32f83fed13e770f1de414974062f0790eae Input: registry/
 //! error-code-registry.json; version=2026-08-11.3;
 //! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878 Entries: operations=236
 
@@ -731,6 +731,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::InvalidAvatarBlobRef),
             OperationSpecificError::ErrorCode(ErrorCode::UnsupportedProfilePatchPath),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
         ],
     },
     OperationErrorMappingDescriptor {

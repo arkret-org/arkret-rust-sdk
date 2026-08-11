@@ -15,13 +15,12 @@ use arkret_models_identity::account::{
     AccountRegistrationControlProof, AccountRegistrationPolicyEvidence,
     IdentityCreationRegistration,
 };
-use arkret_models_identity::actor_profile::ActorProfile;
-use arkret_wire::patch::Patch;
+use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorProfile};
 use arkret_wire::{
-    AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId, DidCoreId,
-    DidFullId, DidUrl, Event, EventBatchReceipt, EventId, EventInitialSubmission, Hash,
-    NonEmptyString, PayloadProof, RealmId, ReasonCode, ReceiptId, Result, ScopeRef,
-    ServiceOperationId, SessionGrantId, canonical, project_full_id_to_core_id,
+    ActorProfileId, AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId,
+    DidCoreId, DidFullId, DidUrl, Event, EventBatchReceipt, EventId, EventInitialSubmission,
+    EventKind, Hash, NonEmptyString, PayloadProof, RealmId, ReasonCode, ReceiptId, Result,
+    ScopeRef, ServiceOperationId, SessionGrantId, canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -561,6 +560,7 @@ pub struct AccountStatusPublicationOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountView {
     pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -576,7 +576,7 @@ pub struct AccountView {
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub profile: Option<ActorProfile>,
+    pub profile: Option<AccountMaterializedProfile>,
     /// True when the authenticated principal is a deployment server
     /// administrator (the server's configured admin principal set). Operator-only
     /// product surfaces (e.g. organization creation) gate their UI on this.
@@ -665,7 +665,7 @@ pub struct AccountRegisterOutcome {
     pub handle_claim_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub profile: Option<ActorProfile>,
+    pub profile: Option<AccountMaterializedProfile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub registration_audit: Option<AccountRegistrationAudit>,
@@ -783,8 +783,392 @@ impl AccountRegisterOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountUpdateProfileRequestBody {
+    /// Complete caller-authored and caller-signed `ak.profile.create` or
+    /// `ak.profile.update` Event. The service submits these exact bytes through
+    /// ordinary Event admission and never authors the profile Event itself.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub patch: Patch,
+    pub profile_event: EventInitialSubmission,
+}
+
+/// Accepted projection facts used only to validate authoring context.
+///
+/// This is not part of [`AccountUpdateProfileRequestBody`]. Producers must
+/// obtain it from an accepted profile projection or equivalent verified view;
+/// an optional `ActorProfile.id` must never be guessed into this basis.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountProfileAcceptedBasis {
+    pub profile_id: ActorProfileId,
+    pub principal_id: DidCoreId,
+    pub principal_control_realm_id: RealmId,
+}
+
+impl AccountUpdateProfileRequestBody {
+    /// Validate constraints carried entirely inside the signed request.
+    pub fn validate(&self) -> Result<()> {
+        self.profile_event.validate_structural()?;
+        let event = &self.profile_event.event;
+        if event.executed_by.is_some()
+            || event.authorization_ref.is_some()
+            || event.applet_id.is_some()
+            || event.external_ref.is_some()
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "account profile self-service requires a direct holder-authored Event".to_owned(),
+            ));
+        }
+        if !event.preconditions.is_empty() {
+            return Err(arkret_wire::Error::Protocol(
+                "account profile self-service does not accept extra Event preconditions".to_owned(),
+            ));
+        }
+        match &event.kind {
+            EventKind::ProfileCreate => {
+                let payload: crate::events_payloads::ActorProfileCreatePayload =
+                    crate::events_payloads::event_wire::decode_payload_after_kind_validation(
+                        event,
+                    )?;
+                validate_account_profile_create_payload(&payload)
+            }
+            EventKind::ProfileUpdate => {
+                let payload: crate::events_payloads::ActorProfileUpdatePayload =
+                    crate::events_payloads::event_wire::decode_payload_after_kind_validation(
+                        event,
+                    )?;
+                payload.validate_for_account_self_service()
+            }
+            _ => Err(arkret_wire::Error::Protocol(
+                "account profile self-service requires ak.profile.create or ak.profile.update"
+                    .to_owned(),
+            )),
+        }
+    }
+
+    /// Bind a structurally valid request to the authenticated principal, its
+    /// exact Principal Control Realm and the current accepted profile basis.
+    pub fn validate_authoring_context(
+        &self,
+        session_principal_id: &DidCoreId,
+        principal_control_realm_id: &RealmId,
+        accepted_basis: Option<&AccountProfileAcceptedBasis>,
+    ) -> Result<()> {
+        self.validate()?;
+        let event = &self.profile_event.event;
+        if &event.actor_id != session_principal_id
+            || &event.realm_id != principal_control_realm_id
+            || event.scope_ref
+                != (ScopeRef::Realm {
+                    realm_id: principal_control_realm_id.clone(),
+                })
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "account profile Event does not match the authenticated principal's exact PCR"
+                    .to_owned(),
+            ));
+        }
+        match &event.kind {
+            EventKind::ProfileCreate => {
+                if accepted_basis.is_some() {
+                    return Err(arkret_wire::Error::Protocol(
+                        "ak.profile.create is allowed only when no accepted profile exists"
+                            .to_owned(),
+                    ));
+                }
+                let payload: crate::events_payloads::ActorProfileCreatePayload =
+                    crate::events_payloads::event_wire::decode_payload_after_kind_validation(
+                        event,
+                    )?;
+                if &payload.object.principal_id != session_principal_id
+                    || payload
+                        .object
+                        .realm_id
+                        .as_ref()
+                        .is_some_and(|realm_id| realm_id != principal_control_realm_id)
+                {
+                    return Err(arkret_wire::Error::Protocol(
+                        "ak.profile.create payload does not match the authenticated principal's exact PCR"
+                            .to_owned(),
+                    ));
+                }
+            }
+            EventKind::ProfileUpdate => {
+                let basis = accepted_basis.ok_or_else(|| {
+                    arkret_wire::Error::Protocol(
+                        "ak.profile.update requires an accepted create-derived profile basis"
+                            .to_owned(),
+                    )
+                })?;
+                if &basis.principal_id != session_principal_id
+                    || &basis.principal_control_realm_id != principal_control_realm_id
+                {
+                    return Err(arkret_wire::Error::Protocol(
+                        "accepted profile basis does not match the authenticated principal's exact PCR"
+                            .to_owned(),
+                    ));
+                }
+                let payload: crate::events_payloads::ActorProfileUpdatePayload =
+                    crate::events_payloads::event_wire::decode_payload_after_kind_validation(
+                        event,
+                    )?;
+                if payload.target_ref != basis.profile_id {
+                    return Err(arkret_wire::Error::Protocol(
+                        "ak.profile.update target_ref does not match the accepted create-derived profile id"
+                            .to_owned(),
+                    ));
+                }
+            }
+            _ => unreachable!("validate pins the profile Event kind"),
+        }
+        Ok(())
+    }
+
+    /// Return the profile identity selected by this signed Event. Create IDs
+    /// are a byte-for-byte retype of the signed create Event ID.
+    pub fn profile_id(&self) -> Result<ActorProfileId> {
+        self.validate()?;
+        match &self.profile_event.event.kind {
+            EventKind::ProfileCreate => Ok(ActorProfileId::from_event_id(
+                &self.profile_event.event.event_id,
+            )),
+            EventKind::ProfileUpdate => {
+                let payload: crate::events_payloads::ActorProfileUpdatePayload =
+                    crate::events_payloads::event_wire::decode_payload_after_kind_validation(
+                        &self.profile_event.event,
+                    )?;
+                Ok(payload.target_ref)
+            }
+            _ => unreachable!("validate pins the profile Event kind"),
+        }
+    }
+}
+
+fn validate_account_profile_create_payload(
+    payload: &crate::events_payloads::ActorProfileCreatePayload,
+) -> Result<()> {
+    let object = &payload.object;
+    if object.id.is_some()
+        || object.schema != ActorProfile::SCHEMA
+        || object.handle.is_some()
+        || object.agent_slug.is_some()
+        || object.status.is_some()
+        || !object.accountable_principal_ids.is_empty()
+        || object.resolution.is_some()
+        || object.updated_by.is_some()
+        || object.updated_at.is_some()
+    {
+        return Err(arkret_wire::Error::Protocol(
+            "account self-service ak.profile.create contains non-authorable profile fields"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod account_update_profile_request_tests {
+    use arkret_wire::{
+        CellRef, DidUrl, Hlc, Precondition, Predicate, PredicateOp, Proof, SealBasis, SealId,
+        proof_kind,
+    };
+    use chrono::{DateTime, Utc};
+    use serde_json::json;
+
+    use super::{
+        AccountProfileAcceptedBasis, AccountUpdateProfileRequestBody, ActorProfileId, DidCoreId,
+        EventInitialSubmission, Hash, RealmId,
+    };
+
+    const ACTOR: &str = "ak:did_core:webvh:z6mkfixture";
+    const OTHER_ACTOR: &str = "ak:did_core:webvh:z6mkother";
+    const PCR: &str = "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm";
+    const OTHER_PCR: &str = "ak:realm:ARmJMvTcKFyiF-V_8oL4mIoHfnlqERCrcgNBONtY4HQD";
+
+    fn actor() -> DidCoreId {
+        DidCoreId::new(ACTOR).unwrap()
+    }
+
+    fn pcr() -> RealmId {
+        RealmId::new(PCR).unwrap()
+    }
+
+    fn signed_control_event(kind: &str, payload: serde_json::Value) -> arkret_wire::Event {
+        let created_at: DateTime<Utc> = "2026-08-11T00:00:00.000Z".parse().unwrap();
+        let mut event = arkret_wire::test_support::raw_event_at(
+            kind,
+            arkret_wire::ScopeRef::Realm { realm_id: pcr() },
+            actor(),
+            7,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            payload,
+            created_at,
+        )
+        .unwrap();
+        event.seal_basis = Some(SealBasis {
+            leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap()],
+        });
+        event.refresh_content_bound_identity().unwrap();
+        let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        event.proofs = vec![Proof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:fixture.example#device-1")
+                .unwrap(),
+            event_digest,
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        }];
+        event
+    }
+
+    fn create_request() -> AccountUpdateProfileRequestBody {
+        AccountUpdateProfileRequestBody {
+            profile_event: EventInitialSubmission::online(signed_control_event(
+                "ak.profile.create",
+                json!({
+                    "object": {
+                        "schema": "ak.schema.actor_profile.v1",
+                        "realm_id": PCR,
+                        "principal_id": ACTOR,
+                        "actor_kind": "user",
+                        "display_name": "Fixture User",
+                        "profile_fields": {"bio": "hello"},
+                        "created_at": "2026-08-11T00:00:00.000Z"
+                    }
+                }),
+            )),
+        }
+    }
+
+    fn update_request(
+        profile_id: &ActorProfileId,
+        patch: serde_json::Value,
+    ) -> AccountUpdateProfileRequestBody {
+        AccountUpdateProfileRequestBody {
+            profile_event: EventInitialSubmission::online(signed_control_event(
+                "ak.profile.update",
+                json!({
+                    "target_ref": profile_id,
+                    "patch": patch
+                }),
+            )),
+        }
+    }
+
+    fn accepted_basis(profile_id: ActorProfileId) -> AccountProfileAcceptedBasis {
+        AccountProfileAcceptedBasis {
+            profile_id,
+            principal_id: actor(),
+            principal_control_realm_id: pcr(),
+        }
+    }
+
+    #[test]
+    fn valid_create_has_only_the_retyped_signed_event_id() {
+        let request = create_request();
+        request.validate().unwrap();
+        request
+            .validate_authoring_context(&actor(), &pcr(), None)
+            .unwrap();
+        assert_eq!(
+            request.profile_id().unwrap(),
+            ActorProfileId::from_event_id(&request.profile_event.event.event_id)
+        );
+    }
+
+    #[test]
+    fn valid_update_requires_the_exact_accepted_basis() {
+        let profile_id = create_request().profile_id().unwrap();
+        let basis = accepted_basis(profile_id.clone());
+        let request = update_request(
+            &profile_id,
+            json!({"display_name": {"$op": "set", "value": "Updated"}}),
+        );
+        request.validate().unwrap();
+        request
+            .validate_authoring_context(&actor(), &pcr(), Some(&basis))
+            .unwrap();
+        assert_eq!(request.profile_id().unwrap(), profile_id);
+    }
+
+    #[test]
+    fn create_and_update_are_gated_by_accepted_profile_presence() {
+        let create = create_request();
+        let basis = accepted_basis(create.profile_id().unwrap());
+        assert!(
+            create
+                .validate_authoring_context(&actor(), &pcr(), Some(&basis))
+                .is_err()
+        );
+
+        let update = update_request(&basis.profile_id, json!({"display_name": "Updated"}));
+        assert!(
+            update
+                .validate_authoring_context(&actor(), &pcr(), None)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn update_rejects_wrong_target_pcr_and_actor() {
+        let profile_id = create_request().profile_id().unwrap();
+        let wrong_profile_id =
+            ActorProfileId::new("ak:actor_profile:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0")
+                .unwrap();
+        let basis = accepted_basis(wrong_profile_id);
+        let request = update_request(&profile_id, json!({"display_name": "Updated"}));
+        assert!(
+            request
+                .validate_authoring_context(&actor(), &pcr(), Some(&basis))
+                .is_err()
+        );
+
+        let basis = accepted_basis(profile_id);
+        assert!(
+            request
+                .validate_authoring_context(
+                    &actor(),
+                    &RealmId::new(OTHER_PCR).unwrap(),
+                    Some(&basis),
+                )
+                .is_err()
+        );
+        assert!(
+            request
+                .validate_authoring_context(
+                    &DidCoreId::new(OTHER_ACTOR).unwrap(),
+                    &pcr(),
+                    Some(&basis),
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn request_rejects_forbidden_patch_provenance_and_precondition() {
+        let profile_id = create_request().profile_id().unwrap();
+        let forbidden_patch = update_request(&profile_id, json!({"handle": "fixture.example"}));
+        assert!(forbidden_patch.validate().is_err());
+
+        let mut delegated = create_request();
+        delegated.profile_event.event.executed_by = Some(actor());
+        assert!(delegated.validate().is_err());
+
+        let mut guarded = create_request();
+        guarded.profile_event.event.preconditions = vec![Precondition {
+            cell: CellRef::new(format!(
+                "ak:cell:ak.component.profile.create.v1:{profile_id}"
+            ))
+            .unwrap(),
+            predicate: Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(json!(null)),
+                values: None,
+                predicate_id: None,
+            },
+        }];
+        assert!(guarded.validate().is_err());
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

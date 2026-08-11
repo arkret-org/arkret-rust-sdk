@@ -6,7 +6,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::actor_profile::ActorProfile;
 use crate::artifacts_account::DeviceSummaryStatus;
 use crate::handle::Handle;
 use crate::identity::DidOperationSubmitRequestBody;
@@ -1430,9 +1429,10 @@ impl AccountBindingReceipt {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountUpdateProfileOutcome {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub profile: ActorProfile,
+    pub profile: crate::actor_profile::AccountMaterializedProfile,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

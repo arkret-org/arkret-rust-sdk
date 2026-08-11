@@ -467,7 +467,6 @@ mod tests {
         EventKind::RealmDiscovery,
         EventKind::RealmJoinRule,
         EventKind::RealmMediaService,
-        EventKind::RealmModerationPolicy,
         EventKind::RealmPolicy,
         EventKind::RealmSchema,
     ];

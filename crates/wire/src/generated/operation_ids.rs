@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-11.5;
-//! sha256=e7b1a72e1c28564fb62914816c58d2612eb318e4df4639b28546b92a21c8c807 Entries: registered=236
+//! Input: registry/operation-registry.json; version=2026-08-11.9;
+//! sha256=7523a515996372ef1aa0998dfa959a6134dd65e14458bec9d57fa1525b8475cb Entries: registered=236
 
 use serde::{Deserialize, Serialize};
 
@@ -4225,20 +4225,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/account-operations.schema.json#/$defs/account_update_profile_request_body",
         ),
         response_schema_ref: Some(
             "schemas/account-operations.schema.json#/$defs/account_update_profile_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.read.viewer\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.profile.update"])),
+            target: Some(DurableEventTarget::Static(&[
+                "ak.profile.create",
+                "ak.profile.update",
+            ])),
             rationale: None,
         }),
     },

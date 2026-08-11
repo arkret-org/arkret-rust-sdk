@@ -37,7 +37,6 @@ use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
 use arkret_models_collaboration::object_lifecycle::{
     SpaceObjectTombstonePayload, SpaceStateTransitionPayload,
 };
-use arkret_models_collaboration::object_patch::ObjectPatchPayload;
 use arkret_models_collaboration::objects::productivity::{
     AccountBlocklistPayload, PinAddPayload, PinRemovePayload, PinReorderPayload, RsvpSetPayload,
 };
@@ -306,7 +305,7 @@ event_payload_accessors! {
     event_spec::AccountBlocklist => (as_account_blocklist, AccountBlocklistPayload),
     event_spec::AccountDataSet => (as_account_data_set, AccountDataSetPayload),
     event_spec::ProfileCreate => (as_profile_create, ActorProfileCreatePayload),
-    event_spec::ProfileUpdate => (as_profile_update, ObjectPatchPayload),
+    event_spec::ProfileUpdate => (as_profile_update, ActorProfileUpdatePayload),
     event_spec::ProfileRealmOverride => (as_profile_realm_override, ProfileRealmOverridePayload),
     event_spec::DeviceAuthorize => (as_device_authorize, DeviceAuthorizePayload, |payload: &DeviceAuthorizePayload| payload.validate_wire_constraints().map_err(|reason| Error::Protocol(reason.to_owned()))),
     event_spec::DeviceReanchor => (as_device_reanchor, DeviceReanchorPayload, |payload: &DeviceReanchorPayload| payload.validate().map_err(|reason| Error::Protocol(reason.to_owned()))),

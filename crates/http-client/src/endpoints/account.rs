@@ -297,6 +297,7 @@ impl Client {
         &self,
         request: &AccountUpdateProfileRequestBody,
     ) -> Result<AccountUpdateProfileOutcome> {
+        request.validate()?;
         self.post("/_arkret/self/account/profile", request).await
     }
 
