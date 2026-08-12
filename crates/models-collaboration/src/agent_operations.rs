@@ -15,9 +15,7 @@ use arkret_wire::{
 };
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
-use crate::events_payloads::agent::{
-    AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope, AgentSidecarExposureAck,
-};
+use crate::events_payloads::agent::{AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope};
 use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapshot, PublicKey};
 use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody};
 use crate::internal_prelude::*;
@@ -917,8 +915,6 @@ pub struct AgentPauseRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentResumeRequestBody {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
     /// Initial publication of the closed Agent-PCR lifecycle Event authored by
     /// the Agent principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -1141,7 +1137,6 @@ impl AgentSidecarContextRef {
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarAccessReadiness {
     Opening,
-    AccessReconciliationPending,
     KeyMaterialPending,
     EpochUpdateRequired,
     Ready,
@@ -1152,7 +1147,6 @@ pub enum AgentSidecarAccessReadiness {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PendingSidecarAccessReconciliationStage {
-    BackingScopeMembership,
     MlsWelcome,
     MlsRemove,
     EpochRotation,
@@ -1217,6 +1211,11 @@ pub enum AgentSidecarState {
 
 pub const AGENT_SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN: &str = "ak.sidecar.participant_authority.v1";
 
+fn sorted_unique_agent_ids(ids: &[DidCoreId]) -> bool {
+    ids.windows(2)
+        .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes())
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -1225,8 +1224,7 @@ pub struct AgentSidecarParticipantAuthorityTranscript {
     pub sidecar_id: SidecarId,
     pub realm_id: RealmId,
     pub controller_id: DidCoreId,
-    pub owned_agent_ids: Vec<DidCoreId>,
-    pub effective_agent_ids: Vec<DidCoreId>,
+    pub desired_agent_ids: Vec<DidCoreId>,
 }
 
 impl AgentSidecarParticipantAuthorityTranscript {
@@ -1234,25 +1232,16 @@ impl AgentSidecarParticipantAuthorityTranscript {
         sidecar_id: SidecarId,
         realm_id: RealmId,
         controller_id: DidCoreId,
-        owned_agent_ids: &[DidCoreId],
-        effective_agent_ids: &[DidCoreId],
+        desired_agent_ids: &[DidCoreId],
     ) -> Result<Self> {
-        let sorted_unique = |ids: &[DidCoreId]| {
-            ids.windows(2)
-                .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes())
-        };
-        let owned = owned_agent_ids.iter().collect::<BTreeSet<_>>();
-        if !sorted_unique(owned_agent_ids)
-            || !sorted_unique(effective_agent_ids)
-            || owned_agent_ids
+        if !sorted_unique_agent_ids(desired_agent_ids)
+            || desired_agent_ids
                 .iter()
                 .any(|agent_id| agent_id.as_core_id() == controller_id.as_core_id())
-            || effective_agent_ids
-                .iter()
-                .any(|agent_id| !owned.contains(agent_id))
         {
             return Err(Error::Protocol(
-                "Sidecar participant authority requires sorted unique owned/effective Agent ids, effective subset of owned, and controller excluded from both arrays".to_owned(),
+                "Sidecar participant authority requires sorted unique desired Agent ids with the controller excluded"
+                    .to_owned(),
             ));
         }
         Ok(Self {
@@ -1260,8 +1249,7 @@ impl AgentSidecarParticipantAuthorityTranscript {
             sidecar_id,
             realm_id,
             controller_id,
-            owned_agent_ids: owned_agent_ids.to_vec(),
-            effective_agent_ids: effective_agent_ids.to_vec(),
+            desired_agent_ids: desired_agent_ids.to_vec(),
         })
     }
 
@@ -1274,15 +1262,13 @@ pub fn agent_sidecar_participant_authority_digest(
     sidecar_id: SidecarId,
     realm_id: RealmId,
     controller_id: DidCoreId,
-    owned_agent_ids: &[DidCoreId],
-    effective_agent_ids: &[DidCoreId],
+    desired_agent_ids: &[DidCoreId],
 ) -> Result<Hash> {
     AgentSidecarParticipantAuthorityTranscript::new(
         sidecar_id,
         realm_id,
         controller_id,
-        owned_agent_ids,
-        effective_agent_ids,
+        desired_agent_ids,
     )?
     .digest()
 }
@@ -1372,7 +1358,7 @@ impl AgentSidecar {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarView {
     pub sidecar: AgentSidecar,
-    pub owned_agent_ids: Vec<DidCoreId>,
+    pub desired_agent_ids: Vec<DidCoreId>,
     pub effective_agent_ids: Vec<DidCoreId>,
     pub mls_context: AgentSidecarMlsContext,
     pub access_readiness: AgentSidecarAccessReadiness,
@@ -1386,43 +1372,38 @@ impl AgentSidecarView {
         for pending in &self.pending_access_reconciliations {
             pending.validate()?;
         }
-        let owned = self.owned_agent_ids.iter().collect::<BTreeSet<_>>();
-        if owned.len() != self.owned_agent_ids.len()
+        let desired = self.desired_agent_ids.iter().collect::<BTreeSet<_>>();
+        if !sorted_unique_agent_ids(&self.desired_agent_ids)
+            || !sorted_unique_agent_ids(&self.effective_agent_ids)
             || self
                 .effective_agent_ids
                 .iter()
-                .collect::<BTreeSet<_>>()
-                .len()
-                != self.effective_agent_ids.len()
-            || self
-                .effective_agent_ids
-                .iter()
-                .any(|agent_id| !owned.contains(agent_id))
+                .any(|agent_id| !desired.contains(agent_id))
         {
             return Err(Error::Protocol(
-                "sidecar effective access must be a unique subset of owned Agents".to_owned(),
+                "Sidecar desired/effective Agent ids must be sorted and unique, with effective a subset of desired"
+                    .to_owned(),
             ));
         }
         let expected_digest = agent_sidecar_participant_authority_digest(
             self.sidecar.id.clone(),
             self.sidecar.realm_id.clone(),
             self.sidecar.controller_id.clone(),
-            &self.owned_agent_ids,
-            &self.effective_agent_ids,
+            &self.desired_agent_ids,
         )?;
         if self.mls_context.participant_authority_digest != expected_digest {
             return Err(Error::Protocol(
-                "Sidecar MLS participant_authority_digest does not match the canonical ownership/effective-access transcript"
+                "Sidecar MLS participant_authority_digest does not match the canonical Realm-scoped desired roster transcript"
                     .to_owned(),
             ));
         }
         if self.access_readiness == AgentSidecarAccessReadiness::Ready
             && (!self.mls_context.current_controller_device_ready
-                || self.effective_agent_ids.len() != self.owned_agent_ids.len()
+                || self.effective_agent_ids.len() != self.desired_agent_ids.len()
                 || self.mls_context.mls_group_id.is_none())
         {
             return Err(Error::Protocol(
-                "ready Sidecar requires a ready controller device, an accepted MLS group, and every owned Agent effective"
+                "ready Sidecar requires a ready controller device, an accepted MLS group, and every desired Agent effective"
                     .to_owned(),
             ));
         }
@@ -2613,12 +2594,11 @@ mod tests {
             RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             std::slice::from_ref(&agent),
-            std::slice::from_ref(&agent),
         )
         .unwrap();
         assert_eq!(
             digest.as_str(),
-            "sha256:9a3317fbb363d1c141de2d74197e9c930039c72d0f778e607d6f3f09074ba3ee"
+            "sha256:3f24bade45fa7360336368ad15bff69e5279070c12448440451007e3fd14c78f"
         );
     }
 
@@ -2632,7 +2612,6 @@ mod tests {
                 RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
                 controller,
                 &[controller_as_agent],
-                &[],
             )
             .is_err()
         );

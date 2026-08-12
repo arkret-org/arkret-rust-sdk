@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-11.3;
-//! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878
-//! Entries: reason_codes=470
+//! sha256=abb43ff6225bc89373dfa34e94330a0d92666b79f418029d937f6e7348701d96
+//! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -423,7 +423,6 @@ pub enum ReasonCode {
     SessionMissing,
     ShareCommitmentMismatch,
     SidecarCreateDenied,
-    SidecarExposureAckRequired,
     SignalPlaintextForbidden,
     SnapshotIssuerRevoked,
     SoftFailed,
@@ -995,7 +994,6 @@ impl ReasonCode {
     pub const SESSION_MISSING: &'static str = "session_missing";
     pub const SHARE_COMMITMENT_MISMATCH: &'static str = "share_commitment_mismatch";
     pub const SIDECAR_CREATE_DENIED: &'static str = "sidecar_create_denied";
-    pub const SIDECAR_EXPOSURE_ACK_REQUIRED: &'static str = "sidecar_exposure_ack_required";
     pub const SIGNAL_PLAINTEXT_FORBIDDEN: &'static str = "signal_plaintext_forbidden";
     pub const SNAPSHOT_ISSUER_REVOKED: &'static str = "snapshot_issuer_revoked";
     pub const SOFT_FAILED: &'static str = "soft_failed";
@@ -1562,7 +1560,6 @@ impl ReasonCode {
             Self::SessionMissing => Self::SESSION_MISSING,
             Self::ShareCommitmentMismatch => Self::SHARE_COMMITMENT_MISMATCH,
             Self::SidecarCreateDenied => Self::SIDECAR_CREATE_DENIED,
-            Self::SidecarExposureAckRequired => Self::SIDECAR_EXPOSURE_ACK_REQUIRED,
             Self::SignalPlaintextForbidden => Self::SIGNAL_PLAINTEXT_FORBIDDEN,
             Self::SnapshotIssuerRevoked => Self::SNAPSHOT_ISSUER_REVOKED,
             Self::SoftFailed => Self::SOFT_FAILED,
@@ -2134,7 +2131,6 @@ impl ReasonCode {
             Self::SESSION_MISSING => Self::SessionMissing,
             Self::SHARE_COMMITMENT_MISMATCH => Self::ShareCommitmentMismatch,
             Self::SIDECAR_CREATE_DENIED => Self::SidecarCreateDenied,
-            Self::SIDECAR_EXPOSURE_ACK_REQUIRED => Self::SidecarExposureAckRequired,
             Self::SIGNAL_PLAINTEXT_FORBIDDEN => Self::SignalPlaintextForbidden,
             Self::SNAPSHOT_ISSUER_REVOKED => Self::SnapshotIssuerRevoked,
             Self::SOFT_FAILED => Self::SoftFailed,
@@ -4350,11 +4346,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SIDECAR_CREATE_DENIED,
         applies_to: &["auth_decision", "state_resolution", "service_call"],
         description: "Agent Sidecar ensure was denied without revealing whether the controller's native Sidecar or requested source-context mapping already exists. Returned as a generic failed_precondition sub-reason to avoid existence side channels. See zh/models/sidecar.md §3 and §7.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SIDECAR_EXPOSURE_ACK_REQUIRED,
-        applies_to: &["auth_decision", "state_resolution", "service_call"],
-        description: "ak.self.agent.command.resume was rejected because the Agent became an ownership-derived participant of one or more Agent Sidecar objects while paused, and the controller has not supplied the matching sidecar_exposure_ack re-disclosure. The controller MUST re-read the disclosure and resubmit; effective access still waits for native Sidecar MLS reconciliation. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SIGNAL_PLAINTEXT_FORBIDDEN,

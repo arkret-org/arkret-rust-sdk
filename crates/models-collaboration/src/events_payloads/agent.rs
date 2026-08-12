@@ -507,21 +507,7 @@ pub struct AgentResumePayload {
     #[serde(with = "canonical_timestamp")]
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_sidecar_exposure_ack`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentSidecarExposureAck {
-    #[serde(with = "canonical_timestamp")]
-    pub acknowledged_at: DateTime<Utc>,
-    pub acknowledged_by: DidCoreId,
-    pub sidecar_refs: Vec<ObjectRef>,
 }
 
 #[cfg(test)]

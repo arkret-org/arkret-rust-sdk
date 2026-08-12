@@ -1,18 +1,18 @@
 {
   "summary": {
-    "total": 1179,
+    "total": 1178,
     "by_classification": {
       "A": 2,
-      "needs_review": 1177
+      "needs_review": 1176
     },
     "by_openness": {
-      "unresolved": 1179
+      "unresolved": 1178
     },
     "by_crate": {
       "crypto": 2,
       "event-draft": 2,
       "identity": 16,
-      "models-collaboration": 723,
+      "models-collaboration": 722,
       "models-crypto": 107,
       "models-discovery": 14,
       "models-identity": 133,
@@ -2463,19 +2463,6 @@
       "kind": "struct",
       "value_kind": "AgentResumePayload",
       "spec_pointer": "event-payload.schema.json#/$defs/agent_resume_payload",
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentSidecarExposureAck",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/events_payloads/agent.rs",
-      "line": 518,
-      "kind": "struct",
-      "value_kind": "AgentSidecarExposureAck",
-      "spec_pointer": "event-payload.schema.json#/$defs/agent_sidecar_exposure_ack",
       "schema_openness": "unresolved",
       "classification": "needs_review",
       "cfg_gated": false,

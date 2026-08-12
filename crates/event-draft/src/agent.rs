@@ -3,7 +3,7 @@
 use arkret_models_collaboration::agent_operations::AgentLifecycleState;
 use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
-    AgentResumePayload, AgentSidecarExposureAck,
+    AgentResumePayload,
 };
 use arkret_wire::{DidCoreId, DidUrl, Event, Hlc, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
@@ -114,7 +114,6 @@ pub fn build_agent_resume_event(
     controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
-    sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
     actor_seq: u64,
     hlc: Hlc,
     status_changed_at: DateTime<Utc>,
@@ -125,7 +124,6 @@ pub fn build_agent_resume_event(
         transition: "resume".to_owned(),
         previous_status: "paused".to_owned(),
         status_changed_at,
-        sidecar_exposure_ack,
         reason: None,
     };
     build_agent_lifecycle_event::<event_spec::SelfAgentResume>(AgentLifecycleEventInput {
@@ -446,7 +444,6 @@ mod tests {
             controller_id,
             scope(),
             authorization_ref,
-            None,
             9,
             Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
             changed_at,

@@ -3,9 +3,9 @@
 //! Input: registry/operation-registry.json; version=2026-08-12.2;
 //! sha256=e7c3c9074162b355ebb2f1873877624279240179b25257cf157a36e644978451 Input: registry/
 //! operations-error-mapping.json; version=2026-08-12.2;
-//! sha256=c0c20a7f2abb4d5bcd0ad2d964f9fbb1be087dd2a691cbf5b122231e3d27ec74 Input: registry/
+//! sha256=c02cc5f5084759bd7903f5010391f8ef463e06a68292306bd76c54ae82eb64e7 Input: registry/
 //! error-code-registry.json; version=2026-08-11.3;
-//! sha256=200f0d443eeae73aa77c6e42fc7b909b1b191a13560be6052a961f83d03cb878 Entries: operations=237
+//! sha256=abb43ff6225bc89373dfa34e94330a0d92666b79f418029d937f6e7348701d96 Entries: operations=237
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -833,7 +833,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ReasonCode(ReasonCode::AgentDeactivated),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ReasonCode(ReasonCode::SidecarExposureAckRequired),
             OperationSpecificError::ReasonCode(ReasonCode::AccountabilityGrantMissing),
             OperationSpecificError::ErrorCode(ErrorCode::ControllerSignedEventRequired),
         ],
