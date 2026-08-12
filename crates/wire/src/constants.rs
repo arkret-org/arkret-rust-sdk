@@ -38,6 +38,16 @@ pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str = "ak.identity.recovery_policy.si
 /// Capability constraint shorthand from `capability-action-registry.json`.
 pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 
+/// Profile-private HTTP receipt carrier of `governance/join-policy.md` §7.1.1.
+/// One token doing double duty: it is both the `profile_bindings[…].carrier`
+/// value and a `feature_discovery.required` token of
+/// [`ProfileId::CANDIDATE_JOIN_POLICY_V1`], so producers and validators must
+/// spell it the same way. Feature tokens have no closed registry, hence the
+/// literal lives here rather than in a generated module.
+///
+/// [`ProfileId::CANDIDATE_JOIN_POLICY_V1`]: crate::ProfileId::CANDIDATE_JOIN_POLICY_V1
+pub const PROFILE_PRIVATE_HTTP_RECEIPT_V1: &str = "profile_private_http_receipt_v1";
+
 /// AKP-0007 capability action list (6 actions). Useful for downstream
 /// services that want to iterate the Circle-management surface.
 ///

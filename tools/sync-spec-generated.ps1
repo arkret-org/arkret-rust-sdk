@@ -40,7 +40,7 @@ if ($Check) {
 
 try {
     $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
-    $requirementsOutput = Join-Path $targetRoot 'crates/schema/src/generated/profile_requirements.rs'
+    $requirementsOutput = Join-Path $targetRoot 'crates/wire/src/generated/profile_requirements.rs'
     $latticeBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/lattice_bindings.rs'
     $mlsSecurityFrontierOutput = Join-Path $targetRoot 'crates/state/src/generated/mls_security_frontier.rs'
     @(
@@ -99,7 +99,6 @@ try {
     $generatedRoots = @(
         'crates/wire/src/generated',
         'crates/wire/src/error_codes',
-        'crates/policy/src/generated',
         'crates/schema/src/generated',
         'crates/lattice-registry/src/generated'
         'crates/state/src/generated'

@@ -3228,30 +3228,6 @@ impl std::fmt::Display for ProfileRequirementsError {
 
 impl std::error::Error for ProfileRequirementsError {}
 
-/// Structured report describing how a caller's implemented surface compares
-/// against a profile's generated requirement set. Consumed by
-/// `soland describe` / `inkson claim` / `cotest gate` so each surface presents
-/// the same compliance answer.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProfileComplianceReport {
-    pub profile_id: String,
-    pub satisfied_operations: Vec<String>,
-    pub missing_operations: Vec<String>,
-    pub satisfied_event_kinds: Vec<String>,
-    pub missing_event_kinds: Vec<String>,
-    pub satisfied_schemas: Vec<String>,
-    pub missing_schemas: Vec<String>,
-}
-
-impl ProfileComplianceReport {
-    /// True iff the caller satisfies every requirement.
-    pub fn is_compliant(&self) -> bool {
-        self.missing_operations.is_empty()
-            && self.missing_event_kinds.is_empty()
-            && self.missing_schemas.is_empty()
-    }
-}
-
 /// Validates that `implemented_*` covers every requirement of `profile_id`.
 ///
 /// Returns `ProfileRequirementsError::UnknownProfile` if `profile_id` is not in
@@ -3303,64 +3279,4 @@ pub fn validate_profile_requirements(
             missing_schemas,
         })
     }
-}
-
-/// High-level helper: returns a [`ProfileComplianceReport`] describing exactly
-/// which requirements are satisfied vs missing. Returns
-/// `ProfileRequirementsError::UnknownProfile` when `profile_id` is not in the
-/// generated table; never returns `MissingRequirements` (the report itself
-/// captures the diff regardless of compliance).
-pub fn profile_compliance_report(
-    profile_id: &str,
-    implemented_operations: &[&str],
-    implemented_event_kinds: &[&str],
-    implemented_schemas: &[&str],
-) -> Result<ProfileComplianceReport, ProfileRequirementsError> {
-    let Some(req) = PROFILE_REQUIREMENTS.get(profile_id) else {
-        return Err(ProfileRequirementsError::UnknownProfile {
-            profile_id: profile_id.to_owned(),
-        });
-    };
-    let impl_ops: std::collections::BTreeSet<&str> =
-        implemented_operations.iter().copied().collect();
-    let impl_kinds: std::collections::BTreeSet<&str> =
-        implemented_event_kinds.iter().copied().collect();
-    let impl_schemas: std::collections::BTreeSet<&str> =
-        implemented_schemas.iter().copied().collect();
-    let mut satisfied_operations = Vec::new();
-    let mut missing_operations = Vec::new();
-    for op in req.required_operations {
-        if impl_ops.contains(op) {
-            satisfied_operations.push((*op).to_owned());
-        } else {
-            missing_operations.push((*op).to_owned());
-        }
-    }
-    let mut satisfied_event_kinds = Vec::new();
-    let mut missing_event_kinds = Vec::new();
-    for kind in req.required_event_kinds {
-        if impl_kinds.contains(kind) {
-            satisfied_event_kinds.push((*kind).to_owned());
-        } else {
-            missing_event_kinds.push((*kind).to_owned());
-        }
-    }
-    let mut satisfied_schemas = Vec::new();
-    let mut missing_schemas = Vec::new();
-    for schema in req.required_schemas {
-        if impl_schemas.contains(schema) {
-            satisfied_schemas.push((*schema).to_owned());
-        } else {
-            missing_schemas.push((*schema).to_owned());
-        }
-    }
-    Ok(ProfileComplianceReport {
-        profile_id: profile_id.to_owned(),
-        satisfied_operations,
-        missing_operations,
-        satisfied_event_kinds,
-        missing_event_kinds,
-        satisfied_schemas,
-        missing_schemas,
-    })
 }

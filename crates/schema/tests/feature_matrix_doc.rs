@@ -2,7 +2,7 @@
 //! mirror against the generated `profile_requirements` table (SPEC-FEAT-02).
 //!
 //! `docs/feature-matrix.md` carries a human-readable conformance-profile table
-//! maintained by hand, while `arkret_schema::generated::profile_requirements` is
+//! maintained by hand, while `arkret_wire::generated::profile_requirements` is
 //! derived from the spec artifact. These are two sources for the same facts and
 //! can drift. This test asserts every `ak.profile.*.vN` ID named in the doc is a
 //! real profile in the generated (authoritative) table, so the mirror can never
@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_schema::generated::profile_requirements::requirements_for;
+use arkret_wire::generated::profile_requirements::requirements_for;
 
 /// Load the workspace-root `docs/feature-matrix.md` relative to this crate's
 /// manifest directory (`crates/schema`).

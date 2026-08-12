@@ -1,6 +1,6 @@
 use arkret_canonical::canonical;
-use arkret_schema::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_schema::*;
+use arkret_wire::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, SchemaId};
 #[cfg(feature = "embedded-artifacts")]
 use arkret_wire::{DidCoreId, DidUrl, Hash, Proof};

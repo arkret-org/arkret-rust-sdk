@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 pub use arkret_models_identity::session_credential::SessionGrantProofKind;
+use arkret_wire::generated::profile_requirements::requirements_for;
 use arkret_wire::{DidCoreId, DidFullId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -415,19 +416,6 @@ impl ServiceDescribe {
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        const JOIN_OPERATIONS: &[&str] = &[
-            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
-            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
-            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
-            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST,
-            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
-            ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
-        ];
-        const JOIN_FEATURES: &[&str] = &[
-            "candidate_join_policy_reviewer",
-            "candidate_member_application_intake",
-            "profile_private_http_receipt_v1",
-        ];
         if self.profile_bindings.iter().any(|(profile, binding)| {
             binding.carrier.is_empty()
                 || !self
@@ -450,20 +438,33 @@ impl ServiceDescribe {
                 .profile_bindings
                 .get(ProfileId::CANDIDATE_JOIN_POLICY_V1)
                 .map(|binding| binding.carrier.as_str());
-            if carrier != Some("profile_private_http_receipt_v1") {
+            if carrier != Some(PROFILE_PRIVATE_HTTP_RECEIPT_V1) {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: {profileid_candidate_join_policy_v1} requires \
-                     profile_bindings carrier=profile_private_http_receipt_v1 ({})",
+                     profile_bindings carrier={PROFILE_PRIVATE_HTTP_RECEIPT_V1} ({})",
                     ErrorCode::SCHEMA_VIOLATION,
                     profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
                 )));
             }
-            if JOIN_OPERATIONS.iter().any(|required| {
+            // `governance/join-policy.md` §7.1.1: claiming the profile commits
+            // to its *complete* carrier surface. The requirement set is the
+            // generated projection of `conformance-profiles.json`, so a spec
+            // change reaches this gate without a hand-maintained copy.
+            let requirements =
+                requirements_for(ProfileId::CANDIDATE_JOIN_POLICY_V1).ok_or_else(|| {
+                    Error::Protocol(format!(
+                        "ServiceDescribe: generated profile table is missing \
+                         {profileid_candidate_join_policy_v1} ({})",
+                        ErrorCode::SCHEMA_VIOLATION,
+                        profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
+                    ))
+                })?;
+            if requirements.required_operations.iter().any(|required| {
                 !self
                     .supported_operations
                     .iter()
                     .any(|operation| operation == required)
-            }) || JOIN_FEATURES.iter().any(|required| {
+            }) || requirements.required_features.iter().any(|required| {
                 !self
                     .supported_features
                     .iter()

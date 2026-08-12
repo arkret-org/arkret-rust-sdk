@@ -1,7 +1,7 @@
 # Feature Matrix
 
 > **Authoritative source.** The conformance-profile requirement surface is
-> defined by the generated `arkret::generated::profile_requirements` table
+> defined by the generated `arkret_wire::generated::profile_requirements` table
 > (derived from `arkret-spec` `conformance-profiles.json`). The profile tables
 > in this document are a **human-readable mirror only** — when they disagree,
 > the generated table wins. The `feature_matrix_profiles_subset_of_generated`
@@ -43,7 +43,7 @@ storage and service-level interoperability tests.
 This table mirrors `ak.profile.*.vN` IDs the SDK `0.3.x` development line implements. New
 profiles introduced in P5 (spec head 37ce729) are listed first; the
 remainder of the catalog is represented by the generated
-`generated::profile_requirements` table.
+`arkret_wire::generated::profile_requirements` table.
 
 | Profile ID | SDK 0.3.x | Notes |
 | --- | --- | --- |

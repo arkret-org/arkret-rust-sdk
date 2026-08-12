@@ -237,7 +237,7 @@ impl SdkConformanceClaim {
                 "build_variants".to_owned(),
             ));
         }
-        let known_profiles = crate::known_profile_ids()
+        let known_profiles = arkret_wire::generated::profile_requirements::known_profile_ids()
             .into_iter()
             .collect::<BTreeSet<_>>();
         let mut variant_ids = BTreeSet::new();

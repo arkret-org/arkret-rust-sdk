@@ -1,7 +1,7 @@
 //! Cross-check between declared conformance profiles and the Cargo features
 //! actually compiled into the binary.
 //!
-//! `generated::profile_requirements` is a static table with no `#[cfg(feature)]`
+//! `arkret_wire::generated::profile_requirements` is a static table with no `#[cfg(feature)]`
 //! gates: a `--no-default-features` build still declares the full
 //! `e2ee_client` required surface (`ak.mls.*` event kinds,
 //! `encrypted_envelope` / `key_backup` schemas), even though that binary has no
@@ -23,13 +23,13 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::SchemaId;
-
 // `SchemaId::ENCRYPTED_ENVELOPE_V1` in a profile's required surface implies the `mls`
 // feature (E2EE ciphertext envelopes can only be produced/consumed with the MLS
 // group crypto compiled in); `SchemaId::KEY_BACKUP_V1` implies the client-side
 // key-backup crypto feature.
-use crate::generated::profile_requirements::ProfileRequirementsError;
+use arkret_wire::SchemaId;
+use arkret_wire::generated::profile_requirements::ProfileRequirementsError;
+
 use crate::profile_semantics::collect_profile_semantic_requirements;
 
 /// A Cargo feature a conformance profile requires but which is not compiled

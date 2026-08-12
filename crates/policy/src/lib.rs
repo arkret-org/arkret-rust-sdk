@@ -3,7 +3,6 @@
 use arkret_wire::*;
 
 pub mod authz;
-pub mod generated;
 pub mod history_visibility;
 pub mod minimal_metadata_author;
 pub mod minimal_metadata_security;

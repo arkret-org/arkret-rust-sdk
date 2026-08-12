@@ -1,12 +1,17 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\schema\src\generated\profile_requirements.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire\src\generated\profile_requirements.rs")
 )
 
 . (Join-Path $PSScriptRoot 'utf8-byte-order.ps1')
 
-# Emits crates/schema/src/generated/profile_requirements.rs from
+# Emits crates/wire/src/generated/profile_requirements.rs from
 # arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json.
+#
+# The table lives in arkret-wire next to the other generated registries so the
+# data-layer crates (models-discovery et al) can gate on a profile's frozen
+# requirement set without depending on the schema validator stack.
+# arkret-schema and arkret-policy re-export it under their historical paths.
 #
 # Mirrors the style of tools/generate-sdk-event-kinds.ps1 but produces a
 # richer module exposing per-profile inheritance, required operations / event
@@ -291,30 +296,6 @@ $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
 $lines.Add("impl std::error::Error for ProfileRequirementsError {}") | Out-Null
 $lines.Add("") | Out-Null
-$lines.Add("/// Structured report describing how a caller's implemented surface compares") | Out-Null
-$lines.Add("/// against a profile's generated requirement set. Consumed by") | Out-Null
-$lines.Add('/// `soland describe` / `inkson claim` / `cotest gate` so each surface presents') | Out-Null
-$lines.Add('/// the same compliance answer.') | Out-Null
-$lines.Add("#[derive(Clone, Debug, PartialEq, Eq)]") | Out-Null
-$lines.Add("pub struct ProfileComplianceReport {") | Out-Null
-$lines.Add("    pub profile_id: String,") | Out-Null
-$lines.Add("    pub satisfied_operations: Vec<String>,") | Out-Null
-$lines.Add("    pub missing_operations: Vec<String>,") | Out-Null
-$lines.Add("    pub satisfied_event_kinds: Vec<String>,") | Out-Null
-$lines.Add("    pub missing_event_kinds: Vec<String>,") | Out-Null
-$lines.Add("    pub satisfied_schemas: Vec<String>,") | Out-Null
-$lines.Add("    pub missing_schemas: Vec<String>,") | Out-Null
-$lines.Add("}") | Out-Null
-$lines.Add("") | Out-Null
-$lines.Add("impl ProfileComplianceReport {") | Out-Null
-$lines.Add("    /// True iff the caller satisfies every requirement.") | Out-Null
-$lines.Add("    pub fn is_compliant(&self) -> bool {") | Out-Null
-$lines.Add("        self.missing_operations.is_empty()") | Out-Null
-$lines.Add("            && self.missing_event_kinds.is_empty()") | Out-Null
-$lines.Add("            && self.missing_schemas.is_empty()") | Out-Null
-$lines.Add("    }") | Out-Null
-$lines.Add("}") | Out-Null
-$lines.Add("") | Out-Null
 $lines.Add('/// Validates that `implemented_*` covers every requirement of `profile_id`.') | Out-Null
 $lines.Add('///') | Out-Null
 $lines.Add('/// Returns `ProfileRequirementsError::UnknownProfile` if `profile_id` is not in') | Out-Null
@@ -368,66 +349,6 @@ $lines.Add("            missing_event_kinds,") | Out-Null
 $lines.Add("            missing_schemas,") | Out-Null
 $lines.Add("        })") | Out-Null
 $lines.Add("    }") | Out-Null
-$lines.Add("}") | Out-Null
-$lines.Add("") | Out-Null
-$lines.Add('/// High-level helper: returns a [`ProfileComplianceReport`] describing exactly') | Out-Null
-$lines.Add('/// which requirements are satisfied vs missing. Returns') | Out-Null
-$lines.Add('/// `ProfileRequirementsError::UnknownProfile` when `profile_id` is not in the') | Out-Null
-$lines.Add('/// generated table; never returns `MissingRequirements` (the report itself') | Out-Null
-$lines.Add('/// captures the diff regardless of compliance).') | Out-Null
-$lines.Add("pub fn profile_compliance_report(") | Out-Null
-$lines.Add("    profile_id: &str,") | Out-Null
-$lines.Add("    implemented_operations: &[&str],") | Out-Null
-$lines.Add("    implemented_event_kinds: &[&str],") | Out-Null
-$lines.Add("    implemented_schemas: &[&str],") | Out-Null
-$lines.Add(") -> Result<ProfileComplianceReport, ProfileRequirementsError> {") | Out-Null
-$lines.Add("    let Some(req) = PROFILE_REQUIREMENTS.get(profile_id) else {") | Out-Null
-$lines.Add("        return Err(ProfileRequirementsError::UnknownProfile {") | Out-Null
-$lines.Add("            profile_id: profile_id.to_owned(),") | Out-Null
-$lines.Add("        });") | Out-Null
-$lines.Add("    };") | Out-Null
-$lines.Add("    let impl_ops: std::collections::BTreeSet<&str> =") | Out-Null
-$lines.Add("        implemented_operations.iter().copied().collect();") | Out-Null
-$lines.Add("    let impl_kinds: std::collections::BTreeSet<&str> =") | Out-Null
-$lines.Add("        implemented_event_kinds.iter().copied().collect();") | Out-Null
-$lines.Add("    let impl_schemas: std::collections::BTreeSet<&str> =") | Out-Null
-$lines.Add("        implemented_schemas.iter().copied().collect();") | Out-Null
-$lines.Add("    let mut satisfied_operations = Vec::new();") | Out-Null
-$lines.Add("    let mut missing_operations = Vec::new();") | Out-Null
-$lines.Add("    for op in req.required_operations {") | Out-Null
-$lines.Add("        if impl_ops.contains(op) {") | Out-Null
-$lines.Add("            satisfied_operations.push((*op).to_owned());") | Out-Null
-$lines.Add("        } else {") | Out-Null
-$lines.Add("            missing_operations.push((*op).to_owned());") | Out-Null
-$lines.Add("        }") | Out-Null
-$lines.Add("    }") | Out-Null
-$lines.Add("    let mut satisfied_event_kinds = Vec::new();") | Out-Null
-$lines.Add("    let mut missing_event_kinds = Vec::new();") | Out-Null
-$lines.Add("    for kind in req.required_event_kinds {") | Out-Null
-$lines.Add("        if impl_kinds.contains(kind) {") | Out-Null
-$lines.Add("            satisfied_event_kinds.push((*kind).to_owned());") | Out-Null
-$lines.Add("        } else {") | Out-Null
-$lines.Add("            missing_event_kinds.push((*kind).to_owned());") | Out-Null
-$lines.Add("        }") | Out-Null
-$lines.Add("    }") | Out-Null
-$lines.Add("    let mut satisfied_schemas = Vec::new();") | Out-Null
-$lines.Add("    let mut missing_schemas = Vec::new();") | Out-Null
-$lines.Add("    for schema in req.required_schemas {") | Out-Null
-$lines.Add("        if impl_schemas.contains(schema) {") | Out-Null
-$lines.Add("            satisfied_schemas.push((*schema).to_owned());") | Out-Null
-$lines.Add("        } else {") | Out-Null
-$lines.Add("            missing_schemas.push((*schema).to_owned());") | Out-Null
-$lines.Add("        }") | Out-Null
-$lines.Add("    }") | Out-Null
-$lines.Add("    Ok(ProfileComplianceReport {") | Out-Null
-$lines.Add("        profile_id: profile_id.to_owned(),") | Out-Null
-$lines.Add("        satisfied_operations,") | Out-Null
-$lines.Add("        missing_operations,") | Out-Null
-$lines.Add("        satisfied_event_kinds,") | Out-Null
-$lines.Add("        missing_event_kinds,") | Out-Null
-$lines.Add("        satisfied_schemas,") | Out-Null
-$lines.Add("        missing_schemas,") | Out-Null
-$lines.Add("    })") | Out-Null
 $lines.Add("}") | Out-Null
 
 Set-Content -LiteralPath $OutputPath -Value ($lines -join [Environment]::NewLine) -NoNewline

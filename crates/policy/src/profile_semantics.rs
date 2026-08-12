@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::generated::profile_requirements::{
+use arkret_wire::generated::profile_requirements::{
     ProfileRequirements, ProfileRequirementsError, requirements_for,
 };
 

@@ -64,9 +64,9 @@
     {
       "generator": "profile-requirements",
       "outputs": [
-        "crates/schema/src/generated/profile_requirements.rs"
+        "crates/wire/src/generated/profile_requirements.rs"
       ],
-      "owner": "arkret-schema",
+      "owner": "arkret-wire",
       "mode": "descriptor",
       "artifacts": [
         "profiles/conformance-profiles.json"
