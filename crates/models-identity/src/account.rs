@@ -1278,19 +1278,41 @@ pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
 /// The first sender-constrained Standard grant requested atomically with
 /// account binding and PCR genesis.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub enum InitialSessionGrantOperation {
+    #[serde(rename = "ak.self.account.read.describe")]
+    AccountReadDescribe,
+    #[serde(rename = "ak.self.events.read.scan")]
+    EventsReadScan,
+}
+
+impl InitialSessionGrantOperation {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AccountReadDescribe => "ak.self.account.read.describe",
+            Self::EventsReadScan => "ak.self.events.read.scan",
+        }
+    }
+}
+
+pub const STANDARD_INITIAL_SESSION_GRANT_OPERATIONS: [InitialSessionGrantOperation; 2] = [
+    InitialSessionGrantOperation::AccountReadDescribe,
+    InitialSessionGrantOperation::EventsReadScan,
+];
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InitialSessionGrantRequest {
     pub device_id: DeviceId,
     pub session_public_key: CanonicalSessionPublicJwk,
     pub audience: DidCoreId,
-    pub requested_scope: Vec<String>,
+    pub requested_scope: Vec<InitialSessionGrantOperation>,
 }
 
 impl InitialSessionGrantRequest {
     pub fn validate(&self) -> Result<()> {
         if self.requested_scope.is_empty()
-            || self.requested_scope.iter().any(String::is_empty)
             || self
                 .requested_scope
                 .iter()
@@ -1303,6 +1325,19 @@ impl InitialSessionGrantRequest {
             ));
         }
         Ok(())
+    }
+
+    pub fn requested_scope_strings(&self) -> Vec<String> {
+        self.requested_scope
+            .iter()
+            .map(|operation| operation.as_str().to_owned())
+            .collect()
+    }
+
+    pub fn allows_scope(&self, scope: &str) -> bool {
+        self.requested_scope
+            .iter()
+            .any(|operation| operation.as_str() == scope)
     }
 
     pub fn canonical_request_digest(&self) -> Result<Hash> {
@@ -1683,18 +1718,69 @@ pub struct AccountBindingReceipt {
     pub proof: PayloadProof,
 }
 
+#[derive(Serialize)]
+struct AccountBindingReceiptPayload<'a> {
+    binding_state: AccountBindingState,
+    binding_kind: AccountBindingKind,
+    account_authority_id: &'a DidCoreId,
+    account_subject: &'a Hash,
+    principal_id: &'a DidCoreId,
+    full_id: &'a DidFullId,
+    did_version_id: &'a str,
+    control_key_digest: &'a Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    identity_creation_lease_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lease_fence: Option<u64>,
+    operation_status: IdentityCreationOperationStatus,
+    operation_digest: &'a Hash,
+    head_event_digest: &'a Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+}
+
+#[derive(Serialize)]
+struct AccountBindingReceiptProofBinding<'a> {
+    context: &'static str,
+    payload_digest: &'a Hash,
+    account_authority_id: &'a DidCoreId,
+    account_subject: &'a Hash,
+    principal_id: &'a DidCoreId,
+    full_id: &'a DidFullId,
+    did_version_id: &'a str,
+    control_key_digest: &'a Hash,
+    verification_method: &'a DidUrl,
+    created_at: String,
+}
+
 impl AccountBindingReceipt {
     pub fn canonical_payload_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("account binding receipt serializes as object")
-            .remove("proof");
-        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+        let payload = AccountBindingReceiptPayload {
+            binding_state: self.binding_state,
+            binding_kind: self.binding_kind,
+            account_authority_id: &self.account_authority_id,
+            account_subject: &self.account_subject,
+            principal_id: &self.principal_id,
+            full_id: &self.full_id,
+            did_version_id: &self.did_version_id,
+            control_key_digest: &self.control_key_digest,
+            identity_creation_lease_id: self.identity_creation_lease_id.as_deref(),
+            lease_fence: self.lease_fence,
+            operation_status: self.operation_status,
+            operation_digest: &self.operation_digest,
+            head_event_digest: &self.head_event_digest,
+            issued_at: self.issued_at,
+        };
+        Hash::new(canonical::canonical_sha256(&payload)?).map_err(Into::into)
     }
 
     pub fn validate_shape(&self) -> Result<()> {
         self.proof.validate_production()?;
+        self.validate_proof_binding_fields()
+    }
+
+    fn validate_proof_binding_fields(&self) -> Result<()> {
+        self.proof.unsigned().validate_production()?;
         let proof_controller = self
             .proof
             .verification_method
@@ -1735,19 +1821,22 @@ impl AccountBindingReceipt {
 
     /// Canonical detached-JWS binding object for the Account Authority proof.
     pub fn canonical_proof_binding_bytes(&self) -> Result<Vec<u8>> {
-        self.validate_shape()?;
-        canonical::canonical_json_bytes(&serde_json::json!({
-            "context": arkret_wire::ProofContextId::ACCOUNT_BINDING_RECEIPT_PROOF_V1,
-            "payload_digest": &self.proof.payload_digest,
-            "account_authority_id": &self.account_authority_id,
-            "account_subject": &self.account_subject,
-            "principal_id": &self.principal_id,
-            "full_id": &self.full_id,
-            "did_version_id": &self.did_version_id,
-            "control_key_digest": &self.control_key_digest,
-            "verification_method": &self.proof.verification_method,
-            "created_at": canonical::format_timestamp_canonical(self.proof.created_at),
-        }))
+        // The binding bytes are needed before the detached JWS exists. Validate
+        // the fully typed unsigned proof metadata and every receipt binding,
+        // but deliberately do not require the final signature at this stage.
+        self.validate_proof_binding_fields()?;
+        canonical::canonical_json_bytes(&AccountBindingReceiptProofBinding {
+            context: arkret_wire::ProofContextId::ACCOUNT_BINDING_RECEIPT_PROOF_V1,
+            payload_digest: &self.proof.payload_digest,
+            account_authority_id: &self.account_authority_id,
+            account_subject: &self.account_subject,
+            principal_id: &self.principal_id,
+            full_id: &self.full_id,
+            did_version_id: &self.did_version_id,
+            control_key_digest: &self.control_key_digest,
+            verification_method: &self.proof.verification_method,
+            created_at: canonical::format_timestamp_canonical(self.proof.created_at),
+        })
         .map_err(Into::into)
     }
 }
@@ -1828,6 +1917,49 @@ mod account_handoff_tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn account_binding_receipt_signing_transcript_accepts_unsigned_typed_proof_only() {
+        let now = Utc::now();
+        let authority_full_id =
+            DidFullId::new("did:webvh:z6mkaccountauthority:auth.example").unwrap();
+        let authority_core_id = project_full_id_to_core_id(&authority_full_id).unwrap();
+        let principal_full_id = DidFullId::new("did:webvh:z6mkprincipal:example.com").unwrap();
+        let principal_core_id = project_full_id_to_core_id(&principal_full_id).unwrap();
+        let mut receipt = AccountBindingReceipt {
+            binding_state: AccountBindingState::Bound,
+            binding_kind: AccountBindingKind::IdentityCreation,
+            account_authority_id: authority_core_id,
+            account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            principal_id: principal_core_id,
+            full_id: principal_full_id,
+            did_version_id: "1-fixture".to_owned(),
+            control_key_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
+            identity_creation_lease_id: Some("lease-fixture".to_owned()),
+            lease_fence: Some(1),
+            operation_status: IdentityCreationOperationStatus::Accepted,
+            operation_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            head_event_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
+            issued_at: now,
+            proof: PayloadProof {
+                kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(
+                    "did:webvh:z6mkaccountauthority:auth.example#service-key-1".to_owned(),
+                )
+                .unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: now,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: String::new(),
+            },
+        };
+        receipt.proof.payload_digest = receipt.canonical_payload_digest().unwrap();
+
+        receipt.canonical_proof_binding_bytes().unwrap();
+        assert!(receipt.validate_shape().is_err());
+    }
 
     fn handoff_request() -> AccountHandoffRequestBody {
         AccountHandoffRequestBody {

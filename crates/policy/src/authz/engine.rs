@@ -1534,7 +1534,7 @@ mod engine_wire_tests {
             schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),
-            subject: CapabilitySubject::Did(bob()),
+            subject: CapabilitySubject::CoreDid(bob()),
             subject_authority_instance: None,
             actions: vec!["ak.message.create".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],

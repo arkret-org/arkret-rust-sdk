@@ -722,7 +722,7 @@ impl AccountRegisterOutcome {
                     grant
                         .granted_scope
                         .iter()
-                        .all(|scope| initial.requested_scope.contains(scope)),
+                        .all(|scope| initial.allows_scope(scope)),
                 ),
                 (
                     "receipt principal_id",

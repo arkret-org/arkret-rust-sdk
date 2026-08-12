@@ -1,6 +1,8 @@
 //! Historical Account Authority verification for signed registration receipts.
 
-use arkret_models_identity::{AccountBindingReceipt, DidDocument, IdentityLogListOutcome};
+use arkret_models_identity::{
+    AccountBindingReceipt, DidDocument, DidMethodUri, IdentityLogListOutcome,
+};
 use arkret_wire::{DidCoreId, DidFullId, Hash};
 
 use crate::{
@@ -79,7 +81,7 @@ pub fn verify_account_binding_receipt_at_issuance(
         return Err(AuthorityHistoryVerificationError::AuthorityMismatch);
     }
     let history = resolver.resolve_complete_history(&authority_full_id)?;
-    if history.did != authority_full_id || history.method != "did:webvh" {
+    if history.did != authority_full_id || history.method != DidMethodUri::Webvh {
         return Err(AuthorityHistoryVerificationError::AuthorityMismatch);
     }
     if history.native_history == Some(false) {
@@ -255,7 +257,7 @@ mod tests {
         .unwrap();
         let history = IdentityLogListOutcome {
             did: authority_full_id,
-            method: "did:webvh".to_owned(),
+            method: DidMethodUri::Webvh,
             native_history: Some(true),
             entries: vec![inception.log_entry.clone()],
             next_cursor: None,

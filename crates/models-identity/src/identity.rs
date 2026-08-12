@@ -6,6 +6,34 @@ use serde_json::Value;
 
 use crate::artifacts_device_identity::{IdentityReceipt, IdentityReceiptEvidence};
 
+/// Closed DID method name used by method-adapter dispatch.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DidMethodName {
+    Webvh,
+    Web,
+}
+
+impl DidMethodName {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Webvh => "webvh",
+            Self::Web => "web",
+        }
+    }
+}
+
+/// Closed absolute DID method identifier returned by history endpoints.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DidMethodUri {
+    #[serde(rename = "did:webvh")]
+    Webvh,
+    #[serde(rename = "did:web")]
+    Web,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityDescription {
@@ -63,7 +91,7 @@ pub struct IdentityDocumentView {
 #[serde(deny_unknown_fields)]
 pub struct DidOperationSubmitRequestBody {
     pub did: DidFullId,
-    pub did_method: String,
+    pub did_method: DidMethodName,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -76,7 +104,7 @@ impl DidOperationSubmitRequestBody {
     /// operation to a DID-method adapter. Controller/update/recovery proof
     /// verification remains entirely method-native.
     pub fn validate(&self) -> Result<()> {
-        if self.did_method != self.did.method() {
+        if self.did_method.as_str() != self.did.method() {
             return Err(Error::Protocol(format!(
                 "DID operation did_method {:?} does not match DID method {:?}",
                 self.did_method,
@@ -134,7 +162,7 @@ pub struct IdentityReceiptListOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityLogListOutcome {
     pub did: DidFullId,
-    pub method: String,
+    pub method: DidMethodUri,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native_history: Option<bool>,
     #[serde(default)]
@@ -156,7 +184,7 @@ mod did_operation_tests {
     fn native_request() -> DidOperationSubmitRequestBody {
         DidOperationSubmitRequestBody {
             did: DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            did_method: "webvh".to_owned(),
+            did_method: DidMethodName::Webvh,
             seq: Some(0),
             prev_event_digest: None,
             operation: BTreeMap::from([
@@ -176,7 +204,7 @@ mod did_operation_tests {
         let mut request = native_request();
         request.validate().unwrap();
 
-        request.did_method = "web".to_owned();
+        request.did_method = DidMethodName::Web;
         assert!(request.validate().is_err());
     }
 

@@ -979,8 +979,8 @@ impl AgentGrantAttachRequestBody {
             decode_payload_after_kind_validation(event)?;
         let grant = &payload.grant;
         let subject = match &grant.subject {
-            CapabilitySubject::Did(subject) => subject,
-            CapabilitySubject::Selector(_) => {
+            CapabilitySubject::CoreDid(subject) => subject,
+            CapabilitySubject::Condition(_) => {
                 return Err(Error::Protocol(
                     "Agent grant attach requires the path Agent as grant subject".to_owned(),
                 ));
@@ -2475,6 +2475,11 @@ mod tests {
         let outcome = AgentProvisionOutcome::AwaitingControllerEvent {
             agent_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureagent").unwrap(),
             full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+            initial_resolution: arkret_models_identity::ResolutionCommitment {
+                full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+                method_history_head: format!("sha256:{}", "8b".repeat(32)),
+                version_id: format!("1-Qm{}", "a".repeat(44)),
+            },
             controller_realm_id: RealmId::new(
                 "ak:realm:AUf0Zz23_ZBqZYNvzHTY6qhhx-2YyO94WTorNCFnnvvN",
             )

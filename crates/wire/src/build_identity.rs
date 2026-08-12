@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{EVENT_KIND_REGISTRY_SHA256, Error, Result};
+use crate::EVENT_KIND_REGISTRY_SHA256;
+#[cfg(any(debug_assertions, test))]
+use crate::{Error, Result};
 
 /// Vendor extension key carrying the exact shared SDK identity in a service
 /// description. This is a development build guard, not a compatibility range.
@@ -23,7 +25,13 @@ impl ArkretBuildIdentity {
         }
     }
 
-    pub fn validate_current(&self) -> Result<()> {
+    /// Require byte-for-byte equality with the local development build.
+    ///
+    /// This is a test/development freshness assertion, not an Arkret protocol
+    /// compatibility check. Production interoperability must be negotiated
+    /// from protocol versions, profiles, operations and schema capabilities.
+    #[cfg(any(debug_assertions, test))]
+    pub fn validate_exact_development_build(&self) -> Result<()> {
         let current = Self::current();
         if self == &current {
             return Ok(());
@@ -50,14 +58,19 @@ mod tests {
 
     #[test]
     fn current_identity_validates() {
-        ArkretBuildIdentity::current().validate_current().unwrap();
+        ArkretBuildIdentity::current()
+            .validate_exact_development_build()
+            .unwrap();
     }
 
     #[test]
     fn changed_sdk_identity_is_rejected() {
         let mut identity = ArkretBuildIdentity::current();
         identity.sdk_source_sha256 = "stale".to_owned();
-        let error = identity.validate_current().unwrap_err().to_string();
+        let error = identity
+            .validate_exact_development_build()
+            .unwrap_err()
+            .to_string();
         assert!(error.contains("SDK build identity mismatch"));
         assert!(error.contains("remote SDK=stale"));
     }

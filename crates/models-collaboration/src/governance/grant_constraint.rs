@@ -28,8 +28,22 @@ pub enum ApprovalWorkflowMode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CapabilitySubject {
-    Did(DidCoreId),
-    Selector(Value),
+    CoreDid(DidCoreId),
+    Condition(ConditionSubjectSelector),
+}
+
+/// Claim-based subject predicate from `capability-grant.schema.json`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConditionSubjectSelector {
+    pub kind: ConditionSubjectSelectorKind,
+    pub required_claims: Vec<GrantConstraintClaimRequirement>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConditionSubjectSelectorKind {
+    Condition,
 }
 
 /// Grant constraint family discriminator from `grant-constraint.schema.json`.
@@ -869,7 +883,7 @@ mod tests {
                 RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             ),
             issuer: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
-            subject: CapabilitySubject::Did(
+            subject: CapabilitySubject::CoreDid(
                 DidCoreId::new("ak:did_core:web:subject.example").unwrap(),
             ),
             subject_authority_instance: None,

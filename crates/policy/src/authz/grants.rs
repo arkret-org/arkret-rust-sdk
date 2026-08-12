@@ -94,7 +94,7 @@ impl GrantProjection {
             })?;
             if !matches!(
                 &grant.subject,
-                CapabilitySubject::Did(subject) if subject == &authority_instance.principal_id
+                CapabilitySubject::CoreDid(subject) if subject == &authority_instance.principal_id
             ) {
                 return Err(Error::Protocol(
                     "schema_violation: subject_authority_instance does not bind the DID subject"
@@ -157,8 +157,8 @@ impl GrantProjection {
     /// (selector) subjects return `None` — the engine fails closed on them.
     pub(crate) fn subject_did(&self) -> Option<&DidCoreId> {
         match &self.subject {
-            CapabilitySubject::Did(did) => Some(did),
-            CapabilitySubject::Selector(_) => None,
+            CapabilitySubject::CoreDid(did) => Some(did),
+            CapabilitySubject::Condition(_) => None,
         }
     }
 
@@ -1382,7 +1382,7 @@ impl CapabilityGrantBuilder {
 
     /// Override the grant subject.
     pub fn with_subject(mut self, subject: DidCoreId) -> Self {
-        self.grant.subject = CapabilitySubject::Did(subject);
+        self.grant.subject = CapabilitySubject::CoreDid(subject);
         self
     }
 
@@ -1566,7 +1566,7 @@ mod capability_grant_builder_tests {
             schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),
-            subject: CapabilitySubject::Did(bob()),
+            subject: CapabilitySubject::CoreDid(bob()),
             subject_authority_instance: None,
             actions: vec!["ak.message.create".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
@@ -1789,7 +1789,7 @@ mod capability_grant_builder_tests {
                 },
             ],
             issuer: bob(),
-            subject: CapabilitySubject::Did(
+            subject: CapabilitySubject::CoreDid(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap(),
             ),
             actions: vec!["ak.message.create".to_owned()],
@@ -1815,7 +1815,7 @@ mod capability_grant_builder_tests {
                 },
             ],
             issuer: bob(),
-            subject: CapabilitySubject::Did(
+            subject: CapabilitySubject::CoreDid(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap(),
             ),
             ..base_grant()
@@ -1851,7 +1851,7 @@ mod capability_grant_builder_tests {
                 },
             ],
             issuer: bob(),
-            subject: CapabilitySubject::Did(
+            subject: CapabilitySubject::CoreDid(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixture:carol.example").unwrap(),
             ),
             actions: vec!["ak.message.create".to_owned(), "ak.message.revise".to_owned()],

@@ -292,7 +292,7 @@ pub fn validate_principal_inception_operation(
     request
         .validate()
         .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
-    if request.did_method != "webvh"
+    if request.did_method != arkret_models_identity::DidMethodName::Webvh
         || request.seq != Some(1)
         || request.prev_event_digest.is_some()
     {
@@ -2228,7 +2228,7 @@ fn did_submit_body(
     };
     Ok(DidOperationSubmitRequestBody {
         did: typed_did,
-        did_method: "webvh".to_owned(),
+        did_method: arkret_models_identity::DidMethodName::Webvh,
         seq: Some(seq),
         prev_event_digest,
         operation: operation.into_iter().collect(),

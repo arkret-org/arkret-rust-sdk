@@ -659,7 +659,7 @@ pub enum SessionGrantIntrospectStatus {
 pub struct SessionGrantIntrospectGrant {
     pub id: SessionGrantId,
     pub issuer: String,
-    pub subject: String,
+    pub subject: DidCoreId,
     pub service_account_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
@@ -687,7 +687,7 @@ pub struct SessionGrantIntrospectGrant {
 struct SessionGrantIntrospectGrantWire {
     id: SessionGrantId,
     issuer: String,
-    subject: String,
+    subject: DidCoreId,
     service_account_id: String,
     #[serde(default)]
     device_id: Option<DeviceId>,
@@ -863,7 +863,7 @@ mod session_grant_contract_tests {
         json!({
             "id": GRANT_ID,
             "issuer": "did:example:issuer",
-            "subject": "did:example:alice",
+            "subject": "ak:did_core:web:alice.example",
             "service_account_id": "account-1",
             "audience": "ak:did_core:web:service.example",
             "scopes": [],

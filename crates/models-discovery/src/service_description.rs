@@ -270,15 +270,19 @@ impl ServiceDescribe {
             .map_err(Error::from)
     }
 
-    /// Require this service description to come from the exact SDK source
-    /// compiled into the caller.
-    pub fn validate_current_arkret_build_identity(&self) -> Result<()> {
+    /// Development/test-only assertion that this description comes from the
+    /// exact SDK source compiled into the caller.
+    ///
+    /// This is deliberately named as an exact-build assertion so callers do
+    /// not mistake it for a production protocol compatibility check.
+    #[cfg(any(debug_assertions, test))]
+    pub fn validate_exact_development_build_identity(&self) -> Result<()> {
         let identity = self.arkret_build_identity()?.ok_or_else(|| {
             Error::Protocol(format!(
                 "ServiceDescribe: missing {ARKRET_BUILD_IDENTITY_EXTENSION}"
             ))
         })?;
-        identity.validate_current()
+        identity.validate_exact_development_build()
     }
 
     /// Build a complete development-mode description for a service surface.
@@ -588,7 +592,7 @@ mod tests {
             Some(ArkretBuildIdentity::current())
         );
         description
-            .validate_current_arkret_build_identity()
+            .validate_exact_development_build_identity()
             .unwrap();
     }
 
