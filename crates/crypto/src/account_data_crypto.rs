@@ -2,7 +2,7 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_digest};
-use arkret_wire::{AEAD_PROFILE_XCHACHA20_POLY1305_V1, SchemaId};
+use arkret_wire::{AEAD_PROFILE_XCHACHA20_POLY1305_V1, DidCoreId, SchemaId};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
@@ -22,16 +22,16 @@ const ACCOUNT_DATA_NONCE_LEN: usize = 24;
 pub struct AccountDataEncryptedValueAad {
     pub schema: String,
     pub version: String,
-    pub actor_id: String,
+    pub actor_id: DidCoreId,
     pub account_data_key: String,
 }
 
 impl AccountDataEncryptedValueAad {
-    pub fn new(actor_id: impl Into<String>, account_data_key: impl Into<String>) -> Self {
+    pub fn new(actor_id: DidCoreId, account_data_key: impl Into<String>) -> Self {
         Self {
             schema: SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1.to_owned(),
             version: ACCOUNT_DATA_ENCRYPTED_VALUE_VERSION.to_owned(),
-            actor_id: actor_id.into(),
+            actor_id,
             account_data_key: account_data_key.into(),
         }
     }
@@ -59,11 +59,7 @@ fn protocol_error(message: impl Into<String>) -> Error {
     Error::Protocol(message.into())
 }
 
-fn validate_actor_and_account_data_key(actor_id: &str, account_data_key: &str) -> Result<()> {
-    let actor_id = actor_id.trim();
-    if !actor_id.starts_with("did:") || actor_id.chars().any(char::is_whitespace) {
-        return Err(protocol_error("account-data actor_id must be a DID"));
-    }
+fn validate_account_data_key(account_data_key: &str) -> Result<()> {
     let pattern = Regex::new(r"^ak\.[A-Za-z0-9._:-]+$")
         .map_err(|error| Error::Protocol(format!("account-data type regex: {error}")))?;
     if !pattern.is_match(account_data_key) {
@@ -80,10 +76,10 @@ fn canonical_aad(aad: &AccountDataEncryptedValueAad) -> Result<Vec<u8>> {
 
 pub fn derive_account_data_value_key(
     account_secret: &[u8; 32],
-    actor_id: &str,
+    actor_id: &DidCoreId,
     account_data_key: &str,
 ) -> Result<[u8; 32]> {
-    validate_actor_and_account_data_key(actor_id, account_data_key)?;
+    validate_account_data_key(account_data_key)?;
     let info = canonical_json_bytes(&serde_json::json!({
         "schema": SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
         "actor_id": actor_id,
@@ -98,7 +94,7 @@ pub fn derive_account_data_value_key(
 
 pub fn seal_account_data_value(
     account_secret: &[u8; 32],
-    actor_id: &str,
+    actor_id: &DidCoreId,
     account_data_key: &str,
     plaintext: &Value,
 ) -> Result<AccountDataEncryptedValue> {
@@ -110,13 +106,13 @@ pub fn seal_account_data_value(
 
 pub fn seal_account_data_value_with_nonce(
     account_secret: &[u8; 32],
-    actor_id: &str,
+    actor_id: &DidCoreId,
     account_data_key: &str,
     plaintext: &Value,
     nonce: [u8; ACCOUNT_DATA_NONCE_LEN],
 ) -> Result<AccountDataEncryptedValue> {
     let key = derive_account_data_value_key(account_secret, actor_id, account_data_key)?;
-    let aad = AccountDataEncryptedValueAad::new(actor_id, account_data_key);
+    let aad = AccountDataEncryptedValueAad::new(actor_id.clone(), account_data_key);
     let aad_bytes = canonical_aad(&aad)?;
     let plaintext_bytes = canonical_json_bytes(plaintext)?;
     let cipher = XChaCha20Poly1305::new_from_slice(&key)
@@ -146,10 +142,10 @@ pub fn seal_account_data_value_with_nonce(
 
 pub fn validate_account_data_encrypted_value(
     value: &AccountDataEncryptedValue,
-    expected_actor_id: &str,
+    expected_actor_id: &DidCoreId,
     expected_account_data_key: &str,
 ) -> Result<()> {
-    validate_actor_and_account_data_key(expected_actor_id, expected_account_data_key)?;
+    validate_account_data_key(expected_account_data_key)?;
     if value.schema != SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1
         || value.version != ACCOUNT_DATA_ENCRYPTED_VALUE_VERSION
         || value.aead_profile != AEAD_PROFILE_XCHACHA20_POLY1305_V1
@@ -160,7 +156,7 @@ pub fn validate_account_data_encrypted_value(
             "unsupported account-data encrypted value envelope",
         ));
     }
-    if value.aad.actor_id != expected_actor_id
+    if &value.aad.actor_id != expected_actor_id
         || value.aad.account_data_key != expected_account_data_key
     {
         return Err(protocol_error(
@@ -191,7 +187,7 @@ pub fn validate_account_data_encrypted_value(
 
 pub fn open_account_data_value(
     account_secret: &[u8; 32],
-    expected_actor_id: &str,
+    expected_actor_id: &DidCoreId,
     expected_account_data_key: &str,
     value: &AccountDataEncryptedValue,
 ) -> Result<Value> {
@@ -234,7 +230,9 @@ mod tests {
 
     use super::*;
 
-    const ACTOR: &str = "did:webvh:z6mkfixture:alice.example";
+    fn actor() -> DidCoreId {
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()
+    }
 
     #[test]
     fn account_data_value_round_trips_and_is_not_plaintext() {
@@ -242,7 +240,7 @@ mod tests {
         let plaintext = serde_json::json!({"dnd":{"enabled":true}});
         let envelope = seal_account_data_value_with_nonce(
             &secret,
-            ACTOR,
+            &actor(),
             AccountDataKey::DND_SCHEDULE,
             &plaintext,
             [9u8; 24],
@@ -250,7 +248,7 @@ mod tests {
         .unwrap();
         assert!(!envelope.ciphertext.contains("enabled"));
         assert_eq!(
-            open_account_data_value(&secret, ACTOR, AccountDataKey::DND_SCHEDULE, &envelope)
+            open_account_data_value(&secret, &actor(), AccountDataKey::DND_SCHEDULE, &envelope)
                 .unwrap(),
             plaintext
         );
@@ -262,21 +260,26 @@ mod tests {
         let plaintext = serde_json::json!({"dnd":{"enabled":true}});
         let envelope = seal_account_data_value_with_nonce(
             &secret,
-            ACTOR,
+            &actor(),
             AccountDataKey::DND_SCHEDULE,
             &plaintext,
             [13u8; 24],
         )
         .unwrap();
-        assert!(open_account_data_value(&secret, ACTOR, "ak.push_rules", &envelope).is_err());
+        assert!(open_account_data_value(&secret, &actor(), "ak.push_rules", &envelope).is_err());
         assert!(
-            open_account_data_value(&[12u8; 32], ACTOR, AccountDataKey::DND_SCHEDULE, &envelope,)
-                .is_err()
+            open_account_data_value(
+                &[12u8; 32],
+                &actor(),
+                AccountDataKey::DND_SCHEDULE,
+                &envelope,
+            )
+            .is_err()
         );
         let mut tampered = envelope;
         tampered.ciphertext.push('A');
         assert!(
-            open_account_data_value(&secret, ACTOR, AccountDataKey::DND_SCHEDULE, &tampered)
+            open_account_data_value(&secret, &actor(), AccountDataKey::DND_SCHEDULE, &tampered)
                 .is_err()
         );
     }
@@ -286,14 +289,14 @@ mod tests {
         let account_data_key = "ak.saved.v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
         let envelope = seal_account_data_value_with_nonce(
             &[17u8; 32],
-            ACTOR,
+            &actor(),
             account_data_key,
             &serde_json::json!({"saved": true}),
             [19u8; 24],
         )
         .unwrap();
         assert_eq!(
-            open_account_data_value(&[17u8; 32], ACTOR, account_data_key, &envelope).unwrap(),
+            open_account_data_value(&[17u8; 32], &actor(), account_data_key, &envelope).unwrap(),
             serde_json::json!({"saved": true})
         );
     }
