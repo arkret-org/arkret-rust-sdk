@@ -305,6 +305,7 @@ fn webvh_candidate_entry_is_verified_without_publishing_it() {
     let next_key = vector_update_key(&SigningKey::from_bytes(&[11u8; 32]));
     let endpoint = "https://starid.example.com/".parse().unwrap();
     let inception = prepare_principal_inception(&PrincipalInceptionInput {
+        provider_endpoint: &endpoint,
         principal_endpoint: &endpoint,
         local_id: "alice",
         also_known_as: &[],
@@ -313,6 +314,7 @@ fn webvh_candidate_entry_is_verified_without_publishing_it() {
             .with_timezone(&Utc),
         root_seed: &[7u8; 32],
         next_root_public_key_multibase: &current_key,
+        witness_policy: None,
     })
     .unwrap();
     let rotation = prepare_principal_rotation(&PrincipalRotationInput {
@@ -393,6 +395,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
     let next_key = vector_update_key(&SigningKey::from_bytes(&next_seed));
     let endpoint = "https://starid.example.com/".parse().unwrap();
     let inception = prepare_principal_inception(&PrincipalInceptionInput {
+        provider_endpoint: &endpoint,
         principal_endpoint: &endpoint,
         local_id: "alice",
         also_known_as: &[],
@@ -401,6 +404,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
             .with_timezone(&Utc),
         root_seed: &root_seed,
         next_root_public_key_multibase: &current_key,
+        witness_policy: None,
     })
     .unwrap();
     let rotation = prepare_principal_rotation(&PrincipalRotationInput {

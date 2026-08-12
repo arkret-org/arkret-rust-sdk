@@ -22,6 +22,7 @@ fn portable_relocation_preserves_scid_and_requires_direct_predecessor_link() {
     let next_key = public_key(&next_seed);
     let endpoint = "https://old.example.com/".parse().unwrap();
     let inception = prepare_portable_principal_inception(&PrincipalInceptionInput {
+        provider_endpoint: &endpoint,
         principal_endpoint: &endpoint,
         local_id: "alice",
         also_known_as: &[],
@@ -30,6 +31,7 @@ fn portable_relocation_preserves_scid_and_requires_direct_predecessor_link() {
             .with_timezone(&Utc),
         root_seed: &[7u8; 32],
         next_root_public_key_multibase: &current_key,
+        witness_policy: None,
     })
     .unwrap();
     let scid = inception.did.split(':').nth(2).unwrap();

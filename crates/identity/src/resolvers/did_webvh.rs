@@ -72,16 +72,7 @@ pub struct VerifiedDidWebvhLog {
     pub active_update_keys: Vec<String>,
 }
 
-/// The method-native witness policy carried by `parameters.witness`.
-///
-/// Arkret intentionally keeps deployment trust policy out of this type. The
-/// only accepted wire shape is the did:webvh v1.0
-/// `{threshold, witnesses:[{id}]}` object.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DidWebvhWitnessPolicy {
-    pub threshold: usize,
-    pub witnesses: Vec<String>,
-}
+pub use arkret_models_identity::DidWebvhWitnessPolicy;
 
 /// One successfully verified method-native witness set.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -545,16 +536,12 @@ pub fn did_webvh_witness_parameter(
     threshold: usize,
     witnesses: &[String],
 ) -> std::result::Result<Value, DidWebvhWitnessValidationError> {
-    let value = serde_json::json!({
-        "threshold": threshold,
-        "witnesses": witnesses
-            .iter()
-            .map(|id| serde_json::json!({"id": id}))
-            .collect::<Vec<_>>(),
-    });
-    let parameters = serde_json::json!({"witness": value});
-    parse_did_webvh_witness_policy(&parameters)?;
-    Ok(value)
+    DidWebvhWitnessPolicy {
+        threshold,
+        witnesses: witnesses.to_vec(),
+    }
+    .parameter_value()
+    .map_err(|error| DidWebvhWitnessValidationError::ParameterMalformed(error.to_string()))
 }
 
 /// Verify one `did-witness.json` record against an already parsed policy.

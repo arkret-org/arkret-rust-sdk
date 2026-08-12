@@ -731,9 +731,11 @@ impl PreparedInception {
 /// `root_seed` and `next_root_public_key_multibase` from the same confirmed
 /// recovery secret before publishing the result.
 pub struct PrincipalInceptionInput<'a> {
-    /// Soland's base endpoint, e.g. `https://local.host:8080/`. Drives the
-    /// DID method authority, the in-document `serviceEndpoint`, and the
-    /// `also_known_as` reverse-link surface.
+    /// WebVH Provider base endpoint. Drives the DID method authority and may
+    /// differ from the Principal Server published in the DID document.
+    pub provider_endpoint: &'a Url,
+    /// Soland's public base endpoint. Drives the in-document
+    /// `serviceEndpoint` and the `also_known_as` reverse-link surface.
     pub principal_endpoint: &'a Url,
     /// Stable per-user identifier — typically the user's ULID lower-cased.
     /// Validated against the canonical embedded-provider local-id profile.
@@ -744,6 +746,8 @@ pub struct PrincipalInceptionInput<'a> {
     pub version_time: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
+    /// Optional method-native did:webvh v1.0 witness policy.
+    pub witness_policy: Option<&'a arkret_models_identity::DidWebvhWitnessPolicy>,
 }
 
 /// Inputs for the controller-authored, PCR-independent inception of a managed
@@ -820,11 +824,13 @@ pub fn prepare_managed_agent_inception(
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
     prepare_identity_inception(
         input.principal_endpoint,
+        input.principal_endpoint,
         input.local_id,
         &[],
         input.version_time,
         input.root_seed,
         input.next_root_public_key_multibase,
+        None,
         false,
         |did, service_endpoint| {
             managed_agent_document_value(did, service_endpoint, input.controller_id, None)
@@ -846,12 +852,14 @@ fn prepare_principal_inception_with_portability(
     portable: bool,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
     prepare_identity_inception(
+        input.provider_endpoint,
         input.principal_endpoint,
         input.local_id,
         input.also_known_as,
         input.version_time,
         input.root_seed,
         input.next_root_public_key_multibase,
+        input.witness_policy,
         portable,
         |did, service_endpoint| {
             principal_document_value(did, input.also_known_as, service_endpoint)
@@ -862,12 +870,14 @@ fn prepare_principal_inception_with_portability(
 
 #[allow(clippy::too_many_arguments)]
 fn prepare_identity_inception<F, V>(
+    provider_endpoint: &Url,
     principal_endpoint: &Url,
     local_id: &str,
     _also_known_as: &[String],
     version_time_value: DateTime<Utc>,
     root_seed: &[u8; SECRET_KEY_LENGTH],
     next_root_public_key_multibase: &str,
+    witness_policy: Option<&arkret_models_identity::DidWebvhWitnessPolicy>,
     portable: bool,
     document_builder: F,
     document_validator: V,
@@ -876,7 +886,7 @@ where
     F: FnOnce(&str, &str) -> Result<Value, WebvhInceptionError>,
     V: Fn(&str, &Value, &[&str]) -> Result<(), WebvhInceptionError>,
 {
-    let (method_authority, https_authority) = authority_pair(principal_endpoint)?;
+    let (method_authority, https_authority) = authority_pair(provider_endpoint)?;
     let local_id = normalize_local_id(local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
     let root_signing = SigningKey::from_bytes(root_seed);
     let root_public_key_multibase =
@@ -913,6 +923,18 @@ where
     {
         parameters.insert("portable".to_owned(), Value::Bool(true));
     }
+    if let Some(policy) = witness_policy
+        && let Some(parameters) = entry_skeleton
+            .get_mut("parameters")
+            .and_then(Value::as_object_mut)
+    {
+        parameters.insert(
+            "witness".to_owned(),
+            policy
+                .parameter_value()
+                .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?,
+        );
+    }
 
     let scid = sha256_multihash_base58btc(&canonical_bytes(&entry_skeleton)?);
     let mut log_entry = substitute_scid(&entry_skeleton, &scid);
@@ -931,8 +953,8 @@ where
     }
     verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
-    let document_url = identity_document_url(principal_endpoint, &did)?;
-    let log_url = identity_log_url(principal_endpoint, &did)?;
+    let document_url = identity_document_url(provider_endpoint, &did)?;
+    let log_url = identity_log_url(provider_endpoint, &did)?;
 
     Ok(PreparedPrincipalInception {
         did,
@@ -2287,6 +2309,21 @@ fn build_proof(
     Ok(proof)
 }
 
+/// Sign one closed did:webvh v1.0 `did-witness.json` record proof.
+///
+/// The returned proof binds the exact `versionId` through the same
+/// `eddsa-jcs-2022` construction used for controller history entries.
+pub fn sign_did_webvh_witness_proof(version_id: &str, witness_seed: &[u8; 32]) -> Value {
+    let signing = SigningKey::from_bytes(witness_seed);
+    let public_key_multibase = encode_ed25519_pubkey_multibase(&signing.verifying_key().to_bytes());
+    let record = json!({
+        "versionId": version_id,
+        "proof": [],
+    });
+    build_proof(&record, &signing, &public_key_multibase)
+        .expect("fixed witness record and Ed25519 key always produce a proof")
+}
+
 /// Self-check one constructed or caller-supplied method-native proof.
 ///
 /// Complete history and witness verification remains centralized in
@@ -2573,12 +2610,14 @@ mod historical_verification_tests {
         );
         let created_at = Utc.with_ymd_and_hms(2026, 8, 11, 2, 0, 0).unwrap();
         let prepared = prepare_principal_inception(&PrincipalInceptionInput {
+            provider_endpoint: &Url::parse("https://registration.example/").unwrap(),
             principal_endpoint: &Url::parse("https://registration.example/").unwrap(),
             local_id: "alice",
             also_known_as: &[],
             version_time: created_at,
             root_seed: &root_seed,
             next_root_public_key_multibase: &next_root_public_key_multibase,
+            witness_policy: None,
         })
         .unwrap();
         (prepared, root_seed, created_at)
@@ -2596,6 +2635,52 @@ mod historical_verification_tests {
             prepared.root_verification_method
         );
         assert_eq!(validated.next_root_key_hash, prepared.next_root_key_hash);
+    }
+
+    #[test]
+    fn witnessed_principal_uses_provider_authority_and_principal_service_endpoint() {
+        let provider = Url::parse("https://identity.example/").unwrap();
+        let principal = Url::parse("https://principal.example/").unwrap();
+        let witness_seed = [91u8; 32];
+        let witness_key = encode_ed25519_pubkey_multibase(
+            &SigningKey::from_bytes(&witness_seed)
+                .verifying_key()
+                .to_bytes(),
+        );
+        let policy = arkret_models_identity::DidWebvhWitnessPolicy {
+            threshold: 1,
+            witnesses: vec![format!("did:key:{witness_key}")],
+        };
+        let next = encode_ed25519_pubkey_multibase(
+            &SigningKey::from_bytes(&[92u8; 32])
+                .verifying_key()
+                .to_bytes(),
+        );
+        let prepared = prepare_principal_inception(&PrincipalInceptionInput {
+            provider_endpoint: &provider,
+            principal_endpoint: &principal,
+            local_id: "witnessed",
+            also_known_as: &[],
+            version_time: Utc::now(),
+            root_seed: &[93u8; 32],
+            next_root_public_key_multibase: &next,
+            witness_policy: Some(&policy),
+        })
+        .unwrap();
+        assert!(prepared.did.contains(":identity.example:"));
+        assert_eq!(
+            prepared.log_entry["state"]["service"][0]["serviceEndpoint"],
+            "https://principal.example"
+        );
+        assert_eq!(prepared.log_entry["parameters"]["witness"]["threshold"], 1);
+
+        let proof = sign_did_webvh_witness_proof(&prepared.version_id, &witness_seed);
+        assert_eq!(proof["type"], "DataIntegrityProof");
+        assert_eq!(proof["cryptosuite"], "eddsa-jcs-2022");
+        assert_eq!(
+            proof["verificationMethod"],
+            format!("did:key:{witness_key}#{witness_key}")
+        );
     }
 
     #[test]
