@@ -4,7 +4,6 @@ mod development_identity;
 pub mod http_signature;
 #[cfg(feature = "collaboration")]
 pub mod media;
-#[cfg(feature = "collaboration")]
 #[cfg(feature = "service-identity")]
 pub mod service_resolution;
 
