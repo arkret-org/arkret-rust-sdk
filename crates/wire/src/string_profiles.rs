@@ -2,7 +2,7 @@
 
 use precis_profiles::UsernameCaseMapped;
 use precis_profiles::precis_core::profile::Profile;
-use unicode_normalization::is_nfc;
+use unicode_normalization::{UnicodeNormalization, is_nfc};
 use unicode_security::{RestrictionLevel, RestrictionLevelDetection};
 
 use crate::{Error, Result};
@@ -203,6 +203,47 @@ pub fn validate_single_line_display_text(
     Ok(())
 }
 
+/// Return the deterministic holder-local skeleton used by
+/// `arkret_display_confusable_v1`.
+pub fn display_confusable_skeleton_v1(value: &str) -> Result<String> {
+    validate_single_line_display_text(value, 512, LONG_DISPLAY_TEXT_MAX_UTF8_OCTETS)?;
+    let prepared: String = value
+        .chars()
+        .filter(|character| !is_registered_default_ignorable(*character))
+        .nfkc()
+        .collect();
+    Ok(unicode_security::skeleton(&prepared).nfd().collect())
+}
+
+/// Compare two display strings for holder-local impersonation warnings.
+///
+/// This predicate is intentionally case-sensitive and must never be used as
+/// canonical equality or as an authorization decision.
+pub fn arkret_display_confusable_v1(a: &str, b: &str) -> Result<bool> {
+    let a_skeleton = display_confusable_skeleton_v1(a)?;
+    let b_skeleton = display_confusable_skeleton_v1(b)?;
+    Ok(a == b || a_skeleton == b_skeleton)
+}
+
+fn is_registered_default_ignorable(character: char) -> bool {
+    matches!(
+        character as u32,
+        0x00AD
+            | 0x034F
+            | 0x061C
+            | 0x180E
+            | 0x200B..=0x200F
+            | 0x202A..=0x202E
+            | 0x2060..=0x206F
+            | 0xFE00..=0xFE0F
+            | 0xFEFF
+            | 0xFFF0..=0xFFF8
+            | 0x1BCA0..=0x1BCA3
+            | 0x1D173..=0x1D17A
+            | 0xE0000..=0xE0FFF
+    )
+}
+
 pub fn validate_short_text(
     value: &str,
     max_code_points: usize,
@@ -363,5 +404,17 @@ mod tests {
         let cyrillic = human_identifier_skeleton("раураl").unwrap();
         assert_eq!(latin, cyrillic);
         assert_ne!("paypal", "раураl");
+    }
+
+    #[test]
+    fn display_confusable_pairwise_vectors_match_the_spec() {
+        assert!(arkret_display_confusable_v1("alice", "alice").unwrap());
+        assert!(arkret_display_confusable_v1("Alice", "Ａlice").unwrap());
+        assert!(arkret_display_confusable_v1("paypal", "раураl").unwrap());
+        assert!(arkret_display_confusable_v1("admin", "admin\u{200D}").unwrap());
+        assert!(!arkret_display_confusable_v1("Alice", "alice").unwrap());
+        assert!(!arkret_display_confusable_v1("Alice", "Alicia").unwrap());
+        assert!(!arkret_display_confusable_v1("王伟", "王薇").unwrap());
+        assert!(arkret_display_confusable_v1("line\nbreak", "line break").is_err());
     }
 }

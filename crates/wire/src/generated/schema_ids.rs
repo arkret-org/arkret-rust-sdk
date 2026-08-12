@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-12.1;
-//! sha256=838e6162eda014c234e8cfae0e5783661a32dc4b97207c6978424da379295b7b Entries: schema_ids=184,
+//! Input: registry/schema-registry.json; version=2026-08-12.3;
+//! sha256=7c0b4ebcb440d39879deb6044e52f6a5479660bb33f81c7d57743677cf6a5b43 Entries: schema_ids=184,
 //! active=184
 
 use serde::{Deserialize, Serialize};
@@ -964,12 +964,13 @@ impl SchemaId {
     pub const RECOVERY_POLICY_V1: &'static str = "ak.schema.recovery_policy.v1";
     /// Signed completion receipt for a principal recovery strand. Bound to recovery_session_id used
     /// by every proof, backup unlock, and MLS Welcome replay during the recovery. See
-    /// crypto-media/device-lifecycle.md §15 step 7.
+    /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_RECEIPT_V1: &'static str = "ak.schema.recovery_receipt.v1";
     /// Wire contract for the device recovery session state machine, including create/get session
     /// shape, proof submit request and response helpers, the closed publication-authority snapshot,
     /// and principal_signing recovery proof transcript. Session completion is owned exclusively by
-    /// the bound RecoveryTransaction terminal commit. See crypto-media/device-lifecycle.md §15.
+    /// the bound RecoveryTransaction terminal commit. See identity/security-transactions.md §2 and
+    /// crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
     pub const RESOURCE_SELECTOR_V1: &'static str = "ak.schema.resource_selector.v1";

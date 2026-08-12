@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-10;
-//! sha256=281aeb5dbec015ec79e13b02d2d641fea690936ee7b0c8290137a83560b72077
+//! Input: registry/account-data-key-registry.json; version=2026-08-13;
+//! sha256=35bc4c6add6216cdb3f2eecc32b7ab3f50c198b1006810c8705ad0ccc1dac62e
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -102,8 +102,10 @@ impl AccountDataKey {
     /// Principal-private custom emoji and sticker collection metadata.
     /// Key pattern: `ak.collections.stickers`.
     pub const COLLECTIONS_STICKERS: &'static str = "ak.collections.stickers";
-    /// Private local remark, note, tag, and pin metadata for an actor, organization, device, or
-    /// service DID. Key pattern: `ak.contacts.actor.<did>`.
+    /// Principal-private global petname, global display-name snapshot, note, tag, and pin metadata
+    /// for one accepted human Contact peer.principal_id. principal_key is
+    /// base64url(HMAC-SHA256(account_data_namespace_key, RFC8785_JCS(["ak.contacts.actor",
+    /// peer.principal_id]))). Key pattern: `ak.contacts.actor.<principal_key>`.
     pub const CONTACTS_ACTOR: &'static str = "ak.contacts.actor";
     /// Private local remark, note, tag, and pin metadata for a Realm.
     /// Key pattern: `ak.contacts.realm.<realm_id>`.

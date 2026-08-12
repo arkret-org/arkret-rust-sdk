@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    AccountDataKey, BlobId, CallId, CircleId, DeviceId, DidCoreId, DidFullId, Error,
+    AccountDataKey, BlobId, CallId, CircleId, DeviceId, DidCoreId, Error,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, ProfileId, RealmId, Result, ScheduledSendId,
     SchemaId, ScopeRef, SpaceId, StrandId, canonical,
 };
@@ -1467,7 +1467,7 @@ pub struct RealmRemarkAccountDataUpdate {
 #[serde(deny_unknown_fields)]
 pub struct ContactRemarkSubject {
     pub kind: String,
-    pub actor_id: DidCoreId,
+    pub principal_id: DidCoreId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1476,7 +1476,7 @@ pub struct ContactRemark {
     pub version: u32,
     pub subject: ContactRemarkSubject,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub local_name: String,
+    pub petname: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub note: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1485,6 +1485,8 @@ pub struct ContactRemark {
     pub pinned: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_handle_at_save: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub global_display_name_at_save: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub saved_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1494,39 +1496,40 @@ pub struct ContactRemark {
 
 impl ContactRemark {
     pub fn new(
-        actor_id: DidCoreId,
-        local_name: impl Into<String>,
+        principal_id: DidCoreId,
+        petname: impl Into<String>,
         saved_at: DateTime<Utc>,
     ) -> Self {
         Self {
             version: 1,
             subject: ContactRemarkSubject {
-                kind: "actor".to_owned(),
-                actor_id,
+                kind: "human".to_owned(),
+                principal_id,
             },
-            local_name: local_name.into(),
+            petname: petname.into(),
             note: String::new(),
             tags: Vec::new(),
             pinned: false,
             verified_handle_at_save: None,
+            global_display_name_at_save: None,
             saved_at,
             updated_at: None,
         }
     }
 
     pub fn with_pinned_preserving_fields(
-        actor_id: DidCoreId,
+        principal_id: DidCoreId,
         existing: Option<&Self>,
         pinned: bool,
         updated_at: DateTime<Utc>,
     ) -> Self {
         let mut next = existing
             .cloned()
-            .unwrap_or_else(|| Self::new(actor_id.clone(), "", updated_at));
+            .unwrap_or_else(|| Self::new(principal_id.clone(), "", updated_at));
         next.version = 1;
         next.subject = ContactRemarkSubject {
-            kind: "actor".to_owned(),
-            actor_id,
+            kind: "human".to_owned(),
+            principal_id,
         };
         next.pinned = pinned;
         next.updated_at = Some(updated_at);
@@ -1534,14 +1537,14 @@ impl ContactRemark {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.local_name.trim().is_empty()
+        self.petname.trim().is_empty()
             && self.note.trim().is_empty()
             && self.tags.is_empty()
             && !self.pinned
     }
 
     pub fn display_name<'a>(&'a self, fallback: &'a str) -> &'a str {
-        let trimmed = self.local_name.trim();
+        let trimmed = self.petname.trim();
         if trimmed.is_empty() {
             fallback
         } else {
@@ -1549,27 +1552,31 @@ impl ContactRemark {
         }
     }
 
-    pub fn validate_for_account_data_key(&self, key: &str) -> Result<()> {
-        let actor_id = parse_contact_remark_account_data_key(key)?;
+    pub fn validate_for_account_data_key(&self, namespace_key: &[u8], key: &str) -> Result<()> {
+        parse_contact_remark_account_data_key(key)?;
         if self.version != 1 {
             return Err(Error::Protocol(
                 "contact remark version must be 1".to_owned(),
             ));
         }
-        if self.subject.kind != "actor" {
+        if self.subject.kind != "human" {
             return Err(Error::Protocol(
-                "contact remark subject.kind must be actor".to_owned(),
+                "contact remark subject.kind must be human".to_owned(),
             ));
         }
-        if self.subject.actor_id != actor_id {
+        let expected_key =
+            contact_remark_account_data_key(namespace_key, &self.subject.principal_id)?;
+        if key != expected_key {
             return Err(Error::Protocol(
-                "contact remark subject.did must match its account-data key".to_owned(),
+                "contact remark subject.principal_id does not recompute to its account-data key"
+                    .to_owned(),
             ));
         }
-        if self.local_name.chars().count() > 128 {
-            return Err(Error::Protocol(
-                "contact remark local_name exceeds 128 characters".to_owned(),
-            ));
+        if !self.petname.is_empty() {
+            arkret_wire::validate_single_line_display_text(&self.petname, 128, 512)?;
+        }
+        if let Some(display_name) = self.global_display_name_at_save.as_deref() {
+            arkret_wire::validate_single_line_display_text(display_name, 512, 2_048)?;
         }
         if self.note.chars().count() > 4_096 {
             return Err(Error::Protocol(
@@ -1580,21 +1587,35 @@ impl ContactRemark {
     }
 }
 
-pub fn contact_remark_account_data_key(actor_did: &DidFullId) -> String {
-    format!(
-        "{accountdatakey_contacts_actor}.{actor_did}",
-        accountdatakey_contacts_actor = AccountDataKey::CONTACTS_ACTOR
-    )
+pub fn contact_remark_account_data_key(
+    namespace_key: &[u8],
+    principal_id: &DidCoreId,
+) -> Result<String> {
+    let material = json!([AccountDataKey::CONTACTS_ACTOR, principal_id.as_str()]);
+    let principal_key = base64url_encode(hmac_sha256(
+        namespace_key,
+        &canonical::canonical_json_bytes(&material)?,
+    ));
+    Ok(format!(
+        "{}.{principal_key}",
+        AccountDataKey::CONTACTS_ACTOR
+    ))
 }
 
-pub fn parse_contact_remark_account_data_key(key: &str) -> Result<DidCoreId> {
-    let raw = key
+pub fn parse_contact_remark_account_data_key(key: &str) -> Result<String> {
+    let principal_key = key
         .strip_prefix(&format!(
             "{accountdatakey_contacts_actor}.",
             accountdatakey_contacts_actor = AccountDataKey::CONTACTS_ACTOR
         ))
         .ok_or_else(|| Error::Protocol("invalid contact remark account-data key".to_owned()))?;
-    Ok(DidCoreId::new(raw.to_owned())?)
+    if !looks_derived_key(principal_key) {
+        return Err(Error::Protocol(
+            "contact remark key must end with a 43-character opaque base64url principal_key"
+                .to_owned(),
+        ));
+    }
+    Ok(principal_key.to_owned())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2202,12 +2223,8 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
             Error::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
         });
     }
-    if let Some(actor_id) = strip_dotted_namespace(key, AccountDataKey::CONTACTS_ACTOR) {
-        return DidFullId::new(actor_id.to_owned())
-            .map(|_| ())
-            .map_err(|_| {
-                Error::Protocol("contact remark key must be ak.contacts.actor.<did>".to_owned())
-            });
+    if strip_dotted_namespace(key, AccountDataKey::CONTACTS_ACTOR).is_some() {
+        return parse_contact_remark_account_data_key(key).map(|_| ());
     }
     // `ak.views.private` / `ak.notifications.inbox` carry a full typed id in
     // the tail, exactly like the two `ak.contacts.*` namespaces above. The
@@ -2634,6 +2651,38 @@ mod tests {
 
     use super::*;
     use crate::events_payloads::ContentBlock;
+
+    #[test]
+    fn contact_petname_key_and_slot_binding_match_the_registered_vector() {
+        let namespace_key: Vec<u8> = (0u8..=31).collect();
+        let principal_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let key = contact_remark_account_data_key(&namespace_key, &principal_id).unwrap();
+        assert_eq!(
+            key,
+            "ak.contacts.actor.pD0U2utjPMaXROrStCFHbCtquoTSVsA7mo9nVniePkY"
+        );
+        assert_eq!(
+            parse_contact_remark_account_data_key(&key).unwrap(),
+            "pD0U2utjPMaXROrStCFHbCtquoTSVsA7mo9nVniePkY"
+        );
+
+        let mut remark = ContactRemark::new(principal_id, "Alice from Ops", test_time(0));
+        remark.global_display_name_at_save = Some("Alice Zhang".to_owned());
+        remark
+            .validate_for_account_data_key(&namespace_key, &key)
+            .unwrap();
+
+        let other = DidCoreId::new("ak:did_core:web:mallory.example").unwrap();
+        let swapped_key = contact_remark_account_data_key(&namespace_key, &other).unwrap();
+        assert!(
+            remark
+                .validate_for_account_data_key(&namespace_key, &swapped_key)
+                .is_err()
+        );
+        assert!(
+            validate_private_account_data_key("ak.contacts.actor.did:web:alice.example").is_err()
+        );
+    }
 
     fn test_realm_id(seed: &str) -> RealmId {
         RealmId::from_event_id(

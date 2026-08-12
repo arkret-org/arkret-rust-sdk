@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-11.3;
-//! sha256=abb43ff6225bc89373dfa34e94330a0d92666b79f418029d937f6e7348701d96
+//! Input: registry/error-code-registry.json; version=2026-08-12.1;
+//! sha256=2a72fc35455b06a6c150cd5e0b8dc6d339d8965494b8a3aa2a3bffe9ed9f98cc
 //! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3646,7 +3646,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::OPERATOR_REJECTED,
         applies_to: &["device_recovery"],
-        description: "Recovery-session `rejection_reason_code` value: an operator / admin surface explicitly rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json and zh/crypto-media/device-lifecycle.md §15.",
+        description: "Recovery-session `rejection_reason_code` value: an operator / admin surface explicitly rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json; completion ownership is defined in zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::OTHER,
@@ -3811,7 +3811,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PROOF_FAILED,
         applies_to: &["device_recovery"],
-        description: "Recovery-session `rejection_reason_code` value: proof verification failures reached the server-side policy limit, so the session transitioned to `rejected`. Closed value set defined in artifacts/schemas/recovery-session.schema.json and zh/crypto-media/device-lifecycle.md §15.",
+        description: "Recovery-session `rejection_reason_code` value: proof verification failures reached the server-side policy limit, so the session transitioned to `rejected`. Closed value set defined in artifacts/schemas/recovery-session.schema.json; completion ownership is defined in zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PROOF_INVALID,
@@ -3831,12 +3831,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_ROUTE_LIMIT_EXCEEDED,
         applies_to: &["event_envelope", "service_call"],
-        description: "A `ak.device.push_route` registration would exceed the v1 wire limit of 16 active push_route entries per `(recipient_service_id, principal_id, device_id)`. The server MUST reject the new registration. See zh/crypto-media/device-lifecycle.md §5a.2 and zh/conformance/scalability-constraints.md §6.1.",
+        description: "A `ak.device.push_route` registration would exceed the v1 wire limit of 16 active push_route entries per `(recipient_service_id, principal_id, device_id)`. The server MUST reject the new registration. See zh/crypto-media/device-lifecycle.md §5.6.2 and zh/conformance/scalability-constraints.md §6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_ROUTE_REGISTRATION_RATE_LIMITED,
         applies_to: &["service_call"],
-        description: "Internal audit reason recorded when push-route registration / rotation writes for a `(recipient_service_id, principal_id, device_id)` exceed the default rate (8 writes per 60s). The outward response uses a generic rate-limited envelope; this reason is for server-side abuse detection only. See zh/crypto-media/device-lifecycle.md §5a.2 and zh/conformance/scalability-constraints.md §6.1.",
+        description: "Internal audit reason recorded when push-route registration / rotation writes for a `(recipient_service_id, principal_id, device_id)` exceed the default rate (8 writes per 60s). The outward response uses a generic rate-limited envelope; this reason is for server-side abuse detection only. See zh/crypto-media/device-lifecycle.md §5.6.2 and zh/conformance/scalability-constraints.md §6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TARGET_UNKNOWN,
@@ -4026,7 +4026,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_POLICY_MISMATCH,
         applies_to: &["device_recovery", "state_resolution"],
-        description: "A key-backup envelope or recovery proof references a `recovery_policy.policy_id` / `policy_version` that is not the currently accepted policy for the principal. Recovery strands MUST surface this to the user as 'update recovery policy' rather than silently continuing. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/identity/key-management.md §7.5.4 / §7.7 and zh/crypto-media/device-lifecycle.md §15.",
+        description: "A key-backup envelope or recovery proof references a `recovery_policy.policy_id` / `policy_version` that is not the currently accepted policy for the principal. Recovery strands MUST surface this to the user as 'update recovery policy' rather than silently continuing. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/identity/key-management.md §7.5.4 / §7.7 / §8 and zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_POLICY_SUPERSEDES_INVALID,
@@ -4051,12 +4051,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_SESSION_CHALLENGE_MISMATCH,
         applies_to: &["device_recovery", "schema_validation"],
-        description: "A recovery proof echoes a challenge value that does not exactly match the server-issued challenge for the referenced recovery_session_id. Servers MUST reject the proof before completing device recovery. See zh/crypto-media/device-lifecycle.md §15 and artifacts/schemas/recovery-session.schema.json.",
+        description: "A recovery proof echoes a challenge value that does not exactly match the server-issued challenge for the referenced recovery_session_id. Servers MUST reject the proof before completing device recovery. See artifacts/schemas/recovery-session.schema.json and zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_SESSION_TERMINAL,
         applies_to: &["device_recovery", "service_call"],
-        description: "A recovery-session submit_proof or a new RecoveryTransaction binding targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. Recovery sessions have no public complete operation. See zh/crypto-media/device-lifecycle.md §15 and artifacts/schemas/recovery-session.schema.json.",
+        description: "A recovery-session submit_proof or a new RecoveryTransaction binding targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. Recovery sessions have no public complete operation. See artifacts/schemas/recovery-session.schema.json and zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_STALE,
@@ -4160,7 +4160,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RISK_POLICY,
         applies_to: &["device_recovery"],
-        description: "Recovery-session `rejection_reason_code` value: a server-side risk policy rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json and zh/crypto-media/device-lifecycle.md §15.",
+        description: "Recovery-session `rejection_reason_code` value: a server-side risk policy rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json; completion ownership is defined in zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RSVP_BASIS_NOT_CAUSAL,
@@ -4435,7 +4435,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SUPERSEDED,
         applies_to: &["device_recovery"],
-        description: "Recovery-session `rejection_reason_code` value: the session was superseded by a newer recovery session for the same principal / device. Closed value set defined in artifacts/schemas/recovery-session.schema.json and zh/crypto-media/device-lifecycle.md §15.",
+        description: "Recovery-session `rejection_reason_code` value: the session was superseded by a newer recovery session for the same principal / device. Closed value set defined in artifacts/schemas/recovery-session.schema.json; completion ownership is defined in zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SUPERSEDED_BY_REPAIRING,
