@@ -5,26 +5,18 @@ use serde_json::Value;
 use super::types::*;
 
 // ────────────────────────── Helper macros ──────────────────────────
+//
+// A typed adapter supplies only what the generated bindings cannot: subject
+// derivation, event-kind dispatch and component metadata. `lattice()` and
+// `bottom_policy()` always read `SPEC_LATTICE_BINDINGS`, so no adapter — and no
+// call site of these macros — can restate, and therefore drift from, the
+// spec's algebra or bottom mode.
 
 macro_rules! singleton_lattice {
-    ($struct_name:ident, $cell_family:expr, $lattice:expr, $bottom:expr, $criticality:expr) => {
-        singleton_lattice!(
-            $struct_name,
-            $cell_family,
-            $lattice,
-            $bottom,
-            $criticality,
-            &[]
-        );
+    ($struct_name:ident, $cell_family:expr, $criticality:expr) => {
+        singleton_lattice!($struct_name, $cell_family, $criticality, &[]);
     };
-    (
-        $struct_name:ident,
-        $cell_family:expr,
-        $lattice:expr,
-        $bottom:expr,
-        $criticality:expr,
-        $event_kinds:expr
-    ) => {
+    ($struct_name:ident, $cell_family:expr, $criticality:expr, $event_kinds:expr) => {
         pub struct $struct_name;
         impl $struct_name {
             pub const CELL_FAMILY: &'static str = $cell_family;
@@ -60,19 +52,10 @@ macro_rules! singleton_lattice {
 }
 
 macro_rules! per_subject_lattice {
-    (
-        $struct_name:ident,
-        $cell_family:expr,
-        $lattice:expr,
-        $bottom:expr,
-        $criticality:expr,
-        $subject_field:expr
-    ) => {
+    ($struct_name:ident, $cell_family:expr, $criticality:expr, $subject_field:expr) => {
         per_subject_lattice!(
             $struct_name,
             $cell_family,
-            $lattice,
-            $bottom,
             $criticality,
             $subject_field,
             &[]
@@ -81,8 +64,6 @@ macro_rules! per_subject_lattice {
     (
         $struct_name:ident,
         $cell_family:expr,
-        $lattice:expr,
-        $bottom:expr,
         $criticality:expr,
         $subject_field:expr,
         $event_kinds:expr
@@ -128,58 +109,9 @@ macro_rules! per_subject_lattice {
     };
 }
 
-macro_rules! spec_bound_per_subject_lattice {
-    (
-        $struct_name:ident,
-        $cell_family:expr,
-        $criticality:expr,
-        $subject_field:expr,
-        $event_kinds:expr
-    ) => {
-        pub struct $struct_name;
-        impl $struct_name {
-            pub const CELL_FAMILY: &'static str = $cell_family;
-        }
-        impl LatticeKind for $struct_name {
-            fn cell_family(&self) -> &'static str {
-                Self::CELL_FAMILY
-            }
-            fn lattice(&self) -> SdkLatticeKind {
-                generated_lattice(Self::CELL_FAMILY)
-            }
-            fn bottom_policy(&self) -> BottomPolicy {
-                generated_bottom_policy(Self::CELL_FAMILY)
-            }
-            fn component(&self) -> ComponentDescriptor {
-                ComponentDescriptor {
-                    component_type: Self::CELL_FAMILY,
-                    component_version: 1,
-                    criticality: $criticality,
-                }
-            }
-            fn subject_for_effect(
-                &self,
-                effect_payload: &Value,
-            ) -> Result<Option<String>, LatticeKindError> {
-                effect_payload
-                    .get($subject_field)
-                    .and_then(Value::as_str)
-                    .map(|s| Some(s.to_owned()))
-                    .ok_or(LatticeKindError::MissingSubjectField {
-                        cell_family: Self::CELL_FAMILY,
-                        field: $subject_field,
-                    })
-            }
-            fn event_kinds(&self) -> &'static [&'static str] {
-                $event_kinds
-            }
-        }
-    };
-}
+// ─────────── Consent, capability, device and key families ───────────
 
-// ────────────────────────── OrSet families ──────────────────────────
-
-spec_bound_per_subject_lattice!(
+per_subject_lattice!(
     ConsentGrant,
     arkret_wire::CellFamilyId::CONSENT_GRANT_V1,
     Criticality::Required,
@@ -190,8 +122,6 @@ spec_bound_per_subject_lattice!(
 per_subject_lattice!(
     ModerationState,
     arkret_wire::CellFamilyId::MODERATION_STATE_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Expose,
     Criticality::Required,
     "target_ref",
     &["ak.moderation.decision", "ak.moderation.decision.lift"]
@@ -273,7 +203,7 @@ impl LatticeKind for CapabilityGrant {
     }
 }
 
-spec_bound_per_subject_lattice!(
+per_subject_lattice!(
     CapabilityDerived,
     arkret_wire::CellFamilyId::CAPABILITY_DERIVED_V1,
     Criticality::Required,
@@ -339,7 +269,7 @@ impl LatticeKind for DeviceAuthorized {
     }
 }
 
-spec_bound_per_subject_lattice!(
+per_subject_lattice!(
     DeviceListUpdate,
     arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1,
     Criticality::Required,
@@ -442,13 +372,11 @@ impl LatticeKind for KeyBackupActiveSeries {
     }
 }
 
-// ────────────────────────── CasRegister families ──────────────────────────
+// ────── Applet, strand placement, notary, MLS and call families ──────
 
 per_subject_lattice!(
     AppletRegistration,
     arkret_wire::CellFamilyId::APPLET_REGISTRATION_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "applet_id",
     &["ak.applet.registration"]
@@ -457,8 +385,6 @@ per_subject_lattice!(
 singleton_lattice!(
     CircleTombstone,
     arkret_wire::CellFamilyId::CIRCLE_TOMBSTONE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.circle.tombstone"]
 );
@@ -466,8 +392,6 @@ singleton_lattice!(
 per_subject_lattice!(
     StrandPosition,
     arkret_wire::CellFamilyId::STRAND_POSITION_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "strand_id",
     &["ak.strand.move", "ak.strand.reorder"]
@@ -476,8 +400,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     StrandStage,
     arkret_wire::CellFamilyId::STRAND_STAGE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "strand_id",
     &["ak.strand.stage.set"]
@@ -486,8 +408,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     MorphStage,
     arkret_wire::CellFamilyId::MORPH_STAGE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "morph_id",
     &["ak.morph.stage.set"]
@@ -545,8 +465,6 @@ impl LatticeKind for StrandWatch {
 singleton_lattice!(
     NotaryCell,
     arkret_wire::CellFamilyId::NOTARY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required
 );
 
@@ -599,16 +517,12 @@ impl LatticeKind for IdentityAccountability {
 singleton_lattice!(
     MlsEpoch,
     arkret_wire::CellFamilyId::MLS_EPOCH_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required
 );
 
 per_subject_lattice!(
     CallSummary,
     arkret_wire::CellFamilyId::CALL_SUMMARY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "call_id",
     &["ak.call.summary"]
@@ -617,8 +531,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     CallFocus,
     arkret_wire::CellFamilyId::CALL_FOCUS_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "call_id",
     &["ak.call.state"]
@@ -627,8 +539,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     CallModeration,
     arkret_wire::CellFamilyId::CALL_MODERATION_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Inert,
     Criticality::Required,
     "call_id",
     &["ak.call.state"]
@@ -637,8 +547,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     CallRoster,
     arkret_wire::CellFamilyId::CALL_ROSTER_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Inert,
     Criticality::Required,
     "call_id",
     &["ak.call.state"]
@@ -882,13 +790,11 @@ impl LatticeKind for CallMuteOverride {
     }
 }
 
-// ────────────────────────── Fsm families ──────────────────────────
+// ────── Membership, invite, agent status and audit families ──────
 
 per_subject_lattice!(
     MemberState,
     arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
     Criticality::Required,
     "actor_id",
     &["ak.member.state"]
@@ -951,8 +857,6 @@ impl LatticeKind for InviteLifecycle {
 per_subject_lattice!(
     AgentStatus,
     arkret_wire::CellFamilyId::AGENT_STATUS_V1,
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
     Criticality::Required,
     "agent_id",
     &[
@@ -962,11 +866,11 @@ per_subject_lattice!(
     ]
 );
 
+// The applet-binding lifecycle FSM lives on `audit.binding.state.v1`;
+// `audit.binding.v1` is the immutable binding config beside it.
 per_subject_lattice!(
     AuditBinding,
     arkret_wire::CellFamilyId::AUDIT_BINDING_V1,
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
     Criticality::Required,
     "binding_id",
     &["ak.audit.applet_binding"]
@@ -975,8 +879,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     AuditSession,
     arkret_wire::CellFamilyId::AUDIT_SESSION_V1,
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
     Criticality::Required,
     "session_id",
     &[
@@ -990,8 +892,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     CallState,
     arkret_wire::CellFamilyId::CALL_STATE_V1,
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
     Criticality::Required,
     "call_id",
     &["ak.call.state"]
@@ -1093,13 +993,11 @@ impl LatticeKind for CircleMember {
     }
 }
 
-// ────────────────────────── OrderedLog families ──────────────────────────
+// ────── Audit release, create, account, policy and contact families ──────
 
 per_subject_lattice!(
     AuditRelease,
     arkret_wire::CellFamilyId::AUDIT_RELEASE_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Reject,
     Criticality::Required,
     "session_id",
     &["ak.audit.release"]
@@ -1108,8 +1006,6 @@ per_subject_lattice!(
 singleton_lattice!(
     CircleCreate,
     arkret_wire::CellFamilyId::CIRCLE_CREATE_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Inert,
     Criticality::Required,
     &["ak.circle.create"]
 );
@@ -1117,18 +1013,14 @@ singleton_lattice!(
 singleton_lattice!(
     SidecarCreate,
     arkret_wire::CellFamilyId::SIDECAR_CREATE_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Inert,
     Criticality::Required,
     &["ak.sidecar.create"]
 );
 
-// `ak.space.parent` is a CAS register keyed by the child Space ID.
+// `ak.space.parent` is keyed by the child Space ID, not by the parent.
 per_subject_lattice!(
     SpaceParent,
     arkret_wire::CellFamilyId::SPACE_PARENT_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "space_id",
     &["ak.space.parent"]
@@ -1137,8 +1029,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     AccountStatus,
     arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
     Criticality::Required,
     "account_id",
     &["ak.account.status"]
@@ -1147,8 +1037,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     PolicyRule,
     arkret_wire::CellFamilyId::POLICY_RULE_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
     Criticality::Required,
     "rule_id",
     &["ak.policy.rule"]
@@ -1250,29 +1138,23 @@ impl LatticeKind for ContactFactLog {
     }
 }
 
-// contract-registry `ak.direct_conversation.bound`: `lattice = or_set`,
-// `bottom = inert`, `concurrency_class = merge_safe`. The element key is
+// The element key of `ak.direct_conversation.bound` is
 // `(binding_digest, envelope.actor_id)` — both participants endorsing the same
 // coordinates are compatible adds that MUST NOT join to bottom
-// (`contact-and-direct-conversation.md` §8.3). The previous `OrderedLog` /
-// `Expose` pair contradicted the generated `SPEC_LATTICE_BINDINGS` entry.
+// (`contact-and-direct-conversation.md` §8.3).
 per_subject_lattice!(
     DirectConversationBinding,
     arkret_wire::CellFamilyId::DIRECT_CONVERSATION_BINDING_V1,
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Inert,
     Criticality::Required,
     "pair_key",
     &["ak.direct_conversation.bound"]
 );
 
-// ────────────────────────── MvRegister families ──────────────────────────
+// ────── Profile, agent selector and view families ──────
 
 per_subject_lattice!(
     ProfileCreate,
     arkret_wire::CellFamilyId::PROFILE_CREATE_V1,
-    SdkLatticeKind::MvRegister,
-    BottomPolicy::Expose,
     Criticality::Required,
     "actor_id",
     &["ak.profile.create", "ak.profile.update"]
@@ -1339,8 +1221,6 @@ impl LatticeKind for AgentSelectorClaim {
 per_subject_lattice!(
     ViewCreate,
     arkret_wire::CellFamilyId::VIEW_CREATE_V1,
-    SdkLatticeKind::MvRegister,
-    BottomPolicy::Expose,
     Criticality::Required,
     "view_id",
     &["ak.view.create"]
@@ -1349,8 +1229,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     ViewUpdate,
     arkret_wire::CellFamilyId::VIEW_UPDATE_V1,
-    SdkLatticeKind::MvRegister,
-    BottomPolicy::Expose,
     Criticality::Required,
     "view_id",
     &["ak.view.update"]
@@ -1359,8 +1237,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     ViewReconcile,
     arkret_wire::CellFamilyId::VIEW_RECONCILE_V1,
-    SdkLatticeKind::MvRegister,
-    BottomPolicy::Expose,
     Criticality::Required,
     "view_id",
     &["ak.view.reconcile"]
@@ -1369,8 +1245,6 @@ per_subject_lattice!(
 per_subject_lattice!(
     MimiRoomBinding,
     arkret_wire::CellFamilyId::MIMI_ROOM_BINDING_V1,
-    SdkLatticeKind::MvRegister,
-    BottomPolicy::Expose,
     Criticality::Required,
     "room_id",
     &["ak.mimi.room_binding"]
@@ -1378,13 +1252,11 @@ per_subject_lattice!(
 
 // ─────────── Realm families ───────────
 
-// ── Realm CasRegister/Reject singleton families ──
+// ── Realm singleton families ──
 
 per_subject_lattice!(
     PolicyDefinition,
     arkret_wire::CellFamilyId::POLICY_DEFINITION_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "policy_id",
     &["ak.policy.set"]
@@ -1393,8 +1265,6 @@ per_subject_lattice!(
 singleton_lattice!(
     RealmPolicy,
     arkret_wire::CellFamilyId::REALM_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.policy"]
 );
@@ -1404,8 +1274,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmGenesis,
     arkret_wire::CellFamilyId::REALM_GENESIS_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.create"]
 );
@@ -1413,8 +1281,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmProfile,
     arkret_wire::CellFamilyId::REALM_PROFILE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.profile"]
 );
@@ -1422,8 +1288,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmReadReceiptPolicy,
     arkret_wire::CellFamilyId::REALM_READ_RECEIPT_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.read_receipt_policy"]
 );
@@ -1431,8 +1295,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmHistoryVisibility,
     arkret_wire::CellFamilyId::REALM_HISTORY_VISIBILITY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.history_visibility"]
 );
@@ -1440,8 +1302,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmJoinRule,
     arkret_wire::CellFamilyId::REALM_JOIN_RULE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.join_rule"]
 );
@@ -1449,8 +1309,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmDiscovery,
     arkret_wire::CellFamilyId::REALM_DISCOVERY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.discovery"]
 );
@@ -1458,7 +1316,7 @@ singleton_lattice!(
 // `ak.realm.organization` declares a tuple `cell_subject`:
 // `(organization_id = payload.organization_id, relationship = payload.relationship)`.
 // It is NOT a singleton keyed by realm_id; distinct (organization_id, relationship)
-// pairs must form independent CAS register cells so they cannot overwrite each other.
+// pairs must form independent cells so they cannot overwrite each other.
 pub struct RealmOrganization;
 impl LatticeKind for RealmOrganization {
     fn cell_family(&self) -> &'static str {
@@ -1505,8 +1363,6 @@ impl LatticeKind for RealmOrganization {
 singleton_lattice!(
     RealmArchive,
     arkret_wire::CellFamilyId::REALM_ARCHIVE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.archive"]
 );
@@ -1514,8 +1370,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmFreeze,
     arkret_wire::CellFamilyId::REALM_FREEZE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.freeze"]
 );
@@ -1523,8 +1377,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmTombstone,
     arkret_wire::CellFamilyId::REALM_TOMBSTONE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.tombstone"]
 );
@@ -1532,8 +1384,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmDestroy,
     arkret_wire::CellFamilyId::REALM_DESTROY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.destroy"]
 );
@@ -1541,8 +1391,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmModerationPolicy,
     arkret_wire::CellFamilyId::REALM_MODERATION_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.moderation_policy"]
 );
@@ -1550,8 +1398,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmHistorySharingPolicy,
     arkret_wire::CellFamilyId::REALM_HISTORY_SHARING_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.history_sharing_policy"]
 );
@@ -1559,8 +1405,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmPreviewPolicy,
     arkret_wire::CellFamilyId::REALM_PREVIEW_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.preview_policy"]
 );
@@ -1568,8 +1412,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmAssetPrivacyPolicy,
     arkret_wire::CellFamilyId::REALM_ASSET_PRIVACY_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.asset_privacy_policy"]
 );
@@ -1577,8 +1419,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmPolicyBundle,
     arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.policy_bundle"]
 );
@@ -1586,8 +1426,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmPolicyServer,
     arkret_wire::CellFamilyId::REALM_POLICY_SERVER_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.policy_server"]
 );
@@ -1595,8 +1433,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmAlias,
     arkret_wire::CellFamilyId::REALM_ALIAS_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.alias"]
 );
@@ -1604,8 +1440,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmPlaintextVisibleServices,
     arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.plaintext_visible_services"]
 );
@@ -1613,8 +1447,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmMediaService,
     arkret_wire::CellFamilyId::REALM_MEDIA_SERVICE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.media_service"]
 );
@@ -1622,8 +1454,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmSchema,
     arkret_wire::CellFamilyId::REALM_SCHEMA_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.schema"]
 );
@@ -1631,8 +1461,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmDeliveryBindingPolicy,
     arkret_wire::CellFamilyId::REALM_DELIVERY_BINDING_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.delivery_binding_policy"]
 );
@@ -1640,8 +1468,6 @@ singleton_lattice!(
 singleton_lattice!(
     RealmDisappearingPolicy,
     arkret_wire::CellFamilyId::REALM_DISAPPEARING_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.disappearing_policy"]
 );
@@ -1649,19 +1475,15 @@ singleton_lattice!(
 singleton_lattice!(
     RealmSearchPolicy,
     arkret_wire::CellFamilyId::REALM_SEARCH_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.search_policy"]
 );
 
-// ── Realm CasRegister/Reject per-subject families ──
+// ── Realm per-subject families ──
 
 per_subject_lattice!(
     RealmInheritancePolicy,
     arkret_wire::CellFamilyId::REALM_INHERITANCE_POLICY_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     "source_realm_id",
     &["ak.realm.inheritance_policy"]
@@ -1670,38 +1492,31 @@ per_subject_lattice!(
 singleton_lattice!(
     RealmReducerProfile,
     arkret_wire::CellFamilyId::REALM_REDUCER_PROFILE_V1,
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.upgrade"]
 );
 
-// ── Realm ordered-log families ──
+// ── Realm and Strand create families ──
 
 singleton_lattice!(
     RealmCreate,
     arkret_wire::CellFamilyId::REALM_CREATE_V1,
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Inert,
     Criticality::Required,
     &["ak.realm.create"]
 );
 
-// `ak.strand.create` writes the strand object cell
-// (contract-registry `cell_writes`: lattice `mv_register`, bottom `expose`).
-// Without this registration a governance proof over a realm whose accepted
-// history carries a drafted strand-create cell (e.g. the direct-conversation
-// materialization) fails with `no lattice registered for governance cell`.
+// `ak.strand.create` writes the strand object cell. Without this registration
+// a governance proof over a realm whose accepted history carries a drafted
+// strand-create cell (e.g. the direct-conversation materialization) fails with
+// `no lattice registered for governance cell`.
 singleton_lattice!(
     StrandObject,
     arkret_wire::CellFamilyId::STRAND_OBJECT_V1,
-    SdkLatticeKind::MvRegister,
-    BottomPolicy::Expose,
     Criticality::Required,
     &["ak.strand.create"]
 );
 
-// ── New Strand facet families (per-subject by Strand id) ──
+// ── Strand facet families (per-subject by Strand id) ──
 
 pub struct StrandMetadata;
 impl StrandMetadata {
@@ -1743,7 +1558,7 @@ impl LatticeKind for StrandMetadata {
     }
 }
 
-spec_bound_per_subject_lattice!(
+per_subject_lattice!(
     StrandTracks,
     arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
     Criticality::Required,
