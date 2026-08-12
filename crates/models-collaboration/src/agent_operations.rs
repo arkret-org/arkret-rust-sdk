@@ -2475,6 +2475,11 @@ mod tests {
         let outcome = AgentProvisionOutcome::AwaitingControllerEvent {
             agent_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureagent").unwrap(),
             full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+            initial_resolution: arkret_models_identity::ResolutionCommitment {
+                full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+                method_history_head: "did-webvh-entry-sha256:fixture".to_owned(),
+                version_id: "1-fixture".to_owned(),
+            },
             controller_realm_id: RealmId::new(
                 "ak:realm:AUf0Zz23_ZBqZYNvzHTY6qhhx-2YyO94WTorNCFnnvvN",
             )

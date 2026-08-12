@@ -192,7 +192,9 @@ impl AccountabilityGrantPayload {
             ),
             (
                 "created_at".to_owned(),
-                serde_json::to_value(self.proof.created_at)?,
+                Value::String(arkret_canonical::format_timestamp_canonical(
+                    self.proof.created_at,
+                )),
             ),
         ]);
         if let Some(domain) = &self.proof.domain {

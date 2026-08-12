@@ -153,7 +153,7 @@ impl AgentSelectorClaim {
             ),
             (
                 "created_at".to_owned(),
-                serde_json::to_value(proof.created_at)?,
+                Value::String(canonical::format_timestamp_canonical(proof.created_at)),
             ),
         ]);
         if let Some(domain) = &proof.domain {
