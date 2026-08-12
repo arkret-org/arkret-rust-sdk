@@ -129,6 +129,21 @@ mod tests {
             arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1,
         ];
 
+        let sealed = |byte: usize, op_type: LatticeOpType| {
+            SealedOp::new(
+                Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
+                LatticeOp {
+                    op_type,
+                    tag: Some("dot".to_owned()),
+                    value: matches!(op_type, LatticeOpType::Add).then(|| json!({"active": true})),
+                    from: None,
+                    to: None,
+                    reason: None,
+                    issuer_seq: None,
+                },
+            )
+        };
+
         for (index, family) in families.into_iter().enumerate() {
             let adapter = typed.lookup(family).unwrap();
             assert_eq!(adapter.lattice(), SdkLatticeKind::OrSet);
@@ -138,27 +153,37 @@ mod tests {
             let binding = runtime.resolve(&realm_id, &cell).unwrap();
             assert_eq!(binding.lattice.kind(), SdkLatticeKind::OrSet);
             assert_eq!(binding.bottom_mode, BottomMode::Inert);
-            let move_id = Hash::new(format!(
-                "sha256:{}",
-                format!("{:02x}", index + 1).repeat(32)
-            ))
-            .unwrap();
-            let state = binding.lattice.join(
-                &cell,
-                &[SealedOp::new(
-                    move_id,
-                    LatticeOp {
-                        op_type: LatticeOpType::Add,
-                        tag: Some("dot".to_owned()),
-                        value: Some(json!({"active": true})),
-                        from: None,
-                        to: None,
-                        reason: None,
-                        issuer_seq: None,
-                    },
-                )],
+
+            let grant = sealed(index * 2 + 1, LatticeOpType::Add);
+            let revoke = sealed(index * 2 + 2, LatticeOpType::Remove);
+
+            // A lone grant materializes the element and never a Bottom, so
+            // `inert` cannot be reached through the normal write path.
+            assert_eq!(
+                binding.lattice.join(&cell, std::slice::from_ref(&grant)),
+                CellState::Value(json!([{"tag": "dot", "value": {"active": true}}])),
+                "{family} grant must resolve to a value"
             );
-            assert!(matches!(state, CellState::Value(_)));
+
+            // A causally later revoke wipes the grant instead of joining to
+            // Bottom. `inert` therefore never leaves a revoked authority
+            // standing, which is the way this bottom policy could widen
+            // permissions.
+            assert_eq!(
+                binding
+                    .lattice
+                    .join(&cell, &[grant.clone(), revoke.clone()]),
+                CellState::Value(json!([])),
+                "{family} revoke must withdraw the grant"
+            );
+
+            // The mirrored order is a re-grant, not a conflict: still a value,
+            // still no Bottom to fall back on.
+            assert_eq!(
+                binding.lattice.join(&cell, &[revoke, grant]),
+                CellState::Value(json!([{"tag": "dot", "value": {"active": true}}])),
+                "{family} re-grant after revoke must resolve to a value"
+            );
         }
 
         let principal_id = "ak:did_core:webvh:z6mkfixture";

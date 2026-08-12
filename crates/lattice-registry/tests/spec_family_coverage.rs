@@ -6,6 +6,11 @@
 //! adapter, so the family sets are intentionally unequal. Every adapter that
 //! does exist must nevertheless expose exactly the generated lattice and bottom
 //! binding for its family.
+//!
+//! Today the adapters read the generated table directly, so this gate is the
+//! guard against that being undone: an adapter that hard-codes an algebra or a
+//! bottom mode again fails here on the first divergence rather than shipping a
+//! second, drifting source of truth.
 
 use std::collections::{BTreeMap, BTreeSet};
 

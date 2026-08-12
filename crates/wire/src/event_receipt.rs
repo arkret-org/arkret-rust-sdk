@@ -243,7 +243,7 @@ impl EventBatchReceipt {
             ),
             (
                 "created_at".to_owned(),
-                serde_json::to_value(proof.created_at)?,
+                serde_json::Value::String(canonical::format_timestamp_canonical(proof.created_at)),
             ),
         ]);
         if let Some(domain) = &proof.domain {
@@ -513,6 +513,62 @@ mod event_batch_receipt_tests {
         receipt.proofs[0].payload_digest = reversed_digest;
         let error = receipt.validate().unwrap_err();
         assert!(error.to_string().contains("canonical sorted"));
+    }
+
+    #[test]
+    fn receipt_proof_binding_is_stable_across_canonical_timestamp_roundtrip() {
+        let created_at = DateTime::parse_from_rfc3339("2026-08-12T08:18:26.601188800Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let event_digest = hash(0xaa);
+        let mut receipt = EventBatchReceipt {
+            schema: EventBatchReceipt::SCHEMA.to_owned(),
+            receipt_id: ReceiptId::new("ak:receipt:0196419b-0000-7000-8000-000000000004").unwrap(),
+            issuer: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
+                kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
+                principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
+                    .unwrap(),
+                authority_instance: fixture_authority_instance(),
+                previous_device_generation: 1,
+                new_device_generation: 2,
+                reanchor_digest: event_digest.clone(),
+                replacement_authorize_digest: hash(0xbb),
+            }),
+            frontier: EventBatchReceiptFrontier {
+                actor_seq: Some(1),
+                event_id: None,
+                event_digest: Some(event_digest.clone()),
+                hlc: None,
+            },
+            events: vec![item(
+                "ak:event:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL",
+                event_digest,
+                "ak.device.reanchor",
+            )],
+            created_at,
+            proofs: Vec::new(),
+        };
+        let proof = UnsignedPayloadProof {
+            kind: crate::proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new("did:web:service.example#notary-key").unwrap(),
+            payload_digest: receipt.payload_digest().unwrap(),
+            created_at: receipt.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+        }
+        .finalize("AAAA..BBBB")
+        .unwrap();
+        receipt.proofs.push(proof.clone());
+        let before = receipt.proof_binding_bytes(&proof).unwrap();
+        let roundtripped: EventBatchReceipt =
+            serde_json::from_value(serde_json::to_value(&receipt).unwrap()).unwrap();
+        let after = roundtripped
+            .proof_binding_bytes(&roundtripped.proofs[0])
+            .unwrap();
+        assert_eq!(before, after);
     }
 
     #[test]

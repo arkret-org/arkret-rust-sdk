@@ -10,100 +10,93 @@ use super::registry::*;
 ///
 /// The complete executable family/lattice/bottom mapping is generated directly
 /// from `event-kind-registry.json`; see [`lattice_bindings_for_sdk_registry`].
+/// Registrations below are ordered alphabetically on purpose: grouping them by
+/// lattice algebra would restate a binding that only the generated table owns,
+/// and such a grouping silently rots the moment a family's algebra changes.
 pub fn default_lattice_registry() -> LatticeRegistry {
     let mut registry = LatticeRegistry::new();
 
-    // OrSet
-    registry.register(ConsentGrant);
-    registry.register(ModerationState);
-    registry.register(CapabilityGrant);
+    registry.register(AccountStatus);
+    registry.register(AgentKey);
+    registry.register(AgentSelectorClaim);
+    registry.register(AgentStatus);
+    registry.register(AppletRegistration);
+    registry.register(AuditBinding);
+    registry.register(AuditRelease);
+    registry.register(AuditSession);
+    registry.register(CallFocus);
+    registry.register(CallModeration);
+    registry.register(CallMuteOverride);
+    registry.register(CallRecording);
+    registry.register(CallRecordingResult);
+    registry.register(CallRoster);
+    registry.register(CallState);
+    registry.register(CallSummary);
+    registry.register(CallTranscript);
+    registry.register(CallTranscriptResult);
     registry.register(CapabilityDerived);
+    registry.register(CapabilityGrant);
+    registry.register(CircleCreate);
+    registry.register(CircleMember);
+    registry.register(CircleTombstone);
+    registry.register(ConsentGrant);
+    registry.register(ContactFactLog);
     registry.register(DeviceAuthorized);
     registry.register(DeviceListUpdate);
-    registry.register(AgentKey);
-    registry.register(KeyBackupActiveSeries);
-    registry.register(CallModeration);
-    registry.register(CallRoster);
-
-    // CasRegister
-    registry.register(AppletRegistration);
-    registry.register(CircleTombstone);
-    registry.register(CircleMember);
-    registry.register(StrandPosition);
-    registry.register(StrandStage);
-    registry.register(MorphStage);
-    registry.register(StrandWatch);
-    registry.register(NotaryCell);
-    registry.register(IdentityAccountability);
-    registry.register(MlsEpoch);
-    registry.register(CallSummary);
-    registry.register(CallFocus);
-    registry.register(CallRecordingResult);
-    registry.register(CallTranscriptResult);
-    registry.register(CallMuteOverride);
-    registry.register(PolicyDefinition);
-
-    // Fsm
-    registry.register(MemberState);
-    registry.register(InviteLifecycle);
-    registry.register(AgentStatus);
-    registry.register(AuditBinding);
-    registry.register(AuditSession);
-    registry.register(CallState);
-    registry.register(CallRecording);
-    registry.register(CallTranscript);
-    registry.register(RealmLink);
-
-    // OrderedLog
-    registry.register(AuditRelease);
-    registry.register(CircleCreate);
-    registry.register(SidecarCreate);
-    registry.register(SpaceParent);
-    registry.register(AccountStatus);
-    registry.register(PolicyRule);
-    registry.register(MemberIdentityLattice);
-    registry.register(ContactFactLog);
     registry.register(DirectConversationBinding);
-
-    // MvRegister
-    registry.register(ProfileCreate);
-    registry.register(AgentSelectorClaim);
-    registry.register(ViewCreate);
-    registry.register(ViewUpdate);
-    registry.register(ViewReconcile);
+    registry.register(IdentityAccountability);
+    registry.register(InviteLifecycle);
+    registry.register(KeyBackupActiveSeries);
+    registry.register(MemberIdentityLattice);
+    registry.register(MemberState);
     registry.register(MimiRoomBinding);
-
-    registry.register(RealmPolicy);
-    registry.register(RealmGenesis);
-    registry.register(RealmProfile);
-    registry.register(RealmReadReceiptPolicy);
-    registry.register(RealmHistoryVisibility);
-    registry.register(RealmJoinRule);
-    registry.register(RealmDiscovery);
-    registry.register(RealmOrganization);
+    registry.register(MlsEpoch);
+    registry.register(ModerationState);
+    registry.register(MorphStage);
+    registry.register(NotaryCell);
+    registry.register(PolicyDefinition);
+    registry.register(PolicyRule);
+    registry.register(ProfileCreate);
+    registry.register(RealmAlias);
     registry.register(RealmArchive);
-    registry.register(RealmFreeze);
-    registry.register(RealmTombstone);
-    registry.register(RealmDestroy);
-    registry.register(RealmModerationPolicy);
-    registry.register(RealmHistorySharingPolicy);
-    registry.register(RealmPreviewPolicy);
     registry.register(RealmAssetPrivacyPolicy);
+    registry.register(RealmCreate);
+    registry.register(RealmDeliveryBindingPolicy);
+    registry.register(RealmDestroy);
+    registry.register(RealmDisappearingPolicy);
+    registry.register(RealmDiscovery);
+    registry.register(RealmFreeze);
+    registry.register(RealmGenesis);
+    registry.register(RealmHistorySharingPolicy);
+    registry.register(RealmHistoryVisibility);
+    registry.register(RealmInheritancePolicy);
+    registry.register(RealmJoinRule);
+    registry.register(RealmLink);
+    registry.register(RealmMediaService);
+    registry.register(RealmModerationPolicy);
+    registry.register(RealmOrganization);
+    registry.register(RealmPlaintextVisibleServices);
+    registry.register(RealmPolicy);
     registry.register(RealmPolicyBundle);
     registry.register(RealmPolicyServer);
-    registry.register(RealmAlias);
-    registry.register(RealmPlaintextVisibleServices);
-    registry.register(RealmMediaService);
-    registry.register(RealmSchema);
-    registry.register(RealmDeliveryBindingPolicy);
-    registry.register(RealmDisappearingPolicy);
-    registry.register(RealmSearchPolicy);
-    registry.register(RealmInheritancePolicy);
+    registry.register(RealmPreviewPolicy);
+    registry.register(RealmProfile);
+    registry.register(RealmReadReceiptPolicy);
     registry.register(RealmReducerProfile);
-    registry.register(RealmCreate);
-    registry.register(StrandObject);
+    registry.register(RealmSchema);
+    registry.register(RealmSearchPolicy);
+    registry.register(RealmTombstone);
+    registry.register(SidecarCreate);
+    registry.register(SpaceParent);
     registry.register(StrandMetadata);
+    registry.register(StrandObject);
+    registry.register(StrandPosition);
+    registry.register(StrandStage);
     registry.register(StrandTracks);
+    registry.register(StrandWatch);
+    registry.register(ViewCreate);
+    registry.register(ViewReconcile);
+    registry.register(ViewUpdate);
 
     registry
 }
