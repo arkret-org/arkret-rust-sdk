@@ -38,6 +38,7 @@ def associated_name(value: str, prefixes: tuple[str, ...] = ()) -> str:
 
 SCHEMA_ID_PREFIXES = ("ak.schema.", "ak.")
 PROFILE_ID_PREFIXES = ("ak.profile.",)
+REDUCER_PROFILE_PREFIXES = ("ak.reducer.",)
 DID_FRESHNESS_PREFIXES = ("ak.did_freshness.",)
 
 
@@ -1938,9 +1939,39 @@ def generate_account_data_keys(artifacts: Path) -> str:
 def generate_profile_ids(artifacts: Path) -> str:
     relative = "profiles/conformance-profiles.json"
     artifact, digest = load(artifacts / relative)
-    ids = sorted(artifact["profile_roles"])
-    rows = [{"profile_id": value} for value in ids]
+    declared_roles = artifact["profile_roles"]
+    ids = sorted(declared_roles)
+    rows = [{"profile_id": value, "role": declared_roles[value]} for value in ids]
     ensure_unique(rows, "profile_id", PROFILE_ID_PREFIXES)
+    roles = {
+        "client": "Client",
+        "server": "Server",
+        "gateway": "Gateway",
+        "directory": "Directory",
+        "admin": "Admin",
+        "interop": "Interop",
+    }
+    for row in rows:
+        if row["role"] not in roles:
+            raise ValueError(
+                f"profile {row['profile_id']} has unsupported role {row['role']!r}; "
+                f"allowed: {', '.join(sorted(roles))}"
+            )
+    # `profile_roles` is the only view this generator reads, so an id that the
+    # artifact body declares without a role entry would silently be missing
+    # from the enum. Compare against a regex pass over the raw artifact.
+    body_ids = set(
+        re.findall(
+            r"ak\.profile\.[A-Za-z0-9_.-]+\.v[0-9]+",
+            (artifacts / relative).read_text(encoding="utf-8"),
+        )
+    )
+    unroled = sorted(body_ids - set(ids))
+    if unroled:
+        raise ValueError(
+            "profile ids present in the artifact body without a profile_roles "
+            f"entry: {', '.join(unroled)}"
+        )
     lines = header([(relative, artifact, digest)], f"profile_ids={len(rows)}")
     lines.extend(
         [
@@ -1957,6 +1988,45 @@ def generate_profile_ids(artifacts: Path) -> str:
         lines.append(f"    {variant(row['profile_id'], PROFILE_ID_PREFIXES)},")
     lines.extend(
         [
+            "}",
+            "",
+            "/// Spec-layer `profile_roles` partition: every declared profile id",
+            "/// belongs to exactly one of these roles. SDK manifests, client-side",
+            "/// feature negotiation, and conformance loaders MUST consult",
+            "/// [`ProfileId::role`] before claiming a profile as locally implemented.",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "pub enum ProfileRole {",
+        ]
+    )
+    for name in roles.values():
+        lines.append(f"    {name},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl ProfileRole {",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for wire_value, name in roles.items():
+        lines.append(f"            Self::{name} => {rust_string(wire_value)},")
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for wire_value, name in roles.items():
+        lines.append(f"            {rust_string(wire_value)} => Some(Self::{name}),")
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
             "}",
             "",
             "impl ProfileId {",
@@ -1986,6 +2056,27 @@ def generate_profile_ids(artifacts: Path) -> str:
     lines.extend(
         [
             "        }",
+            "    }",
+            "",
+            "    /// Spec-declared role of this profile, mirroring",
+            "    /// `conformance-profiles.json#/profile_roles`.",
+            "    pub const fn role(self) -> ProfileRole {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['profile_id'], PROFILE_ID_PREFIXES)} => "
+            f"ProfileRole::{roles[row['role']]},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    /// Every profile whose spec role is `role`, in declaration order.",
+            "    pub fn with_role(role: ProfileRole) -> impl Iterator<Item = Self> {",
+            "        Self::ALL.iter().copied().filter(move |id| id.role() == role)",
             "    }",
             "",
             "    pub fn from_wire(value: &str) -> Option<Self> {",
@@ -2026,6 +2117,138 @@ def generate_profile_ids(artifacts: Path) -> str:
             "        let raw = String::deserialize(deserializer)?;",
             "        Self::from_wire(&raw)",
             '            .ok_or_else(|| serde::de::Error::custom(format!("unknown profile id: {raw}")))',
+            "    }",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def generate_reducer_profiles(artifacts: Path) -> str:
+    relative = "registry/reducer-profile-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(
+        (row for row in artifact["profiles"] if row["status"] == "active"),
+        key=lambda row: row["profile_id"],
+    )
+    ensure_unique(rows, "profile_id", REDUCER_PROFILE_PREFIXES)
+    active = {row["profile_id"] for row in rows}
+    if len(active) != len(rows):
+        raise ValueError("duplicate active reducer profile id")
+    for row in rows:
+        if not re.fullmatch(
+            r"ak\.reducer(?:\.[a-z0-9][a-z0-9_.-]*)?\.v[0-9]+", row["profile_id"]
+        ):
+            raise ValueError(f"invalid reducer profile id: {row['profile_id']}")
+    edges = sorted(
+        (row["profile_id"], target)
+        for row in rows
+        for target in row.get("upgrade_edges") or []
+    )
+    for source, target in edges:
+        if target not in active:
+            raise ValueError(
+                f"reducer profile {source} has an upgrade edge to unknown or "
+                f"inactive profile {target}"
+            )
+    lines = header(
+        [(relative, artifact, digest)],
+        f"reducer_profiles={len(rows)}, upgrade_edges={len(edges)}",
+    )
+    lines.extend(
+        [
+            "/// Active Realm reducer profiles. A Realm selects exactly one through",
+            "/// its reducer-profile singleton control cell; ordinary Events and",
+            "/// federation service bindings do not declare one.",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "pub enum ReducerProfileId {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['profile_id'], REDUCER_PROFILE_PREFIXES)},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl ReducerProfileId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in rows:
+        lines.append(f"        Self::{variant(row['profile_id'], REDUCER_PROFILE_PREFIXES)},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['profile_id'], REDUCER_PROFILE_PREFIXES)}: "
+            f"&'static str = {rust_string(row['profile_id'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['profile_id'], REDUCER_PROFILE_PREFIXES)} => "
+            f"Self::{associated_name(row['profile_id'], REDUCER_PROFILE_PREFIXES)},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['profile_id'], REDUCER_PROFILE_PREFIXES)} => "
+            f"Some(Self::{variant(row['profile_id'], REDUCER_PROFILE_PREFIXES)}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "",
+            "    /// Whether this profile registers a direct upgrade to `target`.",
+            "    /// An upgrade the source does not declare is never valid.",
+            "    pub fn can_upgrade_to(self, target: Self) -> bool {",
+            "        REDUCER_PROFILE_UPGRADE_EDGES.contains(&(self, target))",
+            "    }",
+            "}",
+            "",
+            "/// Directed reducer-profile upgrades registered by the source profile.",
+            "pub const REDUCER_PROFILE_UPGRADE_EDGES: "
+            "&[(ReducerProfileId, ReducerProfileId)] = &[",
+        ]
+    )
+    for source, target in edges:
+        lines.append(
+            f"    (ReducerProfileId::{variant(source, REDUCER_PROFILE_PREFIXES)}, "
+            f"ReducerProfileId::{variant(target, REDUCER_PROFILE_PREFIXES)}),"
+        )
+    lines.extend(
+        [
+            "];",
+            "",
+            "/// Whether `value` names an active Realm reducer profile.",
+            "pub fn is_reducer_profile_id(value: &str) -> bool {",
+            "    ReducerProfileId::from_wire(value).is_some()",
+            "}",
+            "",
+            "/// Whether `source` registers a direct upgrade to `target`. Ids that are",
+            "/// unknown or no longer active never upgrade.",
+            "pub fn can_upgrade_reducer_profile(source: &str, target: &str) -> bool {",
+            "    match (",
+            "        ReducerProfileId::from_wire(source),",
+            "        ReducerProfileId::from_wire(target),",
+            "    ) {",
+            "        (Some(source), Some(target)) => source.can_upgrade_to(target),",
+            "        _ => false,",
             "    }",
             "}",
         ]
@@ -2447,6 +2670,7 @@ GENERATORS = {
         generate_closed_registry_types
     ),
     "crates/wire/src/generated/profile_ids.rs": generate_profile_ids,
+    "crates/wire/src/generated/reducer_profiles.rs": generate_reducer_profiles,
     "crates/wire/src/generated/account_data_keys.rs": (
         generate_account_data_keys
     ),

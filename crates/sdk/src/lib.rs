@@ -295,12 +295,9 @@ pub use arkret_models_integration::integration::*;
 pub use arkret_models_integration::models_push::*;
 pub use arkret_models_integration::{integration, push};
 pub use arkret_policy::authz::*;
-pub use arkret_policy::generated::profiles::{
-    PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role,
-};
 pub use arkret_policy::history_visibility::*;
 pub use arkret_policy::profile_claim::{
-    ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
+    ClaimedProfile, ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
 };
 pub use arkret_policy::profile_feature_guard::{
     ProfileFeatureGap, implied_features_for_profiles,
@@ -383,7 +380,7 @@ pub use arkret_wire::{
     DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass, EventInitialSubmission,
     EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey, KeyPackageClaimId,
     KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId, PROOF_CONTEXTS, ProfileId,
-    ProofContextId, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
+    ProfileRole, ProofContextId, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
     QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
     SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
     ServiceKind, ServiceOperationDescriptor, ServiceOperationId, WireError, XExtensionMap,

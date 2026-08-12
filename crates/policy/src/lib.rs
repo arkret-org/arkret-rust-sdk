@@ -22,7 +22,9 @@ pub use authz::*;
 pub use minimal_metadata_author::*;
 pub use minimal_metadata_security::*;
 pub use ordinary_agent_mls::*;
-pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
+pub use profile_claim::{
+    ClaimedProfile, ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
+};
 pub use profile_feature_guard::*;
 pub use profile_semantics::*;
 pub use realm_organization::*;

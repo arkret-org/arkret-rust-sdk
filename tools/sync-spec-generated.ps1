@@ -40,13 +40,11 @@ if ($Check) {
 
 try {
     $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
-    $profileOutput = Join-Path $targetRoot 'crates/policy/src/generated/profiles.rs'
     $requirementsOutput = Join-Path $targetRoot 'crates/schema/src/generated/profile_requirements.rs'
     $latticeBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/lattice_bindings.rs'
     $mlsSecurityFrontierOutput = Join-Path $targetRoot 'crates/state/src/generated/mls_security_frontier.rs'
     @(
         $eventOutput,
-        $profileOutput,
         $requirementsOutput,
         $latticeBindingsOutput
         $mlsSecurityFrontierOutput
@@ -55,7 +53,6 @@ try {
     }
 
     & (Join-Path $PSScriptRoot 'generate-sdk-event-kinds.ps1') -ArtifactsDir $artifacts -OutputPath $eventOutput
-    & (Join-Path $PSScriptRoot 'generate-sdk-profile-constants.ps1') -ArtifactsDir $artifacts -OutputPath $profileOutput
     & (Join-Path $PSScriptRoot 'generate-sdk-profile-requirements.ps1') -ArtifactsDir $artifacts -OutputPath $requirementsOutput
     & python (Join-Path $PSScriptRoot 'generate-sdk-lattice-bindings.py') --artifacts-dir $artifacts --output $latticeBindingsOutput
     if ($LASTEXITCODE -ne 0) {

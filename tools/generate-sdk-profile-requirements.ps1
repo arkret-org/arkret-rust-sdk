@@ -8,7 +8,7 @@ param(
 # Emits crates/schema/src/generated/profile_requirements.rs from
 # arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json.
 #
-# Mirrors the style of tools/generate-sdk-profile-constants.ps1 but produces a
+# Mirrors the style of tools/generate-sdk-event-kinds.ps1 but produces a
 # richer module exposing per-profile inheritance, required operations / event
 # kinds / schemas / fixtures / features / capability actions / cells /
 # constraint kinds together with a structured validator.

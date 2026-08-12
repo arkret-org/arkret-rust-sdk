@@ -129,11 +129,12 @@ pub use generated::{
     EventCellRuleKey, EventCellRuleOperator, EventKind, ExporterLabelDescriptor, ExporterLabelId,
     HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor,
     OPERATION_ERROR_MAPPINGS, OperationErrorMappingDescriptor, OperationSpecificError,
-    PROOF_CONTEXTS, ProfileId, ProofContextDescriptor, ProofContextId,
-    REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor,
-    ServiceOperationDescriptor, ServiceOperationId, TrackName, event_kind_str, event_spec,
-    operation_error_mapping,
+    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextDescriptor, ProofContextId,
+    REDUCER_PROFILE_UPGRADE_EDGES, REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS,
+    ReducerProfileId, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor, ServiceOperationDescriptor,
+    ServiceOperationId, TrackName, can_upgrade_reducer_profile, event_kind_str, event_spec,
+    is_reducer_profile_id, operation_error_mapping,
 };
 pub use genesis_salt::GenesisSalt;
 pub use http_signature::HttpMessageSignature;

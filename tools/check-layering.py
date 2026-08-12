@@ -93,17 +93,15 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-collaboration",
         "arkret-models-integration",
     },
-    # The reducer-profile id registry is generated into arkret-policy
-    # (`generated::profiles`), and the state resolver must reject an event whose
-    # declared reducer profile is unregistered or a non-upgradable target. The
-    # frozen R2 rule forbids the policy -> state direction, which still holds:
-    # arkret-policy has no state edge, so this stays acyclic.
+    # The reducer-profile registry is generated into arkret-wire
+    # (`ReducerProfileId`), so the state resolver rejects an event with an
+    # unregistered or non-upgradable reducer profile without needing a policy
+    # edge at all.
     "arkret-state": _WIRE
     | {
         "arkret-event-draft",
         "arkret-models-crypto",
         "arkret-models-collaboration",
-        "arkret-policy",
     },
     "arkret-lattice-registry": _WIRE
     | {"arkret-models-collaboration", "arkret-schema", "arkret-state"},

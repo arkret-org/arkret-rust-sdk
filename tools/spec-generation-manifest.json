@@ -62,18 +62,6 @@
       ]
     },
     {
-      "generator": "profile-constants",
-      "outputs": [
-        "crates/policy/src/generated/profiles.rs"
-      ],
-      "owner": "arkret-policy",
-      "mode": "registered+projection",
-      "artifacts": [
-        "profiles/conformance-profiles.json",
-        "registry/reducer-profile-registry.json"
-      ]
-    },
-    {
       "generator": "profile-requirements",
       "outputs": [
         "crates/schema/src/generated/profile_requirements.rs"
@@ -185,6 +173,24 @@
       "mode": "enum+descriptor",
       "artifacts": [
         "profiles/conformance-profiles.json"
+      ],
+      "provides": [
+        "ProfileId",
+        "ProfileRole"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/reducer_profiles.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/reducer-profile-registry.json"
+      ],
+      "provides": [
+        "ReducerProfileId"
       ]
     },
     {

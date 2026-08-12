@@ -1,6 +1,6 @@
 //! Profile claim validator.
 //!
-//! Wraps the generated `profile_roles` table (mirror of
+//! Wraps [`arkret_wire::ProfileId::role`] (the generated mirror of
 //! `arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json#/profile_roles`)
 //! with a typed API that SDK consumers, conformance harnesses, and capability
 //! manifests can use to refuse role-mismatched profile claims at construction
@@ -60,8 +60,55 @@
 
 use std::fmt;
 
+use arkret_wire::{ProfileId, ProfileRole};
+
 use crate::ServiceKind;
-use crate::generated::profiles::{ProfileRole, profile_role};
+
+/// A claimed profile id, resolved once against the v1 catalogue.
+///
+/// Claims arrive as wire strings (`server.describe` responses, implementor
+/// manifests), so "not in the catalogue" is a state this type has to carry —
+/// it is precisely what [`ProfileClaimKind::Experimental`] exists for. The
+/// parse happens once, at construction, instead of on every role lookup.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ClaimedProfile {
+    /// Declared in `conformance-profiles.json`, so its role is known.
+    Known(ProfileId),
+    /// Outside the v1 catalogue: private extension, prototype, or a typo.
+    Unknown(String),
+}
+
+impl ClaimedProfile {
+    pub fn parse(profile_id: impl Into<String>) -> Self {
+        let profile_id = profile_id.into();
+        match ProfileId::from_wire(&profile_id) {
+            Some(known) => Self::Known(known),
+            None => Self::Unknown(profile_id),
+        }
+    }
+
+    /// The id as it arrived on the wire.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Known(profile_id) => profile_id.as_str(),
+            Self::Unknown(profile_id) => profile_id,
+        }
+    }
+
+    /// Spec-declared role, or `None` when the id is outside the catalogue.
+    pub fn declared_role(&self) -> Option<ProfileRole> {
+        match self {
+            Self::Known(profile_id) => Some(profile_id.role()),
+            Self::Unknown(_) => None,
+        }
+    }
+}
+
+impl fmt::Display for ClaimedProfile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 /// Provenance for a [`ProfileClaim`].
 ///
@@ -100,17 +147,17 @@ impl fmt::Display for ProfileClaimKind {
     }
 }
 
-/// A single profile_id + provenance pair.
+/// A single profile + provenance pair.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ProfileClaim {
-    pub profile_id: String,
+    pub profile: ClaimedProfile,
     pub kind: ProfileClaimKind,
 }
 
 impl ProfileClaim {
     pub fn new(profile_id: impl Into<String>, kind: ProfileClaimKind) -> Self {
         Self {
-            profile_id: profile_id.into(),
+            profile: ClaimedProfile::parse(profile_id),
             kind,
         }
     }
@@ -127,9 +174,14 @@ impl ProfileClaim {
         Self::new(profile_id, ProfileClaimKind::Experimental)
     }
 
+    /// The claimed id as it arrived on the wire, known or not.
+    pub fn profile_id(&self) -> &str {
+        self.profile.as_str()
+    }
+
     /// Resolves the spec-declared role for the underlying profile id, if any.
     pub fn declared_role(&self) -> Option<ProfileRole> {
-        profile_role(&self.profile_id)
+        self.profile.declared_role()
     }
 }
 
@@ -150,7 +202,7 @@ pub enum ProfileClaimError {
     /// The profile is declared in the spec but its `profile_roles` entry is
     /// not in the allow-set of the claiming service.
     RoleMismatch {
-        profile_id: String,
+        profile_id: ProfileId,
         declared_role: ProfileRole,
         service_kind: ServiceKind,
         permitted_roles: Vec<ProfileRole>,
@@ -327,13 +379,14 @@ impl ProfileValidator {
     /// granularity (e.g. partial manifests where each line should be
     /// independently annotated).
     pub fn validate_one(&self, claim: &ProfileClaim) -> Result<(), ProfileClaimError> {
-        match profile_role(&claim.profile_id) {
-            Some(role) => {
+        match &claim.profile {
+            ClaimedProfile::Known(profile_id) => {
+                let role = profile_id.role();
                 if role == ProfileRole::Interop || self.permitted_roles.contains(&role) {
                     Ok(())
                 } else {
                     Err(ProfileClaimError::RoleMismatch {
-                        profile_id: claim.profile_id.clone(),
+                        profile_id: *profile_id,
                         declared_role: role,
                         // The sentinel service_kind for the client validator
                         // is never the actual surface so we replay it as-is
@@ -344,11 +397,11 @@ impl ProfileValidator {
                     })
                 }
             }
-            None => match claim.kind {
+            ClaimedProfile::Unknown(profile_id) => match claim.kind {
                 ProfileClaimKind::Experimental => {
                     if self.surface_experimental_unknown {
                         Err(ProfileClaimError::ExperimentalUnknownProfile {
-                            profile_id: claim.profile_id.clone(),
+                            profile_id: profile_id.clone(),
                         })
                     } else {
                         Ok(())
@@ -356,7 +409,7 @@ impl ProfileValidator {
                 }
                 ProfileClaimKind::SelfClaimed | ProfileClaimKind::ConformanceVerified => {
                     Err(ProfileClaimError::UnknownProfile {
-                        profile_id: claim.profile_id.clone(),
+                        profile_id: profile_id.clone(),
                         kind: claim.kind,
                     })
                 }

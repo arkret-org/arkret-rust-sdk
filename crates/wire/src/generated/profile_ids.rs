@@ -113,6 +113,45 @@ pub enum ProfileId {
     WebrtcMediaV1,
 }
 
+/// Spec-layer `profile_roles` partition: every declared profile id
+/// belongs to exactly one of these roles. SDK manifests, client-side
+/// feature negotiation, and conformance loaders MUST consult
+/// [`ProfileId::role`] before claiming a profile as locally implemented.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ProfileRole {
+    Client,
+    Server,
+    Gateway,
+    Directory,
+    Admin,
+    Interop,
+}
+
+impl ProfileRole {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Client => "client",
+            Self::Server => "server",
+            Self::Gateway => "gateway",
+            Self::Directory => "directory",
+            Self::Admin => "admin",
+            Self::Interop => "interop",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "client" => Some(Self::Client),
+            "server" => Some(Self::Server),
+            "gateway" => Some(Self::Gateway),
+            "directory" => Some(Self::Directory),
+            "admin" => Some(Self::Admin),
+            "interop" => Some(Self::Interop),
+            _ => None,
+        }
+    }
+}
+
 impl ProfileId {
     pub const ALL: &'static [Self] = &[
         Self::AgentAuthV1,
@@ -455,6 +494,122 @@ impl ProfileId {
             Self::UcanInteropV1 => Self::UCAN_INTEROP_V1,
             Self::WebrtcMediaV1 => Self::WEBRTC_MEDIA_V1,
         }
+    }
+
+    /// Spec-declared role of this profile, mirroring
+    /// `conformance-profiles.json#/profile_roles`.
+    pub const fn role(self) -> ProfileRole {
+        match self {
+            Self::AgentAuthV1 => ProfileRole::Server,
+            Self::AgentDelegationPolicyV1 => ProfileRole::Server,
+            Self::AgentParticipationPolicyV1 => ProfileRole::Server,
+            Self::AgentRuntimeV1 => ProfileRole::Server,
+            Self::AgentSidecarV1 => ProfileRole::Server,
+            Self::AgentSignerEvidenceV1 => ProfileRole::Interop,
+            Self::AppletBridgeV1 => ProfileRole::Server,
+            Self::AppletDelegatedV1 => ProfileRole::Server,
+            Self::AppletE2eeJoinV1 => ProfileRole::Server,
+            Self::AppletServiceV1 => ProfileRole::Server,
+            Self::AppletWidgetV1 => ProfileRole::Server,
+            Self::AttestedAuditE2eeV1 => ProfileRole::Admin,
+            Self::AuthServerV1 => ProfileRole::Server,
+            Self::BindingWebsocketV1 => ProfileRole::Interop,
+            Self::BlobNodeV1 => ProfileRole::Gateway,
+            Self::CalendarEventV1 => ProfileRole::Client,
+            Self::CalendarNotificationDispatchV1 => ProfileRole::Server,
+            Self::CandidateJoinPolicyV1 => ProfileRole::Admin,
+            Self::ChatMvpV1 => ProfileRole::Client,
+            Self::CircleConformanceV1 => ProfileRole::Interop,
+            Self::CircleSealCadenceFixed5mV1 => ProfileRole::Admin,
+            Self::ConstraintApprovalWorkflowV1 => ProfileRole::Admin,
+            Self::ConstraintClaimBasedV1 => ProfileRole::Admin,
+            Self::ConstraintEncryptionRequirementV1 => ProfileRole::Admin,
+            Self::ConstraintResourceLimitV1 => ProfileRole::Admin,
+            Self::ConstraintVisibilityControlV1 => ProfileRole::Admin,
+            Self::CoreEventStoreV1 => ProfileRole::Server,
+            Self::CrdtTextV1 => ProfileRole::Interop,
+            Self::DirectConversationRealmV1 => ProfileRole::Admin,
+            Self::DirectConversationRepairV1 => ProfileRole::Server,
+            Self::DirectoryServiceV1 => ProfileRole::Directory,
+            Self::DisappearingV1 => ProfileRole::Client,
+            Self::DisclosedAuditE2eeV1 => ProfileRole::Admin,
+            Self::DraftSyncV1 => ProfileRole::Client,
+            Self::E2eeClientV1 => ProfileRole::Client,
+            Self::E2eeRelaxedV1 => ProfileRole::Client,
+            Self::EncodingCborV1 => ProfileRole::Interop,
+            Self::EncodingMultihashV1 => ProfileRole::Interop,
+            Self::EnterpriseClientV1 => ProfileRole::Client,
+            Self::EphemeralPairwisePrincipalV1 => ProfileRole::Admin,
+            Self::FederationHighAssuranceV1 => ProfileRole::Server,
+            Self::FederationRbsrNegentropyV1 => ProfileRole::Server,
+            Self::FederationMinimalV1 => ProfileRole::Server,
+            Self::FileTransferV1 => ProfileRole::Client,
+            Self::FrankingV1 => ProfileRole::Server,
+            Self::FullClientV1 => ProfileRole::Client,
+            Self::HashBlake3V1 => ProfileRole::Interop,
+            Self::HashTransitionV1 => ProfileRole::Interop,
+            Self::HighSecurityOrganizationV1 => ProfileRole::Admin,
+            Self::HpkeP256V1 => ProfileRole::Admin,
+            Self::IdentityRegistryV1 => ProfileRole::Directory,
+            Self::IsolatedSovereignNetworkV1 => ProfileRole::Admin,
+            Self::KanbanMvpV1 => ProfileRole::Client,
+            Self::KemHybridXwingV1 => ProfileRole::Admin,
+            Self::KeyBackupMemoryHardV1 => ProfileRole::Admin,
+            Self::KeyTransparencyV1 => ProfileRole::Directory,
+            Self::MatrixCompatV1 => ProfileRole::Interop,
+            Self::MediaServiceBindingArkretNativeV1 => ProfileRole::Server,
+            Self::MediaServiceBindingLivekitV1 => ProfileRole::Server,
+            Self::MediaServiceBindingV1 => ProfileRole::Server,
+            Self::MembershipJoinCompensationV1 => ProfileRole::Server,
+            Self::MimiInteropV1 => ProfileRole::Interop,
+            Self::MinimalClientV1 => ProfileRole::Client,
+            Self::MlsMinimalMetadataRealmV1 => ProfileRole::Admin,
+            Self::MlsCiphersuiteChacha20poly1305V1 => ProfileRole::Interop,
+            Self::MlsCiphersuitePqAuthV1 => ProfileRole::Interop,
+            Self::MlsGovernanceBindingFullV1 => ProfileRole::Admin,
+            Self::MorphSchemaMigrationTransformationsV1 => ProfileRole::Server,
+            Self::NotaryMixedRecoveryV1 => ProfileRole::Admin,
+            Self::NotaryOpenSetV1 => ProfileRole::Admin,
+            Self::NotarySingleDidV1 => ProfileRole::Admin,
+            Self::NotaryThresholdV1 => ProfileRole::Admin,
+            Self::OrgHighAssuranceIdentityV1 => ProfileRole::Directory,
+            Self::OrganizationV1 => ProfileRole::Admin,
+            Self::PersonalAgentProvisioningV1 => ProfileRole::Server,
+            Self::PersonalNodeV1 => ProfileRole::Admin,
+            Self::PersonalProductivityV1 => ProfileRole::Client,
+            Self::PinnedItemsV1 => ProfileRole::Client,
+            Self::PrincipalControlRealmV1 => ProfileRole::Admin,
+            Self::PrincipalServerV1 => ProfileRole::Server,
+            Self::PrincipalServerEventsApiV1 => ProfileRole::Server,
+            Self::PublicNetworkIdentityV1 => ProfileRole::Directory,
+            Self::PushGatewayBlindWakeupV1 => ProfileRole::Gateway,
+            Self::PushGatewayMatrixPassthroughV1 => ProfileRole::Interop,
+            Self::PushGatewayV1 => ProfileRole::Gateway,
+            Self::PushGatewayVisibleNotificationV1 => ProfileRole::Gateway,
+            Self::SearchBlindIndexV1 => ProfileRole::Server,
+            Self::SearchClientIndexV1 => ProfileRole::Client,
+            Self::SearchForwardPrivateV1 => ProfileRole::Server,
+            Self::ServiceResolutionMirrorV1 => ProfileRole::Server,
+            Self::SignalMessageStreamV1 => ProfileRole::Client,
+            Self::SignalPeerRelayV1 => ProfileRole::Server,
+            Self::SignatureEcdsaP256V1 => ProfileRole::Admin,
+            Self::SignaturePqcV1 => ProfileRole::Admin,
+            Self::SmallTeamV1 => ProfileRole::Admin,
+            Self::SovereignClientV1 => ProfileRole::Client,
+            Self::SovereignDeploymentV1 => ProfileRole::Admin,
+            Self::SovereignEnclaveV1 => ProfileRole::Admin,
+            Self::TrafficMetadataHardenedV1 => ProfileRole::Admin,
+            Self::UcanInteropV1 => ProfileRole::Interop,
+            Self::WebrtcMediaV1 => ProfileRole::Gateway,
+        }
+    }
+
+    /// Every profile whose spec role is `role`, in declaration order.
+    pub fn with_role(role: ProfileRole) -> impl Iterator<Item = Self> {
+        Self::ALL
+            .iter()
+            .copied()
+            .filter(move |id| id.role() == role)
     }
 
     pub fn from_wire(value: &str) -> Option<Self> {
