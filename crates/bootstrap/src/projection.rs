@@ -207,9 +207,10 @@ pub(crate) fn state_root_from_projection(
 
 #[cfg(test)]
 mod tests {
-    use super::expected_realm_create_cells;
     use arkret_wire::Event;
     use serde_json::json;
+
+    use super::expected_realm_create_cells;
 
     #[test]
     fn principal_genesis_expects_the_registered_singleton_resolution_cell() {
