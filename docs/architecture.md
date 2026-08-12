@@ -244,6 +244,6 @@ runbook for adding it back is:
 3. Invoke `cargo run --example spec_drift_report`. The example crate iterates
    the event-kind, operation, and profile registries and compares them
    against `crates/wire/src/generated/event_kinds.rs`, the operation
-   registry, and `crates/policy/src/generated/profiles.rs::PROFILE_IDS`.
+   registry, and `crates/wire/src/generated/profile_ids.rs::ProfileId`.
 4. Keep the job hard-failing; if a spec entry is intentionally unsupported,
    document that explicitly instead of relying on `continue-on-error`.
