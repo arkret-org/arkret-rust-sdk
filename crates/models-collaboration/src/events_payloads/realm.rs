@@ -266,8 +266,6 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sync_endpoints: Option<Vec<SyncEndpoint>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aad_visibility: Option<RealmAadVisibilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
@@ -337,7 +335,6 @@ impl RealmPolicyBundlePayload {
             content_encryption_floor: None,
             metadata_encryption_floor: None,
             federation_policy: None,
-            sync_endpoints: None,
             aad_visibility: None,
             durability_policy: None,
             mls_send_pause: None,
@@ -947,20 +944,6 @@ impl RealmDigestSuiteTransitionPayload {
 // `realm_destroy_payload` now has a strong type:
 // `models::operation_payloads::RealmDestroyPayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration).
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_disappearing_policy_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmDisappearingPolicyPayload {
-    pub enabled: bool,
-    pub max_ttl_ms: u64,
-    pub allowed_triggers: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default_grace_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub plaintext_realms_allowed: Option<bool>,
-}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_freeze_payload`.

@@ -113,6 +113,7 @@ impl RealmState {
             subject,
             source_event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),
+            principal_server_id: event.principal_server_id.clone(),
             actor_seq: event.actor_seq,
             hlc: event.hlc.clone(),
             content: Value::Object(event.payload.clone().into_iter().collect()),

@@ -122,7 +122,7 @@ pub enum CandidateError {
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBindingCandidate {
     pub subject_id: DidCoreId,
-    pub principal_authority_instance: arkret_wire::PrincipalAuthorityInstance,
+    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
     /// Canonical `<localpart>:<domain>` handle (R3.1 wire rename from
     /// the prior `handle_uri` field).
     pub handle: Handle,
@@ -147,18 +147,12 @@ impl MemberDeliveryBindingCandidate {
     /// Run the §3.7.3 validator. The check order mirrors the spec so that
     /// audit logs emitted on failure stay aligned with the prose.
     pub fn validate(&self, context: &CandidateValidationContext) -> Result<(), CandidateError> {
-        self.principal_authority_instance
-            .validate()
-            .map_err(|error| CandidateError::Canonical(error.to_string()))?;
-        if self.principal_authority_instance.principal_id != self.subject_id
-            || self.principal_authority_instance.principal_server_id
+        if self.principal_authority.principal_id != self.subject_id
+            || self.principal_authority.principal_server_id
                 != self.member_delivery_binding.recipient_service_id
         {
             return Err(CandidateError::RecipientDidCoreIdMismatch {
-                outer: self
-                    .principal_authority_instance
-                    .principal_server_id
-                    .to_string(),
+                outer: self.principal_authority.principal_server_id.to_string(),
                 inner: self
                     .member_delivery_binding
                     .recipient_service_id
@@ -286,18 +280,11 @@ mod tests {
     fn sample_candidate() -> MemberDeliveryBindingCandidate {
         let rs = fake_service("principal");
         let subject_id = fake_principal("alice");
-        let genesis_receipt_digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
-        let principal_authority_instance = arkret_wire::PrincipalAuthorityInstance::new(
-            subject_id.clone(),
-            rs.clone(),
-            arkret_wire::RealmId::new("ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j")
-                .unwrap(),
-            genesis_receipt_digest,
-        )
-        .unwrap();
+        let principal_authority =
+            arkret_wire::PrincipalAuthorityKey::new(subject_id.clone(), rs.clone());
         MemberDeliveryBindingCandidate {
             subject_id,
-            principal_authority_instance,
+            principal_authority,
             handle: Handle::parse("alice:acme.example").unwrap(),
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),

@@ -86,16 +86,19 @@ impl PayloadSigner for FixtureSigner {
 
 fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
     let digest = Hash::new(event.event_digest().unwrap()).unwrap();
-    event.proofs = vec![Proof {
-        kind: proof_kind::DETACHED_JWS.to_owned(),
-        verification_method: verification_method.clone(),
-        event_digest: digest,
-        created_at: event.created_at,
-        domain: None,
-        audience: None,
-        proof_purpose: None,
-        jws: "fixture.signature".to_owned(),
-    }];
+    event.proofs = vec![
+        Proof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: verification_method.clone(),
+            event_digest: digest,
+            created_at: event.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "fixture.signature".to_owned(),
+        }
+        .into(),
+    ];
 }
 
 fn bootstrap_unit() -> (Event, Event) {
@@ -120,6 +123,7 @@ fn bootstrap_unit() -> (Event, Event) {
             realm_id: create.realm_id.clone(),
         },
         create.actor_id.clone(),
+        create.principal_server_id.clone(),
         1,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         serde_json::to_value(payload).unwrap(),
@@ -141,6 +145,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
     let created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
     SelfPrincipalPcrCreateInput {
         principal_id: principal_id.clone(),
+        principal_server_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
         principal_full_id: principal_full_id.clone(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
@@ -231,6 +236,11 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
     let event = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
 
     assert_eq!(event.kind, EventKind::RealmCreate);
+    assert_eq!(
+        event.principal_server_id.as_str(),
+        "ak:did_core:web:principal.example"
+    );
+    assert_ne!(event.principal_server_id, event.actor_id);
     assert_eq!(event.actor_seq, 0);
     assert!(event.prev_refs.is_empty());
     assert!(event.proofs.is_empty());
@@ -326,7 +336,10 @@ fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_full_id() {
         project_full_id_to_core_id(&same_core_different_full_id).unwrap(),
         create.actor_id
     );
-    authorize.proofs[0].verification_method = DidUrl::new(format!(
+    authorize.proofs[0]
+        .as_producer_mut()
+        .expect("bootstrap authorize must carry a producer proof")
+        .verification_method = DidUrl::new(format!(
         "{}#{}",
         same_core_different_full_id,
         founding_device_id()
@@ -398,6 +411,7 @@ fn managed_agent_pcr_create() -> Event {
     let mut create = arkret_wire::test_support::raw_event(
         EventKind::RealmCreate.to_string(),
         ScopeRef::Realm { realm_id },
+        agent.clone(),
         agent,
         0,
         Hlc::new("01970e589d21-0007-a13f9c2e").unwrap(),
@@ -520,6 +534,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),
+        create.principal_server_id.clone(),
         1,
         Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
         serde_json::json!({}),
@@ -546,6 +561,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),
+        create.principal_server_id.clone(),
         1,
         Hlc::new("01970e589d21-0008-a13f9c2e").unwrap(),
         serde_json::json!({}),
@@ -625,6 +641,8 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
         HandleVisibility::Private,
         None,
         AgentProvisionEventDraftOptions {
+            controller_principal_server_id: DidCoreId::new("ak:did_core:web:principal.example")
+                .unwrap(),
             created_at: "2026-07-18T01:02:03Z".parse().unwrap(),
             actor_seq: 4,
             hlc: Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
@@ -640,6 +658,11 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
         serde_json::from_value(serde_json::to_value(&event.payload).unwrap()).unwrap();
     payload.validate().unwrap();
     assert_eq!(payload.agent_id, agent);
+    assert_eq!(
+        event.principal_server_id.as_str(),
+        "ak:did_core:web:principal.example"
+    );
+    assert_ne!(event.principal_server_id, controller);
     let effects = direct_projection(&event, &registry_projection).unwrap();
     assert_eq!(
         effects

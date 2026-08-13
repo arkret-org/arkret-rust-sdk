@@ -28,6 +28,9 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 #[derive(Clone, Debug)]
 pub struct SelfPrincipalPcrCreateInput {
     pub principal_id: DidCoreId,
+    /// Principal Server that admits this genesis Event and owns the public
+    /// account-authority coordinate paired with `principal_id`.
+    pub principal_server_id: DidCoreId,
     /// Resolvable DID admitted for the principal and published as Realm notary.
     pub principal_full_id: DidFullId,
     pub genesis_salt: GenesisSalt,
@@ -94,7 +97,8 @@ pub fn build_self_principal_pcr_create(
         // carries no realm_id. Every Realm id, including a PCR, is derived
         // from the authored create Event.
         ScopeRef::RealmGenesis,
-        actor_id,
+        actor_id.clone(),
+        input.principal_server_id,
         payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
@@ -197,7 +201,10 @@ pub fn validate_self_principal_pcr_genesis_unit(
         &Value::Object(authorize.payload.clone().into_iter().collect()),
         arkret_canonical::DigestSuite::Sha256,
     )?;
-    let (verification_controller, verification_fragment) = authorize.proofs[0]
+    let authorize_proof = authorize.proofs[0].as_producer().ok_or_else(|| {
+        Error::Protocol("founding device proof must be a producer proof".to_owned())
+    })?;
+    let (verification_controller, verification_fragment) = authorize_proof
         .verification_method
         .as_str()
         .split_once('#')
@@ -270,7 +277,11 @@ pub(crate) fn validate_self_principal_pcr_create(
     }
     if require_proof {
         validate_event_proof_digests(event)?;
-        if event.proofs.len() != 1 || !event.proofs[0].verification_method.starts_with("did:key:") {
+        if event.proofs.len() != 1
+            || event.proofs[0]
+                .as_producer()
+                .is_none_or(|proof| !proof.verification_method.starts_with("did:key:"))
+        {
             return Err(Error::Protocol(
                 "self principal PCR genesis requires exactly one identity-root proof".to_owned(),
             ));
@@ -331,9 +342,11 @@ fn validate_event_proof_digests(event: &Event) -> Result<()> {
     }
     let digest = event.event_digest()?;
     if event.proofs.iter().any(|proof| {
-        proof.kind != proof_kind::DETACHED_JWS
-            || proof.event_digest.as_str() != digest
-            || proof.jws.is_empty()
+        proof.as_producer().is_none_or(|proof| {
+            proof.kind != proof_kind::DETACHED_JWS
+                || proof.event_digest.as_str() != digest
+                || proof.jws.is_empty()
+        })
     }) {
         return Err(Error::Protocol(
             "bootstrap event carries an invalid proof envelope".to_owned(),

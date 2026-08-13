@@ -23,6 +23,7 @@ pub fn raw_projected_operation(
     let event = arkret_wire::test_support::raw_event(
         kind.as_str(),
         ScopeRef::Realm { realm_id },
+        actor.clone(),
         actor,
         1,
         Hlc::new("01970e589d21-0000-a13f9c2e").expect("fixed fixture HLC is valid"),

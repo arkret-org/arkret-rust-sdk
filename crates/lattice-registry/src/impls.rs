@@ -1466,13 +1466,6 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
-    RealmDisappearingPolicy,
-    arkret_wire::CellFamilyId::REALM_DISAPPEARING_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.disappearing_policy"]
-);
-
-singleton_lattice!(
     RealmSearchPolicy,
     arkret_wire::CellFamilyId::REALM_SEARCH_POLICY_V1,
     Criticality::Required,

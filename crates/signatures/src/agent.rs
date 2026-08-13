@@ -787,6 +787,7 @@ mod tests {
                 )),
             },
             agent_actor_id.clone(),
+            agent_actor_id.clone(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             serde_json::to_value(authorize_payload).unwrap(),

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/service-kind-registry.json; version=2026-07-15;
-//! sha256=28830554bb03f303d5d3c7e9717cc0cf831e4d2cf22c18e412837ceaa0c2d055 Entries: active=22
+//! Input: registry/service-kind-registry.json; version=2026-08-13.3;
+//! sha256=4b1c5692748a4c8b346d67a39324666c73685f7c6e46e5b1fbbdfd3cf11d043b Entries: active=21
 
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,6 @@ pub enum ServiceKind {
     RecoveryService,
     SearchService,
     SfuService,
-    SyncNode,
     TurnService,
 }
 
@@ -63,7 +62,6 @@ impl ServiceKind {
         Self::RecoveryService,
         Self::SearchService,
         Self::SfuService,
-        Self::SyncNode,
         Self::TurnService,
     ];
 
@@ -89,7 +87,6 @@ impl ServiceKind {
             Self::RecoveryService => "recovery_service",
             Self::SearchService => "search_service",
             Self::SfuService => "sfu_service",
-            Self::SyncNode => "sync_node",
             Self::TurnService => "turn_service",
         }
     }
@@ -116,7 +113,7 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::ArchiveNode,
-        valid_in: &["service_describe", "realm_sync_endpoint"],
+        valid_in: &["service_describe"],
         description: "Long-term archive storage and retrieval surface.",
     },
     ServiceKindDescriptor {
@@ -151,7 +148,7 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::KeyRecoveryService,
-        valid_in: &["service_describe", "realm_sync_endpoint"],
+        valid_in: &["service_describe"],
         description: "Cryptographic key backup and recovery surface.",
     },
     ServiceKindDescriptor {
@@ -171,11 +168,7 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::Notary,
-        valid_in: &[
-            "service_describe",
-            "realm_sync_endpoint",
-            "realm_join_candidate",
-        ],
+        valid_in: &["service_describe"],
         description: "Seal and state-attestation notary surface.",
     },
     ServiceKindDescriptor {
@@ -187,7 +180,6 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
         service_kind: ServiceKind::PrincipalServer,
         valid_in: &[
             "service_describe",
-            "realm_sync_endpoint",
             "realm_join_candidate",
             "service_registration_key",
         ],
@@ -200,27 +192,18 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::RecoveryService,
-        valid_in: &["service_describe", "realm_sync_endpoint"],
+        valid_in: &["service_describe"],
         description: "Account recovery orchestration surface.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::SearchService,
-        valid_in: &["service_describe", "realm_sync_endpoint"],
+        valid_in: &["service_describe"],
         description: "Search indexing and query surface.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::SfuService,
         valid_in: &["service_describe"],
         description: "Selective forwarding unit for calls.",
-    },
-    ServiceKindDescriptor {
-        service_kind: ServiceKind::SyncNode,
-        valid_in: &[
-            "service_describe",
-            "realm_sync_endpoint",
-            "realm_join_candidate",
-        ],
-        description: "Event sync surface without account authority.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::TurnService,

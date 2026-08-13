@@ -386,7 +386,7 @@ pub enum RecoveryAuthorityKind {
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorPayload {
     pub principal_id: DidCoreId,
-    pub authority_instance: PrincipalAuthorityInstance,
+    pub authority: PrincipalAuthorityKey,
     pub recovery_authority_kind: RecoveryAuthorityKind,
     pub recovery_policy_id: PolicyId,
     pub recovery_policy_version: u64,
@@ -403,7 +403,7 @@ pub struct DeviceReanchorPayload {
 #[serde(deny_unknown_fields)]
 struct DeviceReanchorPayloadWire {
     principal_id: DidCoreId,
-    authority_instance: PrincipalAuthorityInstance,
+    authority: PrincipalAuthorityKey,
     recovery_authority_kind: RecoveryAuthorityKind,
     recovery_policy_id: PolicyId,
     recovery_policy_version: u64,
@@ -435,7 +435,7 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
         let wire = DeviceReanchorPayloadWire::deserialize(deserializer)?;
         let payload = Self {
             principal_id: wire.principal_id,
-            authority_instance: wire.authority_instance,
+            authority: wire.authority,
             recovery_authority_kind: wire.recovery_authority_kind,
             recovery_policy_id: wire.recovery_policy_id,
             recovery_policy_version: wire.recovery_policy_version,
@@ -454,11 +454,8 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
 impl DeviceReanchorPayload {
     pub const SCHEMA: &'static str = SchemaId::DEVICE_REANCHOR_V1;
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
-        self.authority_instance
-            .validate()
-            .map_err(|_| "device reanchor authority_instance is invalid")?;
-        if self.authority_instance.principal_id != self.principal_id {
-            return Err("device reanchor authority_instance does not bind principal_id");
+        if self.authority.principal_id != self.principal_id {
+            return Err("device reanchor authority does not bind principal_id");
         }
         if self.recovery_policy_version == 0
             || self.previous_device_generation == 0
@@ -800,16 +797,11 @@ mod tests {
         })
     }
 
-    fn authority_instance_value() -> Value {
-        serde_json::to_value(
-            PrincipalAuthorityInstance::new(
-                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-                DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-                RealmId::new("ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j").unwrap(),
-                Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            )
-            .unwrap(),
-        )
+    fn authority_value() -> Value {
+        serde_json::to_value(PrincipalAuthorityKey::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
+        ))
         .unwrap()
     }
 
@@ -1012,7 +1004,7 @@ mod tests {
     fn device_reanchor_enforces_exact_authority_generation_cas_and_basis() {
         let valid = json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "authority_instance": authority_instance_value(),
+            "authority": authority_value(),
             "recovery_authority_kind": "pcr_policy",
             "recovery_policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
             "recovery_policy_version": 1,
@@ -1124,7 +1116,7 @@ mod tests {
     fn device_reanchor_pre_fence_seal_frontier_round_trips_both_frontier_roots() {
         let wire = json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "authority_instance": authority_instance_value(),
+            "authority": authority_value(),
             "recovery_authority_kind": "pcr_policy",
             "recovery_policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
             "recovery_policy_version": 1,

@@ -33,7 +33,6 @@ impl ServiceKind {
             ],
             Self::IdentityRegistry => &["ak.root.identity.", "ak.identity."],
             Self::AuthServer => &["ak.gate.account.", "ak.self.policy.read.check"],
-            Self::SyncNode => &["ak.self.events.", "ak.self.account.", "ak.self.snapshot."],
             Self::BlobNode => &["ak.self.blob."],
             Self::MediaService => &["ak.self.media.", "ak.self.call.media."],
             Self::MimiProviderFacade => &["ak.open.mimi."],

@@ -29,18 +29,6 @@ pub type NullableTimestamp = Option<DateTime<Utc>>;
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/plaintext_data_class`.
 pub type PlaintextDataClass = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/disappearing-messages.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DisappearingMessages {
-    MessageExpiry(MessageExpiry),
-    DisappearingPolicy(DisappearingPolicy),
-}
-
-impl DisappearingMessages {
-    pub const SCHEMA: &'static str = SchemaId::DISAPPEARING_MESSAGES_V1;
-}
-
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
     EncryptedEnvelopeGroupStateRef, EncryptedEnvelopeKeyAlgorithm, EncryptedEnvelopeKeyRef,

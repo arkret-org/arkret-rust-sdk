@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-13.3;
-//! sha256=6a65c704e8f3360f8e9b4c4f4594f3c190ca3b14e4e58970d2e9b506f649ead6 Entries: registered=237
+//! Input: registry/operation-registry.json; version=2026-08-13.2;
+//! sha256=ab94f40d4baadd6dd2169e9c7152ab25b11ce103848681c5b44b54842bfa1a81 Entries: registered=235
 
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +74,7 @@ pub enum ServiceOperationId {
     OpenMimiReadProviderDirectory,
     OpenServiceReadResolution,
     PeerAccountStatusCommandSubmit,
-    PeerAccountStatusReadAuthoringFrontiers,
+    PeerAccountStatusReadAuthoringBasis,
     PeerContactsCommandSubmit,
     PeerDirectConversationCommandRepairRelay,
     PeerErasureReceiptCommandSubmit,
@@ -209,8 +209,6 @@ pub enum ServiceOperationId {
     SelfMorphReadList,
     SelfMorphResourceGet,
     SelfPolicyReadCheck,
-    SelfPrincipalServiceBindingCommandCommit,
-    SelfPrincipalServiceBindingCommandPrepare,
     SelfReadCursorCommandAdvance,
     SelfReadCursorReadList,
     SelfRealmCommandArchive,
@@ -314,7 +312,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
     ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS,
+    ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
@@ -449,8 +447,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MORPH_READ_LIST,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET,
     ServiceOperationId::SELF_POLICY_READ_CHECK,
-    ServiceOperationId::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT,
-    ServiceOperationId::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE,
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST,
     ServiceOperationId::SELF_REALM_COMMAND_ARCHIVE,
@@ -594,7 +590,7 @@ impl ServiceOperationId {
         Self::OpenMimiReadProviderDirectory,
         Self::OpenServiceReadResolution,
         Self::PeerAccountStatusCommandSubmit,
-        Self::PeerAccountStatusReadAuthoringFrontiers,
+        Self::PeerAccountStatusReadAuthoringBasis,
         Self::PeerContactsCommandSubmit,
         Self::PeerDirectConversationCommandRepairRelay,
         Self::PeerErasureReceiptCommandSubmit,
@@ -729,8 +725,6 @@ impl ServiceOperationId {
         Self::SelfMorphReadList,
         Self::SelfMorphResourceGet,
         Self::SelfPolicyReadCheck,
-        Self::SelfPrincipalServiceBindingCommandCommit,
-        Self::SelfPrincipalServiceBindingCommandPrepare,
         Self::SelfReadCursorCommandAdvance,
         Self::SelfReadCursorReadList,
         Self::SelfRealmCommandArchive,
@@ -878,8 +872,8 @@ impl ServiceOperationId {
     pub const OPEN_SERVICE_READ_RESOLUTION: &'static str = "ak.open.service.read.resolution";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT: &'static str =
         "ak.peer.account_status.command.submit";
-    pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS: &'static str =
-        "ak.peer.account_status.read.authoring_frontiers";
+    pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS: &'static str =
+        "ak.peer.account_status.read.authoring_basis";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY: &'static str =
         "ak.peer.direct_conversation.command.repair_relay";
@@ -1081,10 +1075,6 @@ impl ServiceOperationId {
     pub const SELF_MORPH_READ_LIST: &'static str = "ak.self.morph.read.list";
     pub const SELF_MORPH_RESOURCE_GET: &'static str = "ak.self.morph.resource.get";
     pub const SELF_POLICY_READ_CHECK: &'static str = "ak.self.policy.read.check";
-    pub const SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT: &'static str =
-        "ak.self.principal_service_binding.command.commit";
-    pub const SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE: &'static str =
-        "ak.self.principal_service_binding.command.prepare";
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE: &'static str =
         "ak.self.read_cursor.command.advance";
     pub const SELF_READ_CURSOR_READ_LIST: &'static str = "ak.self.read_cursor.read.list";
@@ -1249,8 +1239,8 @@ impl ServiceOperationId {
             Self::OpenMimiReadProviderDirectory => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
             Self::OpenServiceReadResolution => Self::OPEN_SERVICE_READ_RESOLUTION,
             Self::PeerAccountStatusCommandSubmit => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-            Self::PeerAccountStatusReadAuthoringFrontiers => {
-                Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS
+            Self::PeerAccountStatusReadAuthoringBasis => {
+                Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerDirectConversationCommandRepairRelay => {
@@ -1436,12 +1426,6 @@ impl ServiceOperationId {
             Self::SelfMorphReadList => Self::SELF_MORPH_READ_LIST,
             Self::SelfMorphResourceGet => Self::SELF_MORPH_RESOURCE_GET,
             Self::SelfPolicyReadCheck => Self::SELF_POLICY_READ_CHECK,
-            Self::SelfPrincipalServiceBindingCommandCommit => {
-                Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT
-            }
-            Self::SelfPrincipalServiceBindingCommandPrepare => {
-                Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE
-            }
             Self::SelfReadCursorCommandAdvance => Self::SELF_READ_CURSOR_COMMAND_ADVANCE,
             Self::SelfReadCursorReadList => Self::SELF_READ_CURSOR_READ_LIST,
             Self::SelfRealmCommandArchive => Self::SELF_REALM_COMMAND_ARCHIVE,
@@ -1625,8 +1609,8 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY => Some(Self::OpenMimiReadProviderDirectory),
             Self::OPEN_SERVICE_READ_RESOLUTION => Some(Self::OpenServiceReadResolution),
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT => Some(Self::PeerAccountStatusCommandSubmit),
-            Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS => {
-                Some(Self::PeerAccountStatusReadAuthoringFrontiers)
+            Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS => {
+                Some(Self::PeerAccountStatusReadAuthoringBasis)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY => {
@@ -1848,12 +1832,6 @@ impl ServiceOperationId {
             Self::SELF_MORPH_READ_LIST => Some(Self::SelfMorphReadList),
             Self::SELF_MORPH_RESOURCE_GET => Some(Self::SelfMorphResourceGet),
             Self::SELF_POLICY_READ_CHECK => Some(Self::SelfPolicyReadCheck),
-            Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_COMMIT => {
-                Some(Self::SelfPrincipalServiceBindingCommandCommit)
-            }
-            Self::SELF_PRINCIPAL_SERVICE_BINDING_COMMAND_PREPARE => {
-                Some(Self::SelfPrincipalServiceBindingCommandPrepare)
-            }
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE => Some(Self::SelfReadCursorCommandAdvance),
             Self::SELF_READ_CURSOR_READ_LIST => Some(Self::SelfReadCursorReadList),
             Self::SELF_REALM_COMMAND_ARCHIVE => Some(Self::SelfRealmCommandArchive),
@@ -3424,21 +3402,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerAccountStatusReadAuthoringFrontiers,
+        id: ServiceOperationId::PeerAccountStatusReadAuthoringBasis,
         http_method: "POST",
-        http_path: "/_arkret/peer/account-status/authoring-frontiers",
-        grpc: Some("PeerAccountStatus/AuthoringFrontiers"),
-        mq: Some("peer.account_status.query.authoring_frontiers"),
+        http_path: "/_arkret/peer/account-status/authoring-basis",
+        grpc: Some("PeerAccountStatus/AuthoringBasis"),
+        mq: Some("peer.account_status.query.authoring_basis"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_authoring_frontiers_request_body",
+            "schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_authoring_frontiers_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6373,58 +6351,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfPrincipalServiceBindingCommandCommit,
-        http_method: "POST",
-        http_path: "/_arkret/self/principal-service-bindings/commit",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_commit_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_commit_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "service_local_current_binding_cas_and_portable_signed_snapshot_no_event_is_authored",
-            ),
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfPrincipalServiceBindingCommandPrepare,
-        http_method: "POST",
-        http_path: "/_arkret/self/principal-service-bindings/prepare",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_prepare_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-service-binding-operations.schema.json#/$defs/principal_service_binding_prepare_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "persists_only_a_service_local_single_use_frozen_binding_challenge_no_event_is_authored",
-            ),
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfReadCursorCommandAdvance,

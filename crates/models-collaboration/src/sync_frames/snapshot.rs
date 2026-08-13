@@ -171,8 +171,6 @@ pub struct CellLattice {
     pub sentinel_writers: Option<Vec<String>>,
 }
 
-pub use crate::objects::realm::SyncEndpoint;
-
 /// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotFrontierValue {

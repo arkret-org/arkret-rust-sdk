@@ -126,10 +126,13 @@ impl PcrGenesisSubmitRequestBody {
             || descriptor.hpke_key != authorize_payload.hpke_key
             || descriptor.algorithms != authorize_payload.algorithms
             || create.proofs.len() != 1
-            || !create.proofs[0].verification_method.starts_with("did:key:")
+            || !create.proofs[0]
+                .as_producer()
+                .is_some_and(|proof| proof.verification_method.starts_with("did:key:"))
             || authorize.proofs.len() != 1
-            || authorize.proofs[0].verification_method.as_str()
-                != expected_authorize_verification_method
+            || authorize.proofs[0].as_producer().is_none_or(|proof| {
+                proof.verification_method.as_str() != expected_authorize_verification_method
+            })
         {
             return Err(Error::Protocol(
                 "PCR genesis descriptor and founding device authorization disagree".to_owned(),

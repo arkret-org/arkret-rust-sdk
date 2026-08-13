@@ -1115,6 +1115,8 @@ mod tests {
                 scope_ref: ScopeRef::Realm { realm_id: realm() },
                 actor_id: arkret_wire::project_full_id_to_core_id(&did())
                     .expect("registered DID adapter"),
+                principal_server_id: arkret_wire::project_full_id_to_core_id(&did())
+                    .expect("registered DID adapter"),
                 actor_seq: 1,
                 created_at: Utc
                     .with_ymd_and_hms(2026, 4, 26, 0, 0, 0)
@@ -1221,7 +1223,7 @@ mod tests {
             let accepted = accepted(&document);
             let mut event = event();
             let proof = signed_proof(&event);
-            event.proofs.push(proof.clone());
+            event.proofs.push(proof.clone().into());
             verify_event_proof_with_binding_for_event(&event, &proof, &accepted)
                 .expect("verify from the event itself");
         }

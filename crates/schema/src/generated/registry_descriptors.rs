@@ -3,12 +3,12 @@
 //! Input: registry/id-kind-registry.json; version=2026-08-12.3;
 //! sha256=110f8b693d59cad81493da55f6e18c84c48a565ab5b5ced93b02f9e0f195dd77 Input: registry/
 //! capability-action-registry.json; version=2026-08-13.3;
-//! sha256=839e3f0e9fe2c7e862d114c0a0edadb687e38530a2b4acb7fa1ec52302dead64 Input: registry/
-//! schema-registry.json; version=2026-08-13.1;
-//! sha256=c906c7f334af5a1a36774ea915f3c05a809061d1c66a1d75858397ebca2f7d27 Input: registry/
-//! account-data-key-registry.json; version=2026-08-13;
-//! sha256=35bc4c6add6216cdb3f2eecc32b7ab3f50c198b1006810c8705ad0ccc1dac62e Entries: id_kinds=56,
-//! special_forms=11, actions=171, schemas=184, account_data_patterns=24
+//! sha256=9dc725e98ccfdcbc6ac247018ff091656dcc230b5b6f90b6e44f755e10184724 Input: registry/
+//! schema-registry.json; version=2026-08-13.2;
+//! sha256=0328f3c3abb1ff9d381b67fc7da8b852246d31c1343b82a7bc0282451c0700dc Input: registry/
+//! account-data-key-registry.json; version=2026-08-13.2;
+//! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=56,
+//! special_forms=11, actions=170, schemas=182, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1617,7 +1617,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_HISTORY_SHARING_POLICY,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_MODERATION_POLICY,
-            event_kind_str::REALM_DISAPPEARING_POLICY,
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::ORGANIZATION_MODERATION_POLICY,
             event_kind_str::MIMI_ROOM_BINDING,
@@ -1733,7 +1732,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_MEDIA_SERVICE,
             event_kind_str::REALM_SCHEMA,
             event_kind_str::REALM_INHERITANCE_POLICY,
-            event_kind_str::REALM_DISAPPEARING_POLICY,
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::REALM_SET_DEFAULT_STRAND,
             event_kind_str::APPLET_REGISTRATION,
@@ -1821,19 +1819,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         grant_authority_actions: &[],
         profile: None,
         root_control_only: true,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmDisappearingPolicy,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::REALM_DISAPPEARING_POLICY],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.disappearing.v1"),
-        root_control_only: false,
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "same_name",
@@ -1999,7 +1984,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
-            event_kind_str::REALM_DISAPPEARING_POLICY,
             event_kind_str::REALM_DISCOVERY,
             event_kind_str::REALM_FREEZE,
             event_kind_str::REALM_HISTORY_SHARING_POLICY,
@@ -3205,10 +3189,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/directory-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::DISAPPEARING_MESSAGES_V1,
-        file: "schemas/disappearing-messages.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::DRAFT_SYNC_V1,
         file: "schemas/draft-sync.schema.json",
     },
@@ -3247,10 +3227,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::EXTENSION_MANIFEST_V1,
         file: "schemas/extension-manifest.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::FEDERATED_DEVICE_SIGNING_KEY_EVIDENCE_V1,
-        file: "schemas/federated-device-signing-key-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::FILE_TRANSFER_V1,
@@ -3433,10 +3409,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/principal-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::PRINCIPAL_SERVICE_BINDING_V1,
-        file: "schemas/principal-service-binding.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::PUBLIC_KEY_V1,
         file: "schemas/public-key.schema.json",
     },
@@ -3511,6 +3483,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_SESSION_V1,
         file: "schemas/recovery-session.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REGISTRATION_DID_EVIDENCE_V1,
+        file: "schemas/registration-did-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::RELATION_V1,

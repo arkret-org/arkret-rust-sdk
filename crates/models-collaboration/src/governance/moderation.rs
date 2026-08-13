@@ -134,8 +134,13 @@ impl ModerationReportRequestBody {
             })
             || auth_context.actor_id != event.actor_id
             || !event.proofs.iter().any(|proof| {
-                proof_controller_matches_actor(proof.verification_method.as_str(), &event.actor_id)
+                proof.as_producer().is_some_and(|proof| {
+                    proof_controller_matches_actor(
+                        proof.verification_method.as_str(),
+                        &event.actor_id,
+                    )
                     .unwrap_or(false)
+                })
             })
         {
             return Err(arkret_wire::Error::Protocol(
@@ -296,6 +301,7 @@ mod signed_request_tests {
             "ak.self.moderation.report",
             scope_ref,
             actor(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             payload,
@@ -311,16 +317,19 @@ mod signed_request_tests {
         });
         event.refresh_content_bound_identity().unwrap();
         let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
-        event.proofs = vec![Proof {
-            kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new(VM).unwrap(),
-            event_digest,
-            created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "a..b".to_owned(),
-        }];
+        event.proofs = vec![
+            Proof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(VM).unwrap(),
+                event_digest,
+                created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "a..b".to_owned(),
+            }
+            .into(),
+        ];
         ModerationReportRequestBody {
             report_event: EventInitialSubmission::online(event),
         }
@@ -431,7 +440,10 @@ mod signed_request_tests {
         assert!(wrong_reporter.validate().is_err());
 
         let mut wrong_proof = signed_request(None);
-        wrong_proof.report_event.event.proofs[0].verification_method =
+        wrong_proof.report_event.event.proofs[0]
+            .as_producer_mut()
+            .unwrap()
+            .verification_method =
             DidUrl::new("did:webvh:z6mkother:other.example#device-1").unwrap();
         assert!(wrong_proof.validate().is_err());
 

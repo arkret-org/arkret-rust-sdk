@@ -37,24 +37,6 @@ pub fn realm_object_is_principal_control(object: &Value) -> bool {
         })
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/sync_endpoint`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SyncEndpoint {
-    pub actor_id: DidCoreId,
-    pub endpoint: String,
-    pub role: String,
-    pub service_kind: String,
-    pub plaintext_visible: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visibility_scope: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_id: Option<PolicyId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
 // Realm carries the security-boundary fields (`trust_domain` /
 // `security_class` / `federation_policy` / `history_visibility`; spec
 // realm.schema.json). Product container fields live on `Space`.
@@ -137,8 +119,6 @@ pub struct Realm {
     pub durability_policy: Option<DurabilityPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sync_endpoints: Vec<SyncEndpoint>,
     /// Seal profile (data-structures.md §4 — Move/Seal/Lattice). Single-DID /
     /// threshold / open-set / mixed deployment shape. This create-locked
     /// discriminator must match the genesis `notary` cell value.
@@ -395,7 +375,6 @@ impl Realm {
             agent_participation: None,
             durability_policy: None,
             federation_policy: None,
-            sync_endpoints: Vec::new(),
             notary_profile,
             availability_policy: None,
             audit_policy: None,

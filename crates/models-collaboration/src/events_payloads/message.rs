@@ -812,60 +812,6 @@ pub struct ContentBlockMediaAttachment {
     pub caption: String,
 }
 
-/// Expiry anchor trigger for `ak.profile.disappearing.v1` messages.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DisappearingMessageExpiryTrigger {
-    OnSend,
-    OnFirstRead,
-    OnLastRead,
-}
-
-impl DisappearingMessageExpiryTrigger {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::OnSend => "on_send",
-            Self::OnFirstRead => "on_first_read",
-            Self::OnLastRead => "on_last_read",
-        }
-    }
-}
-
-/// Disappearing-message expiry contract for `ak.message.create.payload.expiry`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DisappearingMessageExpiry {
-    pub ttl_ms: u64,
-    pub trigger: DisappearingMessageExpiryTrigger,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub grace_ms: Option<u64>,
-}
-
-impl DisappearingMessageExpiry {
-    pub fn new(ttl_ms: u64, trigger: DisappearingMessageExpiryTrigger) -> Result<Self> {
-        let expiry = Self {
-            ttl_ms,
-            trigger,
-            grace_ms: None,
-        };
-        expiry.validate()?;
-        Ok(expiry)
-    }
-
-    pub fn with_grace_ms(mut self, grace_ms: u64) -> Self {
-        self.grace_ms = Some(grace_ms);
-        self
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        if self.ttl_ms == 0 {
-            return Err(Error::Protocol(
-                "message expiry ttl_ms must be greater than zero".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 /// Payload for `ak.message.create`.
 ///
 /// Producers must choose exactly one of `content` or `encrypted_content`.
@@ -899,8 +845,6 @@ pub struct MessageCreatePayload {
     pub reply_to: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_context: Option<MessageAgentContext>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expiry: Option<DisappearingMessageExpiry>,
 }
 
 impl MessageCreatePayload {
@@ -937,7 +881,6 @@ impl MessageCreatePayload {
             mention_sidecar_digest: Vec::new(),
             reply_to: None,
             agent_context: None,
-            expiry: None,
         }
     }
 
@@ -969,7 +912,6 @@ impl MessageCreatePayload {
             mention_sidecar_digest: Vec::new(),
             reply_to: None,
             agent_context: None,
-            expiry: None,
         }
     }
 
@@ -1036,11 +978,6 @@ impl MessageCreatePayload {
         self
     }
 
-    pub fn with_expiry(mut self, expiry: DisappearingMessageExpiry) -> Self {
-        self.expiry = Some(expiry);
-        self
-    }
-
     pub fn content_mut(&mut self) -> Option<&mut ContentBlock> {
         self.content.as_mut()
     }
@@ -1096,9 +1033,6 @@ impl MessageCreatePayload {
                 "message create payload must not carry both metadata and encrypted_metadata"
                     .to_owned(),
             ));
-        }
-        if let Some(expiry) = self.expiry.as_ref() {
-            expiry.validate()?;
         }
         match (self.content.is_some(), self.encrypted_content.is_some()) {
             (true, false) | (false, true) => serde_json::to_value(self)

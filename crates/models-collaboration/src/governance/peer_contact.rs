@@ -2,7 +2,7 @@ use arkret_canonical::serde_helpers::optional_canonical_timestamp;
 use arkret_identifiers::{DidCoreId, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
 use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
-use arkret_wire::PrincipalAuthorityInstance;
+use arkret_wire::PrincipalAuthorityKey;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ use crate::governance::invite_addressing::PrincipalLocator;
 #[serde(deny_unknown_fields)]
 pub struct PeerContactAddress {
     pub subject_id: DidCoreId,
-    pub principal_authority_instance: PrincipalAuthorityInstance,
+    pub principal_authority: PrincipalAuthorityKey,
     pub recipient_service_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -27,13 +27,13 @@ impl PeerContactAddress {
 
     pub fn principal_server(
         subject_id: DidCoreId,
-        principal_authority_instance: PrincipalAuthorityInstance,
+        principal_authority: PrincipalAuthorityKey,
         recipient_service_id: DidCoreId,
         service_resolution: ServiceResolutionCarrier,
     ) -> Self {
         Self {
             subject_id,
-            principal_authority_instance,
+            principal_authority,
             recipient_service_id,
             service_resolution,
             route_assistance: None,
@@ -47,14 +47,13 @@ impl PeerContactAddress {
     /// material, never authorization. Consumers must independently verify the
     /// fetched/supplied signed resolution record before routing.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        self.principal_authority_instance.validate()?;
         self.service_resolution
             .validate_shape(&self.recipient_service_id)?;
-        if self.principal_authority_instance.principal_id != self.subject_id
-            || self.principal_authority_instance.principal_server_id != self.recipient_service_id
+        if self.principal_authority.principal_id != self.subject_id
+            || self.principal_authority.principal_server_id != self.recipient_service_id
         {
             return Err(arkret_wire::Error::Protocol(
-                "Contact address authority instance does not bind subject and recipient service"
+                "Contact address principal authority pair does not bind subject and recipient service"
                     .to_owned(),
             ));
         }
@@ -120,26 +119,21 @@ pub enum ContactIntroductionEvidence {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::Hash;
-
     use super::*;
 
-    fn authority_instance() -> PrincipalAuthorityInstance {
-        PrincipalAuthorityInstance::new(
+    fn authority() -> PrincipalAuthorityKey {
+        PrincipalAuthorityKey::new(
             DidCoreId::new("ak:did_core:webvh:z6mkSubject").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkService").unwrap(),
-            RealmId::new("ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j").unwrap(),
-            Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
         )
-        .unwrap()
     }
 
     #[test]
     fn peer_contact_address_binds_subject_and_service_cores_to_resolution_carrier() {
-        let principal_authority_instance = authority_instance();
+        let principal_authority = authority();
         let value = serde_json::json!({
             "subject_id": "ak:did_core:webvh:z6mkSubject",
-            "principal_authority_instance": principal_authority_instance,
+            "principal_authority": principal_authority,
             "recipient_service_id": "ak:did_core:webvh:z6mkService",
             "service_resolution": {
                 "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
@@ -160,7 +154,7 @@ mod tests {
     fn peer_contact_address_rejects_full_subject_and_wrong_service_kind() {
         let full_subject = serde_json::json!({
             "subject_id": "did:webvh:z6mkSubject:subject.example",
-            "principal_authority_instance": authority_instance(),
+            "principal_authority": authority(),
             "recipient_service_id": "ak:did_core:webvh:z6mkService",
             "service_resolution": {
                 "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
@@ -170,7 +164,7 @@ mod tests {
 
         let wrong_kind: PeerContactAddress = serde_json::from_value(serde_json::json!({
             "subject_id": "ak:did_core:webvh:z6mkSubject",
-            "principal_authority_instance": authority_instance(),
+            "principal_authority": authority(),
             "recipient_service_id": "ak:did_core:webvh:z6mkService",
             "service_resolution": {
                 "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"

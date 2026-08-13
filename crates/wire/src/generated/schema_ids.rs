@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-13.1;
-//! sha256=c906c7f334af5a1a36774ea915f3c05a809061d1c66a1d75858397ebca2f7d27 Entries: schema_ids=184,
-//! active=184
+//! Input: registry/schema-registry.json; version=2026-08-13.2;
+//! sha256=0328f3c3abb1ff9d381b67fc7da8b852246d31c1343b82a7bc0282451c0700dc Entries: schema_ids=182,
+//! active=182
 
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +76,6 @@ pub enum SchemaId {
     DidWebvhWitnessReceiptV1,
     DirectConversationOperationsV1,
     DirectoryOperationsV1,
-    DisappearingMessagesV1,
     DraftSyncV1,
     EncryptedEnvelopeV1,
     ErasureReceiptV1,
@@ -87,7 +86,6 @@ pub enum SchemaId {
     EventPayloadV1,
     EventsSubscribeFrameV1,
     ExtensionManifestV1,
-    FederatedDeviceSigningKeyEvidenceV1,
     FileTransferV1,
     GrantConstraintV1,
     HandleClaimV1,
@@ -133,7 +131,6 @@ pub enum SchemaId {
     PolicyV1,
     PrincipalLocatorV1,
     PrincipalOperationsV1,
-    PrincipalServiceBindingV1,
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
@@ -153,6 +150,7 @@ pub enum SchemaId {
     RecoveryPolicyV1,
     RecoveryReceiptV1,
     RecoverySessionV1,
+    RegistrationDidEvidenceV1,
     RelationV1,
     ResourceSelectorV1,
     RsvpV1,
@@ -264,7 +262,6 @@ impl SchemaId {
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
-        Self::DisappearingMessagesV1,
         Self::DraftSyncV1,
         Self::EncryptedEnvelopeV1,
         Self::ErasureReceiptV1,
@@ -275,7 +272,6 @@ impl SchemaId {
         Self::EventPayloadV1,
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
-        Self::FederatedDeviceSigningKeyEvidenceV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
@@ -321,7 +317,6 @@ impl SchemaId {
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
-        Self::PrincipalServiceBindingV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -341,6 +336,7 @@ impl SchemaId {
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
         Self::RecoverySessionV1,
+        Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceSelectorV1,
         Self::RsvpV1,
@@ -452,7 +448,6 @@ impl SchemaId {
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
-        Self::DisappearingMessagesV1,
         Self::DraftSyncV1,
         Self::EncryptedEnvelopeV1,
         Self::ErasureReceiptV1,
@@ -463,7 +458,6 @@ impl SchemaId {
         Self::EventPayloadV1,
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
-        Self::FederatedDeviceSigningKeyEvidenceV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
@@ -509,7 +503,6 @@ impl SchemaId {
         Self::PolicyV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
-        Self::PrincipalServiceBindingV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -529,6 +522,7 @@ impl SchemaId {
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
         Self::RecoverySessionV1,
+        Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceSelectorV1,
         Self::RsvpV1,
@@ -720,8 +714,8 @@ impl SchemaId {
     /// (ak.self.consent.*); see zh/identity/consent-model.md.
     pub const CONSENT_OPERATIONS_V1: &'static str = "ak.schema.consent_operations.v1";
     /// Closed request/response DTO bundle for the Contact lifecycle: request, respond, reject,
-    /// scope replacement, tombstone, the portable Contact round evidence bundle, acceptance
-    /// receipts and the peer Contact carrier, plus the contact-list projection.
+    /// scope replacement, tombstone, the portable basis evidence bundle, acceptance receipts and
+    /// the peer Contact carrier, plus the contact-list projection.
     pub const CONTACT_OPERATIONS_V1: &'static str = "ak.schema.contact_operations.v1";
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
     /// basis, version, predecessor and full granted-scope set.
@@ -755,9 +749,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for the server-mediated device-pairing short-link handoff
     /// (stage / resolve / status). See device-lifecycle.md §2.1.1.
     pub const DEVICE_PAIRING_OPERATIONS_V1: &'static str = "ak.schema.device_pairing_operations.v1";
-    /// Closed PCR-policy recovery payload binding one authority instance, accepted policy/session,
-    /// monotonic PCR generation CAS, complete pre-fence Seal frontier and replacement authorization
-    /// digest.
+    /// Closed PCR-policy recovery payload binding one account-local lineage, accepted
+    /// policy/session, monotonic PCR generation CAS, complete pre-fence Seal frontier and
+    /// replacement authorization digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
     /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
     /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),
@@ -778,8 +772,6 @@ impl SchemaId {
     /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
     /// discovery, handle lookup, agent selector lookup, and push webhook registration operations.
     pub const DIRECTORY_OPERATIONS_V1: &'static str = "ak.schema.directory_operations.v1";
-    /// Message expiry and Realm disappearing-message policy shape.
-    pub const DISAPPEARING_MESSAGES_V1: &'static str = "ak.schema.disappearing_messages.v1";
     /// Encrypted account-data plaintext shape for cross-device draft sync.
     pub const DRAFT_SYNC_V1: &'static str = "ak.schema.draft_sync.v1";
     pub const ENCRYPTED_ENVELOPE_V1: &'static str = "ak.schema.encrypted_envelope.v1";
@@ -798,11 +790,6 @@ impl SchemaId {
     pub const EVENTS_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.events_subscribe_frame.v1";
     /// Declarative extension loading and conformance manifest.
     pub const EXTENSION_MANIFEST_V1: &'static str = "ak.schema.extension_manifest.v1";
-    /// Portable PCR-lineage device evidence reused by peer Event, Contact and KeyPackage
-    /// transports. Frozen registration/accepted-at DID evidence proves historical keys; accepted
-    /// PCR Events and Seal evidence establish current device authority.
-    pub const FEDERATED_DEVICE_SIGNING_KEY_EVIDENCE_V1: &'static str =
-        "ak.schema.federated_device_signing_key_evidence.v1";
     /// Encrypted account-data plaintext shape and to-device key message content for
     /// principal-private cross-device file transfer.
     pub const FILE_TRANSFER_V1: &'static str = "ak.schema.file_transfer.v1";
@@ -909,8 +896,6 @@ impl SchemaId {
     /// history ingress contracts, KeyPackage terminal handling, Sidecar staging and shared
     /// primitives.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
-    /// Accepted-at Principal Server binding snapshot and signed service-cutover continuity chain
-    pub const PRINCIPAL_SERVICE_BINDING_V1: &'static str = "ak.schema.principal_service_binding.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
     /// own document so device, agent, account and to-device surfaces reference one shared
     /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
@@ -972,6 +957,8 @@ impl SchemaId {
     /// the bound RecoveryTransaction terminal commit. See identity/security-transactions.md §2 and
     /// crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
+    /// Account-local registration DID evidence retained for onboarding and recovery audit.
+    pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
     pub const RESOURCE_SELECTOR_V1: &'static str = "ak.schema.resource_selector.v1";
     /// Payload schema for ak.rsvp.set.
@@ -1148,7 +1135,6 @@ impl SchemaId {
             Self::DidWebvhWitnessReceiptV1 => Self::DID_WEBVH_WITNESS_RECEIPT_V1,
             Self::DirectConversationOperationsV1 => Self::DIRECT_CONVERSATION_OPERATIONS_V1,
             Self::DirectoryOperationsV1 => Self::DIRECTORY_OPERATIONS_V1,
-            Self::DisappearingMessagesV1 => Self::DISAPPEARING_MESSAGES_V1,
             Self::DraftSyncV1 => Self::DRAFT_SYNC_V1,
             Self::EncryptedEnvelopeV1 => Self::ENCRYPTED_ENVELOPE_V1,
             Self::ErasureReceiptV1 => Self::ERASURE_RECEIPT_V1,
@@ -1159,9 +1145,6 @@ impl SchemaId {
             Self::EventPayloadV1 => Self::EVENT_PAYLOAD_V1,
             Self::EventsSubscribeFrameV1 => Self::EVENTS_SUBSCRIBE_FRAME_V1,
             Self::ExtensionManifestV1 => Self::EXTENSION_MANIFEST_V1,
-            Self::FederatedDeviceSigningKeyEvidenceV1 => {
-                Self::FEDERATED_DEVICE_SIGNING_KEY_EVIDENCE_V1
-            }
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
             Self::HandleClaimV1 => Self::HANDLE_CLAIM_V1,
@@ -1207,7 +1190,6 @@ impl SchemaId {
             Self::PolicyV1 => Self::POLICY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
             Self::PrincipalOperationsV1 => Self::PRINCIPAL_OPERATIONS_V1,
-            Self::PrincipalServiceBindingV1 => Self::PRINCIPAL_SERVICE_BINDING_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
@@ -1227,6 +1209,7 @@ impl SchemaId {
             Self::RecoveryPolicyV1 => Self::RECOVERY_POLICY_V1,
             Self::RecoveryReceiptV1 => Self::RECOVERY_RECEIPT_V1,
             Self::RecoverySessionV1 => Self::RECOVERY_SESSION_V1,
+            Self::RegistrationDidEvidenceV1 => Self::REGISTRATION_DID_EVIDENCE_V1,
             Self::RelationV1 => Self::RELATION_V1,
             Self::ResourceSelectorV1 => Self::RESOURCE_SELECTOR_V1,
             Self::RsvpV1 => Self::RSVP_V1,
@@ -1363,7 +1346,6 @@ impl SchemaId {
                 "schemas/direct-conversation-operations.schema.json"
             }
             Self::DirectoryOperationsV1 => "schemas/directory-operations.schema.json",
-            Self::DisappearingMessagesV1 => "schemas/disappearing-messages.schema.json",
             Self::DraftSyncV1 => "schemas/draft-sync.schema.json",
             Self::EncryptedEnvelopeV1 => "schemas/encrypted-envelope.schema.json",
             Self::ErasureReceiptV1 => "schemas/erasure-receipt.schema.json",
@@ -1374,9 +1356,6 @@ impl SchemaId {
             Self::EventPayloadV1 => "schemas/event-payload.schema.json",
             Self::EventsSubscribeFrameV1 => "schemas/events-subscribe-frame.schema.json",
             Self::ExtensionManifestV1 => "schemas/extension-manifest.schema.json",
-            Self::FederatedDeviceSigningKeyEvidenceV1 => {
-                "schemas/federated-device-signing-key-evidence.schema.json"
-            }
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
             Self::HandleClaimV1 => "schemas/handle-claim.schema.json",
@@ -1426,7 +1405,6 @@ impl SchemaId {
             Self::PolicyV1 => "schemas/policy.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
             Self::PrincipalOperationsV1 => "schemas/principal-operations.schema.json",
-            Self::PrincipalServiceBindingV1 => "schemas/principal-service-binding.schema.json",
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
@@ -1452,6 +1430,7 @@ impl SchemaId {
             Self::RecoveryPolicyV1 => "schemas/recovery-policy.schema.json",
             Self::RecoveryReceiptV1 => "schemas/recovery-receipt.schema.json",
             Self::RecoverySessionV1 => "schemas/recovery-session.schema.json",
+            Self::RegistrationDidEvidenceV1 => "schemas/registration-did-evidence.schema.json",
             Self::RelationV1 => "schemas/relation.schema.json",
             Self::ResourceSelectorV1 => "schemas/resource-selector.schema.json",
             Self::RsvpV1 => "schemas/rsvp.schema.json",
@@ -1584,7 +1563,6 @@ impl SchemaId {
             Self::DID_WEBVH_WITNESS_RECEIPT_V1 => Some(Self::DidWebvhWitnessReceiptV1),
             Self::DIRECT_CONVERSATION_OPERATIONS_V1 => Some(Self::DirectConversationOperationsV1),
             Self::DIRECTORY_OPERATIONS_V1 => Some(Self::DirectoryOperationsV1),
-            Self::DISAPPEARING_MESSAGES_V1 => Some(Self::DisappearingMessagesV1),
             Self::DRAFT_SYNC_V1 => Some(Self::DraftSyncV1),
             Self::ENCRYPTED_ENVELOPE_V1 => Some(Self::EncryptedEnvelopeV1),
             Self::ERASURE_RECEIPT_V1 => Some(Self::ErasureReceiptV1),
@@ -1595,9 +1573,6 @@ impl SchemaId {
             Self::EVENT_PAYLOAD_V1 => Some(Self::EventPayloadV1),
             Self::EVENTS_SUBSCRIBE_FRAME_V1 => Some(Self::EventsSubscribeFrameV1),
             Self::EXTENSION_MANIFEST_V1 => Some(Self::ExtensionManifestV1),
-            Self::FEDERATED_DEVICE_SIGNING_KEY_EVIDENCE_V1 => {
-                Some(Self::FederatedDeviceSigningKeyEvidenceV1)
-            }
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
             Self::HANDLE_CLAIM_V1 => Some(Self::HandleClaimV1),
@@ -1647,7 +1622,6 @@ impl SchemaId {
             Self::POLICY_V1 => Some(Self::PolicyV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
             Self::PRINCIPAL_OPERATIONS_V1 => Some(Self::PrincipalOperationsV1),
-            Self::PRINCIPAL_SERVICE_BINDING_V1 => Some(Self::PrincipalServiceBindingV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),
@@ -1667,6 +1641,7 @@ impl SchemaId {
             Self::RECOVERY_POLICY_V1 => Some(Self::RecoveryPolicyV1),
             Self::RECOVERY_RECEIPT_V1 => Some(Self::RecoveryReceiptV1),
             Self::RECOVERY_SESSION_V1 => Some(Self::RecoverySessionV1),
+            Self::REGISTRATION_DID_EVIDENCE_V1 => Some(Self::RegistrationDidEvidenceV1),
             Self::RELATION_V1 => Some(Self::RelationV1),
             Self::RESOURCE_SELECTOR_V1 => Some(Self::ResourceSelectorV1),
             Self::RSVP_V1 => Some(Self::RsvpV1),

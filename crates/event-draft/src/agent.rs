@@ -27,6 +27,7 @@ pub fn build_agent_key_authorize_event(
     TypedEventDraft::<event_spec::AgentKeyAuthorize>::new(
         scope_ref,
         agent_actor_id,
+        controller_id.clone(),
         payload.clone(),
     )?
     .with_executed_by(controller_id)
@@ -45,10 +46,15 @@ pub fn build_agent_key_revoke_event(
     actor_seq: u64,
     hlc: Hlc,
 ) -> Result<Event> {
-    TypedEventDraft::<event_spec::AgentKeyRevoke>::new(scope_ref, agent_actor_id, payload.clone())?
-        .with_executed_by(controller_id)
-        .with_authorization_ref(controller_authorization_ref.into())
-        .author_now(actor_seq, hlc)
+    TypedEventDraft::<event_spec::AgentKeyRevoke>::new(
+        scope_ref,
+        agent_actor_id,
+        controller_id.clone(),
+        payload.clone(),
+    )?
+    .with_executed_by(controller_id)
+    .with_authorization_ref(controller_authorization_ref.into())
+    .author_now(actor_seq, hlc)
 }
 
 struct AgentLifecycleEventInput<P> {
@@ -68,6 +74,7 @@ fn build_agent_lifecycle_event<K: EventSpec>(
     TypedEventDraft::<K>::new(
         input.principal_control_scope_ref,
         input.agent_id.clone(),
+        input.controller_id.clone(),
         input.payload,
     )?
     .with_executed_by(input.controller_id)

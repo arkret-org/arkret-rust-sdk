@@ -120,9 +120,15 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
     event.refresh_content_bound_identity_with_digest_suite(digest_suite)?;
 
     // Refuse to mix proofs from different signers — caller mistake.
-    if let Some(existing) = event.proofs.iter().find(|proof| {
-        &proof.verification_method != verification_method && proof.kind == proof_kind::DETACHED_JWS
-    }) {
+    if let Some(existing) = event
+        .proofs
+        .iter()
+        .filter_map(|proof| proof.as_producer())
+        .find(|proof| {
+            &proof.verification_method != verification_method
+                && proof.kind == proof_kind::DETACHED_JWS
+        })
+    {
         return Err(Error::Protocol(format!(
             "sign_event refuses to append: event already carries a detached-jws proof for a \
              different verification_method '{}'",
@@ -159,14 +165,14 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
 
     // Idempotent: replace any existing proof from the same verification
     // method (e.g. a re-sign with a refreshed `created_at`).
-    if let Some(slot) = event
-        .proofs
-        .iter_mut()
-        .find(|proof| &proof.verification_method == verification_method)
-    {
-        *slot = proof;
+    if let Some(slot) = event.proofs.iter_mut().find(|proof| {
+        proof
+            .as_producer()
+            .is_some_and(|proof| &proof.verification_method == verification_method)
+    }) {
+        *slot = proof.into();
     } else {
-        event.proofs.push(proof);
+        event.proofs.push(proof.into());
     }
 
     debug_assert_eq!(
@@ -215,6 +221,7 @@ mod tests {
             realm_id: realm(),
             scope_ref: arkret_wire::ScopeRef::Realm { realm_id: realm() },
             actor_id: arkret_wire::project_full_id_to_core_id(&alice()).unwrap(),
+            principal_server_id: arkret_wire::project_full_id_to_core_id(&alice()).unwrap(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -284,10 +291,11 @@ mod tests {
         sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
         assert_eq!(event.proofs.len(), 1);
         let digest = event.event_digest().unwrap();
-        assert_eq!(event.proofs[0].event_digest.as_str(), digest);
-        assert_eq!(event.proofs[0].verification_method, vm_alice());
-        assert_eq!(event.proofs[0].kind, proof_kind::DETACHED_JWS);
-        assert!(!event.proofs[0].jws.is_empty());
+        let proof = event.proofs[0].as_producer().unwrap();
+        assert_eq!(proof.event_digest.as_str(), digest);
+        assert_eq!(proof.verification_method, vm_alice());
+        assert_eq!(proof.kind, proof_kind::DETACHED_JWS);
+        assert!(!proof.jws.is_empty());
         // validate_proof_bindings (production) round-trips.
         event.validate_proof_bindings().unwrap();
     }
@@ -323,7 +331,14 @@ mod tests {
             SignEventOptions::new(),
         )
         .unwrap();
-        assert!(event.proofs[0].event_digest.as_str().starts_with("blake3:"));
+        assert!(
+            event.proofs[0]
+                .as_producer()
+                .unwrap()
+                .event_digest
+                .as_str()
+                .starts_with("blake3:")
+        );
     }
 
     #[test]
@@ -339,10 +354,14 @@ mod tests {
         // The signing transcript MUST cover executed_by → the digests
         // and therefore the produced JWS must differ.
         assert_ne!(
-            without.proofs[0].event_digest, with.proofs[0].event_digest,
+            without.proofs[0].as_producer().unwrap().event_digest,
+            with.proofs[0].as_producer().unwrap().event_digest,
             "executed_by must enter the signing transcript"
         );
-        assert_ne!(without.proofs[0].jws, with.proofs[0].jws);
+        assert_ne!(
+            without.proofs[0].as_producer().unwrap().jws,
+            with.proofs[0].as_producer().unwrap().jws
+        );
     }
 
     #[test]
@@ -361,7 +380,8 @@ mod tests {
         sign_event(&mut with, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
 
         assert_ne!(
-            without.proofs[0].event_digest, with.proofs[0].event_digest,
+            without.proofs[0].as_producer().unwrap().event_digest,
+            with.proofs[0].as_producer().unwrap().event_digest,
             "authorization_ref must enter the signing transcript"
         );
     }
@@ -374,8 +394,9 @@ mod tests {
             .with_domain("api.example")
             .with_audience(Audience::Single("did:web:svc.example".to_owned()));
         sign_event(&mut event, &signer, &vm_alice(), opts).unwrap();
-        assert_eq!(event.proofs[0].domain.as_deref(), Some("api.example"));
-        match &event.proofs[0].audience {
+        let proof = event.proofs[0].as_producer().unwrap();
+        assert_eq!(proof.domain.as_deref(), Some("api.example"));
+        match &proof.audience {
             Some(Audience::Single(value)) => assert_eq!(value, "did:web:svc.example"),
             other => panic!("expected single audience, got {other:?}"),
         }
@@ -473,7 +494,10 @@ mod tests {
         // Proof tamper: swapping event_digest for another well-formed hash
         // must be rejected against the recomputed digest.
         let mut digest_tampered = event.clone();
-        digest_tampered.proofs[0].event_digest =
+        digest_tampered.proofs[0]
+            .as_producer_mut()
+            .unwrap()
+            .event_digest =
             Hash::new("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
                 .unwrap();
         assert!(

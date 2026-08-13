@@ -2,13 +2,12 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
-    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, Error, EventId,
-    FederatedDeviceSigningKeyEvidence, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
-    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId, ReasonCode, RecoverySessionId, Result,
-    SchemaId, ScopeRef, TransactionId, TypedTrustDomainId, XExtensionMap,
+    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, Error, EventId, Hash,
+    LeaseBasisRef, NonEmptyString, PolicyId, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId,
+    ReasonCode, RecoverySessionId, Result, SchemaId, ScopeRef, TransactionId, TypedTrustDomainId,
+    XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -557,14 +556,6 @@ pub struct KeyPackageClaimRecord {
     pub device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_key_authorize_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Option<serde_json::Value>))
-    )]
-    pub target_device_signing_key_evidence: Option<FederatedDeviceSigningKeyEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_agent_signer_evidence: Option<CurrentAgentSignerEvidence>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub device_signature: KeyOperationSignature,
@@ -790,7 +781,7 @@ impl RecoveryModelGenerationRef {
 #[serde(try_from = "GenericRecoveryTranscriptWire")]
 pub struct GenericRecoveryTranscript {
     pub kind: RecoveryProofKind,
-    pub principal_id: DidCoreId,
+    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     pub policy_id: PolicyId,
@@ -813,7 +804,7 @@ pub struct GenericRecoveryTranscript {
 #[serde(deny_unknown_fields)]
 struct GenericRecoveryTranscriptWire {
     kind: RecoveryProofKind,
-    principal_id: DidCoreId,
+    principal_authority: arkret_wire::PrincipalAuthorityKey,
     requesting_device_id: DeviceId,
     trust_domain: TypedTrustDomainId,
     policy_id: PolicyId,
@@ -838,7 +829,7 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
         let transcript = Self {
             schema: wire.schema,
             kind: wire.kind,
-            principal_id: wire.principal_id,
+            principal_authority: wire.principal_authority,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,
@@ -875,7 +866,7 @@ impl GenericRecoveryTranscript {
 #[serde(try_from = "PrincipalSigningTranscriptWire")]
 pub struct PrincipalSigningTranscript {
     pub kind: RecoveryProofKind,
-    pub principal_id: DidCoreId,
+    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     pub policy_id: PolicyId,
@@ -897,7 +888,7 @@ pub struct PrincipalSigningTranscript {
 #[serde(deny_unknown_fields)]
 struct PrincipalSigningTranscriptWire {
     kind: RecoveryProofKind,
-    principal_id: DidCoreId,
+    principal_authority: arkret_wire::PrincipalAuthorityKey,
     requesting_device_id: DeviceId,
     trust_domain: TypedTrustDomainId,
     policy_id: PolicyId,
@@ -921,7 +912,7 @@ impl TryFrom<PrincipalSigningTranscriptWire> for PrincipalSigningTranscript {
         let transcript = Self {
             schema: wire.schema,
             kind: wire.kind,
-            principal_id: wire.principal_id,
+            principal_authority: wire.principal_authority,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,
@@ -1087,7 +1078,7 @@ impl RecoveryPublicationAuthorityContext {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCreateRequestBody {
-    pub principal_id: DidCoreId,
+    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1251,7 +1242,7 @@ where
 pub struct RecoverySessionState {
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
-    pub principal_id: DidCoreId,
+    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TypedTrustDomainId,
     pub policy_id: PolicyId,
@@ -1295,7 +1286,7 @@ impl Serialize for RecoverySessionState {
         ))?;
         map.serialize_entry("schema", &self.schema)?;
         map.serialize_entry("recovery_session_id", &self.recovery_session_id)?;
-        map.serialize_entry("principal_id", &self.principal_id)?;
+        map.serialize_entry("principal_authority", &self.principal_authority)?;
         map.serialize_entry("requesting_device_id", &self.requesting_device_id)?;
         map.serialize_entry("trust_domain", &self.trust_domain)?;
         map.serialize_entry("policy_id", &self.policy_id)?;
@@ -1339,7 +1330,7 @@ impl Serialize for RecoverySessionState {
 struct RecoverySessionStateWire {
     schema: String,
     recovery_session_id: RecoverySessionId,
-    principal_id: DidCoreId,
+    principal_authority: arkret_wire::PrincipalAuthorityKey,
     requesting_device_id: DeviceId,
     trust_domain: TypedTrustDomainId,
     policy_id: PolicyId,
@@ -1403,7 +1394,7 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
         let state = Self {
             schema: wire.schema,
             recovery_session_id: wire.recovery_session_id,
-            principal_id: wire.principal_id,
+            principal_authority: wire.principal_authority,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,

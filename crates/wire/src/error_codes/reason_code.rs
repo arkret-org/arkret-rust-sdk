@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-13.1;
-//! sha256=3fec299568b224c55a604d726b0d6fd864e74d7e42a43fcc12b7e288a11c7e4e
-//! Entries: reason_codes=469
+//! Input: registry/error-code-registry.json; version=2026-08-13.2;
+//! sha256=9fda2340f3357ef8324678dcd624a3e077128e8dba895c061e1e00afbdff9f18
+//! Entries: reason_codes=466
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -135,9 +135,7 @@ pub enum ReasonCode {
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
     DeviceGenerationFenced,
-    DeviceReanchorAuthorityMismatch,
     DeviceReanchorAuthorizeMismatch,
-    DeviceReanchorConflict,
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
     DidProofReplayWindowExceeded,
@@ -234,7 +232,6 @@ pub enum ReasonCode {
     LastResortNotSupported,
     LastResortRealmAffinityViolation,
     LastResortRotationRequired,
-    LateRecoveryRejectedExpired,
     LateRecoveryRejectedMembership,
     LateRecoveryShareNotAuthorized,
     LegalHoldActive,
@@ -644,11 +641,8 @@ impl ReasonCode {
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
-    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str =
-        "device_reanchor_authority_mismatch";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
-    pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
     pub const DID_PROOF_REPLAY_WINDOW_EXCEEDED: &'static str = "did_proof_replay_window_exceeded";
@@ -771,7 +765,6 @@ impl ReasonCode {
     pub const LAST_RESORT_REALM_AFFINITY_VIOLATION: &'static str =
         "last_resort_realm_affinity_violation";
     pub const LAST_RESORT_ROTATION_REQUIRED: &'static str = "last_resort_rotation_required";
-    pub const LATE_RECOVERY_REJECTED_EXPIRED: &'static str = "late_recovery_rejected_expired";
     pub const LATE_RECOVERY_REJECTED_MEMBERSHIP: &'static str = "late_recovery_rejected_membership";
     pub const LATE_RECOVERY_SHARE_NOT_AUTHORIZED: &'static str =
         "late_recovery_share_not_authorized";
@@ -1206,9 +1199,7 @@ impl ReasonCode {
                 Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
             }
             Self::DeviceGenerationFenced => Self::DEVICE_GENERATION_FENCED,
-            Self::DeviceReanchorAuthorityMismatch => Self::DEVICE_REANCHOR_AUTHORITY_MISMATCH,
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
-            Self::DeviceReanchorConflict => Self::DEVICE_REANCHOR_CONFLICT,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
             Self::DidProofReplayWindowExceeded => Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED,
@@ -1335,7 +1326,6 @@ impl ReasonCode {
             Self::LastResortNotSupported => Self::LAST_RESORT_NOT_SUPPORTED,
             Self::LastResortRealmAffinityViolation => Self::LAST_RESORT_REALM_AFFINITY_VIOLATION,
             Self::LastResortRotationRequired => Self::LAST_RESORT_ROTATION_REQUIRED,
-            Self::LateRecoveryRejectedExpired => Self::LATE_RECOVERY_REJECTED_EXPIRED,
             Self::LateRecoveryRejectedMembership => Self::LATE_RECOVERY_REJECTED_MEMBERSHIP,
             Self::LateRecoveryShareNotAuthorized => Self::LATE_RECOVERY_SHARE_NOT_AUTHORIZED,
             Self::LegalHoldActive => Self::LEGAL_HOLD_ACTIVE,
@@ -1777,9 +1767,7 @@ impl ReasonCode {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
             }
             Self::DEVICE_GENERATION_FENCED => Self::DeviceGenerationFenced,
-            Self::DEVICE_REANCHOR_AUTHORITY_MISMATCH => Self::DeviceReanchorAuthorityMismatch,
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
-            Self::DEVICE_REANCHOR_CONFLICT => Self::DeviceReanchorConflict,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
             Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED => Self::DidProofReplayWindowExceeded,
@@ -1906,7 +1894,6 @@ impl ReasonCode {
             Self::LAST_RESORT_NOT_SUPPORTED => Self::LastResortNotSupported,
             Self::LAST_RESORT_REALM_AFFINITY_VIOLATION => Self::LastResortRealmAffinityViolation,
             Self::LAST_RESORT_ROTATION_REQUIRED => Self::LastResortRotationRequired,
-            Self::LATE_RECOVERY_REJECTED_EXPIRED => Self::LateRecoveryRejectedExpired,
             Self::LATE_RECOVERY_REJECTED_MEMBERSHIP => Self::LateRecoveryRejectedMembership,
             Self::LATE_RECOVERY_SHARE_NOT_AUTHORIZED => Self::LateRecoveryShareNotAuthorized,
             Self::LEGAL_HOLD_ACTIVE => Self::LegalHoldActive,
@@ -2895,19 +2882,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DEVICE_REANCHOR_AUTHORITY_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "A re-anchor receipt scope, recovery session snapshot or recovery transaction binding carries an authority_instance, authority_instance_digest, previous_device_generation or new_device_generation that is not byte-identical to the covered ak.device.reanchor payload, or reconstructs a retired did_version_id/registry_head authority field. Dual-registered as a reason_code and a top-level service code (see codes[]).",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The atomic replacement ak.device.authorize payload digest, prev_refs, principal, device, session, or enrollment-authority proof does not exactly match the binding in ak.device.reanchor. Dual-registered as a reason_code and a top-level service code (see codes[]).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DEVICE_REANCHOR_CONFLICT,
-        applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "More than one non-identical re-anchor unit occupies the same (authority_instance_digest, new_device_generation) slot. Every candidate and successor generation is quarantined; first-seen selection is forbidden. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
@@ -2917,7 +2894,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_FRONTIER_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The re-anchor pre_fence_seal_frontier is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+        description: "The re-anchor pre_fence_basis is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DID_PROOF_REPLAY_WINDOW_EXCEEDED,
@@ -3392,11 +3369,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::LAST_RESORT_ROTATION_REQUIRED,
         applies_to: &["service_call", "crypto"],
         description: "A holder that joined groups via a last-resort KeyPackage came online but has not rotated the package and closed the forward-secrecy weakening window as required. See zh/crypto-media/encryption-and-audit.md §2.6.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::LATE_RECOVERY_REJECTED_EXPIRED,
-        applies_to: &["audit_decision"],
-        description: "A late-arriving key tried to recover plaintext for an event whose disappearing expiry plus grace has elapsed, or whose retention policy requires content-key destruction. Client MUST keep the expiry stub / metadata-only state. See zh/crypto-media/encryption-and-audit.md §2.3.5 and zh/crypto-media/disappearing-messages.md §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::LATE_RECOVERY_REJECTED_MEMBERSHIP,

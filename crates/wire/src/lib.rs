@@ -111,7 +111,8 @@ pub use event_receipt::*;
 pub use event_submission::{
     AuthorizationLeaseIssueIntent, AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest,
     EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
-    PcrGenesisUnit, classify_event_submit_context, validate_anchor_unit_lease_bindings,
+    PcrGenesisUnit, classify_event_submit_context, classify_federated_event_submit_context,
+    validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{

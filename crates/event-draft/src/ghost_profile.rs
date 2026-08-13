@@ -167,6 +167,9 @@ impl GhostActorProfileRequest {
         let mut draft = crate::TypedEventDraft::<arkret_wire::event_spec::ProfileCreate>::new(
             scope_ref,
             self.principal_id.clone(),
+            authorization
+                .map(|authorization| authorization.executed_by.clone())
+                .unwrap_or_else(|| self.principal_id.clone()),
             payload,
         )?;
         if let Some(authorization) = authorization {

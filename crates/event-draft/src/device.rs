@@ -9,12 +9,18 @@ use crate::{Result, TypedEventDraft};
 pub fn build_device_authorize_event_at(
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
+    principal_server_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: DeviceAuthorizePayload,
     created_at: DateTime<Utc>,
 ) -> Result<Event> {
-    let event = TypedEventDraft::<event_spec::DeviceAuthorize>::new(scope_ref, actor_id, payload)?
-        .author(actor_seq, hlc, created_at)?;
+    let event = TypedEventDraft::<event_spec::DeviceAuthorize>::new(
+        scope_ref,
+        actor_id,
+        principal_server_id,
+        payload,
+    )?
+    .author(actor_seq, hlc, created_at)?;
     Ok(event)
 }

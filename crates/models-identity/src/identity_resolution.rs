@@ -2,8 +2,7 @@
 //! high-risk service-to-service authentication.
 
 use arkret_wire::{
-    DidCoreId, DidFullId, Event, EventBatchReceipt, EventBatchReceiptEvent, EventKind, Hash,
-    PrincipalAuthorityInstance, ProtocolSignature, RealmId, RequestId, ScopeRef, Seal,
+    DidCoreId, DidFullId, Hash, PrincipalAuthorityKey, ProtocolSignature, RealmId, RequestId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -30,21 +29,6 @@ pub struct PrincipalResolutionProjection {
     pub resolution_event_ref: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PrincipalGenesisEvent(pub Event);
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PrincipalResolutionUpdateEvent(pub Event);
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PrincipalCurrentResolutionEvent {
-    Genesis(PrincipalGenesisEvent),
-    Update(PrincipalResolutionUpdateEvent),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,67 +59,19 @@ pub struct PrincipalResolutionCellProof {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionEvidence {
     pub principal_id: DidCoreId,
-    pub authority_instance: PrincipalAuthorityInstance,
-    pub principal_control_realm_id: RealmId,
-    pub principal_genesis_receipt: EventBatchReceipt,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub principal_genesis_event: PrincipalGenesisEvent,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub current_resolution_event: PrincipalCurrentResolutionEvent,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub predecessor_resolution_events: Vec<PrincipalResolutionUpdateEvent>,
-    pub accepted_seal: Seal,
-    pub resolution_cell_proof: PrincipalResolutionCellProof,
+    pub authority: PrincipalAuthorityKey,
+    pub current_resolution: PrincipalResolutionProjection,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method_history_evidence: Option<ResolutionMethodHistoryEvidence>,
 }
 
 impl PrincipalResolutionEvidence {
-    /// Validate the self-contained PCR authority selector and genesis anchor.
-    ///
-    /// This verifies canonical digests and every local reverse binding. Receipt
-    /// and Event signatures still require the caller's trusted key resolver.
+    /// Validate the public pair selector. PCR replay remains private to the
+    /// authority Principal Server.
     pub fn validate_authority_binding(&self) -> arkret_wire::Result<()> {
-        self.authority_instance.validate()?;
-        self.principal_genesis_receipt.validate()?;
-        let receipt_scope = self.principal_genesis_receipt.pcr_genesis_scope()?;
-        let genesis = &self.principal_genesis_event.0;
-        genesis.verify_event_id_matches_content()?;
-
-        let receipt_digest = Hash::new(arkret_canonical::canonical_sha256(
-            &self.principal_genesis_receipt,
-        )?)?;
-        let genesis_digest = Hash::new(genesis.event_digest()?)?;
-        let expected_realm_id = RealmId::from_event_id(&genesis.event_id);
-        let receipt_covers_exact_genesis =
-            self.principal_genesis_receipt.events.iter().any(|event| {
-                matches!(
-                    event,
-                    EventBatchReceiptEvent::Item(item)
-                        if item.event_id == genesis.event_id
-                            && item.event_digest == genesis_digest
-                            && item.kind.as_str() == EventKind::RealmCreate.as_str()
-                )
-            });
-
-        if self.authority_instance.principal_id != self.principal_id
-            || self.authority_instance.pcr_realm_id != self.principal_control_realm_id
-            || self.authority_instance.principal_server_id != self.principal_genesis_receipt.issuer
-            || self.authority_instance.principal_genesis_receipt_digest != receipt_digest
-            || receipt_scope.principal_id != self.principal_id
-            || receipt_scope.realm_id != self.principal_control_realm_id
-            || receipt_scope.create_digest != genesis_digest
-            || genesis.kind != EventKind::RealmCreate
-            || genesis.scope_ref != ScopeRef::RealmGenesis
-            || genesis.actor_id != self.principal_id
-            || genesis.realm_id != self.principal_control_realm_id
-            || expected_realm_id != self.principal_control_realm_id
-            || !receipt_covers_exact_genesis
-            || self.accepted_seal.realm_id != self.principal_control_realm_id
-        {
+        if self.authority.principal_id != self.principal_id {
             return Err(arkret_wire::Error::Protocol(
-                "principal resolution evidence authority/genesis reverse binding mismatch"
-                    .to_owned(),
+                "principal resolution evidence authority pair mismatch".to_owned(),
             ));
         }
         Ok(())

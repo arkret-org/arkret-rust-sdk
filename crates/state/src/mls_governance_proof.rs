@@ -921,6 +921,7 @@ mod tests {
             realm_id: realm(),
             scope_ref: scope,
             actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 7, 14, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("01980b44cc00-0000-aabbccdd").unwrap()),
@@ -945,17 +946,20 @@ mod tests {
             proofs: Vec::new(),
         };
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
-        event.proofs.push(Proof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
-                .unwrap(),
-            event_digest: digest,
-            created_at: event.created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "AAAA.BBBB.CCCC".to_owned(),
-        });
+        event.proofs.push(
+            Proof {
+                kind: "detached_jws".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
+                    .unwrap(),
+                event_digest: digest,
+                created_at: event.created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            }
+            .into(),
+        );
         event
     }
 
@@ -1501,8 +1505,10 @@ mod tests {
         // seal_basis is inside the producer digest, so the pinned proof digest
         // has to follow — otherwise the proof check fires first and this would
         // pass for the wrong reason.
-        anchor_unit.proofs[0].event_digest =
-            Hash::new(anchor_unit.event_digest().unwrap()).unwrap();
+        anchor_unit.proofs[0]
+            .as_producer_mut()
+            .unwrap()
+            .event_digest = Hash::new(anchor_unit.event_digest().unwrap()).unwrap();
         let fixture = fixture_with_frontier(anchor_unit, effective_scope);
 
         verify(&fixture).expect("an anchor unit must be an admissible frontier Event");
@@ -1517,7 +1523,8 @@ mod tests {
         data_event.seal_basis = None;
         data_event.seal_ref =
             Some(SealId::new(format!("ak:seal:{}", hash(0xb1).as_str())).unwrap());
-        data_event.proofs[0].event_digest = Hash::new(data_event.event_digest().unwrap()).unwrap();
+        data_event.proofs[0].as_producer_mut().unwrap().event_digest =
+            Hash::new(data_event.event_digest().unwrap()).unwrap();
         let fixture = fixture_with_frontier(data_event, effective_scope);
 
         let error = verify(&fixture).unwrap_err();

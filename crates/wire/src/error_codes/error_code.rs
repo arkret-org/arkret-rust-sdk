@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-13.1;
-//! sha256=3fec299568b224c55a604d726b0d6fd864e74d7e42a43fcc12b7e288a11c7e4e Entries: error_codes=279
+//! Input: registry/error-code-registry.json; version=2026-08-13.2;
+//! sha256=9fda2340f3357ef8324678dcd624a3e077128e8dba895c061e1e00afbdff9f18 Entries: error_codes=278
 
 use serde::{Deserialize, Serialize};
 
@@ -204,7 +204,6 @@ pub enum ErrorCode {
     PolicyUnavailable,
     PolicyViolation,
     PreviewPolicyDenied,
-    PrincipalAuthorityInstanceMismatch,
     PrincipalUnknown,
     ProfileUnsupported,
     ProjectionIncomplete,
@@ -497,7 +496,6 @@ impl ErrorCode {
         Self::PolicyUnavailable,
         Self::PolicyViolation,
         Self::PreviewPolicyDenied,
-        Self::PrincipalAuthorityInstanceMismatch,
         Self::PrincipalUnknown,
         Self::ProfileUnsupported,
         Self::ProjectionIncomplete,
@@ -795,8 +793,6 @@ impl ErrorCode {
     pub const POLICY_UNAVAILABLE: &'static str = "policy_unavailable";
     pub const POLICY_VIOLATION: &'static str = "policy_violation";
     pub const PREVIEW_POLICY_DENIED: &'static str = "preview_policy_denied";
-    pub const PRINCIPAL_AUTHORITY_INSTANCE_MISMATCH: &'static str =
-        "principal_authority_instance_mismatch";
     pub const PRINCIPAL_UNKNOWN: &'static str = "principal_unknown";
     pub const PROFILE_UNSUPPORTED: &'static str = "profile_unsupported";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
@@ -1105,7 +1101,6 @@ impl ErrorCode {
             Self::PolicyUnavailable => "policy_unavailable",
             Self::PolicyViolation => "policy_violation",
             Self::PreviewPolicyDenied => "preview_policy_denied",
-            Self::PrincipalAuthorityInstanceMismatch => "principal_authority_instance_mismatch",
             Self::PrincipalUnknown => "principal_unknown",
             Self::ProfileUnsupported => "profile_unsupported",
             Self::ProjectionIncomplete => "projection_incomplete",
@@ -1411,9 +1406,6 @@ impl ErrorCode {
             "policy_unavailable" => Some(Self::PolicyUnavailable),
             "policy_violation" => Some(Self::PolicyViolation),
             "preview_policy_denied" => Some(Self::PreviewPolicyDenied),
-            "principal_authority_instance_mismatch" => {
-                Some(Self::PrincipalAuthorityInstanceMismatch)
-            }
             "principal_unknown" => Some(Self::PrincipalUnknown),
             "profile_unsupported" => Some(Self::ProfileUnsupported),
             "projection_incomplete" => Some(Self::ProjectionIncomplete),
@@ -2146,7 +2138,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A device re-anchor receipt scope, recovery session or transaction snapshot selects an authority instance or device generation that does not exactly match the covered ak.device.reanchor payload. Dual-registered as a service code and a reason_code (see reason_codes[]).",
+        description: "A device re-anchor receipt scope, recovery session or transaction snapshot selects an account-local lineage or device generation that does not exactly match the covered ak.device.reanchor payload.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorAuthorizeMismatch,
@@ -2162,7 +2154,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Concurrent device re-anchor completions conflict on the same principal generation state. Dual-registered as a service code and a reason_code (see reason_codes[]).",
+        description: "Concurrent device re-anchor completions conflict on the same principal generation state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorEntryNotHead,
@@ -2882,7 +2874,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The accepted PCR authority frontier, device generation, recovery-policy version or authority-instance binding is stale. DID freshness cannot repair this failure.",
+        description: "The accepted PCR authority frontier, device generation, recovery-policy version or account-local-lineage binding is stale. DID freshness cannot repair this failure.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyCombinationInvalid,
@@ -2939,14 +2931,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "A directory/resolve/search/projection request attempted to obtain a stripped preview, history stub, history snippet, or token-scoped preview that is not allowed by the effective ak.realm.preview_policy. External responses that must be non-enumerating MAY map this to not_found. See zh/governance/history-visibility.md §4.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::PrincipalAuthorityInstanceMismatch,
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "Evidence belongs to a different Principal Server, PCR Realm or genesis-receipt lineage, even if principal_id and public keys match.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PrincipalUnknown,

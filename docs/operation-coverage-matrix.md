@@ -176,8 +176,6 @@
 | `ak.profile.directory_service.v1` | `directory` | `ak.find.directory.read.search_organizations` | `POST /_arkret/find/directory/search-organizations` | — | — | — | gap |
 | `ak.profile.directory_service.v1` | `directory` | `ak.find.directory.read.search_realms` | `POST /_arkret/find/directory/search-realms` | — | — | — | gap |
 | `ak.profile.directory_service.v1` | `directory` | `ak.find.directory.read.search_users` | `POST /_arkret/find/directory/search-users` | — | — | — | gap |
-| `ak.profile.disappearing.v1` | `client` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
-| `ak.profile.disappearing.v1` | `client` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.peer.mls.read.group_state_material` | `POST /_arkret/peer/mls/group-state-material` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.account.stream.subscribe` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.authz.read.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |

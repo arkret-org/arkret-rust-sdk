@@ -4,11 +4,7 @@
 //! `schemas/direct-conversation-operations.schema.json`. These operations carry
 //! a non-authorizing trigger only; Commit, Welcome and activation remain Events.
 
-use arkret_models_identity::CurrentAgentSignerEvidence;
-use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, FederatedDeviceSigningKeyEvidence, Hash,
-    ProtocolSignature,
-};
+use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, ProtocolSignature};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -95,23 +91,6 @@ impl DirectConversationRepairAuthorization {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[allow(clippy::large_enum_variant)]
-pub enum DirectConversationRepairRequesterEvidence {
-    Device {
-        #[cfg_attr(
-            feature = "openapi",
-            salvo(schema(value_type = serde_json::Value))
-        )]
-        device_authorization_evidence: FederatedDeviceSigningKeyEvidence,
-    },
-    NativeAgent {
-        agent_signer_evidence: CurrentAgentSignerEvidence,
-    },
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationRepairDispatchRequest {
@@ -158,7 +137,6 @@ pub struct DirectConversationRepairRelayRequest {
     pub request_id: Base64UrlString,
     pub content: MemberRepairRequestPayload,
     pub requester_authorization: DirectConversationRepairAuthorization,
-    pub requester_evidence: DirectConversationRepairRequesterEvidence,
 }
 
 impl DirectConversationRepairRelayRequest {
@@ -171,60 +149,7 @@ impl DirectConversationRepairRelayRequest {
     }
 
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        self.dispatch_request().validate_shape()?;
-        let valid = match (&self.requester_authorization, &self.requester_evidence) {
-            (
-                DirectConversationRepairAuthorization::Device {
-                    requester_device_id,
-                    verification_method,
-                    device_authorize_event_id,
-                    ..
-                },
-                DirectConversationRepairRequesterEvidence::Device {
-                    device_authorization_evidence: evidence,
-                },
-            ) => {
-                evidence.validate_shape().is_ok()
-                    && evidence.actor_id.as_str() == self.content.requester_principal_id.as_str()
-                    && &evidence.device_id == requester_device_id
-                    && evidence.verification_method == verification_method.as_str()
-                    && evidence
-                        .current_device_projection
-                        .device_record
-                        .device_authorize_event_id
-                        .as_ref()
-                        .is_some_and(|event_id| {
-                            event_id.as_str() == device_authorize_event_id.as_str()
-                        })
-            }
-            (
-                DirectConversationRepairAuthorization::NativeAgent {
-                    requester_agent_id,
-                    verification_method,
-                    agent_key_authorize_event_id,
-                    ..
-                },
-                DirectConversationRepairRequesterEvidence::NativeAgent {
-                    agent_signer_evidence: evidence,
-                },
-            ) => {
-                let binding = &evidence
-                    .admission_evidence
-                    .agent_authority_snapshot
-                    .core
-                    .signing_key_binding;
-                binding.core.agent_id.as_str() == requester_agent_id.as_str()
-                    && &binding.core.verification_method == verification_method
-                    && &binding.agent_key_authorize_event_id == agent_key_authorize_event_id
-            }
-            _ => false,
-        };
-        if !valid {
-            return Err(arkret_wire::Error::Protocol(
-                "repair requester evidence branch is invalid".to_owned(),
-            ));
-        }
-        Ok(())
+        self.dispatch_request().validate_shape()
     }
 }
 

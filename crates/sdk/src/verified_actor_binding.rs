@@ -3,9 +3,9 @@ use arkret_models_identity::{
     OrganizationRegistrationStatus, validate_organization_registration_authorization_at,
 };
 use arkret_policy::{AgentMlsSignerClaim, AgentMlsSignerView, verify_ordinary_agent_mls_binding};
-use arkret_signatures::VerifiedFederatedDeviceEvidence;
+use arkret_signatures::VerifiedPrincipalDevice;
 use arkret_signatures::agent_evidence::VerifiedAgentSigningKey;
-use arkret_wire::{ActorKind, DidCoreId, EventId, Hash, PrincipalAuthorityInstance};
+use arkret_wire::{ActorKind, DidCoreId, EventId, Hash, PrincipalAuthorityKey};
 use chrono::{DateTime, Utc};
 
 use crate::{Error, Result};
@@ -45,20 +45,18 @@ pub struct MlsLeafBindingRef {
 /// Closed authority proof selected for one actor authorization decision.
 ///
 /// Each branch is purpose-scoped and contains only data produced by its
-/// corresponding verifier. In particular, the human branch pins the complete
-/// five-field [`PrincipalAuthorityInstance`]; equal core ids or public keys do
-/// not make two authority instances interchangeable.
+/// corresponding verifier. The human branch pins the public account authority pair.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorAuthority {
-    HumanPcr(PrincipalAuthorityInstance),
+    Human(PrincipalAuthorityKey),
     Organization(OrganizationAuthorityRef),
     ManagedAgent(AgentAuthorityRef),
     Service(ServiceAuthorityRef),
     EphemeralMls(MlsLeafBindingRef),
 }
 
-/// Actor identity paired with the exact verified authority instance accepted
-/// for one authorization decision.
+/// Actor identity paired with the exact verified principal authority pair
+/// accepted for one authorization decision.
 ///
 /// No constructor accepts only a [`DidCoreId`] or caller-declared
 /// [`ActorKind`]. Every public constructor consumes an opaque verifier output
@@ -71,11 +69,11 @@ pub struct VerifiedActorBinding {
 }
 
 impl VerifiedActorBinding {
-    pub fn from_verified_human_pcr(evidence: &VerifiedFederatedDeviceEvidence) -> Self {
+    pub fn from_verified_principal_device(evidence: &VerifiedPrincipalDevice) -> Self {
         Self {
             actor_id: evidence.principal_id().clone(),
             actor_kind: ActorKind::User,
-            authority: ActorAuthority::HumanPcr(evidence.authority_instance().clone()),
+            authority: ActorAuthority::Human(evidence.authority().clone()),
         }
     }
 
@@ -174,7 +172,7 @@ impl VerifiedActorBinding {
         &self.authority
     }
 
-    pub fn has_same_authority_instance(&self, other: &Self) -> bool {
+    pub fn has_same_authority(&self, other: &Self) -> bool {
         self.actor_id == other.actor_id
             && self.actor_kind == other.actor_kind
             && self.authority == other.authority
@@ -255,7 +253,6 @@ impl MlsLeafBindingRef {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::RealmId;
 
     use super::*;
 
@@ -263,40 +260,20 @@ mod tests {
         DidCoreId::new(format!("ak:did_core:web:{value}.example")).unwrap()
     }
 
-    fn realm(byte: char) -> RealmId {
-        let value = match byte {
-            '1' => "ak:realm:AUhJ30wlw7UA5CWJk9HZUsDp0GyhA-QVSF565JjdtLul",
-            _ => "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
-        };
-        RealmId::new(value).unwrap()
-    }
-
-    fn hash(byte: char) -> Hash {
-        Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
-    }
-
-    fn human_binding(server: &str, realm_byte: char, digest_byte: char) -> VerifiedActorBinding {
+    fn human_binding(server: &str) -> VerifiedActorBinding {
         let principal_id = did("alice");
         VerifiedActorBinding {
             actor_id: principal_id.clone(),
             actor_kind: ActorKind::User,
-            authority: ActorAuthority::HumanPcr(
-                PrincipalAuthorityInstance::new(
-                    principal_id,
-                    did(server),
-                    realm(realm_byte),
-                    hash(digest_byte),
-                )
-                .unwrap(),
-            ),
+            authority: ActorAuthority::Human(PrincipalAuthorityKey::new(principal_id, did(server))),
         }
     }
 
     #[test]
     fn same_core_cannot_substitute_a_different_pcr_lineage() {
-        let pcr_a = human_binding("server-a", '1', 'a');
-        let pcr_b = human_binding("server-b", '2', 'b');
+        let pcr_a = human_binding("server-a");
+        let pcr_b = human_binding("server-b");
         assert_eq!(pcr_a.actor_id(), pcr_b.actor_id());
-        assert!(!pcr_a.has_same_authority_instance(&pcr_b));
+        assert!(!pcr_a.has_same_authority(&pcr_b));
     }
 }

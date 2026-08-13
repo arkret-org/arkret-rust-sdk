@@ -102,7 +102,10 @@ pub struct Grant {
     pub grant_id: String,
     pub realm_id: String,
     pub issuer: String,
+    pub issuer_principal_server_id: String,
     pub subject: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_principal_server_id: Option<String>,
     pub resource: String,
     pub actions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -266,7 +269,9 @@ impl std::error::Error for AppletAuthorityBindingError {}
 pub struct GrantRequestDraft {
     pub realm_id: String,
     pub issuer: String,
+    pub issuer_principal_server_id: String,
     pub subject: String,
+    pub subject_principal_server_id: Option<String>,
     pub resource: String,
     pub actions: Vec<String>,
     pub capability_action_registry_digest: Option<Hash>,
@@ -497,6 +502,15 @@ where
             .iter()
             .filter_map(IssuerAuthorityRef::grant_id)
         {
+            let Some(parent_grant) = snapshot.get(parent).map(|value| value.borrow()) else {
+                return false;
+            };
+            if parent_grant.subject != grant.issuer
+                || parent_grant.subject_principal_server_id.as_deref()
+                    != Some(grant.issuer_principal_server_id.as_str())
+            {
+                return false;
+            }
             pending.push(parent);
         }
     }
@@ -530,7 +544,10 @@ pub fn create_authority_grant(
     if parent.revoked {
         return Err(AuthorityGrantError::ParentRevoked);
     }
-    if parent.subject != requested.issuer {
+    if parent.subject != requested.issuer
+        || parent.subject_principal_server_id.as_deref()
+            != Some(requested.issuer_principal_server_id.as_str())
+    {
         return Err(AuthorityGrantError::NotGrantHolder);
     }
     let parent_binding_relevant = parent.capability_action_registry_digest.is_some()
@@ -628,7 +645,9 @@ pub fn create_authority_grant(
             grant_id: String::new(),
             realm_id: requested.realm_id.clone(),
             issuer: requested.issuer.clone(),
+            issuer_principal_server_id: requested.issuer_principal_server_id.clone(),
             subject: requested.subject.clone(),
+            subject_principal_server_id: requested.subject_principal_server_id.clone(),
             resource: requested.resource.clone(),
             actions: requested.actions.clone(),
             capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
@@ -668,7 +687,9 @@ pub fn create_authority_grant(
         grant_id: String::new(),
         realm_id: requested.realm_id.clone(),
         issuer: requested.issuer.clone(),
+        issuer_principal_server_id: requested.issuer_principal_server_id.clone(),
         subject: requested.subject.clone(),
+        subject_principal_server_id: requested.subject_principal_server_id.clone(),
         resource: requested.resource.clone(),
         actions: requested.actions.clone(),
         capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
@@ -734,7 +755,9 @@ mod tests {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:alice".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             capability_action_registry_digest: None,
@@ -766,7 +789,9 @@ mod tests {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
             issuer: issuer.to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: subject.to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             capability_action_registry_digest: None,
@@ -859,7 +884,9 @@ mod tests {
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
@@ -887,7 +914,9 @@ mod tests {
         let request = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["ak.realm.admin".to_owned()],
             capability_action_registry_digest: Some(digest.clone()),
@@ -908,7 +937,9 @@ mod tests {
         let request = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["ak.realm.admin".to_owned()],
             capability_action_registry_digest: None,
@@ -931,7 +962,9 @@ mod tests {
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
@@ -963,7 +996,9 @@ mod tests {
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             // Parent only has `read`; child asking for `send` and `delete`.
             actions: vec!["read".to_owned(), "send".to_owned(), "delete".to_owned()],
@@ -988,7 +1023,9 @@ mod tests {
         let req = GrantRequestDraft {
             realm_id: "ak:realm:2".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             // Parent's resource is "ak:realm:1"; child trying a sibling realm.
             resource: "ak:realm:2".to_owned(),
             actions: vec!["read".to_owned()],
@@ -1018,7 +1055,9 @@ mod tests {
         let base_req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
@@ -1061,7 +1100,9 @@ mod tests {
         let request = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
@@ -1107,7 +1148,9 @@ mod tests {
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
@@ -1136,7 +1179,9 @@ mod tests {
             realm_id: "ak:realm:1".to_owned(),
             // Bob is the parent's subject; Eve trying to issue the child grant is not.
             issuer: "did:webvh:z6mkfixture:eve".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
@@ -1145,6 +1190,29 @@ mod tests {
         };
         assert!(matches!(
             create_authority_grant("g1", &req, &parents, now),
+            Err(AuthorityGrantError::NotGrantHolder)
+        ));
+    }
+
+    #[test]
+    fn create_authority_grant_rejects_holder_from_different_principal_server() {
+        let now = Utc::now();
+        let root = root_grant("g1", &["read"], "ak:realm:1");
+        let request = GrantRequestDraft {
+            realm_id: "ak:realm:1".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:other-server".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
+            resource: "ak:realm:1".to_owned(),
+            actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
+            constraints: Vec::new(),
+            expires_at: None,
+        };
+
+        assert!(matches!(
+            create_authority_grant("g1", &request, &[root], now),
             Err(AuthorityGrantError::NotGrantHolder)
         ));
     }
@@ -1183,6 +1251,24 @@ mod tests {
         assert!(authority_chain_intact(&broken, "g1", now));
         assert!(!authority_chain_intact(&broken, "g2", now));
         assert!(!authority_chain_intact(&broken, "g3", now));
+    }
+
+    #[test]
+    fn deserialized_chain_with_cross_server_parent_edge_is_not_intact() {
+        let now = Utc::now();
+        let root = root_grant("g1", &["read"], "ak:realm:1");
+        let mut forged = child_grant(
+            "g2",
+            "g1",
+            "did:webvh:z6mkfixture:bob",
+            "did:webvh:z6mkfixture:carol",
+            &["read"],
+            "ak:realm:1",
+            None,
+        );
+        forged.issuer_principal_server_id = "did:webvh:z6mkfixture:other-server".to_owned();
+
+        assert!(!authority_chain_intact(&[root, forged], "g2", now));
     }
 
     #[test]
@@ -1247,7 +1333,9 @@ mod tests {
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,

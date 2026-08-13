@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-13.3;
-//! sha256=6a65c704e8f3360f8e9b4c4f4594f3c190ca3b14e4e58970d2e9b506f649ead6 Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-13.2;
+//! sha256=ab94f40d4baadd6dd2169e9c7152ab25b11ce103848681c5b44b54842bfa1a81 Input: registry/
 //! operations-error-mapping.json; version=2026-08-13.2;
-//! sha256=40a70b9aec8adb286e0af76e2e2b9a00aab7944a84535e5a5ab8e0e1524ff911 Input: registry/
-//! error-code-registry.json; version=2026-08-13.1;
-//! sha256=3fec299568b224c55a604d726b0d6fd864e74d7e42a43fcc12b7e288a11c7e4e Entries: operations=237
+//! sha256=abc039ca39b157ee1984632f4aea7ed6c22191cda8a4841880546bf373262885 Input: registry/
+//! error-code-registry.json; version=2026-08-13.2;
+//! sha256=9fda2340f3357ef8324678dcd624a3e077128e8dba895c061e1e00afbdff9f18 Entries: operations=235
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -443,7 +443,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerAccountStatusReadAuthoringFrontiers,
+        operation: ServiceOperationId::PeerAccountStatusReadAuthoringBasis,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
@@ -1368,24 +1368,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::PolicyUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::PolicyStale),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfPrincipalServiceBindingCommandCommit,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ReasonCode(ReasonCode::ChallengeExpired),
-            OperationSpecificError::ErrorCode(ErrorCode::CasConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::InvalidSignature),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfPrincipalServiceBindingCommandPrepare,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::CasConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
         ],
     },
     OperationErrorMappingDescriptor {

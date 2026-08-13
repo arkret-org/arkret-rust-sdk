@@ -25,13 +25,14 @@ use crate::{EventDraftError, EventSpec, Result};
 /// # use arkret_event_draft::TypedEventDraft;
 /// # use arkret_models_collaboration::events_payloads::{MessageCreatePayload, RealmCreatePayload};
 /// # use arkret_wire::{DidCoreId, ScopeRef, event_spec};
-/// # fn mismatch(scope: ScopeRef, actor: DidCoreId, payload: MessageCreatePayload) {
-/// let _ = TypedEventDraft::<event_spec::RealmCreate>::new(scope, actor, payload);
+/// # fn mismatch(scope: ScopeRef, actor: DidCoreId, ps: DidCoreId, payload: MessageCreatePayload) {
+/// let _ = TypedEventDraft::<event_spec::RealmCreate>::new(scope, actor, ps, payload);
 /// # }
 /// ```
 pub struct TypedEventDraft<K: EventSpec> {
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
+    principal_server_id: DidCoreId,
     payload: K::Payload,
     prev_refs: Vec<EventId>,
     refs: Vec<EventRef>,
@@ -50,13 +51,19 @@ pub struct TypedEventDraft<K: EventSpec> {
 }
 
 impl<K: EventSpec> TypedEventDraft<K> {
-    pub fn new(scope_ref: ScopeRef, actor_id: DidCoreId, payload: K::Payload) -> Result<Self> {
+    pub fn new(
+        scope_ref: ScopeRef,
+        actor_id: DidCoreId,
+        principal_server_id: DidCoreId,
+        payload: K::Payload,
+    ) -> Result<Self> {
         K::validate_payload(&payload).map_err(|error| {
             EventDraftError::Protocol(format!("{} payload invalid: {error}", K::KIND_STR))
         })?;
         Ok(Self {
             scope_ref,
             actor_id,
+            principal_server_id,
             payload,
             prev_refs: Vec::new(),
             refs: Vec::new(),
@@ -188,6 +195,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
             K::KIND,
             self.scope_ref,
             self.actor_id,
+            self.principal_server_id,
             actor_seq,
             hlc,
             created_at,
@@ -303,6 +311,7 @@ impl ValidatedExtensionPayload {
         self,
         scope_ref: ScopeRef,
         actor_id: DidCoreId,
+        principal_server_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         created_at: DateTime<Utc>,
@@ -311,6 +320,7 @@ impl ValidatedExtensionPayload {
             self.kind,
             scope_ref,
             actor_id,
+            principal_server_id,
             actor_seq,
             hlc,
             created_at,
@@ -338,6 +348,7 @@ pub(crate) fn author_erased_event(
     kind: EventKind,
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
+    principal_server_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     created_at: DateTime<Utc>,
@@ -369,6 +380,7 @@ pub(crate) fn author_erased_event(
         scope_ref,
         actor_id,
         executed_by,
+        principal_server_id,
         authorization_ref,
         applet_id,
         external_ref,

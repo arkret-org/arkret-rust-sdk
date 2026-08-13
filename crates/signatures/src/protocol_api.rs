@@ -112,9 +112,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "collaboration")]
 pub use crate::device_authorization::{
-    FederatedDeviceEvidenceVerificationContext, VerifiedFederatedDeviceEvidence,
-    replay_federated_device_authorization, verify_device_authorize_possession,
-    verify_federated_device_authorization_chain, verify_federated_device_evidence,
+    VerifiedPrincipalDevice, verify_device_authorize_possession,
 };
 
 /// Wire-reserved proof algorithms: registered `active` rows of the

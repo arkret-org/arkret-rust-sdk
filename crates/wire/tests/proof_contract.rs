@@ -212,6 +212,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
             realm_id: test_realm_id(),
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -231,7 +232,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
     };
 
     let mut signed_event = event;
-    signed_event.proofs = vec![proof];
+    signed_event.proofs = vec![proof.into()];
     assert!(signed_event.validate_proof_bindings().is_ok());
 }
 
@@ -243,6 +244,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
             realm_id: test_realm_id(),
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -264,7 +266,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     };
 
     let mut signed_event = event;
-    signed_event.proofs = vec![bad_proof];
+    signed_event.proofs = vec![bad_proof.into()];
     assert!(signed_event.validate_proof_bindings().is_err());
 }
 
@@ -276,6 +278,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
             realm_id: test_realm_id(),
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -296,7 +299,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         jws: "sig".to_owned(),
     };
     let mut signed_event = event;
-    signed_event.proofs = vec![proof];
+    signed_event.proofs = vec![proof.into()];
     let error = signed_event
         .validate_proof_bindings_with_context(
             Some("ak:trust_domain:example.net".to_owned()),
@@ -310,7 +313,8 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         error.to_string().contains("proof_binding_missing"),
         "{error}"
     );
-    signed_event.proofs[0].domain = Some("ak:trust_domain:example.net".to_owned());
+    signed_event.proofs[0].as_producer_mut().unwrap().domain =
+        Some("ak:trust_domain:example.net".to_owned());
     assert!(
         signed_event
             .validate_proof_bindings_with_context(
@@ -332,6 +336,7 @@ fn event_digest_includes_schema_profiles_features_and_critical_extensions() {
             realm_id: test_realm_id(),
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),

@@ -1029,6 +1029,7 @@ mod tests {
                     .unwrap(),
             },
             arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             0,
             arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             serde_json::json!({

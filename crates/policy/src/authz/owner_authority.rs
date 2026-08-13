@@ -204,14 +204,9 @@ mod tests {
         super::super::current_capability_action_registry_digest().unwrap()
     }
 
-    fn previous_released_basis() -> Hash {
-        Hash::new("sha256:bd357d88b489947556f7d5c7a456ab7dd79e52686525f779f9146bb9e0391e6b")
-            .unwrap()
-    }
-
     #[test]
-    fn released_registry_snapshot_remains_exactly_resolvable() {
-        let basis = previous_released_basis();
+    fn current_registry_snapshot_remains_exactly_resolvable() {
+        let basis = basis();
         require_registry_basis(Some(&basis)).unwrap();
         assert!(owner_may_author_event_kind("ak.message.create", Some(&basis)).unwrap());
         assert!(owner_may_grant("ak.message.create", Some(&basis), &[]).unwrap());

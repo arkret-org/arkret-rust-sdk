@@ -26,6 +26,7 @@ use crate::{EventDraftError, EventSpec, Result, TypedDeviceMessageTarget, device
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionContext {
     pub sender: DidCoreId,
+    pub principal_server_id: DidCoreId,
     pub actor_seq: u64,
     pub event_id: EventId,
     pub preconditions: Vec<Precondition>,
@@ -86,6 +87,7 @@ impl ProjectedEventOperation {
             created_at: event.created_at,
             context: ProjectionContext {
                 sender: event.actor_id.clone(),
+                principal_server_id: event.principal_server_id.clone(),
                 actor_seq: event.actor_seq,
                 event_id: event.event_id.clone(),
                 preconditions: event.preconditions.clone(),
@@ -128,6 +130,7 @@ impl ProjectedEventOperation {
             kind: self.event_kind.clone(),
             event_id: self.context.event_id.clone(),
             actor_id: self.context.sender.clone(),
+            principal_server_id: self.context.principal_server_id.clone(),
             authorization_ref: self.context.authorization_ref.clone(),
             actor_seq: self.context.actor_seq,
             realm_id: self.realm_id.clone(),
@@ -369,6 +372,7 @@ impl OperationEnvelope {
         let mut event = author_erased_event(
             self.kind,
             self.scope_ref,
+            self.actor_id.clone(),
             self.actor_id,
             self.causal.actor_seq,
             self.causal.hlc,
@@ -393,7 +397,7 @@ impl OperationEnvelope {
             None,
             None,
         )?;
-        event.proofs = conversion.proofs;
+        event.proofs = conversion.proofs.into_iter().map(Into::into).collect();
         event.unsigned.insert(
             "local_operation_idempotency_alias".to_owned(),
             Value::String(self.operation_id.to_string()),

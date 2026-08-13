@@ -36,7 +36,9 @@ use super::*;
 pub(crate) struct GrantProjection {
     pub(crate) id: String,
     pub(crate) issuer: DidCoreId,
+    pub(crate) issuer_principal_server_id: DidCoreId,
     pub(crate) subject: CapabilitySubject,
+    pub(crate) subject_principal_server_id: Option<DidCoreId>,
     pub(crate) actions: Vec<String>,
     pub(crate) capability_action_registry_digest: Option<Hash>,
     pub(crate) resources: Vec<ResourceSelector>,
@@ -86,22 +88,6 @@ impl GrantProjection {
                 "schema_violation: capability grant requires issuer_authority_refs".to_owned(),
             ));
         }
-        if let Some(authority_instance) = &grant.subject_authority_instance {
-            authority_instance.validate().map_err(|error| {
-                Error::Protocol(format!(
-                    "schema_violation: invalid subject_authority_instance: {error}"
-                ))
-            })?;
-            if !matches!(
-                &grant.subject,
-                CapabilitySubject::CoreDid(subject) if subject == &authority_instance.principal_id
-            ) {
-                return Err(Error::Protocol(
-                    "schema_violation: subject_authority_instance does not bind the DID subject"
-                        .to_owned(),
-                ));
-            }
-        }
         validate_capability_action_registry_binding(
             &grant.actions,
             grant.capability_action_registry_digest.as_ref(),
@@ -125,7 +111,9 @@ impl GrantProjection {
         Ok(Self {
             id: grant.id.as_str().to_owned(),
             issuer: grant.issuer.clone(),
+            issuer_principal_server_id: grant.issuer_principal_server_id.clone(),
             subject: grant.subject.clone(),
+            subject_principal_server_id: grant.subject_principal_server_id.clone(),
             actions: grant.actions.clone(),
             capability_action_registry_digest: grant.capability_action_registry_digest.clone(),
             resources,
@@ -442,9 +430,12 @@ fn validate_authority_chain(
                 parent.id
             ))
         })?;
-            if &grant.issuer != parent_subject {
+            if &grant.issuer != parent_subject
+                || parent.subject_principal_server_id.as_ref()
+                    != Some(&grant.issuer_principal_server_id)
+            {
                 return Err(Error::Protocol(format!(
-                    "capability grant '{}' issuer does not match parent subject",
+                    "capability grant '{}' issuer authority does not match parent subject authority",
                     grant.id
                 )));
             }
@@ -740,14 +731,21 @@ pub fn capability_grant_from_resolved_event(
         .typed_payload::<arkret_wire::event_spec::CapabilityGrant>()
         .map_err(|error| Error::Protocol(format!("schema_violation: {error}")))?;
     let grant = payload.grant;
+    if grant.issuer != event.actor_id {
+        return Err(Error::Protocol(
+            "schema_violation: capability grant issuer must equal the accepted Event actor"
+                .to_owned(),
+        ));
+    }
     Ok(
         arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::from_event_id(&event.source_event_id),
             schema: grant.schema,
             realm_id: grant.realm_id.or(default_realm_id),
             issuer: grant.issuer,
+            issuer_principal_server_id: event.principal_server_id.clone(),
             subject: grant.subject,
-            subject_authority_instance: grant.subject_authority_instance,
+            subject_principal_server_id: grant.subject_principal_server_id,
             actions: grant.actions,
             resources: grant.resources,
             capability_action_registry_digest: grant.capability_action_registry_digest,
@@ -1484,7 +1482,7 @@ impl CapabilityGrantBuilder {
                 realm_id: self.grant.realm_id,
                 issuer: self.grant.issuer,
                 subject: self.grant.subject,
-                subject_authority_instance: self.grant.subject_authority_instance,
+                subject_principal_server_id: self.grant.subject_principal_server_id,
                 actions: self.grant.actions,
                 resources: self.grant.resources,
                 capability_action_registry_digest: self.grant.capability_action_registry_digest,
@@ -1497,7 +1495,8 @@ impl CapabilityGrantBuilder {
         };
         arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityGrant>::new(
             self.scope_ref,
-            self.actor_id,
+            self.actor_id.clone(),
+            self.grant.issuer_principal_server_id,
             payload,
         )
         .map_err(|error| Error::Protocol(error.to_string()))?
@@ -1517,7 +1516,10 @@ pub fn build_capability_relinquish_event(
     payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
 ) -> Result<crate::Event> {
     arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityRelinquish>::new(
-        scope_ref, subject, payload,
+        scope_ref,
+        subject.clone(),
+        subject,
+        payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
     .author_now(actor_seq, hlc)
@@ -1566,8 +1568,9 @@ mod capability_grant_builder_tests {
             schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),
+            issuer_principal_server_id: alice(),
             subject: CapabilitySubject::CoreDid(bob()),
-            subject_authority_instance: None,
+            subject_principal_server_id: Some(alice()),
             actions: vec!["ak.message.create".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             capability_action_registry_digest: None,
@@ -1629,6 +1632,7 @@ mod capability_grant_builder_tests {
             subject: "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu".to_owned(),
             source_event_id: source_event_id.clone(),
             actor_id: alice(),
+            principal_server_id: alice(),
             actor_seq: 1,
             hlc: Some(hlc()),
             content: Value::Object(event.payload.clone().into_iter().collect()),
@@ -1877,6 +1881,7 @@ mod capability_grant_builder_tests {
             )
             .unwrap(),
             actor_id: alice(),
+            principal_server_id: alice(),
             actor_seq: 1,
             hlc: Some(hlc()),
             content,

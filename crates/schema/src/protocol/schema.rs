@@ -778,14 +778,6 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            SchemaId::DISAPPEARING_MESSAGES_V1,
-            object_schema(
-                SchemaId::DISAPPEARING_MESSAGES_V1,
-                &[],
-                &[("enabled", "boolean")],
-            ),
-        );
-        registry.register(
             SchemaId::SEARCH_SERVICE_V1,
             object_schema(SchemaId::SEARCH_SERVICE_V1, &[], &[("realm_id", "string")]),
         );

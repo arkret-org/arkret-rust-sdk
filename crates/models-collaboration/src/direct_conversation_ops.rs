@@ -7,12 +7,11 @@
 //! `direct_conversation_agent_genesis`) admission variant of `ak.realm.create`. This module only
 //! carries the query-only resolver and the source-signed founding acceptance receipt.
 
-use arkret_models_identity::ServiceResolutionCarrier;
+#[cfg(test)]
+use arkret_wire::Base64UrlString;
 use arkret_wire::{
-    Base64UrlString, CbaProofBundle, DidCoreId, DidFullId, DidUrl, Event,
-    EventFederationSubmission, EventId, EventInitialSubmission, FederatedDeviceSigningKeyEvidence,
-    Hash, IdempotencyKey, PrincipalAuthorityInstance, ProtocolSignature, RealmId, ScopeRef,
-    StrandId, TrustDomainId,
+    CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId, EventInitialSubmission,
+    Hash, IdempotencyKey, ProtocolSignature, RealmId, ScopeRef, StrandId, TrustDomainId,
 };
 pub use arkret_wire::{
     DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
@@ -29,421 +28,6 @@ pub const DIRECT_CONVERSATION_FOUNDING_UNIT_DOMAIN: &[u8] =
 pub const DIRECT_CONVERSATION_FOUNDING_RECEIPT_DOMAIN: &[u8] =
     b"ak.direct-conversation.founding-receipt.v1\n";
 pub const CONTACT_ROUND_DOMAIN: &[u8] = b"ak.contact.round.v1\n";
-pub const PRINCIPAL_SERVICE_BINDING_DOMAIN: &[u8] = b"ak.principal-service-binding.v1\n";
-pub const PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN: &[u8] =
-    b"ak.principal-service-binding-proof.v1\n";
-pub const PRINCIPAL_SERVICE_CUTOVER_DOMAIN: &[u8] = b"ak.principal-service-cutover.v1\n";
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceVerificationMethod {
-    pub id: DidUrl,
-    pub controller: DidFullId,
-    #[serde(rename = "type")]
-    pub method_type: MultikeyMethodType,
-    pub public_key_multibase: String,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum MultikeyMethodType {
-    Multikey,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum PrincipalServiceKind {
-    PrincipalServer,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum PrincipalServiceBindingProofPurpose {
-    ServiceAcceptance,
-    PrincipalAuthorization,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AcceptedAtServiceBindingCore {
-    pub principal_id: DidCoreId,
-    pub authority_instance: PrincipalAuthorityInstance,
-    pub service_id: DidCoreId,
-    pub trust_domain: TrustDomainId,
-    pub service_kind: PrincipalServiceKind,
-    pub service_verification_method: ServiceVerificationMethod,
-    pub endpoint_origins: Vec<String>,
-    pub document_digest: Hash,
-    pub authority_evidence: DidBindingEvidenceReceipt,
-    pub service_resolution: ServiceResolutionCarrier,
-    pub authorization_challenge: Base64UrlString,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub history_head: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version_id: Option<String>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub not_before: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub predecessor_binding_digest: Option<Hash>,
-    pub binding_digest: Hash,
-}
-
-impl AcceptedAtServiceBindingCore {
-    pub fn computed_binding_digest(&self) -> arkret_wire::Result<Hash> {
-        let mut value = serde_json::to_value(self).map_err(protocol_error)?;
-        let object = value.as_object_mut().ok_or_else(|| {
-            arkret_wire::Error::Protocol("principal service binding must be an object".to_owned())
-        })?;
-        object.remove("binding_digest");
-        let bytes = arkret_canonical::canonical_json_bytes(&value).map_err(protocol_error)?;
-        let mut preimage = Vec::with_capacity(PRINCIPAL_SERVICE_BINDING_DOMAIN.len() + bytes.len());
-        preimage.extend_from_slice(PRINCIPAL_SERVICE_BINDING_DOMAIN);
-        preimage.extend_from_slice(&bytes);
-        Hash::new(arkret_canonical::sha256_digest(&preimage)).map_err(protocol_error)
-    }
-
-    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        let controller_service_id =
-            arkret_wire::project_full_id_to_core_id(&self.service_verification_method.controller)?;
-        let inline_resolution_matches = match &self.service_resolution {
-            ServiceResolutionCarrier::Inline { inline } => {
-                inline.record.service_id == self.service_id
-                    && inline.record.full_id == self.service_verification_method.controller
-            }
-            ServiceResolutionCarrier::CurrentRecordUrl {
-                current_record_url, ..
-            } => !current_record_url.trim().is_empty(),
-        };
-        if controller_service_id != self.service_id
-            || self.authority_instance.validate().is_err()
-            || self.authority_instance.principal_id != self.principal_id
-            || self.authority_instance.principal_server_id != self.service_id
-            || !inline_resolution_matches
-            || self.authority_evidence.document_digest != self.document_digest
-            || self.authority_evidence.method.is_empty()
-            || !self
-                .authority_evidence
-                .method
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-            || !(22..=128).contains(&self.authorization_challenge.as_str().len())
-            || self.computed_binding_digest()? != self.binding_digest
-            || self.accepted_at != self.not_before
-            || self.expires_at.is_some_and(|until| until < self.not_before)
-            || self.endpoint_origins.is_empty()
-            || self.endpoint_origins.len() > 16
-            || self
-                .endpoint_origins
-                .windows(2)
-                .any(|pair| pair[0] >= pair[1])
-        {
-            return Err(arkret_wire::Error::Protocol(
-                "invalid accepted-at principal service binding core".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn proof_signing_input_bytes(
-        &self,
-        proof_purpose: PrincipalServiceBindingProofPurpose,
-        verification_method: &DidUrl,
-    ) -> arkret_wire::Result<Vec<u8>> {
-        let material = serde_json::json!({
-            "binding_digest": self.binding_digest,
-            "accepted_at": arkret_canonical::format_timestamp_canonical(self.accepted_at),
-            "proof_purpose": proof_purpose,
-            "verification_method": verification_method,
-            "audience": self.service_id,
-        });
-        let canonical =
-            arkret_canonical::canonical_json_bytes(&material).map_err(protocol_error)?;
-        let mut preimage =
-            Vec::with_capacity(PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN.len() + canonical.len());
-        preimage.extend_from_slice(PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN);
-        preimage.extend_from_slice(&canonical);
-        Ok(Hash::new(arkret_canonical::sha256_digest(preimage))?
-            .as_str()
-            .as_bytes()
-            .to_vec())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AcceptedAtServiceBinding {
-    pub principal_id: DidCoreId,
-    pub authority_instance: PrincipalAuthorityInstance,
-    pub service_id: DidCoreId,
-    pub trust_domain: TrustDomainId,
-    pub service_kind: PrincipalServiceKind,
-    pub service_verification_method: ServiceVerificationMethod,
-    pub endpoint_origins: Vec<String>,
-    pub document_digest: Hash,
-    pub authority_evidence: DidBindingEvidenceReceipt,
-    pub service_resolution: ServiceResolutionCarrier,
-    pub authorization_challenge: Base64UrlString,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub history_head: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version_id: Option<String>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub not_before: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub predecessor_binding_digest: Option<Hash>,
-    pub binding_digest: Hash,
-    pub service_acceptance_proof: ProtocolSignature,
-    pub principal_authorization_proof: ProtocolSignature,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub principal_authorization_evidence: FederatedDeviceSigningKeyEvidence,
-}
-
-impl AcceptedAtServiceBinding {
-    #[must_use]
-    pub fn core(&self) -> AcceptedAtServiceBindingCore {
-        AcceptedAtServiceBindingCore {
-            principal_id: self.principal_id.clone(),
-            authority_instance: self.authority_instance.clone(),
-            service_id: self.service_id.clone(),
-            trust_domain: self.trust_domain.clone(),
-            service_kind: self.service_kind,
-            service_verification_method: self.service_verification_method.clone(),
-            endpoint_origins: self.endpoint_origins.clone(),
-            document_digest: self.document_digest.clone(),
-            authority_evidence: self.authority_evidence.clone(),
-            service_resolution: self.service_resolution.clone(),
-            authorization_challenge: self.authorization_challenge.clone(),
-            history_head: self.history_head.clone(),
-            version_id: self.version_id.clone(),
-            not_before: self.not_before,
-            expires_at: self.expires_at,
-            accepted_at: self.accepted_at,
-            predecessor_binding_digest: self.predecessor_binding_digest.clone(),
-            binding_digest: self.binding_digest.clone(),
-        }
-    }
-
-    pub fn computed_binding_digest(&self) -> arkret_wire::Result<Hash> {
-        self.core().computed_binding_digest()
-    }
-
-    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        let controller_service_id =
-            arkret_wire::project_full_id_to_core_id(&self.service_verification_method.controller)?;
-        if self.core().validate_shape().is_err()
-            || controller_service_id != self.service_id
-            || self
-                .principal_authorization_evidence
-                .validate_shape()
-                .is_err()
-            || self.principal_authorization_evidence.authority_instance != self.authority_instance
-            || self.principal_authorization_evidence.verification_method
-                != self.principal_authorization_proof.verification_method
-            || self.service_verification_method.id
-                != self.service_acceptance_proof.verification_method
-            || self.authority_evidence.document_digest != self.document_digest
-            || self.authority_evidence.method.is_empty()
-            || !self
-                .authority_evidence
-                .method
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-            || self.computed_binding_digest()? != self.binding_digest
-            || self.service_acceptance_proof.created_at != self.accepted_at
-            || self.principal_authorization_proof.created_at != self.accepted_at
-            || self.accepted_at != self.not_before
-            || self
-                .expires_at
-                .is_some_and(|until| self.accepted_at > until)
-            || self.expires_at.is_some_and(|until| until < self.not_before)
-            || self.endpoint_origins.is_empty()
-            || self
-                .endpoint_origins
-                .windows(2)
-                .any(|pair| pair[0] >= pair[1])
-        {
-            return Err(arkret_wire::Error::Protocol(
-                "invalid accepted-at principal service binding".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn proof_signing_input_bytes(
-        &self,
-        proof_purpose: PrincipalServiceBindingProofPurpose,
-        verification_method: &DidUrl,
-    ) -> arkret_wire::Result<Vec<u8>> {
-        self.core()
-            .proof_signing_input_bytes(proof_purpose, verification_method)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalServiceBindingPrepareRequestBody {
-    pub request_id: Base64UrlString,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_current_binding_digest: Option<Hash>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalServiceBindingPrepareOutcome {
-    pub request_id: Base64UrlString,
-    pub challenge_id: Base64UrlString,
-    pub binding_draft: AcceptedAtServiceBindingCore,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
-impl PrincipalServiceBindingPrepareOutcome {
-    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        if !(22..=128).contains(&self.request_id.as_str().len())
-            || !(22..=128).contains(&self.challenge_id.as_str().len())
-            || self.challenge_id != self.binding_draft.authorization_challenge
-            || self.issued_at != self.binding_draft.accepted_at
-            || self.issued_at != self.binding_draft.not_before
-            || self.expires_at <= self.issued_at
-        {
-            return Err(arkret_wire::Error::Protocol(
-                "invalid principal service binding prepare outcome".to_owned(),
-            ));
-        }
-        self.binding_draft.validate_shape()
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalServiceBindingCommitRequestBody {
-    pub request_id: Base64UrlString,
-    pub challenge_id: Base64UrlString,
-    pub binding_digest: Hash,
-    pub principal_authorization_proof: ProtocolSignature,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalServiceBindingCommitOutcome {
-    pub binding: AcceptedAtServiceBinding,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalServiceCutover {
-    pub principal_id: DidCoreId,
-    pub trust_domain: TrustDomainId,
-    pub previous_service_id: DidCoreId,
-    pub new_service_id: DidCoreId,
-    pub previous_binding_digest: Hash,
-    pub new_binding: AcceptedAtServiceBinding,
-    pub cutover_sequence: u64,
-    pub fence_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub effective_at: DateTime<Utc>,
-    pub principal_proof: ProtocolSignature,
-    pub previous_service_proof: ProtocolSignature,
-    pub new_service_proof: ProtocolSignature,
-}
-
-impl PrincipalServiceCutover {
-    pub fn transcript_digest(&self) -> arkret_wire::Result<Hash> {
-        let mut value = serde_json::to_value(self).map_err(protocol_error)?;
-        let object = value.as_object_mut().ok_or_else(|| {
-            arkret_wire::Error::Protocol("principal service cutover must be an object".to_owned())
-        })?;
-        object.remove("principal_proof");
-        object.remove("previous_service_proof");
-        object.remove("new_service_proof");
-        let bytes = arkret_canonical::canonical_json_bytes(&value).map_err(protocol_error)?;
-        let mut preimage = Vec::with_capacity(PRINCIPAL_SERVICE_CUTOVER_DOMAIN.len() + bytes.len());
-        preimage.extend_from_slice(PRINCIPAL_SERVICE_CUTOVER_DOMAIN);
-        preimage.extend_from_slice(&bytes);
-        Hash::new(arkret_canonical::sha256_digest(&preimage)).map_err(protocol_error)
-    }
-
-    pub fn signing_input_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
-        Ok(self.transcript_digest()?.as_str().as_bytes().to_vec())
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalServiceBindingContinuity {
-    pub accepted_binding: AcceptedAtServiceBinding,
-    pub cutovers: Vec<PrincipalServiceCutover>,
-}
-
-impl PrincipalServiceBindingContinuity {
-    pub fn validate_shape(&self, transport_source: &DidCoreId) -> arkret_wire::Result<()> {
-        self.accepted_binding.validate_shape()?;
-        if self.cutovers.len() > 16 {
-            return Err(arkret_wire::Error::Protocol(
-                "principal service cutover chain exceeds 16 edges".to_owned(),
-            ));
-        }
-        let mut service = &self.accepted_binding.service_id;
-        let mut digest = &self.accepted_binding.binding_digest;
-        let mut seen_services = std::collections::BTreeSet::new();
-        seen_services.insert(service.clone());
-        for (index, edge) in self.cutovers.iter().enumerate() {
-            edge.new_binding.validate_shape()?;
-            if edge.cutover_sequence != index as u64 + 1
-                || &edge.previous_service_id != service
-                || &edge.previous_binding_digest != digest
-                || edge.principal_id != self.accepted_binding.principal_id
-                || edge.trust_domain != self.accepted_binding.trust_domain
-                || edge.new_binding.principal_id != edge.principal_id
-                || edge.new_binding.service_id != edge.new_service_id
-                || edge.new_binding.trust_domain != edge.trust_domain
-                || edge.new_binding.accepted_at != edge.effective_at
-                || !seen_services.insert(edge.new_service_id.clone())
-            {
-                return Err(arkret_wire::Error::Protocol(
-                    "invalid principal service cutover continuity".to_owned(),
-                ));
-            }
-            service = &edge.new_service_id;
-            digest = &edge.new_binding.binding_digest;
-        }
-        if service != transport_source {
-            return Err(arkret_wire::Error::Protocol(
-                "principal service continuity does not terminate at transport source".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
 
 /// Closed XOR evidence carried with both self and federation founding submissions.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -471,7 +55,6 @@ pub struct DirectConversationFoundingUnitSubmission {
     pub idempotency_key: IdempotencyKey,
     pub events: [EventInitialSubmission; 3],
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
-    pub source_service_binding: AcceptedAtServiceBinding,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
 }
@@ -493,13 +76,9 @@ pub struct DirectConversationFoundingFederationSubmission {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub events: [EventFederationSubmission; 3],
     pub source_acceptance_receipt: DirectConversationFoundingAcceptanceReceipt,
-    pub source_service_continuity: PrincipalServiceBindingContinuity,
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub signer_key_evidence: Vec<FederatedDeviceSigningKeyEvidence>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -918,7 +497,6 @@ pub struct DirectConversationResolveRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationFoundingInput {
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
-    pub source_service_binding: AcceptedAtServiceBinding,
 }
 
 /// Permanent Direct Conversation coordinates.
@@ -1132,7 +710,6 @@ pub struct DirectConversationFoundingAcceptanceReceipt {
     /// transaction.
     pub slot_committed: bool,
     pub issuer_service_id: DidCoreId,
-    pub issuer_service_binding_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub proof: ProtocolSignature,
@@ -1169,7 +746,6 @@ impl DirectConversationFoundingAcceptanceReceipt {
             authorization_core: &'a DirectConversationFoundingAuthorizationCore,
             slot_committed: bool,
             issuer_service_id: &'a DidCoreId,
-            issuer_service_binding_digest: &'a Hash,
             #[serde(
                 serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
             )]
@@ -1184,7 +760,6 @@ impl DirectConversationFoundingAcceptanceReceipt {
             authorization_core: &self.authorization_core,
             slot_committed: self.slot_committed,
             issuer_service_id: &self.issuer_service_id,
-            issuer_service_binding_digest: &self.issuer_service_binding_digest,
             accepted_at: self.accepted_at,
         })
         .map_err(protocol_error)
@@ -1300,7 +875,6 @@ mod tests {
             },
             "slot_committed": true,
             "issuer_service_id": "ak:did_core:web:ps.example",
-            "issuer_service_binding_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "accepted_at": "2026-08-08T00:00:00.000Z",
             "proof": {
                 "verification_method": "did:web:ps.example#key-1",
@@ -1316,11 +890,11 @@ mod tests {
         let receipt = receipt();
         assert_eq!(
             receipt.transcript_digest().unwrap().as_str(),
-            "sha256:6f4704a45de34c4b92d5f03932a107a1bb4d71d02944ba76c9c4dbe2b9527ad6"
+            "sha256:685e8a499cda01827b37c8485feddaab1e6ac7c9af636666de30d59127e851f2"
         );
         assert_eq!(
             receipt.signing_input_bytes().unwrap(),
-            b"sha256:6f4704a45de34c4b92d5f03932a107a1bb4d71d02944ba76c9c4dbe2b9527ad6"
+            b"sha256:685e8a499cda01827b37c8485feddaab1e6ac7c9af636666de30d59127e851f2"
         );
         let mut changed_proof = receipt.clone();
         changed_proof.proof.jws = Base64UrlString::new("ZGlmZmVyZW50".to_owned()).unwrap();

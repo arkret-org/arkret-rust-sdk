@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-13;
-//! sha256=35bc4c6add6216cdb3f2eecc32b7ab3f50c198b1006810c8705ad0ccc1dac62e
+//! Input: registry/account-data-key-registry.json; version=2026-08-13.2;
+//! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -131,9 +131,10 @@ impl AccountDataKey {
     /// of this key and MUST NOT treat it as a policy projection surface. Key pattern:
     /// `ak.presence.preference`.
     pub const PRESENCE_PREFERENCE: &'static str = "ak.presence.preference";
-    /// Principal-private sender-side presence visibility policy. Sync services MUST NOT project or
-    /// read presence_visibility; encrypted Signal fanout is selected by the sender according to
-    /// profiles-presence.md section 3.4. Key pattern: `ak.presence.visibility`.
+    /// Principal-private sender-side presence visibility policy. Principal Server sync surfaces
+    /// MUST NOT project or read presence_visibility; encrypted Signal fanout is selected by the
+    /// sender according to profiles-presence.md section 3.4. Key pattern:
+    /// `ak.presence.visibility`.
     pub const PRESENCE_VISIBILITY: &'static str = "ak.presence.visibility";
     /// Principal-private notification and push rule configuration.
     /// Key pattern: `ak.push_rules`.

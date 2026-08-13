@@ -639,7 +639,8 @@ pub struct SyncUpdates {
     pub account_data: Vec<Event>,
     /// Notification deltas
     pub notifications: Vec<NotificationDelta>,
-    /// Portable Native Agent signer evidence carried beside Realm deltas.
+    /// Independently verifiable Native Agent signer evidence delivered by
+    /// the account stream, never by Event federation.
     #[serde(default)]
     pub agent_signer_evidence: Vec<crate::agent_signer_evidence::AgentSignerEvidence>,
     /// Partial response flag
@@ -865,6 +866,7 @@ mod tests {
     fn timeline_order_key_uses_causal_depth_then_hlc_actor_sequence_and_event() {
         let realm_id =
             RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
+        let principal_server = actor("did:webvh:z6mkfixture:principal.example");
         let actor = actor("did:webvh:z6mkfixture:alice.example");
         let mut newer_hlc = test_support::raw_event(
             "ak.message.create",
@@ -872,6 +874,7 @@ mod tests {
                 realm_id: realm_id.clone(),
             },
             actor.clone(),
+            principal_server.clone(),
             2,
             Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"newer"}),
@@ -883,6 +886,7 @@ mod tests {
             "ak.message.create",
             ScopeRef::Realm { realm_id },
             actor,
+            principal_server,
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"deeper"}),
@@ -939,6 +943,7 @@ mod tests {
                 realm_id: realm_id.clone(),
             },
             actor("did:webvh:z6mkfixture:alice.example"),
+            actor("did:webvh:z6mkfixture:principal.example"),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"hello"}),

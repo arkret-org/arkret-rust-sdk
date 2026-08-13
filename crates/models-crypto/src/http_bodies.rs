@@ -6,11 +6,10 @@
 
 use std::collections::BTreeSet;
 
-use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidFullId, DidUrl, EventId,
-    FederatedDeviceSigningKeyEvidence, Hash, KeyPackageRef, NonEmptyString, RealmId,
-    ServiceOperationId, StrandId, TypedTrustDomainId, project_full_id_to_core_id,
+    Base64UrlString, DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, KeyPackageRef,
+    NonEmptyString, RealmId, ServiceOperationId, StrandId, TypedTrustDomainId,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -530,14 +529,6 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort_allowed: Option<bool>,
     pub requester_authorization: PeerKeyPackageRequesterAuthorization,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Option<serde_json::Value>))
-    )]
-    pub requester_signing_key_evidence: Option<FederatedDeviceSigningKeyEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requester_agent_signer_evidence: Option<CurrentAgentSignerEvidence>,
 }
 
 impl PeerKeyPackagesClaimRequestBody {
@@ -575,35 +566,10 @@ impl PeerKeyPackagesClaimRequestBody {
                 signature,
                 ..
             } => {
-                if signature.kid.as_str() != verification_method.as_str()
-                    || self.requester_agent_signer_evidence.is_some()
-                {
+                if signature.kid.as_str() != verification_method.as_str() {
                     return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
                 }
-                if let Some(evidence) = &self.requester_signing_key_evidence {
-                    evidence
-                        .validate_shape()
-                        .map_err(|_| PeerKeyPackageClaimShapeError::SignerEvidenceMismatch)?;
-                    if evidence.actor_id.as_str() != self.requester.as_str()
-                        || &evidence.device_id != requester_device_id
-                        || evidence.verification_method != verification_method.as_str()
-                        || evidence
-                            .current_device_projection
-                            .device_record
-                            .device_authorize_event_id
-                            .as_ref()
-                            .is_none_or(|event_id| {
-                                event_id.as_str() != device_authorize_event_id.as_str()
-                            })
-                    {
-                        return Err(PeerKeyPackageClaimShapeError::SignerEvidenceMismatch);
-                    }
-                }
-                if self.claim_purpose == PeerKeyPackageClaimPurpose::DirectConversationRepair
-                    && self.requester_signing_key_evidence.is_none()
-                {
-                    return Err(PeerKeyPackageClaimShapeError::SignerEvidenceMismatch);
-                }
+                let _ = (requester_device_id, device_authorize_event_id);
             }
             PeerKeyPackageRequesterAuthorization::NativeAgent {
                 verification_method,
@@ -614,28 +580,10 @@ impl PeerKeyPackagesClaimRequestBody {
             } => {
                 if signature.kid.as_str() != verification_method.as_str()
                     || requester_agent_id != &self.requester
-                    || self.requester_signing_key_evidence.is_some()
                 {
                     return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
                 }
-                if let Some(evidence) = &self.requester_agent_signer_evidence {
-                    let binding = &evidence
-                        .admission_evidence
-                        .agent_authority_snapshot
-                        .core
-                        .signing_key_binding;
-                    if binding.core.agent_id.as_str() != requester_agent_id.as_str()
-                        || &binding.core.verification_method != verification_method
-                        || &binding.agent_key_authorize_event_id != agent_key_authorize_event_id
-                    {
-                        return Err(PeerKeyPackageClaimShapeError::SignerEvidenceMismatch);
-                    }
-                }
-                if self.claim_purpose == PeerKeyPackageClaimPurpose::DirectConversationRepair
-                    && self.requester_agent_signer_evidence.is_none()
-                {
-                    return Err(PeerKeyPackageClaimShapeError::SignerEvidenceMismatch);
-                }
+                let _ = agent_key_authorize_event_id;
             }
         }
         Ok(())
@@ -880,49 +828,28 @@ pub enum PeerKeyPackageClaimShapeError {
 
 fn validate_target_claim_evidence(
     claim: &KeyPackageClaimRecord,
-    receipt: &PeerKeyPackageClaimReceipt,
+    _receipt: &PeerKeyPackageClaimReceipt,
 ) -> Result<(), PeerKeyPackageClaimShapeError> {
     match (
         &claim.device_authorize_event_id,
-        &claim.target_device_signing_key_evidence,
         &claim.agent_key_authorize_event_id,
-        &claim.target_agent_signer_evidence,
     ) {
-        (Some(authorize_event_id), Some(evidence), None, None) => {
-            evidence
-                .validate_shape()
-                .map_err(|_| PeerKeyPackageClaimShapeError::TargetSignerEvidenceMismatch)?;
-            if evidence.actor_id.as_str() != claim.principal_id.as_str()
-                || claim.device_id.as_ref() != Some(&evidence.device_id)
+        (Some(_), None) => {
+            if claim.device_id.is_none()
                 || claim.agent_id.is_some()
                 || claim.agent_verification_method.is_some()
-                || evidence.verification_method.as_str() != claim.device_signature.kid.as_str()
-                || evidence
-                    .current_device_projection
-                    .device_record
-                    .device_authorize_event_id
-                    .as_ref()
-                    .is_none_or(|event_id| event_id.as_str() != authorize_event_id.as_str())
             {
                 return Err(PeerKeyPackageClaimShapeError::TargetSignerEvidenceMismatch);
             }
         }
-        (None, None, Some(authorize_event_id), Some(evidence)) => {
-            let snapshot = &evidence.admission_evidence.agent_authority_snapshot;
-            let binding = &snapshot.core.signing_key_binding;
-            let observation = &evidence.current_observation;
-            if binding.core.agent_id.as_str() != claim.principal_id.as_str()
-                || claim.agent_id.as_ref().map(DidCoreId::as_core_id)
-                    != Some(claim.principal_id.as_core_id())
+        (None, Some(_)) => {
+            if claim.agent_id.as_ref().map(DidCoreId::as_core_id)
+                != Some(claim.principal_id.as_core_id())
                 || claim.device_id.is_some()
-                || claim.agent_verification_method.as_ref()
-                    != Some(&binding.core.verification_method)
-                || binding.core.verification_method.as_str() != claim.device_signature.kid.as_str()
-                || &binding.agent_key_authorize_event_id != authorize_event_id
-                || observation.request_digest != receipt.request_digest
-                || observation.verifier_id.as_str() != receipt.request.requester.as_str()
-                || observation.audience.as_str() != receipt.source_service_id.as_str()
-                || observation.challenge.as_str() != receipt.claim_request_id.as_str()
+                || claim
+                    .agent_verification_method
+                    .as_ref()
+                    .is_none_or(|method| method.as_str() != claim.device_signature.kid.as_str())
             {
                 return Err(PeerKeyPackageClaimShapeError::TargetSignerEvidenceMismatch);
             }
@@ -1121,7 +1048,6 @@ pub enum RecipientMlsDurableSigner {
         recipient_agent_id: DidCoreId,
         recipient_agent_verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
-        recipient_agent_signer_evidence: CurrentAgentSignerEvidence,
     },
 }
 
@@ -1142,8 +1068,6 @@ struct RecipientMlsDurableReceiptWire {
     recipient_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     agent_key_authorize_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    recipient_agent_signer_evidence: Option<CurrentAgentSignerEvidence>,
     recipient_service_id: DidCoreId,
     realm_id: RealmId,
     mls_group_id: NonEmptyString,
@@ -1166,7 +1090,6 @@ impl Serialize for RecipientMlsDurableReceipt {
             recipient_agent_id,
             recipient_agent_verification_method,
             agent_key_authorize_event_id,
-            recipient_agent_signer_evidence,
         ) = match &self.recipient {
             RecipientMlsDurableSigner::Device {
                 recipient_device_id,
@@ -1177,20 +1100,17 @@ impl Serialize for RecipientMlsDurableReceipt {
                 None,
                 None,
                 None,
-                None,
             ),
             RecipientMlsDurableSigner::NativeAgent {
                 recipient_agent_id,
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
-                recipient_agent_signer_evidence,
             } => (
                 None,
                 None,
                 Some(recipient_agent_id.clone()),
                 Some(recipient_agent_verification_method.clone()),
                 Some(agent_key_authorize_event_id.clone()),
-                Some(recipient_agent_signer_evidence.clone()),
             ),
         };
         RecipientMlsDurableReceiptWire {
@@ -1203,7 +1123,6 @@ impl Serialize for RecipientMlsDurableReceipt {
             recipient_agent_id,
             recipient_agent_verification_method,
             agent_key_authorize_event_id,
-            recipient_agent_signer_evidence,
             recipient_service_id: self.recipient_service_id.clone(),
             realm_id: self.realm_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
@@ -1229,20 +1148,18 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
             wire.recipient_agent_id,
             wire.recipient_agent_verification_method,
             wire.agent_key_authorize_event_id,
-            wire.recipient_agent_signer_evidence,
         ) {
-            (Some(device_id), Some(method), None, None, None, None) => {
+            (Some(device_id), Some(method), None, None, None) => {
                 RecipientMlsDurableSigner::Device {
                     recipient_device_id: device_id,
                     device_verification_method: method,
                 }
             }
-            (None, None, Some(agent_id), Some(method), Some(event_id), Some(evidence)) => {
+            (None, None, Some(agent_id), Some(method), Some(event_id)) => {
                 RecipientMlsDurableSigner::NativeAgent {
                     recipient_agent_id: agent_id,
                     recipient_agent_verification_method: method,
                     agent_key_authorize_event_id: event_id,
-                    recipient_agent_signer_evidence: evidence,
                 }
             }
             _ => {
@@ -1293,21 +1210,13 @@ impl RecipientMlsDurableReceipt {
                 recipient_agent_id,
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
-                recipient_agent_signer_evidence,
             } => {
-                let binding = &recipient_agent_signer_evidence
-                    .admission_evidence
-                    .agent_authority_snapshot
-                    .core
-                    .signing_key_binding;
                 if recipient_agent_id.as_core_id() != self.recipient_principal_id.as_core_id()
-                    || binding.core.agent_id.as_str() != recipient_agent_id.as_str()
-                    || binding.core.verification_method != *recipient_agent_verification_method
-                    || binding.agent_key_authorize_event_id != *agent_key_authorize_event_id
                     || self.signature.kid.as_str() != recipient_agent_verification_method.as_str()
                 {
-                    return Err("recipient Native Agent durable receipt evidence mismatch");
+                    return Err("recipient Native Agent durable receipt binding mismatch");
                 }
+                let _ = agent_key_authorize_event_id;
             }
         }
         Ok(())

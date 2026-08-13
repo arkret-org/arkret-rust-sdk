@@ -83,7 +83,7 @@ fn build_realm_authority_event<K: EventSpec>(
     hlc: Hlc,
     payload: K::Payload,
 ) -> Result<Event> {
-    TypedEventDraft::<K>::new(scope_ref, actor_id, payload)
+    TypedEventDraft::<K>::new(scope_ref, actor_id.clone(), actor_id, payload)
         .map_err(|error| Error::Protocol(error.to_string()))?
         .with_authorization_ref(
             AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
@@ -470,6 +470,7 @@ mod tests {
                 realm_id: RealmId::new(REALM).unwrap(),
             },
             DidCoreId::new(ACTOR).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             payload,

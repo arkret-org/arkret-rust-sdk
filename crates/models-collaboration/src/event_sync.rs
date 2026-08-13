@@ -6,16 +6,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
+#[cfg(test)]
+use arkret_wire::SchemaId;
 use arkret_wire::{
     CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    DidCoreId, Error, Event, EventFederationSubmission, EventId, FederatedDeviceSigningKeyEvidence,
-    Hash, Hlc, RealmId, Result, SchemaId, Seal, SealBasis, SealId,
+    DidCoreId, Error, Event, EventFederationSubmission, EventId, Hash, Hlc, RealmId, Result, Seal,
+    SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::agent_signer_evidence::{AgentSignerEvidence, AgentSignerEvidenceBundle};
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
@@ -718,7 +718,6 @@ pub struct FederationServiceBindingRef {
 // module (re-exported here for the historic flat path).
 pub use crate::http_bodies::EventsSubmitBatchRequestBody;
 
-pub const MAX_FEDERATED_EVENT_SIGNER_EVIDENCE: usize = 64;
 pub const MAX_FEDERATED_EVENTS: usize = 500;
 
 /// Round 4 — federation `/events/submit` request. Used when a remote
@@ -743,12 +742,6 @@ pub struct EventsSubmitFederationBatchRequestBody {
     /// Seal only after its covered Control Events are accepted.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub signer_key_evidence: Vec<FederatedDeviceSigningKeyEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub agent_signer_evidence_bundle: Option<AgentSignerEvidenceBundle>,
 }
 
 impl EventsSubmitFederationBatchRequestBody {
@@ -792,7 +785,7 @@ impl EventsSubmitFederationBatchRequestBody {
             .iter()
             .map(|submission| submission.event.clone())
             .collect::<Vec<_>>();
-        let submit_context = arkret_wire::classify_event_submit_context(&events)?;
+        let submit_context = arkret_wire::classify_federated_event_submit_context(&events)?;
         if submit_context == arkret_wire::EventSubmitContext::AnchorUnit {
             let leases = self
                 .events
@@ -1024,75 +1017,6 @@ impl EventsSubmitFederationBatchRequestBody {
             ));
         }
 
-        if self.signer_key_evidence.len() > MAX_FEDERATED_EVENT_SIGNER_EVIDENCE {
-            return Err(Error::Protocol(
-                "federation signer_key_evidence exceeds the v1 limit".to_owned(),
-            ));
-        }
-        for evidence in &self.signer_key_evidence {
-            evidence.validate_shape()?;
-            if !self
-                .transported_events()
-                .any(|event| evidence.matches_event_proof(event, &evidence.verification_method))
-            {
-                return Err(Error::Protocol(
-                    "federation signer evidence does not match a transported Event proof"
-                        .to_owned(),
-                ));
-            }
-        }
-        if let Some(bundle) = &self.agent_signer_evidence_bundle {
-            if bundle.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1
-                || bundle.evidence.len() > 256
-            {
-                return Err(Error::Protocol(
-                    "federation agent_signer_evidence_bundle is invalid".to_owned(),
-                ));
-            }
-            for evidence in &bundle.evidence {
-                let AgentSignerEvidence::HistoricalEvent {
-                    admission_evidence,
-                    event_admission_receipt,
-                    ..
-                } = evidence
-                else {
-                    return Err(Error::Protocol(
-                        "federation Event transport requires historical Agent signer evidence"
-                            .to_owned(),
-                    ));
-                };
-                let binding = &admission_evidence
-                    .agent_authority_snapshot
-                    .core
-                    .signing_key_binding;
-                let binding_actor_id = binding.agent_id.clone();
-                let matches_event = self.transported_events().any(|event| {
-                    if event.applet_id.is_some() {
-                        return false;
-                    }
-                    let signer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
-                    if signer != &binding_actor_id
-                        || !event.proofs.iter().any(|proof| {
-                            proof.verification_method == binding.verification_method.as_str()
-                        })
-                    {
-                        return false;
-                    }
-                    event_admission_receipt.event_id == event.event_id
-                        && event_admission_receipt.agent_id == binding.agent_id
-                        && event_admission_receipt.verification_method
-                            == binding.verification_method
-                        && event_admission_receipt.agent_key_authorize_event_id
-                            == binding.agent_key_authorize_event_id
-                });
-                if !matches_event {
-                    return Err(Error::Protocol(
-                        "federation Agent signer evidence does not match a transported Event proof and admission receipt"
-                            .to_owned(),
-                    ));
-                }
-            }
-        }
         Ok(())
     }
 }
@@ -1119,8 +1043,9 @@ mod tests {
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
         AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, ControlProposalAckKind,
-        DeviceId, DidUrl, Hash, IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof,
-        PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealKind,
+        DeviceId, DidKey, DidUrl, EventProof, Hash, IngressReceipt, LeaseBasisRef, NotarySig,
+        PayloadProof, PayloadSignature, PrincipalServerAdmissionProof,
+        PrincipalServerAdmissionProofKind, ReceiptId, RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
 
@@ -1188,6 +1113,7 @@ mod tests {
                 "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
             },
             "actor_id": "ak:did_core:web:alice.example",
+            "principal_server_id": "ak:did_core:web:ps.example",
             "actor_seq": 1,
             "created_at": "2026-07-21T08:00:00.000Z",
             "hlc": "01970e589d21-0001-a13f9c2e",
@@ -1230,8 +1156,26 @@ mod tests {
     /// Wrap a transported Event in the publication evidence the federation rail
     /// now requires: the basis-bound lease that authorized it and the ingress
     /// receipt that recorded its first publication inside the lease window.
-    fn federation_submission(event: Event) -> EventFederationSubmission {
+    fn federation_submission(mut event: Event) -> EventFederationSubmission {
         let issued_at: DateTime<Utc> = "2026-07-21T08:00:00.000Z".parse().unwrap();
+        let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        event.proofs[0].as_producer_mut().unwrap().event_digest = event_digest;
+        let producer = event.proofs[0].as_producer().unwrap().clone();
+        event.proofs.push(EventProof::PrincipalServerAdmission(
+            PrincipalServerAdmissionProof {
+                kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+                verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
+                event_digest: producer.event_digest.clone(),
+                producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(
+                    &producer,
+                )
+                .unwrap(),
+                producer_verification_method: producer.verification_method.clone(),
+                producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                accepted_at: issued_at,
+                jws: "admission..signature".to_owned(),
+            },
+        ));
         let authority_set_policy = AuthoritySetPolicy {
             schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
@@ -1414,8 +1358,6 @@ mod tests {
             },
             events: events.into_iter().map(federation_submission).collect(),
             cba_proof_bundles: Vec::new(),
-            signer_key_evidence: Vec::new(),
-            agent_signer_evidence_bundle: None,
         }
     }
 

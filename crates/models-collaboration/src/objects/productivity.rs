@@ -19,7 +19,6 @@ use crate::events_payloads::{
     private_view_account_data_key_view_id,
 };
 
-pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ak.profile.disappearing_messages.v1";
 pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ak.file_transfer.key.v1";
 
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
@@ -807,35 +806,6 @@ pub fn validate_canonical_occurrence_key(occurrence: &str) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ExpiryTrigger {
-    OnSend,
-    OnFirstRead,
-    OnLastRead,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MessageExpiry {
-    pub ttl_ms: u64,
-    pub trigger: ExpiryTrigger,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub grace_ms: Option<u64>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DisappearingPolicy {
-    pub enabled: bool,
-    pub max_ttl_ms: u64,
-    pub allowed_triggers: Vec<ExpiryTrigger>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_grace_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub plaintext_realms_allowed: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

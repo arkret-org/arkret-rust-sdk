@@ -90,7 +90,7 @@ fn hash_value(
 }
 
 fn range_leaf_event_digest(event: &Event) -> Result<Hash, RangeCompletenessError> {
-    let Some(first_proof) = event.proofs.first() else {
+    let Some(first_proof) = event.proofs.iter().find_map(|proof| proof.as_producer()) else {
         return Err(RangeCompletenessError::SchemaViolation(
             "range Event has no proof".to_owned(),
         ));
@@ -125,6 +125,7 @@ fn range_leaf_event_digest(event: &Event) -> Result<Hash, RangeCompletenessError
     if event
         .proofs
         .iter()
+        .filter_map(|proof| proof.as_producer())
         .any(|proof| proof.event_digest != calculated)
     {
         return Err(RangeCompletenessError::SchemaViolation(
@@ -495,6 +496,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
         || attestation_event
             .proofs
             .iter()
+            .filter_map(|proof| proof.as_producer())
             .any(|proof| proof.event_digest.as_str() != event_digest)
     {
         return Err(RangeCompletenessError::SchemaViolation(
@@ -568,7 +570,8 @@ mod tests {
             kind: EventKind::from(kind),
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: actor,
+            actor_id: actor.clone(),
+            principal_server_id: actor,
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -591,16 +594,19 @@ mod tests {
             requirements: EventRequirements::default(),
         };
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
-        event.proofs.push(Proof {
-            kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new(format!("{actor_full}#device")).unwrap(),
-            event_digest: digest,
-            created_at: event.created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "header..signature".to_owned(),
-        });
+        event.proofs.push(
+            Proof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(format!("{actor_full}#device")).unwrap(),
+                event_digest: digest,
+                created_at: event.created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "header..signature".to_owned(),
+            }
+            .into(),
+        );
         event
     }
 
@@ -677,7 +683,8 @@ mod tests {
             kind: EventKind::AttestationRangeCompleteness,
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: issuer,
+            actor_id: issuer.clone(),
+            principal_server_id: issuer,
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -699,16 +706,19 @@ mod tests {
             proofs: Vec::new(),
             requirements: EventRequirements::default(),
         };
-        event.proofs.push(Proof {
-            kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
-            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
-            created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "header..signature".to_owned(),
-        });
+        event.proofs.push(
+            Proof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
+                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "header..signature".to_owned(),
+            }
+            .into(),
+        );
         event
     }
 
@@ -778,7 +788,8 @@ mod tests {
             .unwrap()[0]["payload_digest"] = json!(arkret_canonical::sha256_digest(
             tampered_payload.proof_payload_bytes().unwrap()
         ));
-        tampered.proofs[0].event_digest = Hash::new(tampered.event_digest().unwrap()).unwrap();
+        tampered.proofs[0].as_producer_mut().unwrap().event_digest =
+            Hash::new(tampered.event_digest().unwrap()).unwrap();
         assert_eq!(
             verify_full_realm_range_completeness(
                 &tampered,
@@ -856,7 +867,8 @@ mod tests {
             .unwrap()[0]["payload_digest"] = json!(arkret_canonical::sha256_digest(
             tampered_payload.proof_payload_bytes().unwrap()
         ));
-        proof.proofs[0].event_digest = Hash::new(proof.event_digest().unwrap()).unwrap();
+        proof.proofs[0].as_producer_mut().unwrap().event_digest =
+            Hash::new(proof.event_digest().unwrap()).unwrap();
         assert_eq!(
             verify_full_realm_range_completeness(
                 &proof,
@@ -877,7 +889,8 @@ mod tests {
             "ak.key_backup.active_series",
             Vec::new(),
         );
-        active.proofs[0].event_digest = Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap();
+        active.proofs[0].as_producer_mut().unwrap().event_digest =
+            Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap();
         assert!(matches!(
             range_completeness_root(&[active]),
             Err(RangeCompletenessError::SchemaViolation(_))

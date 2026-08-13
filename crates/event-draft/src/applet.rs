@@ -95,6 +95,7 @@ impl AppletBridgeErrorBuilder {
             ScopeRef::Realm {
                 realm_id: self.realm_id,
             },
+            self.actor_id.clone(),
             self.actor_id,
             payload,
         )?

@@ -25,6 +25,7 @@ fn typed_authoring_is_byte_compatible_with_the_legacy_canonical_chain() {
     let typed = TypedEventDraft::<event_spec::MessageCreate>::new(
         scope.clone(),
         actor.clone(),
+        actor.clone(),
         payload.clone(),
     )
     .unwrap()
@@ -33,6 +34,7 @@ fn typed_authoring_is_byte_compatible_with_the_legacy_canonical_chain() {
     let legacy = arkret_wire::test_support::raw_event_at(
         EventKind::MessageCreate.as_str(),
         scope,
+        actor.clone(),
         actor,
         7,
         hlc,

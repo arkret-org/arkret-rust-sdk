@@ -412,6 +412,7 @@ mod presence_tests {
                 &DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             )
             .unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::to_value(&payload).unwrap(),

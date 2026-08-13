@@ -67,7 +67,7 @@ pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_authority_instance: Option<arkret_wire::PrincipalAuthorityInstance>,
+    pub principal_authority: Option<arkret_wire::PrincipalAuthorityKey>,
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_status: Option<DeliveryStatus>,
@@ -115,7 +115,7 @@ impl MembershipPayload {
             strand_id: None,
             realm_id: None,
             actor_id: Some(actor_id),
-            principal_authority_instance: None,
+            principal_authority: None,
             delivery_status: None,
             delivery_binding: None,
             gate_proofs: Vec::new(),
@@ -138,7 +138,7 @@ impl MembershipPayload {
             strand_id: None,
             realm_id: Some(realm_id),
             actor_id: Some(actor_id),
-            principal_authority_instance: None,
+            principal_authority: None,
             delivery_status: Some(delivery_status),
             delivery_binding: None,
             gate_proofs: Vec::new(),
@@ -162,11 +162,11 @@ impl MembershipPayload {
     /// instance. Admission decides whether the actor is human and therefore
     /// requires this field; this wire builder only enforces exact identity
     /// binding when it is present.
-    pub fn with_principal_authority_instance(
+    pub fn with_principal_authority(
         mut self,
-        authority_instance: arkret_wire::PrincipalAuthorityInstance,
+        authority: arkret_wire::PrincipalAuthorityKey,
     ) -> Self {
-        self.principal_authority_instance = Some(authority_instance);
+        self.principal_authority = Some(authority);
         self
     }
 
@@ -177,11 +177,10 @@ impl MembershipPayload {
 
     /// Validate the schema-level conditional required fields, then serialize.
     pub fn to_value(&self) -> Result<Value> {
-        if let Some(authority_instance) = &self.principal_authority_instance {
-            authority_instance.validate()?;
-            if self.actor_id.as_ref() != Some(&authority_instance.principal_id) {
+        if let Some(authority) = &self.principal_authority {
+            if self.actor_id.as_ref() != Some(&authority.principal_id) {
                 return Err(Error::Protocol(
-                    "membership principal_authority_instance does not bind actor_id".to_owned(),
+                    "membership principal_authority does not bind actor_id".to_owned(),
                 ));
             }
         }

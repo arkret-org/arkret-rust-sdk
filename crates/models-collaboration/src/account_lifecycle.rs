@@ -996,6 +996,7 @@ mod account_update_profile_request_tests {
             kind,
             arkret_wire::ScopeRef::Realm { realm_id: pcr() },
             actor(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             payload,
@@ -1007,17 +1008,20 @@ mod account_update_profile_request_tests {
         });
         event.refresh_content_bound_identity().unwrap();
         let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
-        event.proofs = vec![Proof {
-            kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:fixture.example#device-1")
-                .unwrap(),
-            event_digest,
-            created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "a..b".to_owned(),
-        }];
+        event.proofs = vec![
+            Proof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:fixture.example#device-1")
+                    .unwrap(),
+                event_digest,
+                created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "a..b".to_owned(),
+            }
+            .into(),
+        ];
         event
     }
 

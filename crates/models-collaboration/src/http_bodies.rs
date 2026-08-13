@@ -1195,6 +1195,7 @@ mod mimi_consent_tests {
                             .unwrap(),
                     )
                     .unwrap(),
+                    principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                     executed_by: None,
                     authorization_ref: None,
                     applet_id: None,
@@ -2416,6 +2417,7 @@ mod device_pairing_tests {
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
             actor_id: principal_id.clone(),
+            principal_server_id: principal_id.clone(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -2445,20 +2447,23 @@ mod device_pairing_tests {
                 .collect(),
             redacts: None,
             unsigned: BTreeMap::new(),
-            proofs: vec![Proof {
-                kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(format!(
-                    "{}#{}",
-                    principal_full_id, authorizing_device
-                ))
-                .unwrap(),
-                event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-                created_at,
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "a..b".to_owned(),
-            }],
+            proofs: vec![
+                Proof {
+                    kind: proof_kind::DETACHED_JWS.to_owned(),
+                    verification_method: DidUrl::new(format!(
+                        "{}#{}",
+                        principal_full_id, authorizing_device
+                    ))
+                    .unwrap(),
+                    event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+                    created_at,
+                    domain: None,
+                    audience: None,
+                    proof_purpose: None,
+                    jws: "a..b".to_owned(),
+                }
+                .into(),
+            ],
             requirements: EventRequirements::default(),
         };
         let request = AccountDevicePairRequestBody {

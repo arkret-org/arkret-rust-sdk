@@ -304,7 +304,6 @@ impl ProfileValidator {
     pub fn permitted_roles(service_kind: ServiceKind) -> Vec<ProfileRole> {
         let mut roles = match service_kind {
             ServiceKind::PrincipalServer
-            | ServiceKind::SyncNode
             | ServiceKind::AuthServer
             | ServiceKind::AppletService
             | ServiceKind::AgentRuntime
@@ -535,7 +534,6 @@ mod tests {
             ServiceKind::SfuService,
             ServiceKind::TurnService,
             ServiceKind::ModerationService,
-            ServiceKind::SyncNode,
         ] {
             let roles = ProfileValidator::permitted_roles(service);
             assert!(roles.contains(&ProfileRole::Interop));

@@ -10,6 +10,8 @@ pub struct AuthzContext {
     pub now: DateTime<Utc>,
     /// Actor making the request
     pub actor_id: DidCoreId,
+    /// Principal Server of the requesting actor's account authority.
+    pub principal_server_id: DidCoreId,
     /// Realm context.
     pub realm_id: Option<RealmId>,
     /// Operation being performed
@@ -125,10 +127,16 @@ pub struct AuthzCacheFrontier {
 
 impl AuthzContext {
     /// Create a new authorization context.
-    pub fn new(actor_id: DidCoreId, action: String, resource: Resource) -> Self {
+    pub fn new(
+        actor_id: DidCoreId,
+        principal_server_id: DidCoreId,
+        action: String,
+        resource: Resource,
+    ) -> Self {
         Self {
             now: Utc::now(),
             actor_id,
+            principal_server_id,
             realm_id: None,
             action,
             resource,
@@ -503,6 +511,7 @@ impl AuthzEngine {
         grant
             .subject_did()
             .is_some_and(|subject| *subject == ctx.actor_id)
+            && grant.subject_principal_server_id.as_ref() == Some(&ctx.principal_server_id)
     }
 
     /// Check if a grant is currently usable.
@@ -1534,8 +1543,9 @@ mod engine_wire_tests {
             schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),
+            issuer_principal_server_id: alice(),
             subject: CapabilitySubject::CoreDid(bob()),
-            subject_authority_instance: None,
+            subject_principal_server_id: Some(alice()),
             actions: vec!["ak.message.create".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             capability_action_registry_digest: None,
@@ -1564,6 +1574,7 @@ mod engine_wire_tests {
     fn ctx() -> AuthzContext {
         AuthzContext::new(
             bob(),
+            alice(),
             "ak.message.create".to_owned(),
             Resource::Realm {
                 realm_id: "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI".to_owned(),

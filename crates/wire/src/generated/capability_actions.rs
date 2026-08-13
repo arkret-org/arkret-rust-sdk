@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/capability-action-registry.json; version=2026-08-13.3;
-//! sha256=839e3f0e9fe2c7e862d114c0a0edadb687e38530a2b4acb7fa1ec52302dead64 Entries: registered=171
+//! sha256=9dc725e98ccfdcbc6ac247018ff091656dcc230b5b6f90b6e44f755e10184724 Entries: registered=170
 
 use serde::{Deserialize, Serialize};
 
@@ -111,7 +111,6 @@ pub enum CapabilityActionId {
     RealmAuthorityReset,
     RealmCreate,
     RealmDestroy,
-    RealmDisappearingPolicy,
     RealmDiscover,
     RealmFreeze,
     RealmJoinReview,
@@ -286,7 +285,6 @@ impl CapabilityActionId {
         Self::RealmAuthorityReset,
         Self::RealmCreate,
         Self::RealmDestroy,
-        Self::RealmDisappearingPolicy,
         Self::RealmDiscover,
         Self::RealmFreeze,
         Self::RealmJoinReview,
@@ -459,7 +457,6 @@ impl CapabilityActionId {
     pub const REALM_AUTHORITY_RESET: &'static str = "ak.realm.authority.reset";
     pub const REALM_CREATE: &'static str = "ak.realm.create";
     pub const REALM_DESTROY: &'static str = "ak.realm.destroy";
-    pub const REALM_DISAPPEARING_POLICY: &'static str = "ak.realm.disappearing_policy";
     pub const REALM_DISCOVER: &'static str = "ak.realm.discover";
     pub const REALM_FREEZE: &'static str = "ak.realm.freeze";
     pub const REALM_JOIN_REVIEW: &'static str = "ak.realm.join.review";
@@ -641,7 +638,6 @@ impl CapabilityActionId {
             Self::RealmAuthorityReset => Self::REALM_AUTHORITY_RESET,
             Self::RealmCreate => Self::REALM_CREATE,
             Self::RealmDestroy => Self::REALM_DESTROY,
-            Self::RealmDisappearingPolicy => Self::REALM_DISAPPEARING_POLICY,
             Self::RealmDiscover => Self::REALM_DISCOVER,
             Self::RealmFreeze => Self::REALM_FREEZE,
             Self::RealmJoinReview => Self::REALM_JOIN_REVIEW,
@@ -823,7 +819,6 @@ impl CapabilityActionId {
             Self::REALM_AUTHORITY_RESET => Some(Self::RealmAuthorityReset),
             Self::REALM_CREATE => Some(Self::RealmCreate),
             Self::REALM_DESTROY => Some(Self::RealmDestroy),
-            Self::REALM_DISAPPEARING_POLICY => Some(Self::RealmDisappearingPolicy),
             Self::REALM_DISCOVER => Some(Self::RealmDiscover),
             Self::REALM_FREEZE => Some(Self::RealmFreeze),
             Self::REALM_JOIN_REVIEW => Some(Self::RealmJoinReview),

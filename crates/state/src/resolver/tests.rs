@@ -50,6 +50,7 @@ fn event(kind: EventKind, seq: u64, content: Value) -> Event {
         realm_id: realm_id(),
         scope_ref: scope_ref(),
         actor_id: actor_id(),
+        principal_server_id: actor_id(),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
         hlc: Some(Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap()),
@@ -660,6 +661,7 @@ fn strand_events_create_update_and_default_view_relation() {
         EventKind::StrandCreate.as_str(),
         scope_ref(),
         actor_id(),
+        actor_id(),
         1,
         Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         json!({
@@ -685,6 +687,7 @@ fn strand_events_create_update_and_default_view_relation() {
         EventKind::StrandUpdate.as_str(),
         scope_ref(),
         actor_id(),
+        actor_id(),
         2,
         Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
         json!({
@@ -702,6 +705,7 @@ fn strand_events_create_update_and_default_view_relation() {
     let mut relation = arkret_wire::test_support::raw_event(
         EventKind::RelationCreate.as_str(),
         scope_ref(),
+        actor_id(),
         actor_id(),
         3,
         Hlc::new("01970e589d21-0003-a13f9c2e").unwrap(),

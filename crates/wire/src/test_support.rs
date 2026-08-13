@@ -53,11 +53,20 @@ pub fn raw_event(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
+    principal_server_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: Value,
 ) -> Result<Event> {
-    Event::new(kind, scope_ref, actor_id, actor_seq, hlc, payload)
+    Event::new(
+        kind,
+        scope_ref,
+        actor_id,
+        principal_server_id,
+        actor_seq,
+        hlc,
+        payload,
+    )
 }
 
 #[doc(hidden)]
@@ -66,13 +75,21 @@ pub fn raw_event_at(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
+    principal_server_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: Value,
     created_at: DateTime<Utc>,
 ) -> Result<Event> {
     Event::new_at(
-        kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
+        kind,
+        scope_ref,
+        actor_id,
+        principal_server_id,
+        actor_seq,
+        hlc,
+        payload,
+        created_at,
     )
 }
 

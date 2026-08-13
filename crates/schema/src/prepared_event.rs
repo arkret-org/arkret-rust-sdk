@@ -196,6 +196,7 @@ mod tests {
                     .unwrap(),
             },
             actor.clone(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             0,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             json!({
@@ -212,20 +213,25 @@ mod tests {
             key_epoch: 0,
             credential_epoch: None,
         });
-        event.proofs.push(Proof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:agent.example#agent-device")
+        event.proofs.push(
+            Proof {
+                kind: "detached_jws".to_owned(),
+                verification_method: DidUrl::new(
+                    "did:webvh:z6mkfixture:agent.example#agent-device",
+                )
                 .unwrap(),
-            event_digest: Hash::new(
-                "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-            )
-            .unwrap(),
-            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "header.payload.signature".to_owned(),
-        });
+                event_digest: Hash::new(
+                    "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                )
+                .unwrap(),
+                created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "header.payload.signature".to_owned(),
+            }
+            .into(),
+        );
         event
     }
 

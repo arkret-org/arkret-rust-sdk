@@ -1054,6 +1054,7 @@ mod tests {
             "ak.member.state",
             ScopeRef::Realm { realm_id: realm() },
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps".to_owned()).unwrap(),
             actor_seq,
             Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             json!({"state": "join"}),
@@ -1064,16 +1065,19 @@ mod tests {
         event.refs = refs;
         event.seal_basis = Some(basis);
         event.refresh_content_bound_identity().unwrap();
-        event.proofs.push(Proof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
-            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
-            created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "AAAA.BBBB.CCCC".to_owned(),
-        });
+        event.proofs.push(
+            Proof {
+                kind: "detached_jws".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
+                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            }
+            .into(),
+        );
         event
     }
 
@@ -1172,6 +1176,7 @@ mod tests {
             "realm_id": realm(),
             "scope_ref": {"kind": "realm", "realm_id": realm()},
             "actor_id": actor_id,
+            "principal_server_id": "ak:did_core:web:principal.example",
             "actor_seq": actor_seq,
             "created_at": "2026-07-26T00:00:00.000Z",
             "prev_refs": [],
@@ -1523,7 +1528,8 @@ mod tests {
         };
         let mut event = control_move(0, placeholder_basis, Vec::new(), Vec::new());
         event.seal_basis = None;
-        event.proofs[0].event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        event.proofs[0].as_producer_mut().unwrap().event_digest =
+            Hash::new(event.event_digest().unwrap()).unwrap();
         let digest = control_event_digest(&event).unwrap();
         events.put_pending(&event).unwrap();
         let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
@@ -1585,7 +1591,8 @@ mod tests {
         };
         let mut create = control_move(0, placeholder_basis.clone(), Vec::new(), Vec::new());
         create.seal_basis = None;
-        create.proofs[0].event_digest = Hash::new(create.event_digest().unwrap()).unwrap();
+        create.proofs[0].as_producer_mut().unwrap().event_digest =
+            Hash::new(create.event_digest().unwrap()).unwrap();
         let create_digest = control_event_digest(&create).unwrap();
         events.put_pending(&create).unwrap();
 
@@ -1605,7 +1612,8 @@ mod tests {
                 predicate_id: None,
             },
         });
-        binding.proofs[0].event_digest = Hash::new(binding.event_digest().unwrap()).unwrap();
+        binding.proofs[0].as_producer_mut().unwrap().event_digest =
+            Hash::new(binding.event_digest().unwrap()).unwrap();
         let binding_digest = control_event_digest(&binding).unwrap();
         events.put_pending(&binding).unwrap();
 

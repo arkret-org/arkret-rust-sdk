@@ -924,7 +924,7 @@ fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Au
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct Proof {
+pub struct ProducerEventProof {
     pub kind: String,
     pub verification_method: DidUrl,
     pub event_digest: Hash,
@@ -938,6 +938,11 @@ pub struct Proof {
     pub proof_purpose: Option<PayloadProofPurpose>,
     pub jws: String,
 }
+
+/// Producer proof type retained as the concise public name used throughout
+/// signing code. Event envelopes use [`EventProof`] so an admission proof can
+/// never be mistaken for a producer proof.
+pub type Proof = ProducerEventProof;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1065,6 +1070,121 @@ impl PayloadProof {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum PrincipalServerAdmissionProofKind {
+    #[serde(rename = "principal_server_admission")]
+    PrincipalServerAdmission,
+}
+
+/// Origin Principal Server attestation over the exact producer proof it admitted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PrincipalServerAdmissionProof {
+    pub kind: PrincipalServerAdmissionProofKind,
+    pub verification_method: DidUrl,
+    pub event_digest: Hash,
+    pub producer_proof_digest: Hash,
+    pub producer_verification_method: DidUrl,
+    pub producer_signing_key: DidKey,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub jws: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(untagged)]
+pub enum EventProof {
+    Producer(ProducerEventProof),
+    PrincipalServerAdmission(PrincipalServerAdmissionProof),
+}
+
+impl EventProof {
+    pub fn as_producer(&self) -> Option<&ProducerEventProof> {
+        match self {
+            Self::Producer(proof) => Some(proof),
+            Self::PrincipalServerAdmission(_) => None,
+        }
+    }
+
+    pub fn as_producer_mut(&mut self) -> Option<&mut ProducerEventProof> {
+        match self {
+            Self::Producer(proof) => Some(proof),
+            Self::PrincipalServerAdmission(_) => None,
+        }
+    }
+
+    pub fn as_principal_server_admission(&self) -> Option<&PrincipalServerAdmissionProof> {
+        match self {
+            Self::Producer(_) => None,
+            Self::PrincipalServerAdmission(proof) => Some(proof),
+        }
+    }
+}
+
+impl From<ProducerEventProof> for EventProof {
+    fn from(value: ProducerEventProof) -> Self {
+        Self::Producer(value)
+    }
+}
+
+impl From<PrincipalServerAdmissionProof> for EventProof {
+    fn from(value: PrincipalServerAdmissionProof) -> Self {
+        Self::PrincipalServerAdmission(value)
+    }
+}
+
+pub const PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT: &str = "ak.principal-server-admission-proof-v1";
+
+impl PrincipalServerAdmissionProof {
+    pub fn producer_proof_digest(proof: &ProducerEventProof) -> Result<Hash> {
+        Hash::new(canonical::canonical_sha256(proof)?).map_err(Into::into)
+    }
+
+    pub fn validate_binding(
+        &self,
+        expected_event_digest: &Hash,
+        producer_proof: &ProducerEventProof,
+        expected_principal_server_id: &DidCoreId,
+    ) -> Result<()> {
+        let (controller, fragment) = self
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .ok_or_else(|| {
+                Error::Protocol("admission verification method has no fragment".to_owned())
+            })?;
+        let controller = DidFullId::new(controller.to_owned())?;
+        if fragment.is_empty()
+            || project_full_id_to_core_id(&controller)? != *expected_principal_server_id
+            || self.event_digest != *expected_event_digest
+            || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
+            || self.producer_verification_method != producer_proof.verification_method
+            || self.jws.is_empty()
+        {
+            return Err(Error::Protocol(
+                "principal server admission proof binding mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_binding_bytes(&self) -> Result<Vec<u8>> {
+        canonical::canonical_json_bytes(&serde_json::json!({
+            "context": PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT,
+            "verification_method": &self.verification_method,
+            "event_digest": &self.event_digest,
+            "producer_proof_digest": &self.producer_proof_digest,
+            "producer_verification_method": &self.producer_verification_method,
+            "producer_signing_key": &self.producer_signing_key,
+            "accepted_at": canonical::format_timestamp_canonical(self.accepted_at),
+        }))
+        .map_err(Into::into)
+    }
+}
+
 /// Fixed signing-context domain tag for Event proof bindings (`encoding.md`
 /// §2). Included in every [`Proof::binding_object`] so an Event proof
 /// signature is domain-separated from other proof families (receipts,
@@ -1122,7 +1242,7 @@ const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
 /// accept/reject result, not the HLC soft-fail layer.
 const PROOF_CREATED_AT_HARD_SKEW_MINUTES: i64 = 5;
 
-impl Proof {
+impl ProducerEventProof {
     /// Deserialize an inbound Proof after canonical JSON ingress checks
     /// (NFC strings, duplicate keys, number profile).
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {

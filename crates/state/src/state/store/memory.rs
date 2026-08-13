@@ -1098,6 +1098,7 @@ mod tests {
             "ak.member.state",
             ScopeRef::Realm { realm_id: realm() },
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps".to_owned()).unwrap(),
             actor_seq,
             Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             serde_json::json!({"state": "join"}),
@@ -1108,16 +1109,19 @@ mod tests {
             leaves: vec![seal_id(0xaa)],
         });
         event.refresh_content_bound_identity().unwrap();
-        event.proofs.push(Proof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
-            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
-            created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "AAAA.BBBB.CCCC".to_owned(),
-        });
+        event.proofs.push(
+            Proof {
+                kind: "detached_jws".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
+                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            }
+            .into(),
+        );
         event
     }
 

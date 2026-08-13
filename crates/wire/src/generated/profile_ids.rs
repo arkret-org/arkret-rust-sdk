@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: profiles/conformance-profiles.json; version=2026-08-13.3;
-//! sha256=0f35f10f56aabc847f55e412083808e1e22b911a3afba931f23c0728d542e5b2 Entries: profile_ids=101
+//! sha256=a9bc0c41e6400da075dc08fdea5f08cfdd3d8a118479e22ddd18fbe82d585b4c Entries: profile_ids=100
 
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +41,6 @@ pub enum ProfileId {
     DirectConversationRealmV1,
     DirectConversationRepairV1,
     DirectoryServiceV1,
-    DisappearingV1,
     DisclosedAuditE2eeV1,
     DraftSyncV1,
     E2eeClientV1,
@@ -185,7 +184,6 @@ impl ProfileId {
         Self::DirectConversationRealmV1,
         Self::DirectConversationRepairV1,
         Self::DirectoryServiceV1,
-        Self::DisappearingV1,
         Self::DisclosedAuditE2eeV1,
         Self::DraftSyncV1,
         Self::E2eeClientV1,
@@ -297,7 +295,6 @@ impl ProfileId {
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
         "ak.profile.direct_conversation_repair.v1";
     pub const DIRECTORY_SERVICE_V1: &'static str = "ak.profile.directory_service.v1";
-    pub const DISAPPEARING_V1: &'static str = "ak.profile.disappearing.v1";
     pub const DISCLOSED_AUDIT_E2EE_V1: &'static str = "ak.profile.disclosed_audit.e2ee.v1";
     pub const DRAFT_SYNC_V1: &'static str = "ak.profile.draft_sync.v1";
     pub const E2EE_CLIENT_V1: &'static str = "ak.profile.e2ee_client.v1";
@@ -421,7 +418,6 @@ impl ProfileId {
             Self::DirectConversationRealmV1 => Self::DIRECT_CONVERSATION_REALM_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::DirectoryServiceV1 => Self::DIRECTORY_SERVICE_V1,
-            Self::DisappearingV1 => Self::DISAPPEARING_V1,
             Self::DisclosedAuditE2eeV1 => Self::DISCLOSED_AUDIT_E2EE_V1,
             Self::DraftSyncV1 => Self::DRAFT_SYNC_V1,
             Self::E2eeClientV1 => Self::E2EE_CLIENT_V1,
@@ -531,7 +527,6 @@ impl ProfileId {
             Self::DirectConversationRealmV1 => ProfileRole::Admin,
             Self::DirectConversationRepairV1 => ProfileRole::Server,
             Self::DirectoryServiceV1 => ProfileRole::Directory,
-            Self::DisappearingV1 => ProfileRole::Client,
             Self::DisclosedAuditE2eeV1 => ProfileRole::Admin,
             Self::DraftSyncV1 => ProfileRole::Client,
             Self::E2eeClientV1 => ProfileRole::Client,
@@ -647,7 +642,6 @@ impl ProfileId {
             Self::DIRECT_CONVERSATION_REALM_V1 => Some(Self::DirectConversationRealmV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::DIRECTORY_SERVICE_V1 => Some(Self::DirectoryServiceV1),
-            Self::DISAPPEARING_V1 => Some(Self::DisappearingV1),
             Self::DISCLOSED_AUDIT_E2EE_V1 => Some(Self::DisclosedAuditE2eeV1),
             Self::DRAFT_SYNC_V1 => Some(Self::DraftSyncV1),
             Self::E2EE_CLIENT_V1 => Some(Self::E2eeClientV1),

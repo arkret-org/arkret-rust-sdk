@@ -29,6 +29,7 @@ fn event_new_sets_required_event_id() {
             realm_id: realm_id(),
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({"body": "hello"}),
@@ -48,6 +49,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
             realm_id: realm_id(),
         },
         actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         actor_seq: 1,
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -70,14 +72,14 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         proofs: Vec::new(),
     };
 
-    // Pinned after `scope_ref` became a producer-signed transcript member,
+    // Pinned after `scope_ref` and `principal_server_id` became producer-signed transcript members,
     // `effective_scope` / `effects` / `conflict_keys_digest` left the wire, and
     // `event_id` left the digest preimage because section 4.0 derives it from
     // this very digest (`conformance/encoding.md` sections 2, 4.0 and 6). Every
     // v1 Event digest changed; this value must only move again with the spec.
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:5b9bcafc1b5bb5e516bfb19a7e34db8607142f775559f24256b7dd518ff8e8f1"
+        "sha256:999cbb094e0adcdd9a9117541d48626d03bf9d688e5e4bf611a8329a3382fe6e"
     );
     let value = serde_json::to_value(&event).unwrap();
     assert_eq!(value["payload"]["body"], "hello");
@@ -184,6 +186,7 @@ fn event_digest_preimage_agrees_with_typed_digest_payload() {
             realm_id: realm_id(),
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({"body": "hello"}),

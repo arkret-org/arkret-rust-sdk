@@ -248,7 +248,7 @@ pub fn recovery_unlock_transcript(
     let transcript = GenericRecoveryTranscript {
         schema: "ak.identity.recovery_proof.v1".to_owned(),
         kind: RecoveryProofKind::RecoveryUnlock,
-        principal_id: session.principal_id.clone(),
+        principal_authority: session.principal_authority.clone(),
         requesting_device_id: session.requesting_device_id.clone(),
         trust_domain: session.trust_domain.clone(),
         policy_id: session.policy_id.clone(),

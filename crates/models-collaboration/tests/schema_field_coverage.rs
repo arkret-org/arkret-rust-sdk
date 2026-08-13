@@ -187,13 +187,6 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "content_encryption_floor": "e2ee_required",
             "metadata_encryption_floor": "e2ee_required",
             "federation_policy": "restricted",
-            "sync_endpoints": [{
-                "actor_id": "ak:did_core:webvh:z6mkfixture",
-                "endpoint": "https://sync.example/_arkret",
-                "role": "primary",
-                "service_kind": "principal_server",
-                "plaintext_visible": false
-            }],
             "aad_visibility": { "event_id": "routing_digest" },
             "durability_policy": { "mode": "none" },
             "mls_send_pause": "advisory",

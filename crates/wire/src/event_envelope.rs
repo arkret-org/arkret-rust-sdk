@@ -29,8 +29,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, DeviceId, DidCoreId, DidFullId, EventId, GrantId, Hash, Hlc, RealmId,
-    SealId, SidecarId, project_full_id_to_core_id,
+    AppletId, CircleId, DidCoreId, DidFullId, EventId, GrantId, Hash, Hlc, RealmId, SealId,
+    SidecarId, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -39,15 +39,12 @@ use serde_json::Value;
 use crate::cba::{Precondition, SealBasis};
 use crate::error::{Error, Result};
 use crate::error_codes::ReasonCode;
-use crate::event_receipt::EventBatchReceipt;
 use crate::events::kinds::EventKind;
 use crate::primitives::{
-    Audience, CriticalExtension, Proof, ProofBindingRequirements, SignatureBindingPayload,
+    Audience, CriticalExtension, EventProof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::seal::Seal;
 use crate::{
-    AuthorizationRef, Base64UrlString, DidKey, DidUrl, FeatureRef, NonEmptyString, ProfileRef,
-    SchemaId, canonical,
+    AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, ProfileRef, SchemaId, canonical,
 };
 
 /// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
@@ -364,6 +361,9 @@ pub struct Event {
     pub actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<DidCoreId>,
+    /// Principal Server responsible for the account authority of the actual
+    /// author (`executed_by ?? actor_id`) and for first admission of this Event.
+    pub principal_server_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -397,7 +397,7 @@ pub struct Event {
     /// canonical Event Envelope transcript.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<EventProof>,
     #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
     pub requirements: EventRequirements,
 }
@@ -413,6 +413,7 @@ pub struct ProjectedEventInput {
     pub kind: EventKind,
     pub event_id: EventId,
     pub actor_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
     pub authorization_ref: Option<AuthorizationRef>,
     pub actor_seq: u64,
     pub realm_id: RealmId,
@@ -430,6 +431,7 @@ impl From<&Event> for ProjectedEventInput {
             kind: event.kind.clone(),
             event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),
+            principal_server_id: event.principal_server_id.clone(),
             authorization_ref: event.authorization_ref.clone(),
             actor_seq: event.actor_seq,
             realm_id: event.realm_id.clone(),
@@ -443,121 +445,33 @@ impl From<&Event> for ProjectedEventInput {
     }
 }
 
-/// Portable PCR-anchored authorization evidence for an active device key.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FederatedDeviceStatus {
-    Active,
-    Revoked,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FederatedDeviceGenerationStatus {
-    Active,
-    Conflicted,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FederatedDeviceRecord {
-    pub algorithms: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_signing_key: Option<DidKey>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hpke_key: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trust_algorithms: Option<Vec<NonEmptyString>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_status: Option<FederatedDeviceStatus>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_authorize_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_generation_ref: Option<NonEmptyString>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FederatedDeviceGenerationState {
-    pub current_device_generation_ref: NonEmptyString,
-    pub device_generation_status: FederatedDeviceGenerationStatus,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FederatedCurrentDeviceProjection {
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub device_record: FederatedDeviceRecord,
-    pub generation_state: FederatedDeviceGenerationState,
-}
-
-/// Immutable selector for one independently controlled human PCR authority
-/// instance. Identity equality is only `principal_id`; authorization equality
-/// requires all five fields and a valid canonical digest.
+/// Public account-authority coordinate for one principal at one Principal Server.
+///
+/// PCR realm ids, receipts and frontiers are account-local control state and do
+/// not participate in external identity or authorization equality.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalAuthorityInstance {
+pub struct PrincipalAuthorityKey {
     pub principal_id: DidCoreId,
     pub principal_server_id: DidCoreId,
-    pub pcr_realm_id: RealmId,
-    pub principal_genesis_receipt_digest: Hash,
-    pub authority_instance_digest: Hash,
 }
 
-impl PrincipalAuthorityInstance {
-    pub fn new(
-        principal_id: DidCoreId,
-        principal_server_id: DidCoreId,
-        pcr_realm_id: RealmId,
-        principal_genesis_receipt_digest: Hash,
-    ) -> Result<Self> {
-        let authority_instance_digest = Self::digest_for(
-            &principal_id,
-            &principal_server_id,
-            &pcr_realm_id,
-            &principal_genesis_receipt_digest,
-        )?;
-        Ok(Self {
+impl PrincipalAuthorityKey {
+    pub fn new(principal_id: DidCoreId, principal_server_id: DidCoreId) -> Self {
+        Self {
             principal_id,
             principal_server_id,
-            pcr_realm_id,
-            principal_genesis_receipt_digest,
-            authority_instance_digest,
-        })
+        }
     }
 
     pub fn validate(&self) -> Result<()> {
-        let expected = Self::digest_for(
-            &self.principal_id,
-            &self.principal_server_id,
-            &self.pcr_realm_id,
-            &self.principal_genesis_receipt_digest,
-        )?;
-        if self.authority_instance_digest != expected {
+        if self.principal_id.as_str().is_empty() || self.principal_server_id.as_str().is_empty() {
             return Err(Error::Protocol(
-                "principal authority instance digest mismatch".to_owned(),
+                "principal authority ids must be non-empty".to_owned(),
             ));
         }
         Ok(())
-    }
-
-    fn digest_for(
-        principal_id: &DidCoreId,
-        principal_server_id: &DidCoreId,
-        pcr_realm_id: &RealmId,
-        principal_genesis_receipt_digest: &Hash,
-    ) -> Result<Hash> {
-        let core = serde_json::json!({
-            "principal_id": principal_id,
-            "principal_server_id": principal_server_id,
-            "pcr_realm_id": pcr_realm_id,
-            "principal_genesis_receipt_digest": principal_genesis_receipt_digest,
-        });
-        let mut input = b"ak.principal-authority-instance.v1\n".to_vec();
-        input.extend(arkret_canonical::canonical_json_bytes(&core)?);
-        Ok(Hash::new(arkret_canonical::sha256_digest(input))?)
     }
 }
 
@@ -807,303 +721,6 @@ fn validate_registration_did_evidence_fields(
     Ok(())
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FederatedDeviceSigningKeyEvidence {
-    pub actor_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub verification_method: DidUrl,
-    pub device_signing_key: DidKey,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub authorization_accepted_at: DateTime<Utc>,
-    pub authority_instance: PrincipalAuthorityInstance,
-    pub registration_did_evidence: RegistrationDidEvidence,
-    pub principal_genesis_receipt: EventBatchReceipt,
-    pub authorization_chain: Vec<Event>,
-    pub accepted_seal: Seal,
-    pub current_device_projection: FederatedCurrentDeviceProjection,
-    pub range_completeness_evidence: Vec<Event>,
-}
-
-impl FederatedDeviceSigningKeyEvidence {
-    pub fn validate_shape(&self) -> Result<()> {
-        self.authority_instance.validate()?;
-        self.registration_did_evidence.validate_shape()?;
-        if device_method_fragment_for_actor(&self.verification_method, &self.actor_id)?
-            != self.device_id.as_str()
-        {
-            return Err(Error::Protocol(
-                "federated device signing evidence verification_method does not project to actor_id#device_id"
-                    .to_owned(),
-            ));
-        }
-        if self.authorization_chain.len() < 2 {
-            return Err(Error::Protocol(
-                "federated device signing evidence authorization_chain length is invalid"
-                    .to_owned(),
-            ));
-        }
-        let create = &self.authorization_chain[0];
-        if create.kind != EventKind::RealmCreate
-            || create.actor_id != self.actor_id
-            || create.proofs.len() != 1
-            || !create.proofs[0].verification_method.starts_with("did:key:")
-        {
-            return Err(Error::Protocol(
-                "federated device signing evidence must start at the root-signed PCR create"
-                    .to_owned(),
-            ));
-        }
-        let receipt_scope = self.principal_genesis_receipt.pcr_genesis_scope()?;
-        if self.authority_instance.principal_id != self.actor_id
-            || self.authority_instance.principal_server_id != self.principal_genesis_receipt.issuer
-            || self.registration_did_evidence.principal_id != self.actor_id
-            || self.registration_did_evidence.version_id != receipt_scope.did_version_id
-            || self.registration_did_evidence.method_history_head
-                != receipt_scope.log_head_digest.as_str()
-            || self.registration_did_evidence.control_key_digest != receipt_scope.control_key_digest
-            || self.registration_did_evidence.canonical_digest()?
-                != receipt_scope.registration_evidence_digest
-            || self.current_device_projection.principal_id != self.actor_id
-            || self.current_device_projection.device_id != self.device_id
-            || self
-                .current_device_projection
-                .device_record
-                .device_signing_key
-                .as_ref()
-                != Some(&self.device_signing_key)
-            || self.current_device_projection.device_record.device_status
-                != Some(FederatedDeviceStatus::Active)
-            || self
-                .current_device_projection
-                .generation_state
-                .device_generation_status
-                != FederatedDeviceGenerationStatus::Active
-            || self
-                .current_device_projection
-                .device_record
-                .authorized_generation_ref
-                .as_ref()
-                != Some(
-                    &self
-                        .current_device_projection
-                        .generation_state
-                        .current_device_generation_ref,
-                )
-            || self.range_completeness_evidence.is_empty()
-            || self.range_completeness_evidence.iter().any(|attestation| {
-                attestation.kind != EventKind::AttestationRangeCompleteness
-                    || attestation.realm_id != create.realm_id
-            })
-        {
-            return Err(Error::Protocol(
-                "federated device signing evidence projection or range evidence is invalid"
-                    .to_owned(),
-            ));
-        }
-        let mut accepted_device_ids = BTreeSet::new();
-        let mut expecting_root_authorize = true;
-        let mut target_authorize = None;
-        for (index, event) in self.authorization_chain.iter().enumerate().skip(1) {
-            event.validate_proof_bindings()?;
-            if event.actor_id != self.actor_id
-                || event.realm_id != create.realm_id
-                || event.proofs.len() != 1
-            {
-                return Err(Error::Protocol(
-                    "federated device signing evidence contains an invalid control Event"
-                        .to_owned(),
-                ));
-            }
-            match &event.kind {
-                EventKind::DeviceAuthorize => {
-                    let device_id = event
-                        .payload
-                        .get("device_id")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            Error::Protocol("device authorization omits device_id".to_owned())
-                        })?;
-                    let binding_kind = event
-                        .payload
-                        .get("authorization_binding_kind")
-                        .and_then(Value::as_str);
-                    let authorized_by = event.payload.get("authorized_by").and_then(Value::as_str);
-                    let proof_device_id = if expecting_root_authorize {
-                        if binding_kind != Some("registration_anchor")
-                            || authorized_by != Some(self.actor_id.as_str())
-                        {
-                            return Err(Error::Protocol(
-                                "root-anchored device authorization is required after an identity root anchor"
-                                    .to_owned(),
-                            ));
-                        }
-                        device_id
-                    } else {
-                        let authorizer = authorized_by.ok_or_else(|| {
-                            Error::Protocol(
-                                "accepted-device authorization omits authorized_by".to_owned(),
-                            )
-                        })?;
-                        if binding_kind != Some("accepted_device")
-                            || !accepted_device_ids.contains(authorizer)
-                        {
-                            return Err(Error::Protocol(
-                                "device authorization authorizer is not active in the replayed prefix"
-                                    .to_owned(),
-                            ));
-                        }
-                        authorizer
-                    };
-                    if device_method_fragment_for_actor(
-                        &event.proofs[0].verification_method,
-                        &self.actor_id,
-                    )? != proof_device_id
-                    {
-                        return Err(Error::Protocol(
-                            "device authorization Event proof signer does not match its binding"
-                                .to_owned(),
-                        ));
-                    }
-                    accepted_device_ids.insert(device_id.to_owned());
-                    expecting_root_authorize = false;
-                    if device_id == self.device_id.as_str() {
-                        target_authorize = Some(event);
-                    }
-                }
-                EventKind::DeviceRevoke => {
-                    let device_id = event
-                        .payload
-                        .get("device_id")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            Error::Protocol("device revoke omits device_id".to_owned())
-                        })?;
-                    accepted_device_ids.remove(device_id);
-                }
-                EventKind::DeviceReanchor => {
-                    if !event.proofs[0].verification_method.starts_with("did:key:") {
-                        return Err(Error::Protocol(
-                            "device reanchor must carry an identity-root proof".to_owned(),
-                        ));
-                    }
-                    accepted_device_ids.clear();
-                    expecting_root_authorize = true;
-                    target_authorize = None;
-                }
-                EventKind::DeviceListUpdate => {}
-                _ => {
-                    return Err(Error::Protocol(
-                        "authorization_chain contains a non-device-control Event".to_owned(),
-                    ));
-                }
-            }
-            if index == 1 && expecting_root_authorize {
-                return Err(Error::Protocol(
-                    "PCR genesis must place its founding authorization second".to_owned(),
-                ));
-            }
-        }
-        let target = target_authorize.ok_or_else(|| {
-            Error::Protocol("authorization chain does not authorize the target device".to_owned())
-        })?;
-        let create_digest = Hash::new(create.event_digest()?)?;
-        let founding_authorize_digest = Hash::new(self.authorization_chain[1].event_digest()?)?;
-        if !accepted_device_ids.contains(self.device_id.as_str())
-            || self.authorization_accepted_at < target.created_at
-            || target.payload.get("device_id").and_then(Value::as_str)
-                != Some(self.device_id.as_str())
-            || target
-                .payload
-                .get("device_public_key")
-                .and_then(Value::as_str)
-                != Some(self.device_signing_key.as_str())
-            || self
-                .current_device_projection
-                .device_record
-                .device_authorize_event_id
-                .as_ref()
-                != Some(&target.event_id)
-            || self
-                .current_device_projection
-                .device_record
-                .hpke_key
-                .as_deref()
-                != target.payload.get("hpke_key").and_then(Value::as_str)
-            || self
-                .current_device_projection
-                .device_record
-                .trust_algorithms
-                .as_ref()
-                .is_none_or(|algorithms| {
-                    target
-                        .payload
-                        .get("algorithms")
-                        .and_then(Value::as_array)
-                        .is_none_or(|carried| {
-                            algorithms.len() != carried.len()
-                                || algorithms
-                                    .iter()
-                                    .zip(carried)
-                                    .any(|(left, right)| right.as_str() != Some(left.as_str()))
-                        })
-                })
-            || receipt_scope.principal_id != self.actor_id
-            || receipt_scope.realm_id != create.realm_id
-            || self.authority_instance.pcr_realm_id != create.realm_id
-            || self.authority_instance.principal_genesis_receipt_digest
-                != Hash::new(arkret_canonical::canonical_sha256(
-                    &self.principal_genesis_receipt,
-                )?)?
-            || receipt_scope.create_digest != create_digest
-            || receipt_scope.founding_authorize_digest != founding_authorize_digest
-            || self.accepted_seal.realm_id != create.realm_id
-            || self.authorization_chain.iter().any(|event| {
-                event.event_digest().ok().is_none_or(|digest| {
-                    !self
-                        .accepted_seal
-                        .covered_event_digests
-                        .iter()
-                        .any(|covered| covered.as_str() == digest)
-                })
-            })
-        {
-            return Err(Error::Protocol(
-                "federated device signing evidence commitments do not match its authorization chain"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn matches_event_proof(&self, event: &Event, verification_method: &DidUrl) -> bool {
-        self.validate_shape().is_ok()
-            && self.actor_id == event.actor_id
-            && &self.verification_method == verification_method
-            && event
-                .proofs
-                .iter()
-                .any(|proof| &proof.verification_method == verification_method)
-    }
-}
-
-fn device_method_fragment_for_actor<'a>(
-    verification_method: &'a DidUrl,
-    actor_id: &DidCoreId,
-) -> Result<&'a str> {
-    let (controller, fragment) = verification_method
-        .as_str()
-        .split_once('#')
-        .ok_or_else(|| Error::Protocol("device verification method has no fragment".to_owned()))?;
-    let full_id = DidFullId::new(controller.to_owned())?;
-    if project_full_id_to_core_id(&full_id)? != *actor_id || fragment.is_empty() {
-        return Err(Error::Protocol(
-            "device verification method controller does not project to actor_id".to_owned(),
-        ));
-    }
-    Ok(fragment)
-}
-
 /// Derive the Realm id of an `ak.realm.create` from its own signed content.
 ///
 /// Every Realm kind, including principal and managed-Agent control Realms, is
@@ -1172,6 +789,7 @@ struct EventSer<'a> {
     actor_id: &'a DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     executed_by: &'a Option<DidCoreId>,
+    principal_server_id: &'a DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     authorization_ref: &'a Option<AuthorizationRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1202,7 +820,7 @@ struct EventSer<'a> {
     redacts: &'a Option<EventId>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     unsigned: &'a BTreeMap<String, Value>,
-    proofs: &'a Vec<Proof>,
+    proofs: &'a Vec<EventProof>,
     #[serde(skip_serializing_if = "EventRequirements::is_empty")]
     requirements: &'a EventRequirements,
 }
@@ -1216,6 +834,7 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             scope_ref: &event.scope_ref,
             actor_id: &event.actor_id,
             executed_by: &event.executed_by,
+            principal_server_id: &event.principal_server_id,
             authorization_ref: &event.authorization_ref,
             applet_id: &event.applet_id,
             external_ref: &event.external_ref,
@@ -1260,6 +879,7 @@ struct EventWire {
     pub actor_id: DidCoreId,
     #[serde(default)]
     pub executed_by: Option<DidCoreId>,
+    pub principal_server_id: DidCoreId,
     #[serde(default)]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default)]
@@ -1291,7 +911,7 @@ struct EventWire {
     pub redacts: Option<EventId>,
     #[serde(default)]
     pub unsigned: BTreeMap<String, Value>,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<EventProof>,
     #[serde(default)]
     pub requirements: EventRequirements,
 }
@@ -1326,6 +946,7 @@ impl TryFrom<EventWire> for Event {
             scope_ref: wire.scope_ref,
             actor_id: wire.actor_id,
             executed_by: wire.executed_by,
+            principal_server_id: wire.principal_server_id,
             authorization_ref: wire.authorization_ref,
             applet_id: wire.applet_id,
             external_ref: wire.external_ref,
@@ -1463,6 +1084,13 @@ pub enum EventSubmitContext {
     #[default]
     Standard,
     AnchorUnit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EventProofSetRequirement {
+    UnsignedDraft,
+    ProducerSubmission,
+    AcceptedEvent,
 }
 
 /// A canonical-shaped `event_id` that stands in while the real one is being
@@ -1672,7 +1300,17 @@ impl Event {
         &self,
         context: EventSubmitContext,
     ) -> Result<()> {
-        self.validate_structural_in_context(context, true)
+        self.validate_structural_in_context(context, EventProofSetRequirement::ProducerSubmission)
+    }
+
+    /// Validate the wire-level shape of an Event already admitted by its
+    /// declared origin Principal Server.
+    pub fn validate_for_federation_structural_in_context(
+        &self,
+        context: EventSubmitContext,
+    ) -> Result<()> {
+        self.validate_structural_in_context(context, EventProofSetRequirement::AcceptedEvent)?;
+        self.validate_principal_server_admission_binding()
     }
 
     /// Validate a producer-authored Event before proofs are appended.
@@ -1681,13 +1319,16 @@ impl Event {
     /// requiring the draft to remain unsigned. Prepare protocols use it before
     /// returning canonical digest-payload bytes to a caller.
     pub fn validate_for_authoring_structural(&self) -> Result<()> {
-        self.validate_structural_in_context(EventSubmitContext::Standard, false)
+        self.validate_structural_in_context(
+            EventSubmitContext::Standard,
+            EventProofSetRequirement::UnsignedDraft,
+        )
     }
 
     fn validate_structural_in_context(
         &self,
         context: EventSubmitContext,
-        require_proofs: bool,
+        proof_requirement: EventProofSetRequirement,
     ) -> Result<()> {
         // zh/models/realm-and-space.md section 2.5.0: the genesis scope carries
         // no realm_id, so the equality check applies to every other kind and
@@ -1710,15 +1351,34 @@ impl Event {
         }
         self.validate_applet_provenance_invariants()
             .map_err(Error::Protocol)?;
-        if require_proofs && self.proofs.is_empty() {
-            return Err(Error::Protocol(
-                "event proofs must contain at least one proof".to_owned(),
-            ));
-        }
-        if !require_proofs && !self.proofs.is_empty() {
-            return Err(Error::Protocol(
-                "Event authoring draft must not carry proofs".to_owned(),
-            ));
+        match proof_requirement {
+            EventProofSetRequirement::UnsignedDraft if !self.proofs.is_empty() => {
+                return Err(Error::Protocol(
+                    "Event authoring draft must not carry proofs".to_owned(),
+                ));
+            }
+            EventProofSetRequirement::ProducerSubmission => match self.proofs.as_slice() {
+                [EventProof::Producer(_)] => {}
+                _ => {
+                    return Err(Error::Protocol(
+                        "caller submission must carry exactly one producer proof and no principal server admission proof"
+                            .to_owned(),
+                    ));
+                }
+            },
+            EventProofSetRequirement::AcceptedEvent => match self.proofs.as_slice() {
+                [
+                    EventProof::Producer(_),
+                    EventProof::PrincipalServerAdmission(_),
+                ] => {}
+                _ => {
+                    return Err(Error::Protocol(
+                        "federated Event must carry exactly one producer proof followed by one principal server admission proof"
+                            .to_owned(),
+                    ));
+                }
+            },
+            EventProofSetRequirement::UnsignedDraft => {}
         }
         if self
             .requirements
@@ -1803,6 +1463,9 @@ impl Event {
         let digest = self.event_digest_with_digest_suite(digest_suite)?;
         let expected_hash = Hash::new(digest)?;
         for proof in &self.proofs {
+            let Some(proof) = proof.as_producer() else {
+                continue;
+            };
             proof.validate()?;
             if proof.event_digest != expected_hash {
                 return Err(Error::Protocol(format!(
@@ -1836,7 +1499,7 @@ impl Event {
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         let expected_hash = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
-        for proof in &self.proofs {
+        for proof in self.proofs.iter().filter_map(EventProof::as_producer) {
             let expected = SignatureBindingPayload {
                 payload_digest: expected_hash.clone(),
                 actor_id: self.actor_id.clone(),
@@ -1850,6 +1513,29 @@ impl Event {
         Ok(())
     }
 
+    /// Validate the closed accepted-Event proof set: exactly one producer
+    /// proof followed by exactly one origin Principal Server admission proof.
+    pub fn validate_principal_server_admission_binding(&self) -> Result<()> {
+        let expected_event_digest = Hash::new(self.event_digest()?)?;
+        let [
+            EventProof::Producer(producer),
+            EventProof::PrincipalServerAdmission(admission),
+        ] = self.proofs.as_slice()
+        else {
+            return Err(Error::Protocol(
+                "accepted event must contain one producer proof followed by one principal server admission proof"
+                    .to_owned(),
+            ));
+        };
+        producer.validate()?;
+        if producer.event_digest != expected_event_digest {
+            return Err(Error::Protocol(
+                "producer proof event digest does not match accepted event".to_owned(),
+            ));
+        }
+        admission.validate_binding(&expected_event_digest, producer, &self.principal_server_id)
+    }
+
     /// Construct an Event in the given signed security scope.
     ///
     /// `realm_id` is taken from `scope_ref` so the envelope cannot be built
@@ -1859,6 +1545,7 @@ impl Event {
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: DidCoreId,
+        principal_server_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1867,6 +1554,7 @@ impl Event {
             kind,
             scope_ref,
             actor_id,
+            principal_server_id,
             actor_seq,
             hlc,
             payload,
@@ -1885,13 +1573,21 @@ impl Event {
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: DidCoreId,
+        principal_server_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
         Self::new_with_derived_id_at(
-            kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
+            kind,
+            scope_ref,
+            actor_id,
+            principal_server_id,
+            actor_seq,
+            hlc,
+            payload,
+            created_at,
         )
     }
 
@@ -1907,6 +1603,7 @@ impl Event {
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: DidCoreId,
+        principal_server_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1921,6 +1618,7 @@ impl Event {
             kind,
             scope_ref,
             actor_id,
+            principal_server_id,
             actor_seq,
             hlc,
             payload,
@@ -1944,6 +1642,7 @@ impl Event {
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: DidCoreId,
+        principal_server_id: DidCoreId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1966,6 +1665,7 @@ impl Event {
             realm_id,
             scope_ref,
             actor_id,
+            principal_server_id,
             actor_seq,
             created_at: canonical::normalize_timestamp_canonical(created_at),
             hlc: Some(hlc),
@@ -1997,6 +1697,7 @@ mod event_wire_surface_tests {
     use serde_json::json;
 
     use super::*;
+    use crate::Proof;
 
     fn realm() -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(
@@ -2022,6 +1723,7 @@ mod event_wire_surface_tests {
             realm_id: realm(),
             scope_ref: realm_scope(),
             actor_id: alice(),
+            principal_server_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -2048,41 +1750,6 @@ mod event_wire_surface_tests {
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
-    }
-
-    #[test]
-    fn principal_authority_instance_rejects_digest_substitution() {
-        let instance = PrincipalAuthorityInstance::new(
-            alice(),
-            DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-            realm(),
-            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-        )
-        .unwrap();
-        instance.validate().unwrap();
-
-        let mut substituted = instance;
-        substituted.authority_instance_digest =
-            Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
-        assert!(substituted.validate().is_err());
-    }
-
-    #[test]
-    fn device_method_projects_full_did_and_never_uses_core_as_a_did_url() {
-        let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
-        let method = DidUrl::new(format!(
-            "did:webvh:z6mkfixture:alice.example#{}",
-            device_id.as_str()
-        ))
-        .unwrap();
-        assert_eq!(
-            device_method_fragment_for_actor(&method, &alice()).unwrap(),
-            device_id.as_str()
-        );
-
-        let other_actor = DidCoreId::new("ak:did_core:webvh:z6mkother").unwrap();
-        assert!(device_method_fragment_for_actor(&method, &other_actor).is_err());
-        assert!(DidUrl::new(format!("{}#{}", alice(), device_id)).is_err());
     }
 
     #[test]
@@ -2126,7 +1793,7 @@ mod event_wire_surface_tests {
         });
         event.validate_for_authoring_structural().unwrap();
 
-        event.proofs.push(Proof {
+        event.proofs.push(EventProof::Producer(Proof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
@@ -2135,7 +1802,7 @@ mod event_wire_surface_tests {
             audience: None,
             proof_purpose: None,
             jws: "a..b".to_owned(),
-        });
+        }));
         assert!(event.validate_for_authoring_structural().is_err());
         event.validate_for_submit_structural().unwrap();
     }
@@ -2146,6 +1813,7 @@ mod event_wire_surface_tests {
             "ak.message.create",
             realm_scope(),
             alice(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
@@ -2153,7 +1821,7 @@ mod event_wire_surface_tests {
         .unwrap();
         let whole_second = "2026-06-03T12:34:56.000Z".parse().unwrap();
         event.created_at = whole_second;
-        event.proofs.push(Proof {
+        event.proofs.push(EventProof::Producer(Proof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
@@ -2162,7 +1830,7 @@ mod event_wire_surface_tests {
             audience: None,
             proof_purpose: None,
             jws: "a..b".to_owned(),
-        });
+        }));
         let value = serde_json::to_value(&event).unwrap();
         let created_at = value["created_at"].as_str().unwrap();
 
@@ -2187,6 +1855,7 @@ mod event_wire_surface_tests {
             "ak.message.create",
             realm_scope(),
             alice(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
@@ -2210,6 +1879,7 @@ mod event_wire_surface_tests {
             "ak.message.create",
             realm_scope(),
             alice(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
@@ -2435,7 +2105,7 @@ mod event_wire_surface_tests {
                 predicate_id: None,
             },
         });
-        event.proofs.push(Proof {
+        event.proofs.push(EventProof::Producer(Proof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
@@ -2444,7 +2114,7 @@ mod event_wire_surface_tests {
             audience: None,
             proof_purpose: None,
             jws: "a..b".to_owned(),
-        });
+        }));
 
         event
             .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)

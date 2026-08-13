@@ -27,6 +27,7 @@
 //!     DidCoreId::from(project_full_id_to_core_id(&DidFullId::new(
 //!         "did:webvh:z6mkfixture:alice.example",
 //!     )?)?),
+//!     DidCoreId::new("ak:did_core:web:principal.example")?,
 //!     payload,
 //! )?
 //! .author(
@@ -582,7 +583,10 @@ pub mod calendar {
             }
         }
         let event = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RsvpSet>::new(
-            scope_ref, actor_id, payload,
+            scope_ref,
+            actor_id.clone(),
+            actor_id,
+            payload,
         )
         .map_err(|error| Error::Protocol(error.to_string()))?
         .with_causal_refs(causal_refs)

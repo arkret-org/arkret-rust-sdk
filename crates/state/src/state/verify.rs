@@ -831,6 +831,7 @@ mod tests {
             realm_id: realm(),
             scope_ref: ScopeRef::Realm { realm_id: realm() },
             actor_id: actor(),
+            principal_server_id: actor(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -854,16 +855,19 @@ mod tests {
             proofs: Vec::new(),
             requirements: EventRequirements::default(),
         };
-        event.proofs.push(Proof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
-            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
-            created_at: event.created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "AAAA.BBBB.CCCC".to_owned(),
-        });
+        event.proofs.push(
+            Proof {
+                kind: "detached_jws".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
+                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                created_at: event.created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            }
+            .into(),
+        );
         event
     }
 

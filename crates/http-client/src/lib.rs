@@ -884,6 +884,10 @@ mod tests {
                     &DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 )
                 .unwrap(),
+                principal_server_id: project_full_id_to_core_id(
+                    &DidFullId::new("did:webvh:z6mkfixture:principal.example").unwrap(),
+                )
+                .unwrap(),
                 actor_seq: 1,
                 created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),

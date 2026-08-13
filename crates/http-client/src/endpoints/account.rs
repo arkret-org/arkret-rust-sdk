@@ -11,8 +11,6 @@ use arkret_models_collaboration::contact_operations::{
 };
 use arkret_models_collaboration::direct_conversation_ops::{
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
-    PrincipalServiceBindingCommitOutcome, PrincipalServiceBindingCommitRequestBody,
-    PrincipalServiceBindingPrepareOutcome, PrincipalServiceBindingPrepareRequestBody,
 };
 use arkret_models_collaboration::direct_conversation_repair::{
     DirectConversationRepairDispatchRequest, DirectConversationRepairEnqueueOutcome,
@@ -46,7 +44,6 @@ use arkret_wire::{
     DeviceId, DidCoreId, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
     PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
-    PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_COMMIT, PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_PREPARE,
     PayloadSigner,
 };
 use chrono::{Duration, Utc};
@@ -649,26 +646,6 @@ impl Client {
             ));
         }
         Ok(outcome)
-    }
-
-    /// Ask the current Principal Server to freeze a DID-authority-backed
-    /// service-binding core and a single-use challenge.
-    pub async fn principal_service_binding_prepare(
-        &self,
-        request: &PrincipalServiceBindingPrepareRequestBody,
-    ) -> Result<PrincipalServiceBindingPrepareOutcome> {
-        self.post(PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_PREPARE, request)
-            .await
-    }
-
-    /// Commit the exact frozen binding after the principal signs its closed
-    /// authorization transcript.
-    pub async fn principal_service_binding_commit(
-        &self,
-        request: &PrincipalServiceBindingCommitRequestBody,
-    ) -> Result<PrincipalServiceBindingCommitOutcome> {
-        self.post(PATH_SELF_PRINCIPAL_SERVICE_BINDINGS_COMMIT, request)
-            .await
     }
 }
 

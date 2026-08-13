@@ -4,9 +4,7 @@ use arkret_models_collaboration::objects::profiles::{
     Morph, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
     validate_strand_track_name,
 };
-use arkret_models_collaboration::objects::realm::{
-    CellLatticeDeclaration, NotaryProfile, Realm, SyncEndpoint,
-};
+use arkret_models_collaboration::objects::realm::{CellLatticeDeclaration, NotaryProfile, Realm};
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::{
     DidCoreId, DidFullId, FederationPolicy, Hash, ObjectStage, ObjectState, SchemaId,
@@ -153,7 +151,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     assert!(realm.preview_policy_id.is_none());
-    assert!(realm.sync_endpoints.is_empty());
     assert_eq!(realm.notary_profile, NotaryProfile::SingleDid);
     assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Sha256);
     assert!(matches!(
@@ -186,16 +183,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         );
     realm.preview_policy_id =
         Some(PolicyId::new("ak:policy:0196419b-0000-7000-8000-000000000003").unwrap());
-    realm.sync_endpoints.push(SyncEndpoint {
-        actor_id: actor("did:webvh:z6mkfixture:sync.example"),
-        endpoint: "https://sync.example/_arkret".to_owned(),
-        role: "primary".to_owned(),
-        service_kind: "principal_server".to_owned(),
-        plaintext_visible: false,
-        visibility_scope: Some("members".to_owned()),
-        policy_id: realm.preview_policy_id.clone(),
-        expires_at: None,
-    });
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
     realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
@@ -205,7 +192,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         realm.preview_policy_id.as_ref().map(PolicyId::as_str),
         Some("ak:policy:0196419b-0000-7000-8000-000000000003")
     );
-    assert_eq!(realm.sync_endpoints.len(), 1);
     assert_eq!(realm.notary_profile, NotaryProfile::Threshold);
     assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Blake3);
     assert!(matches!(
@@ -229,10 +215,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         json["preview_policy_id"],
         "ak:policy:0196419b-0000-7000-8000-000000000003"
     );
-    assert_eq!(
-        json["sync_endpoints"][0]["actor_id"],
-        "ak:did_core:webvh:z6mkfixture"
-    );
     assert_eq!(json["notary_profile"], "threshold");
     assert_eq!(json["digest_algorithm"], "blake3");
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);
@@ -249,7 +231,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         restored.preview_policy_id.as_ref().map(PolicyId::as_str),
         realm.preview_policy_id.as_ref().map(PolicyId::as_str)
     );
-    assert_eq!(restored.sync_endpoints.len(), 1);
     assert_eq!(restored.notary_profile, realm.notary_profile);
     assert_eq!(restored.digest_algorithm, realm.digest_algorithm);
     assert_eq!(
@@ -517,16 +498,6 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     realm.preview_policy_id =
         Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f4").unwrap());
     realm.federation_policy = Some(FederationPolicy::Restricted);
-    realm.sync_endpoints.push(SyncEndpoint {
-        actor_id: actor("did:webvh:z6mkfixture:sync.example"),
-        endpoint: "https://sync.example/_arkret".to_owned(),
-        role: "primary".to_owned(),
-        service_kind: "principal_server".to_owned(),
-        plaintext_visible: false,
-        visibility_scope: None,
-        policy_id: None,
-        expires_at: None,
-    });
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
     realm.revocation_freshness_window_ms = Some(30_000);
     realm.max_authority_lifetime_ms = 3_600_000;
@@ -543,8 +514,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     let realm_pos = |name: &str| realm_keys.iter().position(|k| k == name).unwrap();
     assert!(realm_pos("policy_id") < realm_pos("preview_policy_id"));
     assert!(realm_pos("preview_policy_id") < realm_pos("default_discoverability"));
-    assert!(realm_pos("federation_policy") < realm_pos("sync_endpoints"));
-    assert!(realm_pos("sync_endpoints") < realm_pos("notary_profile"));
+    assert!(realm_pos("federation_policy") < realm_pos("notary_profile"));
     assert!(realm_pos("notary_profile") < realm_pos("digest_algorithm"));
     assert!(realm_pos("digest_algorithm") < realm_pos("notary"));
     assert!(realm_pos("revocation_freshness_window_ms") < realm_pos("max_authority_lifetime_ms"));

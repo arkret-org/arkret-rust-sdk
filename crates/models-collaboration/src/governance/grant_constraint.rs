@@ -758,9 +758,10 @@ pub struct CapabilityGrant {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub issuer: DidCoreId,
+    pub issuer_principal_server_id: DidCoreId,
     pub subject: CapabilitySubject,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject_authority_instance: Option<arkret_wire::PrincipalAuthorityInstance>,
+    pub subject_principal_server_id: Option<DidCoreId>,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -820,6 +821,7 @@ mod tests {
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "issuer": "ak:did_core:web:issuer.example",
+            "issuer_principal_server_id": "ak:did_core:web:issuer-principal.example",
             "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
@@ -844,6 +846,7 @@ mod tests {
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "issuer": "ak:did_core:web:issuer.example",
+            "issuer_principal_server_id": "ak:did_core:web:issuer-principal.example",
             "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
@@ -883,10 +886,14 @@ mod tests {
                 RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             ),
             issuer: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
+            issuer_principal_server_id: DidCoreId::new("ak:did_core:web:issuer-principal.example")
+                .unwrap(),
             subject: CapabilitySubject::CoreDid(
                 DidCoreId::new("ak:did_core:web:subject.example").unwrap(),
             ),
-            subject_authority_instance: None,
+            subject_principal_server_id: Some(
+                DidCoreId::new("ak:did_core:web:subject-server.example").unwrap(),
+            ),
             actions: vec!["ak.event.read".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             capability_action_registry_digest: None,

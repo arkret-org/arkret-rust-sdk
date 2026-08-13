@@ -14,9 +14,13 @@ pub fn accountability_grant_event(
     hlc: Hlc,
     authorization: Option<&AppletDelegatedEventAuthorization>,
 ) -> Result<Event> {
+    let principal_server_id = authorization
+        .map(|authorization| authorization.executed_by.clone())
+        .unwrap_or_else(|| payload.issuer.clone());
     let mut draft = TypedEventDraft::<event_spec::IdentityAccountabilityGrant>::new(
         scope_ref,
         payload.issuer.clone(),
+        principal_server_id,
         payload.clone(),
     )?;
     if let Some(authorization) = authorization {

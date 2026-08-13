@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey,
-    PrincipalAuthorityInstance, SchemaId, project_full_id_to_core_id,
+    DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey, PrincipalAuthorityKey,
+    SchemaId, project_full_id_to_core_id,
 };
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
@@ -482,9 +482,8 @@ pub enum AgentProvisionRequestBody {
         /// Controller-authored, already accepted PCR-independent Agent
         /// inception. The Principal Server verifies and pins its exact head.
         full_id: DidFullId,
-        /// Exact controller PCR selected by this authenticated operation.
-        /// A core DID alone is never a sufficient authority-instance selector.
-        controller_authority_instance: PrincipalAuthorityInstance,
+        /// Public controller account authority selected by this authenticated operation.
+        controller_authority: PrincipalAuthorityKey,
         slug: String,
         requested_scope: AgentKeyScope,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -2362,6 +2361,7 @@ mod tests {
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
             actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
+            principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

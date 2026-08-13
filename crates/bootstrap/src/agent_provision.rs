@@ -15,6 +15,9 @@ use chrono::{DateTime, Utc};
 /// single controller-authored provision Event.
 #[derive(Clone, Debug)]
 pub struct AgentProvisionEventDraftOptions {
+    /// Principal Server for the controller authority pair that admits the
+    /// provision Event. This is envelope identity, not the controller DID.
+    pub controller_principal_server_id: DidCoreId,
     pub created_at: DateTime<Utc>,
     pub actor_seq: u64,
     pub hlc: Hlc,
@@ -60,6 +63,7 @@ pub fn build_agent_provision_event_draft(
             realm_id: controller_realm_id.clone(),
         },
         controller_id.clone(),
+        options.controller_principal_server_id,
         payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?

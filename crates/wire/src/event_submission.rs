@@ -26,6 +26,24 @@ pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 /// device-reanchor unit. Ordinary Events never become anchors merely because
 /// their authorization fields are missing.
 pub fn classify_event_submit_context(events: &[Event]) -> Result<EventSubmitContext> {
+    let context = classify_event_submit_context_shape(events)?;
+    for event in events {
+        event.validate_for_submit_structural_in_context(context)?;
+    }
+    Ok(context)
+}
+
+/// Classify and validate a complete ordered federation unit whose Events have
+/// already received their origin Principal Server admission proof.
+pub fn classify_federated_event_submit_context(events: &[Event]) -> Result<EventSubmitContext> {
+    let context = classify_event_submit_context_shape(events)?;
+    for event in events {
+        event.validate_for_federation_structural_in_context(context)?;
+    }
+    Ok(context)
+}
+
+fn classify_event_submit_context_shape(events: &[Event]) -> Result<EventSubmitContext> {
     let basis_free = |event: &Event| {
         event.seal_ref.is_none() && event.auth_context.is_none() && event.seal_basis.is_none()
     };
@@ -51,9 +69,6 @@ pub fn classify_event_submit_context(events: &[Event]) -> Result<EventSubmitCont
     } else {
         EventSubmitContext::Standard
     };
-    for event in events {
-        event.validate_for_submit_structural_in_context(context)?;
-    }
     Ok(context)
 }
 
@@ -462,7 +477,7 @@ impl EventFederationSubmission {
     /// Federation structural validation under a caller-proven anchor context.
     pub fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
         self.event
-            .validate_for_submit_structural_in_context(context)?;
+            .validate_for_federation_structural_in_context(context)?;
         if let Some(lease) = &self.authorization_lease {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
@@ -521,7 +536,8 @@ mod tests {
     };
     use crate::{
         AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId,
-        DeviceId, DidUrl, Hash, PayloadProof, Proof, RealmId, SchemaId, SealId, proof_kind,
+        DeviceId, DidKey, DidUrl, EventProof, Hash, PayloadProof, PrincipalServerAdmissionProof,
+        PrincipalServerAdmissionProofKind, Proof, RealmId, SchemaId, SealId, proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
@@ -614,6 +630,7 @@ mod tests {
             "ak.message.create",
             scope(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             crate::Hlc::new("000000000000-0000-00000000").unwrap(),
             serde_json::json!({}),
@@ -630,17 +647,42 @@ mod tests {
             credential_epoch: None,
         });
         let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
-        event.proofs = vec![Proof {
-            kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
+        event.proofs = vec![
+            Proof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
+                    .unwrap(),
+                event_digest,
+                created_at: event.created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "a..b".to_owned(),
+            }
+            .into(),
+        ];
+        event
+    }
+
+    fn federated_event() -> Event {
+        let mut event = online_event();
+        let producer = event.proofs[0].as_producer().unwrap().clone();
+        event.proofs.push(EventProof::PrincipalServerAdmission(
+            PrincipalServerAdmissionProof {
+                kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+                verification_method: DidUrl::new("did:webvh:z6mkfixtureps:principal.example#key-1")
+                    .unwrap(),
+                event_digest: producer.event_digest.clone(),
+                producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(
+                    &producer,
+                )
                 .unwrap(),
-            event_digest,
-            created_at: event.created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "a..b".to_owned(),
-        }];
+                producer_verification_method: producer.verification_method.clone(),
+                producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                accepted_at: event.created_at,
+                jws: "admission..signature".to_owned(),
+            },
+        ));
         event
     }
 
@@ -694,7 +736,7 @@ mod tests {
     #[test]
     fn online_federation_uses_no_offline_publication_evidence() {
         let submission = EventFederationSubmission {
-            event: online_event(),
+            event: federated_event(),
             authorization_lease: None,
             ingress_receipts: Vec::new(),
             control_proposal_ack: None,
@@ -706,7 +748,7 @@ mod tests {
     #[test]
     fn delayed_federation_requires_a_lease_bound_receipt() {
         let submission = EventFederationSubmission {
-            event: online_event(),
+            event: federated_event(),
             authorization_lease: Some(lease_for(&intent())),
             ingress_receipts: Vec::new(),
             control_proposal_ack: None,
@@ -728,6 +770,7 @@ mod tests {
             "ak.message.create",
             scope(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             crate::Hlc::new("000000000000-0000-00000000").unwrap(),
             serde_json::json!({}),
