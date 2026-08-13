@@ -149,7 +149,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             DID_INCEPTION_REF_ROLE,
         ),
-        initial_resolution: arkret_models_identity::ResolutionCommitment {
+        initial_resolution: ResolutionCommitment {
             full_id: principal_full_id.clone(),
             method_history_head: format!("sha256:{}", "a".repeat(64)),
             version_id: "1-fixture".to_owned(),
