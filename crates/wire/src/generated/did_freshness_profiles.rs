@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/did-freshness-profile-registry.json; version=2026-08-11.2;
-//! sha256=1ac31ccd7b0d024c34a935e74f55322b5ee8f79974373fcf8fe05cdfbf727bcb Entries: registered=6
+//! sha256=e1eb352ca726c067ecf431a29cc018dfed4cf1f65b362fa9e417b740b8db326e Entries: registered=6
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DidFreshnessProfileId {

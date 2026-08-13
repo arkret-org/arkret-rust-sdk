@@ -1,17 +1,17 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-08-13.2;
-//! sha256=2fbe405bbf52d5c5761fc0793ef587ab2b23e540b5cf3e23138126e4fdc52f0d Input: registry/
+//! sha256=02551d92088631e470ddc595ce6c35e9c4a028a602a162a2830fbd0baa4356ed Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
 //! sha256=e51b58edc46ab7e1ab337883dc9fa36ccebb7536bb06eafb1b4771f844078151 Input: registry/
 //! signature-alg-registry.json; version=2026-08-04.2;
-//! sha256=d8f6166e45bd37f01be18d48b7ef1d83397d3912c9ebbf4bd713f7b9059d2621 Input: registry/
+//! sha256=8ae1433a884b7e57dcb22e527108ebe88d9a644447a3756d4b72e28fcfa62680 Input: registry/
 //! hpke-suite-registry.json; version=2026-08-09;
-//! sha256=a96497d01ad2f5bc3221f9cf5990cdc78e5c16d9dd12b99ade6673833fc33627 Input: registry/
+//! sha256=885daf7a29288269dbfe65cb88561aa9029bfdf24c1947bfa363c6e4a96794aa Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-07-29;
-//! sha256=9c2bfe1e1e6f9df9c798323ff5156b2e0b6531cd7715a9a1a7da0ddb30feeade Input: registry/
+//! sha256=dd8c2024b8d231fc94e169185a894c413dd16c40b99ae6cd1764a848535fb59f Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
 //! Entries: proof_contexts=46, exporter_labels=9, digest_suites=3, signature_algorithms=4,

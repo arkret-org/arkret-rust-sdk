@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-13.2;
-//! sha256=0328f3c3abb1ff9d381b67fc7da8b852246d31c1343b82a7bc0282451c0700dc Entries: schema_ids=182,
+//! Input: registry/schema-registry.json; version=2026-08-14.1;
+//! sha256=00ab2ed04f64df5121aaf009b304510172aba1e7db2d9c7f5176cf18cc18fc56 Entries: schema_ids=182,
 //! active=182
 
 use serde::{Deserialize, Serialize};
@@ -714,8 +714,8 @@ impl SchemaId {
     /// (ak.self.consent.*); see zh/identity/consent-model.md.
     pub const CONSENT_OPERATIONS_V1: &'static str = "ak.schema.consent_operations.v1";
     /// Closed request/response DTO bundle for the Contact lifecycle: request, respond, reject,
-    /// scope replacement, tombstone, the portable basis evidence bundle, acceptance receipts and
-    /// the peer Contact carrier, plus the contact-list projection.
+    /// scope replacement, tombstone, the portable Contact round evidence bundle, acceptance
+    /// receipts and the peer Contact carrier, plus the contact-list projection.
     pub const CONTACT_OPERATIONS_V1: &'static str = "ak.schema.contact_operations.v1";
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
     /// basis, version, predecessor and full granted-scope set.

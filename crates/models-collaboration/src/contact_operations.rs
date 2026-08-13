@@ -512,7 +512,7 @@ string_marker!(
 pub struct ContactScopeUpdatePayload {
     pub schema: ContactScopeUpdateSchema,
     pub peer: ContactPeer,
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     pub version: u64,
     pub predecessor_event_ref: EventId,
     pub granted_to_peer_scopes: ContactScopes,

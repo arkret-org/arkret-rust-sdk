@@ -17,7 +17,7 @@ use arkret_models_identity::{
     ServiceResolutionResolveOutcome, ServiceResolutionResolveRequest,
 };
 use arkret_wire::{
-    PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS, PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY,
+    PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS, PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY,
     PATH_PEER_MLS_GROUP_STATE_MATERIAL, PATH_PEER_PRINCIPAL_GENESIS,
 };
 use reqwest::Method;
@@ -113,7 +113,7 @@ impl Client {
     ) -> Result<AccountStatusAuthoringFrontiersOutcome> {
         request.validate()?;
         let outcome: AccountStatusAuthoringFrontiersOutcome = self
-            .post(PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS, request)
+            .post(PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS, request)
             .await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
