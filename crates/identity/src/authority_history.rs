@@ -96,7 +96,7 @@ pub fn verify_account_binding_receipt_at_issuance(
         &history.entries,
         receipt.issued_at,
     )
-    .map_err(|error| classify_history_error(error.to_string()))?;
+    .map_err(classify_history_error)?;
     let authority_document: DidDocument = serde_json::from_value(point.document)
         .map_err(|error| AuthorityHistoryVerificationError::InvalidHistory(error.to_string()))?;
     let binding_bytes = receipt
@@ -134,20 +134,20 @@ pub fn verify_account_binding_receipt_at_issuance(
     })
 }
 
-fn classify_history_error(message: String) -> AuthorityHistoryVerificationError {
-    if message.contains("fork or reorder")
-        || message.contains("non-contiguous")
-        || message.contains("versionId hash is invalid")
-        || message.contains("not precommitted by its predecessor")
-        || message.contains("reuses an activated root")
-    {
-        AuthorityHistoryVerificationError::Fork(message)
-    } else if message.contains("deactivated") {
-        AuthorityHistoryVerificationError::Deactivated
-    } else if message.contains("no entry effective") {
-        AuthorityHistoryVerificationError::NoVersionAtIssuance
-    } else {
-        AuthorityHistoryVerificationError::InvalidHistory(message)
+fn classify_history_error(
+    error: arkret_signatures::webvh::WebvhInceptionError,
+) -> AuthorityHistoryVerificationError {
+    match error {
+        arkret_signatures::webvh::WebvhInceptionError::HistoryFork(detail) => {
+            AuthorityHistoryVerificationError::Fork(detail)
+        }
+        arkret_signatures::webvh::WebvhInceptionError::HistoryDeactivated => {
+            AuthorityHistoryVerificationError::Deactivated
+        }
+        arkret_signatures::webvh::WebvhInceptionError::HistoryNoVersionAtTime => {
+            AuthorityHistoryVerificationError::NoVersionAtIssuance
+        }
+        error => AuthorityHistoryVerificationError::InvalidHistory(error.to_string()),
     }
 }
 
@@ -310,5 +310,24 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(error, AuthorityHistoryVerificationError::Fork(_)));
+    }
+
+    #[test]
+    fn classifies_history_state_without_parsing_error_text() {
+        let deactivated = classify_history_error(
+            arkret_signatures::webvh::WebvhInceptionError::HistoryDeactivated,
+        );
+        assert!(matches!(
+            deactivated,
+            AuthorityHistoryVerificationError::Deactivated
+        ));
+
+        let no_version = classify_history_error(
+            arkret_signatures::webvh::WebvhInceptionError::HistoryNoVersionAtTime,
+        );
+        assert!(matches!(
+            no_version,
+            AuthorityHistoryVerificationError::NoVersionAtIssuance
+        ));
     }
 }

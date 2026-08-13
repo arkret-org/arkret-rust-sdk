@@ -70,6 +70,12 @@ pub enum WebvhInceptionError {
     Canonical(String),
     #[error("webvh proof rejected: {0}")]
     InvalidProof(String),
+    #[error("webvh history contains a fork or non-contiguous chain: {0}")]
+    HistoryFork(String),
+    #[error("webvh DID was deactivated at the requested time")]
+    HistoryDeactivated,
+    #[error("webvh history has no entry effective at the requested time")]
+    HistoryNoVersionAtTime,
     #[error("service registration input is invalid: {0}")]
     InvalidRegistration(String),
 }
@@ -231,7 +237,7 @@ pub fn validate_webvh_history_at(
                 )
             })?;
         if previous_time.is_some_and(|previous| version_time <= previous) {
-            return Err(WebvhInceptionError::InvalidProof(
+            return Err(WebvhInceptionError::HistoryFork(
                 "webvh history versionTime is not strictly increasing (fork or reorder)".to_owned(),
             ));
         }
@@ -241,19 +247,13 @@ pub fn validate_webvh_history_at(
         }
     }
 
-    let (entry, version_time) = selected.ok_or_else(|| {
-        WebvhInceptionError::InvalidProof(
-            "webvh history has no entry effective at the requested time".to_owned(),
-        )
-    })?;
+    let (entry, version_time) = selected.ok_or(WebvhInceptionError::HistoryNoVersionAtTime)?;
     if entry
         .pointer("/parameters/deactivated")
         .and_then(Value::as_bool)
         == Some(true)
     {
-        return Err(WebvhInceptionError::InvalidProof(
-            "webvh DID was deactivated at the requested time".to_owned(),
-        ));
+        return Err(WebvhInceptionError::HistoryDeactivated);
     }
     let version_id = entry
         .get("versionId")
@@ -1006,7 +1006,7 @@ fn validate_principal_rotation_history<'a>(
                 ))
             })?;
         if !version_id.starts_with(&format!("{sequence}-")) {
-            return Err(WebvhInceptionError::InvalidProof(format!(
+            return Err(WebvhInceptionError::HistoryFork(format!(
                 "principal history entry {sequence} has a non-contiguous versionId"
             )));
         }
@@ -1081,14 +1081,14 @@ fn validate_principal_rotation_history<'a>(
             ))
         })?;
         if !activated_roots.insert(update_key.to_owned()) {
-            return Err(WebvhInceptionError::InvalidProof(
+            return Err(WebvhInceptionError::HistoryFork(
                 "principal history reuses an activated root".to_owned(),
             ));
         }
         if let Some(expected_commitment) = previous_next_hash.as_deref() {
             let actual_commitment = webvh_next_key_hash(update_key)?;
             if expected_commitment != actual_commitment {
-                return Err(WebvhInceptionError::InvalidProof(format!(
+                return Err(WebvhInceptionError::HistoryFork(format!(
                     "principal history entry {sequence} root was not precommitted by its predecessor"
                 )));
             }
@@ -1122,7 +1122,7 @@ fn validate_principal_rotation_history<'a>(
         let expected_hash =
             sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(entry, hash_anchor))?);
         if version_id != format!("{sequence}-{expected_hash}") {
-            return Err(WebvhInceptionError::InvalidProof(format!(
+            return Err(WebvhInceptionError::HistoryFork(format!(
                 "principal history entry {sequence} versionId hash is invalid"
             )));
         }
