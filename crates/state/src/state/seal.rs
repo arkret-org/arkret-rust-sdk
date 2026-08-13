@@ -26,7 +26,6 @@ pub struct SealEffect {
     /// [`SealEffect::wire_accepted_event_digests`] for anything a peer will
     /// compare against.
     pub accepted_event_digests: Vec<Hash>,
-    pub rejected_events: Vec<(Hash, String)>,
     pub post_state_root: Hash,
 }
 
@@ -327,7 +326,6 @@ where
     Ok(SealEffect {
         seal: seal.id.clone(),
         accepted_event_digests: accepted.iter().map(|(digest, ..)| digest.clone()).collect(),
-        rejected_events: Vec::new(),
         post_state_root: recomputed_state,
     })
 }
@@ -1347,7 +1345,6 @@ mod tests {
         let effect = SealEffect {
             seal: seal_id(0x22),
             accepted_event_digests: apply_order.clone(),
-            rejected_events: Vec::new(),
             post_state_root: move_id(0x33),
         };
 
