@@ -82,13 +82,13 @@ impl SealBasis {
 /// compare-and-swap, and no amount of local recomputation tells a receiver
 /// whether the producer's snapshot was raced.
 ///
-/// Carried by `ak.device.reanchor`'s `pre_fence_basis` and, byte-identically, by
+/// Carried by `ak.device.reanchor`'s `pre_fence_seal_frontier` and, byte-identically, by
 /// the recovery session's `accepted_seal_frontier` — the spec `$ref`s one shape
 /// from the other, and admission compares the two for equality.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceReanchorPreFenceBasis {
+pub struct DeviceReanchorPreFenceSealFrontier {
     /// Accepted Seal ids in canonical ascending order without duplicates.
     pub leaves: Vec<SealId>,
     /// Control-plane event set root covered by the `leaves` view.
@@ -99,18 +99,18 @@ pub struct DeviceReanchorPreFenceBasis {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct DeviceReanchorPreFenceBasisWire {
+struct DeviceReanchorPreFenceSealFrontierWire {
     leaves: Vec<SealId>,
     control_event_set_root: Hash,
     state_root: Hash,
 }
 
-impl<'de> Deserialize<'de> for DeviceReanchorPreFenceBasis {
+impl<'de> Deserialize<'de> for DeviceReanchorPreFenceSealFrontier {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = DeviceReanchorPreFenceBasisWire::deserialize(deserializer)?;
+        let wire = DeviceReanchorPreFenceSealFrontierWire::deserialize(deserializer)?;
         let basis = Self {
             leaves: wire.leaves,
             control_event_set_root: wire.control_event_set_root,
@@ -123,7 +123,7 @@ impl<'de> Deserialize<'de> for DeviceReanchorPreFenceBasis {
     }
 }
 
-impl DeviceReanchorPreFenceBasis {
+impl DeviceReanchorPreFenceSealFrontier {
     /// Validate the leaf collection constraints.
     ///
     /// Delegates to [`SealBasis`] so the 1..=64 bound and the canonical ordering

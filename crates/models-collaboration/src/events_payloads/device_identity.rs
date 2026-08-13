@@ -395,7 +395,7 @@ pub struct DeviceReanchorPayload {
     pub new_device_generation: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub did_root_evidence_digest: Option<Hash>,
-    pub pre_fence_basis: Option<DeviceReanchorPreFenceBasis>,
+    pub pre_fence_seal_frontier: Option<DeviceReanchorPreFenceSealFrontier>,
     pub replacement_authorize_payload_digest: Hash,
 }
 
@@ -413,7 +413,7 @@ struct DeviceReanchorPayloadWire {
     #[serde(default)]
     did_root_evidence_digest: Option<Hash>,
     #[serde(deserialize_with = "deserialize_required_nullable")]
-    pre_fence_basis: Option<DeviceReanchorPreFenceBasis>,
+    pre_fence_seal_frontier: Option<DeviceReanchorPreFenceSealFrontier>,
     replacement_authorize_payload_digest: Hash,
 }
 
@@ -443,7 +443,7 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
             previous_device_generation: wire.previous_device_generation,
             new_device_generation: wire.new_device_generation,
             did_root_evidence_digest: wire.did_root_evidence_digest,
-            pre_fence_basis: wire.pre_fence_basis,
+            pre_fence_seal_frontier: wire.pre_fence_seal_frontier,
             replacement_authorize_payload_digest: wire.replacement_authorize_payload_digest,
         };
         payload.validate().map_err(serde::de::Error::custom)?;
@@ -479,11 +479,11 @@ impl DeviceReanchorPayload {
                 );
             }
         }
-        if let Some(basis) = &self.pre_fence_basis
+        if let Some(basis) = &self.pre_fence_seal_frontier
             && basis.validate_protocol_bounds().is_err()
         {
             return Err(
-                "device reanchor pre_fence_basis leaves must be non-empty, unique, canonically \
+                "device reanchor pre_fence_seal_frontier leaves must be non-empty, unique, canonically \
                  ordered and at most 64",
             );
         }
@@ -492,7 +492,7 @@ impl DeviceReanchorPayload {
 }
 
 /// Validate the special first Seal after a B-model recovery re-anchor when the
-/// accepted pre-fence basis is explicitly null. Generic Seal validation still
+/// accepted pre-fence Seal frontier is explicitly null. Generic Seal validation still
 /// applies; this helper requires the business delta to cover the re-anchor and
 /// its replacement device authorization while permitting other pending Control
 /// Moves admitted by the contextual Seal rules.
@@ -507,9 +507,9 @@ pub fn validate_device_reanchor_recovery_first_seal(
     reanchor_digest: &Hash,
     replacement_authorize_digest: &Hash,
 ) -> Result<()> {
-    if payload.pre_fence_basis.is_some() {
+    if payload.pre_fence_seal_frontier.is_some() {
         return Err(Error::Protocol(
-            "device reanchor recovery-first Seal requires pre_fence_basis=null".to_owned(),
+            "device reanchor recovery-first Seal requires pre_fence_seal_frontier=null".to_owned(),
         ));
     }
     if !predecessor_refs.is_empty() {
@@ -1019,7 +1019,7 @@ mod tests {
             "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000002",
             "previous_device_generation": 1,
             "new_device_generation": 2,
-            "pre_fence_basis": null,
+            "pre_fence_seal_frontier": null,
             "replacement_authorize_payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         });
         let payload: DeviceReanchorPayload = serde_json::from_value(valid.clone()).unwrap();
@@ -1093,7 +1093,7 @@ mod tests {
         missing_required_nullable
             .as_object_mut()
             .unwrap()
-            .remove("pre_fence_basis");
+            .remove("pre_fence_seal_frontier");
         assert!(
             serde_json::from_value::<DeviceReanchorPayload>(missing_required_nullable).is_err()
         );
@@ -1114,14 +1114,14 @@ mod tests {
         );
     }
 
-    /// The non-null `pre_fence_basis` branch.
+    /// The non-null `pre_fence_seal_frontier` branch.
     ///
     /// It went unexercised long enough for the type to lose both roots: every
-    /// fixture in this repo and in `arkret-spec` used `pre_fence_basis: null`,
+    /// fixture in this repo and in `arkret-spec` used `pre_fence_seal_frontier: null`,
     /// which is the shape a brand-new principal with no accepted Seal produces,
     /// so nothing ever round-tripped the only shape that carries them.
     #[test]
-    fn device_reanchor_pre_fence_basis_round_trips_both_frontier_roots() {
+    fn device_reanchor_pre_fence_seal_frontier_round_trips_both_frontier_roots() {
         let wire = json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "authority_instance": authority_instance_value(),
@@ -1131,7 +1131,7 @@ mod tests {
             "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000002",
             "previous_device_generation": 1,
             "new_device_generation": 2,
-            "pre_fence_basis": {
+            "pre_fence_seal_frontier": {
                 "leaves": [
                     format!("ak:seal:sha256:{}", "a".repeat(64)),
                     format!("ak:seal:sha256:{}", "b".repeat(64)),
@@ -1142,7 +1142,7 @@ mod tests {
             "replacement_authorize_payload_digest": format!("sha256:{}", "e".repeat(64))
         });
         let payload: DeviceReanchorPayload = serde_json::from_value(wire.clone()).unwrap();
-        let basis = payload.pre_fence_basis.as_ref().unwrap();
+        let basis = payload.pre_fence_seal_frontier.as_ref().unwrap();
         assert_eq!(basis.leaves.len(), 2);
         assert_eq!(
             basis.control_event_set_root.as_str(),
@@ -1157,19 +1157,19 @@ mod tests {
         // Both roots are required, not optional decoration.
         for dropped in ["control_event_set_root", "state_root"] {
             let mut missing = wire.clone();
-            missing["pre_fence_basis"]
+            missing["pre_fence_seal_frontier"]
                 .as_object_mut()
                 .unwrap()
                 .remove(dropped);
             assert!(
                 serde_json::from_value::<DeviceReanchorPayload>(missing).is_err(),
-                "pre_fence_basis must reject a frontier missing {dropped}"
+                "pre_fence_seal_frontier must reject a frontier missing {dropped}"
             );
         }
 
         // Leaf bounds still come from the one SealBasis implementation.
         let mut unsorted = wire;
-        unsorted["pre_fence_basis"]["leaves"] = json!([
+        unsorted["pre_fence_seal_frontier"]["leaves"] = json!([
             format!("ak:seal:sha256:{}", "b".repeat(64)),
             format!("ak:seal:sha256:{}", "a".repeat(64)),
         ]);

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-12.2;
-//! sha256=e7c3c9074162b355ebb2f1873877624279240179b25257cf157a36e644978451 Input: registry/
-//! operations-error-mapping.json; version=2026-08-12.3;
-//! sha256=737ea9a3076f51bfdb7c9adaff8eb661a975fd12bd613bed6d05797a7199b022 Input: registry/
-//! error-code-registry.json; version=2026-08-12.1;
-//! sha256=2a72fc35455b06a6c150cd5e0b8dc6d339d8965494b8a3aa2a3bffe9ed9f98cc Entries: operations=237
+//! Input: registry/operation-registry.json; version=2026-08-13.3;
+//! sha256=6a65c704e8f3360f8e9b4c4f4594f3c190ca3b14e4e58970d2e9b506f649ead6 Input: registry/
+//! operations-error-mapping.json; version=2026-08-13.2;
+//! sha256=40a70b9aec8adb286e0af76e2e2b9a00aab7944a84535e5a5ab8e0e1524ff911 Input: registry/
+//! error-code-registry.json; version=2026-08-13.1;
+//! sha256=3fec299568b224c55a604d726b0d6fd864e74d7e42a43fcc12b7e288a11c7e4e Entries: operations=237
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -443,7 +443,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerAccountStatusReadAuthoringBasis,
+        operation: ServiceOperationId::PeerAccountStatusReadAuthoringFrontiers,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),

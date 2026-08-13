@@ -1660,7 +1660,7 @@ impl Event {
     /// `seal_basis`-exempt anchor units of `event-auth-state-resolution.md` §5:
     /// the `ak.realm.create` bootstrap with its closed follow-up whitelist, and
     /// the B-model `ak.device.reanchor` + replacement-authorize unit, which
-    /// fixes its frontier in the payload's `pre_fence_basis` instead.
+    /// fixes its frontier in the payload's `pre_fence_seal_frontier` instead.
     ///
     /// Deciding whether an Event *is* one of those needs the closed kind
     /// whitelist, which lives in the registry; this crate does not hold it by
@@ -1742,7 +1742,7 @@ impl Event {
                 self.seal_ref.is_none() && self.auth_context.is_none() && self.seal_basis.is_some();
             // The §5 anchor units carry no basis field at all: bootstrap has no
             // accepted Seal to point at, and the B-model re-anchor fixes its
-            // frontier in the payload's `pre_fence_basis`. A bootstrap Event
+            // frontier in the payload's `pre_fence_seal_frontier`. A bootstrap Event
             // may still carry a precondition, which is evaluated against the
             // unit's empty frozen predecessor state; only the three mutually
             // exclusive CBA basis fields participate in this shape test.

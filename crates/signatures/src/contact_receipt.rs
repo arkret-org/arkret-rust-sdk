@@ -92,7 +92,7 @@ mod tests {
                 },
                 slot_version: 1,
                 slot_predecessor: None,
-                previous_terminal_basis_id: None,
+                previous_terminal_contact_round_id: None,
                 request_event_ref: EventId::new(REQUEST_EVENT_REF).unwrap(),
                 request_digest: hash('a'),
                 source_checkpoint: hash('b'),

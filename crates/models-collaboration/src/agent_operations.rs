@@ -1668,7 +1668,7 @@ pub struct AgentSidecarExchangeRequestContext {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub coordinator_agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_frontier_anchor: Option<EventId>,
+    pub source_event_id: Option<EventId>,
 }
 
 impl AgentSidecarExchangeRequestContext {
@@ -2097,7 +2097,7 @@ pub struct AgentSidecarExchangeProjection {
     pub origin: AgentSidecarExchangeOrigin,
     pub source_track_ref: AgentSidecarSourceTrackRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_frontier_anchor: Option<EventId>,
+    pub source_event_id: Option<EventId>,
     pub source_hlc: Hlc,
     pub client_order_key: NonEmptyString,
     pub addressed_agent_ids: Vec<DidCoreId>,
@@ -2704,7 +2704,7 @@ mod tests {
             addressed_agent_ids: vec![fixture_agent()],
             completion_policy: AgentSidecarExchangeCompletionPolicy::Coordinator,
             coordinator_agent_id: None,
-            source_frontier_anchor: None,
+            source_event_id: None,
         }
     }
 
@@ -2723,7 +2723,7 @@ mod tests {
                     .unwrap(),
                 track_name: "discussion".to_owned(),
             },
-            source_frontier_anchor: None,
+            source_event_id: None,
             source_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             client_order_key: NonEmptyString::new("device-1-1").unwrap(),
             addressed_agent_ids: vec![fixture_agent()],

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_identity::CurrentAgentSignerEvidence;
 use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
-    DeviceReanchorPreFenceBasis, DidCoreId, DidFullId, DidUrl, Error, EventId,
+    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, Error, EventId,
     FederatedDeviceSigningKeyEvidence, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
     RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId, ReasonCode, RecoverySessionId, Result,
     SchemaId, ScopeRef, TransactionId, TypedTrustDomainId, XExtensionMap,
@@ -1264,7 +1264,7 @@ pub struct RecoverySessionState {
         feature = "openapi",
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
-    pub accepted_seal_frontier: Option<DeviceReanchorPreFenceBasis>,
+    pub accepted_seal_frontier: Option<DeviceReanchorPreFenceSealFrontier>,
     pub publication_authority_context: RecoveryPublicationAuthorityContext,
     pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
@@ -1348,7 +1348,7 @@ struct RecoverySessionStateWire {
     current_device_generation_ref: NonEmptyString,
     device_generation_status: DeviceGenerationStatus,
     registry_head: Hash,
-    accepted_seal_frontier: Option<DeviceReanchorPreFenceBasis>,
+    accepted_seal_frontier: Option<DeviceReanchorPreFenceSealFrontier>,
     publication_authority_context: RecoveryPublicationAuthorityContext,
     publication_authority_context_digest: Hash,
     challenge: Challenge,

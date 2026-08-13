@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-12.1;
-//! sha256=2a72fc35455b06a6c150cd5e0b8dc6d339d8965494b8a3aa2a3bffe9ed9f98cc
+//! Input: registry/error-code-registry.json; version=2026-08-13.1;
+//! sha256=3fec299568b224c55a604d726b0d6fd864e74d7e42a43fcc12b7e288a11c7e4e
 //! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2917,7 +2917,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_FRONTIER_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The re-anchor pre_fence_basis is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+        description: "The re-anchor pre_fence_seal_frontier is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DID_PROOF_REPLAY_WINDOW_EXCEEDED,

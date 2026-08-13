@@ -1,7 +1,7 @@
 //! Stable HTTP bindings for typed federation service operations.
 
-pub const PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS: &str =
-    "/_arkret/peer/account-status/authoring-basis";
+pub const PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS: &str =
+    "/_arkret/peer/account-status/authoring-frontiers";
 pub const PATH_PEER_PRINCIPAL_GENESIS: &str = "/_arkret/peer/principal-genesis";
 pub const PATH_PEER_MLS_GROUP_STATE_MATERIAL: &str = "/_arkret/peer/mls/group-state-material";
 pub const PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY: &str =
@@ -15,10 +15,10 @@ mod tests {
     #[test]
     fn paths_match_generated_operation_registry() {
         assert_eq!(
-            ServiceOperationId::PeerAccountStatusReadAuthoringBasis
+            ServiceOperationId::PeerAccountStatusReadAuthoringFrontiers
                 .descriptor()
                 .http_path,
-            PATH_PEER_ACCOUNT_STATUS_AUTHORING_BASIS
+            PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS
         );
         assert_eq!(
             ServiceOperationId::PeerPrincipalGenesisCommandSubmit

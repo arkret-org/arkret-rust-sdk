@@ -621,7 +621,7 @@ impl Client {
     /// Query-only resolver for the pair's single stable Direct Conversation.
     ///
     /// This never creates. A Direct Conversation Realm is created only by the founder derived from
-    /// the pair's root Contact basis, through the `direct_conversation_genesis` admission variant
+    /// the pair's root Contact round, through the `direct_conversation_genesis` admission variant
     /// of `ak.realm.create`. `AwaitingFounder` never becomes create authority no matter how
     /// long the caller waits: base v1 has no timeout fallback or takeover.
     pub async fn direct_conversation_resolve(

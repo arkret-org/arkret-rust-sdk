@@ -2535,7 +2535,7 @@ mod contact_projection_tests {
             },
             "state": "accepted",
             "next_prepare_input": {
-                "basis_id": format!("sha256:{}", "c".repeat(64)),
+                "contact_round_id": format!("sha256:{}", "c".repeat(64)),
                 "version": 2,
                 "predecessor_event_ref": REQUEST_EVENT_REF
             },

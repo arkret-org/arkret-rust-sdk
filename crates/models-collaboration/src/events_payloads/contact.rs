@@ -9,7 +9,7 @@ use crate::internal_prelude::*;
 #[serde(deny_unknown_fields)]
 pub struct ContactAcceptedPayload {
     pub peer: ContactPeer,
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     #[serde(
         serialize_with = "serialize_initial_version",
         deserialize_with = "deserialize_initial_version"
@@ -18,7 +18,7 @@ pub struct ContactAcceptedPayload {
     pub request_event_ref: EventId,
     pub request_acceptance_receipt_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_basis_id: Option<Hash>,
+    pub previous_terminal_contact_round_id: Option<Hash>,
     pub granted_to_peer_scopes: ContactScopes,
 }
 
@@ -43,7 +43,7 @@ pub struct ContactRequestedPayload {
     pub granted_to_peer_scopes: ContactScopes,
     pub introduction_evidence_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_basis_id: Option<Hash>,
+    pub previous_terminal_contact_round_id: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
@@ -54,7 +54,7 @@ pub struct ContactRequestedPayload {
 #[serde(deny_unknown_fields)]
 pub struct ContactTombstonedPayload {
     pub peer: ContactPeer,
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     #[serde(
         serialize_with = "serialize_successor_version",
         deserialize_with = "deserialize_successor_version"

@@ -72,7 +72,7 @@ pub struct RequestAcceptanceReceiptCore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot_predecessor: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_basis_id: Option<Hash>,
+    pub previous_terminal_contact_round_id: Option<Hash>,
     pub request_event_ref: EventId,
     pub request_digest: Hash,
     pub source_checkpoint: Hash,
@@ -112,7 +112,7 @@ impl RequestAcceptanceReceipt {
         Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
     }
 
-    /// RFC 8785/JCS digest of the complete signed receipt used by Contact basis
+    /// RFC 8785/JCS digest of the complete signed receipt used by Contact round
     /// payloads and receipt-to-Event bindings.
     pub fn computed_receipt_digest(&self) -> arkret_wire::Result<Hash> {
         Hash::new(arkret_canonical::canonical_sha256(self)?).map_err(Into::into)
@@ -156,7 +156,7 @@ impl RequestAcceptanceReceipt {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactNextPrepareInput {
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     /// Version carried by the *next* Event, so it starts at two.
     pub version: u64,
     /// Current accepted lineage head, used as the next Event predecessor.
@@ -178,7 +178,7 @@ impl ContactNextPrepareInput {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactCurrentProof {
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     pub issuer: DidCoreId,
     pub terminal: bool,
     pub head_event_ref: EventId,
@@ -199,7 +199,7 @@ impl ContactCurrentProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactBasisRequestRef {
+pub struct ContactRoundRequestRef {
     pub request_event_ref: EventId,
     pub request_acceptance_receipt_digest: Hash,
 }
@@ -207,7 +207,7 @@ pub struct ContactBasisRequestRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ContactBasis {
+pub enum ContactRound {
     Normal {
         sorted_pair_members: [DidCoreId; 2],
         request_event_ref: EventId,
@@ -215,7 +215,7 @@ pub enum ContactBasis {
     },
     Glare {
         sorted_pair_members: [DidCoreId; 2],
-        requests: [ContactBasisRequestRef; 2],
+        requests: [ContactRoundRequestRef; 2],
     },
 }
 
@@ -223,7 +223,7 @@ pub enum ContactBasis {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct NormalResponseAcceptanceReceipt {
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     pub request_receipt: RequestAcceptanceReceipt,
     pub response_event_ref: EventId,
     pub response_digest: Hash,
@@ -263,7 +263,7 @@ impl RejectAcceptanceReceipt {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactLineage {
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     pub issuer: ContactPeer,
     pub peer: ContactPeer,
     pub version: u64,
@@ -306,7 +306,7 @@ pub struct ContactPrepareRequestBody {
     pub granted_to_peer_scopes: ContactScopes,
     pub introduction_evidence: ContactIntroductionEvidence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_basis_id: Option<Hash>,
+    pub previous_terminal_contact_round_id: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
@@ -333,7 +333,7 @@ pub struct ContactScopeUpdatePrepareRequestBody {
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
     pub peer: ContactPeer,
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     pub version: u64,
     pub predecessor_event_ref: EventId,
     pub granted_to_peer_scopes: ContactScopes,
@@ -356,11 +356,11 @@ pub enum ContactScopeUpdateRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactBasisEvidenceBundle {
-    pub basis_id: Hash,
+pub struct ContactRoundEvidenceBundle {
+    pub contact_round_id: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_basis_id: Option<Hash>,
-    pub basis: ContactBasis,
+    pub previous_terminal_contact_round_id: Option<Hash>,
+    pub contact_round: ContactRound,
     pub request_receipts: Vec<RequestAcceptanceReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub normal_response_receipt: Option<NormalResponseAcceptanceReceipt>,
@@ -370,53 +370,53 @@ pub struct ContactBasisEvidenceBundle {
 }
 
 pub fn validate_recontact_continuity(
-    current: &ContactBasisEvidenceBundle,
-    predecessors: &[ContactBasisEvidenceBundle],
+    current: &ContactRoundEvidenceBundle,
+    predecessors: &[ContactRoundEvidenceBundle],
 ) -> arkret_wire::Result<()> {
     if predecessors.len() > 64 {
         return Err(arkret_wire::Error::Protocol(
-            "Contact basis continuity exceeds 64 predecessors".to_owned(),
+            "Contact round continuity exceeds 64 predecessors".to_owned(),
         ));
     }
-    let mut expected = current.previous_terminal_basis_id.as_ref();
+    let mut expected = current.previous_terminal_contact_round_id.as_ref();
     if current
         .request_receipts
         .iter()
-        .any(|receipt| receipt.core.previous_terminal_basis_id.as_ref() != expected)
+        .any(|receipt| receipt.core.previous_terminal_contact_round_id.as_ref() != expected)
     {
         return Err(arkret_wire::Error::Protocol(
             "current Contact request receipt continuity pointer mismatch".to_owned(),
         ));
     }
     let mut seen = std::collections::BTreeSet::new();
-    seen.insert(current.basis_id.clone());
+    seen.insert(current.contact_round_id.clone());
     for predecessor in predecessors {
-        if expected != Some(&predecessor.basis_id)
+        if expected != Some(&predecessor.contact_round_id)
             || predecessor.current_proofs.len() != 2
-            || predecessor
-                .current_proofs
-                .iter()
-                .any(|proof| !proof.terminal || proof.basis_id != predecessor.basis_id)
-            || !seen.insert(predecessor.basis_id.clone())
+            || predecessor.current_proofs.iter().any(|proof| {
+                !proof.terminal || proof.contact_round_id != predecessor.contact_round_id
+            })
+            || !seen.insert(predecessor.contact_round_id.clone())
         {
             return Err(arkret_wire::Error::Protocol(
-                "invalid Contact terminal basis continuity edge".to_owned(),
+                "invalid Contact terminal contact_round continuity edge".to_owned(),
             ));
         }
         if predecessor.request_receipts.iter().any(|receipt| {
-            receipt.core.previous_terminal_basis_id != predecessor.previous_terminal_basis_id
+            receipt.core.previous_terminal_contact_round_id
+                != predecessor.previous_terminal_contact_round_id
         }) {
             return Err(arkret_wire::Error::Protocol(
                 "predecessor Contact request receipt continuity pointer mismatch".to_owned(),
             ));
         }
-        expected = predecessor.previous_terminal_basis_id.as_ref();
+        expected = predecessor.previous_terminal_contact_round_id.as_ref();
     }
     if expected.is_some()
-        || (current.previous_terminal_basis_id.is_some() && predecessors.is_empty())
+        || (current.previous_terminal_contact_round_id.is_some() && predecessors.is_empty())
     {
         return Err(arkret_wire::Error::Protocol(
-            "Contact basis continuity does not terminate at one root".to_owned(),
+            "Contact round continuity does not terminate at one root".to_owned(),
         ));
     }
     Ok(())
@@ -481,7 +481,7 @@ pub struct ContactTombstonePrepareRequestBody {
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
     pub peer: ContactPeer,
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     pub version: u64,
     pub predecessor_event_ref: EventId,
 }
@@ -512,7 +512,7 @@ string_marker!(
 pub struct ContactScopeUpdatePayload {
     pub schema: ContactScopeUpdateSchema,
     pub peer: ContactPeer,
-    pub basis_id: Hash,
+    pub contact_round_id: Hash,
     pub version: u64,
     pub predecessor_event_ref: EventId,
     pub granted_to_peer_scopes: ContactScopes,
@@ -523,7 +523,7 @@ pub struct ContactScopeUpdatePayload {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactOperationRejectReason {
     ContactIdempotencyConflict,
-    ContactBasisConflict,
+    ContactRoundConflict,
     ContactLineageConflict,
     ContactTerminal,
     ContactScopeStale,
@@ -740,8 +740,8 @@ pub enum PeerContactSubmitRequestBody {
     },
     GlareFinalize {
         idempotency_key: IdempotencyKey,
-        basis_id: Hash,
-        basis: ContactBasis,
+        contact_round_id: Hash,
+        contact_round: ContactRound,
         request_receipts: [RequestAcceptanceReceipt; 2],
         remote_mirror_receipt: PeerContactMirrorReceipt,
         glare_concurrency_attestation: GlareConcurrencyAttestation,

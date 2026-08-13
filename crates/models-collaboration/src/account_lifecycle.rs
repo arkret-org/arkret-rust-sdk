@@ -305,12 +305,12 @@ pub enum AccountStatusAuthoringEventKind {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountStatusAuthoringBasisRequestBody {
+pub struct AccountStatusAuthoringFrontiersRequestBody {
     pub authority_evidence: AccountStatusAuthorityEvidence,
     pub event_kind: AccountStatusAuthoringEventKind,
 }
 
-impl AccountStatusAuthoringBasisRequestBody {
+impl AccountStatusAuthoringFrontiersRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.authority_evidence.validate_shape()
     }
@@ -319,7 +319,7 @@ impl AccountStatusAuthoringBasisRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountStatusAuthoringBasisOutcome {
+pub struct AccountStatusAuthoringFrontiersOutcome {
     pub account_id: NonEmptyString,
     pub principal_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
@@ -328,12 +328,12 @@ pub struct AccountStatusAuthoringBasisOutcome {
     pub seal_frontier: RealmSealFrontierView,
 }
 
-impl AccountStatusAuthoringBasisOutcome {
+impl AccountStatusAuthoringFrontiersOutcome {
     /// Validate the response against the signed authority evidence before the
     /// returned frontiers are used to author an account-status Event.
     pub fn validate_for_request(
         &self,
-        request: &AccountStatusAuthoringBasisRequestBody,
+        request: &AccountStatusAuthoringFrontiersRequestBody,
     ) -> Result<()> {
         request.validate()?;
         let evidence = &request.authority_evidence;
@@ -346,14 +346,14 @@ impl AccountStatusAuthoringBasisOutcome {
             || self.seal_frontier.realm_id != evidence.principal_control_realm_id
         {
             return Err(arkret_wire::Error::Protocol(
-                "account-status authoring basis does not match authority evidence".to_owned(),
+                "account-status authoring frontiers do not match authority evidence".to_owned(),
             ));
         }
         self.actor_frontier.validate()?;
         self.seal_frontier.validate_protocol_bounds()?;
         if self.seal_frontier.governance_health.status != ControlGovernanceHealthStatus::Healthy {
             return Err(arkret_wire::Error::Protocol(
-                "account-status authoring basis requires a healthy Seal frontier".to_owned(),
+                "account-status authoring frontiers require a healthy Seal frontier".to_owned(),
             ));
         }
         Ok(())

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-12.2;
-//! sha256=e7c3c9074162b355ebb2f1873877624279240179b25257cf157a36e644978451 Entries: registered=237
+//! Input: registry/operation-registry.json; version=2026-08-13.3;
+//! sha256=6a65c704e8f3360f8e9b4c4f4594f3c190ca3b14e4e58970d2e9b506f649ead6 Entries: registered=237
 
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +74,7 @@ pub enum ServiceOperationId {
     OpenMimiReadProviderDirectory,
     OpenServiceReadResolution,
     PeerAccountStatusCommandSubmit,
-    PeerAccountStatusReadAuthoringBasis,
+    PeerAccountStatusReadAuthoringFrontiers,
     PeerContactsCommandSubmit,
     PeerDirectConversationCommandRepairRelay,
     PeerErasureReceiptCommandSubmit,
@@ -314,7 +314,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
     ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS,
+    ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
@@ -594,7 +594,7 @@ impl ServiceOperationId {
         Self::OpenMimiReadProviderDirectory,
         Self::OpenServiceReadResolution,
         Self::PeerAccountStatusCommandSubmit,
-        Self::PeerAccountStatusReadAuthoringBasis,
+        Self::PeerAccountStatusReadAuthoringFrontiers,
         Self::PeerContactsCommandSubmit,
         Self::PeerDirectConversationCommandRepairRelay,
         Self::PeerErasureReceiptCommandSubmit,
@@ -878,8 +878,8 @@ impl ServiceOperationId {
     pub const OPEN_SERVICE_READ_RESOLUTION: &'static str = "ak.open.service.read.resolution";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT: &'static str =
         "ak.peer.account_status.command.submit";
-    pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS: &'static str =
-        "ak.peer.account_status.read.authoring_basis";
+    pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS: &'static str =
+        "ak.peer.account_status.read.authoring_frontiers";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY: &'static str =
         "ak.peer.direct_conversation.command.repair_relay";
@@ -1249,8 +1249,8 @@ impl ServiceOperationId {
             Self::OpenMimiReadProviderDirectory => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
             Self::OpenServiceReadResolution => Self::OPEN_SERVICE_READ_RESOLUTION,
             Self::PeerAccountStatusCommandSubmit => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-            Self::PeerAccountStatusReadAuthoringBasis => {
-                Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS
+            Self::PeerAccountStatusReadAuthoringFrontiers => {
+                Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerDirectConversationCommandRepairRelay => {
@@ -1625,8 +1625,8 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY => Some(Self::OpenMimiReadProviderDirectory),
             Self::OPEN_SERVICE_READ_RESOLUTION => Some(Self::OpenServiceReadResolution),
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT => Some(Self::PeerAccountStatusCommandSubmit),
-            Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_BASIS => {
-                Some(Self::PeerAccountStatusReadAuthoringBasis)
+            Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS => {
+                Some(Self::PeerAccountStatusReadAuthoringFrontiers)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY => {
@@ -3424,21 +3424,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerAccountStatusReadAuthoringBasis,
+        id: ServiceOperationId::PeerAccountStatusReadAuthoringFrontiers,
         http_method: "POST",
-        http_path: "/_arkret/peer/account-status/authoring-basis",
-        grpc: Some("PeerAccountStatus/AuthoringBasis"),
-        mq: Some("peer.account_status.query.authoring_basis"),
+        http_path: "/_arkret/peer/account-status/authoring-frontiers",
+        grpc: Some("PeerAccountStatus/AuthoringFrontiers"),
+        mq: Some("peer.account_status.query.authoring_frontiers"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_request_body",
+            "schemas/account-operations.schema.json#/$defs/account_status_authoring_frontiers_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_authoring_basis_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_status_authoring_frontiers_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

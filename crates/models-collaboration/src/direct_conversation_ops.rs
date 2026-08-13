@@ -3,7 +3,7 @@
 //! Mirrors `schemas/direct-conversation-operations.schema.json`.
 //!
 //! Creation is never carried here. A Direct Conversation Realm is created only by the founder
-//! derived from the pair's root Contact basis, through the `direct_conversation_genesis` (or
+//! derived from the pair's root Contact round, through the `direct_conversation_genesis` (or
 //! `direct_conversation_agent_genesis`) admission variant of `ak.realm.create`. This module only
 //! carries the query-only resolver and the source-signed founding acceptance receipt.
 
@@ -21,14 +21,14 @@ pub use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::contact_operations::{ContactBasisEvidenceBundle, ContactPeer};
+use crate::contact_operations::{ContactPeer, ContactRoundEvidenceBundle};
 
 pub const DIRECT_CONVERSATION_FOUNDING_UNIT_KIND: &str = "direct_conversation_founding";
 pub const DIRECT_CONVERSATION_FOUNDING_UNIT_DOMAIN: &[u8] =
     b"ak.direct-conversation.founding-unit.v1\n";
 pub const DIRECT_CONVERSATION_FOUNDING_RECEIPT_DOMAIN: &[u8] =
     b"ak.direct-conversation.founding-receipt.v1\n";
-pub const CONTACT_BASIS_DOMAIN: &[u8] = b"ak.contact.basis.v1\n";
+pub const CONTACT_ROUND_DOMAIN: &[u8] = b"ak.contact.round.v1\n";
 pub const PRINCIPAL_SERVICE_BINDING_DOMAIN: &[u8] = b"ak.principal-service-binding.v1\n";
 pub const PRINCIPAL_SERVICE_BINDING_PROOF_DOMAIN: &[u8] =
     b"ak.principal-service-binding-proof.v1\n";
@@ -450,10 +450,10 @@ impl PrincipalServiceBindingContinuity {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[allow(clippy::large_enum_variant)]
-pub enum DirectConversationFounderBasisEvidence {
+pub enum DirectConversationFoundingAuthorityEvidence {
     Human {
-        basis_evidence_bundle: ContactBasisEvidenceBundle,
-        root_basis_continuity_chain: Vec<ContactBasisEvidenceBundle>,
+        contact_round_evidence: ContactRoundEvidenceBundle,
+        contact_round_continuity_chain: Vec<ContactRoundEvidenceBundle>,
     },
     ControllerAgent {
         agent_provision_ref: EventId,
@@ -470,7 +470,7 @@ pub struct DirectConversationFoundingUnitSubmission {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub idempotency_key: IdempotencyKey,
     pub events: [EventInitialSubmission; 3],
-    pub founder_basis_evidence: DirectConversationFounderBasisEvidence,
+    pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     pub source_service_binding: AcceptedAtServiceBinding,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
@@ -494,7 +494,7 @@ pub struct DirectConversationFoundingFederationSubmission {
     pub events: [EventFederationSubmission; 3],
     pub source_acceptance_receipt: DirectConversationFoundingAcceptanceReceipt,
     pub source_service_continuity: PrincipalServiceBindingContinuity,
-    pub founder_basis_evidence: DirectConversationFounderBasisEvidence,
+    pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -548,7 +548,7 @@ impl DirectConversationFoundingPlan {
                 || event.seal_basis.is_some()
             {
                 return Err(founding_unit_invalid(
-                    "founding Events must use the bootstrap no-basis shape",
+                    "founding Events must use the bootstrap no-contact_round shape",
                 ));
             }
         }
@@ -613,7 +613,7 @@ impl DirectConversationFoundingPlan {
     }
 }
 
-impl DirectConversationFounderBasisEvidence {
+impl DirectConversationFoundingAuthorityEvidence {
     pub fn participants_and_founder(&self) -> arkret_wire::Result<([DidCoreId; 2], DidCoreId)> {
         match self {
             Self::ControllerAgent { .. } => Err(arkret_wire::Error::Protocol(
@@ -621,40 +621,41 @@ impl DirectConversationFounderBasisEvidence {
                     .to_owned(),
             )),
             Self::Human {
-                basis_evidence_bundle,
-                root_basis_continuity_chain,
+                contact_round_evidence,
+                contact_round_continuity_chain,
             } => {
-                validate_contact_basis_evidence_bundle_shape(basis_evidence_bundle)?;
-                if root_basis_continuity_chain.len() > 64 {
+                validate_contact_contact_round_evidence_shape(contact_round_evidence)?;
+                if contact_round_continuity_chain.len() > 64 {
                     return Err(arkret_wire::Error::Protocol(
-                        "direct conversation root basis continuity chain exceeds 64 entries"
+                        "direct conversation root contact_round continuity chain exceeds 64 entries"
                             .to_owned(),
                     ));
                 }
-                for predecessor in root_basis_continuity_chain {
-                    validate_contact_basis_evidence_bundle_shape(predecessor)?;
+                for predecessor in contact_round_continuity_chain {
+                    validate_contact_contact_round_evidence_shape(predecessor)?;
                 }
                 crate::contact_operations::validate_recontact_continuity(
-                    basis_evidence_bundle,
-                    root_basis_continuity_chain,
+                    contact_round_evidence,
+                    contact_round_continuity_chain,
                 )?;
-                let root = root_basis_continuity_chain
+                let root = contact_round_continuity_chain
                     .last()
-                    .unwrap_or(basis_evidence_bundle);
-                let (participants, request_ref) = match &root.basis {
-                    crate::contact_operations::ContactBasis::Normal {
+                    .unwrap_or(contact_round_evidence);
+                let (participants, request_ref) = match &root.contact_round {
+                    crate::contact_operations::ContactRound::Normal {
                         sorted_pair_members,
                         request_event_ref,
                         ..
                     } => (sorted_pair_members.clone(), request_event_ref),
-                    crate::contact_operations::ContactBasis::Glare {
+                    crate::contact_operations::ContactRound::Glare {
                         sorted_pair_members,
                         requests,
                     } => (sorted_pair_members.clone(), &requests[0].request_event_ref),
                 };
                 if participants[0].as_str() >= participants[1].as_str() {
                     return Err(arkret_wire::Error::Protocol(
-                        "direct conversation basis pair is not canonical and distinct".to_owned(),
+                        "direct conversation contact_round pair is not canonical and distinct"
+                            .to_owned(),
                     ));
                 }
                 let request_issuer = root
@@ -664,11 +665,12 @@ impl DirectConversationFounderBasisEvidence {
                     .map(|receipt| receipt.core.holder.contact_actor_id())
                     .ok_or_else(|| {
                         arkret_wire::Error::Protocol(
-                            "direct conversation root basis request receipt is missing".to_owned(),
+                            "direct conversation root contact_round request receipt is missing"
+                                .to_owned(),
                         )
                     })?;
-                let founder = match &root.basis {
-                    crate::contact_operations::ContactBasis::Normal { .. } => {
+                let founder = match &root.contact_round {
+                    crate::contact_operations::ContactRound::Normal { .. } => {
                         if request_issuer == participants[0] {
                             participants[1].clone()
                         } else if request_issuer == participants[1] {
@@ -679,7 +681,7 @@ impl DirectConversationFounderBasisEvidence {
                             ));
                         }
                     }
-                    crate::contact_operations::ContactBasis::Glare { .. } => request_issuer,
+                    crate::contact_operations::ContactRound::Glare { .. } => request_issuer,
                 };
                 Ok((participants, founder))
             }
@@ -691,8 +693,8 @@ impl DirectConversationFounderBasisEvidence {
         trust_domain_id: TrustDomainId,
     ) -> arkret_wire::Result<(Hash, DidCoreId, DirectConversationFoundingAuthorizationCore)> {
         let Self::Human {
-            basis_evidence_bundle,
-            root_basis_continuity_chain,
+            contact_round_evidence,
+            contact_round_continuity_chain,
         } = self
         else {
             return Err(arkret_wire::Error::Protocol(
@@ -700,9 +702,9 @@ impl DirectConversationFounderBasisEvidence {
             ));
         };
         let (participants, founder) = self.participants_and_founder()?;
-        let root = root_basis_continuity_chain
+        let root = contact_round_continuity_chain
             .last()
-            .unwrap_or(basis_evidence_bundle);
+            .unwrap_or(contact_round_evidence);
         let pair_key = crate::objects::direct_conversation::direct_conversation_pair_key(
             trust_domain_id,
             crate::objects::direct_conversation::DirectConversationPairKeyParticipant::unmapped(
@@ -712,7 +714,7 @@ impl DirectConversationFounderBasisEvidence {
                 participants[1].clone(),
             ),
         )?;
-        let evidence_bytes = arkret_canonical::canonical_json_bytes(basis_evidence_bundle)
+        let evidence_bytes = arkret_canonical::canonical_json_bytes(contact_round_evidence)
             .map_err(protocol_error)?;
         let accepted_contact_evidence_digest =
             Hash::new(arkret_canonical::sha256_digest(evidence_bytes)).map_err(protocol_error)?;
@@ -720,36 +722,36 @@ impl DirectConversationFounderBasisEvidence {
             pair_key,
             founder,
             DirectConversationFoundingAuthorizationCore::Human {
-                current_contact_basis_id: basis_evidence_bundle.basis_id.clone(),
-                founder_basis_id: root.basis_id.clone(),
+                current_contact_round_id: contact_round_evidence.contact_round_id.clone(),
+                root_contact_round_id: root.contact_round_id.clone(),
                 accepted_contact_evidence_digest,
             },
         ))
     }
 }
 
-fn validate_contact_basis_evidence_bundle_shape(
-    bundle: &ContactBasisEvidenceBundle,
+fn validate_contact_contact_round_evidence_shape(
+    bundle: &ContactRoundEvidenceBundle,
 ) -> arkret_wire::Result<()> {
-    let expected_basis_id = contact_basis_id(&bundle.basis)?;
-    if bundle.basis_id != expected_basis_id || bundle.current_proofs.len() != 2 {
+    let expected_contact_round_id = contact_round_id(&bundle.contact_round)?;
+    if bundle.contact_round_id != expected_contact_round_id || bundle.current_proofs.len() != 2 {
         return Err(protocol_error(
-            "Contact basis id or current-proof cardinality is invalid",
+            "Contact round id or current-proof cardinality is invalid",
         ));
     }
-    let participants = match &bundle.basis {
-        crate::contact_operations::ContactBasis::Normal {
+    let participants = match &bundle.contact_round {
+        crate::contact_operations::ContactRound::Normal {
             sorted_pair_members,
             ..
         }
-        | crate::contact_operations::ContactBasis::Glare {
+        | crate::contact_operations::ContactRound::Glare {
             sorted_pair_members,
             ..
         } => sorted_pair_members,
     };
     if participants[0].as_str() >= participants[1].as_str()
         || bundle.current_proofs.iter().any(|proof| {
-            proof.basis_id != bundle.basis_id
+            proof.contact_round_id != bundle.contact_round_id
                 || proof.complete_through == 0
                 || !proof.accepted_frontier.contains(&proof.head_event_ref)
         })
@@ -772,18 +774,18 @@ fn validate_contact_basis_evidence_bundle_shape(
             return Err(protocol_error("Contact request receipt digest is invalid"));
         }
     }
-    match &bundle.basis {
-        crate::contact_operations::ContactBasis::Normal {
+    match &bundle.contact_round {
+        crate::contact_operations::ContactRound::Normal {
             request_event_ref,
             request_acceptance_receipt_digest,
             ..
         } => {
             let response = bundle.normal_response_receipt.as_ref().ok_or_else(|| {
-                protocol_error("normal Contact basis is missing its response receipt")
+                protocol_error("normal Contact round is missing its response receipt")
             })?;
             let [request] = bundle.request_receipts.as_slice() else {
                 return Err(protocol_error(
-                    "normal Contact basis requires one request receipt",
+                    "normal Contact round requires one request receipt",
                 ));
             };
             let request_acceptance_receipt_digest_actual =
@@ -797,19 +799,19 @@ fn validate_contact_basis_evidence_bundle_shape(
             if bundle.glare_concurrency_attestations.is_some()
                 || &request.core.request_event_ref != request_event_ref
                 || &request_acceptance_receipt_digest_actual != request_acceptance_receipt_digest
-                || response.basis_id != bundle.basis_id
+                || response.contact_round_id != bundle.contact_round_id
                 || response_request_receipt_digest != request_acceptance_receipt_digest_actual
             {
-                return Err(protocol_error("normal Contact basis evidence mismatch"));
+                return Err(protocol_error("normal Contact round evidence mismatch"));
             }
         }
-        crate::contact_operations::ContactBasis::Glare { requests, .. } => {
+        crate::contact_operations::ContactRound::Glare { requests, .. } => {
             let attestations = bundle
                 .glare_concurrency_attestations
                 .as_ref()
-                .ok_or_else(|| protocol_error("glare Contact basis is missing attestations"))?;
+                .ok_or_else(|| protocol_error("glare Contact round is missing attestations"))?;
             if bundle.normal_response_receipt.is_some() || bundle.request_receipts.len() != 2 {
-                return Err(protocol_error("glare Contact basis evidence mismatch"));
+                return Err(protocol_error("glare Contact round evidence mismatch"));
             }
             let expected = requests
                 .iter()
@@ -856,15 +858,17 @@ fn validate_contact_basis_evidence_bundle_shape(
                         })
                 })
             {
-                return Err(protocol_error("glare Contact basis evidence mismatch"));
+                return Err(protocol_error("glare Contact round evidence mismatch"));
             }
         }
     }
     Ok(())
 }
 
-fn contact_basis_id(basis: &crate::contact_operations::ContactBasis) -> arkret_wire::Result<Hash> {
-    domain_separated_sha256(CONTACT_BASIS_DOMAIN, basis)
+fn contact_round_id(
+    contact_round: &crate::contact_operations::ContactRound,
+) -> arkret_wire::Result<Hash> {
+    domain_separated_sha256(CONTACT_ROUND_DOMAIN, contact_round)
 }
 
 fn protocol_error(error: impl std::fmt::Display) -> arkret_wire::Error {
@@ -913,7 +917,7 @@ pub struct DirectConversationResolveRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationFoundingInput {
-    pub founder_basis_evidence: DirectConversationFounderBasisEvidence,
+    pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     pub source_service_binding: AcceptedAtServiceBinding,
 }
 
@@ -986,10 +990,10 @@ impl DirectConversationClientLocalBlocker {
 
 /// Closed tagged outcome of `ak.self.direct_conversation.read.resolve`.
 ///
-/// Evaluation order is fixed: `TemporarilyUnavailable` when the current basis or founder cannot be
-/// verified; then `CreationBlocked`/`CreationRequired`/`AwaitingFounder` while no Realm exists;
-/// then `Suspended` for identity, materialization, terminal or gate conflicts; then `Provisional`
-/// while no binding endorsement exists; `Found` last.
+/// Evaluation order is fixed: `TemporarilyUnavailable` when the current contact_round or founder
+/// cannot be verified; then `CreationBlocked`/`CreationRequired`/`AwaitingFounder` while no Realm
+/// exists; then `Suspended` for identity, materialization, terminal or gate conflicts; then
+/// `Provisional` while no binding endorsement exists; `Found` last.
 ///
 /// `retry_after_ms` is a scheduling hint only. Waiting never grants create authority to the
 /// non-founder: there is no timeout fallback or takeover in base v1.
@@ -1093,13 +1097,13 @@ impl DirectConversationResolveOutcome {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DirectConversationFoundingAuthorizationCore {
-    /// human-to-human and Agent-to-third-party: founder derives from the Contact basis.
+    /// human-to-human and Agent-to-third-party: founder derives from the Contact round.
     Human {
-        current_contact_basis_id: Hash,
-        founder_basis_id: Hash,
+        current_contact_round_id: Hash,
+        root_contact_round_id: Hash,
         accepted_contact_evidence_digest: Hash,
     },
-    /// controller-to-own-Agent: no Contact basis exists, founder is fixed to the controller.
+    /// controller-to-own-Agent: no Contact round exists, founder is fixed to the controller.
     ControllerAgent {
         agent_provision_ref: EventId,
         agent_provision_digest: Hash,
@@ -1216,7 +1220,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn contact_basis_id_matches_normative_known_answers() {
+    fn contact_round_id_matches_normative_known_answers() {
         let cases = [
             (
                 json!({
@@ -1228,7 +1232,7 @@ mod tests {
                     "request_event_ref": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
                     "request_acceptance_receipt_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 }),
-                "sha256:c81d66dd288ed62349579d189e5fc7a0d5dfb120f19137c1f92da2f30863eb0b",
+                "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
             ),
             (
                 json!({
@@ -1248,13 +1252,13 @@ mod tests {
                         }
                     ]
                 }),
-                "sha256:ef49112795890fb948646e5b7cd40451bcca31977b43c0df5505006cb018378f",
+                "sha256:4c0fa7e71411764bfa71af12c350b37b34ad128e81d46152219b65d5780995de",
             ),
         ];
 
-        for (basis, expected) in cases {
-            let basis = serde_json::from_value(basis).unwrap();
-            assert_eq!(contact_basis_id(&basis).unwrap().as_str(), expected);
+        for (contact_round, expected) in cases {
+            let contact_round = serde_json::from_value(contact_round).unwrap();
+            assert_eq!(contact_round_id(&contact_round).unwrap().as_str(), expected);
         }
     }
 
@@ -1290,8 +1294,8 @@ mod tests {
             "founding_unit_digest": "sha256:dc604271ea8bbefce03b4ef6916f12a01af81722e44b2f3640adc61d3a9e31dd",
             "authorization_core": {
                 "kind": "human",
-                "current_contact_basis_id": "sha256:c81d66dd288ed62349579d189e5fc7a0d5dfb120f19137c1f92da2f30863eb0b",
-                "founder_basis_id": "sha256:c81d66dd288ed62349579d189e5fc7a0d5dfb120f19137c1f92da2f30863eb0b",
+                "current_contact_round_id": "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
+                "root_contact_round_id": "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
                 "accepted_contact_evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
             "slot_committed": true,

@@ -146,7 +146,7 @@ pub enum TransactionDispatch {
     /// §7.3 forbids re-executing side effects).
     Replayed(AppletTransactionOutcome),
     /// Same idempotency identity but a different canonical body digest or
-    /// `source_signature_anchor`: fail closed with `duplicate_conflict`.
+    /// `delivery_authentication_record_digest`: fail closed with `duplicate_conflict`.
     DuplicateConflict,
     /// The same delivery is currently being processed by another request.
     /// Answer with a retryable signal; the retry will observe the settled
@@ -185,18 +185,19 @@ impl AppletService {
     /// answered from the cached outcome without invoking the handler, and
     /// conflicting duplicates fail closed. Callers MUST pass the canonical
     /// body digest of the exact signed bytes and the per-delivery
-    /// `source_signature_anchor` formed during verification (§7.3.1).
+    /// `delivery_authentication_record_digest` formed during verification (§7.3.1).
     pub fn dispatch_transaction(
         &self,
         identity: &IdempotencyIdentity,
         body_digest: &Hash,
-        source_signature_anchor: &str,
+        delivery_authentication_record_digest: &str,
         body: AppletTransactionRequestBody,
     ) -> TransactionDispatch {
-        match self
-            .idempotency
-            .claim(identity, body_digest.as_str(), source_signature_anchor)
-        {
+        match self.idempotency.claim(
+            identity,
+            body_digest.as_str(),
+            delivery_authentication_record_digest,
+        ) {
             Ok(TransactionClaim::Claimed) => {
                 // The idempotency record is already persisted; only now may
                 // external side effects run.
@@ -208,7 +209,7 @@ impl AppletService {
                         match self.idempotency.record(
                             identity,
                             body_digest.as_str(),
-                            source_signature_anchor,
+                            delivery_authentication_record_digest,
                             &outcome,
                         ) {
                             Ok(()) => TransactionDispatch::Executed(outcome),
@@ -221,7 +222,7 @@ impl AppletService {
                         let _ = self.idempotency.release(
                             identity,
                             body_digest.as_str(),
-                            source_signature_anchor,
+                            delivery_authentication_record_digest,
                         );
                         TransactionDispatch::Failed(err)
                     }
@@ -412,7 +413,7 @@ mod tests {
             TransactionDispatch::DuplicateConflict => {}
             other => panic!("expected DuplicateConflict, got {other:?}"),
         }
-        // Same identity + body, different source_signature_anchor (e.g. key
+        // Same identity + body, different delivery_authentication_record_digest (e.g. key
         // rotated between deliveries) → also duplicate_conflict.
         match svc.dispatch_transaction(&identity("key-1"), &digest, "anchor-b", body()) {
             TransactionDispatch::DuplicateConflict => {}

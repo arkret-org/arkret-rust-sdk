@@ -5,7 +5,7 @@
 //! source_service_id, destination_service_id, idempotency_key)`
 //! (`operation-registry.json` `idempotency_identity_fields`). Each record
 //! additionally pins the canonical body digest and the per-delivery
-//! `source_signature_anchor` formed at verification time, so a rotated key
+//! `delivery_authentication_record_digest` formed at verification time, so a rotated key
 //! or a different signer can never replay an old `Idempotency-Key` as a
 //! benign duplicate.
 //!
@@ -37,7 +37,7 @@ pub enum IdempotencyDirection {
 }
 
 impl IdempotencyDirection {
-    /// Canonical wire label used inside `source_signature_anchor` tuples.
+    /// Canonical wire label used inside `delivery_authentication_record_digest` tuples.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::NodeToApplet => "node_to_applet",
@@ -98,14 +98,14 @@ pub trait TransactionIdempotencyStore<T>: Send + Sync + 'static {
         &self,
         identity: &IdempotencyIdentity,
         body_digest: &str,
-        source_signature_anchor: &str,
+        delivery_authentication_record_digest: &str,
     ) -> Result<TransactionClaim<T>, Self::Error>;
 
     fn record(
         &self,
         identity: &IdempotencyIdentity,
         body_digest: &str,
-        source_signature_anchor: &str,
+        delivery_authentication_record_digest: &str,
         outcome: &T,
     ) -> Result<(), Self::Error>;
 
@@ -113,7 +113,7 @@ pub trait TransactionIdempotencyStore<T>: Send + Sync + 'static {
         &self,
         identity: &IdempotencyIdentity,
         body_digest: &str,
-        source_signature_anchor: &str,
+        delivery_authentication_record_digest: &str,
     ) -> Result<(), Self::Error>;
 }
 
@@ -134,7 +134,7 @@ pub enum IdempotencyClaim<T> {
     /// NOT re-execute side effects (`applet-integration.md` §7.3).
     Duplicate { outcome: T, first_seen: Instant },
     /// Same identity but a different canonical body digest or a different
-    /// `source_signature_anchor`. The caller MUST fail closed with
+    /// `delivery_authentication_record_digest`. The caller MUST fail closed with
     /// `duplicate_conflict` (`applet-integration.md` §7.3).
     DuplicateConflict { first_seen: Instant },
 }
@@ -148,7 +148,7 @@ enum EntryState<T> {
 #[derive(Clone, Debug)]
 struct IdempotencyEntry<T> {
     body_digest: Hash,
-    source_signature_anchor: String,
+    delivery_authentication_record_digest: String,
     first_seen: Instant,
     state: EntryState<T>,
 }
@@ -185,7 +185,7 @@ impl<T: Clone> IdempotencyWindow<T> {
         &self,
         identity: &IdempotencyIdentity,
         body_digest: &Hash,
-        source_signature_anchor: &str,
+        delivery_authentication_record_digest: &str,
     ) -> IdempotencyClaim<T> {
         let now = Instant::now();
         let mut inner = self
@@ -196,7 +196,8 @@ impl<T: Clone> IdempotencyWindow<T> {
             && now.saturating_duration_since(entry.first_seen) <= self.window
         {
             if &entry.body_digest != body_digest
-                || entry.source_signature_anchor != source_signature_anchor
+                || entry.delivery_authentication_record_digest
+                    != delivery_authentication_record_digest
             {
                 return IdempotencyClaim::DuplicateConflict {
                     first_seen: entry.first_seen,
@@ -217,7 +218,8 @@ impl<T: Clone> IdempotencyWindow<T> {
             identity.clone(),
             IdempotencyEntry {
                 body_digest: body_digest.clone(),
-                source_signature_anchor: source_signature_anchor.to_owned(),
+                delivery_authentication_record_digest: delivery_authentication_record_digest
+                    .to_owned(),
                 first_seen: now,
                 state: EntryState::InFlight,
             },
@@ -299,11 +301,15 @@ impl<T: Clone + Send + 'static> TransactionIdempotencyStore<T> for IdempotencyWi
         &self,
         identity: &IdempotencyIdentity,
         body_digest: &str,
-        source_signature_anchor: &str,
+        delivery_authentication_record_digest: &str,
     ) -> Result<TransactionClaim<T>, Self::Error> {
         let body_digest = Hash::new(body_digest)?;
         Ok(
-            match self.claim(identity, &body_digest, source_signature_anchor) {
+            match self.claim(
+                identity,
+                &body_digest,
+                delivery_authentication_record_digest,
+            ) {
                 IdempotencyClaim::Fresh => TransactionClaim::Claimed,
                 IdempotencyClaim::InFlight { .. } => TransactionClaim::Pending,
                 IdempotencyClaim::Duplicate { outcome, .. } => TransactionClaim::Duplicate(outcome),
@@ -316,7 +322,7 @@ impl<T: Clone + Send + 'static> TransactionIdempotencyStore<T> for IdempotencyWi
         &self,
         identity: &IdempotencyIdentity,
         _body_digest: &str,
-        _source_signature_anchor: &str,
+        _delivery_authentication_record_digest: &str,
         outcome: &T,
     ) -> Result<(), Self::Error> {
         self.complete(identity, outcome.clone());
@@ -327,7 +333,7 @@ impl<T: Clone + Send + 'static> TransactionIdempotencyStore<T> for IdempotencyWi
         &self,
         identity: &IdempotencyIdentity,
         _body_digest: &str,
-        _source_signature_anchor: &str,
+        _delivery_authentication_record_digest: &str,
     ) -> Result<(), Self::Error> {
         self.release(identity);
         Ok(())
@@ -403,7 +409,7 @@ mod tests {
             win.claim(&identity("key-1"), &body_b, "anchor-a"),
             IdempotencyClaim::DuplicateConflict { .. }
         ));
-        // Same body, different source_signature_anchor (e.g. rotated key).
+        // Same body, different delivery_authentication_record_digest (e.g. rotated key).
         assert!(matches!(
             win.claim(&identity("key-1"), &body_a, "anchor-b"),
             IdempotencyClaim::DuplicateConflict { .. }
