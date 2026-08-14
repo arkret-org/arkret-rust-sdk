@@ -85,6 +85,10 @@ pub enum DeliveryMode {
     Sync,
     ToDevice,
     Push,
+    /// Wire value is the unsegmented `keypackages`, matching
+    /// `member-delivery-binding-candidate.schema.json` and
+    /// `governance/member-delivery-binding.md` §7.
+    #[serde(rename = "keypackages")]
     KeyPackages,
 }
 

@@ -196,8 +196,6 @@ pub const CONTENT_KIND_LOCATION: &str = "ak.content.location";
 pub const CONTENT_KIND_POLL: &str = "ak.content.poll";
 pub const CONTENT_KIND_POLL_RESPONSE: &str = "ak.content.poll.response";
 pub const CONTENT_KIND_POLL_CLOSE: &str = "ak.content.poll.close";
-pub const CONTENT_KIND_AUDIENCE_MENTION: &str = "ak.content.audience_mention";
-const LEGACY_CONTENT_KIND_AUDIENCE_MENTION: &str = "audience_mention";
 
 pub const MEDIA_CONTENT_KINDS: [&str; 4] = [
     CONTENT_KIND_IMAGE,
@@ -335,7 +333,6 @@ pub enum ContentBlockKind {
     Poll,
     PollResponse,
     PollClose,
-    AudienceMention,
 }
 
 impl std::fmt::Display for ContentBlockKind {
@@ -360,9 +357,6 @@ impl ContentBlockKind {
             CONTENT_KIND_POLL => Some(Self::Poll),
             CONTENT_KIND_POLL_RESPONSE => Some(Self::PollResponse),
             CONTENT_KIND_POLL_CLOSE => Some(Self::PollClose),
-            LEGACY_CONTENT_KIND_AUDIENCE_MENTION | CONTENT_KIND_AUDIENCE_MENTION => {
-                Some(Self::AudienceMention)
-            }
             _ => None,
         }
     }
@@ -382,7 +376,6 @@ impl ContentBlockKind {
             Self::Poll => CONTENT_KIND_POLL,
             Self::PollResponse => CONTENT_KIND_POLL_RESPONSE,
             Self::PollClose => CONTENT_KIND_POLL_CLOSE,
-            Self::AudienceMention => CONTENT_KIND_AUDIENCE_MENTION,
         }
     }
 
@@ -1091,6 +1084,7 @@ pub fn validate_content_block(block: &Value) -> ContentBlockValidationResult<()>
     }
     let parsed = ContentBlock::from_value(block.clone())
         .map_err(|_| ContentBlockValidationError::new("content block is invalid"))?;
+    crate::events_payloads::mention::validate_mention_carriers(object)?;
     match parsed.kind {
         ContentBlockKind::Composite => validate_composite_content_block(block),
         ContentBlockKind::Text | ContentBlockKind::FormattedText => {
@@ -1108,11 +1102,6 @@ pub fn validate_content_block(block: &Value) -> ContentBlockValidationResult<()>
         ContentBlockKind::Poll => validate_poll_content_block(block),
         ContentBlockKind::PollResponse => validate_poll_response_content_block(block),
         ContentBlockKind::PollClose => validate_poll_close_content_block(block),
-        ContentBlockKind::AudienceMention => {
-            serde_json::from_value::<AudienceMention>(block.clone())
-                .map(|_| ())
-                .map_err(|_| ContentBlockValidationError::new("audience mention is invalid"))
-        }
     }
 }
 

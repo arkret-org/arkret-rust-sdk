@@ -56,6 +56,7 @@ pub use direct_conversation::*;
 pub use history_sharing::*;
 pub use join_policy::*;
 pub use key_backup::*;
+pub use mention::*;
 pub use message::*;
 pub use mimi::*;
 pub use mls::*;
