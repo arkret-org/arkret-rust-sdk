@@ -12,8 +12,11 @@ workspace dependency and manifest drift:
 ```text
 arkret-canonical
 arkret-egress-policy
+arkret-egress-reqwest
+arkret-retry
 arkret-identifiers
 arkret-keystore
+arkret-locale
 arkret-wire
 arkret-hlc
 arkret-models-identity

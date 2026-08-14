@@ -1,0 +1,26 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["network-programming", "web-programming"]
+description = "Arkret v1 outbound egress guard bound to reqwest clients and resolvers."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "egress", "ssrf", "reqwest", "dns"]
+license = "Apache-2.0"
+name = "arkret-egress-reqwest"
+readme = "README.md"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+arkret-egress-policy = {workspace = true}
+reqwest = {workspace = true}
+thiserror = {workspace = true}
+tokio = {workspace = true,features = ["net"]}
+url = {workspace = true}
+
+[dev-dependencies]
+tokio = {workspace = true,features = ["macros", "net", "rt", "rt-multi-thread"]}
+
+[lints]
+workspace = true

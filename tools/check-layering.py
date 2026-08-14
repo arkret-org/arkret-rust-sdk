@@ -184,8 +184,19 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # with no Arkret dependencies.
     "arkret-keystore": set(),
     "arkret-egress-policy": set(),
+    # arkret-egress-reqwest is the composition layer over the deny-list
+    # primitives: parse -> classify -> resolve DNS -> classify every answer ->
+    # bind to a reqwest client. It exists because exporting only the primitives
+    # left seven repositories each re-assembling that sequence by hand. Its one
+    # arkret edge is to the primitives it composes, so it is cycle-free.
+    "arkret-egress-reqwest": {"arkret-egress-policy"},
     "arkret-push-policy": {"arkret-models-integration"},
     "arkret-rate-limit": set(),
+    # arkret-retry is pure schedule arithmetic for the normative backoff curve
+    # (`api-conventions.md` §556) with no reqwest, runtime, clock or getrandom
+    # dependency, so the wasm consumers can share the one implementation. Leaf
+    # crate, no arkret deps.
+    "arkret-retry": set(),
     # arkret-egress-policy: the did:web / did:webvh resolver in this crate is one
     # of the outbound fetchers the SSRF deny-list exists for.
     # arkret-schema: the events endpoint submits a `PreparedStandardEvent`, the
@@ -198,6 +209,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-discovery",
         "arkret-models-integration",
         "arkret-egress-policy",
+        "arkret-egress-reqwest",
         "arkret-identity",
         "arkret-schema",
         "arkret-signatures",

@@ -36,7 +36,12 @@ pub mod jwk;
 // Shared `did:webvh` inception builder. Pure build + cryptography (keygen, SCID
 // derivation, eddsa-jcs-2022 proof) so clients and servers mint identical
 // inception entries. HTTP submission lives in the caller.
-#[cfg(feature = "webvh")]
+//
+// The module itself is unconditional because its `skeleton` half (the `{SCID}`
+// placeholder contract, SCID derivation and the entry-hash pre-image) carries
+// no model dependency and is consumed by components that do not enable
+// `webvh`; only the `inception` half, which builds typed operation bodies, is
+// feature gated.
 #[path = "webvh/mod.rs"]
 pub mod webvh;
 

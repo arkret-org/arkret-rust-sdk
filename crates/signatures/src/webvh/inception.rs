@@ -42,14 +42,22 @@ use arkret_wire::{
     RegistrationDidEvidenceDraft, ServiceKind,
 };
 use chrono::{DateTime, Utc};
-use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
+use ed25519_dalek::{SECRET_KEY_LENGTH, Signer, SigningKey};
 use rand_core::RngCore;
 use serde_json::{Value, json};
 use thiserror::Error;
 use url::Url;
 
-const WEBVH_SCID_PLACEHOLDER: &str = "{SCID}";
-const WEBVH_METHOD_VERSION: &str = "did:webvh:1.0";
+use super::skeleton::{
+    WEBVH_METHOD_VERSION, WebvhInceptionSkeletonInput, build_webvh_inception_skeleton,
+    finalize_webvh_scid_substitution, format_webvh_did,
+    webvh_entry_hash_preimage as strip_for_hash, webvh_next_key_hash_value, webvh_placeholder_did,
+    webvh_scid_preimage,
+};
+use crate::eddsa_jcs_2022::{
+    DataIntegrityProofPurpose, build_eddsa_jcs_2022_proof, verify_eddsa_jcs_2022_proof,
+};
+
 /// Errors produced while preparing a `did:webvh` inception entry.
 ///
 /// Only build / cryptography failures live here; transport (HTTP submit) and
@@ -342,7 +350,15 @@ pub fn validate_principal_inception_operation(
             "principal inception SCID does not match the wrapper DID".to_owned(),
         ));
     }
-    let skeleton = scid_skeleton_from_genesis(&entry, claimed_scid)?;
+    // identity-did.md §3.4.4: a published entry MUST NOT retain a literal
+    // `{SCID}`. Rejecting it here also keeps the reverse substitution below
+    // unambiguous.
+    if super::skeleton::webvh_scid_placeholder_present(&entry) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal inception still contains a literal {SCID} placeholder".to_owned(),
+        ));
+    }
+    let skeleton = webvh_scid_preimage(&entry, claimed_scid);
     let derived_scid = sha256_multihash_base58btc(&canonical_bytes(&skeleton)?);
     if derived_scid != claimed_scid {
         return Err(WebvhInceptionError::InvalidProof(
@@ -893,7 +909,7 @@ where
         encode_ed25519_pubkey_multibase(&root_signing.verifying_key().to_bytes());
     validate_principal_key_separation(&root_public_key_multibase, next_root_public_key_multibase)?;
     let next_root_key_hash = webvh_next_key_hash(next_root_public_key_multibase)?;
-    let placeholder_did = format_webvh_did(&method_authority, WEBVH_SCID_PLACEHOLDER, &local_id);
+    let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
     let service_endpoint = trimmed_endpoint(principal_endpoint);
     let version_time = version_time_value.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let document_skeleton = document_builder(&placeholder_did, &service_endpoint)?;
@@ -905,39 +921,25 @@ where
             next_root_public_key_multibase,
         ],
     )?;
-    let mut entry_skeleton = json!({
-        "versionId": WEBVH_SCID_PLACEHOLDER,
-        "versionTime": version_time,
-        "parameters": {
-            "scid": WEBVH_SCID_PLACEHOLDER,
-            "method": WEBVH_METHOD_VERSION,
-            "updateKeys": [root_public_key_multibase],
-            "nextKeyHashes": [next_root_key_hash],
-        },
-        "state": document_skeleton,
-    });
-    if portable
-        && let Some(parameters) = entry_skeleton
-            .get_mut("parameters")
-            .and_then(Value::as_object_mut)
-    {
-        parameters.insert("portable".to_owned(), Value::Bool(true));
-    }
-    if let Some(policy) = witness_policy
-        && let Some(parameters) = entry_skeleton
-            .get_mut("parameters")
-            .and_then(Value::as_object_mut)
-    {
-        parameters.insert(
-            "witness".to_owned(),
+    let witness = witness_policy
+        .map(|policy| {
             policy
                 .parameter_value()
-                .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?,
-        );
-    }
+                .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))
+        })
+        .transpose()?;
+    let entry_skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
+        version_time: &version_time,
+        update_keys: std::slice::from_ref(&root_public_key_multibase),
+        next_key_hashes: std::slice::from_ref(&next_root_key_hash),
+        portable: portable.then_some(true),
+        witness: witness.as_ref(),
+        state: &document_skeleton,
+    });
 
     let scid = sha256_multihash_base58btc(&canonical_bytes(&entry_skeleton)?);
-    let mut log_entry = substitute_scid(&entry_skeleton, &scid);
+    let mut log_entry = finalize_webvh_scid_substitution(&entry_skeleton, &scid)
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
     let version_hash =
         sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(&log_entry, &scid))?);
     let version_id = format!("1-{version_hash}");
@@ -1732,7 +1734,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
         .ok_or(WebvhInceptionError::InvalidKeyFragment)?;
     let update_key_fragment =
         normalize_key_fragment("update-key-1").ok_or(WebvhInceptionError::InvalidKeyFragment)?;
-    let placeholder_did = format_webvh_did(&method_authority, WEBVH_SCID_PLACEHOLDER, &local_id);
+    let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
     let placeholder_key_id = format!("{placeholder_did}#{did_key_fragment}");
     let service_endpoint = public_base.as_str();
     let version_time = version_time.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
@@ -1744,20 +1746,17 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
         service_endpoint,
         service_kind,
     );
-    let entry_skeleton = json!({
-        "versionId": WEBVH_SCID_PLACEHOLDER,
-        "versionTime": version_time,
-        "parameters": {
-            "scid": WEBVH_SCID_PLACEHOLDER,
-            "method": WEBVH_METHOD_VERSION,
-            "portable": true,
-            "updateKeys": [update_public_key_multibase],
-            "nextKeyHashes": [next_update_key_hash],
-        },
-        "state": document_skeleton,
+    let entry_skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
+        version_time: &version_time,
+        update_keys: std::slice::from_ref(&update_public_key_multibase),
+        next_key_hashes: std::slice::from_ref(&next_update_key_hash),
+        portable: Some(true),
+        witness: None,
+        state: &document_skeleton,
     });
     let scid = sha256_multihash_base58btc(&canonical_bytes(&entry_skeleton)?);
-    let mut log_entry = substitute_scid(&entry_skeleton, &scid);
+    let mut log_entry = finalize_webvh_scid_substitution(&entry_skeleton, &scid)
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
     let version_hash =
         sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(&log_entry, &scid))?);
     let version_id = format!("1-{version_hash}");
@@ -1814,7 +1813,7 @@ pub fn prepare_supplied_principal_inception(
 
     let (method_authority, _https_authority) = authority_pair(input.principal_endpoint)?;
     let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
-    let placeholder_did = format_webvh_did(&method_authority, WEBVH_SCID_PLACEHOLDER, &local_id);
+    let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
     let service_endpoint = trimmed_endpoint(input.principal_endpoint);
     let document_skeleton =
         principal_document_value(&placeholder_did, input.also_known_as, &service_endpoint)?;
@@ -1827,19 +1826,18 @@ pub fn prepare_supplied_principal_inception(
         ],
     )?;
     let next_root_key_hash = webvh_next_key_hash(input.next_root_public_key_multibase)?;
-    let entry_skeleton = json!({
-        "versionId": WEBVH_SCID_PLACEHOLDER,
-        "versionTime": input.version_time,
-        "parameters": {
-            "scid": WEBVH_SCID_PLACEHOLDER,
-            "method": WEBVH_METHOD_VERSION,
-            "updateKeys": [input.root_public_key_multibase],
-            "nextKeyHashes": [next_root_key_hash],
-        },
-        "state": document_skeleton,
+    let root_public_key_multibase = input.root_public_key_multibase.to_owned();
+    let entry_skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
+        version_time: input.version_time,
+        update_keys: std::slice::from_ref(&root_public_key_multibase),
+        next_key_hashes: std::slice::from_ref(&next_root_key_hash),
+        portable: None,
+        witness: None,
+        state: &document_skeleton,
     });
     let scid = sha256_multihash_base58btc(&canonical_bytes(&entry_skeleton)?);
-    let mut log_entry = substitute_scid(&entry_skeleton, &scid);
+    let mut log_entry = finalize_webvh_scid_substitution(&entry_skeleton, &scid)
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
     let version_hash =
         sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(&log_entry, &scid))?);
     let version_id = format!("1-{version_hash}");
@@ -2232,7 +2230,7 @@ pub fn webvh_next_key_hash(public_key_multibase: &str) -> Result<String, WebvhIn
             "next root key must be an Ed25519 public multikey".to_owned(),
         ));
     }
-    Ok(sha256_multihash_base58btc(public_key_multibase.as_bytes()))
+    Ok(webvh_next_key_hash_value(public_key_multibase))
 }
 
 fn did_submit_body(
@@ -2278,35 +2276,13 @@ fn build_proof(
     update_signing: &SigningKey,
     update_public_key_multibase: &str,
 ) -> Result<Value, WebvhInceptionError> {
-    let verification_method = did_key_verification_method(update_public_key_multibase);
-    let proof_config = json!({
-        "type": "DataIntegrityProof",
-        "cryptosuite": "eddsa-jcs-2022",
-        "verificationMethod": verification_method,
-        "proofPurpose": "assertionMethod",
-    });
-    let mut document = log_entry.clone();
-    if let Value::Object(map) = &mut document {
-        map.remove("proof");
-    }
-    let mut signing_input = Vec::with_capacity(64);
-    signing_input.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(
-        &canonical_bytes(&proof_config)?,
-    ));
-    signing_input.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(
-        &canonical_bytes(&document)?,
-    ));
-    let signature = update_signing.sign(&signing_input);
-    let mut proof = proof_config;
-    if let Value::Object(properties) = &mut proof {
-        properties.insert(
-            "proofValue".to_owned(),
-            Value::String(arkret_canonical::encode_multibase_base58btc(
-                signature.to_bytes(),
-            )),
-        );
-    }
-    Ok(proof)
+    build_eddsa_jcs_2022_proof(
+        log_entry,
+        update_signing,
+        &did_key_verification_method(update_public_key_multibase),
+        DataIntegrityProofPurpose::AssertionMethod,
+    )
+    .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))
 }
 
 /// Sign one closed did:webvh v1.0 `did-witness.json` record proof.
@@ -2358,82 +2334,8 @@ fn verify_constructed_webvh_proof(entry: &Value) -> Result<(), String> {
     if update_keys.first().copied() != Some(public_key_multibase) {
         return Err("proof verificationMethod must reference updateKeys[0]".to_owned());
     }
-    let public_key = decode_ed25519_multibase(public_key_multibase)
-        .map_err(|error| format!("public key must be base58btc ed25519-pub multibase: {error}"))
-        .and_then(|bytes| {
-            VerifyingKey::from_bytes(&bytes).map_err(|_| "invalid ed25519 public key".to_owned())
-        })?;
-    let signature_bytes = arkret_canonical::decode_ed25519_signature_multibase(
-        proof
-            .get("proofValue")
-            .and_then(Value::as_str)
-            .unwrap_or_default(),
-    )
-    .map_err(|error| format!("invalid ed25519 proofValue: {error}"))?;
-    let signature = Signature::from_bytes(&signature_bytes);
-    let mut proof_config = Value::Object(proof.clone());
-    if let Value::Object(properties) = &mut proof_config {
-        properties.remove("proofValue");
-    }
-    let mut document = entry.clone();
-    if let Value::Object(properties) = &mut document {
-        properties.remove("proof");
-    }
-    let proof_config = canonical_bytes(&proof_config).map_err(|error| error.to_string())?;
-    let document = canonical_bytes(&document).map_err(|error| error.to_string())?;
-    let mut payload = Vec::with_capacity(64);
-    payload.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&proof_config));
-    payload.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&document));
-    public_key
-        .verify_strict(&payload, &signature)
-        .map_err(|_| "webvh log proof signature is invalid".to_owned())
-}
-
-/// Build the DIF did:webvh v1.0 entry-hash preimage: drop `proof[]` and set
-/// `versionId` to the predecessor anchor — the SCID for the inception entry,
-/// or the previous entry's `versionId` for subsequent entries.
-fn strip_for_hash(value: &Value, prev_anchor: &str) -> Value {
-    let mut clone = value.clone();
-    if let Value::Object(map) = &mut clone {
-        map.remove("proof");
-        map.insert(
-            "versionId".to_owned(),
-            Value::String(prev_anchor.to_owned()),
-        );
-    }
-    clone
-}
-
-fn substitute_scid(value: &Value, scid: &str) -> Value {
-    let Ok(text) = serde_json::to_string(value) else {
-        return value.clone();
-    };
-    serde_json::from_str(&text.replace(WEBVH_SCID_PLACEHOLDER, scid))
-        .unwrap_or_else(|_| value.clone())
-}
-
-fn scid_skeleton_from_genesis(
-    entry: &Value,
-    claimed_scid: &str,
-) -> Result<Value, WebvhInceptionError> {
-    let mut stripped = entry.clone();
-    if let Value::Object(map) = &mut stripped {
-        map.remove("proof");
-        map.remove("versionId");
-    }
-    let encoded = serde_json::to_string(&stripped)
-        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
-    let mut skeleton: Value =
-        serde_json::from_str(&encoded.replace(claimed_scid, WEBVH_SCID_PLACEHOLDER))
-            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
-    let object = skeleton.as_object_mut().ok_or_else(|| {
-        WebvhInceptionError::InvalidProof("principal inception must be an object".to_owned())
-    })?;
-    object.insert(
-        "versionId".to_owned(),
-        Value::String(WEBVH_SCID_PLACEHOLDER.to_owned()),
-    );
-    Ok(skeleton)
+    verify_eddsa_jcs_2022_proof(entry, &Value::Object(proof.clone()), public_key_multibase)
+        .map_err(|error| error.to_string())
 }
 
 /// `base58btc(0x12 0x20 || sha256(bytes))` — the sha2-256 multihash, base58btc
@@ -2448,10 +2350,6 @@ fn encode_ed25519_pubkey_multibase(public_key: &[u8; 32]) -> String {
     arkret_canonical::ed25519_pubkey_to_did_key_multibase(public_key)
 }
 
-fn format_webvh_did(method_authority: &str, scid: &str, local_id: &str) -> String {
-    format!("did:webvh:{scid}:{method_authority}:webvh:{local_id}")
-}
-
 /// Derive the embedded provider authority. Returns (method_authority,
 /// https_authority) — the first uses `%3A` for ports (DID-syntax safe), the
 /// second uses a literal colon (URL-syntax safe).
@@ -2462,15 +2360,7 @@ fn authority_pair(endpoint: &Url) -> Result<(String, String), WebvhInceptionErro
     if !host.contains('.') {
         return Err(WebvhInceptionError::EndpointHostInvalid);
     }
-    let method_authority = match endpoint.port() {
-        Some(port) => format!("{host}%3A{port}"),
-        None => host.to_owned(),
-    };
-    let https_authority = match endpoint.port() {
-        Some(port) => format!("{host}:{port}"),
-        None => host.to_owned(),
-    };
-    Ok((method_authority, https_authority))
+    Ok(super::skeleton::webvh_authority_pair(host, endpoint.port()))
 }
 
 fn trimmed_endpoint(endpoint: &Url) -> String {

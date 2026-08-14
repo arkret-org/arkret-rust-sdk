@@ -86,7 +86,7 @@ mod tests {
                 "name": "push_bridge",
                 "method": "GET",
                 "path": "/_floria/push/bridge/describe",
-                "contract": "ak.push.bridge.describe",
+                "contract": "ak.push.bridge.v1",
                 "stability": "active",
                 "todo": "pin provider_capabilities_version"
             }],

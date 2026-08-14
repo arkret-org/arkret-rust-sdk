@@ -2,57 +2,17 @@
 
 use std::time::Duration;
 
-use arkret_wire::{DeviceId, DidCoreId, EventId, RealmId};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
 #[cfg(test)]
 use crate::integration::IntegrationDependencyDescriptor;
 use crate::integration::IntegrationDescribeOutcome;
-use crate::models_push::PushRegisterDeviceRequestBody;
 
 fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
     haystack
         .iter()
         .any(|entry| entry.eq_ignore_ascii_case(needle))
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(transparent)]
-pub struct PushPlatform(String);
-
-impl PushPlatform {
-    pub fn new(value: impl Into<String>) -> Option<Self> {
-        let value = value.into();
-        (!value.is_empty()).then_some(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-
-    pub fn apns() -> Self {
-        Self::new("apns").expect("apns is non-empty")
-    }
-
-    pub fn fcm() -> Self {
-        Self::new("fcm").expect("fcm is non-empty")
-    }
-
-    pub fn web_push() -> Self {
-        Self::new("web_push").expect("web_push is non-empty")
-    }
-}
-
-impl<'de> Deserialize<'de> for PushPlatform {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(deserializer)?;
-        Self::new(value).ok_or_else(|| serde::de::Error::custom("push platform must be non-empty"))
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -63,38 +23,6 @@ pub enum PushPriority {
     Normal,
     High,
     Urgent,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Pusher {
-    pub user_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub platform: PushPlatform,
-    pub push_gateway: String,
-    pub push_key: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub app_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-}
-
-impl Pusher {
-    pub fn from_register(user_id: DidCoreId, request: PushRegisterDeviceRequestBody) -> Self {
-        Self {
-            user_id,
-            device_id: request.device_id,
-            platform: request
-                .platform
-                .as_deref()
-                .and_then(parse_platform)
-                .unwrap_or_else(PushPlatform::web_push),
-            push_gateway: request.push_gateway,
-            push_key: request.push_key,
-            app_id: request.app_id,
-            display_name: request.display_name,
-        }
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -196,51 +124,6 @@ fn default_push_rule_enabled() -> bool {
     true
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PushEventNotification {
-    pub event_id: EventId,
-    pub user_id: DidCoreId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    pub event_kind: String,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PushPayload {
-    pub platform: PushPlatform,
-    pub push_key: String,
-    pub title: String,
-    pub body: String,
-    pub priority: PushPriority,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub data: Value,
-}
-
-pub fn format_push_payload(
-    pusher: &Pusher,
-    rule: &PushRule,
-    notification: &PushEventNotification,
-) -> PushPayload {
-    let wakeup_kind = wakeup_kind_for_event_kind(&notification.event_kind);
-    let body = blind_push_body_for_wakeup_kind(wakeup_kind).to_owned();
-    let title = match pusher.platform.as_str() {
-        "apns" => "Arkret",
-        "fcm" => "Arkret update",
-        _ => "Arkret notification",
-    }
-    .to_owned();
-    PushPayload {
-        platform: pusher.platform.clone(),
-        push_key: pusher.push_key.clone(),
-        title,
-        body,
-        priority: rule.delivery_priority(),
-        data: blind_payload_data_for_event_kind(&notification.event_kind),
-    }
-}
-
 pub fn wakeup_kind_for_event_kind(event_kind: &str) -> &'static str {
     if event_kind.contains("call") {
         "call_invite"
@@ -292,10 +175,6 @@ pub fn blind_payload_data_for_event_kind(event_kind: &str) -> Value {
         data.insert("push_hint".to_owned(), Value::String(push_hint.to_owned()));
     }
     Value::Object(data)
-}
-
-fn parse_platform(value: &str) -> Option<PushPlatform> {
-    PushPlatform::new(value)
 }
 
 /// B.5 #6 — spec revision chime was compiled against. Used by
@@ -585,60 +464,14 @@ impl IntegrationView {
 mod tests {
     use super::*;
 
-    fn did(name: &str) -> DidCoreId {
-        DidCoreId::new(format!("ak:did_core:webvh:{name}")).unwrap()
-    }
-
     #[test]
-    fn pusher_builds_from_register_request() {
-        let request = PushRegisterDeviceRequestBody {
-            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            push_gateway: "https://push.example".to_owned(),
-            push_key: "token".to_owned(),
-            platform: Some("fcm".to_owned()),
-            app_id: Some("app".to_owned()),
-            display_name: None,
-            recipient_service_id: None,
-        };
-        let pusher = Pusher::from_register(did("alice"), request);
-        assert_eq!(pusher.platform, PushPlatform::fcm());
-    }
-
-    #[test]
-    fn payload_uses_blind_wakeup_shape() {
-        let pusher = Pusher {
-            user_id: did("alice"),
-            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            platform: PushPlatform::apns(),
-            push_gateway: "https://push.example".to_owned(),
-            push_key: "token".to_owned(),
-            app_id: None,
-            display_name: None,
-        };
-        let rule = PushRule {
-            rule_id: "default".to_owned(),
-            kind: "underride".to_owned(),
-            enabled: true,
-            evaluation_locus: "client".to_owned(),
-            conditions: Vec::new(),
-            actions: vec!["notify".to_owned(), "sound_critical".to_owned()],
-        };
-        let payload = format_push_payload(
-            &pusher,
-            &rule,
-            &PushEventNotification {
-                event_id: EventId::new("ak:event:AUqXOT9Lj7xeL7HUnhfi7zyJzW1Z59QIVz7exmpHN2N6")
-                    .unwrap(),
-                user_id: did("alice"),
-                realm_id: None,
-                event_kind: "ak.message.create".to_owned(),
-            },
-        );
-        assert_eq!(payload.body, "New message");
-        assert_eq!(payload.data["wakeup_kind"], "message");
-        assert_eq!(payload.data["push_hint"], "new_message");
-        assert!(payload.data.get("event_id").is_none());
-        assert!(payload.data.get("realm_id").is_none());
+    fn blind_payload_data_carries_no_event_identifiers() {
+        let data = blind_payload_data_for_event_kind("ak.message.create");
+        assert_eq!(data["wakeup_kind"], "message");
+        assert_eq!(data["push_hint"], "new_message");
+        assert!(data.get("event_id").is_none());
+        assert!(data.get("realm_id").is_none());
+        assert_eq!(blind_push_body_for_wakeup_kind("message"), "New message");
     }
 
     #[test]

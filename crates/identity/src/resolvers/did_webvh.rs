@@ -1015,34 +1015,15 @@ fn ensure_unique_webvh_values(field: &str, values: &[String]) -> Result<()> {
 /// Recursively replace every string occurrence of `scid` with the
 /// `{SCID}` placeholder inside `value`. `did:webvh` derives the SCID over
 /// the initial entry with all SCID references blanked to this placeholder.
-fn webvh_placeholder(value: &Value, scid: &str) -> Value {
-    match value {
-        Value::String(s) => Value::String(s.replace(scid, "{SCID}")),
-        Value::Array(items) => Value::Array(
-            items
-                .iter()
-                .map(|item| webvh_placeholder(item, scid))
-                .collect(),
-        ),
-        Value::Object(map) => Value::Object(
-            map.iter()
-                .map(|(k, v)| (k.replace(scid, "{SCID}"), webvh_placeholder(v, scid)))
-                .collect(),
-        ),
-        other => other.clone(),
-    }
-}
-
 /// Derive the SCID from the initial log entry: replace SCID references
 /// with `{SCID}`, also blank the `versionId` to the placeholder, drop the
 /// `proof`, JCS-canonicalize, and take the multihash/multibase digest.
+///
+/// The pre-image construction is the SDK's single implementation
+/// (`identity-did.md` §3.4.4) so the reverse substitution here is exactly the
+/// inverse of what every producer applied.
 fn derive_webvh_scid(scid: &str, raw_first: &Value) -> Result<String> {
-    let mut preliminary = webvh_placeholder(raw_first, scid);
-    if let Some(obj) = preliminary.as_object_mut() {
-        obj.remove("proof");
-        // During derivation the initial versionId is the SCID placeholder.
-        obj.insert("versionId".to_owned(), Value::String("{SCID}".to_owned()));
-    }
+    let preliminary = arkret_signatures::webvh::skeleton::webvh_scid_preimage(raw_first, scid);
     let bytes = arkret_canonical::canonical::canonical_json_bytes(&preliminary)
         .map_err(|e| Error::Protocol(format!("did:webvh SCID canonicalization failed: {e}")))?;
     Ok(webvh_multihash_base58(&bytes))
@@ -1050,11 +1031,24 @@ fn derive_webvh_scid(scid: &str, raw_first: &Value) -> Result<String> {
 
 /// Derive the did:webvh SCID from either a placeholder skeleton or a realized
 /// genesis entry.
+///
+/// A realized entry MUST NOT retain a literal `{SCID}` (`identity-did.md`
+/// §3.4.4): a producer that substituted only its skeleton-owned members leaves
+/// one behind, and that entry still re-derives its own SCID successfully, so
+/// the residue is the only detector of the split.
 pub fn derive_did_webvh_scid(raw_first: &Value) -> Result<String> {
     let scid = raw_first
         .pointer("/parameters/scid")
         .and_then(Value::as_str)
         .unwrap_or("{SCID}");
+    if scid != "{SCID}"
+        && arkret_signatures::webvh::skeleton::webvh_scid_placeholder_present(raw_first)
+    {
+        return Err(Error::Protocol(
+            "did:webvh entry retains a literal {SCID} placeholder after SCID substitution"
+                .to_owned(),
+        ));
+    }
     derive_webvh_scid(scid, raw_first)
 }
 
@@ -1117,54 +1111,8 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
             "did:webvh proof must be an eddsa-jcs-2022 assertionMethod proof".to_owned(),
         ));
     }
-    let proof_value = proof
-        .get("proofValue")
-        .and_then(Value::as_str)
-        .ok_or_else(|| Error::Protocol("did:webvh proof missing proofValue".to_owned()))?;
-
-    // proofConfig = proof minus proofValue.
-    let mut proof_config = proof.clone();
-    if let Some(obj) = proof_config.as_object_mut() {
-        obj.remove("proofValue");
-    }
-    // transformed document = entry minus proof.
-    let mut doc = raw_entry.clone();
-    if let Some(obj) = doc.as_object_mut() {
-        obj.remove("proof");
-    }
-
-    let proof_config_bytes = arkret_canonical::canonical::canonical_json_bytes(&proof_config)
-        .map_err(|e| Error::Protocol(format!("did:webvh proofConfig canonicalization: {e}")))?;
-    let doc_bytes = arkret_canonical::canonical::canonical_json_bytes(&doc)
-        .map_err(|e| Error::Protocol(format!("did:webvh proof doc canonicalization: {e}")))?;
-
-    let mut signing_input = Vec::with_capacity(64);
-    signing_input.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(
-        &proof_config_bytes,
-    ));
-    signing_input.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&doc_bytes));
-
-    // `proofValue` is multibase base58btc (`z…`) of the raw 64-byte
-    // signature (no multicodec tag, per Data Integrity proofValue).
-    let sig_body = proof_value.strip_prefix('z').ok_or_else(|| {
-        Error::Protocol("did:webvh proofValue is not multibase base58btc".to_owned())
-    })?;
-    let sig_bytes = decode_base58btc(sig_body)
-        .ok_or_else(|| Error::Protocol("did:webvh proofValue base58 decode failed".to_owned()))?;
-    let signature: [u8; 64] = sig_bytes.as_slice().try_into().map_err(|_| {
-        Error::Protocol("did:webvh proofValue is not a 64-byte signature".to_owned())
-    })?;
-
-    let key_bytes = arkret_canonical::decode_ed25519_multibase(key_multibase)
-        .map_err(|e| Error::Protocol(format!("did:webvh proof key decode failed: {e}")))?;
-    let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
-        .map_err(|e| Error::Protocol(format!("did:webvh proof key is not Ed25519: {e}")))?;
-    verifying_key
-        .verify_strict(
-            &signing_input,
-            &ed25519_dalek::Signature::from_bytes(&signature),
-        )
-        .map_err(|_| Error::Protocol("did:webvh proof signature verification failed".to_owned()))
+    arkret_signatures::verify_eddsa_jcs_2022_proof(raw_entry, proof, key_multibase)
+        .map_err(|error| Error::Protocol(format!("did:webvh proof rejected: {error}")))
 }
 
 /// Verify every controller proof on one entry against its declared active

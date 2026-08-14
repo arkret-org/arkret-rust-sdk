@@ -19,11 +19,11 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
-use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use arkret_egress_policy::OutboundPolicy;
+use arkret_egress_reqwest::EgressGuard;
 use arkret_identity::{
     DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutcome, DidWebResolver,
     DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolvedDid, ResolverFailMode,
@@ -243,29 +243,15 @@ impl HttpDidResolver {
         let Some(policy) = self.egress_policy else {
             return Ok(self.http.clone());
         };
-        let parsed = reqwest::Url::parse(url)
-            .map_err(|error| Error::Protocol(format!("did fetch URL is invalid: {error}")))?;
-        policy
-            .validate_url(&parsed)
-            .map_err(|error| Error::Protocol(format!("did fetch target is denied: {error}")))?;
-        let host = parsed
-            .host_str()
-            .ok_or_else(|| Error::Protocol("did fetch URL has no host".to_owned()))?
-            .to_owned();
-        let port = parsed
-            .port_or_known_default()
-            .ok_or_else(|| Error::Protocol("did fetch URL has no usable port".to_owned()))?;
-        let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+        let target = EgressGuard::new(policy)
+            .lock_str_async(url, "did fetch")
             .await
-            .map_err(|error| Error::Protocol(format!("did fetch DNS resolution failed: {error}")))?
-            .collect();
-        let target = policy
-            .bind_resolved(parsed, addresses)
-            .map_err(|error| Error::Protocol(format!("did fetch target is denied: {error}")))?;
-        HttpClient::builder()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let builder = HttpClient::builder()
             .timeout(Duration::from_millis(DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS))
-            .redirect(reqwest::redirect::Policy::none())
-            .resolve_to_addrs(&host, target.addresses())
+            .redirect(reqwest::redirect::Policy::none());
+        target
+            .apply_to_client_builder(builder)
             .build()
             .map_err(|error| Error::Protocol(format!("failed to build pinned DID client: {error}")))
     }

@@ -31,6 +31,7 @@ tls-rustls = ["reqwest/rustls"]
 chrono = {workspace = true,features = ["serde"]}
 arkret-canonical = {workspace = true}
 arkret-egress-policy = {workspace = true}
+arkret-egress-reqwest = {workspace = true}
 arkret-models-collaboration = {workspace = true}
 arkret-models-crypto = {workspace = true}
 arkret-models-discovery = {workspace = true}

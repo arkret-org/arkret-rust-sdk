@@ -446,6 +446,31 @@ pub struct DeviceMessageTarget {
     pub content: BTreeMap<String, Value>,
 }
 
+/// One queued to-device message body as a destination service persists it
+/// before delivery.
+///
+/// The fields are exactly the `device-message.schema.json` envelope members
+/// that the delivery queue record does not already carry as its own columns:
+/// the queue reader rebuilds [`DeviceMessageEnvelope`] from this body plus the
+/// stored sender, recipient, recipient device and creation time. `sender_device_id`
+/// is absent only when the queued message was authored on behalf of a Native
+/// Agent principal, which has no human device identity.
+///
+/// `C` is the closed content type selected by `kind`, so a producer can neither
+/// pair a kind with a foreign content shape nor hand-author the body as raw
+/// JSON.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QueuedDeviceMessageBody<C> {
+    pub message_id: DeviceMessageId,
+    pub kind: ProtocolKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_device_id: Option<DeviceId>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub content: C,
+}
+
 /// Closed operation set carried by actor-private account-data update messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

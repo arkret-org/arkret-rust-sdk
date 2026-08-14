@@ -5,6 +5,7 @@ members = [
     "crates/canonical",
     "crates/crypto",
     "crates/egress-policy",
+    "crates/egress-reqwest",
     "crates/event-draft",
     "crates/hlc",
     "crates/http-client",
@@ -22,6 +23,7 @@ members = [
     "crates/policy",
     "crates/push-policy",
     "crates/rate-limit",
+    "crates/retry",
     "crates/schema",
     "crates/sdk",
     "crates/server",
@@ -35,6 +37,7 @@ default-members = [
     "crates/canonical",
     "crates/crypto",
     "crates/egress-policy",
+    "crates/egress-reqwest",
     "crates/event-draft",
     "crates/hlc",
     "crates/http-client",
@@ -52,6 +55,7 @@ default-members = [
     "crates/policy",
     "crates/push-policy",
     "crates/rate-limit",
+    "crates/retry",
     "crates/schema",
     "crates/sdk",
     "crates/server",
@@ -101,9 +105,11 @@ arkret-identity = {version = "0.3.0",path = "crates/identity",default-features =
 arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}
 arkret-lattice-registry = {version = "0.3.0",path = "crates/lattice-registry",default-features = false}
 arkret-egress-policy = {version = "0.3.0",path = "crates/egress-policy",default-features = false}
+arkret-egress-reqwest = {version = "0.3.0",path = "crates/egress-reqwest",default-features = false}
 arkret-policy = {version = "0.3.0",path = "crates/policy",default-features = false}
 arkret-push-policy = {version = "0.3.0",path = "crates/push-policy",default-features = false}
 arkret-rate-limit = {version = "0.3.0",path = "crates/rate-limit",default-features = false}
+arkret-retry = {version = "0.3.0",path = "crates/retry",default-features = false}
 arkret-server = {version = "0.3.0",path = "crates/server",default-features = false}
 arkret-schema = {version = "0.3.0",path = "crates/schema",default-features = false}
 arkret-signatures = {version = "0.3.0",path = "crates/signatures",default-features = false}

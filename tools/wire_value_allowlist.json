@@ -2879,17 +2879,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/models-integration/src/push.rs::PushPayload.data",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "crates/schema/src/artifacts.rs::SpecArtifactBundle.capability_action_registry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -3171,6 +3160,28 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "&'a Value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "crates/signatures/src/webvh/skeleton.rs::WebvhInceptionSkeletonInput.state",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "&'a Value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "crates/signatures/src/webvh/skeleton.rs::WebvhInceptionSkeletonInput.witness",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Option<&'a Value>",
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -3796,17 +3807,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "json_authoring:bridges/crates/messaging/src/ghost.rs::build_signed_ghost_provision_request:e57a47dd30a145ab",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by schema",
-      "owner_repository": "bridges",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
       "finding": "json_authoring:coauth/crates/backend/src/handlers/account/agents/accountability.rs::post_accountability_grant:6ccd616fd56be624",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4073,18 +4073,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/composer.rs::ChatComposer:a31eae43f043ecaa",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind,status",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
-      "finding": "json_authoring:inkson/src/views/chat/composer.rs::ChatComposer:bf05d2a77e9221d5",
+      "finding": "json_authoring:inkson/src/views/chat/composer.rs::ChatComposer:57b7dcdcfa842838",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4096,7 +4085,18 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/controller.rs::retry_message:89fdbf3cd3ef30e5",
+      "finding": "json_authoring:inkson/src/views/chat/composer.rs::ChatComposer:6379cb928644200a",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind,status",
+      "owner_repository": "inkson",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:inkson/src/views/chat/controller.rs::retry_message:0e805f3d8c5aa8cb",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4120,7 +4120,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/mod.rs::ChatPanel:ba083cc1ec7ccbe1",
+      "finding": "json_authoring:inkson/src/views/chat/mod.rs::ChatPanel:eccb1081285c02db",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4131,19 +4131,18 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/mod.rs::submit_source_routed_sidecar_message:d7d83c0bef9251cd",
-      "classification": "internal_or_fixture",
+      "finding": "json_authoring:inkson/src/views/chat/mod.rs::submit_source_routed_sidecar_message:84d3fb05a86c72e7",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "Inkson LocalStateStore RawOperationRecord derived after submission from the typed SDK message Event",
+      "authority": "arkret-spec closed union selected by kind,status",
       "owner_repository": "inkson",
-      "action": "Retain only as a local optimistic-operation cache record; never sign, submit, or treat this JSON summary as the authoritative Event payload.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The JSON object is written only through append_raw_operation after secure_send has authored and submitted the typed SDK Event; it is local UI replay metadata rather than protocol wire authoring.",
-      "adjudication": "manual"
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/model/events.rs::local_redaction_tombstone_for_message:6b349cca6c83ad8c",
+      "finding": "json_authoring:inkson/src/views/chat/model/events.rs::local_redaction_tombstone_for_message:c7b0a2f8b6205fb3",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4285,7 +4284,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::PendingInviteRow:eeabeb04be9c516a",
+      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::PendingInviteRow:e46bcf7371cb1579",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4296,7 +4295,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:1a6ca5435d50a8a2",
+      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:2795ee1203d10cd3",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4307,7 +4306,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:4e420d3f42a33c58",
+      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:4c72a671bb33c26c",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4483,7 +4482,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:soland/crates/http/src/routing/admin/collection.rs::admin_federation_items:a4555a962c69a4c1",
+      "finding": "json_authoring:soland/crates/http/src/routing/admin/collection.rs::admin_federation_items:d2286effcb762bbb",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4494,7 +4493,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:soland/crates/http/src/routing/admin/collection.rs::admin_media_items:45a1163032d46816",
+      "finding": "json_authoring:soland/crates/http/src/routing/admin/collection.rs::admin_media_items:4036f748111591a9",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4505,7 +4504,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:soland/crates/http/src/routing/admin/collection.rs::admin_space_container_items:4e25634b4d161c9a",
+      "finding": "json_authoring:soland/crates/http/src/routing/admin/collection.rs::admin_space_container_items:e0b74c494d113ba7",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4770,28 +4769,6 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
-      "finding": "json_authoring:soland/crates/http/src/routing/identity/account/repair.rs::accept_agent_relay:e232baf6e6685469",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
-    },
-    {
-      "finding": "json_authoring:soland/crates/http/src/routing/identity/account/repair.rs::accept_peer_relay:e37d0ffcd703aeb6",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "json_authoring:soland/crates/http/src/routing/identity/agents/sidecar.rs::sidecar_view:d0a319d25673ee6d",
@@ -5073,14 +5050,16 @@
     },
     {
       "finding": "json_authoring:soland/crates/http/src/wire.rs::describe:10fb8f3b5d72966b",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by status",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "adjudication": "manual",
+      "spec_pointer": "service-describe.schema.json#/properties/limits",
+      "authority": "service-describe.schema.json#/properties/limits",
       "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
+      "action": "Retain this exact deployment-owned describe extension map; callers must never read its keys as an Arkret closed union.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
+      "reason": "the object fills ServerLimits.extensions, which service-describe.schema.json declares as an open limits object (additionalProperties true); the matched status and content keys are a profile-conformance descriptor and an IETF draft name, not an Arkret discriminator selecting a payload shape."
     },
     {
       "finding": "json_authoring:soland/crates/services/src/conformance_basis.rs::grant_body:d22e52a79c83be3b",
@@ -5138,28 +5117,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "state and metadata are sibling output fields in one historical resolution response; state does not discriminate metadata and both are computed independently from the committed log prefix.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:starid/crates/server/src/handlers/shared.rs::starid_admin_openapi_document:64464e164cb93c49",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by schema,type",
-      "owner_repository": "starid",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
-      "finding": "json_authoring:starid/crates/server/src/handlers/shared.rs::starid_openapi_document:1468cbae7b72623e",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by schema,status,type",
-      "owner_repository": "starid",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "json_authoring:teabay/crates/server/src/ingest/receipt.rs::resource_withdrawal_proof:eec8d474a6a63550",
@@ -6295,28 +6252,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:starid/crates/server/src/handlers/api.rs::create_webvh_did_from_body:8e671c70397fe576",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning state",
-      "owner_repository": "starid",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:teabay/crates/server/src/filter/circle_directory.rs::realm_member_preview:6c756b8fbe372593",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning realm_id",
-      "owner_repository": "teabay",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:teabay/crates/server/src/query/actor.rs::envelope_from_row:a60fd96e8e4f7fd4",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -6518,14 +6453,15 @@
     },
     {
       "finding": "paired_api:soland/crates/http/src/routing/events/event_log/validation/payload_shape.rs::reject_carried_event_derived_object_id",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by event_kind",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "adjudication": "manual",
+      "authority": "arkret-spec derived object id rule for create Events (reason code object_id_not_event_derived)",
       "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
+      "action": "Retain this exact pre-schema ingress rejection; it must run before the authoritative payload decode and must never consume the payload as business data.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
+      "reason": "it scans the untrusted submitted envelope before the registered payload schema validator so object_id_not_event_derived is surfaced with its exact reason code; no authoritative typed payload exists at this point and the function only rejects, it never reads payload as business data."
     },
     {
       "finding": "paired_api:soland/crates/http/src/routing/events/projection_query.rs::document_projection_comments",
@@ -6574,17 +6510,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "called only after project_delivered_contact_fact typed validation; it records the erased payload at the projection storage boundary and converts fact_kind to EventKind fail-closed.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "paired_api:soland/crates/http/src/routing/identity/contact_federation.rs::contact_event_subject_core_id",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by fact_kind",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "paired_api:soland/crates/http/src/routing/identity/contact_federation.rs::project_delivered_contact_fact",
@@ -6740,11 +6665,66 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
+      "finding": "soland/crates/contracts/src/admin/collection.rs::AdminRealmItem.strand",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Value",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
       "finding": "soland/crates/contracts/src/admin/invite_tokens.rs::AdminInviteTokenItem.invite_delivery_target",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "Option<Value>",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "soland/crates/contracts/src/admin/policy.rs::AdminPolicyPayload.obligations",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Vec<Value>",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "soland/crates/contracts/src/admin/policy.rs::AdminPolicyPayload.resource",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Value",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "soland/crates/contracts/src/admin/policy.rs::UpsertPolicyDocumentRequestBody.obligations",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Vec<Value>",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "soland/crates/contracts/src/admin/policy.rs::UpsertPolicyDocumentRequestBody.resource",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Value",
       "owner_repository": "soland",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -7616,40 +7596,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "Option<Value>",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "soland/crates/http/src/wire.rs::PolicyDocumentOutcome.payload",
-      "classification": "independent",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "Soland action-policy document",
-      "owner_repository": "soland",
-      "action": "Retain this exact symbol; the adjacent value does not select the data shape.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "policy_kind is an action matcher including wildcard, while every policy payload has the same effect/actions/resource/obligations structure.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "soland/crates/http/src/wire.rs::UpsertPolicyDocumentRequestBody.obligations",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Vec<Value>",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "soland/crates/http/src/wire.rs::UpsertPolicyDocumentRequestBody.resource",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
       "owner_repository": "soland",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",

@@ -112,6 +112,12 @@ impl OutboundPolicy {
         }
     }
 
+    /// Whether plain `http` targets are admissible under this policy.
+    #[must_use]
+    pub const fn allows_http(self) -> bool {
+        self.allow_http
+    }
+
     /// Validate scheme and host before DNS resolution.
     pub fn validate_url(self, url: &Url) -> Result<(), PolicyError> {
         match url.scheme() {
@@ -123,6 +129,19 @@ impl OutboundPolicy {
             .host_str()
             .filter(|host| !host.trim().is_empty())
             .ok_or(PolicyError::MissingHost)?;
+        self.validate_host(host)
+    }
+
+    /// Validate a host name or address literal on its own.
+    ///
+    /// This is the host half of [`Self::validate_url`], split out so a
+    /// connect-time DNS resolver — which is handed a bare host name and never
+    /// sees the URL — judges the name by exactly the same rules.
+    pub fn validate_host(self, host: &str) -> Result<(), PolicyError> {
+        let host = host.trim();
+        if host.is_empty() {
+            return Err(PolicyError::MissingHost);
+        }
         if let Some(reason) = classify_host(host) {
             let exception_applies = match reason {
                 "localhost name" => self.address_exceptions.permits(AddressClass::Loopback),
@@ -546,6 +565,27 @@ mod tests {
         for raw in ["64:ff9b::808:808", "2002:0808:0808::"] {
             assert!(classify_ip(raw.parse().unwrap()).is_none(), "{raw}");
         }
+    }
+
+    #[test]
+    fn validate_host_matches_the_host_half_of_validate_url() {
+        let policy = OutboundPolicy::public_https();
+        for host in [
+            "localhost",
+            "metadata.google.internal",
+            "api.internal",
+            "::1",
+        ] {
+            assert!(policy.validate_host(host).is_err(), "{host}");
+        }
+        assert!(policy.validate_host("example.com").is_ok());
+        assert!(policy.validate_host("[::1]").is_err());
+        assert!(policy.validate_host("").is_err());
+        assert!(
+            OutboundPolicy::local_development()
+                .validate_host("localhost")
+                .is_ok()
+        );
     }
 
     #[test]

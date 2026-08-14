@@ -9,7 +9,7 @@ use arkret_models_collaboration::objects::productivity::{
     FILE_TRANSFER_KEY_MESSAGE_KIND, FileTransferKeyMessage,
 };
 use arkret_models_collaboration::sync_frames::account_sync::{
-    DeviceMessageTarget, DeviceMessagesSendRequestBody,
+    DeviceMessageTarget, DeviceMessagesSendRequestBody, QueuedDeviceMessageBody,
 };
 use arkret_models_crypto::MlsWelcomeEnvelope;
 use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
@@ -276,6 +276,24 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
                 .map_err(|error| EventDraftError::Protocol(error.to_owned()))?,
             expires_at: self.expires_at,
             content: content.into_iter().collect::<BTreeMap<_, _>>(),
+        })
+    }
+
+    /// Build the queued body a destination service persists for one recipient.
+    ///
+    /// `sender_device_id` is the authoring human device, and is `None` only for
+    /// a Native Agent principal that has no device identity.
+    pub fn queued_body(
+        self,
+        sender_device_id: Option<DeviceId>,
+    ) -> Result<QueuedDeviceMessageBody<K::Content>> {
+        Ok(QueuedDeviceMessageBody {
+            message_id: self.message_id,
+            kind: ProtocolKind::new(K::KIND)
+                .map_err(|error| EventDraftError::Protocol(error.to_owned()))?,
+            sender_device_id,
+            expires_at: self.expires_at,
+            content: self.content,
         })
     }
 

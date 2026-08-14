@@ -547,15 +547,21 @@ def is_rfc_problem_body(fields: set[str], path: str, symbol: str) -> bool:
 def is_schema_or_conformance_fixture(symbol: str) -> bool:
     """Recognize exact non-authoring JSON producers retained by the audit scope.
 
-    Schema documents and checked-in conformance/KAT vectors intentionally build
-    JSON syntax trees. They are neither protocol outbound authoring nor a raw
-    discriminator/data API. Keep this symbol-level rather than excluding a
-    directory or whole file so production helpers beside them remain scanned.
+    Schema documents, OpenAPI description documents and checked-in
+    conformance/KAT vectors intentionally build JSON syntax trees whose object
+    keys are schema or OpenAPI keywords (``type``, ``schema``, ``content``,
+    response ``status``), not Arkret protocol fields. They are neither protocol
+    outbound authoring nor a raw discriminator/data API, and no authoritative
+    SDK type can ever replace them. Keep this symbol-level rather than
+    excluding a directory or whole file so production helpers beside them
+    remain scanned.
     """
     normalized = symbol.lower()
     return (
         normalized == "built_in_schema_vectors"
-        or normalized.endswith(("_schema_document", "_schema_vectors"))
+        or normalized.endswith(
+            ("_openapi_document", "_schema_document", "_schema_vectors")
+        )
         or normalized.startswith("kat_")
         or normalized.endswith("_kat")
         or "_kat_" in normalized

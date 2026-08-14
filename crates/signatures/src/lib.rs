@@ -1,6 +1,10 @@
 //! Canonical signatures, proof binding and HTTP message signature helpers.
 
 mod development_identity;
+// The single `eddsa-jcs-2022` Data Integrity cryptosuite. Unconditional: the
+// did:webvh builders, the resolver, starid and the joint conformance harness
+// all sign or verify with it, and only some of them enable `webvh`.
+pub mod eddsa_jcs_2022;
 pub mod http_signature;
 #[cfg(feature = "collaboration")]
 pub mod media;
@@ -14,6 +18,11 @@ pub mod federation;
 
 pub use development_identity::{
     development_signing_key, development_signing_key_seed, development_verifying_key,
+};
+pub use eddsa_jcs_2022::{
+    DATA_INTEGRITY_PROOF_TYPE, DataIntegrityProofPurpose, EDDSA_JCS_2022_CRYPTOSUITE,
+    EddsaJcs2022Error, build_eddsa_jcs_2022_proof, eddsa_jcs_2022_proof_config,
+    eddsa_jcs_2022_signing_input, verify_eddsa_jcs_2022_proof,
 };
 
 // Agent key-pairing canonical binding digests. Gated by `collaboration` because

@@ -89,28 +89,14 @@ fn vector_derive_scid(preliminary: &Value) -> String {
 /// Attach an `eddsa-jcs-2022` proof: sign `SHA256(JCS(proofConfig)) ||
 /// SHA256(JCS(doc-without-proof))` and return the populated entry.
 fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
-    let vm = format!("did:key:{0}#{0}", vector_update_key(signing_key));
-    let proof_config = json!({
-        "type": "DataIntegrityProof",
-        "cryptosuite": "eddsa-jcs-2022",
-        "proofPurpose": "assertionMethod",
-        "verificationMethod": vm,
-    });
-    let doc = entry.clone();
-    let config_bytes = arkret_canonical::canonical::canonical_json_bytes(&proof_config).unwrap();
-    let doc_bytes = arkret_canonical::canonical::canonical_json_bytes(&doc).unwrap();
-    let config_hash = arkret_canonical::canonical::sha256_bytes(&config_bytes);
-    let doc_hash = arkret_canonical::canonical::sha256_bytes(&doc_bytes);
-    let mut signing_input = Vec::with_capacity(64);
-    signing_input.extend_from_slice(&config_hash);
-    signing_input.extend_from_slice(&doc_hash);
-    let signature = signing_key.sign(&signing_input).to_bytes();
-    let proof_value = format!("z{}", encode_base58btc(&signature));
-    let mut proof = proof_config;
-    proof
-        .as_object_mut()
-        .unwrap()
-        .insert("proofValue".to_owned(), json!(proof_value));
+    let key = vector_update_key(signing_key);
+    let proof = arkret_signatures::build_eddsa_jcs_2022_proof(
+        &entry,
+        signing_key,
+        &format!("did:key:{key}#{key}"),
+        arkret_signatures::DataIntegrityProofPurpose::AssertionMethod,
+    )
+    .unwrap();
     entry
         .as_object_mut()
         .unwrap()

@@ -4,10 +4,10 @@
 //! verify the returned record proof, method history, freshness, successor
 //! chain and route binding before using its URL.
 
-use std::net::SocketAddr;
 use std::time::Duration;
 
 use arkret_egress_policy::OutboundPolicy;
+use arkret_egress_reqwest::EgressGuard;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::service_identity::CanonicalServiceUrl;
 use arkret_models_identity::{
@@ -208,34 +208,19 @@ impl ServiceResolutionFetcher {
         timeout: Duration,
         purpose: &str,
     ) -> Result<Vec<u8>> {
-        self.egress_policy
-            .validate_url(&parsed)
-            .map_err(|error| Error::Protocol(format!("{purpose} target denied: {error}")))?;
-        let host = parsed
-            .host_str()
-            .ok_or_else(|| Error::Protocol("service resolution URL has no host".to_owned()))?
-            .to_owned();
-        let port = parsed.port_or_known_default().ok_or_else(|| {
-            Error::Protocol("service resolution URL has no usable port".to_owned())
-        })?;
-        let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+        let target = EgressGuard::new(self.egress_policy)
+            .lock_url_async(&parsed, purpose)
             .await
-            .map_err(|error| Error::Protocol(format!("{purpose} DNS failed: {error}")))?
-            .collect();
-        let target = self
-            .egress_policy
-            .bind_resolved(parsed, addresses)
-            .map_err(|error| {
-                Error::Protocol(format!("service resolution target denied: {error}"))
-            })?;
+            .map_err(|error| Error::Protocol(format!("{purpose} target denied: {error}")))?;
 
-        let client = reqwest::Client::builder()
+        let builder = reqwest::Client::builder()
             .timeout(timeout)
             .connect_timeout(timeout)
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
-            .gzip(false)
-            .resolve_to_addrs(&host, target.addresses())
+            .gzip(false);
+        let client = target
+            .apply_to_client_builder(builder)
             .build()
             .map_err(|error| {
                 Error::Protocol(format!("failed to build pinned {purpose} client: {error}"))

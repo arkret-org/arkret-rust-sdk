@@ -16,6 +16,8 @@ jobs:
       CRATES: >-
         arkret-canonical
         arkret-egress-policy
+        arkret-egress-reqwest
+        arkret-retry
         arkret-identifiers
         arkret-keystore
         arkret-locale
