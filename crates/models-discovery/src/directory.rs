@@ -12,8 +12,8 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    BlobRef, DidCoreId, Error, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, Proof,
-    RealmId, Result, SchemaId, SealBasis,
+    BlobRef, DidCoreId, EncryptionProfile, Error, EventId, Hash, JoinRule, NonEmptyString,
+    PayloadProof, Proof, RealmId, Result, SchemaId, SealBasis,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -193,6 +193,10 @@ pub struct RealmJoinCandidate {
     pub endpoint: Option<String>,
     pub operations: Vec<String>,
     pub join_methods: Vec<RealmJoinMethod>,
+    /// Effective accepted Realm profile at `as_of`. Pre-join clients use this
+    /// instead of reading membership-gated Realm history when applying the
+    /// E2EE recovery-material gate.
+    pub encryption_profile: EncryptionProfile,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<u16>,
     pub source: RealmJoinCandidateSource,

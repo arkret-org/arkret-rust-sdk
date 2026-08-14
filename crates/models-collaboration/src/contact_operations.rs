@@ -484,6 +484,7 @@ pub struct ContactTombstonePrepareRequestBody {
     pub contact_round_id: Hash,
     pub version: u64,
     pub predecessor_event_ref: EventId,
+    pub block_peer: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -16,7 +16,7 @@ use arkret_models_collaboration::events_payloads::{
     RealmOwnerTransferPayload, RealmProfile, RealmPurpose,
 };
 use arkret_wire::{
-    AuthorizationRef, DidCoreId, Error, Event, EventId, EventKind, Hash, Hlc,
+    AuthorizationRef, CellRef, DidCoreId, Error, Event, EventId, EventKind, Hash, Hlc, PredicateOp,
     REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef, event_spec,
 };
 use serde::{Deserialize, Serialize};
@@ -384,6 +384,16 @@ pub fn validate_realm_bootstrap_unit(
                 {
                     return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
                 }
+                let creator_cell =
+                    CellRef::new(format!("ak:cell:ak.component.member.state.v1:{actor_id}"))
+                        .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
+                if followup.preconditions.len() != 1
+                    || followup.preconditions[0].cell != creator_cell
+                    || followup.preconditions[0].predicate.op != PredicateOp::HeadEq
+                    || followup.preconditions[0].predicate.value != Some(serde_json::Value::Null)
+                {
+                    return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+                }
             }
             _ => {}
         }
@@ -503,7 +513,7 @@ mod tests {
     }
 
     fn complete_unit() -> Vec<Event> {
-        vec![
+        let mut events = vec![
             create(),
             event(
                 EventKind::RealmProfile,
@@ -532,7 +542,17 @@ mod tests {
                     "delivery_status": "unroutable"
                 }),
             ),
-        ]
+        ];
+        events.last_mut().unwrap().preconditions = vec![arkret_wire::Precondition {
+            cell: CellRef::new(format!("ak:cell:ak.component.member.state.v1:{ACTOR}")).unwrap(),
+            predicate: arkret_wire::Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(serde_json::Value::Null),
+                values: None,
+                predicate_id: None,
+            },
+        }];
+        events
     }
 
     fn history_sharing_followup() -> Event {
@@ -630,6 +650,16 @@ mod tests {
             .unwrap()
             .payload
             .insert("actor_id".to_owned(), json!("did:web:other.example"));
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
+        );
+    }
+
+    #[test]
+    fn rejects_creator_member_that_claims_an_existing_join_head() {
+        let mut events = complete_unit();
+        events.last_mut().unwrap().preconditions[0].predicate.value = Some(json!("join"));
         assert_eq!(
             validate_realm_bootstrap_unit(&events),
             Err(RealmBootstrapValidationError::OutOfOrderBootstrap)

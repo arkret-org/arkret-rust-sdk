@@ -699,7 +699,7 @@ pub type PrincipalDeviceAlgorithmMap = BTreeMap<DidFullId, DeviceAlgorithmMap>;
 pub type PrincipalDeviceKeyRecords = BTreeMap<DidFullId, DeviceKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/query_device_map`.
-pub type QueryDeviceMap = BTreeMap<DidFullId, Vec<DeviceId>>;
+pub type QueryDeviceMap = BTreeMap<DidCoreId, Vec<DeviceId>>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-policy.schema.json#/$defs/share`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

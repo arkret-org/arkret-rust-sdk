@@ -860,6 +860,8 @@ pub struct MimiRoomUpdateRequestBody {
     pub confirmed_transcript_hash: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_actor_id: Option<DidCoreId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_binding_event: Option<EventInitialSubmission>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

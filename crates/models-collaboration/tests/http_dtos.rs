@@ -42,6 +42,7 @@ fn mimi_room_update_wire_uses_sender_actor_id_only() {
                 .unwrap(),
         ),
         sender_actor_id: Some(actor.clone()),
+        room_binding_event: None,
     };
     let value = serde_json::to_value(&body).unwrap();
     assert_eq!(value["sender_actor_id"], json!(actor));
