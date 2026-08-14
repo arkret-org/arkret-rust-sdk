@@ -145,6 +145,123 @@ pub enum EventsSubmitStatus {
     HistoricalOnly,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventDeliveryState {
+    Complete,
+    Pending,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventDeliveryTargetState {
+    PendingRoute,
+    PendingDelivery,
+    Delivered,
+    CancelledAuthorityLost,
+}
+
+impl EventDeliveryTargetState {
+    #[must_use]
+    pub const fn is_pending(self) -> bool {
+        matches!(self, Self::PendingRoute | Self::PendingDelivery)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDeliveryTargetStatus {
+    pub target_id: String,
+    pub status: EventDeliveryTargetState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_id: Option<DidCoreId>,
+}
+
+impl EventDeliveryTargetStatus {
+    pub fn validate(&self) -> Result<()> {
+        let bytes = self.target_id.as_bytes();
+        if !(16..=128).contains(&bytes.len())
+            || !bytes.first().is_some_and(u8::is_ascii_alphanumeric)
+            || !bytes
+                .iter()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(*byte, b'_' | b'-'))
+        {
+            return Err(Error::Protocol(
+                "event delivery target_id must be an opaque 16..128 byte base64url-style token"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDeliveryStatusRequestBody {
+    pub event_id: EventId,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDeliveryStatusOutcome {
+    pub event_id: EventId,
+    pub delivery_state: EventDeliveryState,
+    pub pending_delivery_count: u32,
+    pub targets: Vec<EventDeliveryTargetStatus>,
+}
+
+impl EventDeliveryStatusOutcome {
+    pub fn validate_for_request(&self, request: &EventDeliveryStatusRequestBody) -> Result<()> {
+        if self.event_id != request.event_id {
+            return Err(Error::Protocol(
+                "event delivery status response event_id does not match the request".to_owned(),
+            ));
+        }
+        self.validate()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.targets.len() > 1000 {
+            return Err(Error::Protocol(
+                "event delivery status exceeds the 1000-target bound".to_owned(),
+            ));
+        }
+        let mut previous: Option<&str> = None;
+        let mut pending = 0_u32;
+        for target in &self.targets {
+            target.validate()?;
+            if previous.is_some_and(|previous| previous >= target.target_id.as_str()) {
+                return Err(Error::Protocol(
+                    "event delivery targets must be strictly sorted by unique target_id".to_owned(),
+                ));
+            }
+            previous = Some(target.target_id.as_str());
+            pending += u32::from(target.status.is_pending());
+        }
+        if pending != self.pending_delivery_count {
+            return Err(Error::Protocol(
+                "pending_delivery_count does not equal the pending target count".to_owned(),
+            ));
+        }
+        let expected = if pending == 0 {
+            EventDeliveryState::Complete
+        } else {
+            EventDeliveryState::Pending
+        };
+        if self.delivery_state != expected {
+            return Err(Error::Protocol(
+                "event delivery_state does not match pending_delivery_count".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// `ak.self.events.command.submit` request body: either one initial
 /// publication or a batch of them.
 ///
@@ -265,6 +382,8 @@ pub struct EventsSubmitOutcome {
     pub status: EventsSubmitStatus,
     #[serde(default)]
     pub accepted: Vec<EventId>,
+    pub delivery_state: EventDeliveryState,
+    pub pending_delivery_count: u32,
     /// Newly issued or byte-identical previously issued receipts for the
     /// accepted and duplicate Event digests.
     ///
@@ -294,6 +413,44 @@ pub struct EventsSubmitOutcome {
     pub original_outcome: Option<Box<EventsSubmitOutcome>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_membership_cascade: Option<AgentMembershipCascadeOutcome>,
+}
+
+impl EventsSubmitOutcome {
+    pub fn validate_delivery_state(&self) -> Result<()> {
+        let expected = if self.pending_delivery_count == 0 {
+            EventDeliveryState::Complete
+        } else {
+            EventDeliveryState::Pending
+        };
+        if self.delivery_state != expected {
+            return Err(Error::Protocol(
+                "Event submit delivery_state does not match pending_delivery_count".to_owned(),
+            ));
+        }
+        if self.status == EventsSubmitStatus::HistoricalOnly {
+            if !self.accepted.is_empty()
+                || self.delivery_state != EventDeliveryState::Complete
+                || self.pending_delivery_count != 0
+            {
+                return Err(Error::Protocol(
+                    "historical_only submit outcomes require accepted=[] and delivery complete/0"
+                        .to_owned(),
+                ));
+            }
+            let original = self.original_outcome.as_ref().ok_or_else(|| {
+                Error::Protocol(
+                    "historical_only submit outcome requires original_outcome".to_owned(),
+                )
+            })?;
+            if original.status == EventsSubmitStatus::HistoricalOnly {
+                return Err(Error::Protocol(
+                    "historical_only original_outcome cannot be historical_only".to_owned(),
+                ));
+            }
+            original.validate_delivery_state()?;
+        }
+        Ok(())
+    }
 }
 
 /// `ak.edge.applet.command.transaction` request body. Carries wire `Event`s
@@ -2636,5 +2793,83 @@ mod contact_projection_tests {
         mismatched["request_event_ref"] =
             json!("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA");
         assert!(serde_json::from_value::<ContactListRow>(mismatched).is_err());
+    }
+}
+
+#[cfg(test)]
+mod event_delivery_status_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const EVENT_ID: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
+
+    fn request() -> EventDeliveryStatusRequestBody {
+        EventDeliveryStatusRequestBody {
+            event_id: EventId::new(EVENT_ID.to_owned()).unwrap(),
+        }
+    }
+
+    fn target(target_id: &str, status: EventDeliveryTargetState) -> EventDeliveryTargetStatus {
+        EventDeliveryTargetStatus {
+            target_id: target_id.to_owned(),
+            status,
+            service_id: None,
+        }
+    }
+
+    #[test]
+    fn delivery_status_requires_exact_sorted_pending_aggregate() {
+        let outcome = EventDeliveryStatusOutcome {
+            event_id: request().event_id.clone(),
+            delivery_state: EventDeliveryState::Pending,
+            pending_delivery_count: 1,
+            targets: vec![
+                target(
+                    "00000000-0000-7000-8000-000000000001",
+                    EventDeliveryTargetState::PendingRoute,
+                ),
+                target(
+                    "00000000-0000-7000-8000-000000000002",
+                    EventDeliveryTargetState::Delivered,
+                ),
+            ],
+        };
+        outcome.validate_for_request(&request()).unwrap();
+
+        let mut wrong_count = outcome.clone();
+        wrong_count.pending_delivery_count = 0;
+        assert!(wrong_count.validate().is_err());
+
+        let mut out_of_order = outcome;
+        out_of_order.targets.reverse();
+        assert!(out_of_order.validate().is_err());
+    }
+
+    #[test]
+    fn submit_delivery_fields_are_required_and_closed() {
+        let missing = json!({
+            "status": "accepted",
+            "accepted": [EVENT_ID]
+        });
+        assert!(serde_json::from_value::<EventsSubmitOutcome>(missing).is_err());
+
+        let valid = json!({
+            "status": "accepted",
+            "accepted": [EVENT_ID],
+            "delivery_state": "pending",
+            "pending_delivery_count": 1
+        });
+        let outcome: EventsSubmitOutcome = serde_json::from_value(valid).unwrap();
+        outcome.validate_delivery_state().unwrap();
+
+        let invalid = json!({
+            "status": "accepted",
+            "accepted": [EVENT_ID],
+            "delivery_state": "complete",
+            "pending_delivery_count": 1
+        });
+        let outcome: EventsSubmitOutcome = serde_json::from_value(invalid).unwrap();
+        assert!(outcome.validate_delivery_state().is_err());
     }
 }

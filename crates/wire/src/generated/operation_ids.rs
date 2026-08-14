@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-15.1;
-//! sha256=1559e009a64bc44f8589cbce67d14045f1b3c9f249ffc54b558359b679f1236d Entries: registered=241
+//! Input: registry/operation-registry.json; version=2026-08-15.2;
+//! sha256=f72223988ec51c5e98fb30d8f0487b0d55ccaae5da70ff23dd1bcf3276710ff0 Entries: registered=242
 
 use serde::{Deserialize, Serialize};
 
@@ -183,6 +183,7 @@ pub enum ServiceOperationId {
     SelfDirectConversationReadResolve,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
+    SelfEventsReadDeliveryStatus,
     SelfEventsReadDescribe,
     SelfEventsReadFrontier,
     SelfEventsReadMlsGovernanceProof,
@@ -427,6 +428,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
+    ServiceOperationId::SELF_EVENTS_READ_DELIVERY_STATUS,
     ServiceOperationId::SELF_EVENTS_READ_DESCRIBE,
     ServiceOperationId::SELF_EVENTS_READ_FRONTIER,
     ServiceOperationId::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF,
@@ -711,6 +713,7 @@ impl ServiceOperationId {
         Self::SelfDirectConversationReadResolve,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
+        Self::SelfEventsReadDeliveryStatus,
         Self::SelfEventsReadDescribe,
         Self::SelfEventsReadFrontier,
         Self::SelfEventsReadMlsGovernanceProof,
@@ -1055,6 +1058,8 @@ impl ServiceOperationId {
         "ak.self.direct_conversation.read.resolve";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
+    pub const SELF_EVENTS_READ_DELIVERY_STATUS: &'static str =
+        "ak.self.events.read.delivery_status";
     pub const SELF_EVENTS_READ_DESCRIBE: &'static str = "ak.self.events.read.describe";
     pub const SELF_EVENTS_READ_FRONTIER: &'static str = "ak.self.events.read.frontier";
     pub const SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF: &'static str =
@@ -1426,6 +1431,7 @@ impl ServiceOperationId {
             Self::SelfDirectConversationReadResolve => Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
             Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
             Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
+            Self::SelfEventsReadDeliveryStatus => Self::SELF_EVENTS_READ_DELIVERY_STATUS,
             Self::SelfEventsReadDescribe => Self::SELF_EVENTS_READ_DESCRIBE,
             Self::SelfEventsReadFrontier => Self::SELF_EVENTS_READ_FRONTIER,
             Self::SelfEventsReadMlsGovernanceProof => Self::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF,
@@ -1832,6 +1838,7 @@ impl ServiceOperationId {
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT => Some(Self::SelfEventsCommandSubmit),
             Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL => Some(Self::SelfEventsCommandSubmitSeal),
+            Self::SELF_EVENTS_READ_DELIVERY_STATUS => Some(Self::SelfEventsReadDeliveryStatus),
             Self::SELF_EVENTS_READ_DESCRIBE => Some(Self::SelfEventsReadDescribe),
             Self::SELF_EVENTS_READ_FRONTIER => Some(Self::SelfEventsReadFrontier),
             Self::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF => {
@@ -5857,6 +5864,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: None,
             rationale: Some("commits_a_seal_not_an_event"),
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfEventsReadDeliveryStatus,
+        http_method: "QUERY",
+        http_path: "/_arkret/self/events/delivery-status",
+        grpc: Some("SelfEvents/DeliveryStatus"),
+        mq: Some("self.events.read.delivery_status"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsReadDescribe,

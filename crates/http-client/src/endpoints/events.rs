@@ -15,9 +15,10 @@ use arkret_models_collaboration::governance::authorization::{
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::http_bodies::{
-    EventSealSubmitOutcome, EventView, EventsQueryOutcome, EventsRangeCompleteness,
-    EventsResolveOutcome, EventsResolveRequestBody, EventsSubmitBatchRequestBody,
-    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
+    EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome, EventView,
+    EventsQueryOutcome, EventsRangeCompleteness, EventsResolveOutcome, EventsResolveRequestBody,
+    EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList,
+    ProjectionStrandList,
 };
 use arkret_models_collaboration::objects::query_projection::{
     CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
@@ -763,6 +764,23 @@ impl Client {
         )?)
     }
 
+    /// Read the complete durable Realm fanout target set for one visible Event.
+    ///
+    /// Target identifiers are opaque. A target service id is present only
+    /// when the server confirms the caller can currently read a contributing
+    /// member delivery binding. This QUERY never triggers route resolution or
+    /// a delivery retry.
+    pub async fn event_delivery_status(
+        &self,
+        request: &EventDeliveryStatusRequestBody,
+    ) -> Result<EventDeliveryStatusOutcome> {
+        let outcome: EventDeliveryStatusOutcome = self
+            .events_read_query("/_arkret/self/events/delivery-status", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     /// Submit one initial Event publication via `ak.self.events.command.submit`
     /// (`POST /_arkret/self/events`). Wire body is the first `oneOf` arm of
     /// `EventsSubmitRequestBody`, i.e. `EventInitialSubmission` — the signed
@@ -777,7 +795,9 @@ impl Client {
         &self,
         submission: &EventInitialSubmission,
     ) -> Result<EventsSubmitOutcome> {
-        self.post("/_arkret/self/events", submission).await
+        let outcome: EventsSubmitOutcome = self.post("/_arkret/self/events", submission).await?;
+        outcome.validate_delivery_state()?;
+        Ok(outcome)
     }
 
     /// [`events_submit`](Self::events_submit) with per-request options.
@@ -793,8 +813,11 @@ impl Client {
         submission: &EventInitialSubmission,
         options: &ClientRequestOptions,
     ) -> Result<EventsSubmitOutcome> {
-        self.post_with_options("/_arkret/self/events", submission, options)
-            .await
+        let outcome: EventsSubmitOutcome = self
+            .post_with_options("/_arkret/self/events", submission, options)
+            .await?;
+        outcome.validate_delivery_state()?;
+        Ok(outcome)
     }
 
     /// Submit a batch of initial Event publications via
@@ -820,8 +843,11 @@ impl Client {
         let body = EventsSubmitBatchRequestBody {
             events: submissions.to_vec(),
         };
-        self.post_with_options("/_arkret/self/events", &body, options)
-            .await
+        let outcome: EventsSubmitOutcome = self
+            .post_with_options("/_arkret/self/events", &body, options)
+            .await?;
+        outcome.validate_delivery_state()?;
+        Ok(outcome)
     }
 
     /// Submit the registered caller-authored Direct Conversation founding unit.
