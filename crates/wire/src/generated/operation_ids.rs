@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-14.4;
-//! sha256=b0d209fa86ec609f5eaec8d964d77a2ecffdfe81721eaf8153a7a8ff76051517 Entries: registered=239
+//! Input: registry/operation-registry.json; version=2026-08-14.5;
+//! sha256=50437ccfb0b5a0cf477796e97bc89e7a29442fe156accc0ead0086be642c382e Entries: registered=239
 
 use serde::{Deserialize, Serialize};
 
@@ -6076,7 +6076,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
-            rationale: Some("delivers_existing_signed_event_without_committing_a_local_event"),
+            rationale: Some(
+                "persists_a_byte_identical_service_local_peer_relay_outbox_without_authoring_an_event",
+            ),
         }),
     },
     ServiceOperationDescriptor {

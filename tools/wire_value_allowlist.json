@@ -89,7 +89,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "closed_dispatch:crates/policy/src/realm_bootstrap.rs::validate_realm_bootstrap_unit:a89868e3fb88bd86",
+      "finding": "closed_dispatch:crates/policy/src/realm_bootstrap.rs::validate_realm_bootstrap_unit:c7eaf3b4cf9c09c7",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -5083,7 +5083,7 @@
       "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:soland/crates/services/src/conformance_basis.rs::grant_body:ef1984139b0b7b03",
+      "finding": "json_authoring:soland/crates/services/src/conformance_basis.rs::grant_body:d22e52a79c83be3b",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -5943,17 +5943,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/domain/src/reducer/apply_realm_policy.rs::apply_call_create:976d41122430fb32",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning call_id",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:soland/crates/domain/src/reducer/apply_realm_policy.rs::apply_capability_derived:bd3cd1a6e58e3f4d",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -6622,6 +6611,18 @@
       "adjudication": "manual"
     },
     {
+      "finding": "paired_api:soland/crates/http/src/routing/invites.rs::enqueue_remote_invite_delivery",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "adjudication": "manual",
+      "authority": "InviteDeliveryRequestBody plus the caller-supplied canonical request bytes",
+      "owner_repository": "soland",
+      "action": "Retain the raw body only alongside the typed InviteDeliveryRequestBody; every business decision reads the typed model, the raw Value is used solely to preserve byte identity.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "invite-addressing.md section 7 requires the remote branch to hand the exact canonical request body to ak.peer.invites.command.submit so every retry under the same idempotency_key reproduces identical wire bytes; the typed model is used for routing decisions only."
+    },
+    {
       "finding": "paired_api:soland/crates/http/src/routing/invites.rs::persist_invite_quarantine_entry",
       "classification": "independent",
       "lifecycle": "retained_boundary",
@@ -6644,6 +6645,30 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "body is the untrusted federation ingress document retained only while extracting a previously schema- and signature-validated Invite Event; AppState does not discriminate it.",
       "adjudication": "manual"
+    },
+    {
+      "finding": "paired_api:soland/crates/http/src/routing/invites.rs::receive_private_invite_delivery",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "adjudication": "manual",
+      "authority": "InviteDeliveryRequestBody plus the caller-supplied canonical request bytes",
+      "owner_repository": "soland",
+      "action": "Retain the raw body only alongside the typed InviteDeliveryRequestBody; every business decision reads the typed model, the raw Value is used solely to preserve byte identity.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The shared section 7 step 4-9 receive chain needs both the typed delivery model and the exact canonical body the peer or self caller sent, because the request digest and the invite_delivery_target binding are defined over those bytes."
+    },
+    {
+      "finding": "paired_api:soland/crates/http/src/routing/invites.rs::require_dispatchable_invite_event",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "adjudication": "manual",
+      "authority": "InviteDeliveryRequestBody plus the caller-supplied canonical request bytes",
+      "owner_repository": "soland",
+      "action": "Retain the raw body only alongside the typed InviteDeliveryRequestBody; every business decision reads the typed model, the raw Value is used solely to preserve byte identity.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "invite-addressing.md section 7 requires the dispatched invite_event to equal the stored canonical Event bytes byte for byte, so the precondition compares the caller's raw body against the bytes stored at admission; re-encoding from the typed model would compare a different byte string and defeat the check."
     },
     {
       "finding": "paired_api:soland/crates/http/src/routing/invites.rs::validate_invite_delivery_consistency",
