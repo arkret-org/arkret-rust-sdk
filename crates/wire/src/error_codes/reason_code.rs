@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-14.6;
-//! sha256=4dd93d362feb7a2a74d2428d82f5a49d5aeefa6fa646b247e056f7266a5225f0
-//! Entries: reason_codes=471
+//! Input: registry/error-code-registry.json; version=2026-08-15.1;
+//! sha256=328bd8528126098eac0f2b07086d9666ea12746663859137a627404367bd9055
+//! Entries: reason_codes=470
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -110,7 +110,6 @@ pub enum ReasonCode {
     ContentEncryptionFloorDowngrade,
     ContentEncryptionFloorViolation,
     ControlProposalDecisionOverdue,
-    ControllerMembershipEnded,
     CounterBoundExceeded,
     CoveredSetMismatch,
     CreatedAtBeforeBasisSeal,
@@ -616,7 +615,6 @@ impl ReasonCode {
     pub const CONTENT_ENCRYPTION_FLOOR_VIOLATION: &'static str =
         "content_encryption_floor_violation";
     pub const CONTROL_PROPOSAL_DECISION_OVERDUE: &'static str = "control_proposal_decision_overdue";
-    pub const CONTROLLER_MEMBERSHIP_ENDED: &'static str = "controller_membership_ended";
     pub const COUNTER_BOUND_EXCEEDED: &'static str = "counter_bound_exceeded";
     pub const COVERED_SET_MISMATCH: &'static str = "covered_set_mismatch";
     pub const CREATED_AT_BEFORE_BASIS_SEAL: &'static str = "created_at_before_basis_seal";
@@ -1179,7 +1177,6 @@ impl ReasonCode {
             Self::ContentEncryptionFloorDowngrade => Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE,
             Self::ContentEncryptionFloorViolation => Self::CONTENT_ENCRYPTION_FLOOR_VIOLATION,
             Self::ControlProposalDecisionOverdue => Self::CONTROL_PROPOSAL_DECISION_OVERDUE,
-            Self::ControllerMembershipEnded => Self::CONTROLLER_MEMBERSHIP_ENDED,
             Self::CounterBoundExceeded => Self::COUNTER_BOUND_EXCEEDED,
             Self::CoveredSetMismatch => Self::COVERED_SET_MISMATCH,
             Self::CreatedAtBeforeBasisSeal => Self::CREATED_AT_BEFORE_BASIS_SEAL,
@@ -1752,7 +1749,6 @@ impl ReasonCode {
             Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE => Self::ContentEncryptionFloorDowngrade,
             Self::CONTENT_ENCRYPTION_FLOOR_VIOLATION => Self::ContentEncryptionFloorViolation,
             Self::CONTROL_PROPOSAL_DECISION_OVERDUE => Self::ControlProposalDecisionOverdue,
-            Self::CONTROLLER_MEMBERSHIP_ENDED => Self::ControllerMembershipEnded,
             Self::COUNTER_BOUND_EXCEEDED => Self::CounterBoundExceeded,
             Self::COVERED_SET_MISMATCH => Self::CoveredSetMismatch,
             Self::CREATED_AT_BEFORE_BASIS_SEAL => Self::CreatedAtBeforeBasisSeal,
@@ -2772,11 +2768,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::CONTROL_PROPOSAL_DECISION_OVERDUE,
         applies_to: &["state_resolution", "auth_decision"],
         description: "A receipted Control Move proposal reached its signed decision_due_at without include, signed-reject, or a valid bounded signed-defer, or exhausted its immutable absolute_due_at / maximum defer count without include or signed-reject. This is a governance health and censorship-evidence fault, not an acceptance or Seal-finality result: a later cryptographically valid Seal remains acceptable and the fault stays auditable. See zh/authz/event-auth-state-resolution.md section 7.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CONTROLLER_MEMBERSHIP_ENDED,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Canonical reason written on reducer-generated ak.member.state transitions that move an active Native Personal Agent from join to leave because its verified controller left or was banned from the same Realm. The cascade MUST also drive Circle membership, delivery, and MLS removal convergence and MUST NOT automatically rejoin the agent if the controller later rejoins. See zh/models/actor.md §3.2 and zh/models/realm-and-space.md §2.7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::COUNTER_BOUND_EXCEEDED,

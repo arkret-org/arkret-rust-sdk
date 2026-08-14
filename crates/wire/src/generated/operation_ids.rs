@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-14.7;
-//! sha256=771352f18e055165f38dd9abedfd6a4748e85eb6ce53106d01bbf45dcb456d0b Entries: registered=241
+//! Input: registry/operation-registry.json; version=2026-08-15.1;
+//! sha256=1559e009a64bc44f8589cbce67d14045f1b3c9f249ffc54b558359b679f1236d Entries: registered=241
 
 use serde::{Deserialize, Serialize};
 
@@ -3611,7 +3611,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Dynamic("$request.events[*].event.kind")),
+            target: Some(DurableEventTarget::DynamicMany(&[
+                "$request.events[*].event.kind",
+                "$request.controller_transition.event.kind",
+                "$request.agent_transitions[*].event.kind",
+            ])),
             rationale: None,
         }),
     },
@@ -5826,6 +5830,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: Some(DurableEventTarget::DynamicMany(&[
                 "$request.event.kind",
                 "$request.events[*].event.kind",
+                "$request.controller_transition.event.kind",
+                "$request.agent_transitions[*].event.kind",
             ])),
             rationale: None,
         }),
