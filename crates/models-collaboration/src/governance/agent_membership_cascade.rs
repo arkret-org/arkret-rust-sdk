@@ -97,6 +97,33 @@ pub struct AgentCleanupPendingRecord {
 }
 
 impl AgentCleanupPendingRecord {
+    pub fn expected_cleanup_intent_digest(&self) -> Result<Hash> {
+        #[derive(Serialize)]
+        struct CleanupIntentPreimage<'a> {
+            schema: AgentMembershipCascadeSchema,
+            realm_id: &'a RealmId,
+            controller_authority: &'a PrincipalAuthorityKey,
+            controller_membership_generation_ref: &'a EventId,
+            initiator_authority: &'a PrincipalAuthorityKey,
+            controller_terminal_event_id: &'a EventId,
+            controller_terminal_event_digest: &'a Hash,
+            expected_agent_ids: &'a [DidCoreId],
+        }
+
+        Ok(Hash::new(arkret_canonical::canonical_sha256(
+            &CleanupIntentPreimage {
+                schema: self.schema,
+                realm_id: &self.realm_id,
+                controller_authority: &self.controller_authority,
+                controller_membership_generation_ref: &self.controller_membership_generation_ref,
+                initiator_authority: &self.initiator_authority,
+                controller_terminal_event_id: &self.controller_terminal_event_id,
+                controller_terminal_event_digest: &self.controller_terminal_event_digest,
+                expected_agent_ids: &self.expected_agent_ids,
+            },
+        )?)?)
+    }
+
     pub fn validate(&self) -> Result<()> {
         self.controller_authority.validate()?;
         self.initiator_authority.validate()?;
@@ -104,6 +131,11 @@ impl AgentCleanupPendingRecord {
         if self.cleanup_due_at <= self.accepted_at {
             return Err(Error::Protocol(
                 "agent cleanup deadline must follow canonical acceptance".to_owned(),
+            ));
+        }
+        if self.cleanup_intent_digest != self.expected_cleanup_intent_digest()? {
+            return Err(Error::Protocol(
+                "agent cleanup intent digest does not bind the frozen record".to_owned(),
             ));
         }
         match self.status {
@@ -518,6 +550,7 @@ mod tests {
             completed_at: None,
             agent_transition_event_ids: None,
         };
+        record.cleanup_intent_digest = record.expected_cleanup_intent_digest().unwrap();
         record.validate().unwrap();
         record.status = AgentCleanupStatus::AgentCleanupCompleted;
         assert!(record.validate().is_err());
