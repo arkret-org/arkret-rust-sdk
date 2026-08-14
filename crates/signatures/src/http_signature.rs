@@ -47,7 +47,7 @@ use thiserror::Error;
 /// Errors emitted by the RFC 9421 helpers.
 ///
 /// Verifiers are expected to map these into their HTTP-framework
-/// rejection type (e.g. `401 invalid_signature` in floria). No
+/// rejection type (e.g. `401 signature_invalid` in floria). No
 /// stringly-typed variants — each variant pinpoints the failure
 /// kind precisely so callers can branch on it.
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -100,7 +100,7 @@ pub enum SignatureError {
     InvalidSignatureLength,
     /// Ed25519 verification failed (math, not transport).
     #[error("ed25519 signature verification failed")]
-    InvalidSignature,
+    SignatureInvalid,
     /// The provided public key bytes are not a valid Ed25519
     /// verifying key.
     #[error("ed25519 public key is invalid")]
@@ -784,7 +784,7 @@ where
     let signature = Signature::from_bytes(&signature_array);
     public_key
         .verify_strict(&canonical_message, &signature)
-        .map_err(|_| SignatureError::InvalidSignature)?;
+        .map_err(|_| SignatureError::SignatureInvalid)?;
 
     Ok(VerifiedHttpMessageSignature {
         signature_input,
@@ -946,7 +946,7 @@ pub fn verify_signature(
     let signature = Signature::from_bytes(&arr);
     public_key
         .verify_strict(message, &signature)
-        .map_err(|_| SignatureError::InvalidSignature)
+        .map_err(|_| SignatureError::SignatureInvalid)
 }
 
 /// Construct an Ed25519 public key from raw 32 bytes. Helper for
@@ -1356,13 +1356,13 @@ mod tests {
 
         // Flip one byte of the signature payload (decode, mutate,
         // re-encode) and confirm verification fails with the precise
-        // InvalidSignature variant rather than InvalidSignatureBase64.
+        // SignatureInvalid variant rather than InvalidSignatureBase64.
         let mut raw = decode_signature_b64(&signature_b64).unwrap();
         raw[0] ^= 0xff;
         let tampered = encode_signature_b64(&raw);
         assert_eq!(
             verify_signature(&message, &tampered, &public_key),
-            Err(SignatureError::InvalidSignature)
+            Err(SignatureError::SignatureInvalid)
         );
 
         // Tampering the message body (different digest) also fails.
@@ -1375,7 +1375,7 @@ mod tests {
         let other_message = canonical_message(&other_req, &input).unwrap();
         assert_eq!(
             verify_signature(&other_message, &signature_b64, &public_key),
-            Err(SignatureError::InvalidSignature)
+            Err(SignatureError::SignatureInvalid)
         );
     }
 

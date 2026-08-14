@@ -230,7 +230,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "lattice": "cas_register",
                 "bottom": "reject"
             }],
-            "preauth": { "require_consent": true },
+            "preauth": { "consent_required": true },
             "allowed_third_party_invite_verification_service_ids": [
                 "ak:did_core:web:verification.example"
             ]

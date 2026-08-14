@@ -118,7 +118,7 @@ impl DidWebvhWitnessValidationError {
             Self::ProofsUnavailable { .. } => "webvh_witness_proofs_unavailable",
             Self::ProofInvalid(_) => "webvh_witness_proof_invalid",
             Self::ThresholdNotMet { .. } => "webvh_witness_threshold_not_met",
-            Self::Log(_) => "invalid_signature",
+            Self::Log(_) => "signature_invalid",
         }
     }
 }

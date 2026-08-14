@@ -151,7 +151,7 @@ pub enum WebSocketAuthError {
     #[error("the authentication proof header or claim set is not the closed shape")]
     InvalidShape,
     #[error("the authentication proof signature is invalid")]
-    InvalidSignature,
+    SignatureInvalid,
     #[error("the authentication proof htm is not the WebSocket application method token")]
     MethodMismatch,
     #[error("the authentication proof htu does not equal the challenge base_url")]
@@ -217,15 +217,15 @@ pub fn verify_websocket_auth_proof(
     let verifying_key =
         VerifyingKey::from_bytes(&key_bytes).map_err(|_| WebSocketAuthError::InvalidShape)?;
     let signature_bytes: [u8; 64] = arkret_canonical::base64url_decode(signature_b64)
-        .map_err(|_| WebSocketAuthError::InvalidSignature)?
+        .map_err(|_| WebSocketAuthError::SignatureInvalid)?
         .try_into()
-        .map_err(|_| WebSocketAuthError::InvalidSignature)?;
+        .map_err(|_| WebSocketAuthError::SignatureInvalid)?;
     verifying_key
         .verify(
             format!("{protected_b64}.{claims_b64}").as_bytes(),
             &Signature::from_bytes(&signature_bytes),
         )
-        .map_err(|_| WebSocketAuthError::InvalidSignature)?;
+        .map_err(|_| WebSocketAuthError::SignatureInvalid)?;
 
     if proof.claims.htm != WEBSOCKET_AUTH_METHOD_TOKEN {
         return Err(WebSocketAuthError::MethodMismatch);

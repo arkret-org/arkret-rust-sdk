@@ -292,13 +292,13 @@ impl MlsGovernanceBindingPayload {
         }
         if self.binding_profile != expected.binding_profile {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.binding_profile mismatch: expected {} got {} (profile_unsupported)",
+                "mls_governance_binding.binding_profile mismatch: expected {} got {} (unsupported_profile)",
                 expected.binding_profile, self.binding_profile
             )));
         }
         if self.reducer_profile != expected.reducer_profile {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.reducer_profile does not match the CBA-resolved Realm profile: expected {} got {} (profile_unsupported)",
+                "mls_governance_binding.reducer_profile does not match the CBA-resolved Realm profile: expected {} got {} (unsupported_profile)",
                 expected.reducer_profile, self.reducer_profile
             )));
         }
@@ -625,7 +625,7 @@ pub fn decode_mls_governance_binding_extension(
 ) -> Result<MlsGovernanceBindingPayload> {
     if extension_type != MLS_GOVERNANCE_BINDING_EXTENSION_TYPE {
         return Err(Error::Protocol(format!(
-            "expected {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} (profile_unsupported)"
+            "expected {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} (unsupported_profile)"
         )));
     }
     MlsGovernanceBindingPayload::from_deterministic_cbor(extension_data)
@@ -637,7 +637,7 @@ pub fn verify_mls_governance_binding_extension(
 ) -> Result<MlsGovernanceBindingPayload> {
     let extension = extension.ok_or_else(|| {
         Error::Protocol(format!(
-            "missing {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} (profile_unsupported)"
+            "missing {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} (unsupported_profile)"
         ))
     })?;
     let payload = extension.decode_payload()?;
@@ -1678,7 +1678,7 @@ mod tests {
         assert!(
             missing
                 .to_string()
-                .contains(arkret_wire::ErrorCode::PROFILE_UNSUPPORTED)
+                .contains(arkret_wire::ErrorCode::UNSUPPORTED_PROFILE)
         );
 
         let wrong = MlsGovernanceBindingExtension {
@@ -1688,7 +1688,7 @@ mod tests {
         let err = verify_mls_governance_binding_extension(Some(&wrong), &expected).unwrap_err();
         assert!(
             err.to_string()
-                .contains(arkret_wire::ErrorCode::PROFILE_UNSUPPORTED)
+                .contains(arkret_wire::ErrorCode::UNSUPPORTED_PROFILE)
         );
     }
 
@@ -1709,7 +1709,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(arkret_wire::ErrorCode::PROFILE_UNSUPPORTED)
+                .contains(arkret_wire::ErrorCode::UNSUPPORTED_PROFILE)
         );
     }
 

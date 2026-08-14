@@ -104,7 +104,7 @@ pub enum RsvpResponseClass {
     Resolved,
     /// Decryption authenticated but the plaintext is not a valid response, or
     /// authentication failed outright.
-    InvalidResponse,
+    ResponseInvalid,
     /// No key. The head is listed, and no status is fabricated for it.
     EncryptedUnresolved,
 }

@@ -86,7 +86,7 @@ impl Error {
         if INVALID_CURSOR_CODES.contains(&code) {
             return true;
         }
-        if code != "invalid_param" {
+        if code != "param_invalid" {
             return false;
         }
         if error

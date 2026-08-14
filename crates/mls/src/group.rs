@@ -985,14 +985,14 @@ impl ArkretMlsGroup {
                 "refusing to add an empty MLS KeyPackage batch".to_owned(),
             ));
         }
-        let mut key_packages = Vec::with_capacity(member_key_packages.len());
+        let mut keypackages = Vec::with_capacity(member_key_packages.len());
         for member_key_package in member_key_packages {
             if !member_key_package.is_usable() {
                 return Err(Error::Protocol(
                     "refusing to add revoked MLS KeyPackage".to_owned(),
                 ));
             }
-            key_packages.push(decode_key_package(
+            keypackages.push(decode_key_package(
                 &self.identity.provider,
                 member_key_package,
             )?);
@@ -1000,7 +1000,7 @@ impl ArkretMlsGroup {
         let governance_extensions = governance_binding
             .map(|binding| self.governance_extensions_for_next_epoch(binding))
             .transpose()?;
-        let mut builder = self.group.commit_builder().propose_adds(key_packages);
+        let mut builder = self.group.commit_builder().propose_adds(keypackages);
         if let Some(extensions) = governance_extensions {
             builder = builder
                 .propose_group_context_extensions(extensions)

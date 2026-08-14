@@ -275,8 +275,8 @@ pub struct MlsKeyPackageRecord {
     /// must not infer one from the other or synthesize a placeholder device.
     pub endpoint: MlsEndpointIdentity,
     /// MLS KeyPackage material (base64url).
-    pub key_package: String,
-    /// Canonical hash of `key_package`.
+    pub keypackage: String,
+    /// Canonical hash of `keypackage`.
     pub keypackage_ref: Hash,
     pub cipher_suites: Vec<String>,
     /// Content / MLS profile capabilities (e.g. `mimi.content.v1`).

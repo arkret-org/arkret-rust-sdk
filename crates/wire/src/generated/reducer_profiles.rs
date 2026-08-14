@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/reducer-profile-registry.json; version=2026-08-03.10;
-//! sha256=96135acbb09cf7e5ef611b0f18488e21c17e8bce2d1fa9f1e06129de6e7e497e
+//! sha256=81dc8ba6ad46442cae5230178b6872f3a8ecb7241aca602a6a0410d8856d776b
 //! Entries: reducer_profiles=1, upgrade_edges=0
 
 /// Active Realm reducer profiles. A Realm selects exactly one through

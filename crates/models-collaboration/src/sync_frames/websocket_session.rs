@@ -138,7 +138,7 @@ impl WebSocketFrameCodec {
     pub fn reject_binary_message(&self) -> WebSocketRejection {
         WebSocketRejection::connection(
             WebSocketCloseCode::ProtocolError,
-            ErrorCode::InvalidParam,
+            ErrorCode::ParamInvalid,
             "this binding carries only UTF-8 text messages",
         )
     }
@@ -182,14 +182,14 @@ impl WebSocketFrameCodec {
             .map_err(|error| {
                 WebSocketRejection::connection(
                     WebSocketCloseCode::ProtocolError,
-                    ErrorCode::InvalidParam,
+                    ErrorCode::ParamInvalid,
                     &error.to_string(),
                 )
             })?;
         serde_json::from_value(value).map_err(|error| {
             WebSocketRejection::connection(
                 WebSocketCloseCode::ProtocolError,
-                ErrorCode::InvalidParam,
+                ErrorCode::ParamInvalid,
                 &error.to_string(),
             )
         })
@@ -470,7 +470,7 @@ impl WebSocketConnectionState {
         frame.validate().map_err(|error| {
             WebSocketRejection::connection(
                 WebSocketCloseCode::ProtocolError,
-                ErrorCode::InvalidParam,
+                ErrorCode::ParamInvalid,
                 &error.to_string(),
             )
         })?;
@@ -485,7 +485,7 @@ impl WebSocketConnectionState {
         {
             return Err(WebSocketRejection::connection(
                 WebSocketCloseCode::ProtocolError,
-                ErrorCode::InvalidParam,
+                ErrorCode::ParamInvalid,
                 "no business frame may cross before welcome",
             ));
         }
@@ -501,14 +501,14 @@ impl WebSocketConnectionState {
                 if !matches!(self.phase, WebSocketConnectionPhase::AwaitingAuthenticate) {
                     return Err(WebSocketRejection::connection(
                         WebSocketCloseCode::ProtocolError,
-                        ErrorCode::InvalidParam,
+                        ErrorCode::ParamInvalid,
                         "a second challenge is not part of the connection lifecycle",
                     ));
                 }
                 if connection_id != &self.connection_id {
                     return Err(WebSocketRejection::connection(
                         WebSocketCloseCode::ProtocolError,
-                        ErrorCode::InvalidParam,
+                        ErrorCode::ParamInvalid,
                         "challenge connection_id does not match this connection",
                     ));
                 }
@@ -522,7 +522,7 @@ impl WebSocketConnectionState {
                 if connection_id != &self.connection_id {
                     return Err(WebSocketRejection::connection(
                         WebSocketCloseCode::ProtocolError,
-                        ErrorCode::InvalidParam,
+                        ErrorCode::ParamInvalid,
                         "welcome connection_id does not match the challenge",
                     ));
                 }
@@ -541,7 +541,7 @@ impl WebSocketConnectionState {
                     .map_err(|error| {
                         WebSocketRejection::connection(
                             WebSocketCloseCode::ProtocolError,
-                            ErrorCode::InvalidParam,
+                            ErrorCode::ParamInvalid,
                             &error.to_string(),
                         )
                     })?;
@@ -582,7 +582,7 @@ impl WebSocketConnectionState {
                         serde_json::from_value(payload.clone()).map_err(|error| {
                             WebSocketRejection::connection(
                                 WebSocketCloseCode::ProtocolError,
-                                ErrorCode::InvalidParam,
+                                ErrorCode::ParamInvalid,
                                 &error.to_string(),
                             )
                         })?;
@@ -659,7 +659,7 @@ impl WebSocketConnectionState {
             // connection state violation, not a channel-level error.
             WebSocketRejection::connection(
                 WebSocketCloseCode::ProtocolError,
-                ErrorCode::InvalidParam,
+                ErrorCode::ParamInvalid,
                 "frame names a channel that is not open on this connection",
             )
         })
@@ -668,7 +668,7 @@ impl WebSocketConnectionState {
     /// §6 — a payload that does not match the channel's operation kills that
     /// channel (`error` then `closed`) and leaves the connection open.
     fn channel_payload_rejection(channel_id: &str, error: &Error) -> WebSocketRejection {
-        WebSocketRejection::channel(channel_id, ErrorCode::InvalidParam, &error.to_string())
+        WebSocketRejection::channel(channel_id, ErrorCode::ParamInvalid, &error.to_string())
     }
 }
 

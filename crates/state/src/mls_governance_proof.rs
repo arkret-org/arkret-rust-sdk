@@ -254,7 +254,7 @@ fn project_frontier_value(
             Ok(Some(project_fields(value, &["history_visibility"])?))
         }
         _ => Err(Error::Protocol(format!(
-            "registered MLS security frontier family has no SDK projector: {family} (profile_unsupported)"
+            "registered MLS security frontier family has no SDK projector: {family} (unsupported_profile)"
         ))),
     }
 }
@@ -390,7 +390,7 @@ where
     VerifyEvent: Fn(&Event) -> std::result::Result<(), E>,
     ProjectCells: Fn(&Event) -> std::result::Result<Vec<CellRef>, E>,
 {
-    let request = MlsGovernanceProofRequestBodyBody {
+    let request = MlsGovernanceProofRequestBody {
         realm_id: expected_binding.realm_id().clone(),
         effective_scope: expected_binding.effective_scope().clone(),
         mls_group_id: expected_binding.mls_group_id().to_owned(),
@@ -499,7 +499,7 @@ fn anchor_rejected<E: From<Error>>(message: &str) -> E {
 /// [`verify_mls_governance_proof_bundle`].
 pub fn verify_mls_governance_proof_materialization<E, VerifySeal, VerifyEvent, ProjectCells>(
     bundle: &MaterializedMlsGovernanceProofBundle,
-    request: &MlsGovernanceProofRequestBodyBody,
+    request: &MlsGovernanceProofRequestBody,
     trusted_anchor: &SealId,
     verify_seal_signature: VerifySeal,
     verify_event_signature: VerifyEvent,
@@ -529,7 +529,7 @@ where
 
 fn verify_bundle_header_for_request(
     bundle: &MaterializedMlsGovernanceProofBundle,
-    request: &MlsGovernanceProofRequestBodyBody,
+    request: &MlsGovernanceProofRequestBody,
     trusted_anchor: &SealId,
 ) -> Result<()> {
     if bundle.bundle_version != MLS_GOVERNANCE_PROOF_BUNDLE_VERSION {
@@ -1186,7 +1186,7 @@ mod tests {
         }
         seal.id = seal.derive_id().unwrap();
         let seal_id = seal.id.clone();
-        let proof_request_digest = MlsGovernanceProofRequestBodyBody {
+        let proof_request_digest = MlsGovernanceProofRequestBody {
             realm_id: realm_id.clone(),
             effective_scope: effective_scope.clone(),
             mls_group_id: binding.mls_group_id().to_owned(),
@@ -1247,8 +1247,8 @@ mod tests {
         )
     }
 
-    fn proof_request(fixture: &Fixture) -> MlsGovernanceProofRequestBodyBody {
-        MlsGovernanceProofRequestBodyBody {
+    fn proof_request(fixture: &Fixture) -> MlsGovernanceProofRequestBody {
+        MlsGovernanceProofRequestBody {
             realm_id: fixture.bundle.realm_id.clone(),
             effective_scope: fixture.bundle.effective_scope.clone(),
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
@@ -1336,7 +1336,7 @@ mod tests {
                 start_index,
                 mut items,
                 chunk_digest,
-                chunk_proof,
+                chunk_inclusion_proof,
             } => {
                 items[0].notary_seq += 1;
                 MlsGovernanceProofChunk::SealPath {
@@ -1344,7 +1344,7 @@ mod tests {
                     start_index,
                     items,
                     chunk_digest,
-                    chunk_proof,
+                    chunk_inclusion_proof,
                 }
             }
             _ => panic!("first chunk must be seal_path"),
@@ -1428,7 +1428,7 @@ mod tests {
 
     #[test]
     fn proof_request_rejects_epoch_skip() {
-        let request = MlsGovernanceProofRequestBodyBody {
+        let request = MlsGovernanceProofRequestBody {
             realm_id: realm(),
             effective_scope: ScopeRef::Realm { realm_id: realm() },
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
@@ -1446,7 +1446,7 @@ mod tests {
 
     #[test]
     fn proof_request_accepts_genesis_epoch() {
-        let request = MlsGovernanceProofRequestBodyBody {
+        let request = MlsGovernanceProofRequestBody {
             realm_id: realm(),
             effective_scope: ScopeRef::Realm { realm_id: realm() },
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),

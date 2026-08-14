@@ -172,14 +172,14 @@ impl ArkretMlsIdentity {
                 "KeyPackage upload requires at least one record".to_owned(),
             ));
         }
-        let key_packages = records
+        let keypackages = records
             .iter()
             .map(|record| self.key_package_upload_entry(record))
             .collect::<Result<Vec<_>>>()?;
         let unsigned = KeyPackagesUploadUnsignedRequest {
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
-            key_packages,
+            keypackages,
             expires_at: None,
             strand_id: None,
             mls_group_id: None,
@@ -278,7 +278,7 @@ impl ArkretMlsIdentity {
         if last_resort {
             builder = builder.mark_as_last_resort();
         }
-        let key_package = builder
+        let keypackage = builder
             .build(
                 ARKRET_MLS_CIPHERSUITE,
                 &self.provider,
@@ -286,8 +286,8 @@ impl ArkretMlsIdentity {
                 self.credential.clone(),
             )
             .map_err(mls_error)?;
-        let key_package = key_package.key_package();
-        let key_package_bytes = key_package.tls_serialize_detached().map_err(mls_error)?;
+        let keypackage = keypackage.key_package();
+        let key_package_bytes = keypackage.tls_serialize_detached().map_err(mls_error)?;
         let keypackage_ref = Hash::new(canonical::sha256_digest(&key_package_bytes))?;
 
         let created_at = Utc::now();
@@ -297,7 +297,7 @@ impl ArkretMlsIdentity {
                 self.principal_id.clone(),
                 self.device_id.clone(),
             ),
-            key_package: encode(&key_package_bytes),
+            keypackage: encode(&key_package_bytes),
             keypackage_ref,
             cipher_suites: vec![ARKRET_MLS_CIPHERSUITE_CANONICAL_ID.to_owned()],
             capabilities: ARKRET_MLS_KEY_PACKAGE_CAPABILITIES
@@ -450,7 +450,7 @@ pub(super) fn decode_key_package(
     provider: &OpenMlsRustCrypto,
     record: &MlsKeyPackageRecord,
 ) -> Result<KeyPackage> {
-    let bytes = decode(&record.key_package)?;
+    let bytes = decode(&record.keypackage)?;
     let actual_hash = canonical::sha256_digest(&bytes);
     if actual_hash != record.keypackage_ref.as_str() {
         return Err(Error::Protocol("MLS KeyPackage hash mismatch".to_owned()));
@@ -475,10 +475,10 @@ pub fn author_leaf_from_key_package_bytes(
 ) -> Result<crate::AuthorLeaf> {
     let provider = OpenMlsRustCrypto::default();
     let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
-    let key_package = key_package_in
+    let keypackage = key_package_in
         .validate(provider.crypto(), ProtocolVersion::Mls10)
         .map_err(mls_error)?;
-    let leaf = key_package.leaf_node();
+    let leaf = keypackage.leaf_node();
     let leaf_credential = leaf.credential();
     let credential = if leaf_credential.credential_type() == openmls::prelude::CredentialType::Basic
     {
@@ -573,7 +573,7 @@ mod tests {
 
         let record = identity.key_package_record().unwrap();
         let leaf =
-            author_leaf_from_key_package_bytes(&decode(&record.key_package).unwrap(), 0).unwrap();
+            author_leaf_from_key_package_bytes(&decode(&record.keypackage).unwrap(), 0).unwrap();
         assert_eq!(leaf.signature_key, expected);
     }
 

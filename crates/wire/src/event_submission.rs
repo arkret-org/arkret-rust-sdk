@@ -131,7 +131,7 @@ impl PcrGenesisUnit {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AuthorizationLeaseIssueRequest {
+pub struct AuthorizationLeaseIssueRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(
         feature = "openapi",
@@ -161,7 +161,7 @@ pub struct AuthorizationLeaseIssueOutcome {
     pub authorization_leases: Vec<AuthorizationLease>,
 }
 
-impl AuthorizationLeaseIssueRequest {
+impl AuthorizationLeaseIssueRequestBody {
     pub fn validate_structural(&self) -> Result<()> {
         let target_count = self.events.len() + self.intents.len();
         if target_count == 0 || target_count > 500 {
@@ -181,7 +181,10 @@ impl AuthorizationLeaseIssueRequest {
 impl AuthorizationLeaseIssueOutcome {
     /// Verify that an issuer preserved target order and returned an exact lease
     /// binding for every requested Event or non-Event intent.
-    pub fn validate_against_request(&self, request: &AuthorizationLeaseIssueRequest) -> Result<()> {
+    pub fn validate_against_request(
+        &self,
+        request: &AuthorizationLeaseIssueRequestBody,
+    ) -> Result<()> {
         request.validate_structural()?;
         if self.authorization_leases.len() != request.events.len() + request.intents.len() {
             return Err(Error::Protocol(
@@ -759,7 +762,7 @@ mod tests {
 
     #[test]
     fn lease_issue_request_enforces_closed_target_shape() {
-        let empty = AuthorizationLeaseIssueRequest {
+        let empty = AuthorizationLeaseIssueRequestBody {
             events: Vec::new(),
             intents: Vec::new(),
         };
@@ -780,13 +783,13 @@ mod tests {
             LeaseBasisRef::Seal(value) => value.clone(),
             _ => unreachable!(),
         });
-        let mixed = AuthorizationLeaseIssueRequest {
+        let mixed = AuthorizationLeaseIssueRequestBody {
             events: vec![event],
             intents: vec![target.clone()],
         };
         assert!(mixed.validate_structural().is_err());
 
-        let too_many = AuthorizationLeaseIssueRequest {
+        let too_many = AuthorizationLeaseIssueRequestBody {
             events: Vec::new(),
             intents: vec![target; 501],
         };
@@ -796,7 +799,7 @@ mod tests {
     #[test]
     fn lease_issue_outcome_preserves_ordered_intent_binding() {
         let requested = intent();
-        let request = AuthorizationLeaseIssueRequest {
+        let request = AuthorizationLeaseIssueRequestBody {
             events: Vec::new(),
             intents: vec![requested.clone()],
         };

@@ -480,7 +480,7 @@ impl IntroductionEvidence {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct InviteDeliveryRequestBodyBody {
+pub struct InviteDeliveryRequestBody {
     pub schema: String,
     pub invite_event: Event,
     pub invite_address: InviteAddress,
@@ -488,7 +488,7 @@ pub struct InviteDeliveryRequestBodyBody {
     pub idempotency_key: String,
 }
 
-impl InviteDeliveryRequestBodyBody {
+impl InviteDeliveryRequestBody {
     pub fn new(
         invite_event: Event,
         invite_address: InviteAddress,

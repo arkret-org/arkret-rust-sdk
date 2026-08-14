@@ -55,7 +55,7 @@ pub enum DpopVerificationError {
     #[error("DPoP proof header is missing a valid Ed25519 public JWK")]
     InvalidJwk,
     #[error("DPoP proof signature is invalid")]
-    InvalidSignature,
+    SignatureInvalid,
     #[error("DPoP proof is missing claim {0}")]
     MissingClaim(&'static str),
     #[error("DPoP htm does not match the request method")]
@@ -125,15 +125,15 @@ pub fn verify_dpop_proof(
     let verifying_key =
         VerifyingKey::from_bytes(&key_bytes).map_err(|_| DpopVerificationError::InvalidJwk)?;
     let signature_bytes: [u8; 64] = arkret_canonical::base64url_decode(signature_b64)
-        .map_err(|_| DpopVerificationError::InvalidSignature)?
+        .map_err(|_| DpopVerificationError::SignatureInvalid)?
         .try_into()
-        .map_err(|_| DpopVerificationError::InvalidSignature)?;
+        .map_err(|_| DpopVerificationError::SignatureInvalid)?;
     verifying_key
         .verify(
             format!("{header_b64}.{payload_b64}").as_bytes(),
             &Signature::from_bytes(&signature_bytes),
         )
-        .map_err(|_| DpopVerificationError::InvalidSignature)?;
+        .map_err(|_| DpopVerificationError::SignatureInvalid)?;
 
     let claims: VerifiedDpopClaims = serde_json::from_slice(
         &arkret_canonical::base64url_decode(payload_b64)

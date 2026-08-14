@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-14.1;
-//! sha256=21b4229f7c077080f08b9ca09ea7bd4f5345a8e13c92886f0016a3265f2721a3 Input: registry/
-//! operations-error-mapping.json; version=2026-08-14.3;
-//! sha256=8f172b09cedd8054fc9bfd935a4e6608247bc9197aa8b2fb6adcfe67bc6d3fc6 Input: registry/
-//! error-code-registry.json; version=2026-08-13.2;
-//! sha256=283857797ecbe8f5a41cc30ea816ecf8e3797beb59045cd2472b4134323fdc3d Entries: operations=236
+//! sha256=c0254739930cf35253bcb03905b33b12d512e9f98e22d5dcc273994c17181069 Input: registry/
+//! operations-error-mapping.json; version=2026-08-14.4;
+//! sha256=d5525d51b690c481fe420f5bf55eb4339ab3898ba59864eac25fc6f75a7c6db9 Input: registry/
+//! error-code-registry.json; version=2026-08-14.1;
+//! sha256=c1b9facd653a8e20d220773fc22a6b6282a8a50641b9d420d033a118c594e278 Entries: operations=235
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -76,7 +76,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::PushGatewayUnreachable),
             OperationSpecificError::ErrorCode(ErrorCode::PushTargetUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::PushPayloadTooLarge),
-            OperationSpecificError::ErrorCode(ErrorCode::ProfileUnsupported),
+            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedProfile),
             OperationSpecificError::ErrorCode(ErrorCode::DeliveryBindingStale),
             OperationSpecificError::ErrorCode(ErrorCode::PushTokenUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::PushTokenInvalid),
@@ -98,9 +98,9 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::FindDirectoryCommandAnnounce,
         operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DirectoryNotAuthorized),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectoryUnauthorized),
             OperationSpecificError::ErrorCode(ErrorCode::AcceptPolicyDenied),
-            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectoryGovernanceProofSignatureInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::SignatureStale),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::GovernanceKeyInvalid),
@@ -113,8 +113,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation: ServiceOperationId::FindDirectoryCommandTakedownAppeal,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::NotFound),
-            OperationSpecificError::ErrorCode(ErrorCode::DirectoryNotAuthorized),
-            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectoryUnauthorized),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectoryGovernanceProofSignatureInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::SignatureStale),
             OperationSpecificError::ErrorCode(ErrorCode::GovernanceKeyInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::TakedownInForce),
@@ -123,8 +123,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::FindDirectoryCommandWithdraw,
         operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DirectoryNotAuthorized),
-            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectoryUnauthorized),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectoryGovernanceProofSignatureInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::NotFound),
         ],
     },
@@ -439,7 +439,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ReasonCode(ReasonCode::AccountStatusTransitionInvalid),
             OperationSpecificError::ReasonCode(ReasonCode::ErasurePendingIsTerminal),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -447,7 +447,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -456,7 +456,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -475,14 +475,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::ErasureReceiptProofInvalid),
             OperationSpecificError::ReasonCode(ReasonCode::ErasureReceiptStubBindingMismatch),
             OperationSpecificError::ReasonCode(ReasonCode::ErasureReceiptStubDigestMismatch),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerErasureReceiptResourceGet,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::NotFound),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -494,10 +494,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::ExpiredInviteToken),
             OperationSpecificError::ErrorCode(ErrorCode::UnsupportedJoinRule),
             OperationSpecificError::ErrorCode(ErrorCode::ActorSeqInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::StaleSealRef),
+            OperationSpecificError::ErrorCode(ErrorCode::SealRefStale),
             OperationSpecificError::ErrorCode(ErrorCode::RealmFrozen),
             OperationSpecificError::ErrorCode(ErrorCode::Quarantine),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
             OperationSpecificError::ErrorCode(ErrorCode::DeliveryBindingStale),
             OperationSpecificError::ErrorCode(ErrorCode::DeliveryBindingHandedOver),
             OperationSpecificError::ErrorCode(ErrorCode::MlsGenerationProposalFanoutExceeded),
@@ -530,7 +530,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
             OperationSpecificError::ErrorCode(ErrorCode::ContactScopeStale),
             OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
         ],
@@ -557,7 +557,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::DigestMismatch),
             OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
             OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -626,7 +626,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
                 ErrorCode::OrganizationRegistrationControlProofInvalid,
             ),
             OperationSpecificError::ErrorCode(ErrorCode::OrganizationRegistrationQuorumNotMet),
-            OperationSpecificError::ErrorCode(ErrorCode::OrganizationRegistrationScopeUnsupported),
+            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedOrganizationRegistrationScope),
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::DidNotFound),
         ],
@@ -635,7 +635,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation: ServiceOperationId::RootIdentityOrganizationRegistrationCommandPrepare,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DidNotFound),
-            OperationSpecificError::ErrorCode(ErrorCode::OrganizationRegistrationScopeUnsupported),
+            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedOrganizationRegistrationScope),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -714,7 +714,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation: ServiceOperationId::RootIdentityServiceRegistrationCommandEnsure,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::ServiceIdentityProviderUnavailable),
-            OperationSpecificError::ErrorCode(ErrorCode::ServiceRegistrationRejected),
+            OperationSpecificError::ErrorCode(ErrorCode::ServiceRegistrationDenied),
             OperationSpecificError::ErrorCode(ErrorCode::ServiceIdentityConflict),
         ],
     },
@@ -732,7 +732,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAccountCommandUpdateProfile,
         operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::InvalidAvatarBlobRef),
+            OperationSpecificError::ErrorCode(ErrorCode::AvatarBlobRefInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::UnsupportedProfilePatchPath),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
             OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
@@ -939,7 +939,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::StaleSealRef),
+            OperationSpecificError::ErrorCode(ErrorCode::SealRefStale),
             OperationSpecificError::ErrorCode(ErrorCode::SealRefUnknown),
         ],
     },
@@ -1123,7 +1123,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::StaleSealRef),
+            OperationSpecificError::ErrorCode(ErrorCode::SealRefStale),
             OperationSpecificError::ErrorCode(ErrorCode::SealRefUnknown),
             OperationSpecificError::ReasonCode(ReasonCode::QuorumUnreachable),
         ],
@@ -1165,7 +1165,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::ExpiredInviteToken),
             OperationSpecificError::ErrorCode(ErrorCode::UnsupportedJoinRule),
             OperationSpecificError::ErrorCode(ErrorCode::ActorSeqInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::StaleSealRef),
+            OperationSpecificError::ErrorCode(ErrorCode::SealRefStale),
             OperationSpecificError::ErrorCode(ErrorCode::SealRefUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::RealmFrozen),
             OperationSpecificError::ErrorCode(ErrorCode::Quarantine),
@@ -1200,8 +1200,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceProofBoundsExceeded),
             OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
-            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::ProfileUnsupported),
+            OperationSpecificError::ErrorCode(ErrorCode::DirectoryGovernanceProofSignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedProfile),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1252,17 +1252,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfInvitesCommandDispatch,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
-            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
-            OperationSpecificError::ErrorCode(ErrorCode::ContactScopeStale),
-            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
-        ],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfKeysBackupSeriesCommandErase,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
@@ -1282,7 +1271,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::RecoveryEvidenceUnbound),
             OperationSpecificError::ReasonCode(ReasonCode::BackupFrontierStale),
             OperationSpecificError::ReasonCode(ReasonCode::SeriesChainBroken),
-            OperationSpecificError::ErrorCode(ErrorCode::InvalidSignature),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1528,7 +1517,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfSignalCommandSend,
         operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::SignalClassNotPermitted),
+            OperationSpecificError::ErrorCode(ErrorCode::SignalClassDenied),
             OperationSpecificError::ErrorCode(ErrorCode::SignalTtlOutOfRange),
             OperationSpecificError::ErrorCode(ErrorCode::SignalRailUnavailable),
             OperationSpecificError::ReasonCode(ReasonCode::SignalPlaintextForbidden),

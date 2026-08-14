@@ -239,7 +239,7 @@ pub enum JwtVerificationError {
     #[error("JWT signature is malformed")]
     MalformedSignature,
     #[error("JWT signature verification failed")]
-    InvalidSignature,
+    SignatureInvalid,
     #[error("JWT issuer claim mismatch")]
     IssuerMismatch,
     #[error("JWT audience claim mismatch")]
@@ -293,7 +293,7 @@ pub fn verify_ed25519_jwt_with_jwks(
     let signing_input = format!("{}.{}", parts[0], parts[1]);
     key.public_key
         .verify_strict(signing_input.as_bytes(), &signature)
-        .map_err(|_| JwtVerificationError::InvalidSignature)?;
+        .map_err(|_| JwtVerificationError::SignatureInvalid)?;
 
     validate_claims(&claims, policy)?;
 
@@ -460,7 +460,7 @@ mod tests {
             .audience(non_empty("arkret-client"));
         assert_eq!(
             verify_ed25519_jwt_with_jwks(&tampered, &jwks, &policy),
-            Err(JwtVerificationError::InvalidSignature)
+            Err(JwtVerificationError::SignatureInvalid)
         );
 
         let wrong_audience = JwtVerificationPolicy::new(now).audience(non_empty("unknown-client"));

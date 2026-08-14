@@ -72,7 +72,7 @@ pub enum DevicePairingProofError {
     #[error("device pairing signature is malformed")]
     MalformedSignature,
     #[error("device pairing signature verification failed")]
-    InvalidSignature,
+    SignatureInvalid,
     #[error("device pairing target attestation signature is not the closed Ed25519 string form")]
     InvalidTargetAttestationSignatureShape,
     #[error("device pairing transcript could not be canonicalized: {0}")]
@@ -121,7 +121,7 @@ pub fn verify_device_pairing_target_attestation(
         .map_err(|_| DevicePairingProofError::MalformedSignature)?;
     verifying_key
         .verify_strict(&attestation.signing_input()?, &signature)
-        .map_err(|_| DevicePairingProofError::InvalidSignature)
+        .map_err(|_| DevicePairingProofError::SignatureInvalid)
 }
 
 #[derive(Serialize)]
@@ -228,7 +228,7 @@ pub fn verify_server_device_pairing_challenge(
         .map_err(|_| DevicePairingProofError::MalformedSignature)?;
     verifying_key
         .verify_strict(&bytes, &signature)
-        .map_err(|_| DevicePairingProofError::InvalidSignature)
+        .map_err(|_| DevicePairingProofError::SignatureInvalid)
 }
 
 pub fn to_device_pairing_transcript(
@@ -319,7 +319,7 @@ pub fn verify_to_device_pairing_challenge(
         .map_err(|_| DevicePairingProofError::MalformedSignature)?;
     verifying_key
         .verify_strict(&bytes, &signature)
-        .map_err(|_| DevicePairingProofError::InvalidSignature)
+        .map_err(|_| DevicePairingProofError::SignatureInvalid)
 }
 
 fn validate_public_key(
@@ -458,7 +458,7 @@ mod tests {
         attestation.hpke_key = NonEmptyString::new("tampered-hpke-key").unwrap();
         assert!(matches!(
             verify_device_pairing_target_attestation(&attestation),
-            Err(DevicePairingProofError::InvalidSignature)
+            Err(DevicePairingProofError::SignatureInvalid)
         ));
 
         let mut map_signature = sign_device_pairing_target_attestation(

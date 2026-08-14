@@ -50,7 +50,7 @@ pub enum AuthorityHistoryVerificationError {
     #[error("receipt verification method was not an assertion method at issuance: {0}")]
     KeyNotAuthorized(#[source] BindingVerifyError),
     #[error("account binding receipt detached JWS is invalid: {0}")]
-    InvalidSignature(#[source] BindingVerifyError),
+    SignatureInvalid(#[source] BindingVerifyError),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -154,7 +154,7 @@ fn classify_history_error(
 fn classify_receipt_proof_error(error: BindingVerifyError) -> AuthorityHistoryVerificationError {
     match error {
         BindingVerifyError::Proof { .. } => {
-            AuthorityHistoryVerificationError::InvalidSignature(error)
+            AuthorityHistoryVerificationError::SignatureInvalid(error)
         }
         _ => AuthorityHistoryVerificationError::KeyNotAuthorized(error),
     }
@@ -296,7 +296,7 @@ mod tests {
         .unwrap_err();
         assert!(matches!(
             invalid,
-            AuthorityHistoryVerificationError::InvalidSignature(_)
+            AuthorityHistoryVerificationError::SignatureInvalid(_)
         ));
     }
 

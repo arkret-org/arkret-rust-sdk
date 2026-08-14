@@ -24,15 +24,15 @@ use arkret_models_collaboration::objects::query_projection::{
 };
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_crypto::{
-    MaterializedMlsGovernanceProofBundle, MlsGovernanceProofBundle,
-    MlsGovernanceProofRequestBodyBody, assemble_mls_governance_proof_chunks,
+    MaterializedMlsGovernanceProofBundle, MlsGovernanceProofBundle, MlsGovernanceProofRequestBody,
+    assemble_mls_governance_proof_chunks,
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_schema::PreparedStandardEvent;
 use arkret_state::SnapshotManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    AuthorizationLease, AuthorizationLeaseIssueRequest, ControlProposalAck,
+    AuthorizationLease, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
     ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
     Cursor, Event, EventInitialSubmission, EventSubmitContext, Hash, RealmId, Seal,
 };
@@ -189,7 +189,7 @@ impl Client {
 
     pub async fn issue_authorization_leases(
         &self,
-        request: &AuthorizationLeaseIssueRequest,
+        request: &AuthorizationLeaseIssueRequestBody,
         options: &ClientRequestOptions,
     ) -> Result<arkret_wire::AuthorizationLeaseIssueOutcome> {
         request.validate_structural()?;
@@ -253,7 +253,7 @@ impl Client {
     {
         let submit_context = initial_submission_context(events)?;
         let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
-        let request = AuthorizationLeaseIssueRequest {
+        let request = AuthorizationLeaseIssueRequestBody {
             events: events.to_vec(),
             intents: Vec::new(),
         };
@@ -315,7 +315,7 @@ impl Client {
     ) -> Result<Vec<EventInitialSubmission>> {
         let submit_context = initial_submission_context(events)?;
         let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
-        let request = AuthorizationLeaseIssueRequest {
+        let request = AuthorizationLeaseIssueRequestBody {
             events: events.to_vec(),
             intents: Vec::new(),
         };
@@ -703,7 +703,7 @@ impl Client {
     /// governance binding.
     pub async fn mls_governance_proof(
         &self,
-        request: &MlsGovernanceProofRequestBodyBody,
+        request: &MlsGovernanceProofRequestBody,
     ) -> Result<MlsGovernanceProofBundle> {
         request.validate()?;
         self.events_read_query("/_arkret/self/events/mls-governance-proof", request)
@@ -713,7 +713,7 @@ impl Client {
     /// Fetch and authenticate every chunk of one logical MLS governance proof.
     pub async fn mls_governance_proof_complete(
         &self,
-        request: &MlsGovernanceProofRequestBodyBody,
+        request: &MlsGovernanceProofRequestBody,
     ) -> Result<MaterializedMlsGovernanceProofBundle> {
         let mut first_request = request.clone();
         first_request.chunk_index = 0;

@@ -119,7 +119,7 @@ pub enum SdkConformanceClaimError {
     #[error("SDK conformance claim binding mismatch: {0}")]
     BindingMismatch(String),
     #[error("SDK conformance claim signature is invalid")]
-    InvalidSignature,
+    SignatureInvalid,
     #[error("failed to construct SDK conformance signing input: {0}")]
     SigningInput(String),
 }
@@ -361,7 +361,7 @@ impl SdkConformanceClaim {
         }
         let signing_bytes = self.signing_bytes()?;
         if !verify_signature(&self.issuer, &self.proof, &signing_bytes) {
-            return Err(SdkConformanceClaimError::InvalidSignature);
+            return Err(SdkConformanceClaimError::SignatureInvalid);
         }
         Ok(())
     }
@@ -636,7 +636,7 @@ mod tests {
                 &claim.contract_digest,
                 |_, _, _| false,
             ),
-            Err(SdkConformanceClaimError::InvalidSignature)
+            Err(SdkConformanceClaimError::SignatureInvalid)
         ));
     }
 }

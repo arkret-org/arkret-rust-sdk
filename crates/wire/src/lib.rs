@@ -109,10 +109,10 @@ pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
-    AuthorizationLeaseIssueIntent, AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest,
-    EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
-    PcrGenesisUnit, classify_event_submit_context, classify_federated_event_submit_context,
-    validate_anchor_unit_lease_bindings,
+    AuthorizationLeaseIssueIntent, AuthorizationLeaseIssueOutcome,
+    AuthorizationLeaseIssueRequestBody, EventFederationSubmission, EventInitialSubmission,
+    EventsSubmitBatchRequestBody, PcrGenesisUnit, classify_event_submit_context,
+    classify_federated_event_submit_context, validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{

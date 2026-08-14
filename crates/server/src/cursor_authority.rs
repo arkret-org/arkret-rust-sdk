@@ -47,7 +47,7 @@ pub struct CursorBindingRecord {
 /// Failure classes required by the v1 cursor contract.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CursorAuthorityError {
-    InvalidParam(String),
+    ParamInvalid(String),
     Expired,
     IntegrityInvalid,
 }
@@ -55,7 +55,7 @@ pub enum CursorAuthorityError {
 impl fmt::Display for CursorAuthorityError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidParam(message) => formatter.write_str(message),
+            Self::ParamInvalid(message) => formatter.write_str(message),
             Self::Expired => formatter.write_str("cursor has expired"),
             Self::IntegrityInvalid => formatter.write_str("cursor integrity check failed"),
         }
@@ -67,7 +67,7 @@ impl std::error::Error for CursorAuthorityError {}
 /// Compute the canonical digest bound to a cursor's query/filter semantics.
 pub fn cursor_filter_digest<T: Serialize>(filter: &T) -> Result<String, CursorAuthorityError> {
     arkret_canonical::canonical_sha256(filter)
-        .map_err(|error| CursorAuthorityError::InvalidParam(error.to_string()))
+        .map_err(|error| CursorAuthorityError::ParamInvalid(error.to_string()))
 }
 
 /// Stateless v1 cursor codec and binding validator.
@@ -83,10 +83,10 @@ impl CursorAuthority {
     ) -> Result<(String, CursorBindingRecord), CursorAuthorityError> {
         let issued_at = chrono::Utc::now();
         let cursor = Cursor::new_at(issued_at, ttl_ms)
-            .map_err(|error| CursorAuthorityError::InvalidParam(error.to_string()))?;
+            .map_err(|error| CursorAuthorityError::ParamInvalid(error.to_string()))?;
         let token = cursor
             .encode()
-            .map_err(|error| CursorAuthorityError::InvalidParam(error.to_string()))?;
+            .map_err(|error| CursorAuthorityError::ParamInvalid(error.to_string()))?;
         let issued_at_ms = cursor.issued_at.timestamp_millis();
         let record = CursorBindingRecord {
             handle: cursor.h.clone(),
@@ -105,10 +105,10 @@ impl CursorAuthority {
             arkret_wire::WireError::Protocol(message) if message == "cursor has expired" => {
                 CursorAuthorityError::Expired
             }
-            other => CursorAuthorityError::InvalidParam(other.to_string()),
+            other => CursorAuthorityError::ParamInvalid(other.to_string()),
         })?;
         if cursor.purpose != CursorPurpose::Stream {
-            return Err(CursorAuthorityError::InvalidParam(
+            return Err(CursorAuthorityError::ParamInvalid(
                 "cursor purpose must be stream".to_owned(),
             ));
         }
@@ -265,7 +265,7 @@ mod tests {
         );
         assert!(matches!(
             authority.resolve_stream("not-a-cursor", &context),
-            Err(CursorAuthorityError::InvalidParam(_))
+            Err(CursorAuthorityError::ParamInvalid(_))
         ));
     }
 

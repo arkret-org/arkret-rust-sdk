@@ -13,7 +13,7 @@
 //! mls-ciphersuite-registry.json; version=2026-07-29;
 //! sha256=dd8c2024b8d231fc94e169185a894c413dd16c40b99ae6cd1764a848535fb59f Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
+//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
 //! Entries: proof_contexts=46, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 

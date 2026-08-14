@@ -213,7 +213,7 @@ pub struct Identifier {
     pub identifier_commitment: Hash,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/key_package`.
+/// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/keypackage`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackage {

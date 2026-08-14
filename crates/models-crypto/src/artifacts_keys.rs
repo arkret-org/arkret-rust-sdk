@@ -549,7 +549,7 @@ pub struct KeyPackageClaimRecord {
     pub agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_verification_method: Option<DidUrl>,
-    pub key_package: String,
+    pub keypackage: String,
     pub capabilities: Vec<String>,
     pub capabilities_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -578,7 +578,7 @@ pub struct KeyPackageUploadEntry {
     pub keypackage_id: String,
     pub keypackage_ref: String,
     pub keypackage_digest: Hash,
-    pub key_package: Base64UrlString,
+    pub keypackage: Base64UrlString,
     pub cipher_suites: Vec<String>,
     pub capabilities: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

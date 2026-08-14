@@ -398,7 +398,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(arkret_wire::ErrorCode::PROFILE_UNSUPPORTED)
+                .contains(arkret_wire::ErrorCode::UNSUPPORTED_PROFILE)
         );
     }
 
@@ -431,7 +431,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(arkret_wire::ErrorCode::PROFILE_UNSUPPORTED)
+                .contains(arkret_wire::ErrorCode::UNSUPPORTED_PROFILE)
         );
     }
 

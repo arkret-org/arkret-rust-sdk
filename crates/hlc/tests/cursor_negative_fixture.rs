@@ -42,7 +42,7 @@ fn cursor_negative_fixture_cases_all_reject() {
 
         // The fixture keeps two rejection classes apart: `cursor_expired`
         // (structurally valid, past its `expires_at`) versus everything else
-        // (`invalid_cursor`, surfaced under top-level `invalid_param`).
+        // (`invalid_cursor`, surfaced under top-level `param_invalid`).
         if reason == "cursor_expired" {
             assert!(
                 err.to_string().contains("expired"),

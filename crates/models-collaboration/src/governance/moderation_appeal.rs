@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Verdict on a moderation appeal (decision payload).
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AppealVerdict {
+pub enum AppealDecision {
     /// Original decision stands.
     Uphold,
     /// Original decision reversed; MUST be paired in the same Seal batch
@@ -64,9 +64,9 @@ pub struct AppealDecisionPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
     pub reviewer: DidCoreId,
-    pub verdict: AppealVerdict,
+    pub decision: AppealDecision,
     pub reason_text_ref: String,
-    /// Required iff `verdict == Modify`.
+    /// Required iff `decision == Modify`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modify_decision_ref: Option<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -131,19 +131,19 @@ impl ModerationAppealPayload {
     /// `Decision(Modify)` without `modify_decision_ref`.
     pub fn validate_minimal(&self) -> Result<()> {
         if let ModerationAppealPayload::Decision(p) = self {
-            match (p.verdict, &p.modify_decision_ref) {
-                (AppealVerdict::Modify, None) => {
+            match (p.decision, &p.modify_decision_ref) {
+                (AppealDecision::Modify, None) => {
                     return Err(Error::Protocol(
-                        "moderation appeal decision verdict=modify requires modify_decision_ref \
+                        "moderation appeal decision decision=modify requires modify_decision_ref \
                          (schema_violation)"
                             .to_owned(),
                     ));
                 }
-                (AppealVerdict::Uphold | AppealVerdict::Overturn, Some(_)) => {
+                (AppealDecision::Uphold | AppealDecision::Overturn, Some(_)) => {
                     return Err(Error::Protocol(format!(
-                        "moderation appeal decision verdict={:?} MUST NOT include \
+                        "moderation appeal decision decision={:?} MUST NOT include \
                          modify_decision_ref (schema_violation)",
-                        p.verdict
+                        p.decision
                     )));
                 }
                 _ => {}

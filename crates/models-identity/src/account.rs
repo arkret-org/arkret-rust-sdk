@@ -601,7 +601,7 @@ pub enum AccountOnboardingGoal {
     CompleteIdentity,
     AbandonProvisionalIdentity {
         challenge: IdentityAbandonmentChallengeOutcome,
-        requires_fresh_authentication: bool,
+        fresh_authentication_required: bool,
     },
 }
 
@@ -1303,14 +1303,14 @@ pub const STANDARD_INITIAL_SESSION_GRANT_OPERATIONS: [InitialSessionGrantOperati
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct InitialSessionGrantRequest {
+pub struct InitialSessionGrantIntent {
     pub device_id: DeviceId,
     pub session_public_key: CanonicalSessionPublicJwk,
     pub audience: DidCoreId,
     pub requested_scope: Vec<InitialSessionGrantOperation>,
 }
 
-impl InitialSessionGrantRequest {
+impl InitialSessionGrantIntent {
     pub fn validate(&self) -> Result<()> {
         if self.requested_scope.is_empty()
             || self
@@ -1608,7 +1608,7 @@ pub struct IdentityCreationRegistration {
     pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
     pub control_proof: IdentityCreationControlProof,
     pub pcr_genesis_unit: arkret_wire::PcrGenesisUnit,
-    pub initial_session: InitialSessionGrantRequest,
+    pub initial_session: InitialSessionGrantIntent,
 }
 
 impl IdentityCreationRegistration {

@@ -227,7 +227,7 @@ pub struct NormalResponseAcceptanceReceipt {
     pub request_receipt: RequestAcceptanceReceipt,
     pub response_event_ref: EventId,
     pub response_digest: Hash,
-    pub no_outgoing_slot_proof: Hash,
+    pub outgoing_slot_absence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub issuer: DidCoreId,
@@ -781,7 +781,7 @@ string_marker!(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum PeerContactDisposition {
+pub enum PeerContactOutcome {
     Accepted,
     Duplicate,
     Deferred,
@@ -795,7 +795,7 @@ pub struct PeerContactMirrorReceipt {
     pub request_digest: Hash,
     pub signed_event_ref: EventId,
     pub signed_event_digest: Hash,
-    pub disposition: PeerContactDisposition,
+    pub outcome: PeerContactOutcome,
     pub recipient_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
@@ -843,7 +843,7 @@ pub struct PeerContactControlReceipt {
     pub domain: PeerContactControlReceiptDomain,
     pub request_kind: PeerContactControlKind,
     pub request_digest: Hash,
-    pub disposition: PeerContactDisposition,
+    pub outcome: PeerContactOutcome,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result_digest: Option<Hash>,
     pub recipient_service_id: DidCoreId,
@@ -858,7 +858,7 @@ pub struct PeerContactControlReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PeerContactEventSubmitOutcome {
     pub result_kind: ContactResultKind,
-    pub status: PeerContactDisposition,
+    pub status: PeerContactOutcome,
     pub mirror_receipt: PeerContactMirrorReceipt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_proof: Option<ContactCurrentProof>,
@@ -877,12 +877,12 @@ pub struct PeerContactEventSubmitOutcome {
 #[allow(clippy::large_enum_variant)]
 pub enum PeerContactControlSubmitOutcome {
     ProofRefresh {
-        status: PeerContactDisposition,
+        status: PeerContactOutcome,
         control_receipt: PeerContactControlReceipt,
         current_proof: ContactCurrentProof,
     },
     GlareFinalize {
-        status: PeerContactDisposition,
+        status: PeerContactOutcome,
         control_receipt: PeerContactControlReceipt,
         glare_concurrency_attestation: GlareConcurrencyAttestation,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -894,7 +894,7 @@ pub enum PeerContactControlSubmitOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PeerContactControlDeferredOutcome {
-    pub status: PeerContactDisposition,
+    pub status: PeerContactOutcome,
     pub request_kind: PeerContactControlKind,
     pub control_receipt: PeerContactControlReceipt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -913,18 +913,18 @@ pub enum PeerContactSubmitOutcome {
 impl PeerContactSubmitOutcome {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let valid = match self {
-            Self::Event(outcome) => outcome.status == outcome.mirror_receipt.disposition,
+            Self::Event(outcome) => outcome.status == outcome.mirror_receipt.outcome,
             Self::Control(_) => true,
             Self::ControlDeferred(outcome) => {
-                outcome.status == PeerContactDisposition::Deferred
-                    && outcome.control_receipt.disposition == PeerContactDisposition::Deferred
+                outcome.status == PeerContactOutcome::Deferred
+                    && outcome.control_receipt.outcome == PeerContactOutcome::Deferred
             }
         };
         if valid {
             Ok(())
         } else {
             Err(arkret_wire::Error::Protocol(
-                "peer Contact status does not match mirror receipt disposition".to_owned(),
+                "peer Contact status does not match mirror receipt outcome".to_owned(),
             ))
         }
     }

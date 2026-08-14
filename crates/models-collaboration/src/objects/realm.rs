@@ -474,7 +474,7 @@ impl Realm {
     /// Validate spec-level Realm invariants.
     pub fn validate_kind_invariants(&self) -> Result<()> {
         if self.reducer_profile != CORE_REDUCER_PROFILE {
-            return Err(Error::Protocol("profile_unsupported".to_owned()));
+            return Err(Error::Protocol("unsupported_profile".to_owned()));
         }
         if matches!(self.security_class, Some(SecurityClass::HighAssurance))
             && matches!(self.federation_policy, Some(FederationPolicy::Open))

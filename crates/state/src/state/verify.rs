@@ -7,7 +7,7 @@
 //! | step | check | wire error_code on fail |
 //! | --- | --- | --- |
 //! | 1 structural | canonical bytes, envelope shape, `realm_id` | `schema_violation` |
-//! | 2 proofs | `proofs[].event_digest` binds the recomputed digest; signature verify | `invalid_signature` |
+//! | 2 proofs | `proofs[].event_digest` binds the recomputed digest; signature verify | `signature_invalid` |
 //! | 3 critical refs | each `refs[role=authorized_by]` resolves to a covering grant | `capability_denied` |
 //! | 4 preconditions | every `(cell, predicate)` evaluates true on the frozen `pre_state` | `state_mismatch` |
 //! | 5 derived writes | every projected write passes the cell's `validate_op` | `schema_violation` |
@@ -45,7 +45,7 @@ pub enum ControlMoveReject {
     SchemaViolation(String),
 
     #[error("invalid signature: {0}")]
-    InvalidSignature(String),
+    SignatureInvalid(String),
 
     #[error("capability denied: {0}")]
     CapabilityDenied(String),
@@ -84,7 +84,7 @@ impl From<StoreError> for ControlMoveReject {
 pub fn reject_to_error_code(r: &ControlMoveReject) -> &'static str {
     match r {
         ControlMoveReject::SchemaViolation(_) => crate::ErrorCode::SCHEMA_VIOLATION,
-        ControlMoveReject::InvalidSignature(_) => crate::ErrorCode::INVALID_SIGNATURE,
+        ControlMoveReject::SignatureInvalid(_) => crate::ErrorCode::SIGNATURE_INVALID,
         ControlMoveReject::CapabilityDenied(_) => crate::ErrorCode::CAPABILITY_DENIED,
         ControlMoveReject::FailedPrecondition { .. } => crate::ErrorCode::STATE_MISMATCH,
         // A precondition that reads a ⊥ cell fails closed. The registry has no
@@ -190,8 +190,8 @@ where
     // cannot present a signature over bytes other than the ones we reduce.
     event
         .validate_proof_bindings()
-        .map_err(|e| ControlMoveReject::InvalidSignature(e.to_string()))?;
-    verify_proofs(event).map_err(ControlMoveReject::InvalidSignature)?;
+        .map_err(|e| ControlMoveReject::SignatureInvalid(e.to_string()))?;
+    verify_proofs(event).map_err(ControlMoveReject::SignatureInvalid)?;
 
     // Step 3: critical refs.
     if event.actor_id.as_str().is_empty() {
@@ -984,7 +984,7 @@ mod tests {
             project(vec![transition_write(json!("invited"), json!("join"))]),
         )
         .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::InvalidSignature(_)));
+        assert!(matches!(err, ControlMoveReject::SignatureInvalid(_)));
     }
 
     #[test]
@@ -1663,8 +1663,8 @@ mod tests {
             crate::ErrorCode::SCHEMA_VIOLATION
         );
         assert_eq!(
-            reject_to_error_code(&ControlMoveReject::InvalidSignature("x".into())),
-            crate::ErrorCode::INVALID_SIGNATURE
+            reject_to_error_code(&ControlMoveReject::SignatureInvalid("x".into())),
+            crate::ErrorCode::SIGNATURE_INVALID
         );
         assert_eq!(
             reject_to_error_code(&ControlMoveReject::CapabilityDenied("x".into())),

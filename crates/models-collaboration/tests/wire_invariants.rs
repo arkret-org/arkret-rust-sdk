@@ -1,6 +1,6 @@
 use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
 use arkret_models_collaboration::governance::moderation_appeal::{
-    AppealDecisionPayload, AppealSubmitPayload, AppealVerdict, ModerationAppealPayload,
+    AppealDecision, AppealDecisionPayload, AppealSubmitPayload, ModerationAppealPayload,
 };
 use arkret_models_collaboration::governance::policy_check::compute_audit_policy_version_digest;
 use arkret_models_collaboration::governance::third_party_invite::{
@@ -167,7 +167,7 @@ fn moderation_appeal_decision_modify_requires_ref() {
             .unwrap(),
         realm_id: realm(),
         reviewer: did(),
-        verdict: AppealVerdict::Modify,
+        decision: AppealDecision::Modify,
         reason_text_ref: "blob:reason".to_owned(),
         modify_decision_ref: None,
         decided_at: Utc::now(),
@@ -208,7 +208,7 @@ fn moderation_appeal_decision_uphold_rejects_modify_ref() {
             .unwrap(),
         realm_id: realm(),
         reviewer: did(),
-        verdict: AppealVerdict::Uphold,
+        decision: AppealDecision::Uphold,
         reason_text_ref: "blob:reason".to_owned(),
         modify_decision_ref: Some(
             EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap(),

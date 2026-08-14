@@ -1640,7 +1640,7 @@ pub enum AgentSidecarEventExchangeBindingSchema {
     V1,
 }
 
-/// Closed producer disposition of one exchange-bound Sidecar Event.
+/// Closed producer outcome of one exchange-bound Sidecar Event.
 /// Consumers MUST fail closed to non-echo on any unlisted value; serde's
 /// closed enum plus the outer `deny_unknown_fields` provide exactly that.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

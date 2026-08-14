@@ -159,7 +159,7 @@ pub enum MlsSendPause {
 
 /// `account_deactivation.member_action` of [`RealmPolicyBundlePayload`].
 ///
-/// The single authority for this closed enum and its disposition semantics is
+/// The single authority for this closed enum and its outcome semantics is
 /// `identity/account-lifecycle.md` §7.1. Absent component means
 /// `leave_self_initiated`; an unrecognized value fails closed to
 /// `retain_membership` rather than to the default, which is why the enum is
@@ -198,7 +198,7 @@ pub struct RealmPreauthPolicy {
     /// admission gate in `identity/consent-model.md` §6.1 before the invite
     /// Control Move is submitted. It MUST NOT be read as permission for a
     /// cross-Realm CBA precondition.
-    pub require_consent: bool,
+    pub consent_required: bool,
 }
 
 /// `aad_visibility` component of [`RealmPolicyBundlePayload`].
@@ -1532,7 +1532,7 @@ mod realm_policy_bundle_tests {
         // component added later is counted without editing `validate`.
         let mut only_preauth = RealmPolicyBundlePayload::new(1);
         only_preauth.preauth = Some(RealmPreauthPolicy {
-            require_consent: true,
+            consent_required: true,
         });
         only_preauth.validate().unwrap();
     }

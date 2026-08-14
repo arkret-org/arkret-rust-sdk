@@ -107,7 +107,7 @@ pub trait AppletHandler: Send + Sync + 'static {
     /// verified the inbound HTTP message signature against the source
     /// service DID, independently verified every Event proof, and claimed
     /// the idempotency window for this delivery. A failed verification is
-    /// answered with `401 invalid_signature`, a duplicate delivery is
+    /// answered with `401 signature_invalid`, a duplicate delivery is
     /// answered from the cached outcome, and a conflicting duplicate with
     /// `409 duplicate_conflict` — this method is never called in any of
     /// those cases. `Idempotency-Key` is mandatory on the wire

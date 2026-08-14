@@ -533,7 +533,7 @@ pub enum DirectConversationSendBlocker {
     PairMaterializationConflict,
     RealmTerminalFault,
     NotaryUnavailable,
-    ProfileUnsupported,
+    UnsupportedProfile,
 }
 
 /// Closed holder-device-only blocker set from

@@ -2696,10 +2696,10 @@ mod historical_verification_tests {
             Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
         assert!(verify_registration_did_evidence_draft(&prepared.submit_body, &mutated).is_err());
 
-        let mut invalid_signature = draft.clone();
-        invalid_signature.control_proof.jws = Base64UrlString::new("AA".to_owned()).unwrap();
+        let mut signature_invalid = draft.clone();
+        signature_invalid.control_proof.jws = Base64UrlString::new("AA".to_owned()).unwrap();
         assert!(
-            verify_registration_did_evidence_draft(&prepared.submit_body, &invalid_signature)
+            verify_registration_did_evidence_draft(&prepared.submit_body, &signature_invalid)
                 .is_err()
         );
 

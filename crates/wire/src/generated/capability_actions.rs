@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-14.1;
-//! sha256=20a2fce93e75d573bbe7fce3244e0145ad08b058123ef8da370e3bd0d4d252a2 Entries: registered=170
+//! Input: registry/capability-action-registry.json; version=2026-08-14.5;
+//! sha256=e9b2536c4451bac91ca141f37e9bcebc29eacb37fcf055729cd6d937410c270b Entries: registered=170
 
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +55,6 @@ pub enum CapabilityActionId {
     InviteCreate,
     InviteRevoke,
     InviteThirdParty,
-    KeysBackupSeriesErase,
     MemberCompensateLeave,
     MemberCompensateRemove,
     MemberLeaveOwn,
@@ -154,6 +153,7 @@ pub enum CapabilityActionId {
     SelfBlobUploadCreate,
     SelfEventsReadScan,
     SelfEventsStreamSubscribe,
+    SelfKeysBackupSeriesCommandErase,
     SelfSnapshotReadManifestHead,
     SpaceArchive,
     SpaceCreate,
@@ -229,7 +229,6 @@ impl CapabilityActionId {
         Self::InviteCreate,
         Self::InviteRevoke,
         Self::InviteThirdParty,
-        Self::KeysBackupSeriesErase,
         Self::MemberCompensateLeave,
         Self::MemberCompensateRemove,
         Self::MemberLeaveOwn,
@@ -328,6 +327,7 @@ impl CapabilityActionId {
         Self::SelfBlobUploadCreate,
         Self::SelfEventsReadScan,
         Self::SelfEventsStreamSubscribe,
+        Self::SelfKeysBackupSeriesCommandErase,
         Self::SelfSnapshotReadManifestHead,
         Self::SpaceArchive,
         Self::SpaceCreate,
@@ -401,7 +401,6 @@ impl CapabilityActionId {
     pub const INVITE_CREATE: &'static str = "ak.invite.create";
     pub const INVITE_REVOKE: &'static str = "ak.invite.revoke";
     pub const INVITE_THIRD_PARTY: &'static str = "ak.invite.third_party";
-    pub const KEYS_BACKUP_SERIES_ERASE: &'static str = "ak.keys.backup_series.erase";
     pub const MEMBER_COMPENSATE_LEAVE: &'static str = "ak.member.compensate.leave";
     pub const MEMBER_COMPENSATE_REMOVE: &'static str = "ak.member.compensate.remove";
     pub const MEMBER_LEAVE_OWN: &'static str = "ak.member.leave.own";
@@ -507,6 +506,8 @@ impl CapabilityActionId {
     pub const SELF_BLOB_UPLOAD_CREATE: &'static str = "ak.self.blob.upload.create";
     pub const SELF_EVENTS_READ_SCAN: &'static str = "ak.self.events.read.scan";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
+    pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE: &'static str =
+        "ak.self.keys.backup_series.command.erase";
     pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD: &'static str =
         "ak.self.snapshot.read.manifest_head";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
@@ -582,7 +583,6 @@ impl CapabilityActionId {
             Self::InviteCreate => Self::INVITE_CREATE,
             Self::InviteRevoke => Self::INVITE_REVOKE,
             Self::InviteThirdParty => Self::INVITE_THIRD_PARTY,
-            Self::KeysBackupSeriesErase => Self::KEYS_BACKUP_SERIES_ERASE,
             Self::MemberCompensateLeave => Self::MEMBER_COMPENSATE_LEAVE,
             Self::MemberCompensateRemove => Self::MEMBER_COMPENSATE_REMOVE,
             Self::MemberLeaveOwn => Self::MEMBER_LEAVE_OWN,
@@ -687,6 +687,7 @@ impl CapabilityActionId {
             Self::SelfBlobUploadCreate => Self::SELF_BLOB_UPLOAD_CREATE,
             Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
+            Self::SelfKeysBackupSeriesCommandErase => Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
             Self::SelfSnapshotReadManifestHead => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD,
             Self::SpaceArchive => Self::SPACE_ARCHIVE,
             Self::SpaceCreate => Self::SPACE_CREATE,
@@ -763,7 +764,6 @@ impl CapabilityActionId {
             Self::INVITE_CREATE => Some(Self::InviteCreate),
             Self::INVITE_REVOKE => Some(Self::InviteRevoke),
             Self::INVITE_THIRD_PARTY => Some(Self::InviteThirdParty),
-            Self::KEYS_BACKUP_SERIES_ERASE => Some(Self::KeysBackupSeriesErase),
             Self::MEMBER_COMPENSATE_LEAVE => Some(Self::MemberCompensateLeave),
             Self::MEMBER_COMPENSATE_REMOVE => Some(Self::MemberCompensateRemove),
             Self::MEMBER_LEAVE_OWN => Some(Self::MemberLeaveOwn),
@@ -868,6 +868,9 @@ impl CapabilityActionId {
             Self::SELF_BLOB_UPLOAD_CREATE => Some(Self::SelfBlobUploadCreate),
             Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
+            Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE => {
+                Some(Self::SelfKeysBackupSeriesCommandErase)
+            }
             Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::SelfSnapshotReadManifestHead),
             Self::SPACE_ARCHIVE => Some(Self::SpaceArchive),
             Self::SPACE_CREATE => Some(Self::SpaceCreate),

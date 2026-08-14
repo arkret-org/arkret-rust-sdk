@@ -57,7 +57,7 @@ const MLS_GOVERNANCE_MAX_CHUNK_ITEM_BYTES: usize = 3_500_000;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsGovernanceProofRequestBodyBody {
+pub struct MlsGovernanceProofRequestBody {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub mls_group_id: String,
@@ -71,7 +71,7 @@ pub struct MlsGovernanceProofRequestBodyBody {
     pub expected_bundle_digest: Option<Hash>,
 }
 
-impl MlsGovernanceProofRequestBodyBody {
+impl MlsGovernanceProofRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.effective_scope.realm_id() != &self.realm_id {
             return schema("proof request Realm and effective_scope mismatch");
@@ -200,21 +200,21 @@ pub enum MlsGovernanceProofChunk {
         )]
         items: Vec<Seal>,
         chunk_digest: Hash,
-        chunk_proof: Vec<Hash>,
+        chunk_inclusion_proof: Vec<Hash>,
     },
     CoveredEventDigests {
         chunk_index: u32,
         start_index: u32,
         items: Vec<Hash>,
         chunk_digest: Hash,
-        chunk_proof: Vec<Hash>,
+        chunk_inclusion_proof: Vec<Hash>,
     },
     ControlState {
         chunk_index: u32,
         start_index: u32,
         items: Vec<MlsGovernanceControlStateLeaf>,
         chunk_digest: Hash,
-        chunk_proof: Vec<Hash>,
+        chunk_inclusion_proof: Vec<Hash>,
     },
     FrontierEvents {
         chunk_index: u32,
@@ -225,7 +225,7 @@ pub enum MlsGovernanceProofChunk {
         )]
         items: Vec<Event>,
         chunk_digest: Hash,
-        chunk_proof: Vec<Hash>,
+        chunk_inclusion_proof: Vec<Hash>,
     },
 }
 
@@ -257,12 +257,24 @@ impl MlsGovernanceProofChunk {
         }
     }
 
-    pub fn chunk_proof(&self) -> &[Hash] {
+    pub fn chunk_inclusion_proof(&self) -> &[Hash] {
         match self {
-            Self::SealPath { chunk_proof, .. }
-            | Self::CoveredEventDigests { chunk_proof, .. }
-            | Self::ControlState { chunk_proof, .. }
-            | Self::FrontierEvents { chunk_proof, .. } => chunk_proof,
+            Self::SealPath {
+                chunk_inclusion_proof,
+                ..
+            }
+            | Self::CoveredEventDigests {
+                chunk_inclusion_proof,
+                ..
+            }
+            | Self::ControlState {
+                chunk_inclusion_proof,
+                ..
+            }
+            | Self::FrontierEvents {
+                chunk_inclusion_proof,
+                ..
+            } => chunk_inclusion_proof,
         }
     }
 
@@ -299,26 +311,26 @@ impl MlsGovernanceProofChunk {
         match self {
             Self::SealPath {
                 chunk_digest,
-                chunk_proof,
+                chunk_inclusion_proof,
                 ..
             }
             | Self::CoveredEventDigests {
                 chunk_digest,
-                chunk_proof,
+                chunk_inclusion_proof,
                 ..
             }
             | Self::ControlState {
                 chunk_digest,
-                chunk_proof,
+                chunk_inclusion_proof,
                 ..
             }
             | Self::FrontierEvents {
                 chunk_digest,
-                chunk_proof,
+                chunk_inclusion_proof,
                 ..
             } => {
                 *chunk_digest = digest;
-                *chunk_proof = proof;
+                *chunk_inclusion_proof = proof;
             }
         }
     }
@@ -427,7 +439,7 @@ impl MlsGovernanceProofBundle {
 /// Servers may select the requested entry after this function has committed
 /// the complete sequence.
 pub fn build_mls_governance_proof_chunks(
-    request: &MlsGovernanceProofRequestBodyBody,
+    request: &MlsGovernanceProofRequestBody,
     materialized: &MaterializedMlsGovernanceProofBundle,
 ) -> Result<Vec<MlsGovernanceProofBundle>> {
     request.validate()?;
@@ -444,7 +456,7 @@ pub fn build_mls_governance_proof_chunks(
             start_index: start_index as u32,
             items,
             chunk_digest: zero.clone(),
-            chunk_proof: Vec::new(),
+            chunk_inclusion_proof: Vec::new(),
         });
     }
     for (start_index, items) in split_items(
@@ -456,7 +468,7 @@ pub fn build_mls_governance_proof_chunks(
             start_index: start_index as u32,
             items,
             chunk_digest: zero.clone(),
-            chunk_proof: Vec::new(),
+            chunk_inclusion_proof: Vec::new(),
         });
     }
     for (start_index, items) in split_items(
@@ -468,7 +480,7 @@ pub fn build_mls_governance_proof_chunks(
             start_index: start_index as u32,
             items,
             chunk_digest: zero.clone(),
-            chunk_proof: Vec::new(),
+            chunk_inclusion_proof: Vec::new(),
         });
     }
     for (start_index, items) in split_items(
@@ -480,7 +492,7 @@ pub fn build_mls_governance_proof_chunks(
             start_index: start_index as u32,
             items,
             chunk_digest: zero.clone(),
-            chunk_proof: Vec::new(),
+            chunk_inclusion_proof: Vec::new(),
         });
     }
     if !(2..=MLS_GOVERNANCE_MAX_CHUNKS).contains(&chunks.len()) {
@@ -556,7 +568,7 @@ pub fn build_mls_governance_proof_chunks(
 /// Authenticate and assemble a complete chunk sequence. No materialized proof
 /// is returned until every index and every collection range is present.
 pub fn assemble_mls_governance_proof_chunks(
-    request: &MlsGovernanceProofRequestBodyBody,
+    request: &MlsGovernanceProofRequestBody,
     responses: &[MlsGovernanceProofBundle],
 ) -> Result<MaterializedMlsGovernanceProofBundle> {
     if responses.is_empty() {
@@ -613,8 +625,8 @@ pub fn assemble_mls_governance_proof_chunks(
         return state_mismatch("MLS governance proof chunks_root mismatch");
     }
     for (index, response) in ordered.iter().enumerate() {
-        if merkle_proof(&digests, index)? != response.chunk.chunk_proof() {
-            return state_mismatch("MLS governance proof chunk_proof mismatch");
+        if merkle_proof(&digests, index)? != response.chunk.chunk_inclusion_proof() {
+            return state_mismatch("MLS governance proof chunk_inclusion_proof mismatch");
         }
     }
 
@@ -844,7 +856,7 @@ fn merkle_proof(digests: &[Hash], index: usize) -> Result<Vec<Hash>> {
     let mut proof = Vec::new();
     visit(digests, index, &mut proof)?;
     if proof.len() > 10 {
-        return bounds("MLS governance proof chunk_proof exceeds 10 siblings");
+        return bounds("MLS governance proof chunk_inclusion_proof exceeds 10 siblings");
     }
     Ok(proof)
 }
@@ -900,7 +912,7 @@ fn materialized_total_item_bytes(bundle: &MaterializedMlsGovernanceProofBundle) 
 }
 
 fn validate_materialized_identity(
-    request: &MlsGovernanceProofRequestBodyBody,
+    request: &MlsGovernanceProofRequestBody,
     bundle: &MaterializedMlsGovernanceProofBundle,
 ) -> Result<()> {
     if bundle.bundle_version != MLS_GOVERNANCE_PROOF_BUNDLE_VERSION

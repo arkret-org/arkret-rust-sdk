@@ -164,7 +164,7 @@ pub enum EventsSubmitRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
-pub enum EventsSubmitResponseBody {
+pub enum SelfEventsSubmitOutcome {
     Ordinary(EventsSubmitOutcome),
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
 }
@@ -172,10 +172,10 @@ pub enum EventsSubmitResponseBody {
 pub use arkret_wire::EventsSubmitBatchRequestBody;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRejectedItem`.
+/// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRejectedRow`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EventsSubmitRejectedItem {
+pub struct EventsSubmitRejectedRow {
     /// 0-based position in the request `events[]`. It is the only way to report
     /// an item whose `id` failed to parse, so it is present whenever the item
     /// could be located positionally.
@@ -196,7 +196,7 @@ pub struct EventsSubmitRejectedItem {
     pub missing_event_digests: Vec<Hash>,
 }
 
-impl EventsSubmitRejectedItem {
+impl EventsSubmitRejectedRow {
     pub fn validate_dependency_details(&self) -> Result<()> {
         let has_missing = !self.missing_event_ids.is_empty()
             || !self.missing_event_digests.is_empty()
@@ -274,7 +274,7 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<EventsSubmitRejectedItem>,
+    pub rejected: Vec<EventsSubmitRejectedRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quarantine: Vec<EventId>,
     /// Post-submit actor authoring frontiers sorted and unique by
@@ -839,7 +839,7 @@ pub struct MimiKeyMaterialRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiKeyMaterialOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub key_packages: Vec<MimiKeyPackage>,
+    pub keypackages: Vec<MimiKeyPackage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group_info: Option<MimiGroupInfo>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2320,7 +2320,7 @@ mod federation_dependency_tests {
 
     #[test]
     fn dependency_missing_details_are_closed_and_non_empty() {
-        let mut rejected = EventsSubmitRejectedItem {
+        let mut rejected = EventsSubmitRejectedRow {
             index: None,
             id: event_id("1").to_string(),
             reason_code: ReasonCode::DependencyMissing,

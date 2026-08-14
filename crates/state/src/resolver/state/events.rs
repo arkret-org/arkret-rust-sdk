@@ -80,7 +80,7 @@ impl RealmState {
                     )
                 })?;
             if !arkret_wire::is_reducer_profile_id(profile) {
-                return Err(Error::Protocol("profile_unsupported".to_owned()));
+                return Err(Error::Protocol("unsupported_profile".to_owned()));
             }
             Some(profile.to_owned())
         } else {
@@ -241,7 +241,7 @@ impl RealmState {
     pub(super) fn upgrade_realm(&mut self, event: &Event) -> Result<()> {
         let target = self.extract_field::<String>(&event.payload, "target_reducer_profile")?;
         if !arkret_wire::can_upgrade_reducer_profile(&self.reducer_profile, &target) {
-            return Err(Error::Protocol("profile_unsupported".to_owned()));
+            return Err(Error::Protocol("unsupported_profile".to_owned()));
         }
         self.reduce_generic_state_event(event)?;
         self.reducer_profile = target;

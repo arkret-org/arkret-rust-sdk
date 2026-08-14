@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-14.1;
-//! sha256=21b4229f7c077080f08b9ca09ea7bd4f5345a8e13c92886f0016a3265f2721a3 Entries: registered=236
+//! sha256=c0254739930cf35253bcb03905b33b12d512e9f98e22d5dcc273994c17181069 Entries: registered=235
 
 use serde::{Deserialize, Serialize};
 
@@ -191,7 +191,6 @@ pub enum ServiceOperationId {
     SelfInviteLocatorCommandRotate,
     SelfInviteReceivePolicyResourceGet,
     SelfInviteReceivePolicyResourceReplace,
-    SelfInvitesCommandDispatch,
     SelfKeysBackupSeriesCommandErase,
     SelfKeysBackupsCommandIssueDeleteChallenge,
     SelfKeysBackupsCommandUnlock,
@@ -430,7 +429,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ROTATE,
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET,
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE,
-    ServiceOperationId::SELF_INVITES_COMMAND_DISPATCH,
     ServiceOperationId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
@@ -709,7 +707,6 @@ impl ServiceOperationId {
         Self::SelfInviteLocatorCommandRotate,
         Self::SelfInviteReceivePolicyResourceGet,
         Self::SelfInviteReceivePolicyResourceReplace,
-        Self::SelfInvitesCommandDispatch,
         Self::SelfKeysBackupSeriesCommandErase,
         Self::SelfKeysBackupsCommandIssueDeleteChallenge,
         Self::SelfKeysBackupsCommandUnlock,
@@ -1051,7 +1048,6 @@ impl ServiceOperationId {
         "ak.self.invite_receive_policy.resource.get";
     pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE: &'static str =
         "ak.self.invite_receive_policy.resource.replace";
-    pub const SELF_INVITES_COMMAND_DISPATCH: &'static str = "ak.self.invites.command.dispatch";
     pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE: &'static str =
         "ak.self.keys.backup_series.command.erase";
     pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE: &'static str =
@@ -1410,7 +1406,6 @@ impl ServiceOperationId {
             Self::SelfInviteReceivePolicyResourceReplace => {
                 Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE
             }
-            Self::SelfInvitesCommandDispatch => Self::SELF_INVITES_COMMAND_DISPATCH,
             Self::SelfKeysBackupSeriesCommandErase => Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
             Self::SelfKeysBackupsCommandIssueDeleteChallenge => {
                 Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE
@@ -1807,7 +1802,6 @@ impl ServiceOperationId {
             Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE => {
                 Some(Self::SelfInviteReceivePolicyResourceReplace)
             }
-            Self::SELF_INVITES_COMMAND_DISPATCH => Some(Self::SelfInvitesCommandDispatch),
             Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE => {
                 Some(Self::SelfKeysBackupSeriesCommandErase)
             }
@@ -3657,10 +3651,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_outcome",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.peer.keys.keypackages.read.claim\",\"strategy\":\"query_operation\"}",
@@ -3683,10 +3677,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4909,7 +4903,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueRequest",
+            "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueRequestBody",
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueOutcome",
@@ -5684,7 +5678,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitResponseBody",
+            "schemas/service-operation-dtos.schema.json#/$defs/SelfEventsSubmitOutcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5959,28 +5953,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfInvitesCommandDispatch,
-        http_method: "POST",
-        http_path: "/_arkret/self/invites/dispatch",
-        grpc: Some("SelfInvites/Dispatch"),
-        mq: Some("self.invites.command.dispatch"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some("schemas/invite-delivery-request.schema.json"),
-        response_schema_ref: Some(
-            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("delivers_existing_signed_event_without_committing_a_local_event"),
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupSeriesCommandErase,
         http_method: "POST",
         http_path: "/_arkret/self/keys/backup-series/erase",
@@ -6150,10 +6122,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6174,10 +6146,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_consume_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_consume_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_consume_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_consume_outcome",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.read.lookup\",\"strategy\":\"query_operation\"}",
@@ -6200,10 +6172,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_revoke_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_revoke_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_revoke_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_revoke_outcome",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.read.lookup\",\"strategy\":\"query_operation\"}",
@@ -6226,10 +6198,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_upload_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_upload_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_upload_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_upload_outcome",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.keypackages.upload.create\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",

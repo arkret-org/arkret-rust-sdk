@@ -554,7 +554,7 @@ pub enum PushNotifyGatewayStatus {
 pub enum PushNotifyReasonCode {
     PushTargetUnknown,
     PushPayloadTooLarge,
-    ProfileUnsupported,
+    UnsupportedProfile,
     DeliveryBindingStale,
     PushTokenUnknown,
     PushTokenInvalid,
@@ -567,7 +567,7 @@ impl PushNotifyReasonCode {
         match self {
             Self::PushTargetUnknown => "push_target_unknown",
             Self::PushPayloadTooLarge => "push_payload_too_large",
-            Self::ProfileUnsupported => "profile_unsupported",
+            Self::UnsupportedProfile => "unsupported_profile",
             Self::DeliveryBindingStale => "delivery_binding_stale",
             Self::PushTokenUnknown => "push_token_unknown",
             Self::PushTokenInvalid => "push_token_invalid",

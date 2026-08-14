@@ -298,12 +298,12 @@ impl Cursor {
         let expires_at_ms = self.expires_at.timestamp_millis();
         if issued_at_ms > expires_at_ms {
             return Err(Error::Protocol(
-                "cursor `issued_at` is after `expires_at`; invalid_param".to_owned(),
+                "cursor `issued_at` is after `expires_at`; param_invalid".to_owned(),
             ));
         }
         if issued_at_ms > now_ms + Self::CLOCK_SKEW_TOLERANCE_MS {
             return Err(Error::Protocol(
-                "cursor `issued_at` is in the future beyond clock-skew tolerance; invalid_param"
+                "cursor `issued_at` is in the future beyond clock-skew tolerance; param_invalid"
                     .to_owned(),
             ));
         }
@@ -315,7 +315,7 @@ impl Cursor {
         };
         if ttl > cap {
             return Err(Error::Protocol(format!(
-                "cursor TTL {ttl} ms exceeds the {:?} hard upper bound {cap} ms; invalid_param",
+                "cursor TTL {ttl} ms exceeds the {:?} hard upper bound {cap} ms; param_invalid",
                 self.purpose
             )));
         }

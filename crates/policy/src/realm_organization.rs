@@ -126,7 +126,7 @@ where
     if !proof_ok {
         return Err(RealmOrganizationVerificationError::Protocol(format!(
             "ak.realm.organization authorization.proof must be present ({})",
-            ErrorCode::INVALID_SIGNATURE
+            ErrorCode::SIGNATURE_INVALID
         )));
     }
 

@@ -38,7 +38,7 @@ pub struct DecisionPayload {
     pub appeal_id: AppealId,
     pub realm_id: RealmId,
     pub reviewer: ActorRef,
-    pub verdict: String,
+    pub decision: String,
     pub reason_text_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modify_decision_ref: Option<EventId>,

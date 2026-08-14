@@ -847,7 +847,7 @@ mod tests {
         use arkret_models_collaboration::http_bodies::MimiReportAbuseRequestBody;
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-        use arkret_models_crypto::MlsGovernanceProofRequestBodyBody;
+        use arkret_models_crypto::MlsGovernanceProofRequestBody;
         use arkret_models_discovery::{
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
@@ -1139,7 +1139,7 @@ mod tests {
             let (client, capture) = spawn_capture_server("{}").await;
             let realm_id =
                 RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap();
-            let request = MlsGovernanceProofRequestBodyBody {
+            let request = MlsGovernanceProofRequestBody {
                 realm_id: realm_id.clone(),
                 effective_scope: ScopeRef::Realm {
                     realm_id: realm_id.clone(),

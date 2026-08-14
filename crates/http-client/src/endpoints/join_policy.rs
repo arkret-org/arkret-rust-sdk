@@ -1,7 +1,7 @@
 use arkret_models_collaboration::governance::join_policy::{
-    JoinApplicationAuditOutcome, JoinApplicationCancelRequestBodyBody, JoinApplicationGetOutcome,
-    JoinApplicationListOutcome, JoinApplicationMutationOutcome,
-    JoinApplicationReviewRequestBodyBody, JoinApplicationSubmitRequestBodyBody,
+    JoinApplicationAuditOutcome, JoinApplicationCancelRequestBody, JoinApplicationGetOutcome,
+    JoinApplicationListOutcome, JoinApplicationMutationOutcome, JoinApplicationReviewRequestBody,
+    JoinApplicationSubmitRequestBody,
 };
 use reqwest::Method;
 
@@ -51,7 +51,7 @@ impl Client {
         &self,
         realm_id: &str,
         idempotency_key: &str,
-        request: &JoinApplicationSubmitRequestBodyBody,
+        request: &JoinApplicationSubmitRequestBody,
     ) -> Result<JoinApplicationMutationOutcome> {
         request
             .validate()
@@ -66,7 +66,7 @@ impl Client {
         realm_id: &str,
         application_ref: &str,
         idempotency_key: &str,
-        request: &JoinApplicationReviewRequestBodyBody,
+        request: &JoinApplicationReviewRequestBody,
     ) -> Result<JoinApplicationMutationOutcome> {
         request
             .receipt
@@ -85,7 +85,7 @@ impl Client {
         realm_id: &str,
         application_ref: &str,
         idempotency_key: &str,
-        request: &JoinApplicationCancelRequestBodyBody,
+        request: &JoinApplicationCancelRequestBody,
     ) -> Result<JoinApplicationMutationOutcome> {
         request
             .receipt

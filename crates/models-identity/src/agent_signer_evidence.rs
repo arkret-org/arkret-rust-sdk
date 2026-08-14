@@ -550,7 +550,7 @@ pub enum AgentSignerEvidenceQuerySelector {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentSignerEvidenceQueryRequestBodyBody {
+pub struct AgentSignerEvidenceQueryRequestBody {
     pub realm_id: RealmId,
     pub queries: Vec<AgentSignerEvidenceQuerySelector>,
 }

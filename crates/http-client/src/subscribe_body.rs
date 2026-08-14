@@ -12,7 +12,7 @@
 //! whole response) may not expose; reqwest then hands back an *empty* stream
 //! rather than an error, which would silently look like a connection that
 //! delivered nothing. [`streaming_bodies_available`] turns that into an
-//! explicit, latched verdict: after two consecutive unusable streamed
+//! explicit, latched decision: after two consecutive unusable streamed
 //! responses (a zero-byte close or a body read failure before any byte) the
 //! process switches to reading the bounded response after close, which is
 //! slower but always works. The fallback direction is the safe one — a false
@@ -31,7 +31,7 @@ use crate::{Error, MAX_SUBSCRIBE_FRAME_BYTES, Result};
 #[cfg(any(target_arch = "wasm32", test))]
 const EMPTY_STREAMED_RESPONSES_BEFORE_FALLBACK: usize = 2;
 
-/// Latching verdict on whether the transport hands back response bytes while
+/// Latching decision on whether the transport hands back response bytes while
 /// the response is still open.
 ///
 /// Kept as a plain struct rather than a pile of `cfg`-gated statics so the

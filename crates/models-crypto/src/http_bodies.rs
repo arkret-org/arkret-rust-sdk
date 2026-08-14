@@ -27,7 +27,7 @@ use crate::mls_records::MlsKeyPackageRecord;
 pub struct KeyPackagesUploadRequestBody {
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
-    pub key_packages: Vec<KeyPackageUploadEntry>,
+    pub keypackages: Vec<KeyPackageUploadEntry>,
     pub device_signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -51,7 +51,7 @@ pub struct KeyPackagesUploadRequestBody {
 pub struct KeyPackagesUploadUnsignedRequest {
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
-    pub key_packages: Vec<KeyPackageUploadEntry>,
+    pub keypackages: Vec<KeyPackageUploadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
@@ -64,14 +64,14 @@ pub struct KeyPackagesUploadUnsignedRequest {
 impl KeyPackagesUploadRequestBody {
     #[must_use]
     pub fn unsigned(&self) -> KeyPackagesUploadUnsignedRequest {
-        let mut key_packages = self.key_packages.clone();
-        for entry in &mut key_packages {
+        let mut keypackages = self.keypackages.clone();
+        for entry in &mut keypackages {
             entry.device_signature = None;
         }
         KeyPackagesUploadUnsignedRequest {
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
-            key_packages,
+            keypackages,
             expires_at: self.expires_at,
             strand_id: self.strand_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
@@ -88,7 +88,7 @@ impl KeyPackagesUploadUnsignedRequest {
         KeyPackagesUploadRequestBody {
             principal_id: self.principal_id,
             device_id: self.device_id,
-            key_packages: self.key_packages,
+            keypackages: self.keypackages,
             device_signature,
             expires_at: self.expires_at,
             strand_id: self.strand_id,
@@ -110,7 +110,7 @@ pub fn mls_key_package_record_upload_entry(
         keypackage_id: record.keypackage_id.clone(),
         keypackage_ref: record.keypackage_ref.as_str().to_owned(),
         keypackage_digest: record.keypackage_ref.clone(),
-        key_package: Base64UrlString::new(record.key_package.clone())?,
+        keypackage: Base64UrlString::new(record.keypackage.clone())?,
         cipher_suites: record.cipher_suites.clone(),
         capabilities: record.capabilities.clone(),
         expires_at: record
@@ -147,7 +147,7 @@ pub fn keypackages_upload_signing_input(
 struct KeyPackageUploadEntryUnsigned<'a> {
     principal_id: &'a DidCoreId,
     device_id: &'a DeviceId,
-    key_package: KeyPackageUploadEntry,
+    keypackage: KeyPackageUploadEntry,
 }
 
 pub fn keypackage_upload_entry_signing_input(
@@ -155,14 +155,14 @@ pub fn keypackage_upload_entry_signing_input(
     device_id: &DeviceId,
     entry: &KeyPackageUploadEntry,
 ) -> arkret_canonical::Result<Vec<u8>> {
-    let mut key_package = entry.clone();
-    key_package.device_signature = None;
+    let mut keypackage = entry.clone();
+    keypackage.device_signature = None;
     keypackage_signing_input(
         KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN,
         &KeyPackageUploadEntryUnsigned {
             principal_id,
             device_id,
-            key_package,
+            keypackage,
         },
     )
 }

@@ -2,8 +2,8 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-12.3;
 //! sha256=110f8b693d59cad81493da55f6e18c84c48a565ab5b5ced93b02f9e0f195dd77 Input: registry/
-//! capability-action-registry.json; version=2026-08-14.1;
-//! sha256=20a2fce93e75d573bbe7fce3244e0145ad08b058123ef8da370e3bd0d4d252a2 Input: registry/
+//! capability-action-registry.json; version=2026-08-14.5;
+//! sha256=e9b2536c4451bac91ca141f37e9bcebc29eacb37fcf055729cd6d937410c270b Input: registry/
 //! schema-registry.json; version=2026-08-14.1;
 //! sha256=00ab2ed04f64df5121aaf009b304510172aba1e7db2d9c7f5176cf18cc18fc56 Input: registry/
 //! account-data-key-registry.json; version=2026-08-13.2;
@@ -1034,19 +1034,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::KeysBackupSeriesErase,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "non_event_surface",
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::MemberCompensateLeave,
         category: "membership",
         risk_tier: CapabilityRiskTier::High,
@@ -2067,7 +2054,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.invite.create",
             "ak.invite.revoke",
             "ak.invite.third_party",
-            "ak.keys.backup_series.erase",
             "ak.message.create",
             "ak.message.mention.broadcast",
             "ak.message.redact",
@@ -2608,6 +2594,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         action: CapabilityActionId::SelfEventsStreamSubscribe,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "non_event_surface",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfKeysBackupSeriesCommandErase,
+        category: "service",
+        risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         target_event_kinds: &[],
         grant_authority_actions: &[],

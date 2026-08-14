@@ -19,7 +19,7 @@ use arkret_models_collaboration::sidecar_operations::{
     SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
 use arkret_models_identity::agent_signer_evidence::{
-    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBodyBody,
+    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBody,
     ControllerAccountGateAttestationIssueOutcome, ControllerAccountGateAttestationIssueRequestBody,
 };
 use arkret_wire::{GrantId, RealmId, SidecarId};
@@ -70,7 +70,7 @@ impl Client {
     /// (`ak.self.agent_signer_evidence.read.resolve`).
     pub async fn agent_signer_evidence_query(
         &self,
-        request: &AgentSignerEvidenceQueryRequestBodyBody,
+        request: &AgentSignerEvidenceQueryRequestBody,
     ) -> Result<AgentSignerEvidenceQueryOutcome> {
         self.post(AGENT_SIGNER_EVIDENCE_QUERY_PATH, request).await
     }

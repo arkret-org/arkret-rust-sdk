@@ -126,7 +126,7 @@ fn realm_upgrade_rejects_an_unregistered_edge_without_mutating_profile() {
             json!({"target_reducer_profile": "ak.reducer.future.v2"}),
         ))
         .unwrap_err();
-    assert!(error.to_string().contains("profile_unsupported"));
+    assert!(error.to_string().contains("unsupported_profile"));
     assert_eq!(state.reducer_profile, before);
 }
 

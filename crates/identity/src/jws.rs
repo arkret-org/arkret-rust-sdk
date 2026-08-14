@@ -15,7 +15,7 @@
 //!
 //! Verify-path errors are typed ([`JwsVerifyError`] / [`ReplayWindowError`]) so
 //! callers can map DID-resolution failures, malformed shapes and signature
-//! mismatches to distinct wire `schema_violation` / `invalid_signature` 4xx
+//! mismatches to distinct wire `schema_violation` / `signature_invalid` 4xx
 //! responses without string sniffing.
 
 use arkret_signatures::PublicKeyMaterial;

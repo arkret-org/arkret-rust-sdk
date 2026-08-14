@@ -20,7 +20,7 @@ fn query_auth_and_wire_negative_vectors_are_available() {
     assert!(
         vectors
             .iter()
-            .any(|vector| vector.expected_error_code == "missing_param")
+            .any(|vector| vector.expected_error_code == "param_missing")
     );
 
     let golden = protocol_golden_vectors();

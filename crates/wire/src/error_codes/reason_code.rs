@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-13.2;
-//! sha256=283857797ecbe8f5a41cc30ea816ecf8e3797beb59045cd2472b4134323fdc3d
+//! Input: registry/error-code-registry.json; version=2026-08-14.1;
+//! sha256=c1b9facd653a8e20d220773fc22a6b6282a8a50641b9d420d033a118c594e278
 //! Entries: reason_codes=466
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -180,6 +180,7 @@ pub enum ReasonCode {
     FoundingDeviceCommitmentMismatch,
     GateCheckFailed,
     GenesisCreatedAtTooOld,
+    GenesisSealInvalid,
     GovernanceBindingMismatch,
     GrantExceedsIssuerAuthority,
     GrantRelinquishNotSubject,
@@ -212,7 +213,6 @@ pub enum ReasonCode {
     InvalidCanonicalJson,
     InvalidCursor,
     InvalidEncoding,
-    InvalidGenesisSeal,
     InvalidMembershipTransition,
     InvalidTaskFsmTransition,
     InvalidatedByRateLimit,
@@ -310,7 +310,6 @@ pub enum ReasonCode {
     PrincipalDeactivated,
     PrivateAttachment,
     PrivateViewRequiresAccountData,
-    ProfileUnsupported,
     ProjectionIncomplete,
     ProofBindingMissing,
     ProofFailed,
@@ -456,6 +455,7 @@ pub enum ReasonCode {
     UnsupportedEventKind,
     UnsupportedFeature,
     UnsupportedHpkeSuite,
+    UnsupportedProfile,
     UnsupportedSignatureAlg,
     UntrustedBackupSignature,
     VerificationMethodPrincipalMismatch,
@@ -706,6 +706,7 @@ impl ReasonCode {
         "founding_device_commitment_mismatch";
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
     pub const GENESIS_CREATED_AT_TOO_OLD: &'static str = "genesis_created_at_too_old";
+    pub const GENESIS_SEAL_INVALID: &'static str = "genesis_seal_invalid";
     pub const GOVERNANCE_BINDING_MISMATCH: &'static str = "governance_binding_mismatch";
     pub const GRANT_EXCEEDS_ISSUER_AUTHORITY: &'static str = "grant_exceeds_issuer_authority";
     pub const GRANT_RELINQUISH_NOT_SUBJECT: &'static str = "grant_relinquish_not_subject";
@@ -743,7 +744,6 @@ impl ReasonCode {
     pub const INVALID_CANONICAL_JSON: &'static str = "invalid_canonical_json";
     pub const INVALID_CURSOR: &'static str = "invalid_cursor";
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
-    pub const INVALID_GENESIS_SEAL: &'static str = "invalid_genesis_seal";
     pub const INVALID_MEMBERSHIP_TRANSITION: &'static str = "invalid_membership_transition";
     pub const INVALID_TASK_FSM_TRANSITION: &'static str = "invalid_task_fsm_transition";
     pub const INVALIDATED_BY_RATE_LIMIT: &'static str = "invalidated_by_rate_limit";
@@ -859,7 +859,6 @@ impl ReasonCode {
     pub const PRIVATE_ATTACHMENT: &'static str = "private_attachment";
     pub const PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA: &'static str =
         "private_view_requires_account_data";
-    pub const PROFILE_UNSUPPORTED: &'static str = "profile_unsupported";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
     pub const PROOF_BINDING_MISSING: &'static str = "proof_binding_missing";
     pub const PROOF_FAILED: &'static str = "proof_failed";
@@ -1025,6 +1024,7 @@ impl ReasonCode {
     pub const UNSUPPORTED_EVENT_KIND: &'static str = "unsupported_event_kind";
     pub const UNSUPPORTED_FEATURE: &'static str = "unsupported_feature";
     pub const UNSUPPORTED_HPKE_SUITE: &'static str = "unsupported_hpke_suite";
+    pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
     pub const UNTRUSTED_BACKUP_SIGNATURE: &'static str = "untrusted_backup_signature";
     pub const VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &'static str =
@@ -1270,6 +1270,7 @@ impl ReasonCode {
             Self::FoundingDeviceCommitmentMismatch => Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
             Self::GateCheckFailed => Self::GATE_CHECK_FAILED,
             Self::GenesisCreatedAtTooOld => Self::GENESIS_CREATED_AT_TOO_OLD,
+            Self::GenesisSealInvalid => Self::GENESIS_SEAL_INVALID,
             Self::GovernanceBindingMismatch => Self::GOVERNANCE_BINDING_MISMATCH,
             Self::GrantExceedsIssuerAuthority => Self::GRANT_EXCEEDS_ISSUER_AUTHORITY,
             Self::GrantRelinquishNotSubject => Self::GRANT_RELINQUISH_NOT_SUBJECT,
@@ -1306,7 +1307,6 @@ impl ReasonCode {
             Self::InvalidCanonicalJson => Self::INVALID_CANONICAL_JSON,
             Self::InvalidCursor => Self::INVALID_CURSOR,
             Self::InvalidEncoding => Self::INVALID_ENCODING,
-            Self::InvalidGenesisSeal => Self::INVALID_GENESIS_SEAL,
             Self::InvalidMembershipTransition => Self::INVALID_MEMBERSHIP_TRANSITION,
             Self::InvalidTaskFsmTransition => Self::INVALID_TASK_FSM_TRANSITION,
             Self::InvalidatedByRateLimit => Self::INVALIDATED_BY_RATE_LIMIT,
@@ -1424,7 +1424,6 @@ impl ReasonCode {
             Self::PrincipalDeactivated => Self::PRINCIPAL_DEACTIVATED,
             Self::PrivateAttachment => Self::PRIVATE_ATTACHMENT,
             Self::PrivateViewRequiresAccountData => Self::PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA,
-            Self::ProfileUnsupported => Self::PROFILE_UNSUPPORTED,
             Self::ProjectionIncomplete => Self::PROJECTION_INCOMPLETE,
             Self::ProofBindingMissing => Self::PROOF_BINDING_MISSING,
             Self::ProofFailed => Self::PROOF_FAILED,
@@ -1588,6 +1587,7 @@ impl ReasonCode {
             Self::UnsupportedEventKind => Self::UNSUPPORTED_EVENT_KIND,
             Self::UnsupportedFeature => Self::UNSUPPORTED_FEATURE,
             Self::UnsupportedHpkeSuite => Self::UNSUPPORTED_HPKE_SUITE,
+            Self::UnsupportedProfile => Self::UNSUPPORTED_PROFILE,
             Self::UnsupportedSignatureAlg => Self::UNSUPPORTED_SIGNATURE_ALG,
             Self::UntrustedBackupSignature => Self::UNTRUSTED_BACKUP_SIGNATURE,
             Self::VerificationMethodPrincipalMismatch => {
@@ -1838,6 +1838,7 @@ impl ReasonCode {
             Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH => Self::FoundingDeviceCommitmentMismatch,
             Self::GATE_CHECK_FAILED => Self::GateCheckFailed,
             Self::GENESIS_CREATED_AT_TOO_OLD => Self::GenesisCreatedAtTooOld,
+            Self::GENESIS_SEAL_INVALID => Self::GenesisSealInvalid,
             Self::GOVERNANCE_BINDING_MISMATCH => Self::GovernanceBindingMismatch,
             Self::GRANT_EXCEEDS_ISSUER_AUTHORITY => Self::GrantExceedsIssuerAuthority,
             Self::GRANT_RELINQUISH_NOT_SUBJECT => Self::GrantRelinquishNotSubject,
@@ -1874,7 +1875,6 @@ impl ReasonCode {
             Self::INVALID_CANONICAL_JSON => Self::InvalidCanonicalJson,
             Self::INVALID_CURSOR => Self::InvalidCursor,
             Self::INVALID_ENCODING => Self::InvalidEncoding,
-            Self::INVALID_GENESIS_SEAL => Self::InvalidGenesisSeal,
             Self::INVALID_MEMBERSHIP_TRANSITION => Self::InvalidMembershipTransition,
             Self::INVALID_TASK_FSM_TRANSITION => Self::InvalidTaskFsmTransition,
             Self::INVALIDATED_BY_RATE_LIMIT => Self::InvalidatedByRateLimit,
@@ -1992,7 +1992,6 @@ impl ReasonCode {
             Self::PRINCIPAL_DEACTIVATED => Self::PrincipalDeactivated,
             Self::PRIVATE_ATTACHMENT => Self::PrivateAttachment,
             Self::PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA => Self::PrivateViewRequiresAccountData,
-            Self::PROFILE_UNSUPPORTED => Self::ProfileUnsupported,
             Self::PROJECTION_INCOMPLETE => Self::ProjectionIncomplete,
             Self::PROOF_BINDING_MISSING => Self::ProofBindingMissing,
             Self::PROOF_FAILED => Self::ProofFailed,
@@ -2156,6 +2155,7 @@ impl ReasonCode {
             Self::UNSUPPORTED_EVENT_KIND => Self::UnsupportedEventKind,
             Self::UNSUPPORTED_FEATURE => Self::UnsupportedFeature,
             Self::UNSUPPORTED_HPKE_SUITE => Self::UnsupportedHpkeSuite,
+            Self::UNSUPPORTED_PROFILE => Self::UnsupportedProfile,
             Self::UNSUPPORTED_SIGNATURE_ALG => Self::UnsupportedSignatureAlg,
             Self::UNTRUSTED_BACKUP_SIGNATURE => Self::UntrustedBackupSignature,
             Self::VERIFICATION_METHOD_PRINCIPAL_MISMATCH => {
@@ -3107,6 +3107,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason for schema_violation when ak.realm.create is submitted through the self events surface with a created_at older than the deployment genesis submit window. The self surface never accepts federation peer wire, so a locally authored Realm genesis is always being created now; this bound does not and cannot apply to backfill.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::GENESIS_SEAL_INVALID,
+        applies_to: &["seal", "state_resolution"],
+        description: "The first Seal of a Realm did not atomically cover the complete registered bootstrap unit (create writes genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::GOVERNANCE_BINDING_MISMATCH,
         applies_to: &[
             "event_envelope",
@@ -3248,7 +3253,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_ACK_TOKEN,
         applies_to: &["service_call"],
-        description: "A to-device message ack carried an ack token that does not correspond to a delivered to-device cursor (unknown, malformed, or already-superseded). Carried under invalid_param. See zh/sync/client-sync.md §10.1 and zh/sync/service-http-binding.md device_messages/ack.",
+        description: "A to-device message ack carried an ack token that does not correspond to a delivered to-device cursor (unknown, malformed, or already-superseded). Carried under param_invalid. See zh/sync/client-sync.md §10.1 and zh/sync/service-http-binding.md device_messages/ack.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_APPEAL_FSM_TRANSITION,
@@ -3263,17 +3268,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_CURSOR,
         applies_to: &["client_sync", "encoding"],
-        description: "Cursor payload fails the §8.2 / §8.3 cursor syntax or schema before integrity verification. HTTP endpoints surface this as top-level `invalid_param` with reason_code `invalid_cursor`. Expiry uses `cursor_expired`; handle lookup or cross-binding failures use `cursor_integrity_invalid`; cross-service portability misses use `cursor_unrecognized`.",
+        description: "Cursor payload fails the §8.2 / §8.3 cursor syntax or schema before integrity verification. HTTP endpoints surface this as top-level `param_invalid` with reason_code `invalid_cursor`. Expiry uses `cursor_expired`; handle lookup or cross-binding failures use `cursor_integrity_invalid`; cross-service portability misses use `cursor_unrecognized`.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_ENCODING,
         applies_to: &["encoding"],
         description: "Generic encoding violation (HLC format, UUIDv7 format, base64url alphabet, etc.) not otherwise classified.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INVALID_GENESIS_SEAL,
-        applies_to: &["seal", "state_resolution"],
-        description: "The first Seal of a Realm did not atomically cover the complete registered bootstrap unit (create writes genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_MEMBERSHIP_TRANSITION,
@@ -3766,11 +3766,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A shared Realm View Event attempted to persist visibility=private. Private Views are encrypted holder account data under ak.views.private.<view_id> and MUST NOT enter the shared reducer. Carried under schema_violation. See zh/models/views.md.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::PROFILE_UNSUPPORTED,
-        applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: the device has not opted in to the requested notification profile (for example a visible notification sent to a device without visible_notification_opt_in). Terminal; the caller falls back to the blind_wakeup form and MUST NOT resend the same shape. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::PROJECTION_INCOMPLETE,
         applies_to: &["client_sync", "view_projection"],
         description: "Projection cannot be materialized because of missing reducer inputs, decryption_pending epochs, or out-of-window backfill.",
@@ -3788,7 +3783,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PROOF_INVALID,
         applies_to: &["auth_decision", "service_call"],
-        description: "A runtime key-pairing or session-grant proof (DID `assertionMethod` signature, agent_key_proof transcript, etc.) failed signature verification, transcript binding, or `proof_kind` check. Distinct from `invalid_signature` in that the wire shape was syntactically valid but the proof semantics did not bind to the expected principal / nonce / audience. See zh/identity/key-management.md §3.6 §4.5.",
+        description: "A runtime key-pairing or session-grant proof (DID `assertionMethod` signature, agent_key_proof transcript, etc.) failed signature verification, transcript binding, or `proof_kind` check. Distinct from `signature_invalid` in that the wire shape was syntactically valid but the proof semantics did not bind to the expected principal / nonce / audience. See zh/identity/key-management.md §3.6 §4.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_GATEWAY_UNREACHABLE,
@@ -4217,7 +4212,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SELECTOR_TOO_COMPLEX,
         applies_to: &["auth_decision", "service_call"],
-        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, required_claims item count, constraint nesting). Distinct from invalid_param so audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, required_claims item count, constraint nesting). Distinct from param_invalid so audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SEND_FAILED,
@@ -4252,7 +4247,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_PREROTATION_INVALID,
         applies_to: &["identity_resolution", "service_call"],
-        description: "A service did:webvh inception or rotation omitted the sole next-key commitment, supplied more than one update/next key, or failed to open the previous nextKeyHashes commitment. Providers and resolvers MUST fail closed as service_registration_rejected.",
+        description: "A service did:webvh inception or rotation omitted the sole next-key commitment, supplied more than one update/next key, or failed to open the previous nextKeyHashes commitment. Providers and resolvers MUST fail closed as service_registration_denied.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP,
@@ -4498,6 +4493,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::UNSUPPORTED_HPKE_SUITE,
         applies_to: &["service_call", "auth_decision"],
         description: "HPKE suite id on an application-layer sealed surface (key-backup recipient_method=recovery_public_key, ak.secret.send, member-application encryption_envelope, file-transfer key_envelope) is not an active row in artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/identity/key-management.md §7.5.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::UNSUPPORTED_PROFILE,
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: the device has not opted in to the requested notification profile (for example a visible notification sent to a device without visible_notification_opt_in). Terminal; the caller falls back to the blind_wakeup form and MUST NOT resend the same shape. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_SIGNATURE_ALG,
