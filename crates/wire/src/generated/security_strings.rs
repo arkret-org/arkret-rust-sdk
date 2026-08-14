@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-13.2;
-//! sha256=02551d92088631e470ddc595ce6c35e9c4a028a602a162a2830fbd0baa4356ed Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-13.3;
+//! sha256=5dd4176cd5c693d29fec958fe5da5e67fb15eea54cc0df2df57b044e278fb491 Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
@@ -14,7 +14,7 @@
 //! sha256=dd8c2024b8d231fc94e169185a894c413dd16c40b99ae6cd1764a848535fb59f Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=46, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=47, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -54,6 +54,7 @@ pub enum ProofContextId {
     OrganizationRegistrationControlProofV1,
     OrganizationRegistrationReceiptProofV1,
     PrincipalLocatorProofV1,
+    PrincipalResolutionProjectionAttestationProofV1,
     PrincipalServerAdmissionProofV1,
     RangeCompletenessAttestationProofV1,
     RealmJoinCandidateProofV1,
@@ -104,6 +105,7 @@ impl ProofContextId {
         Self::OrganizationRegistrationControlProofV1,
         Self::OrganizationRegistrationReceiptProofV1,
         Self::PrincipalLocatorProofV1,
+        Self::PrincipalResolutionProjectionAttestationProofV1,
         Self::PrincipalServerAdmissionProofV1,
         Self::RangeCompletenessAttestationProofV1,
         Self::RealmJoinCandidateProofV1,
@@ -173,6 +175,8 @@ impl ProofContextId {
     pub const ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
         "ak.organization-registration-receipt-proof-v1";
     pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal-locator-proof-v1";
+    pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
+        "ak.principal-resolution-projection-attestation-proof-v1";
     pub const PRINCIPAL_SERVER_ADMISSION_PROOF_V1: &'static str =
         "ak.principal-server-admission-proof-v1";
     pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
@@ -249,6 +253,9 @@ impl ProofContextId {
                 Self::ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1
             }
             Self::PrincipalLocatorProofV1 => Self::PRINCIPAL_LOCATOR_PROOF_V1,
+            Self::PrincipalResolutionProjectionAttestationProofV1 => {
+                Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1
+            }
             Self::PrincipalServerAdmissionProofV1 => Self::PRINCIPAL_SERVER_ADMISSION_PROOF_V1,
             Self::RangeCompletenessAttestationProofV1 => {
                 Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1
@@ -334,6 +341,9 @@ impl ProofContextId {
                 Some(Self::OrganizationRegistrationReceiptProofV1)
             }
             Self::PRINCIPAL_LOCATOR_PROOF_V1 => Some(Self::PrincipalLocatorProofV1),
+            Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1 => {
+                Some(Self::PrincipalResolutionProjectionAttestationProofV1)
+            }
             Self::PRINCIPAL_SERVER_ADMISSION_PROOF_V1 => {
                 Some(Self::PrincipalServerAdmissionProofV1)
             }
@@ -991,6 +1001,23 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/principal-locator.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::PrincipalResolutionProjectionAttestationProofV1,
+        context: "ak.principal-resolution-projection-attestation-proof-v1",
+        object_family: "principal_resolution_projection_attestation",
+        binding_fields: &[
+            "payload_digest",
+            "principal_id",
+            "principal_server_id",
+            "resolution_projection",
+            "method_history_evidence_digest",
+            "issued_at",
+            "expires_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/identity-resolution.schema.json#/$defs/principal_resolution_projection_attestation",
     },
     ProofContextDescriptor {
         id: ProofContextId::PrincipalServerAdmissionProofV1,

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-14.2;
-//! sha256=6581ba7be5d0e63736d22dcfd6c67db0c8c4f6ce742fe10366327aebc2c815f1
-//! Entries: reason_codes=466
+//! Input: registry/error-code-registry.json; version=2026-08-14.4;
+//! sha256=432818f205a70308d0f22e5c4aa85a04fa10ed1039394c95005ea45aeac38868
+//! Entries: reason_codes=468
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -310,6 +310,7 @@ pub enum ReasonCode {
     PrincipalDeactivated,
     PrivateAttachment,
     PrivateViewRequiresAccountData,
+    ProfileUnavailable,
     ProjectionIncomplete,
     ProofBindingMissing,
     ProofFailed,
@@ -378,6 +379,7 @@ pub enum ReasonCode {
     RelationScopeUnresolved,
     RelaxedWindowExceedsCeiling,
     RequiresOrganizationApproval,
+    ResolutionHistoryAncestorUnknown,
     RevocationFreshnessUnknown,
     RevokeOrderUnknownRequiresBackfillOrReview,
     RevokeUndoInvalidSignature,
@@ -859,6 +861,7 @@ impl ReasonCode {
     pub const PRIVATE_ATTACHMENT: &'static str = "private_attachment";
     pub const PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA: &'static str =
         "private_view_requires_account_data";
+    pub const PROFILE_UNAVAILABLE: &'static str = "profile_unavailable";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
     pub const PROOF_BINDING_MISSING: &'static str = "proof_binding_missing";
     pub const PROOF_FAILED: &'static str = "proof_failed";
@@ -940,6 +943,8 @@ impl ReasonCode {
     pub const RELATION_SCOPE_UNRESOLVED: &'static str = "relation_scope_unresolved";
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
     pub const REQUIRES_ORGANIZATION_APPROVAL: &'static str = "requires_organization_approval";
+    pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
+        "resolution_history_ancestor_unknown";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
     pub const REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW: &'static str =
         "revoke_order_unknown_requires_backfill_or_review";
@@ -1424,6 +1429,7 @@ impl ReasonCode {
             Self::PrincipalDeactivated => Self::PRINCIPAL_DEACTIVATED,
             Self::PrivateAttachment => Self::PRIVATE_ATTACHMENT,
             Self::PrivateViewRequiresAccountData => Self::PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA,
+            Self::ProfileUnavailable => Self::PROFILE_UNAVAILABLE,
             Self::ProjectionIncomplete => Self::PROJECTION_INCOMPLETE,
             Self::ProofBindingMissing => Self::PROOF_BINDING_MISSING,
             Self::ProofFailed => Self::PROOF_FAILED,
@@ -1500,6 +1506,7 @@ impl ReasonCode {
             Self::RelationScopeUnresolved => Self::RELATION_SCOPE_UNRESOLVED,
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
             Self::RequiresOrganizationApproval => Self::REQUIRES_ORGANIZATION_APPROVAL,
+            Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
             Self::RevokeOrderUnknownRequiresBackfillOrReview => {
                 Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW
@@ -1992,6 +1999,7 @@ impl ReasonCode {
             Self::PRINCIPAL_DEACTIVATED => Self::PrincipalDeactivated,
             Self::PRIVATE_ATTACHMENT => Self::PrivateAttachment,
             Self::PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA => Self::PrivateViewRequiresAccountData,
+            Self::PROFILE_UNAVAILABLE => Self::ProfileUnavailable,
             Self::PROJECTION_INCOMPLETE => Self::ProjectionIncomplete,
             Self::PROOF_BINDING_MISSING => Self::ProofBindingMissing,
             Self::PROOF_FAILED => Self::ProofFailed,
@@ -2068,6 +2076,7 @@ impl ReasonCode {
             Self::RELATION_SCOPE_UNRESOLVED => Self::RelationScopeUnresolved,
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
             Self::REQUIRES_ORGANIZATION_APPROVAL => Self::RequiresOrganizationApproval,
+            Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
             Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW => {
                 Self::RevokeOrderUnknownRequiresBackfillOrReview
@@ -3766,6 +3775,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A shared Realm View Event attempted to persist visibility=private. Private Views are encrypted holder account data under ak.views.private.<view_id> and MUST NOT enter the shared reducer. Carried under schema_violation. See zh/models/views.md.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::PROFILE_UNAVAILABLE,
+        applies_to: &["service_call"],
+        description: "Per-actor outcome of ak.self.actor_profile.read.resolve. Unknown actor, actor without an accepted global profile, actor that is not an effective joined member of the request realm_id, and a caller not authorized for that actor MUST all report this single value, so the only outward carrier for PCR-resident ak.profile.create / ak.profile.update cannot be used to probe membership or account existence. See zh/discovery/profiles-presence.md §2.3.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::PROJECTION_INCOMPLETE,
         applies_to: &["client_sync", "view_projection"],
         description: "Projection cannot be materialized because of missing reducer inputs, decryption_pending epochs, or out-of-window backfill.",
@@ -4104,6 +4118,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::REQUIRES_ORGANIZATION_APPROVAL,
         applies_to: &["auth_decision", "service_call"],
         description: "Sub-reason for failed_precondition when a Realm moderation-policy override would relax an action forbidden by inherited organization policy without embedding a valid organization approval. See zh/sync/service-http-binding.md §2.3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
+        applies_to: &["service_call"],
+        description: "Sub-reason for param_invalid when ak.self.identity.read.resolution_audit receives an after_resolution_event_ref that is neither the genesis Event nor an accepted ak.identity.resolution.update in this account's current resolution lineage. The audit surface is already holder or recovery authorized, so a stale or foreign cursor is reported as an invalid parameter rather than folded into the anti-enumeration outcome. See zh/identity/identity-did.md §4.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REVOCATION_FRESHNESS_UNKNOWN,

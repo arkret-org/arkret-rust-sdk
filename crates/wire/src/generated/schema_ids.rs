@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-14.1;
-//! sha256=00ab2ed04f64df5121aaf009b304510172aba1e7db2d9c7f5176cf18cc18fc56 Entries: schema_ids=182,
-//! active=182
+//! Input: registry/schema-registry.json; version=2026-08-14.2;
+//! sha256=2f46acb2b775388f51df6b73735a9d069c264150474a20c568fd1e86ddeba46e Entries: schema_ids=183,
+//! active=183
 
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +18,7 @@ pub enum SchemaId {
     AccountSubscribeFrameV1,
     AccountabilityGrantV1,
     ActorProfileV1,
+    ActorProfileOperationsV1,
     AgentOperationsV1,
     AgentPairingBootstrapV1,
     AgentProvisionV1,
@@ -204,6 +205,7 @@ impl SchemaId {
         Self::AccountSubscribeFrameV1,
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
+        Self::ActorProfileOperationsV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
         Self::AgentProvisionV1,
@@ -390,6 +392,7 @@ impl SchemaId {
         Self::AccountSubscribeFrameV1,
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
+        Self::ActorProfileOperationsV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
         Self::AgentProvisionV1,
@@ -582,6 +585,9 @@ impl SchemaId {
     /// verification.
     pub const ACCOUNTABILITY_GRANT_V1: &'static str = "ak.schema.accountability_grant.v1";
     pub const ACTOR_PROFILE_V1: &'static str = "ak.schema.actor_profile.v1";
+    /// Authorized shared-Realm projection of another principal's global Actor Profile. It is the
+    /// only outward carrier for the PCR-resident ak.profile.create / ak.profile.update facts.
+    pub const ACTOR_PROFILE_OPERATIONS_V1: &'static str = "ak.schema.actor_profile_operations.v1";
     /// Closed request/response DTO bundle for account pairing and native personal agent management
     /// operations.
     pub const AGENT_OPERATIONS_V1: &'static str = "ak.schema.agent_operations.v1";
@@ -1067,6 +1073,7 @@ impl SchemaId {
             Self::AccountSubscribeFrameV1 => Self::ACCOUNT_SUBSCRIBE_FRAME_V1,
             Self::AccountabilityGrantV1 => Self::ACCOUNTABILITY_GRANT_V1,
             Self::ActorProfileV1 => Self::ACTOR_PROFILE_V1,
+            Self::ActorProfileOperationsV1 => Self::ACTOR_PROFILE_OPERATIONS_V1,
             Self::AgentOperationsV1 => Self::AGENT_OPERATIONS_V1,
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
             Self::AgentProvisionV1 => Self::AGENT_PROVISION_V1,
@@ -1266,6 +1273,7 @@ impl SchemaId {
             Self::AccountSubscribeFrameV1 => "schemas/account-subscribe-frame.schema.json",
             Self::AccountabilityGrantV1 => "schemas/accountability-grant.schema.json",
             Self::ActorProfileV1 => "schemas/actor-profile.schema.json",
+            Self::ActorProfileOperationsV1 => "schemas/actor-profile-operations.schema.json",
             Self::AgentOperationsV1 => "schemas/agent-operations.schema.json",
             Self::AgentPairingBootstrapV1 => "schemas/agent-operations.schema.json",
             Self::AgentProvisionV1 => "schemas/agent-provision.schema.json",
@@ -1485,6 +1493,7 @@ impl SchemaId {
             Self::ACCOUNT_SUBSCRIBE_FRAME_V1 => Some(Self::AccountSubscribeFrameV1),
             Self::ACCOUNTABILITY_GRANT_V1 => Some(Self::AccountabilityGrantV1),
             Self::ACTOR_PROFILE_V1 => Some(Self::ActorProfileV1),
+            Self::ACTOR_PROFILE_OPERATIONS_V1 => Some(Self::ActorProfileOperationsV1),
             Self::AGENT_OPERATIONS_V1 => Some(Self::AgentOperationsV1),
             Self::AGENT_PAIRING_BOOTSTRAP_V1 => Some(Self::AgentPairingBootstrapV1),
             Self::AGENT_PROVISION_V1 => Some(Self::AgentProvisionV1),

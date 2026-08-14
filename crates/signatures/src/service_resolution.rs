@@ -1,9 +1,10 @@
 //! Signed `ServiceResolutionRecord` builder and verifier.
 
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidDocument, ServiceResolutionPublishAck,
-    ServiceResolutionPublishAckCore, ServiceResolutionRecord, ServiceResolutionRecordCore,
-    ServiceRouteHandoverNotice, ServiceRouteHandoverNoticeCore,
+    AuthenticatedServiceResolution, DidDocument, PrincipalResolutionProjectionAttestation,
+    PrincipalResolutionProjectionAttestationCore, PublicPrincipalResolution,
+    ServiceResolutionPublishAck, ServiceResolutionPublishAckCore, ServiceResolutionRecord,
+    ServiceResolutionRecordCore, ServiceRouteHandoverNotice, ServiceRouteHandoverNoticeCore,
 };
 use arkret_wire::{Base64UrlString, DidCoreId, DidFullId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
@@ -55,6 +56,68 @@ pub fn sign_service_resolution_publish_ack(
     };
     ack.proof.jws = signature_value(signing_key, &ack.proof_signing_bytes()?)?;
     Ok(ack)
+}
+
+/// Sign the Principal Server projection attestation that makes the public
+/// resolution surface verifiable without disclosing any PCR material.
+pub fn sign_principal_resolution_projection_attestation(
+    core: PrincipalResolutionProjectionAttestationCore,
+    verification_method: DidUrl,
+    signing_key: &SigningKey,
+) -> arkret_wire::Result<PrincipalResolutionProjectionAttestation> {
+    if core.issued_at >= core.expires_at {
+        return Err(arkret_wire::Error::Protocol(
+            "projection attestation is not a positive validity window".to_owned(),
+        ));
+    }
+    let mut attestation = PrincipalResolutionProjectionAttestation {
+        proof: placeholder_proof(verification_method, core.issued_at)?,
+        attestation: core,
+    };
+    attestation.proof.jws = signature_value(signing_key, &attestation.proof_signing_bytes()?)?;
+    Ok(attestation)
+}
+
+/// Verify a public principal resolution end to end.
+///
+/// The response halves are cross-bound first, then the attestation is checked
+/// against the serving Principal Server's own DID Document: an attestation that
+/// verifies under some other key is not evidence about this account.
+pub fn verify_public_principal_resolution(
+    resolution: &PublicPrincipalResolution,
+    principal_server_document: &DidDocument,
+    now: DateTime<Utc>,
+) -> arkret_wire::Result<VerifyingKey> {
+    resolution.validate_attestation_binding()?;
+    verify_full_to_core_binding(
+        &principal_server_document.id,
+        &resolution.principal_server_id,
+    )?;
+    let attestation = &resolution.projection_attestation;
+    if attestation.proof.created_at != attestation.attestation.issued_at {
+        return Err(arkret_wire::Error::Protocol(
+            "projection attestation proof timestamp mismatch".to_owned(),
+        ));
+    }
+    if now >= attestation.attestation.expires_at {
+        return Err(arkret_wire::Error::Protocol(
+            "projection attestation is expired".to_owned(),
+        ));
+    }
+    let evidence_digest = arkret_wire::Hash::new(arkret_canonical::canonical_sha256(
+        &resolution.method_history_evidence,
+    )?)?;
+    if attestation.attestation.method_history_evidence_digest != evidence_digest {
+        return Err(arkret_wire::Error::Protocol(
+            "projection attestation does not bind the supplied method history evidence".to_owned(),
+        ));
+    }
+    verify_document_signature(
+        principal_server_document,
+        &attestation.proof,
+        &attestation.proof_signing_bytes()?,
+        "invalid principal resolution projection attestation proof",
+    )
 }
 
 pub fn verify_service_route_handover_notice(

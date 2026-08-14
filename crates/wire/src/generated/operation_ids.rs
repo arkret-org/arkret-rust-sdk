@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-14.3;
-//! sha256=86513c70d2d69e9d0ad6da7a7846d90efdb1628f3ece5846c2f340a2b3a0cc88 Entries: registered=236
+//! Input: registry/operation-registry.json; version=2026-08-14.4;
+//! sha256=1070f1d9544df1023d86b2221c2b6cfe2d5ff2d7fcf333b9ed60b1351435200f Entries: registered=238
 
 use serde::{Deserialize, Serialize};
 
@@ -120,6 +120,7 @@ pub enum ServiceOperationId {
     SelfAccountDataResourceDelete,
     SelfAccountDataResourceGet,
     SelfAccountDataResourceReplace,
+    SelfActorProfileReadResolve,
     SelfAgentCommandAbandonProvisioning,
     SelfAgentCommandDeactivate,
     SelfAgentCommandIssueProvisioningAbandonmentChallenge,
@@ -186,6 +187,7 @@ pub enum ServiceOperationId {
     SelfEventsReadScan,
     SelfEventsResourceGet,
     SelfEventsStreamSubscribe,
+    SelfIdentityReadResolutionAudit,
     SelfInviteLocatorCommandIssue,
     SelfInviteLocatorCommandRevoke,
     SelfInviteLocatorCommandRotate,
@@ -359,6 +361,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_GET,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_ACTOR_PROFILE_READ_RESOLVE,
     ServiceOperationId::SELF_AGENT_COMMAND_ABANDON_PROVISIONING,
     ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
     ServiceOperationId::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE,
@@ -425,6 +428,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_EVENTS_READ_SCAN,
     ServiceOperationId::SELF_EVENTS_RESOURCE_GET,
     ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
+    ServiceOperationId::SELF_IDENTITY_READ_RESOLUTION_AUDIT,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_REVOKE,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ROTATE,
@@ -638,6 +642,7 @@ impl ServiceOperationId {
         Self::SelfAccountDataResourceDelete,
         Self::SelfAccountDataResourceGet,
         Self::SelfAccountDataResourceReplace,
+        Self::SelfActorProfileReadResolve,
         Self::SelfAgentCommandAbandonProvisioning,
         Self::SelfAgentCommandDeactivate,
         Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge,
@@ -704,6 +709,7 @@ impl ServiceOperationId {
         Self::SelfEventsReadScan,
         Self::SelfEventsResourceGet,
         Self::SelfEventsStreamSubscribe,
+        Self::SelfIdentityReadResolutionAudit,
         Self::SelfInviteLocatorCommandIssue,
         Self::SelfInviteLocatorCommandRevoke,
         Self::SelfInviteLocatorCommandRotate,
@@ -952,6 +958,7 @@ impl ServiceOperationId {
     pub const SELF_ACCOUNT_DATA_RESOURCE_GET: &'static str = "ak.self.account_data.resource.get";
     pub const SELF_ACCOUNT_DATA_RESOURCE_REPLACE: &'static str =
         "ak.self.account_data.resource.replace";
+    pub const SELF_ACTOR_PROFILE_READ_RESOLVE: &'static str = "ak.self.actor_profile.read.resolve";
     pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING: &'static str =
         "ak.self.agent.command.abandon_provisioning";
     pub const SELF_AGENT_COMMAND_DEACTIVATE: &'static str = "ak.self.agent.command.deactivate";
@@ -1041,6 +1048,8 @@ impl ServiceOperationId {
     pub const SELF_EVENTS_READ_SCAN: &'static str = "ak.self.events.read.scan";
     pub const SELF_EVENTS_RESOURCE_GET: &'static str = "ak.self.events.resource.get";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
+    pub const SELF_IDENTITY_READ_RESOLUTION_AUDIT: &'static str =
+        "ak.self.identity.read.resolution_audit";
     pub const SELF_INVITE_LOCATOR_COMMAND_ISSUE: &'static str =
         "ak.self.invite_locator.command.issue";
     pub const SELF_INVITE_LOCATOR_COMMAND_REVOKE: &'static str =
@@ -1321,6 +1330,7 @@ impl ServiceOperationId {
             Self::SelfAccountDataResourceDelete => Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
             Self::SelfAccountDataResourceGet => Self::SELF_ACCOUNT_DATA_RESOURCE_GET,
             Self::SelfAccountDataResourceReplace => Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
+            Self::SelfActorProfileReadResolve => Self::SELF_ACTOR_PROFILE_READ_RESOLVE,
             Self::SelfAgentCommandAbandonProvisioning => {
                 Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING
             }
@@ -1401,6 +1411,7 @@ impl ServiceOperationId {
             Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
             Self::SelfEventsResourceGet => Self::SELF_EVENTS_RESOURCE_GET,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
+            Self::SelfIdentityReadResolutionAudit => Self::SELF_IDENTITY_READ_RESOLUTION_AUDIT,
             Self::SelfInviteLocatorCommandIssue => Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
             Self::SelfInviteLocatorCommandRevoke => Self::SELF_INVITE_LOCATOR_COMMAND_REVOKE,
             Self::SelfInviteLocatorCommandRotate => Self::SELF_INVITE_LOCATOR_COMMAND_ROTATE,
@@ -1706,6 +1717,7 @@ impl ServiceOperationId {
             Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE => Some(Self::SelfAccountDataResourceDelete),
             Self::SELF_ACCOUNT_DATA_RESOURCE_GET => Some(Self::SelfAccountDataResourceGet),
             Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE => Some(Self::SelfAccountDataResourceReplace),
+            Self::SELF_ACTOR_PROFILE_READ_RESOLVE => Some(Self::SelfActorProfileReadResolve),
             Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING => {
                 Some(Self::SelfAgentCommandAbandonProvisioning)
             }
@@ -1798,6 +1810,9 @@ impl ServiceOperationId {
             Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
             Self::SELF_EVENTS_RESOURCE_GET => Some(Self::SelfEventsResourceGet),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
+            Self::SELF_IDENTITY_READ_RESOLUTION_AUDIT => {
+                Some(Self::SelfIdentityReadResolutionAudit)
+            }
             Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE => Some(Self::SelfInviteLocatorCommandIssue),
             Self::SELF_INVITE_LOCATOR_COMMAND_REVOKE => Some(Self::SelfInviteLocatorCommandRevoke),
             Self::SELF_INVITE_LOCATOR_COMMAND_ROTATE => Some(Self::SelfInviteLocatorCommandRotate),
@@ -3086,7 +3101,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/principal_resolution_evidence",
+            "schemas/identity-resolution.schema.json#/$defs/public_principal_resolution",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4386,6 +4401,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: Some(DurableEventTarget::Static(&["ak.account_data.set"])),
             rationale: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfActorProfileReadResolve,
+        http_method: "POST",
+        http_path: "/_arkret/self/actor-profiles/query",
+        grpc: Some("SelfActorProfile/Resolve"),
+        mq: Some("self.actor_profile.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/actor-profile-operations.schema.json#/$defs/resolve_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/actor-profile-operations.schema.json#/$defs/resolve_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandAbandonProvisioning,
@@ -5843,6 +5878,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: None,
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfIdentityReadResolutionAudit,
+        http_method: "POST",
+        http_path: "/_arkret/self/identity/resolution-audit/query",
+        grpc: Some("SelfIdentity/ResolutionAudit"),
+        mq: Some("self.identity.query.resolution_audit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/principal_resolution_audit_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/principal_resolution_audit_evidence",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },

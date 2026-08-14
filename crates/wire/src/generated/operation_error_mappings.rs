@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-14.3;
-//! sha256=86513c70d2d69e9d0ad6da7a7846d90efdb1628f3ece5846c2f340a2b3a0cc88 Input: registry/
-//! operations-error-mapping.json; version=2026-08-14.5;
-//! sha256=d8ad5e3a3acb2a213c0d78c93f88b31ce5d9e3674da8b2a81df9d07eee9da499 Input: registry/
-//! error-code-registry.json; version=2026-08-14.2;
-//! sha256=6581ba7be5d0e63736d22dcfd6c67db0c8c4f6ce742fe10366327aebc2c815f1 Entries: operations=236
+//! Input: registry/operation-registry.json; version=2026-08-14.4;
+//! sha256=1070f1d9544df1023d86b2221c2b6cfe2d5ff2d7fcf333b9ed60b1351435200f Input: registry/
+//! operations-error-mapping.json; version=2026-08-14.6;
+//! sha256=c752112664d66ede30863928cefd631d7a4d496a3ee4e98f18bfddc2f7198902 Input: registry/
+//! error-code-registry.json; version=2026-08-14.4;
+//! sha256=432818f205a70308d0f22e5c4aa85a04fa10ed1039394c95005ea45aeac38868 Entries: operations=238
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -775,6 +775,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::CasConflict)],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfActorProfileReadResolve,
+        operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfAgentCommandAbandonProvisioning,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
@@ -1227,6 +1231,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::StreamDropped),
             OperationSpecificError::ErrorCode(ErrorCode::StreamResyncRequired),
         ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfIdentityReadResolutionAudit,
+        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::ParamInvalid)],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfInviteLocatorCommandIssue,

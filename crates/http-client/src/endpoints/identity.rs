@@ -19,15 +19,17 @@ use arkret_models_identity::service_identity::{
     ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
 };
 use arkret_models_identity::{
-    DidOperationSubmitOutcome, DidOperationSubmitRequestBody, IdentityDescription,
-    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody, ORGANIZATION_REGISTRATION_ENSURE_PATH,
+    ActorProfileResolveOutcome, ActorProfileResolveRequest, DidOperationSubmitOutcome,
+    DidOperationSubmitRequestBody, IdentityDescription, IdentityDocumentView,
+    IdentityLogListOutcome, IdentityReceiptListOutcome, IdentityResolveOutcome,
+    IdentityResolveRequestBody, ORGANIZATION_REGISTRATION_ENSURE_PATH,
     ORGANIZATION_REGISTRATION_GET_PATH, ORGANIZATION_REGISTRATION_PREPARE_PATH,
     ORGANIZATION_REGISTRATION_REFRESH_PATH, ORGANIZATION_REGISTRATION_REVOKE_PATH,
     OrganizationRegistrationChallenge, OrganizationRegistrationChallengeRequestBody,
     OrganizationRegistrationEnsureRequestBody, OrganizationRegistrationOutcome,
     OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
-    PrincipalResolutionEvidence, ServiceResolutionRecord,
+    PrincipalResolutionAuditEvidence, PrincipalResolutionAuditRequest, PublicPrincipalResolution,
+    ServiceResolutionRecord,
 };
 use arkret_wire::{DidCoreId, ServiceKind};
 use reqwest::Method;
@@ -35,33 +37,79 @@ use reqwest::Method;
 use crate::{Client, Error, Result};
 
 impl Client {
-    /// Fetch owner-published PCR resolution evidence without persisting a
-    /// remote binding. Sensitive callers must independently verify it.
+    /// Fetch the current public principal resolution projection without
+    /// persisting a remote binding.
+    ///
+    /// This surface carries no PCR material and therefore has no history
+    /// selector; account-internal audit evidence is
+    /// [`Client::self_identity_resolution_audit`]. Sensitive callers must still
+    /// verify the projection attestation and run the method adapter themselves.
     pub async fn open_principal_resolution(
         &self,
         principal_id: &DidCoreId,
         principal_server_id: &DidCoreId,
-        history_depth: Option<u16>,
-        after_resolution_event_ref: Option<&str>,
-    ) -> Result<PrincipalResolutionEvidence> {
-        if history_depth.is_some_and(|depth| depth > 256) {
-            return Err(Error::Protocol(
-                "principal resolution history_depth exceeds 256".to_owned(),
-            ));
-        }
+    ) -> Result<PublicPrincipalResolution> {
         let encoded = url::form_urlencoded::byte_serialize(principal_id.as_str().as_bytes())
             .collect::<String>();
         let path = format!("/_arkret/open/principals/{encoded}/resolution");
-        let mut builder = self
+        let builder = self
             .public_request(Method::GET, &path)?
             .query(&[("principal_server_id", principal_server_id.as_str())]);
-        if let Some(depth) = history_depth {
-            builder = builder.query(&[("history_depth", depth)]);
-        }
-        if let Some(event_ref) = after_resolution_event_ref {
-            builder = builder.query(&[("after_resolution_event_ref", event_ref)]);
-        }
-        self.send_json(builder).await
+        let resolution: PublicPrincipalResolution = self.send_json(builder).await?;
+        resolution
+            .validate_attestation_binding()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        Ok(resolution)
+    }
+
+    /// Fetch account-internal resolution audit and recovery evidence.
+    ///
+    /// Authorization is a holder session bound to the request authority pair, an
+    /// accepted recovery session for it, or an explicit recovery capability.
+    pub async fn self_identity_resolution_audit(
+        &self,
+        request: &PrincipalResolutionAuditRequest,
+    ) -> Result<PrincipalResolutionAuditEvidence> {
+        request
+            .validate()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let evidence: PrincipalResolutionAuditEvidence = self
+            .send_json(
+                self.request(
+                    Method::POST,
+                    "/_arkret/self/identity/resolution-audit/query",
+                )?
+                .json(request),
+            )
+            .await?;
+        evidence
+            .validate_history_continuation()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        Ok(evidence)
+    }
+
+    /// Resolve current global Actor Profiles for actors the caller shares
+    /// `realm_id` with.
+    ///
+    /// This is the only outward carrier for the PCR-resident profile facts; a
+    /// cross-principal actor selector on the events surface is not one.
+    pub async fn self_actor_profiles(
+        &self,
+        request: &ActorProfileResolveRequest,
+    ) -> Result<ActorProfileResolveOutcome> {
+        request
+            .validate()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let outcome: ActorProfileResolveOutcome = self
+            .send_json(
+                self.request(Method::POST, "/_arkret/self/actor-profiles/query")?
+                    .json(request),
+            )
+            .await?;
+        outcome
+            .validate_covers(&request.actor_ids)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        Ok(outcome)
     }
 
     /// Fetch the current signed first-hop route record for one stable service id.

@@ -10,6 +10,7 @@
 
 pub mod account;
 pub mod actor_profile;
+pub mod actor_profile_operations;
 pub mod admin_grant;
 pub mod agent_signer_evidence;
 pub mod artifacts_account;
@@ -38,6 +39,7 @@ pub mod session_credential;
 
 pub use account::*;
 pub use actor_profile::*;
+pub use actor_profile_operations::*;
 pub use admin_grant::*;
 pub use agent_signer_evidence::*;
 pub use artifacts_account::*;

@@ -2,7 +2,8 @@
 //! high-risk service-to-service authentication.
 
 use arkret_wire::{
-    DidCoreId, DidFullId, Hash, PrincipalAuthorityKey, ProtocolSignature, RealmId, RequestId,
+    DidCoreId, DidFullId, Event, EventBatchReceipt, EventId, Hash, PrincipalAuthorityKey,
+    ProtocolSignature, RealmId, RequestId, Seal,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -54,27 +55,203 @@ pub struct PrincipalResolutionCellProof {
     pub inclusion_proof: Vec<Hash>,
 }
 
+/// Domain-separation context for the Principal Server projection attestation.
+pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT: &str =
+    "ak.principal-resolution-projection-attestation-proof-v1";
+
+/// Principal Server assertion that `resolution_projection` is the current
+/// accepted value of the account's singleton resolution cell.
+///
+/// It carries no PCR realm id, Event, receipt or Seal. Without it the public
+/// projection would be an unproven server assertion, which is what the public
+/// surface used to fall back on once the PCR material was removed from it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalResolutionProjectionAttestationCore {
+    pub principal_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
+    pub resolution_projection: PrincipalResolutionProjection,
+    pub method_history_evidence_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalResolutionEvidence {
+pub struct PrincipalResolutionProjectionAttestation {
+    pub attestation: PrincipalResolutionProjectionAttestationCore,
+    pub proof: ProtocolSignature,
+}
+
+impl PrincipalResolutionProjectionAttestation {
+    pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        let payload_digest = Hash::new(arkret_canonical::canonical_sha256(&self.attestation)?)?;
+        arkret_canonical::canonical_json_bytes(&serde_json::json!({
+            "context": PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT,
+            "payload_digest": payload_digest,
+            "principal_id": self.attestation.principal_id,
+            "principal_server_id": self.attestation.principal_server_id,
+            "resolution_projection": self.attestation.resolution_projection,
+            "method_history_evidence_digest": self.attestation.method_history_evidence_digest,
+            "issued_at": arkret_canonical::format_timestamp_canonical(self.attestation.issued_at),
+            "expires_at": arkret_canonical::format_timestamp_canonical(self.attestation.expires_at),
+            "verification_method": self.proof.verification_method,
+            "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
+        }))
+        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+    }
+}
+
+/// Complete public resolution response.
+///
+/// This is the only unauthenticated resolution surface. It deliberately has no
+/// field for `principal_control_realm_id`, the PCR genesis Event or receipt,
+/// resolution Events, the accepted Seal or the cell proof: that material is
+/// account-internal and reachable only through
+/// `ak.self.identity.read.resolution_audit`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PublicPrincipalResolution {
     pub principal_id: DidCoreId,
-    pub authority: PrincipalAuthorityKey,
-    pub current_resolution: PrincipalResolutionProjection,
+    pub principal_server_id: DidCoreId,
+    pub resolution_projection: PrincipalResolutionProjection,
+    pub method_history_evidence: ResolutionMethodHistoryEvidence,
+    pub projection_attestation: PrincipalResolutionProjectionAttestation,
+}
+
+impl PublicPrincipalResolution {
+    /// The complete public selector and the complete external identity.
+    pub fn authority(&self) -> PrincipalAuthorityKey {
+        PrincipalAuthorityKey::new(self.principal_id.clone(), self.principal_server_id.clone())
+    }
+
+    /// Cross-bind the attestation to the response it travels with.
+    ///
+    /// This does not verify the detached proof; it rejects the halves being
+    /// swapped before a caller spends a signature check on them.
+    pub fn validate_attestation_binding(&self) -> arkret_wire::Result<()> {
+        let core = &self.projection_attestation.attestation;
+        if core.principal_id != self.principal_id
+            || core.principal_server_id != self.principal_server_id
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "public principal resolution attestation pair mismatch".to_owned(),
+            ));
+        }
+        if core.resolution_projection != self.resolution_projection {
+            return Err(arkret_wire::Error::Protocol(
+                "public principal resolution attestation projection mismatch".to_owned(),
+            ));
+        }
+        if core.issued_at >= core.expires_at {
+            return Err(arkret_wire::Error::Protocol(
+                "public principal resolution attestation is not a positive validity window"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Authorized request for account-internal resolution audit evidence.
+///
+/// Authorization is a holder session bound to `principal_authority`, an accepted
+/// recovery session for it, or an explicit recovery capability. A caller
+/// declared intent is not authorization, so no intent field exists here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalResolutionAuditRequest {
+    pub principal_authority: PrincipalAuthorityKey,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_depth: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after_resolution_event_ref: Option<EventId>,
+}
+
+/// Closed upper bound on disclosed predecessor resolution Events.
+pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH: u16 = 256;
+
+impl PrincipalResolutionAuditRequest {
+    pub fn new(principal_authority: PrincipalAuthorityKey) -> Self {
+        Self {
+            principal_authority,
+            history_depth: None,
+            after_resolution_event_ref: None,
+        }
+    }
+
+    /// Reject the two locally decidable request shapes before a round trip.
+    ///
+    /// A depth outside the closed range is `param_invalid`, and a cursor with
+    /// depth 0 could never apply because depth 0 discloses no predecessor.
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        let depth = self.history_depth.unwrap_or(0);
+        if depth > PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH {
+            return Err(arkret_wire::Error::Protocol(format!(
+                "principal resolution history_depth exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH}"
+            )));
+        }
+        if self.after_resolution_event_ref.is_some() && depth == 0 {
+            return Err(arkret_wire::Error::Protocol(
+                "after_resolution_event_ref requires history_depth of at least 1".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Account-internal resolution audit and recovery evidence.
+///
+/// Served only by the authorized audit operation. It MUST NOT be republished on
+/// any unauthenticated surface and MUST NOT be required to validate an ordinary
+/// federated Event.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct PrincipalResolutionAuditEvidence {
+    pub principal_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
+    pub principal_control_realm_id: RealmId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub principal_genesis_receipt: EventBatchReceipt,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub principal_genesis_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub current_resolution_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub predecessor_resolution_events: Vec<Event>,
+    pub history_complete: bool,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub accepted_seal: Seal,
+    pub resolution_cell_proof: PrincipalResolutionCellProof,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_audit_cursor: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method_history_evidence: Option<ResolutionMethodHistoryEvidence>,
 }
 
-impl PrincipalResolutionEvidence {
-    /// Validate the public pair selector. PCR replay remains private to the
-    /// authority Principal Server.
-    pub fn validate_authority_binding(&self) -> arkret_wire::Result<()> {
-        if self.authority.principal_id != self.principal_id {
-            return Err(arkret_wire::Error::Protocol(
-                "principal resolution evidence authority pair mismatch".to_owned(),
-            ));
+impl PrincipalResolutionAuditEvidence {
+    /// Enforce the continuation contract between `history_complete` and
+    /// `next_audit_cursor`.
+    ///
+    /// Omitted history is unknown, not absent: a truncated segment without a
+    /// cursor would silently read as a complete one.
+    pub fn validate_history_continuation(&self) -> arkret_wire::Result<()> {
+        match (self.history_complete, self.next_audit_cursor.is_some()) {
+            (false, false) => Err(arkret_wire::Error::Protocol(
+                "truncated resolution audit history must carry next_audit_cursor".to_owned(),
+            )),
+            (true, true) => Err(arkret_wire::Error::Protocol(
+                "complete resolution audit history must not carry next_audit_cursor".to_owned(),
+            )),
+            _ => Ok(()),
         }
-        Ok(())
     }
 }
 
