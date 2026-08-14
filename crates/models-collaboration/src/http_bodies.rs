@@ -30,6 +30,9 @@ use crate::events_payloads::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, SignatureMaterial,
 };
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
+use crate::governance::agent_membership_cascade::{
+    AgentMembershipCascadeOutcome, AgentMembershipCascadeSubmission,
+};
 use crate::governance::authorization::GrantList;
 use crate::objects::blob::BlobUploadMetadata;
 use crate::objects::mimi::{
@@ -157,6 +160,7 @@ pub enum EventsSubmitRequestBody {
     Single(EventInitialSubmission),
     Batch(EventsSubmitBatchRequestBody),
     DirectConversationFounding(DirectConversationFoundingUnitSubmission),
+    AgentMembershipCascade(AgentMembershipCascadeSubmission),
 }
 
 /// Closed response union paired with [`EventsSubmitRequestBody`].
@@ -288,6 +292,8 @@ pub struct EventsSubmitOutcome {
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub original_outcome: Option<Box<EventsSubmitOutcome>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_membership_cascade: Option<AgentMembershipCascadeOutcome>,
 }
 
 /// `ak.edge.applet.command.transaction` request body. Carries wire `Event`s
