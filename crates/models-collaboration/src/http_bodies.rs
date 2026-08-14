@@ -292,7 +292,7 @@ pub struct EventsSubmitOutcome {
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub original_outcome: Option<Box<EventsSubmitOutcome>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_membership_cascade: Option<AgentMembershipCascadeOutcome>,
 }
 

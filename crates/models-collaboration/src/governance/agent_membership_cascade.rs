@@ -62,6 +62,7 @@ pub enum AgentCleanupStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentMembershipCascadeSchema {
     #[serde(rename = "ak.schema.agent_membership_cascade.v1")]
     V1,
@@ -277,6 +278,11 @@ fn validate_cascade<'a>(
         ));
     }
     let controller_payload = decode_membership_payload(controller)?;
+    if controller_payload.actor_id.as_ref() != Some(&controller.actor_id) {
+        return Err(Error::Protocol(
+            "agent membership cascade controller payload actor mismatch".to_owned(),
+        ));
+    }
     if !matches!(
         controller_payload.membership,
         MembershipPayloadState::Leave | MembershipPayloadState::Ban
@@ -344,6 +350,11 @@ fn validate_cascade<'a>(
         }
     }
 
+    let controller_authority = PrincipalAuthorityKey {
+        principal_id: controller.actor_id.clone(),
+        principal_server_id: controller.principal_server_id.clone(),
+    };
+    let mut controller_generation = None;
     let mut event_ids = BTreeSet::new();
     let mut actor_ids = BTreeSet::new();
     for agent in agents {
@@ -377,6 +388,22 @@ fn validate_cascade<'a>(
             ));
         }
         binding.validate()?;
+        if binding.controller_authority != controller_authority {
+            return Err(Error::Protocol(
+                "agent cleanup membership controller authority mismatch".to_owned(),
+            ));
+        }
+        match &controller_generation {
+            Some(generation) if generation != &binding.controller_membership_generation_ref => {
+                return Err(Error::Protocol(
+                    "agent cleanup membership controller generation mismatch".to_owned(),
+                ));
+            }
+            None => {
+                controller_generation = Some(binding.controller_membership_generation_ref.clone());
+            }
+            Some(_) => {}
+        }
     }
     Ok(())
 }
