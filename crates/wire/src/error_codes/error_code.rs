@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-14.4;
-//! sha256=432818f205a70308d0f22e5c4aa85a04fa10ed1039394c95005ea45aeac38868 Entries: error_codes=278
+//! Input: registry/error-code-registry.json; version=2026-08-14.5;
+//! sha256=7b056716dc25ed042fb9def0a32ee353a8785bbd83d29f86490ba85b59c1b5bd Entries: error_codes=279
 
 use serde::{Deserialize, Serialize};
 
@@ -109,6 +109,7 @@ pub enum ErrorCode {
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
     DeviceRecoveryGenerationMismatch,
+    DeviceRevocationPending,
     DeviceRevoked,
     DeviceUnauthorized,
     DeviceUnknown,
@@ -401,6 +402,7 @@ impl ErrorCode {
         Self::DeviceReanchorEntryNotHead,
         Self::DeviceReanchorFrontierMismatch,
         Self::DeviceRecoveryGenerationMismatch,
+        Self::DeviceRevocationPending,
         Self::DeviceRevoked,
         Self::DeviceUnauthorized,
         Self::DeviceUnknown,
@@ -689,6 +691,7 @@ impl ErrorCode {
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
     pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str =
         "device_recovery_generation_mismatch";
+    pub const DEVICE_REVOCATION_PENDING: &'static str = "device_revocation_pending";
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
     pub const DEVICE_UNAUTHORIZED: &'static str = "device_unauthorized";
     pub const DEVICE_UNKNOWN: &'static str = "device_unknown";
@@ -999,6 +1002,7 @@ impl ErrorCode {
             Self::DeviceReanchorEntryNotHead => "device_reanchor_entry_not_head",
             Self::DeviceReanchorFrontierMismatch => "device_reanchor_frontier_mismatch",
             Self::DeviceRecoveryGenerationMismatch => "device_recovery_generation_mismatch",
+            Self::DeviceRevocationPending => "device_revocation_pending",
             Self::DeviceRevoked => "device_revoked",
             Self::DeviceUnauthorized => "device_unauthorized",
             Self::DeviceUnknown => "device_unknown",
@@ -1300,6 +1304,7 @@ impl ErrorCode {
             "device_reanchor_entry_not_head" => Some(Self::DeviceReanchorEntryNotHead),
             "device_reanchor_frontier_mismatch" => Some(Self::DeviceReanchorFrontierMismatch),
             "device_recovery_generation_mismatch" => Some(Self::DeviceRecoveryGenerationMismatch),
+            "device_revocation_pending" => Some(Self::DeviceRevocationPending),
             "device_revoked" => Some(Self::DeviceRevoked),
             "device_unauthorized" => Some(Self::DeviceUnauthorized),
             "device_unknown" => Some(Self::DeviceUnknown),
@@ -2174,6 +2179,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "Device recovery proof or authorization references a device generation that does not equal the principal's current accepted device generation.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::DeviceRevocationPending,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The exact device generation is blocked by one or more durable accepted ak.device.revoke proposals that have not been terminally signed-rejected or covered by an accepted Seal. Timeout and cache eviction do not clear this state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRevoked,

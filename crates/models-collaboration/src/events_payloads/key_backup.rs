@@ -78,7 +78,7 @@ pub struct KeyBackupActiveSeriesFrontierRef {
     pub frontier_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<SealId>,
-    pub device_generation_ref: NonEmptyString,
+    pub device_generation_ref: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -135,6 +135,11 @@ impl UnsignedKeyBackupActiveSeries {
         if series_pointer_version == 0 {
             return Err(Error::Protocol(
                 "active-series pointer version must be at least one".to_owned(),
+            ));
+        }
+        if trust_anchor.generation_ref == 0 {
+            return Err(Error::Protocol(
+                "active-series device generation must be positive".to_owned(),
             ));
         }
         if previous_series_ids
@@ -279,14 +284,14 @@ pub struct KeyBackupActiveSeriesHead {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ControllerBackupTrustAnchor {
     pub authorize_event_id: EventId,
-    pub generation_ref: NonEmptyString,
+    pub generation_ref: u64,
 }
 
 impl ControllerBackupTrustAnchor {
     pub fn from_record(record: &KeyBackupActiveSeries) -> Self {
         Self {
             authorize_event_id: record.auth_data.device_authorize_event_id.clone(),
-            generation_ref: record.frontier_ref.device_generation_ref.clone(),
+            generation_ref: record.frontier_ref.device_generation_ref,
         }
     }
 }
@@ -320,8 +325,7 @@ pub fn resolve_controller_backup_trust_anchor(
             .ok_or(ControllerBackupTrustAnchorError::DeviceNotCurrent)?,
         generation_ref: generation_state
             .expect("usable record has generation state")
-            .current_device_generation_ref
-            .clone(),
+            .current_device_generation_ref,
     })
 }
 
@@ -499,7 +503,7 @@ mod tests {
                     "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e".to_owned(),
                 )
                 .unwrap(),
-                generation_ref: NonEmptyString::new("1-did:web:alice.example".to_owned()).unwrap(),
+                generation_ref: 1,
             },
         )
         .unwrap()
@@ -508,7 +512,7 @@ mod tests {
     #[test]
     fn active_series_signing_transcript_kat_is_stable_across_typestates() {
         const EXPECTED: &str = concat!(
-            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":"ak:did_core:web:alice.example","auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","signed_fields":["schema","actor_id","backup_kind","active_series_id","series_pointer_version","previous_series_ids","frontier_ref","issued_at"],"verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":"1-did:web:alice.example","frontier_digest":"sha256:"#,
+            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":"ak:did_core:web:alice.example","auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","signed_fields":["schema","actor_id","backup_kind","active_series_id","series_pointer_version","previous_series_ids","frontier_ref","issued_at"],"verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":1,"frontier_digest":"sha256:"#,
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             r#"","seal_ref":"ak:seal:sha256:"#,
             "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

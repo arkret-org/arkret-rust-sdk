@@ -69,6 +69,21 @@ pub struct PendingControlEventRecord {
     pub decisions: Vec<ControlProposalDecision>,
 }
 
+/// Exact durable state for one Control Proposal digest.
+///
+/// Unlike pending/notary work queues, this point lookup preserves terminal
+/// signed rejects and accepted Seal coverage, so decision submit replay and
+/// the authenticated decision-read operation never infer state from queue
+/// membership.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ControlProposalSnapshot {
+    pub event: Event,
+    pub control_proposal_ack: Option<ControlProposalAck>,
+    pub decisions: Vec<ControlProposalDecision>,
+    pub sealed_by: Option<SealId>,
+    pub decision_overdue: bool,
+}
+
 /// Pending + sealed control-plane Event log.
 ///
 /// A Control Move is an [`Event`] carrying `seal_basis`
@@ -114,6 +129,13 @@ pub trait ControlEventStore: Send + Sync {
     }
 
     fn control_proposal_ack(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalAck>>;
+
+    /// Read one proposal/Ack/decision/Seal row-set from a single backend
+    /// snapshot. Unknown digests return `None`; no terminal state is removed.
+    fn control_proposal_snapshot(
+        &self,
+        event_digest: &Hash,
+    ) -> StoreResult<Option<ControlProposalSnapshot>>;
 
     fn record_proposal_decision(
         &self,

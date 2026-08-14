@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-12.3;
 //! sha256=110f8b693d59cad81493da55f6e18c84c48a565ab5b5ced93b02f9e0f195dd77 Input: registry/
-//! capability-action-registry.json; version=2026-08-14.8;
-//! sha256=8237a86c8e7027d52218628268fcdf3aecd759a397cd54bdc2ebae6f64da4d52 Input: registry/
-//! schema-registry.json; version=2026-08-14.2;
-//! sha256=2f46acb2b775388f51df6b73735a9d069c264150474a20c568fd1e86ddeba46e Input: registry/
+//! capability-action-registry.json; version=2026-08-14.10;
+//! sha256=d13dca298c48cd0480a7702dc03a0fda569271603514a3c6442e583488b7455e Input: registry/
+//! schema-registry.json; version=2026-08-14.3;
+//! sha256=023c682e9441510d3e51fe0e05a6be8f372e92145e29472ab64b11f282e33b73 Input: registry/
 //! account-data-key-registry.json; version=2026-08-13.2;
 //! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=56,
-//! special_forms=11, actions=170, schemas=183, account_data_patterns=24
+//! special_forms=11, actions=170, schemas=184, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3174,6 +3174,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::DEVICE_REANCHOR_V1,
         file: "schemas/device-reanchor.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::DEVICE_REVOCATION_STATE_V1,
+        file: "schemas/device-revocation-state.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DID_BINDING_CONTRACTS_V1,

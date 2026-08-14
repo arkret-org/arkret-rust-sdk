@@ -5,8 +5,8 @@
 //! directly to these owner-defined types; the `arkret` umbrella re-exports them.
 
 use arkret_models_identity::{
-    CanonicalSessionPublicJwk, SessionGrantCredentialClass, SessionGrantHolderBinding,
-    SessionGrantProofKind,
+    CanonicalSessionPublicJwk, SessionGrantCredentialClass, SessionGrantDeviceBinding,
+    SessionGrantHolderBinding, SessionGrantProofKind,
 };
 use arkret_wire::{
     DeviceId, DidCoreId, DidUrl, Error, Hash, NonEmptyString, RealmId, Result, ScopeRef,
@@ -680,6 +680,8 @@ pub struct SessionGrantIntrospectGrant {
     pub cnf_jkt: String,
     pub credential_class: SessionGrantCredentialClass,
     pub holder_binding: SessionGrantHolderBinding,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_binding: Option<SessionGrantDeviceBinding>,
 }
 
 #[derive(Deserialize)]
@@ -703,13 +705,53 @@ struct SessionGrantIntrospectGrantWire {
     cnf_jkt: String,
     credential_class: SessionGrantCredentialClass,
     holder_binding: SessionGrantHolderBinding,
+    #[serde(default)]
+    device_binding: Option<SessionGrantDeviceBinding>,
+}
+
+impl SessionGrantIntrospectGrant {
+    pub fn validate(&self) -> Result<()> {
+        match (&self.holder_binding, &self.device_id, &self.device_binding) {
+            (
+                SessionGrantHolderBinding::HumanDevice { .. },
+                Some(device_id),
+                Some(device_binding),
+            ) => {
+                if device_binding.device_id != *device_id {
+                    return Err(Error::Protocol(
+                        "session grant introspection device_binding.device_id must match device_id"
+                            .to_owned(),
+                    ));
+                }
+                if device_binding.model_generation_ref == 0 {
+                    return Err(Error::Protocol(
+                        "session grant introspection device generation must be positive".to_owned(),
+                    ));
+                }
+            }
+            (SessionGrantHolderBinding::HumanDevice { .. }, ..) => {
+                return Err(Error::Protocol(
+                    "human session grant introspection requires device_id and device_binding"
+                        .to_owned(),
+                ));
+            }
+            (SessionGrantHolderBinding::AgentRuntime { .. }, None, None) => {}
+            (SessionGrantHolderBinding::AgentRuntime { .. }, ..) => {
+                return Err(Error::Protocol(
+                    "agent session grant introspection must not contain human device binding"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
     type Error = String;
 
     fn try_from(wire: SessionGrantIntrospectGrantWire) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
+        let grant = Self {
             id: wire.id,
             issuer: wire.issuer,
             subject: wire.subject,
@@ -724,7 +766,10 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
             cnf_jkt: wire.cnf_jkt,
             credential_class: wire.credential_class,
             holder_binding: wire.holder_binding,
-        })
+            device_binding: wire.device_binding,
+        };
+        grant.validate().map_err(|error| error.to_string())?;
+        Ok(grant)
     }
 }
 
@@ -865,13 +910,19 @@ mod session_grant_contract_tests {
             "issuer": "did:example:issuer",
             "subject": "ak:did_core:web:alice.example",
             "service_account_id": "account-1",
+            "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000",
             "audience": "ak:did_core:web:service.example",
             "scopes": [],
             "expires_at": "2026-08-08T12:04:00.000Z",
             "revocation_ref": "ledger-row-1",
             "session_public_key": CANONICAL_JWK,
             "cnf_jkt": "holder-thumbprint",
-            "credential_class": credential_class
+            "credential_class": credential_class,
+            "device_binding": {
+                "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000",
+                "authorization_event_id": "ak:event:ARKvbHo7orDUG4lSf-XaWVE2UDU5C-hOBPqUSLx8PmM3",
+                "model_generation_ref": 7
+            }
         })
     }
 
@@ -894,6 +945,42 @@ mod session_grant_contract_tests {
         let mut legacy = introspect_grant_base("temporary_recovery");
         legacy["holder_binding"] = holder_binding();
         assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(legacy).is_err());
+    }
+
+    #[test]
+    fn introspection_grant_closes_human_and_agent_device_binding_branches() {
+        let mut human = introspect_grant_base("standard");
+        human["holder_binding"] = holder_binding();
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(human.clone()).is_ok());
+
+        human.as_object_mut().unwrap().remove("device_binding");
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(human.clone()).is_err());
+
+        human["device_binding"] = json!({
+            "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000001",
+            "authorization_event_id": "ak:event:ARKvbHo7orDUG4lSf-XaWVE2UDU5C-hOBPqUSLx8PmM3",
+            "model_generation_ref": 7
+        });
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(human).is_err());
+
+        let mut agent = introspect_grant_base("standard");
+        agent["holder_binding"] = json!({
+            "kind": "agent_runtime",
+            "agent_id": "ak:did_core:web:agent.example",
+            "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000002",
+            "agent_key_authorization_ref": "ak:event:ARKvbHo7orDUG4lSf-XaWVE2UDU5C-hOBPqUSLx8PmM3",
+            "verification_method": "did:web:agent.example#agent-key"
+        });
+        agent.as_object_mut().unwrap().remove("device_id");
+        agent.as_object_mut().unwrap().remove("device_binding");
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(agent.clone()).is_ok());
+
+        agent["device_binding"] = json!({
+            "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000002",
+            "authorization_event_id": "ak:event:ARKvbHo7orDUG4lSf-XaWVE2UDU5C-hOBPqUSLx8PmM3",
+            "model_generation_ref": 7
+        });
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(agent).is_err());
     }
 
     #[test]

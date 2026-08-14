@@ -19,8 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::artifacts_keys::{
-    KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryModelGenerationRef, RecoveryPolicyRef,
-    ShareShareCommitment,
+    KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryPolicyRef, ShareShareCommitment,
 };
 
 fn is_false(value: &bool) -> bool {
@@ -991,6 +990,15 @@ impl KeyBackup {
                 "recovery-public-key key backup requires recovery_policy_ref".to_owned(),
             ));
         }
+        if self
+            .frontier_ref
+            .as_ref()
+            .is_some_and(|frontier| frontier.device_generation_ref == 0)
+        {
+            return Err(Error::Protocol(
+                "key backup device_generation_ref must be positive".to_owned(),
+            ));
+        }
 
         self.validate_encryption_profile()?;
         if self.backup_kind == BackupKind::MlsHistory {
@@ -1319,7 +1327,7 @@ pub struct KeyBackupFrontierRef {
     pub frontier_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<String>,
-    pub device_generation_ref: NonEmptyString,
+    pub device_generation_ref: u64,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2882,9 +2890,9 @@ pub struct RecoveryReceipt {
     pub new_device_id: DeviceId,
     pub identity_model: RecoveryIdentityModel,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub previous_model_generation_ref: RecoveryModelGenerationRef,
+    pub previous_model_generation_ref: u64,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    pub result_model_generation_ref: u64,
     pub authorization_event_id: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_list_update_event_id: Option<EventId>,
@@ -3031,8 +3039,8 @@ pub struct UnsignedRecoveryReceiptBody {
     pub trust_domain: TypedTrustDomainId,
     pub new_device_id: DeviceId,
     pub identity_model: RecoveryIdentityModel,
-    pub previous_model_generation_ref: RecoveryModelGenerationRef,
-    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    pub previous_model_generation_ref: u64,
+    pub result_model_generation_ref: u64,
     pub authorization_event_id: EventId,
     pub device_list_update_event_id: Option<EventId>,
     pub reanchor_event_id: Option<EventId>,
@@ -3133,8 +3141,8 @@ impl UnsignedRecoveryReceipt {
 fn validate_recovery_receipt_body(
     policy_version: u64,
     identity_model: RecoveryIdentityModel,
-    previous_model_generation_ref: &RecoveryModelGenerationRef,
-    result_model_generation_ref: &RecoveryModelGenerationRef,
+    previous_model_generation_ref: &u64,
+    result_model_generation_ref: &u64,
     device_list_update_present: bool,
     reanchor_event_present: bool,
     reanchor_batch_receipt_present: bool,
@@ -3149,14 +3157,13 @@ fn validate_recovery_receipt_body(
             "recovery receipt policy_version must be positive".to_owned(),
         ));
     }
-    previous_model_generation_ref.validate_for(identity_model)?;
-    result_model_generation_ref.validate_for(identity_model)?;
     if identity_model != RecoveryIdentityModel::RootAnchored
+        || *previous_model_generation_ref == 0
+        || *result_model_generation_ref <= *previous_model_generation_ref
         || device_list_update_present
         || !reanchor_event_present
         || !reanchor_batch_receipt_present
         || did_entry_ref.is_none_or(str::is_empty)
-        || previous_model_generation_ref == result_model_generation_ref
     {
         return Err(Error::Protocol(
             "root-anchored recovery receipt requires an advancing re-anchor artifact pair"

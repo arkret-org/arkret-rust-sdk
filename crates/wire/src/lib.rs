@@ -39,6 +39,7 @@ pub mod consent_scope;
 pub mod constants;
 pub mod control_proposal;
 pub mod cursor;
+pub mod device_revocation;
 pub mod error_codes;
 pub mod event_envelope;
 pub mod event_receipt;
@@ -99,11 +100,16 @@ pub use consent_scope::*;
 pub use constants::*;
 pub use control_proposal::{
     ControlProposalAck, ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest,
-    ControlProposalAckKind, ControlProposalAuthorityAck, ControlProposalDecision,
-    ControlProposalDecisionPolicy, ControlProposalDeferReason, ControlProposalRejectReason,
+    ControlProposalAckKind, ControlProposalAuthorityAck, ControlProposalAuthorityKind,
+    ControlProposalDecision, ControlProposalDecisionFaultReason, ControlProposalDecisionKind,
+    ControlProposalDecisionPolicy, ControlProposalDecisionReadOutcome,
+    ControlProposalDecisionReadRequestBody, ControlProposalDecisionSubmitOutcome,
+    ControlProposalDecisionSubmitRequestBody, ControlProposalDecisionSubmitStatus,
+    ControlProposalDeferReason, ControlProposalRejectReason, ControlProposalState,
     MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_AUTHORITY_ACKS, MAX_PROPOSAL_AUTHORITY_PROOFS,
     MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_INTAKE_SLA,
 };
+pub use device_revocation::*;
 pub use error::{Error, Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;
@@ -165,8 +171,7 @@ pub use recovery_authority::{
     CanonicalEncoding, CanonicalPublicMaterial, IssueRecoveryCompletionGrantOutcome,
     IssueRecoveryCompletionGrantRequest, RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS,
     RecoveryCompletionAttestation, RecoveryCompletionAttestationAuthData,
-    RecoveryModelGenerationRef, UnsignedRecoveryCompletionAttestation,
-    UnsignedRecoveryCompletionAttestationBody,
+    UnsignedRecoveryCompletionAttestation, UnsignedRecoveryCompletionAttestationBody,
 };
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{

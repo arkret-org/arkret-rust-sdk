@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_models_crypto::{
-    GenericRecoveryTranscript, RecoveryModelGenerationRef, RecoveryProofKind, RecoverySessionProof,
-    RecoverySessionState, RecoverySessionUnlockProof, RecoverySessionUnlockProofKind, SessionState,
+    GenericRecoveryTranscript, RecoveryProofKind, RecoverySessionProof, RecoverySessionState,
+    RecoverySessionUnlockProof, RecoverySessionUnlockProofKind, SessionState,
 };
 use arkret_wire::{Base64UrlString, DidUrl, Hash, NonEmptyString};
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -219,9 +219,7 @@ pub fn recovery_unlock_transcript(
         DidUrl::new(recovery_secret_ref.trim().to_owned()).map_err(|error| {
             RecoveryUnlockAuthoringError::InvalidRecoverySecretRef(error.to_owned())
         })?;
-    let model_generation_ref =
-        RecoveryModelGenerationRef::new(session.current_device_generation_ref.clone())
-            .map_err(|error| RecoveryUnlockAuthoringError::InvalidSession(error.to_string()))?;
+    let model_generation_ref = session.current_device_generation_ref;
     let proof_body = BTreeMap::from([
         (
             "signature_algorithm".to_owned(),

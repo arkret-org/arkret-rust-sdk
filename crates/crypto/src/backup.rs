@@ -972,7 +972,7 @@ pub fn build_key_backup_successor_envelope(
     kek: &VaultKek,
     items: Vec<PlaintextItem>,
     frontier_ref: impl Into<String>,
-    device_generation_ref: NonEmptyString,
+    device_generation_ref: u64,
 ) -> Result<KeyBackup> {
     if backup_id == predecessor.backup_id {
         return Err(KeyBackupError::InvalidInput(

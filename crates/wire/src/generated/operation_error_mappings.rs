@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-14.4;
-//! sha256=1070f1d9544df1023d86b2221c2b6cfe2d5ff2d7fcf333b9ed60b1351435200f Input: registry/
-//! operations-error-mapping.json; version=2026-08-14.6;
-//! sha256=c752112664d66ede30863928cefd631d7a4d496a3ee4e98f18bfddc2f7198902 Input: registry/
-//! error-code-registry.json; version=2026-08-14.4;
-//! sha256=432818f205a70308d0f22e5c4aa85a04fa10ed1039394c95005ea45aeac38868 Entries: operations=238
+//! Input: registry/operation-registry.json; version=2026-08-14.6;
+//! sha256=e23518ace17cd626f207326f3438ff6b8b56e8ab3fc04e16b24ba0d5ca24c072 Input: registry/
+//! operations-error-mapping.json; version=2026-08-14.7;
+//! sha256=1df995e9b9053461728ca5ef5d9ccff73e7b4daaa8e52f69be87bb6eac963832 Input: registry/
+//! error-code-registry.json; version=2026-08-14.5;
+//! sha256=7b056716dc25ed042fb9def0a32ee353a8785bbd83d29f86490ba85b59c1b5bd Entries: operations=241
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -266,6 +266,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::AgentKeyAuthorizationExpired),
             OperationSpecificError::ReasonCode(ReasonCode::AccountabilityGrantMissing),
             OperationSpecificError::ReasonCode(ReasonCode::AgentRequestedScopeCommitmentInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -304,6 +306,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantNotFound),
             OperationSpecificError::ErrorCode(ErrorCode::DidProofRequired),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -457,6 +461,13 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerDeviceRevocationsCommandCheck,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1133,14 +1144,28 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfControlProposalDecisionsCommandSubmit,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ReasonCode(ReasonCode::QuorumUnreachable),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfControlProposalDecisionsReadGet,
+        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfDeviceMessagesCommandAck,
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfDeviceMessagesCommandSend,
-        operation_specific: &[OperationSpecificError::ErrorCode(
-            ErrorCode::DuplicateConflict,
-        )],
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfDeviceMessagesReadList,
@@ -1174,6 +1199,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::RealmFrozen),
             OperationSpecificError::ErrorCode(ErrorCode::Quarantine),
             OperationSpecificError::ErrorCode(ErrorCode::MlsGenerationProposalFanoutExceeded),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
         ],
     },
     OperationErrorMappingDescriptor {

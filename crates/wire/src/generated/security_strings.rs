@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-13.3;
-//! sha256=5dd4176cd5c693d29fec958fe5da5e67fb15eea54cc0df2df57b044e278fb491 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-14.2;
+//! sha256=9af7cd340c9222657f069ec5b27fbd8d0586461acdc00ae5d67e6a03afdfe156 Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
@@ -14,7 +14,7 @@
 //! sha256=dd8c2024b8d231fc94e169185a894c413dd16c40b99ae6cd1764a848535fb59f Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=47, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=48, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -36,6 +36,7 @@ pub enum ProofContextId {
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
     DeviceAuthorizePossessionProofV1,
     DeviceAuthorizeRecoveryPossessionProofV1,
+    DeviceRevocationGateDecisionProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
     DirectoryOperationProofV1,
@@ -87,6 +88,7 @@ impl ProofContextId {
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
         Self::DeviceAuthorizePossessionProofV1,
         Self::DeviceAuthorizeRecoveryPossessionProofV1,
+        Self::DeviceRevocationGateDecisionProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
         Self::DirectoryOperationProofV1,
@@ -147,6 +149,8 @@ impl ProofContextId {
         "ak.device-authorize-possession-proof-v1";
     pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
         "ak.device-authorize-recovery-possession-proof-v1";
+    pub const DEVICE_REVOCATION_GATE_DECISION_PROOF_V1: &'static str =
+        "ak.device-revocation-gate-decision-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
         "ak.did-webvh-witness-receipt-proof-v1";
     pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
@@ -224,6 +228,9 @@ impl ProofContextId {
             Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
             Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1
+            }
+            Self::DeviceRevocationGateDecisionProofV1 => {
+                Self::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1
             }
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
             Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
@@ -310,6 +317,9 @@ impl ProofContextId {
             }
             Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeRecoveryPossessionProofV1)
+            }
+            Self::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1 => {
+                Some(Self::DeviceRevocationGateDecisionProofV1)
             }
             Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
             Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
@@ -718,6 +728,13 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "authorization_binding_kind",
         ],
         schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::DeviceRevocationGateDecisionProofV1,
+        context: "ak.device-revocation-gate-decision-proof-v1",
+        object_family: "device_revocation_gate_decision_receipt",
+        binding_fields: &["payload_digest", "verification_method", "created_at"],
+        schema_ref: "schemas/device-revocation-state.schema.json#/$defs/device_revocation_gate_decision_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidWebvhWitnessReceiptProofV1,

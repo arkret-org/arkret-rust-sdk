@@ -744,38 +744,6 @@ pub struct Share {
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/challenge`.
 pub type Challenge = String;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/generic_recovery_transcript`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct RecoveryModelGenerationRef(NonEmptyString);
-
-impl RecoveryModelGenerationRef {
-    pub fn new(value: NonEmptyString) -> Result<Self> {
-        if !valid_did_version_id(value.as_str()) {
-            return Err(Error::Protocol(
-                "recovery model_generation_ref must be a did:webvh version id".to_owned(),
-            ));
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-
-    pub fn validate_for(&self, identity_model: RecoveryIdentityModel) -> Result<()> {
-        if identity_model != RecoveryIdentityModel::RootAnchored
-            || !valid_did_version_id(self.as_str())
-        {
-            return Err(Error::Protocol(
-                "recovery transcript generation is not root-anchored".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "GenericRecoveryTranscriptWire")]
@@ -789,7 +757,7 @@ pub struct GenericRecoveryTranscript {
     pub recovery_session_id: RecoverySessionId,
     pub identity_model: RecoveryIdentityModel,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub model_generation_ref: RecoveryModelGenerationRef,
+    pub model_generation_ref: u64,
     pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -811,7 +779,7 @@ struct GenericRecoveryTranscriptWire {
     policy_version: u64,
     recovery_session_id: RecoverySessionId,
     identity_model: RecoveryIdentityModel,
-    model_generation_ref: RecoveryModelGenerationRef,
+    model_generation_ref: u64,
     publication_authority_context_digest: Hash,
     challenge: Challenge,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
@@ -855,7 +823,14 @@ impl GenericRecoveryTranscript {
                 "generic recovery transcript has an invalid schema or policy_version".to_owned(),
             ));
         }
-        self.model_generation_ref.validate_for(self.identity_model)
+        if self.identity_model != RecoveryIdentityModel::RootAnchored
+            || self.model_generation_ref == 0
+        {
+            return Err(Error::Protocol(
+                "recovery transcript generation must be a positive PCR generation".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -874,7 +849,7 @@ pub struct PrincipalSigningTranscript {
     pub recovery_session_id: RecoverySessionId,
     pub identity_model: RecoveryIdentityModel,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub model_generation_ref: RecoveryModelGenerationRef,
+    pub model_generation_ref: u64,
     pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -895,7 +870,7 @@ struct PrincipalSigningTranscriptWire {
     policy_version: u64,
     recovery_session_id: RecoverySessionId,
     identity_model: RecoveryIdentityModel,
-    model_generation_ref: RecoveryModelGenerationRef,
+    model_generation_ref: u64,
     publication_authority_context_digest: Hash,
     challenge: Challenge,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
@@ -940,19 +915,15 @@ impl PrincipalSigningTranscript {
                 "principal signing transcript has an invalid fixed field".to_owned(),
             ));
         }
-        self.model_generation_ref.validate_for(self.identity_model)
+        if self.identity_model != RecoveryIdentityModel::RootAnchored
+            || self.model_generation_ref == 0
+        {
+            return Err(Error::Protocol(
+                "principal signing generation must be a positive PCR generation".to_owned(),
+            ));
+        }
+        Ok(())
     }
-}
-
-fn valid_did_version_id(value: &str) -> bool {
-    let Some((sequence, suffix)) = value.split_once('-') else {
-        return false;
-    };
-    !sequence.is_empty()
-        && !sequence.starts_with('0')
-        && sequence.bytes().all(|byte| byte.is_ascii_digit())
-        && !suffix.is_empty()
-        && !suffix.chars().any(char::is_whitespace)
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/proof_summary`.
@@ -1248,7 +1219,7 @@ pub struct RecoverySessionState {
     pub policy_id: PolicyId,
     pub policy_version: u64,
     pub identity_model: RecoveryIdentityModel,
-    pub current_device_generation_ref: NonEmptyString,
+    pub current_device_generation_ref: u64,
     pub device_generation_status: DeviceGenerationStatus,
     pub registry_head: Hash,
     #[cfg_attr(
@@ -1336,7 +1307,7 @@ struct RecoverySessionStateWire {
     policy_id: PolicyId,
     policy_version: u64,
     identity_model: RecoveryIdentityModel,
-    current_device_generation_ref: NonEmptyString,
+    current_device_generation_ref: u64,
     device_generation_status: DeviceGenerationStatus,
     registry_head: Hash,
     accepted_seal_frontier: Option<DeviceReanchorPreFenceSealFrontier>,
@@ -1430,6 +1401,11 @@ impl RecoverySessionState {
         if self.policy_version < 1 {
             return Err(Error::Protocol(
                 "recovery session policy_version must be at least one".to_owned(),
+            ));
+        }
+        if self.current_device_generation_ref == 0 {
+            return Err(Error::Protocol(
+                "current_device_generation_ref must be positive".to_owned(),
             ));
         }
         validate_recovery_session_state_shape(self.identity_model, true)

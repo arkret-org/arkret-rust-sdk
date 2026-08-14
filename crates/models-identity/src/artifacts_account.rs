@@ -3,7 +3,10 @@
 //! The account-subscribe sync frame containers stay in the `arkret` umbrella
 //! (`models/artifacts/account_sync.rs`).
 
-use arkret_wire::{EventId, Hash};
+use arkret_wire::{
+    DeviceId, DeviceRevocationGateRecord, Error, EventId, Hash, MAX_DEVICE_REVOCATION_GATE_RECORDS,
+    Result,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +19,20 @@ pub type DeviceSummaries = Vec<DeviceSummary>;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DeviceSummaryStatus {
     Active,
+    RevocationPending,
     Revoked,
-    Unknown,
+    Expired,
+    GenerationFenced,
+    Conflicted,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DeviceSummaryVerificationState {
+    Verified,
+    Unresolved,
+    Stale,
 }
 
 /// Counterpart for
@@ -25,18 +40,70 @@ pub enum DeviceSummaryStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceSummary {
-    pub device_id: String,
+    pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<DisplayName>,
     pub status: DeviceSummaryStatus,
+    pub verification_state: DeviceSummaryVerificationState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub authorized_at: Option<Timestamp>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub last_seen_at: Option<Timestamp>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<Timestamp>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revocation_states: Option<Vec<DeviceRevocationGateRecord>>,
+}
+
+impl DeviceSummary {
+    pub fn validate(&self) -> Result<()> {
+        validate_device_summary_state(self.status, self.revocation_states.as_deref())
+    }
+}
+
+pub fn validate_device_summary_state(
+    status: DeviceSummaryStatus,
+    revocation_states: Option<&[DeviceRevocationGateRecord]>,
+) -> Result<()> {
+    let states = revocation_states.unwrap_or_default();
+    if states.len() > MAX_DEVICE_REVOCATION_GATE_RECORDS {
+        return Err(Error::Protocol(
+            "device summary exceeds the 128 revocation-state bound".to_owned(),
+        ));
+    }
+    for state in states {
+        state.validate()?;
+    }
+    if states.windows(2).any(|pair| {
+        (pair[0].acceptance_seq(), pair[0].proposal_digest().as_str())
+            >= (pair[1].acceptance_seq(), pair[1].proposal_digest().as_str())
+    }) {
+        return Err(Error::Protocol(
+            "device summary revocation_states must be sorted and duplicate-free".to_owned(),
+        ));
+    }
+    match status {
+        DeviceSummaryStatus::RevocationPending
+            if !states.is_empty() && states.iter().all(DeviceRevocationGateRecord::is_pending) => {}
+        DeviceSummaryStatus::Revoked
+            if !states.is_empty() && states.iter().any(DeviceRevocationGateRecord::is_revoked) => {}
+        DeviceSummaryStatus::Active
+        | DeviceSummaryStatus::Expired
+        | DeviceSummaryStatus::GenerationFenced
+        | DeviceSummaryStatus::Conflicted
+            if revocation_states.is_none() => {}
+        _ => {
+            return Err(Error::Protocol(
+                "device summary status is inconsistent with revocation_states".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/display_name`.
