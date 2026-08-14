@@ -2,7 +2,7 @@ use std::fmt;
 
 use arkret_wire::{
     DeviceId, DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody, DidCoreId,
-    DidUrl, Error, EventId, Result, SessionGrantId,
+    DidUrl, Error, EventId, Result, SessionGrantGateAdmission, SessionGrantId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -58,20 +58,28 @@ impl SessionGrantDeviceBinding {
     /// Build the grant binding from the origin Principal Server's allow
     /// receipt, which is its only lawful source. The issuer never derives the
     /// authorization Event or the generation itself and never accepts them
-    /// from client input: a blocked, mismatching or stale receipt yields no
-    /// binding and the issuance MUST fail closed with zero writes.
+    /// from client input.
+    ///
+    /// Returns `None` only for the fresh-device case, where the caller MAY
+    /// issue the restricted `ak.key.verification.*` bootstrap grant and
+    /// nothing else. Every blocking, mismatching or stale receipt is an error:
+    /// the issuance fails closed with zero writes.
     pub fn from_gate_outcome(
         outcome: &DeviceRevocationGateCheckOutcome,
         request: &DeviceRevocationGateCheckRequestBody,
         now: DateTime<Utc>,
-    ) -> Result<Self> {
-        let (authorization_event_id, model_generation_ref) =
-            outcome.admitted_binding(request, now)?;
-        Ok(Self {
-            device_id: outcome.decision_receipt.device_id.clone(),
-            authorization_event_id: authorization_event_id.clone(),
-            model_generation_ref,
-        })
+    ) -> Result<Option<Self>> {
+        match outcome.session_grant_admission(request, now)? {
+            SessionGrantGateAdmission::Bound {
+                authorization_event_id,
+                model_generation_ref,
+            } => Ok(Some(Self {
+                device_id: outcome.decision_receipt.device_id.clone(),
+                authorization_event_id: authorization_event_id.clone(),
+                model_generation_ref,
+            })),
+            SessionGrantGateAdmission::FreshDeviceBootstrapOnly => Ok(None),
+        }
     }
 
     /// The recheck input a refresh or a recovery completion sends back to the

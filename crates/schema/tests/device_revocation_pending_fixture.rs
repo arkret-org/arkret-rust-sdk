@@ -11,7 +11,7 @@ fn embedded_device_revocation_fixture_keeps_the_named_contract() {
         "ak.suite.device.revocation_pending_state.v1"
     );
     let cases = fixture["semantic_cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 17);
+    assert_eq!(cases.len(), 18);
     assert!(
         cases
             .iter()

@@ -719,28 +719,66 @@ impl DeviceRevocationGateCheckOutcome {
         self.decision_receipt.validate_for_request(request)
     }
 
-    /// Validate the receipt against the request it answered and return the
-    /// origin-derived binding an `allow` admits. Every other decision, and any
-    /// receipt already past `expires_at`, fails closed: the caller has nothing
-    /// to commit and MUST NOT fall back to its own device state.
-    pub fn admitted_binding(
+    /// Validate the receipt against the request it answered and reduce it to
+    /// the only two issuance outcomes a human session grant has. Every
+    /// blocking decision, and any receipt already past `expires_at`, is an
+    /// error: the caller issues nothing and MUST NOT fall back to its own
+    /// device state.
+    pub fn session_grant_admission(
         &self,
         request: &DeviceRevocationGateCheckRequestBody,
         now: DateTime<Utc>,
-    ) -> Result<(&EventId, u64)> {
+    ) -> Result<SessionGrantGateAdmission<'_>> {
         self.validate_for_request(request)?;
         if now >= self.decision_receipt.expires_at {
             return Err(Error::Protocol(
                 "device revocation gate receipt is no longer fresh".to_owned(),
             ));
         }
-        self.decision_receipt.allowed_binding().ok_or_else(|| {
-            Error::Protocol(format!(
-                "device revocation gate did not admit the intent: {:?}",
-                self.decision_receipt.decision
-            ))
-        })
+        match self.decision_receipt.decision {
+            DeviceRevocationGateDecision::Allow => self
+                .decision_receipt
+                .allowed_binding()
+                .map(|(authorization_event_id, model_generation_ref)| {
+                    SessionGrantGateAdmission::Bound {
+                        authorization_event_id,
+                        model_generation_ref,
+                    }
+                })
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "device revocation gate allow carries no derived binding".to_owned(),
+                    )
+                }),
+            DeviceRevocationGateDecision::AuthorityMismatch => {
+                Ok(SessionGrantGateAdmission::FreshDeviceBootstrapOnly)
+            }
+            decision => Err(Error::Protocol(format!(
+                "device revocation gate did not admit the intent: {decision:?}"
+            ))),
+        }
     }
+}
+
+/// What a validated, fresh gate receipt lets a human session-grant issuer do.
+///
+/// There is no third outcome: `revocation_pending`, `revoked` and
+/// `generation_mismatch` issue nothing at all and MUST NOT be degraded into
+/// [`SessionGrantGateAdmission::FreshDeviceBootstrapOnly`], which would let a
+/// revoked or replaced generation regain bootstrap capability by posing as a
+/// new device.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SessionGrantGateAdmission<'a> {
+    /// The device has an accepted authorization the origin derived. The issued
+    /// grant MUST carry exactly this binding.
+    Bound {
+        authorization_event_id: &'a EventId,
+        model_generation_ref: u64,
+    },
+    /// The device has no accepted authorization in this account yet. Only a
+    /// fresh-device restricted grant may be issued: no device binding, and
+    /// scope limited to `ak.key.verification.*` bootstrap.
+    FreshDeviceBootstrapOnly,
 }
 
 #[cfg(test)]
@@ -934,21 +972,62 @@ mod tests {
         let outcome = DeviceRevocationGateCheckOutcome {
             decision_receipt: receipt(),
         };
-        assert!(outcome.admitted_binding(&request, at(2)).is_ok());
+        assert_eq!(
+            outcome.session_grant_admission(&request, at(2)).unwrap(),
+            SessionGrantGateAdmission::Bound {
+                authorization_event_id: &authorize_event(),
+                model_generation_ref: 7,
+            }
+        );
         assert!(
-            outcome.admitted_binding(&request, at(31)).is_err(),
+            outcome.session_grant_admission(&request, at(31)).is_err(),
             "a receipt at or past expires_at admits nothing"
         );
 
-        let mut pending = receipt();
-        pending.decision = DeviceRevocationGateDecision::RevocationPending;
-        pending.target_device_authorize_event_id = None;
-        pending.target_device_generation_ref = None;
-        pending.blocking_proposal_digest = Some(hash('b'));
-        pending.proof.payload_digest = pending.payload_digest().unwrap();
-        let blocked = DeviceRevocationGateCheckOutcome {
-            decision_receipt: pending,
+        for decision in [
+            DeviceRevocationGateDecision::RevocationPending,
+            DeviceRevocationGateDecision::Revoked,
+            DeviceRevocationGateDecision::GenerationMismatch,
+        ] {
+            let mut blocked = receipt();
+            blocked.decision = decision;
+            blocked.target_device_authorize_event_id = None;
+            blocked.target_device_generation_ref = None;
+            match decision {
+                DeviceRevocationGateDecision::RevocationPending => {
+                    blocked.blocking_proposal_digest = Some(hash('b'));
+                }
+                DeviceRevocationGateDecision::Revoked => {
+                    blocked.covering_seal_id =
+                        Some(SealId::new(format!("ak:seal:sha256:{}", "c".repeat(64))).unwrap());
+                }
+                _ => {}
+            }
+            blocked.proof.payload_digest = blocked.payload_digest().unwrap();
+            let outcome = DeviceRevocationGateCheckOutcome {
+                decision_receipt: blocked,
+            };
+            assert!(
+                outcome.session_grant_admission(&request, at(2)).is_err(),
+                "{decision:?} issues nothing and never degrades to fresh-device bootstrap"
+            );
+        }
+    }
+
+    #[test]
+    fn only_authority_mismatch_permits_the_fresh_device_bootstrap_grant() {
+        let request = request();
+        let mut fresh = receipt();
+        fresh.decision = DeviceRevocationGateDecision::AuthorityMismatch;
+        fresh.target_device_authorize_event_id = None;
+        fresh.target_device_generation_ref = None;
+        fresh.proof.payload_digest = fresh.payload_digest().unwrap();
+        let outcome = DeviceRevocationGateCheckOutcome {
+            decision_receipt: fresh,
         };
-        assert!(blocked.admitted_binding(&request, at(2)).is_err());
+        assert_eq!(
+            outcome.session_grant_admission(&request, at(2)).unwrap(),
+            SessionGrantGateAdmission::FreshDeviceBootstrapOnly
+        );
     }
 }
