@@ -19,6 +19,7 @@ REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 DEFAULT_EVIDENCE = REPO / "tools" / "operation-coverage-evidence.json"
 DEFAULT_OUTPUT = REPO / "docs" / "operation-coverage-matrix.md"
+AUDITED_CLAIMABLE_PROFILES = 69
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -113,10 +114,14 @@ def generate(artifacts: Path, evidence_path_value: Path) -> str:
     )
     requirements = profiles.get("profile_requirements", {})
     roles = profiles.get("profile_roles", {})
-    if len(claimable) != 70:
+    # Audited claimable catalog size. It dropped from 70 to 69 when the Spec
+    # deleted ak.profile.disappearing.v1 along with Disappearing Messages; the
+    # guard is here so a silent catalog change cannot slip into the matrix, not
+    # to pin a number forever, so it moves with a reviewed deletion.
+    if len(claimable) != AUDITED_CLAIMABLE_PROFILES:
         raise ValueError(
-            f"claimable profile set changed from the audited 70 to {len(claimable)}; "
-            "review the catalog boundary before regenerating"
+            f"claimable profile set changed from the audited {AUDITED_CLAIMABLE_PROFILES} "
+            f"to {len(claimable)}; review the catalog boundary before regenerating"
         )
 
     cache: dict[str, set[str]] = {}
