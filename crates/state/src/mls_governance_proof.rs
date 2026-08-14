@@ -738,7 +738,7 @@ where
     }
 
     for event in &bundle.frontier_events {
-        if event.realm_id != bundle.realm_id || event.scope_ref != bundle.effective_scope {
+        if !frontier_event_matches_effective_scope(event, bundle) {
             return state_mismatch("frontier Event Realm or scope mismatch");
         }
         // `encryption-and-audit.md` §2.5.1.1 step 6 is the closed per-Event
@@ -773,6 +773,33 @@ where
         }
     }
     Ok(())
+}
+
+/// Match a frontier Event to the requested MLS scope without rewriting its
+/// producer-signed scope.
+///
+/// `ak.realm.create` is the sole narrow exception to literal scope equality:
+/// its signed envelope MUST use `realm_genesis`, while its registered writes
+/// establish the Realm-default membership frontier whose id is derived from
+/// that same Event id. All other Events, and all Circle/Sidecar scopes, still
+/// require byte-for-byte scope equality.
+fn frontier_event_matches_effective_scope(
+    event: &Event,
+    bundle: &MaterializedMlsGovernanceProofBundle,
+) -> bool {
+    if event.realm_id != bundle.realm_id {
+        return false;
+    }
+    if event.scope_ref == bundle.effective_scope {
+        return true;
+    }
+    event.kind.as_str() == "ak.realm.create"
+        && event.scope_ref == ScopeRef::RealmGenesis
+        && event.event_id == bundle.realm_id.event_id()
+        && matches!(
+            &bundle.effective_scope,
+            ScopeRef::Realm { realm_id } if realm_id == &bundle.realm_id
+        )
 }
 
 fn ensure_canonical_order<'a>(
@@ -945,8 +972,13 @@ mod tests {
             causal_refs: Vec::new(),
             proofs: Vec::new(),
         };
+        set_single_producer_proof(&mut event);
+        event
+    }
+
+    fn set_single_producer_proof(event: &mut Event) {
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
-        event.proofs.push(
+        event.proofs = vec![
             Proof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
@@ -959,23 +991,21 @@ mod tests {
                 jws: "AAAA.BBBB.CCCC".to_owned(),
             }
             .into(),
-        );
-        event
+        ];
     }
 
     /// A create Event whose content-bound id retypes to the Realm it creates,
     /// i.e. what `realm-and-space.md` section 2.5.0 makes the only admissible shape.
     fn self_certifying_create() -> (RealmId, Event) {
-        let mut event = frontier_event(ScopeRef::Realm { realm_id: realm() });
+        let mut event = frontier_event(ScopeRef::RealmGenesis);
         event.kind = "ak.realm.create".into();
         event.payload = BTreeMap::from([(
             "object".to_owned(),
             json!({"notary": {"kind": "single_did", "actor_id": "ak:did_core:webvh:z6mkfixture"}}),
         )]);
         event.proofs.clear();
-        let derived = event.derive_event_id().unwrap();
-        event.event_id = derived.clone();
-        (RealmId::from_event_id(&derived), event)
+        event.refresh_content_bound_identity().unwrap();
+        (event.realm_id.clone(), event)
     }
 
     fn genesis_seal_for(realm_id: &RealmId, create: &Event) -> Seal {
@@ -1114,6 +1144,10 @@ mod tests {
     /// variant Event has to rebuild the whole fixture — mutating one in place
     /// would trip digest inclusion before reaching the check under test.
     fn fixture_with_frontier(frontier_event: Event, effective_scope: ScopeRef) -> Fixture {
+        let realm_id = effective_scope
+            .realm_id_opt()
+            .cloned()
+            .unwrap_or_else(|| frontier_event.realm_id.clone());
         let frontier_digest = Hash::new(frontier_event.event_digest().unwrap()).unwrap();
         let covered_event_digests = vec![frontier_digest.clone()];
         let covered = BTreeSet::from([frontier_digest]);
@@ -1128,7 +1162,7 @@ mod tests {
         let security_frontier_digest =
             derive_mls_security_frontier(&states, &effective_scope, &leaves).unwrap();
         let binding = MlsGovernanceBindingPayload::realm(
-            realm(),
+            realm_id.clone(),
             "YXJrcmV0LW1scy1maXh0dXJl",
             0,
             1,
@@ -1137,14 +1171,23 @@ mod tests {
             "ak.reducer.core.v1",
         )
         .unwrap();
-        let seal = seal(
+        let mut seal = seal(
             compute_state_root(&states).unwrap(),
             covered_event_digests.clone(),
             control_event_set_root(&covered).unwrap(),
         );
+        seal.realm_id = realm_id.clone();
+        let payload_digest = Hash::new(canonical::sha256_digest(
+            seal.canonical_bytes_for_id().unwrap(),
+        ))
+        .unwrap();
+        if let NotarySig::Single(signature) = &mut seal.notary_signature {
+            signature.payload_digest = payload_digest;
+        }
+        seal.id = seal.derive_id().unwrap();
         let seal_id = seal.id.clone();
         let proof_request_digest = MlsGovernanceProofRequestBodyBody {
-            realm_id: realm(),
+            realm_id: realm_id.clone(),
             effective_scope: effective_scope.clone(),
             mls_group_id: binding.mls_group_id().to_owned(),
             previous_epoch: binding.previous_epoch(),
@@ -1163,7 +1206,7 @@ mod tests {
                 proof_request_digest,
                 bundle_digest: hash(0),
                 materialization_profile: MLS_GOVERNANCE_COMPLETE_MATERIALIZATION_PROFILE.to_owned(),
-                realm_id: realm(),
+                realm_id,
                 effective_scope,
                 reducer_profile: "ak.reducer.core.v1".to_owned(),
                 trusted_anchor_seal_id: seal_id.clone(),
@@ -1488,6 +1531,43 @@ mod tests {
             )
             .unwrap(),
         };
+        let error = verify(&fixture).unwrap_err();
+        assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
+    }
+
+    #[test]
+    fn realm_create_genesis_scope_maps_to_its_derived_realm_frontier() {
+        let (realm_id, mut create) = self_certifying_create();
+        set_single_producer_proof(&mut create);
+        let effective_scope = ScopeRef::Realm {
+            realm_id: realm_id.clone(),
+        };
+        let fixture = fixture_with_frontier(create, effective_scope);
+
+        verify(&fixture)
+            .expect("RealmCreate realm_genesis must establish its derived Realm frontier");
+    }
+
+    #[test]
+    fn realm_create_genesis_scope_cannot_map_to_another_realm_frontier() {
+        let (_, mut create) = self_certifying_create();
+        set_single_producer_proof(&mut create);
+        let wrong_scope = ScopeRef::Realm { realm_id: realm() };
+        assert_ne!(create.realm_id, realm());
+        let fixture = fixture_with_frontier(create, wrong_scope);
+
+        let error = verify(&fixture).unwrap_err();
+        assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
+    }
+
+    #[test]
+    fn realm_genesis_scope_does_not_relax_non_create_frontier_events() {
+        let effective_scope = ScopeRef::Realm { realm_id: realm() };
+        let mut member_state = frontier_event(ScopeRef::RealmGenesis);
+        member_state.realm_id = realm();
+        set_single_producer_proof(&mut member_state);
+        let fixture = fixture_with_frontier(member_state, effective_scope);
+
         let error = verify(&fixture).unwrap_err();
         assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
     }

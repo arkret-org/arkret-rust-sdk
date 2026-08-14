@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-14.1;
-//! sha256=79c9a00d1928dce1660b8e1caebd1eb4654044b464f6de6109bfa514d978e799 Entries: registered=235
+//! sha256=21b4229f7c077080f08b9ca09ea7bd4f5345a8e13c92886f0016a3265f2721a3 Entries: registered=236
 
 use serde::{Deserialize, Serialize};
 
@@ -191,6 +191,7 @@ pub enum ServiceOperationId {
     SelfInviteLocatorCommandRotate,
     SelfInviteReceivePolicyResourceGet,
     SelfInviteReceivePolicyResourceReplace,
+    SelfInvitesCommandDispatch,
     SelfKeysBackupSeriesCommandErase,
     SelfKeysBackupsCommandIssueDeleteChallenge,
     SelfKeysBackupsCommandUnlock,
@@ -429,6 +430,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ROTATE,
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET,
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_INVITES_COMMAND_DISPATCH,
     ServiceOperationId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
@@ -707,6 +709,7 @@ impl ServiceOperationId {
         Self::SelfInviteLocatorCommandRotate,
         Self::SelfInviteReceivePolicyResourceGet,
         Self::SelfInviteReceivePolicyResourceReplace,
+        Self::SelfInvitesCommandDispatch,
         Self::SelfKeysBackupSeriesCommandErase,
         Self::SelfKeysBackupsCommandIssueDeleteChallenge,
         Self::SelfKeysBackupsCommandUnlock,
@@ -1048,6 +1051,7 @@ impl ServiceOperationId {
         "ak.self.invite_receive_policy.resource.get";
     pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE: &'static str =
         "ak.self.invite_receive_policy.resource.replace";
+    pub const SELF_INVITES_COMMAND_DISPATCH: &'static str = "ak.self.invites.command.dispatch";
     pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE: &'static str =
         "ak.self.keys.backup_series.command.erase";
     pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE: &'static str =
@@ -1406,6 +1410,7 @@ impl ServiceOperationId {
             Self::SelfInviteReceivePolicyResourceReplace => {
                 Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE
             }
+            Self::SelfInvitesCommandDispatch => Self::SELF_INVITES_COMMAND_DISPATCH,
             Self::SelfKeysBackupSeriesCommandErase => Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
             Self::SelfKeysBackupsCommandIssueDeleteChallenge => {
                 Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE
@@ -1802,6 +1807,7 @@ impl ServiceOperationId {
             Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE => {
                 Some(Self::SelfInviteReceivePolicyResourceReplace)
             }
+            Self::SELF_INVITES_COMMAND_DISPATCH => Some(Self::SelfInvitesCommandDispatch),
             Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE => {
                 Some(Self::SelfKeysBackupSeriesCommandErase)
             }
@@ -5950,6 +5956,28 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfInvitesCommandDispatch,
+        http_method: "POST",
+        http_path: "/_arkret/self/invites/dispatch",
+        grpc: Some("SelfInvites/Dispatch"),
+        mq: Some("self.invites.command.dispatch"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some("schemas/invite-delivery-request.schema.json"),
+        response_schema_ref: Some(
+            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("delivers_existing_signed_event_without_committing_a_local_event"),
         }),
     },
     ServiceOperationDescriptor {

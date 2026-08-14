@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-14.1;
-//! sha256=79c9a00d1928dce1660b8e1caebd1eb4654044b464f6de6109bfa514d978e799 Input: registry/
+//! sha256=21b4229f7c077080f08b9ca09ea7bd4f5345a8e13c92886f0016a3265f2721a3 Input: registry/
 //! operations-error-mapping.json; version=2026-08-14.3;
-//! sha256=9333e0b11a6b128b9aa79b41659e18fad4a0232af0cecdf7831d563e15289b51 Input: registry/
+//! sha256=8f172b09cedd8054fc9bfd935a4e6608247bc9197aa8b2fb6adcfe67bc6d3fc6 Input: registry/
 //! error-code-registry.json; version=2026-08-13.2;
-//! sha256=283857797ecbe8f5a41cc30ea816ecf8e3797beb59045cd2472b4134323fdc3d Entries: operations=235
+//! sha256=283857797ecbe8f5a41cc30ea816ecf8e3797beb59045cd2472b4134323fdc3d Entries: operations=236
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -1250,6 +1250,17 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfInviteReceivePolicyResourceReplace,
         operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfInvitesCommandDispatch,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
+            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactScopeStale),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfKeysBackupSeriesCommandErase,
