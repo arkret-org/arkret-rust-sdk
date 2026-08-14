@@ -15,7 +15,7 @@ use crate::error::{Error, Result};
 use crate::notary::NotaryValue;
 use crate::{
     AuthorizationLease, CbaProofBundle, DidFullId, Event, EventSubmitContext, Hash,
-    PayloadSignature, PayloadSigner, RealmId, canonical, project_full_id_to_core_id,
+    PayloadSignature, PayloadSigner, RealmId, SealId, canonical, project_full_id_to_core_id,
 };
 
 pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
@@ -140,6 +140,95 @@ pub struct ControlProposalAckIssueOutcome {
     pub authority_ack: ControlProposalAuthorityAck,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlProposalDecisionSubmitRequestBody {
+    pub decision: ControlProposalDecision,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlProposalDecisionSubmitStatus {
+    Accepted,
+    Duplicate,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlProposalDecisionKind {
+    SignedDefer,
+    SignedReject,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlProposalState {
+    Pending,
+    Deferred,
+    Overdue,
+    Rejected,
+    Sealed,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlProposalAuthorityKind {
+    ControlProposalAck,
+    AcklessEventProof,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlProposalDecisionSubmitOutcome {
+    pub status: ControlProposalDecisionSubmitStatus,
+    pub proposal_digest: Hash,
+    pub decision_digest: Hash,
+    pub decision_kind: ControlProposalDecisionKind,
+    pub proposal_state: ControlProposalState,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlProposalDecisionReadRequestBody {
+    pub realm_id: RealmId,
+    pub proposal_digest: Hash,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ControlProposalDecisionFaultReason {
+    #[serde(rename = "control_proposal_decision_overdue")]
+    DecisionOverdue,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlProposalDecisionReadOutcome {
+    pub realm_id: RealmId,
+    pub proposal_digest: Hash,
+    pub proposal_event_kind: String,
+    pub proposal_authority_kind: ControlProposalAuthorityKind,
+    pub proposal_state: ControlProposalState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_proposal_ack: Option<ControlProposalAck>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub defer_decisions: Option<Vec<ControlProposalDecision>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_reject: Option<ControlProposalDecision>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fault_reason: Option<ControlProposalDecisionFaultReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_seal_id: Option<SealId>,
+}
+
 impl ControlProposalAckIssueRequest {
     pub fn validate_structural(&self) -> Result<()> {
         self.event
@@ -164,6 +253,148 @@ impl ControlProposalAckIssueRequest {
         }
         for bundle in &self.cba_proof_bundles {
             bundle.validate_structural()?;
+        }
+        Ok(())
+    }
+}
+
+impl ControlProposalDecisionSubmitRequestBody {
+    pub fn validate_structural(&self) -> Result<()> {
+        self.decision.validate_standalone_protocol_bounds()
+    }
+}
+
+impl ControlProposalDecisionSubmitOutcome {
+    pub fn validate_for_request(
+        &self,
+        request: &ControlProposalDecisionSubmitRequestBody,
+    ) -> Result<()> {
+        request.validate_structural()?;
+        let expected_kind = if request.decision.is_reject() {
+            ControlProposalDecisionKind::SignedReject
+        } else {
+            ControlProposalDecisionKind::SignedDefer
+        };
+        let expected_state = match expected_kind {
+            ControlProposalDecisionKind::SignedDefer => ControlProposalState::Deferred,
+            ControlProposalDecisionKind::SignedReject => ControlProposalState::Rejected,
+        };
+        if self.proposal_digest != *request.decision.proposal_digest()
+            || self.decision_digest != request.decision.decision_digest()?
+            || self.decision_kind != expected_kind
+            || self.proposal_state != expected_state
+        {
+            return Err(Error::Protocol(
+                "control proposal decision outcome does not bind the submitted decision".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl ControlProposalDecisionReadOutcome {
+    pub fn validate_for_request(
+        &self,
+        request: &ControlProposalDecisionReadRequestBody,
+    ) -> Result<()> {
+        if self.realm_id != request.realm_id || self.proposal_digest != request.proposal_digest {
+            return Err(Error::Protocol(
+                "control proposal decision read outcome does not bind the request".to_owned(),
+            ));
+        }
+        if self.proposal_event_kind.len() <= 3
+            || !self.proposal_event_kind.starts_with("ak.")
+            || self.proposal_event_kind.bytes().any(|byte| {
+                !byte.is_ascii_lowercase()
+                    && !byte.is_ascii_digit()
+                    && !matches!(byte, b'.' | b'_' | b'-')
+            })
+        {
+            return Err(Error::Protocol(
+                "control proposal event kind is not a registered-token shape".to_owned(),
+            ));
+        }
+        let defers = self.defer_decisions.as_deref().unwrap_or_default();
+        if defers.len() > usize::from(MAX_PROPOSAL_DEFERS)
+            || defers.iter().any(ControlProposalDecision::is_reject)
+            || self
+                .terminal_reject
+                .as_ref()
+                .is_some_and(|decision| !decision.is_reject())
+        {
+            return Err(Error::Protocol(
+                "control proposal read decision variants are inconsistent".to_owned(),
+            ));
+        }
+        match self.proposal_state {
+            ControlProposalState::Pending
+                if self.defer_decisions.is_none()
+                    && self.terminal_reject.is_none()
+                    && self.fault_reason.is_none()
+                    && self.accepted_seal_id.is_none() => {}
+            ControlProposalState::Deferred
+                if !defers.is_empty()
+                    && self.terminal_reject.is_none()
+                    && self.fault_reason.is_none()
+                    && self.accepted_seal_id.is_none() => {}
+            ControlProposalState::Overdue
+                if self.fault_reason
+                    == Some(ControlProposalDecisionFaultReason::DecisionOverdue)
+                    && self.terminal_reject.is_none()
+                    && self.accepted_seal_id.is_none() => {}
+            ControlProposalState::Rejected
+                if self.terminal_reject.is_some()
+                    && self.fault_reason.is_none()
+                    && self.accepted_seal_id.is_none() => {}
+            ControlProposalState::Sealed
+                if self.accepted_seal_id.is_some()
+                    && self.terminal_reject.is_none()
+                    && self.fault_reason.is_none() => {}
+            _ => {
+                return Err(Error::Protocol(
+                    "control proposal read state fields are inconsistent".to_owned(),
+                ));
+            }
+        }
+        match self.proposal_authority_kind {
+            ControlProposalAuthorityKind::ControlProposalAck => {
+                let ack = self.control_proposal_ack.as_ref().ok_or_else(|| {
+                    Error::Protocol("Ack-governed proposal read omits its Ack".to_owned())
+                })?;
+                ack.validate_protocol_bounds()?;
+                if ack.realm_id != self.realm_id || ack.proposal_digest != self.proposal_digest {
+                    return Err(Error::Protocol(
+                        "control proposal read Ack does not bind the proposal".to_owned(),
+                    ));
+                }
+                for (index, decision) in defers.iter().enumerate() {
+                    decision.validate_chain_protocol_bounds(ack, &defers[..index])?;
+                }
+                if let Some(reject) = &self.terminal_reject {
+                    reject.validate_chain_protocol_bounds(ack, defers)?;
+                }
+            }
+            ControlProposalAuthorityKind::AcklessEventProof => {
+                if self.control_proposal_ack.is_some()
+                    || self.defer_decisions.is_some()
+                    || self.terminal_reject.is_some()
+                    || !matches!(
+                        self.proposal_state,
+                        ControlProposalState::Pending | ControlProposalState::Sealed
+                    )
+                {
+                    return Err(Error::Protocol(
+                        "Ack-less proposal read carries Ack-governed decision state".to_owned(),
+                    ));
+                }
+            }
+        }
+        if self.proposal_event_kind == "ak.device.revoke"
+            && self.proposal_authority_kind != ControlProposalAuthorityKind::ControlProposalAck
+        {
+            return Err(Error::Protocol(
+                "ak.device.revoke cannot use Ack-less proposal authority".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -661,6 +892,108 @@ impl ControlProposalAck {
 }
 
 impl ControlProposalDecision {
+    pub fn realm_id(&self) -> &RealmId {
+        match self {
+            Self::SignedReject { realm_id, .. } | Self::SignedDefer { realm_id, .. } => realm_id,
+        }
+    }
+
+    pub fn proposal_digest(&self) -> &Hash {
+        match self {
+            Self::SignedReject {
+                proposal_digest, ..
+            }
+            | Self::SignedDefer {
+                proposal_digest, ..
+            } => proposal_digest,
+        }
+    }
+
+    /// Validate the decision's closed variant, hard protocol ceilings and
+    /// canonical proof bindings without claiming that its durable Ack or
+    /// preceding defer chain has already been resolved.
+    pub fn validate_standalone_protocol_bounds(&self) -> Result<()> {
+        let (decision_due_at, absolute_due_at, proofs) = match self {
+            Self::SignedReject {
+                decision_due_at,
+                absolute_due_at,
+                defer_count,
+                proofs,
+                ..
+            } => {
+                if *defer_count > MAX_PROPOSAL_DEFERS {
+                    return Err(Error::Protocol(
+                        "signed_reject exceeds the protocol defer bound".to_owned(),
+                    ));
+                }
+                (decision_due_at, absolute_due_at, proofs)
+            }
+            Self::SignedDefer {
+                decision_due_at,
+                absolute_due_at,
+                defer_count,
+                proofs,
+                ..
+            } => {
+                if *defer_count == 0 || *defer_count > MAX_PROPOSAL_DEFERS {
+                    return Err(Error::Protocol(
+                        "signed_defer defer_count must be within 1..=2".to_owned(),
+                    ));
+                }
+                (decision_due_at, absolute_due_at, proofs)
+            }
+        };
+        if self.decided_at() > *decision_due_at || *decision_due_at > *absolute_due_at {
+            return Err(Error::Protocol(
+                "control proposal decision timestamps are out of order".to_owned(),
+            ));
+        }
+        validate_proofs(proofs, &self.decision_digest()?, self.decided_at())
+    }
+
+    /// Validate the immutable Ack selectors when the preceding defer bodies
+    /// are not part of this projection.
+    pub fn validate_ack_binding_protocol_bounds(&self, ack: &ControlProposalAck) -> Result<()> {
+        ack.validate_protocol_bounds()?;
+        self.validate_standalone_protocol_bounds()?;
+        let (realm_id, proposal_digest, proposal_ack_digest, absolute_due_at, authority_set_ref) =
+            match self {
+                Self::SignedReject {
+                    realm_id,
+                    proposal_digest,
+                    proposal_ack_digest,
+                    absolute_due_at,
+                    authority_set_ref,
+                    ..
+                }
+                | Self::SignedDefer {
+                    realm_id,
+                    proposal_digest,
+                    proposal_ack_digest,
+                    absolute_due_at,
+                    authority_set_ref,
+                    ..
+                } => (
+                    realm_id,
+                    proposal_digest,
+                    proposal_ack_digest,
+                    absolute_due_at,
+                    authority_set_ref,
+                ),
+            };
+        if realm_id != &ack.realm_id
+            || proposal_digest != &ack.proposal_digest
+            || proposal_ack_digest != &ack.proposal_ack_digest()?
+            || absolute_due_at != &ack.absolute_due_at
+            || authority_set_ref != &ack.authority_set_ref
+        {
+            return Err(Error::Protocol(
+                "proposal decision does not preserve its Control Proposal Ack binding".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
         let proof = match self {
             Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => {
@@ -669,12 +1002,45 @@ impl ControlProposalDecision {
                 })?
             }
         };
+        self.proof_binding_bytes(proof)
+    }
+
+    /// Return the family-specific canonical transcript for one exact member
+    /// of this decision's canonical proof set.
+    pub fn proof_binding_bytes(&self, proof: &PayloadSignature) -> Result<Vec<u8>> {
+        let proofs = match self {
+            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => proofs,
+        };
+        let digest = self.decision_digest()?;
+        validate_proofs(proofs, &digest, self.decided_at())?;
+        if !proofs.iter().any(|candidate| candidate == proof) {
+            return Err(Error::Protocol(
+                "control proposal proof is not a member of this decision".to_owned(),
+            ));
+        }
         proof_transcript(
             "ak.control-proposal-decision-proof-v1",
-            &self.decision_digest()?,
+            &digest,
             &proof.verification_method,
             proof.created_at,
         )
+    }
+
+    /// Validate every canonical proof binding, then delegate cryptographic
+    /// and signing-time DID method-state verification to the caller.
+    pub fn verify_proofs_with<F>(&self, mut verify: F) -> Result<()>
+    where
+        F: FnMut(&PayloadSignature, &[u8]) -> Result<()>,
+    {
+        self.validate_standalone_protocol_bounds()?;
+        let proofs = match self {
+            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => proofs,
+        };
+        for proof in proofs {
+            let binding = self.proof_binding_bytes(proof)?;
+            verify(proof, &binding)?;
+        }
+        Ok(())
     }
 
     pub fn decision_digest(&self) -> Result<Hash> {
@@ -1213,5 +1579,63 @@ mod tests {
                 "unexpected verdict for decision={decision_window:?}, absolute={absolute_horizon:?}, defers={max_defers}"
             );
         }
+    }
+
+    #[test]
+    fn decision_submit_and_read_dtos_bind_the_closed_state() {
+        let ack = ack();
+        let mut decision = defer(&ack, 1, at(20), at(60));
+        let digest = decision.decision_digest().unwrap();
+        let mut second = signature(digest, at(20));
+        second.verification_method =
+            DidUrl::new("did:webvh:z7mkfixture:authority-2.example#notary-2").unwrap();
+        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision else {
+            unreachable!("constructed a signed defer");
+        };
+        proofs.push(second);
+        let mut verified_methods = Vec::new();
+        decision
+            .verify_proofs_with(|proof, binding| {
+                assert!(
+                    String::from_utf8_lossy(binding).contains(proof.verification_method.as_str())
+                );
+                verified_methods.push(proof.verification_method.clone());
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(verified_methods.len(), 2);
+        let request = ControlProposalDecisionSubmitRequestBody {
+            decision: decision.clone(),
+        };
+        let outcome = ControlProposalDecisionSubmitOutcome {
+            status: ControlProposalDecisionSubmitStatus::Accepted,
+            proposal_digest: ack.proposal_digest.clone(),
+            decision_digest: decision.decision_digest().unwrap(),
+            decision_kind: ControlProposalDecisionKind::SignedDefer,
+            proposal_state: ControlProposalState::Deferred,
+        };
+        outcome.validate_for_request(&request).unwrap();
+
+        let read_request = ControlProposalDecisionReadRequestBody {
+            realm_id: ack.realm_id.clone(),
+            proposal_digest: ack.proposal_digest.clone(),
+        };
+        let read = ControlProposalDecisionReadOutcome {
+            realm_id: ack.realm_id.clone(),
+            proposal_digest: ack.proposal_digest.clone(),
+            proposal_event_kind: "ak.device.revoke".to_owned(),
+            proposal_authority_kind: ControlProposalAuthorityKind::ControlProposalAck,
+            proposal_state: ControlProposalState::Deferred,
+            control_proposal_ack: Some(ack),
+            defer_decisions: Some(vec![decision]),
+            terminal_reject: None,
+            fault_reason: None,
+            accepted_seal_id: None,
+        };
+        read.validate_for_request(&read_request).unwrap();
+
+        let mut ackless = read;
+        ackless.proposal_authority_kind = ControlProposalAuthorityKind::AcklessEventProof;
+        assert!(ackless.validate_for_request(&read_request).is_err());
     }
 }

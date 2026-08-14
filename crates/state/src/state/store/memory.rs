@@ -18,8 +18,8 @@ use serde_json::{Value, json};
 
 use super::{
     BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
-    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
-    control_event_digest,
+    ControlProposalSnapshot, PendingControlEventRecord, SealStore, SealedControlEventRecord,
+    StoreError, StoreResult, control_event_digest,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{
@@ -171,6 +171,33 @@ impl ControlEventStore for MemoryControlEventStore {
             .control_proposal_acks
             .get(event_digest.as_str())
             .cloned())
+    }
+
+    fn control_proposal_snapshot(
+        &self,
+        event_digest: &Hash,
+    ) -> StoreResult<Option<ControlProposalSnapshot>> {
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(event) = inner.events.get(event_digest.as_str()) else {
+            return Ok(None);
+        };
+        Ok(Some(ControlProposalSnapshot {
+            event: event.clone(),
+            control_proposal_ack: inner
+                .control_proposal_acks
+                .get(event_digest.as_str())
+                .cloned(),
+            decisions: inner
+                .proposal_decisions
+                .get(event_digest.as_str())
+                .cloned()
+                .unwrap_or_default(),
+            sealed_by: inner.sealed.get(event_digest.as_str()).cloned(),
+            decision_overdue: inner.decision_overdue.contains(event_digest.as_str()),
+        }))
     }
 
     fn record_proposal_decision(
@@ -1253,6 +1280,13 @@ mod tests {
                 .is_empty(),
             "a terminal signed rejection must remove the proposal from the pending work set"
         );
+        let snapshot = store
+            .control_proposal_snapshot(&event_digest)
+            .unwrap()
+            .expect("rejected proposal remains durable");
+        assert_eq!(snapshot.control_proposal_ack, Some(ack));
+        assert_eq!(snapshot.decisions, vec![decision]);
+        assert!(snapshot.sealed_by.is_none());
     }
 
     #[test]

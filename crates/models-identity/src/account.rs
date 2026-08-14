@@ -6,7 +6,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::artifacts_account::DeviceSummaryStatus;
+use crate::artifacts_account::{
+    DeviceSummaryStatus, DeviceSummaryVerificationState, validate_device_summary_state,
+};
 use crate::handle::Handle;
 use crate::identity::DidOperationSubmitRequestBody;
 use crate::session_credential::CanonicalSessionPublicJwk;
@@ -238,14 +240,11 @@ pub struct AccountDataDeleteOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
     pub status: DeviceSummaryStatus,
-    /// device-lifecycle.md §6 trust dimension: `unverified` / `authorized`
-    /// / `needs_reverification` / `verified`. Distinct from `status`, which is
-    /// the lifecycle rollup (`active` / `revoked` / `unknown`). Clients render
-    /// the §6 trust pill and gate device-to-device pairing fan-out on it.
-    pub verification_state: String,
+    pub verification_state: DeviceSummaryVerificationState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -259,6 +258,14 @@ pub struct AccountDeviceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revocation_states: Option<Vec<arkret_wire::DeviceRevocationGateRecord>>,
+}
+
+impl AccountDeviceSummary {
+    pub fn validate(&self) -> Result<()> {
+        validate_device_summary_state(self.status, self.revocation_states.as_deref())
+    }
 }
 
 pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN: &str =

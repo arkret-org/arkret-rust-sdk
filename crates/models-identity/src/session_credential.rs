@@ -1,8 +1,6 @@
 use std::fmt;
 
-use arkret_wire::{
-    DeviceId, DidCoreId, DidUrl, Error, EventId, RecoveryModelGenerationRef, Result, SessionGrantId,
-};
+use arkret_wire::{DeviceId, DidCoreId, DidUrl, Error, EventId, Result, SessionGrantId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
@@ -50,7 +48,7 @@ pub enum SessionGrantHolderBinding {
 pub struct SessionGrantDeviceBinding {
     pub device_id: DeviceId,
     pub authorization_event_id: EventId,
-    pub model_generation_ref: RecoveryModelGenerationRef,
+    pub model_generation_ref: u64,
 }
 
 /// Canonical unpadded Base64URL encoding of the issuer-generated 256-bit nonce.
@@ -534,6 +532,11 @@ fn validate_issuance_fields(
         ));
     }
     validate_jwk_thumbprint(&cnf.jkt, "session grant cnf.jkt")?;
+    if device_binding.is_some_and(|binding| binding.model_generation_ref == 0) {
+        return Err(Error::Protocol(
+            "session grant device generation must be positive".to_owned(),
+        ));
+    }
     let _ = (
         audience,
         credential_class,

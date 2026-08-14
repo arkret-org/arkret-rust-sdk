@@ -356,12 +356,15 @@ pub use arkret_wire::cba::{
 };
 pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
 pub use arkret_wire::constants::*;
+pub use arkret_wire::control_proposal::*;
+pub use arkret_wire::device_revocation::*;
 pub use arkret_wire::error_codes::*;
 pub use arkret_wire::event_envelope::*;
 pub use arkret_wire::http_signature::HttpMessageSignature;
 pub use arkret_wire::notary::{ForensicAttribution, NotaryValue};
 pub use arkret_wire::object_address::*;
 pub use arkret_wire::patch::*;
+pub use arkret_wire::peer_operation_paths::*;
 pub use arkret_wire::plaintext::PlaintextDataClassKind;
 pub use arkret_wire::primitives::*;
 pub use arkret_wire::problem_details::*;

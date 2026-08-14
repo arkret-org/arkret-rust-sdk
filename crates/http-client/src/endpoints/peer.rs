@@ -17,14 +17,30 @@ use arkret_models_identity::{
     ServiceResolutionResolveOutcome, ServiceResolutionResolveRequest,
 };
 use arkret_wire::{
-    PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS, PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY,
-    PATH_PEER_MLS_GROUP_STATE_MATERIAL, PATH_PEER_PRINCIPAL_GENESIS,
+    DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody,
+    PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS, PATH_PEER_DEVICE_REVOCATIONS_CHECK,
+    PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY, PATH_PEER_MLS_GROUP_STATE_MATERIAL,
+    PATH_PEER_PRINCIPAL_GENESIS,
 };
 use reqwest::Method;
 
 use crate::{Client, ClientRequestOptions, Error, Result};
 
 impl Client {
+    /// Atomically linearize an immutable issuance intent against the origin
+    /// Principal Server's durable device-revocation log.
+    pub async fn peer_device_revocations_check(
+        &self,
+        request: &DeviceRevocationGateCheckRequestBody,
+    ) -> Result<DeviceRevocationGateCheckOutcome> {
+        request.validate()?;
+        let outcome: DeviceRevocationGateCheckOutcome = self
+            .post_protocol_replay_safe(PATH_PEER_DEVICE_REVOCATIONS_CHECK, request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     pub async fn peer_service_resolution_publish(
         &self,
         request: &ServiceResolutionPublishRequest,

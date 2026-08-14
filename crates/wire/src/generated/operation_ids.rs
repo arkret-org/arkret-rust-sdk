@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-14.3;
-//! sha256=86513c70d2d69e9d0ad6da7a7846d90efdb1628f3ece5846c2f340a2b3a0cc88 Entries: registered=236
+//! Input: registry/operation-registry.json; version=2026-08-14.4;
+//! sha256=b0d209fa86ec609f5eaec8d964d77a2ecffdfe81721eaf8153a7a8ff76051517 Entries: registered=239
 
 use serde::{Deserialize, Serialize};
 
@@ -76,6 +76,7 @@ pub enum ServiceOperationId {
     PeerAccountStatusCommandSubmit,
     PeerAccountStatusReadAuthoringFrontiers,
     PeerContactsCommandSubmit,
+    PeerDeviceRevocationsCommandCheck,
     PeerDirectConversationCommandRepairRelay,
     PeerErasureReceiptCommandSubmit,
     PeerErasureReceiptResourceGet,
@@ -172,6 +173,8 @@ pub enum ServiceOperationId {
     SelfContactCommandTombstone,
     SelfContactReadList,
     SelfControlProposalAcksCommandIssue,
+    SelfControlProposalDecisionsCommandSubmit,
+    SelfControlProposalDecisionsReadGet,
     SelfDeviceMessagesCommandAck,
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesReadList,
@@ -315,6 +318,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK,
     ServiceOperationId::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET,
@@ -411,6 +415,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONTACT_COMMAND_TOMBSTONE,
     ServiceOperationId::SELF_CONTACT_READ_LIST,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE,
+    ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_COMMAND_SUBMIT,
+    ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST,
@@ -594,6 +600,7 @@ impl ServiceOperationId {
         Self::PeerAccountStatusCommandSubmit,
         Self::PeerAccountStatusReadAuthoringFrontiers,
         Self::PeerContactsCommandSubmit,
+        Self::PeerDeviceRevocationsCommandCheck,
         Self::PeerDirectConversationCommandRepairRelay,
         Self::PeerErasureReceiptCommandSubmit,
         Self::PeerErasureReceiptResourceGet,
@@ -690,6 +697,8 @@ impl ServiceOperationId {
         Self::SelfContactCommandTombstone,
         Self::SelfContactReadList,
         Self::SelfControlProposalAcksCommandIssue,
+        Self::SelfControlProposalDecisionsCommandSubmit,
+        Self::SelfControlProposalDecisionsReadGet,
         Self::SelfDeviceMessagesCommandAck,
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesReadList,
@@ -878,6 +887,8 @@ impl ServiceOperationId {
     pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS: &'static str =
         "ak.peer.account_status.read.authoring_frontiers";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
+    pub const PEER_DEVICE_REVOCATIONS_COMMAND_CHECK: &'static str =
+        "ak.peer.device_revocations.command.check";
     pub const PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY: &'static str =
         "ak.peer.direct_conversation.command.repair_relay";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT: &'static str =
@@ -1022,6 +1033,10 @@ impl ServiceOperationId {
     pub const SELF_CONTACT_READ_LIST: &'static str = "ak.self.contact.read.list";
     pub const SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE: &'static str =
         "ak.self.control_proposal_acks.command.issue";
+    pub const SELF_CONTROL_PROPOSAL_DECISIONS_COMMAND_SUBMIT: &'static str =
+        "ak.self.control_proposal_decisions.command.submit";
+    pub const SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET: &'static str =
+        "ak.self.control_proposal_decisions.read.get";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK: &'static str =
         "ak.self.device_messages.command.ack";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
@@ -1247,6 +1262,7 @@ impl ServiceOperationId {
                 Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS
             }
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
+            Self::PeerDeviceRevocationsCommandCheck => Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK,
             Self::PeerDirectConversationCommandRepairRelay => {
                 Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY
             }
@@ -1384,6 +1400,12 @@ impl ServiceOperationId {
             Self::SelfContactReadList => Self::SELF_CONTACT_READ_LIST,
             Self::SelfControlProposalAcksCommandIssue => {
                 Self::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE
+            }
+            Self::SelfControlProposalDecisionsCommandSubmit => {
+                Self::SELF_CONTROL_PROPOSAL_DECISIONS_COMMAND_SUBMIT
+            }
+            Self::SelfControlProposalDecisionsReadGet => {
+                Self::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET
             }
             Self::SelfDeviceMessagesCommandAck => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK,
             Self::SelfDeviceMessagesCommandSend => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND,
@@ -1618,6 +1640,9 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusReadAuthoringFrontiers)
             }
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
+            Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK => {
+                Some(Self::PeerDeviceRevocationsCommandCheck)
+            }
             Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY => {
                 Some(Self::PeerDirectConversationCommandRepairRelay)
             }
@@ -1777,6 +1802,12 @@ impl ServiceOperationId {
             Self::SELF_CONTACT_READ_LIST => Some(Self::SelfContactReadList),
             Self::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE => {
                 Some(Self::SelfControlProposalAcksCommandIssue)
+            }
+            Self::SELF_CONTROL_PROPOSAL_DECISIONS_COMMAND_SUBMIT => {
+                Some(Self::SelfControlProposalDecisionsCommandSubmit)
+            }
+            Self::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET => {
+                Some(Self::SelfControlProposalDecisionsReadGet)
             }
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK => Some(Self::SelfDeviceMessagesCommandAck),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND => Some(Self::SelfDeviceMessagesCommandSend),
@@ -3449,6 +3480,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerDeviceRevocationsCommandCheck,
+        http_method: "POST",
+        http_path: "/_arkret/peer/device-revocations/check",
+        grpc: Some("PeerDeviceRevocations/Check"),
+        mq: Some("peer.device_revocations.command.check"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/device-revocation-state.schema.json#/$defs/device_revocation_gate_check_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-revocation-state.schema.json#/$defs/device_revocation_gate_check_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("origin_service_local_durable_revocation_gate_decision_ledger_only"),
         }),
     },
     ServiceOperationDescriptor {
@@ -5556,6 +5611,50 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: None,
             rationale: Some("pre_admission_receipt_only_no_event_commit"),
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfControlProposalDecisionsCommandSubmit,
+        http_method: "POST",
+        http_path: "/_arkret/self/control-proposal-decisions",
+        grpc: Some("SelfControlProposalDecisions/Submit"),
+        mq: Some("self.control_proposal_decisions.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_decision_submit_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_decision_submit_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("durable_control_proposal_decision_log_only"),
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfControlProposalDecisionsReadGet,
+        http_method: "POST",
+        http_path: "/_arkret/self/control-proposal-decisions/query",
+        grpc: Some("SelfControlProposalDecisions/Get"),
+        mq: Some("self.control_proposal_decisions.read.get"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_decision_read_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_decision_read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandAck,

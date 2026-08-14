@@ -117,7 +117,7 @@ pub enum DeviceGenerationStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceGenerationState {
-    pub current_device_generation_ref: NonEmptyString,
+    pub current_device_generation_ref: u64,
     pub device_generation_status: DeviceGenerationStatus,
 }
 
@@ -166,7 +166,7 @@ pub struct QueryDeviceRecord {
     pub device_authorize_event_id: Option<EventId>,
     /// Reducer-managed B-model generation that authorized this device.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_generation_ref: Option<NonEmptyString>,
+    pub authorized_generation_ref: Option<u64>,
 }
 
 impl QueryDeviceRecord {
@@ -274,13 +274,13 @@ mod device_generation_tests {
     #[test]
     fn device_generation_must_be_current_and_fully_anchored() {
         let generation = DeviceGenerationState {
-            current_device_generation_ref: NonEmptyString::new("did-version-7").unwrap(),
+            current_device_generation_ref: 7,
             device_generation_status: DeviceGenerationStatus::Active,
         };
         let mut record: QueryDeviceRecord = serde_json::from_value(json!({
             "device_status": "active",
             "device_authorize_event_id": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
-            "authorized_generation_ref": "did-version-7"
+            "authorized_generation_ref": 7
         }))
         .unwrap();
         assert!(record.is_usable_in_generation(Some(&generation)));
@@ -290,7 +290,7 @@ mod device_generation_tests {
         assert!(!record.is_usable_in_generation(Some(&generation)));
         record.device_authorize_event_id =
             Some(EventId::new("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap());
-        record.authorized_generation_ref = Some(NonEmptyString::new("did-version-6").unwrap());
+        record.authorized_generation_ref = Some(6);
         assert!(!record.is_usable_in_generation(Some(&generation)));
     }
 }

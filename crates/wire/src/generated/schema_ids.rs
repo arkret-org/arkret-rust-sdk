@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-14.1;
-//! sha256=00ab2ed04f64df5121aaf009b304510172aba1e7db2d9c7f5176cf18cc18fc56 Entries: schema_ids=182,
-//! active=182
+//! Input: registry/schema-registry.json; version=2026-08-14.2;
+//! sha256=2a11cf0a385a9471d4200ae66ee05a24a80239a38609afdcbb3347ab0f08c5d2 Entries: schema_ids=183,
+//! active=183
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,7 @@ pub enum SchemaId {
     DevicePairingBootstrapV1,
     DevicePairingOperationsV1,
     DeviceReanchorV1,
+    DeviceRevocationStateV1,
     DidBindingContractsV1,
     DidWebvhWitnessReceiptV1,
     DirectConversationOperationsV1,
@@ -258,6 +259,7 @@ impl SchemaId {
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
         Self::DeviceReanchorV1,
+        Self::DeviceRevocationStateV1,
         Self::DidBindingContractsV1,
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
@@ -444,6 +446,7 @@ impl SchemaId {
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
         Self::DeviceReanchorV1,
+        Self::DeviceRevocationStateV1,
         Self::DidBindingContractsV1,
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
@@ -753,6 +756,10 @@ impl SchemaId {
     /// policy/session, monotonic PCR generation CAS, complete pre-fence Seal frontier and
     /// replacement authorization digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
+    /// Reducer-owned durable state machine for accepted ak.device.revoke proposals: mandatory Ack,
+    /// exact authority/device/generation binding, universal revocation_pending gates, exact
+    /// signed-reject release, overdue fault retention and covering-Seal finality.
+    pub const DEVICE_REVOCATION_STATE_V1: &'static str = "ak.schema.device_revocation_state.v1";
     /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
     /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),
     /// mechanically extracted evidence dependency record, per-pin limited-trust record, and the
@@ -1131,6 +1138,7 @@ impl SchemaId {
             Self::DevicePairingBootstrapV1 => Self::DEVICE_PAIRING_BOOTSTRAP_V1,
             Self::DevicePairingOperationsV1 => Self::DEVICE_PAIRING_OPERATIONS_V1,
             Self::DeviceReanchorV1 => Self::DEVICE_REANCHOR_V1,
+            Self::DeviceRevocationStateV1 => Self::DEVICE_REVOCATION_STATE_V1,
             Self::DidBindingContractsV1 => Self::DID_BINDING_CONTRACTS_V1,
             Self::DidWebvhWitnessReceiptV1 => Self::DID_WEBVH_WITNESS_RECEIPT_V1,
             Self::DirectConversationOperationsV1 => Self::DIRECT_CONVERSATION_OPERATIONS_V1,
@@ -1340,6 +1348,7 @@ impl SchemaId {
             Self::DevicePairingBootstrapV1 => "schemas/device-pairing.schema.json",
             Self::DevicePairingOperationsV1 => "schemas/device-pairing.schema.json",
             Self::DeviceReanchorV1 => "schemas/device-reanchor.schema.json",
+            Self::DeviceRevocationStateV1 => "schemas/device-revocation-state.schema.json",
             Self::DidBindingContractsV1 => "schemas/did-binding-contracts.schema.json",
             Self::DidWebvhWitnessReceiptV1 => "schemas/did-webvh-witness-receipt.schema.json",
             Self::DirectConversationOperationsV1 => {
@@ -1559,6 +1568,7 @@ impl SchemaId {
             Self::DEVICE_PAIRING_BOOTSTRAP_V1 => Some(Self::DevicePairingBootstrapV1),
             Self::DEVICE_PAIRING_OPERATIONS_V1 => Some(Self::DevicePairingOperationsV1),
             Self::DEVICE_REANCHOR_V1 => Some(Self::DeviceReanchorV1),
+            Self::DEVICE_REVOCATION_STATE_V1 => Some(Self::DeviceRevocationStateV1),
             Self::DID_BINDING_CONTRACTS_V1 => Some(Self::DidBindingContractsV1),
             Self::DID_WEBVH_WITNESS_RECEIPT_V1 => Some(Self::DidWebvhWitnessReceiptV1),
             Self::DIRECT_CONVERSATION_OPERATIONS_V1 => Some(Self::DirectConversationOperationsV1),

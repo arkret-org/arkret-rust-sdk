@@ -6,6 +6,7 @@ pub const PATH_PEER_PRINCIPAL_GENESIS: &str = "/_arkret/peer/principal-genesis";
 pub const PATH_PEER_MLS_GROUP_STATE_MATERIAL: &str = "/_arkret/peer/mls/group-state-material";
 pub const PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY: &str =
     "/_arkret/peer/direct-conversations/repair-relay";
+pub const PATH_PEER_DEVICE_REVOCATIONS_CHECK: &str = "/_arkret/peer/device-revocations/check";
 
 #[cfg(test)]
 mod tests {
@@ -31,6 +32,12 @@ mod tests {
                 .descriptor()
                 .http_path,
             PATH_PEER_MLS_GROUP_STATE_MATERIAL
+        );
+        assert_eq!(
+            ServiceOperationId::PeerDeviceRevocationsCommandCheck
+                .descriptor()
+                .http_path,
+            PATH_PEER_DEVICE_REVOCATIONS_CHECK
         );
     }
 }

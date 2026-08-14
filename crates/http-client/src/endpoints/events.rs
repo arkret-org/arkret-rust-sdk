@@ -34,7 +34,9 @@ use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     AuthorizationLease, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
     ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
-    Cursor, Event, EventInitialSubmission, EventSubmitContext, Hash, RealmId, Seal,
+    ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
+    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor, Event,
+    EventInitialSubmission, EventSubmitContext, Hash, RealmId, Seal,
 };
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -149,6 +151,32 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
+    /// Persist one complete signed defer/reject against its durable proposal
+    /// and immutable Control Proposal Ack.
+    pub async fn submit_control_proposal_decision(
+        &self,
+        request: &ControlProposalDecisionSubmitRequestBody,
+    ) -> Result<ControlProposalDecisionSubmitOutcome> {
+        request.validate_structural()?;
+        let outcome: ControlProposalDecisionSubmitOutcome = self
+            .post_protocol_replay_safe("/_arkret/self/control-proposal-decisions", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Read the exact durable Ack/decision/Seal state for one proposal.
+    pub async fn read_control_proposal_decision(
+        &self,
+        request: &ControlProposalDecisionReadRequestBody,
+    ) -> Result<ControlProposalDecisionReadOutcome> {
+        let outcome: ControlProposalDecisionReadOutcome = self
+            .post("/_arkret/self/control-proposal-decisions/query", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     async fn events_read_query<T, B>(&self, path: &str, body: &B) -> Result<T>
     where
         T: DeserializeOwned,

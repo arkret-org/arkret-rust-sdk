@@ -84,13 +84,6 @@ impl CanonicalPublicMaterial {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RecoveryModelGenerationRef {
-    RootAnchored(String),
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryCompletionAttestationAuthData {
     pub verification_method: DidUrl,
@@ -115,7 +108,7 @@ pub struct RecoveryCompletionAttestation {
     pub replacement_device_id: DeviceId,
     pub device_authorization_event_id: EventId,
     pub device_authorization_event_digest: Hash,
-    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    pub result_model_generation_ref: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
     pub auth_data: RecoveryCompletionAttestationAuthData,
@@ -149,12 +142,9 @@ impl RecoveryCompletionAttestation {
                     .to_owned(),
             ));
         }
-        if matches!(
-            &self.result_model_generation_ref,
-            RecoveryModelGenerationRef::RootAnchored(value) if value.is_empty()
-        ) {
+        if self.result_model_generation_ref == 0 {
             return Err(Error::Protocol(
-                "recovery completion generation must not be empty".to_owned(),
+                "recovery completion generation must be positive".to_owned(),
             ));
         }
         Ok(())
@@ -175,7 +165,7 @@ impl RecoveryCompletionAttestation {
             replacement_device_id: self.replacement_device_id.clone(),
             device_authorization_event_id: self.device_authorization_event_id.clone(),
             device_authorization_event_digest: self.device_authorization_event_digest.clone(),
-            result_model_generation_ref: self.result_model_generation_ref.clone(),
+            result_model_generation_ref: self.result_model_generation_ref,
             completed_at: self.completed_at,
         })
     }
@@ -195,7 +185,7 @@ pub struct UnsignedRecoveryCompletionAttestationBody {
     pub replacement_device_id: DeviceId,
     pub device_authorization_event_id: EventId,
     pub device_authorization_event_digest: Hash,
-    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    pub result_model_generation_ref: u64,
     pub completed_at: DateTime<Utc>,
 }
 
@@ -260,12 +250,9 @@ impl UnsignedRecoveryCompletionAttestation {
 fn validate_recovery_completion_attestation_body(
     body: &UnsignedRecoveryCompletionAttestationBody,
 ) -> Result<()> {
-    if matches!(
-        &body.result_model_generation_ref,
-        RecoveryModelGenerationRef::RootAnchored(value) if value.is_empty()
-    ) {
+    if body.result_model_generation_ref == 0 {
         return Err(Error::Protocol(
-            "recovery completion generation must not be empty".to_owned(),
+            "recovery completion generation must be positive".to_owned(),
         ));
     }
     Ok(())
@@ -315,7 +302,7 @@ pub struct IssueRecoveryCompletionGrantRequest {
     pub terminal_receipt: Value,
     pub completion_attestation: RecoveryCompletionAttestation,
     pub device_authorization_event_id: EventId,
-    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    pub result_model_generation_ref: u64,
     pub initial_session: Value,
     pub canonical_request_digest: Hash,
 }

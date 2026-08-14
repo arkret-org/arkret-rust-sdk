@@ -85,6 +85,7 @@ pub enum DeliveryMode {
     Sync,
     ToDevice,
     Push,
+    #[serde(rename = "keypackages")]
     KeyPackages,
 }
 

@@ -825,7 +825,7 @@ pub struct FrontierRef {
     pub frontier_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<Hash>,
-    pub device_generation_ref: NonEmptyString,
+    pub device_generation_ref: u64,
 }
 
 #[cfg(test)]

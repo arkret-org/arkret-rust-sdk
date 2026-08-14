@@ -13,9 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
-use crate::recovery_authority::{
-    CanonicalPublicMaterial, RecoveryCompletionAttestation, RecoveryModelGenerationRef,
-};
+use crate::recovery_authority::{CanonicalPublicMaterial, RecoveryCompletionAttestation};
 use crate::{
     BackupId, BackupSeriesId, DeviceId, DidCoreId, DidFullId, DidUrl, EventId,
     EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoverySessionId, TransactionId,
@@ -344,8 +342,8 @@ pub struct RootAnchoredRecoveryPlan {
     pub identity_model: RecoveryIdentityModel,
     pub recovery_session_snapshot_digest: Hash,
     pub proof_digest: Hash,
-    pub previous_model_generation_ref: String,
-    pub result_model_generation_ref: String,
+    pub previous_model_generation_ref: u64,
+    pub result_model_generation_ref: u64,
     pub did_publication: PreparedDidPublication,
     pub reanchor_unit: PreparedEventUnit,
 }
@@ -367,10 +365,13 @@ impl RecoveryPreparedPlan {
 
     fn validate_discriminator(&self) -> Result<()> {
         let Self::RootAnchored(plan) = self;
-        let valid = plan.identity_model == RecoveryIdentityModel::RootAnchored;
+        let valid = plan.identity_model == RecoveryIdentityModel::RootAnchored
+            && plan.previous_model_generation_ref > 0
+            && plan.result_model_generation_ref > plan.previous_model_generation_ref;
         if !valid {
             return Err(Error::Protocol(
-                "recovery prepared plan identity_model disagrees with its closed shape".to_owned(),
+                "recovery prepared plan requires its closed PCR model and advancing generations"
+                    .to_owned(),
             ));
         }
         Ok(())
@@ -1151,9 +1152,7 @@ impl SecurityTransaction {
                     ) = (binding, plan);
                     let replacement_device_id = &binding.replacement_device_id;
                     let authorize_event_id = &binding.authorize_event_id;
-                    let result_generation = RecoveryModelGenerationRef::RootAnchored(
-                        plan.result_model_generation_ref.clone(),
-                    );
+                    let result_generation = plan.result_model_generation_ref;
                     let receipt_step = self.accepted_steps.last().ok_or_else(|| {
                         Error::Protocol(
                             "completed recovery transaction is missing its receipt step".to_owned(),
