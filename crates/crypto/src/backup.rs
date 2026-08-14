@@ -58,7 +58,6 @@ use arkret_models_crypto::key_backup::{
 use arkret_models_crypto::{KeyBackupPlaintext, PlaintextItem};
 use arkret_wire::{
     AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, DidCoreId, Hash,
-    NonEmptyString,
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};

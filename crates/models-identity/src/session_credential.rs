@@ -1,6 +1,9 @@
 use std::fmt;
 
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, Error, EventId, Result, SessionGrantId};
+use arkret_wire::{
+    DeviceId, DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody, DidCoreId,
+    DidUrl, Error, EventId, Result, SessionGrantId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
@@ -49,6 +52,37 @@ pub struct SessionGrantDeviceBinding {
     pub device_id: DeviceId,
     pub authorization_event_id: EventId,
     pub model_generation_ref: u64,
+}
+
+impl SessionGrantDeviceBinding {
+    /// Build the grant binding from the origin Principal Server's allow
+    /// receipt, which is its only lawful source. The issuer never derives the
+    /// authorization Event or the generation itself and never accepts them
+    /// from client input: a blocked, mismatching or stale receipt yields no
+    /// binding and the issuance MUST fail closed with zero writes.
+    pub fn from_gate_outcome(
+        outcome: &DeviceRevocationGateCheckOutcome,
+        request: &DeviceRevocationGateCheckRequestBody,
+        now: DateTime<Utc>,
+    ) -> Result<Self> {
+        let (authorization_event_id, model_generation_ref) =
+            outcome.admitted_binding(request, now)?;
+        Ok(Self {
+            device_id: outcome.decision_receipt.device_id.clone(),
+            authorization_event_id: authorization_event_id.clone(),
+            model_generation_ref,
+        })
+    }
+
+    /// The recheck input a refresh or a recovery completion sends back to the
+    /// gate. A first ordinary human issuance has no binding yet and sends
+    /// none.
+    pub fn as_expected_gate_binding(&self) -> (Option<EventId>, Option<u64>) {
+        (
+            Some(self.authorization_event_id.clone()),
+            Some(self.model_generation_ref),
+        )
+    }
 }
 
 /// Canonical unpadded Base64URL encoding of the issuer-generated 256-bit nonce.

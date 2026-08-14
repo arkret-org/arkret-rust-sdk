@@ -11,7 +11,12 @@ fn embedded_device_revocation_fixture_keeps_the_named_contract() {
         "ak.suite.device.revocation_pending_state.v1"
     );
     let cases = fixture["semantic_cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 14);
+    assert_eq!(cases.len(), 17);
+    assert!(
+        cases
+            .iter()
+            .any(|case| case["name"] == "first_human_issue_acquires_binding_from_the_allow_receipt")
+    );
     let gate_case = cases
         .iter()
         .find(|case| case["name"] == "pending_blocks_closed_action_set_on_every_profile")
