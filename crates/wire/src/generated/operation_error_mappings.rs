@@ -2,8 +2,8 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-14.7;
 //! sha256=771352f18e055165f38dd9abedfd6a4748e85eb6ce53106d01bbf45dcb456d0b Input: registry/
-//! operations-error-mapping.json; version=2026-08-14.8;
-//! sha256=f2321a767565fde089ac7c082d03384843e61efb7f2fafca3fb4da90674fb864 Input: registry/
+//! operations-error-mapping.json; version=2026-08-14.9;
+//! sha256=1e36334bcea1e4b2bbac41b85582b1c71d5871a85e9672210dd001e951989c52 Input: registry/
 //! error-code-registry.json; version=2026-08-14.6;
 //! sha256=4dd93d362feb7a2a74d2428d82f5a49d5aeefa6fa646b247e056f7266a5225f0 Entries: operations=241
 
@@ -248,6 +248,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceGenerationFenced),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceReanchorAuthorizeMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -327,6 +329,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisConflict),
             OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisUnitInvalid),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
         ],
     },
     OperationErrorMappingDescriptor {

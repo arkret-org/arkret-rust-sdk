@@ -146,7 +146,7 @@ mod tests {
         let input = concat!(
             "ak.self.keys.keypackages.command.revoke\n",
             "{\"device_id\":\"ak:device:01964137-0000-7000-8000-00000000000d\",",
-            "\"key_package_refs\":[\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"],",
+            "\"keypackage_refs\":[\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"],",
             "\"reason\":\"authorization_superseded\"}"
         )
         .as_bytes();
@@ -158,7 +158,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             signature.sig.as_str(),
-            "ppUSC9bLl-DUCa9Wdtq4Lzjjk3oZVcS8RcdcpiYfpLThhyrXWx3IGn3hcqdd5AaONUAbzOYtR5lWCdW9Jo3pCA"
+            "xfcHcRB3y3_b4MqQQ8k2n9hOJVV-9O7ERtiK3ah7R648G4QOZsOmL8AWMgP1c39WGunNB_u1Qg5K7tScRpr0Ag"
         );
         verify_keypackage_signing_input(
             &public_key,

@@ -174,7 +174,11 @@ pub struct KeyPackagesUploadOutcome {
     pub accepted: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<Failure>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        rename = "keypackage_refs",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub key_package_refs: KeyPackageRefArray,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub available_count: Option<u64>,
@@ -692,7 +696,11 @@ pub struct KeyPackageClaimTerminalReceipt {
     pub claim_request_id: Base64UrlString,
     pub request_digest: Hash,
     pub terminal_state: KeyPackageClaimTerminalState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keypackage_refs",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_package_refs: Option<KeyPackageRefArray>,
     pub source_service_id: DidCoreId,
     pub destination_service_id: DidCoreId,
@@ -1271,6 +1279,7 @@ pub struct KeyPackagesConsumeUnsignedRequest {
 #[serde(deny_unknown_fields)]
 struct KeyPackagesConsumeRequestBodyWire {
     owner_account_id: DidCoreId,
+    #[serde(rename = "keypackage_refs")]
     key_package_refs: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_device_id: Option<DeviceId>,
@@ -1298,6 +1307,7 @@ struct KeyPackagesConsumeRequestBodyWire {
 #[serde(deny_unknown_fields)]
 struct KeyPackagesConsumeUnsignedRequestWire {
     owner_account_id: DidCoreId,
+    #[serde(rename = "keypackage_refs")]
     key_package_refs: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_device_id: Option<DeviceId>,
@@ -1602,6 +1612,7 @@ pub struct KeyPackageConsumeReceipt {
     pub domain: NonEmptyString,
     pub claim_request_id: Base64UrlString,
     pub claim_ids: Vec<NonEmptyString>,
+    #[serde(rename = "keypackage_refs")]
     pub key_package_refs: KeyPackageRefArray,
     pub recipient_durable_receipt: RecipientMlsDurableReceipt,
     pub welcome_ref: NonEmptyString,
@@ -1669,6 +1680,7 @@ pub struct KeyPackagesConsumeOutcome {
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeRequestBody {
     pub owner_account_id: DidCoreId,
+    #[serde(rename = "keypackage_refs")]
     pub key_package_refs: KeyPackageRefArray,
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
@@ -1681,6 +1693,7 @@ pub struct KeyPackagesRevokeRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeUnsignedRequest {
     pub owner_account_id: DidCoreId,
+    #[serde(rename = "keypackage_refs")]
     pub key_package_refs: KeyPackageRefArray,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
