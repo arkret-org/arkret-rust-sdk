@@ -938,7 +938,7 @@ pub fn join_cell(
 ///
 /// Admission is what keeps this narrow: `resolve_projected_write` accepts a
 /// reset only against a cell already in `⊥`, and only from
-/// `ak.state.conflict_recovery`.
+/// `ak.conflict.recovery`.
 fn ops_since_last_recovery_reset(ops: &[IssuedOp]) -> &[IssuedOp] {
     ops.iter()
         .rposition(|issued| issued.op.recovery_reset)
@@ -1996,7 +1996,7 @@ mod tests {
         let grant_value = json!({
             "grant_id": grant_id,
             "subject": actor,
-            "actions": ["ak.state.conflict_recovery"],
+            "actions": ["ak.conflict.recovery"],
             "resources": [{"kind": "realm", "realm_id": realm()}]
         });
 
@@ -2074,7 +2074,7 @@ mod tests {
                 EventRef::new(witness_id.as_str(), "state_witness"),
             ],
         );
-        event.kind = "ak.state.conflict_recovery".into();
+        event.kind = "ak.conflict.recovery".into();
         let effects = vec![crate::ProjectionEffect::reset(
             target.clone(),
             LatticeOp {

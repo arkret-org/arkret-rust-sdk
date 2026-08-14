@@ -105,7 +105,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
             EventProductClass::Account
         }
         EventKind::ActorDiscovery => EventProductClass::Actor,
-        EventKind::StateConflictRecovery => EventProductClass::State,
+        EventKind::ConflictRecovery => EventProductClass::State,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
         | EventKind::AgentActionRequest
@@ -157,7 +157,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::ContactAccepted
         | EventKind::ContactRejected
         | EventKind::ContactScopeUpdate
-        | EventKind::ContactTombstoned
+        | EventKind::ContactTombstone
         | EventKind::DirectConversationBound
         | EventKind::DirectConversationMlsGenerationActivate => EventProductClass::Contact,
         EventKind::DeviceAuthorize

@@ -5646,6 +5646,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InviteReceivePolicy'
+  /_arkret/self/invites/dispatch:
+    post:
+      operationId: ak.self.invites.command.dispatch
+      security:
+      - bearerAuth: []
+        dpopProof: []
+      summary: Dispatch an already accepted invite through the inviter Principal Server.
+      description: |
+        Accepts the exact invite delivery body from the authenticated inviter.
+        The invite Event must already be accepted by this Principal Server,
+        match its stored canonical bytes, and be authored by the session actor.
+        Remote delivery preserves the exact body in the durable peer outbox;
+        local delivery uses the same receive-policy path without re-authoring.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteDeliveryRequestBody'
+      responses:
+        '200':
+          description: Generic invite delivery outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteDeliveryOutcome'
   /_arkret/self/invite-locators:
     post:
       operationId: ak.self.invite_locator.command.issue

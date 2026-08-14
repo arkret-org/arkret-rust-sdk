@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-14.1;
-//! sha256=c1b9facd653a8e20d220773fc22a6b6282a8a50641b9d420d033a118c594e278
+//! Input: registry/error-code-registry.json; version=2026-08-14.2;
+//! sha256=6581ba7be5d0e63736d22dcfd6c67db0c8c4f6ce742fe10366327aebc2c815f1
 //! Entries: reason_codes=466
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -4033,7 +4033,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "An ak.state.conflict_recovery reset named a target_cell that is not in ⊥. The reset replaces a cell rather than joining into it, so allowing it on a live cell would make recovery a general overwrite channel that bypasses every lattice and every precondition. This is the converse of cell_in_bottom_state, which rejects an ordinary write against a cell that is in ⊥. See zh/authz/event-auth-state-resolution.md §9.5.",
+        description: "An ak.conflict.recovery reset named a target_cell that is not in ⊥. The reset replaces a cell rather than joining into it, so allowing it on a live cell would make recovery a general overwrite channel that bypasses every lattice and every precondition. This is the converse of cell_in_bottom_state, which rejects an ordinary write against a cell that is in ⊥. See zh/authz/event-auth-state-resolution.md §9.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_WITNESS_INVALID,

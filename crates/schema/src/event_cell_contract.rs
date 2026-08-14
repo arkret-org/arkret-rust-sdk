@@ -208,13 +208,13 @@ fn project_registered_operation_writes_with_pre_state(
         // not statically addressable. A conflict recovery names one cell of an
         // arbitrary family, so the target is the signed `payload.target_cell`
         // and the projection is a reset rather than a lattice op. The grammar is
-        // closed to `ak.state.conflict_recovery`; anything else declaring it is
+        // closed to `ak.conflict.recovery`; anything else declaring it is
         // a registry error, not a shape to interpret.
         if let Some(cell_ref_rule) = write.get("cell_ref") {
-            if event.kind != EventKind::StateConflictRecovery {
+            if event.kind != EventKind::ConflictRecovery {
                 return Err(effect_set_error(
                     &kind,
-                    "cell_ref is reserved to ak.state.conflict_recovery",
+                    "cell_ref is reserved to ak.conflict.recovery",
                 ));
             }
             let cell = conflict_recovery_cell(event, cell_ref_rule, &kind)?;
@@ -1900,7 +1900,7 @@ mod tests {
     fn conflict_recovery_event(target_cell: &str, resolved: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AbTm4abxkmMcE7rkV-Wz8Uk_vFh-cUlesAd-EsJX395Y",
-            "kind": "ak.state.conflict_recovery",
+            "kind": "ak.conflict.recovery",
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",

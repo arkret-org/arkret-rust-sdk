@@ -1133,7 +1133,7 @@ impl LatticeKind for ContactFactLog {
             "ak.contact.requested",
             "ak.contact.accepted",
             "ak.contact.rejected",
-            "ak.contact.tombstoned",
+            "ak.contact.tombstone",
         ]
     }
 }

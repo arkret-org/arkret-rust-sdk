@@ -2,8 +2,8 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-12.3;
 //! sha256=110f8b693d59cad81493da55f6e18c84c48a565ab5b5ced93b02f9e0f195dd77 Input: registry/
-//! capability-action-registry.json; version=2026-08-14.5;
-//! sha256=e9b2536c4451bac91ca141f37e9bcebc29eacb37fcf055729cd6d937410c270b Input: registry/
+//! capability-action-registry.json; version=2026-08-14.7;
+//! sha256=351f2e53b73e7839ca391f2ef23b77b3b63f8772e3c146654397e8546434d62b Input: registry/
 //! schema-registry.json; version=2026-08-14.1;
 //! sha256=00ab2ed04f64df5121aaf009b304510172aba1e7db2d9c7f5176cf18cc18fc56 Input: registry/
 //! account-data-key-registry.json; version=2026-08-13.2;
@@ -902,6 +902,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::ConflictRecovery,
+        category: "general",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &[event_kind_str::CONFLICT_RECOVERY],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ContactScopeUpdate,
@@ -1930,6 +1943,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CIRCLE_RESTORE,
             event_kind_str::CIRCLE_TOMBSTONE,
             event_kind_str::CIRCLE_UPDATE,
+            event_kind_str::CONFLICT_RECOVERY,
             event_kind_str::CONTAINER_MOVE_ITEM,
             event_kind_str::CONTAINER_REBALANCE,
             event_kind_str::INVITE_CANCEL,
@@ -2005,7 +2019,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::SPACE_RESTORE,
             event_kind_str::SPACE_TOMBSTONE,
             event_kind_str::SPACE_UPDATE,
-            event_kind_str::STATE_CONFLICT_RECOVERY,
             event_kind_str::STRAND_ARCHIVE,
             event_kind_str::STRAND_CREATE,
             event_kind_str::STRAND_MOVE,
@@ -2046,6 +2059,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.circle.member.add",
             "ak.circle.member.add.others",
             "ak.circle.member.manage",
+            "ak.conflict.recovery",
             "ak.container.move_item",
             "ak.container.rebalance",
             "ak.event.read",
@@ -2118,7 +2132,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.space.restore",
             "ak.space.tombstone",
             "ak.space.update",
-            "ak.state.conflict_recovery",
             "ak.strand.admin",
             "ak.strand.archive",
             "ak.strand.create",
@@ -2700,19 +2713,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_space_kinds"],
         target_event_kinds: &[event_kind_str::SPACE_UPDATE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::StateConflictRecovery,
-        category: "general",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::STATE_CONFLICT_RECOVERY],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,

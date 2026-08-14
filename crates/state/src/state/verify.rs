@@ -644,7 +644,7 @@ pub(super) fn recovery_capability_is_active(
             && grant
                 .actions
                 .iter()
-                .any(|action| action == arkret_wire::event_kind_str::STATE_CONFLICT_RECOVERY)
+                .any(|action| action == arkret_wire::event_kind_str::CONFLICT_RECOVERY)
             && grant.has_resources()
     })
 }
@@ -1475,7 +1475,7 @@ mod tests {
     #[test]
     fn a_reset_on_a_live_cell_is_rejected() {
         // The converse of the case above, and the load-bearing half: without it
-        // ak.state.conflict_recovery would be a general overwrite channel that
+        // ak.conflict.recovery would be a general overwrite channel that
         // bypasses every lattice and precondition
         // (`event-auth-state-resolution.md` §9.5).
         let event = recovery_move();

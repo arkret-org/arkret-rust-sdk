@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-14.1;
-//! sha256=c0254739930cf35253bcb03905b33b12d512e9f98e22d5dcc273994c17181069 Input: registry/
-//! operations-error-mapping.json; version=2026-08-14.4;
-//! sha256=d5525d51b690c481fe420f5bf55eb4339ab3898ba59864eac25fc6f75a7c6db9 Input: registry/
-//! error-code-registry.json; version=2026-08-14.1;
-//! sha256=c1b9facd653a8e20d220773fc22a6b6282a8a50641b9d420d033a118c594e278 Entries: operations=235
+//! Input: registry/operation-registry.json; version=2026-08-14.3;
+//! sha256=86513c70d2d69e9d0ad6da7a7846d90efdb1628f3ece5846c2f340a2b3a0cc88 Input: registry/
+//! operations-error-mapping.json; version=2026-08-14.5;
+//! sha256=d8ad5e3a3acb2a213c0d78c93f88b31ce5d9e3674da8b2a81df9d07eee9da499 Input: registry/
+//! error-code-registry.json; version=2026-08-14.2;
+//! sha256=6581ba7be5d0e63736d22dcfd6c67db0c8c4f6ce742fe10366327aebc2c815f1 Entries: operations=236
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -1250,6 +1250,17 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfInviteReceivePolicyResourceReplace,
         operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfInvitesCommandDispatch,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
+            OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactScopeStale),
+            OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfKeysBackupSeriesCommandErase,

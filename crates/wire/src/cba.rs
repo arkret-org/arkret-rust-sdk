@@ -272,7 +272,7 @@ pub enum ProjectedOp {
     /// (`event-auth-state-resolution.md` §9.5).
     ///
     /// This is not a lattice op and does not join: it replaces the cell.
-    /// `ak.state.conflict_recovery` is the only kind whose contract may project
+    /// `ak.conflict.recovery` is the only kind whose contract may project
     /// it, and the reducer MUST apply it only to a cell already in `⊥`, and
     /// only when the Event carries the `recovery_capability` and
     /// `state_witness` refs that section requires. On a cell in any other state

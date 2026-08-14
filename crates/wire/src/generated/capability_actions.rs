@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-14.5;
-//! sha256=e9b2536c4451bac91ca141f37e9bcebc29eacb37fcf055729cd6d937410c270b Entries: registered=170
+//! Input: registry/capability-action-registry.json; version=2026-08-14.7;
+//! sha256=351f2e53b73e7839ca391f2ef23b77b3b63f8772e3c146654397e8546434d62b Entries: registered=170
 
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +45,7 @@ pub enum CapabilityActionId {
     CircleMemberAdd,
     CircleMemberAddOthers,
     CircleMemberManage,
+    ConflictRecovery,
     ContactScopeUpdate,
     ContainerMoveItem,
     ContainerRebalance,
@@ -161,7 +162,6 @@ pub enum CapabilityActionId {
     SpaceRestore,
     SpaceTombstone,
     SpaceUpdate,
-    StateConflictRecovery,
     StrandAdmin,
     StrandArchive,
     StrandCreate,
@@ -219,6 +219,7 @@ impl CapabilityActionId {
         Self::CircleMemberAdd,
         Self::CircleMemberAddOthers,
         Self::CircleMemberManage,
+        Self::ConflictRecovery,
         Self::ContactScopeUpdate,
         Self::ContainerMoveItem,
         Self::ContainerRebalance,
@@ -335,7 +336,6 @@ impl CapabilityActionId {
         Self::SpaceRestore,
         Self::SpaceTombstone,
         Self::SpaceUpdate,
-        Self::StateConflictRecovery,
         Self::StrandAdmin,
         Self::StrandArchive,
         Self::StrandCreate,
@@ -391,6 +391,7 @@ impl CapabilityActionId {
     pub const CIRCLE_MEMBER_ADD: &'static str = "ak.circle.member.add";
     pub const CIRCLE_MEMBER_ADD_OTHERS: &'static str = "ak.circle.member.add.others";
     pub const CIRCLE_MEMBER_MANAGE: &'static str = "ak.circle.member.manage";
+    pub const CONFLICT_RECOVERY: &'static str = "ak.conflict.recovery";
     pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
     pub const CONTAINER_MOVE_ITEM: &'static str = "ak.container.move_item";
     pub const CONTAINER_REBALANCE: &'static str = "ak.container.rebalance";
@@ -516,7 +517,6 @@ impl CapabilityActionId {
     pub const SPACE_RESTORE: &'static str = "ak.space.restore";
     pub const SPACE_TOMBSTONE: &'static str = "ak.space.tombstone";
     pub const SPACE_UPDATE: &'static str = "ak.space.update";
-    pub const STATE_CONFLICT_RECOVERY: &'static str = "ak.state.conflict_recovery";
     pub const STRAND_ADMIN: &'static str = "ak.strand.admin";
     pub const STRAND_ARCHIVE: &'static str = "ak.strand.archive";
     pub const STRAND_CREATE: &'static str = "ak.strand.create";
@@ -573,6 +573,7 @@ impl CapabilityActionId {
             Self::CircleMemberAdd => Self::CIRCLE_MEMBER_ADD,
             Self::CircleMemberAddOthers => Self::CIRCLE_MEMBER_ADD_OTHERS,
             Self::CircleMemberManage => Self::CIRCLE_MEMBER_MANAGE,
+            Self::ConflictRecovery => Self::CONFLICT_RECOVERY,
             Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
             Self::ContainerMoveItem => Self::CONTAINER_MOVE_ITEM,
             Self::ContainerRebalance => Self::CONTAINER_REBALANCE,
@@ -695,7 +696,6 @@ impl CapabilityActionId {
             Self::SpaceRestore => Self::SPACE_RESTORE,
             Self::SpaceTombstone => Self::SPACE_TOMBSTONE,
             Self::SpaceUpdate => Self::SPACE_UPDATE,
-            Self::StateConflictRecovery => Self::STATE_CONFLICT_RECOVERY,
             Self::StrandAdmin => Self::STRAND_ADMIN,
             Self::StrandArchive => Self::STRAND_ARCHIVE,
             Self::StrandCreate => Self::STRAND_CREATE,
@@ -754,6 +754,7 @@ impl CapabilityActionId {
             Self::CIRCLE_MEMBER_ADD => Some(Self::CircleMemberAdd),
             Self::CIRCLE_MEMBER_ADD_OTHERS => Some(Self::CircleMemberAddOthers),
             Self::CIRCLE_MEMBER_MANAGE => Some(Self::CircleMemberManage),
+            Self::CONFLICT_RECOVERY => Some(Self::ConflictRecovery),
             Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),
             Self::CONTAINER_MOVE_ITEM => Some(Self::ContainerMoveItem),
             Self::CONTAINER_REBALANCE => Some(Self::ContainerRebalance),
@@ -878,7 +879,6 @@ impl CapabilityActionId {
             Self::SPACE_RESTORE => Some(Self::SpaceRestore),
             Self::SPACE_TOMBSTONE => Some(Self::SpaceTombstone),
             Self::SPACE_UPDATE => Some(Self::SpaceUpdate),
-            Self::STATE_CONFLICT_RECOVERY => Some(Self::StateConflictRecovery),
             Self::STRAND_ADMIN => Some(Self::StrandAdmin),
             Self::STRAND_ARCHIVE => Some(Self::StrandArchive),
             Self::STRAND_CREATE => Some(Self::StrandCreate),
