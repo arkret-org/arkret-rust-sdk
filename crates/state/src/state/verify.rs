@@ -167,12 +167,72 @@ where
     VerifyProofs: Fn(&Event) -> Result<(), String>,
     ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
 {
+    verify_control_move_with_proof_set(
+        event,
+        realm_id,
+        pre_state,
+        registry,
+        verify_proofs,
+        project_writes,
+        context,
+        false,
+    )
+}
+
+/// Verify a Control Move after its origin Principal Server has appended the
+/// mandatory admission proof. The remaining CBA checks are identical to the
+/// producer-submission path, but the closed proof set is Producer + Admission.
+pub fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
+    event: &Event,
+    realm_id: &RealmId,
+    pre_state: &BTreeMap<CellRef, CellState>,
+    registry: &dyn CellRegistry,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
+where
+    VerifyProofs: Fn(&Event) -> Result<(), String>,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
+{
+    verify_control_move_with_proof_set(
+        event,
+        realm_id,
+        pre_state,
+        registry,
+        verify_proofs,
+        project_writes,
+        context,
+        true,
+    )
+}
+
+fn verify_control_move_with_proof_set<VerifyProofs, ProjectWrites>(
+    event: &Event,
+    realm_id: &RealmId,
+    pre_state: &BTreeMap<CellRef, CellState>,
+    registry: &dyn CellRegistry,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+    accepted_event: bool,
+) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
+where
+    VerifyProofs: Fn(&Event) -> Result<(), String>,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
+{
     // Step 1: structural. `validate_for_submit_structural` also enforces the
     // CBA envelope shape, so a DataEvent (`seal_ref` + `auth_context`) or an
     // Event with neither basis cannot reach the control-plane reducer here.
-    event
-        .validate_for_submit_structural_in_context(context)
-        .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?;
+    if accepted_event {
+        event
+            .validate_for_federation_structural_in_context(context)
+            .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?;
+    } else {
+        event
+            .validate_for_submit_structural_in_context(context)
+            .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?;
+    }
     if event.realm_id != *realm_id {
         return Err(ControlMoveReject::SchemaViolation(format!(
             "Control Move realm_id {} does not match the receiving Realm {realm_id}",
@@ -790,7 +850,10 @@ pub type ControlMoveRejectMap = BTreeMap<Hash, ControlMoveReject>;
 #[cfg(test)]
 mod tests {
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
-    use arkret_wire::{DidUrl, Proof};
+    use arkret_wire::{
+        DidKey, DidUrl, EventProof, PrincipalServerAdmissionProof,
+        PrincipalServerAdmissionProofKind, Proof,
+    };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
@@ -820,7 +883,7 @@ mod tests {
     }
 
     fn actor() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap()
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()
     }
 
     fn control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {
@@ -868,6 +931,30 @@ mod tests {
             }
             .into(),
         );
+        event
+    }
+
+    fn accepted_control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {
+        let mut event = control_move(preconditions, refs);
+        let producer = event.proofs[0].as_producer().unwrap().clone();
+        event.proofs.push(EventProof::PrincipalServerAdmission(
+            PrincipalServerAdmissionProof {
+                kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+                verification_method: DidUrl::new(
+                    "did:webvh:z6mkfixture:admin.example#principal-server-admission",
+                )
+                .unwrap(),
+                event_digest: producer.event_digest.clone(),
+                producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(
+                    &producer,
+                )
+                .unwrap(),
+                producer_verification_method: producer.verification_method.clone(),
+                producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                accepted_at: event.created_at,
+                jws: "admission..signature".to_owned(),
+            },
+        ));
         event
     }
 
@@ -970,6 +1057,59 @@ mod tests {
         .unwrap();
         assert_eq!(effects.len(), 1);
         assert_eq!(effects[0].cell, cell_member());
+    }
+
+    #[test]
+    fn producer_and_accepted_control_move_lanes_enforce_distinct_closed_proof_sets() {
+        let precondition = Precondition {
+            cell: cell_member(),
+            predicate: Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(json!("invited")),
+                values: None,
+                predicate_id: None,
+            },
+        };
+        let producer = control_move(vec![precondition.clone()], vec![]);
+        let accepted = accepted_control_move(vec![precondition], vec![]);
+        let pre_state = BTreeMap::from([(cell_member(), CellState::Value(json!("invited")))]);
+        let writes = vec![transition_write(json!("invited"), json!("join"))];
+
+        let accepted_effects = verify_accepted_control_move_in_context(
+            &accepted,
+            &realm(),
+            &pre_state,
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(writes.clone()),
+            EventSubmitContext::Standard,
+        )
+        .expect("accepted lane must admit the closed Producer + Admission proof set");
+        assert_eq!(accepted_effects.len(), 1);
+
+        assert!(matches!(
+            verify_control_move(
+                &accepted,
+                &realm(),
+                &pre_state,
+                &MemoryCellRegistry::new(),
+                ok_proofs,
+                project(writes.clone()),
+            ),
+            Err(ControlMoveReject::SchemaViolation(_))
+        ));
+        assert!(matches!(
+            verify_accepted_control_move_in_context(
+                &producer,
+                &realm(),
+                &pre_state,
+                &MemoryCellRegistry::new(),
+                ok_proofs,
+                project(writes),
+                EventSubmitContext::Standard,
+            ),
+            Err(ControlMoveReject::SchemaViolation(_))
+        ));
     }
 
     #[test]

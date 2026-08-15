@@ -1031,6 +1031,9 @@ pub enum EventsSubmitFederationRequestBody {
     DirectConversationFounding(
         crate::direct_conversation_ops::DirectConversationFoundingFederationSubmission,
     ),
+    AgentMembershipCascade(
+        crate::governance::agent_membership_cascade::AgentMembershipCascadeFederationSubmission,
+    ),
 }
 
 // `SnapshotBootstrap` migrated to `sync_frames::snapshot`. It reaches the

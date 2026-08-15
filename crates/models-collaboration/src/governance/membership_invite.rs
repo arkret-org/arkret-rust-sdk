@@ -91,6 +91,12 @@ pub struct MembershipPayload {
     pub via_service_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_cause:
+        Option<crate::governance::agent_membership_cascade::MembershipLifecycleCause>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_controller_binding:
+        Option<crate::governance::agent_membership_cascade::AgentControllerMembershipBinding>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_ref: Option<MembershipInviteRef>,
@@ -121,6 +127,8 @@ impl MembershipPayload {
             gate_proofs: Vec::new(),
             via_service_ids: Vec::new(),
             reason: Some(reason.into()),
+            membership_cause: None,
+            agent_controller_binding: None,
             invite_ref: None,
         }
     }
@@ -144,6 +152,8 @@ impl MembershipPayload {
             gate_proofs: Vec::new(),
             via_service_ids: Vec::new(),
             reason: Some(reason.into()),
+            membership_cause: None,
+            agent_controller_binding: None,
             invite_ref: None,
         }
     }
@@ -175,8 +185,36 @@ impl MembershipPayload {
         self
     }
 
+    pub fn with_agent_controller_binding(
+        mut self,
+        binding: crate::governance::agent_membership_cascade::AgentControllerMembershipBinding,
+    ) -> Self {
+        self.agent_controller_binding = Some(binding);
+        self
+    }
+
+    pub fn with_controller_membership_ended(
+        mut self,
+        binding: crate::governance::agent_membership_cascade::AgentControllerMembershipBinding,
+    ) -> Self {
+        self.membership_cause = Some(
+            crate::governance::agent_membership_cascade::MembershipLifecycleCause::ControllerMembershipEnded,
+        );
+        self.agent_controller_binding = Some(binding);
+        self
+    }
+
     /// Validate the schema-level conditional required fields, then serialize.
     pub fn to_value(&self) -> Result<Value> {
+        if self
+            .reason
+            .as_ref()
+            .is_some_and(|reason| reason.chars().count() > 256)
+        {
+            return Err(Error::Protocol(
+                "membership payload reason exceeds 256 characters".to_owned(),
+            ));
+        }
         if let Some(authority) = &self.principal_authority {
             if self.actor_id.as_ref() != Some(&authority.principal_id) {
                 return Err(Error::Protocol(
@@ -199,6 +237,22 @@ impl MembershipPayload {
                     "membership_payload{join,routable} requires delivery_binding".to_owned(),
                 ));
             }
+        }
+        match (&self.membership_cause, &self.agent_controller_binding) {
+            (Some(_), Some(binding))
+                if self.membership == MembershipPayloadState::Leave
+                    && binding.controller_terminal_event_ref.is_some() =>
+            {
+                binding.validate()?;
+            }
+            (Some(_), _) => {
+                return Err(Error::Protocol(
+                    "controller-membership-ended cleanup requires leave and a terminal controller binding"
+                        .to_owned(),
+                ));
+            }
+            (None, Some(binding)) => binding.validate()?,
+            (None, None) => {}
         }
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("membership payload serialize: {err}")))

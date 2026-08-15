@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-14.3;
-//! sha256=023c682e9441510d3e51fe0e05a6be8f372e92145e29472ab64b11f282e33b73 Entries: schema_ids=184,
-//! active=184
+//! Input: registry/schema-registry.json; version=2026-08-15.1;
+//! sha256=2d7edb27c6f541433aa9347236003fb231cdfbe4f0e8fa2aff614f70af0fc06f Entries: schema_ids=185,
+//! active=185
 
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +19,7 @@ pub enum SchemaId {
     AccountabilityGrantV1,
     ActorProfileV1,
     ActorProfileOperationsV1,
+    AgentMembershipCascadeV1,
     AgentOperationsV1,
     AgentPairingBootstrapV1,
     AgentProvisionV1,
@@ -207,6 +208,7 @@ impl SchemaId {
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
         Self::ActorProfileOperationsV1,
+        Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
         Self::AgentProvisionV1,
@@ -395,6 +397,7 @@ impl SchemaId {
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
         Self::ActorProfileOperationsV1,
+        Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
         Self::AgentProvisionV1,
@@ -591,6 +594,9 @@ impl SchemaId {
     /// Authorized shared-Realm projection of another principal's global Actor Profile. It is the
     /// only outward carrier for the PCR-resident ak.profile.create / ak.profile.update facts.
     pub const ACTOR_PROFILE_OPERATIONS_V1: &'static str = "ak.schema.actor_profile_operations.v1";
+    /// Closed Native Personal Agent controller-membership binding and durable exact-set emergency
+    /// cleanup state.
+    pub const AGENT_MEMBERSHIP_CASCADE_V1: &'static str = "ak.schema.agent_membership_cascade.v1";
     /// Closed request/response DTO bundle for account pairing and native personal agent management
     /// operations.
     pub const AGENT_OPERATIONS_V1: &'static str = "ak.schema.agent_operations.v1";
@@ -1081,6 +1087,7 @@ impl SchemaId {
             Self::AccountabilityGrantV1 => Self::ACCOUNTABILITY_GRANT_V1,
             Self::ActorProfileV1 => Self::ACTOR_PROFILE_V1,
             Self::ActorProfileOperationsV1 => Self::ACTOR_PROFILE_OPERATIONS_V1,
+            Self::AgentMembershipCascadeV1 => Self::AGENT_MEMBERSHIP_CASCADE_V1,
             Self::AgentOperationsV1 => Self::AGENT_OPERATIONS_V1,
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
             Self::AgentProvisionV1 => Self::AGENT_PROVISION_V1,
@@ -1282,6 +1289,7 @@ impl SchemaId {
             Self::AccountabilityGrantV1 => "schemas/accountability-grant.schema.json",
             Self::ActorProfileV1 => "schemas/actor-profile.schema.json",
             Self::ActorProfileOperationsV1 => "schemas/actor-profile-operations.schema.json",
+            Self::AgentMembershipCascadeV1 => "schemas/agent-membership-cascade.schema.json",
             Self::AgentOperationsV1 => "schemas/agent-operations.schema.json",
             Self::AgentPairingBootstrapV1 => "schemas/agent-operations.schema.json",
             Self::AgentProvisionV1 => "schemas/agent-provision.schema.json",
@@ -1503,6 +1511,7 @@ impl SchemaId {
             Self::ACCOUNTABILITY_GRANT_V1 => Some(Self::AccountabilityGrantV1),
             Self::ACTOR_PROFILE_V1 => Some(Self::ActorProfileV1),
             Self::ACTOR_PROFILE_OPERATIONS_V1 => Some(Self::ActorProfileOperationsV1),
+            Self::AGENT_MEMBERSHIP_CASCADE_V1 => Some(Self::AgentMembershipCascadeV1),
             Self::AGENT_OPERATIONS_V1 => Some(Self::AgentOperationsV1),
             Self::AGENT_PAIRING_BOOTSTRAP_V1 => Some(Self::AgentPairingBootstrapV1),
             Self::AGENT_PROVISION_V1 => Some(Self::AgentProvisionV1),

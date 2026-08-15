@@ -1092,7 +1092,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_single_posts_initial_submission() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
+            let canned = r#"{"status":"accepted","delivery_state":"complete","pending_delivery_count":0,"accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let submission = fixture_submission("hello");
@@ -1282,7 +1282,7 @@ mod tests {
 
         #[tokio::test]
         async fn http_message_signer_signs_self_requests_before_send() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
+            let canned = r#"{"status":"accepted","delivery_state":"complete","pending_delivery_count":0,"accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
             let signer =
                 HttpMessageSigner::new("grant-key", Ed25519SigningKey::from_bytes(&[7u8; 32]));
             let (client, capture) =
@@ -1462,7 +1462,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_batch_posts_events_array() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
+            let canned = r#"{"status":"accepted","delivery_state":"complete","pending_delivery_count":0,"accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let submissions = vec![fixture_submission("first"), fixture_submission("second")];
@@ -1837,6 +1837,8 @@ mod tests {
         async fn events_submit_returns_partial_status() {
             let canned = r#"{
                 "status": "partial",
+                "delivery_state": "complete",
+                "pending_delivery_count": 0,
                 "accepted": ["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"],
                 "rejected": [
                     {"id": "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s", "reason_code": "schema_violation"}
@@ -2093,7 +2095,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_with_options_sends_idempotency_key() {
-            let canned = r#"{"status":"accepted","accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
+            let canned = r#"{"status":"accepted","delivery_state":"complete","pending_delivery_count":0,"accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let options = ClientRequestOptions::new().idempotency_key("evt-idem-1");
