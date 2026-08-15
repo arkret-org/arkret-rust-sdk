@@ -162,6 +162,66 @@ where
     VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
     ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
+    apply_seal_with_proof_set(
+        seal,
+        events,
+        seals,
+        cells,
+        registry,
+        verify_proofs,
+        project_writes,
+        context,
+        false,
+    )
+}
+
+/// Apply a Seal whose delta is loaded from the durable accepted-event lane.
+/// Each Event must carry the closed Producer + PrincipalServerAdmission proof
+/// set; producer-submission Seals continue to use [`apply_seal_in_context`].
+#[allow(clippy::too_many_arguments)]
+pub fn apply_accepted_seal_in_context<VerifyProofs, ProjectWrites>(
+    seal: &Seal,
+    events: &dyn ControlEventStore,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+) -> Result<SealEffect, SealReject>
+where
+    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
+    apply_seal_with_proof_set(
+        seal,
+        events,
+        seals,
+        cells,
+        registry,
+        verify_proofs,
+        project_writes,
+        context,
+        true,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_seal_with_proof_set<VerifyProofs, ProjectWrites>(
+    seal: &Seal,
+    events: &dyn ControlEventStore,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+    accepted_events: bool,
+) -> Result<SealEffect, SealReject>
+where
+    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
     if context == EventSubmitContext::AnchorUnit && !seal.predecessor_refs.is_empty() {
         return Err(SealReject::Structural(
             "anchor-unit context is only valid for the first Seal".to_owned(),
@@ -238,19 +298,36 @@ where
                 registry,
             )?;
         }
-        match verify_control_move_in_context(
-            &event,
-            &seal.realm_id,
-            if context == EventSubmitContext::AnchorUnit {
-                &staged_anchor_state
-            } else {
-                &pre_state
-            },
-            registry,
-            verify_proofs,
-            project_writes,
-            context,
-        ) {
+        let verification = if accepted_events {
+            crate::state::verify_accepted_control_move_in_context(
+                &event,
+                &seal.realm_id,
+                if context == EventSubmitContext::AnchorUnit {
+                    &staged_anchor_state
+                } else {
+                    &pre_state
+                },
+                registry,
+                verify_proofs,
+                project_writes,
+                context,
+            )
+        } else {
+            verify_control_move_in_context(
+                &event,
+                &seal.realm_id,
+                if context == EventSubmitContext::AnchorUnit {
+                    &staged_anchor_state
+                } else {
+                    &pre_state
+                },
+                registry,
+                verify_proofs,
+                project_writes,
+                context,
+            )
+        };
+        match verification {
             Ok(effects) => {
                 verify_recovery_witness(
                     &event,

@@ -29,8 +29,8 @@ pub use range_completeness::{
     verify_full_realm_range_completeness_with_suite,
 };
 pub use seal::{
-    EffectiveSealView, SealEffect, SealLeafUnionProof, SealReject, apply_seal,
-    apply_seal_in_context, control_event_completeness_root, control_event_set_root,
+    EffectiveSealView, SealEffect, SealLeafUnionProof, SealReject, apply_accepted_seal_in_context,
+    apply_seal, apply_seal_in_context, control_event_completeness_root, control_event_set_root,
     deterministic_order, effective_seal_view, effective_state_at, join_cell,
     join_cell_seal_batches, leaf_union_proof, predecessor_seal_closure,
     union_predecessor_covered_events, verify_recovery_witness, verify_seal_basis, view_hash,
@@ -49,5 +49,5 @@ pub use store::{
 };
 pub use verify::{
     ControlMoveReject, ControlMoveRejectMap, reject_to_error_code, resolve_projected_write,
-    verify_control_move, verify_control_move_in_context,
+    verify_accepted_control_move_in_context, verify_control_move, verify_control_move_in_context,
 };
