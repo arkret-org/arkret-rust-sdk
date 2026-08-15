@@ -36,8 +36,8 @@ use arkret_wire::{
     AuthorizationLease, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
     ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
     ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
-    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor, Event,
-    EventInitialSubmission, EventSubmitContext, Hash, RealmId, Seal,
+    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor,
+    DidCoreId, Event, EventInitialSubmission, EventSubmitContext, Hash, RealmId, Seal,
 };
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -882,27 +882,21 @@ impl Client {
 
     pub async fn authz_effective_grants(
         &self,
-        realm_id: &str,
-        subject: &str,
+        realm_id: &RealmId,
+        subject: &DidCoreId,
+        subject_principal_server_id: &DidCoreId,
         at: Option<&str>,
     ) -> Result<GrantList> {
         let mut builder = self
             .request(Method::GET, "/_arkret/self/authz/effective-grants")?
-            .query(&[("realm_id", realm_id), ("subject", subject)]);
-        if let Some(at) = at {
-            builder = builder.query(&[("at", at)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn authz_effective_grants_for_subject(
-        &self,
-        subject: &str,
-        at: Option<&str>,
-    ) -> Result<GrantList> {
-        let mut builder = self
-            .request(Method::GET, "/_arkret/self/authz/effective-grants")?
-            .query(&[("subject", subject)]);
+            .query(&[
+                ("realm_id", realm_id.as_str()),
+                ("subject", subject.as_str()),
+                (
+                    "subject_principal_server_id",
+                    subject_principal_server_id.as_str(),
+                ),
+            ]);
         if let Some(at) = at {
             builder = builder.query(&[("at", at)]);
         }
@@ -1082,8 +1076,8 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
             },
-            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             0,
             arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             serde_json::json!({

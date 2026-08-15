@@ -303,6 +303,7 @@ pub struct JoinApplicationReviewReceiptUnsigned {
     pub application_ref: Hash,
     pub application_revision_digest: Hash,
     pub reviewer_actor_id: DidCoreId,
+    pub reviewer_principal_server_id: DidCoreId,
     pub decision: JoinApplicationDecision,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<JoinApplicationReasonCode>,
@@ -330,6 +331,7 @@ pub struct JoinApplicationReviewReceipt {
     pub application_ref: Hash,
     pub application_revision_digest: Hash,
     pub reviewer_actor_id: DidCoreId,
+    pub reviewer_principal_server_id: DidCoreId,
     pub decision: JoinApplicationDecision,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<JoinApplicationReasonCode>,
@@ -356,6 +358,7 @@ impl JoinApplicationReviewReceipt {
             application_ref: unsigned.application_ref,
             application_revision_digest: unsigned.application_revision_digest,
             reviewer_actor_id: unsigned.reviewer_actor_id,
+            reviewer_principal_server_id: unsigned.reviewer_principal_server_id,
             decision: unsigned.decision,
             reason_code: unsigned.reason_code,
             reason_text: unsigned.reason_text,
@@ -376,6 +379,7 @@ impl JoinApplicationReviewReceipt {
             application_ref: self.application_ref.clone(),
             application_revision_digest: self.application_revision_digest.clone(),
             reviewer_actor_id: self.reviewer_actor_id.clone(),
+            reviewer_principal_server_id: self.reviewer_principal_server_id.clone(),
             decision: self.decision.clone(),
             reason_code: self.reason_code.clone(),
             reason_text: self.reason_text.clone(),
@@ -403,6 +407,7 @@ impl JoinApplicationReviewReceipt {
             "application_ref": self.application_ref,
             "application_revision_digest": self.application_revision_digest,
             "actor_id": self.reviewer_actor_id,
+            "principal_server_id": self.reviewer_principal_server_id,
             "verification_method": self.proof.verification_method,
             "created_at": self.proof.created_at,
         }))
@@ -790,5 +795,59 @@ mod tests {
             private_body: body,
         };
         request.validate().unwrap();
+    }
+
+    #[test]
+    fn review_receipt_binds_exact_reviewer_authority_pair() {
+        let actor = DidCoreId::new("ak:did_core:webvh:zexamplealice").unwrap();
+        let principal_server_id = DidCoreId::new("ak:did_core:web:principal.example").unwrap();
+        let created_at = DateTime::parse_from_rfc3339("2026-07-24T00:00:01.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let unsigned = JoinApplicationReviewReceiptUnsigned {
+            candidate_kind: MEMBER_APPLICATION_REVIEW_CANDIDATE_KIND.to_owned(),
+            realm_id: RealmId::new(
+                "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
+            )
+            .unwrap(),
+            application_ref: Hash::new(format!("sha256:{}", "4".repeat(64))).unwrap(),
+            application_revision_digest: Hash::new(format!("sha256:{}", "5".repeat(64))).unwrap(),
+            reviewer_actor_id: actor.clone(),
+            reviewer_principal_server_id: principal_server_id.clone(),
+            decision: JoinApplicationDecision::Accept,
+            reason_code: None,
+            reason_text: None,
+            evidence_refs: Vec::new(),
+            reviewer_capability_proof: JoinApplicationReviewerCapabilityProof {
+                grant_id: GrantId::new(
+                    "ak:grant:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo".to_owned(),
+                )
+                .unwrap(),
+                frontier_digest: Hash::new(format!("sha256:{}", "6".repeat(64))).unwrap(),
+            },
+            reviewed_at: created_at,
+        };
+        let digest = unsigned.canonical_digest().unwrap();
+        let receipt = JoinApplicationReviewReceipt::new(
+            unsigned.clone(),
+            proof(digest.clone(), &actor, created_at),
+        )
+        .unwrap();
+        let binding: Value =
+            serde_json::from_slice(&receipt.canonical_proof_binding_bytes().unwrap()).unwrap();
+        assert_eq!(binding["actor_id"], actor.as_str());
+        assert_eq!(binding["principal_server_id"], principal_server_id.as_str());
+
+        let mut another_authority = unsigned;
+        another_authority.reviewer_principal_server_id =
+            DidCoreId::new("ak:did_core:web:other.example").unwrap();
+        assert_ne!(another_authority.canonical_digest().unwrap(), digest);
+
+        let mut missing_pair = serde_json::to_value(receipt).unwrap();
+        missing_pair
+            .as_object_mut()
+            .unwrap()
+            .remove("reviewer_principal_server_id");
+        assert!(serde_json::from_value::<JoinApplicationReviewReceipt>(missing_pair).is_err());
     }
 }

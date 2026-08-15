@@ -74,8 +74,9 @@ pub enum ServerRequestBody {
     KeysQuery(KeysQueryRequestBody),
     KeysClaim(KeysClaimRequestBody),
     AuthzEffectiveGrants {
-        realm_id: String,
-        subject: String,
+        realm_id: arkret_wire::RealmId,
+        subject: arkret_wire::DidCoreId,
+        subject_principal_server_id: arkret_wire::DidCoreId,
         at: Option<String>,
     },
     AuthzInvites {

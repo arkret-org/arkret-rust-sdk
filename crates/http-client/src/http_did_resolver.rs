@@ -666,7 +666,13 @@ mod tests {
             .client_for_url("https://127.0.0.1/.well-known/did.json")
             .await
             .unwrap_err();
-        assert!(error.to_string().contains("target is denied"));
+        let Error::Protocol(detail) = error else {
+            panic!("private DID target returned the wrong error class");
+        };
+        assert!(
+            detail.contains("egress address 127.0.0.1 is denied: loopback address"),
+            "unexpected egress rejection: {detail}"
+        );
     }
 
     #[tokio::test]

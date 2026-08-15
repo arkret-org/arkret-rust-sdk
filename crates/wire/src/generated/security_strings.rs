@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-14.2;
-//! sha256=00d1b9add287c35a211674be53d1462b7d37c72cdf7493a85af41a930ba5b549 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-15.1;
+//! sha256=06e723215343e72d721d04c1346bd9b382587120be86cdda8714e0e8e5e3280b Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
@@ -13,7 +13,7 @@
 //! mls-ciphersuite-registry.json; version=2026-07-29;
 //! sha256=dd8c2024b8d231fc94e169185a894c413dd16c40b99ae6cd1764a848535fb59f Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
+//! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
 //! Entries: proof_contexts=48, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
@@ -921,6 +921,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "application_ref",
             "application_revision_digest",
             "actor_id",
+            "principal_server_id",
             "verification_method",
             "created_at",
         ],

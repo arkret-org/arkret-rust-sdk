@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-15.2;
-//! sha256=f72223988ec51c5e98fb30d8f0487b0d55ccaae5da70ff23dd1bcf3276710ff0 Entries: registered=242
+//! Input: registry/operation-registry.json; version=2026-08-15.3;
+//! sha256=f0154b9130d8f437610ed5c6e207a926122af8be286f018f28e191018dbc60da Entries: registered=242
 
 use serde::{Deserialize, Serialize};
 
