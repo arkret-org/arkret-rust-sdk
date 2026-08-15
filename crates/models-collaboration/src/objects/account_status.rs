@@ -145,12 +145,13 @@ pub struct AccountStatusProjectionCandidate {
     pub status: AccountStatus,
     pub effective_at: DateTime<Utc>,
     pub event_digest: Hash,
-    pub supersedes_status_event_id: Option<EventId>,
+    pub supersedes_status_event_ids: Option<Vec<EventId>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccountStatusProjection<'a> {
-    pub current: Option<&'a AccountStatusProjectionCandidate>,
+    pub current_status: Option<AccountStatus>,
+    pub current_heads: Vec<&'a AccountStatusProjectionCandidate>,
     pub rejected: Vec<AccountStatusProjectionRejected>,
 }
 
@@ -168,31 +169,54 @@ pub fn project_account_status_heads<'a>(
     let mut suppressed = BTreeSet::new();
 
     for candidate in heads {
-        if let Some(superseded_id) = candidate.supersedes_status_event_id.as_ref() {
-            if !visible_status_event_ids.contains(superseded_id) {
-                continue;
-            }
-
-            if let Some(superseded) = heads.iter().find(|head| &head.event_id == superseded_id)
-                && candidate.status.is_less_strict_than(superseded.status)
-            {
-                match superseded
-                    .status
+        let Some(declared) = candidate.supersedes_status_event_ids.as_ref() else {
+            continue;
+        };
+        let declared_set: BTreeSet<_> = declared.iter().cloned().collect();
+        let declared_is_canonical =
+            declared_set.len() == declared.len() && declared_set.iter().eq(declared.iter());
+        if !declared_is_canonical {
+            rejected.push(AccountStatusProjectionRejected {
+                event_id: candidate.event_id.clone(),
+                reason_code: ReasonCode::ACCOUNT_STATUS_TRANSITION_INVALID,
+            });
+            continue;
+        }
+        let expected: BTreeSet<_> = heads
+            .iter()
+            .filter(|head| head.event_id != candidate.event_id)
+            .filter(|head| head.status.severity_rank() >= candidate.status.severity_rank())
+            .map(|head| head.event_id.clone())
+            .collect();
+        let visible = declared_set
+            .iter()
+            .all(|event_id| visible_status_event_ids.contains(event_id));
+        if !visible || declared_set != expected {
+            rejected.push(AccountStatusProjectionRejected {
+                event_id: candidate.event_id.clone(),
+                reason_code: ReasonCode::ACCOUNT_STATUS_TRANSITION_INVALID,
+            });
+            continue;
+        }
+        let transition_error = heads
+            .iter()
+            .filter(|head| declared_set.contains(&head.event_id))
+            .find_map(|head| {
+                head.status
                     .validate_transition_to(candidate.status, true)
-                {
-                    Ok(()) => {
-                        suppressed.insert(superseded.event_id.clone());
-                    }
-                    Err(rejection) => rejected.push(AccountStatusProjectionRejected {
-                        event_id: candidate.event_id.clone(),
-                        reason_code: rejection.reason_code(),
-                    }),
-                }
-            }
+                    .err()
+            });
+        if let Some(rejection) = transition_error {
+            rejected.push(AccountStatusProjectionRejected {
+                event_id: candidate.event_id.clone(),
+                reason_code: rejection.reason_code(),
+            });
+        } else {
+            suppressed.extend(declared_set);
         }
     }
 
-    let current = heads
+    let eligible: Vec<_> = heads
         .iter()
         .filter(|candidate| !suppressed.contains(&candidate.event_id))
         .filter(|candidate| {
@@ -200,13 +224,89 @@ pub fn project_account_status_heads<'a>(
                 .iter()
                 .any(|rejection| rejection.event_id == candidate.event_id)
         })
-        .max_by(|left, right| {
-            left.status
-                .severity_rank()
-                .cmp(&right.status.severity_rank())
-                .then_with(|| left.effective_at.cmp(&right.effective_at))
-                .then_with(|| left.event_digest.as_str().cmp(right.event_digest.as_str()))
-        });
+        .collect();
+    let current_status = eligible
+        .iter()
+        .map(|candidate| candidate.status)
+        .max_by_key(|status| status.severity_rank());
+    let current_heads = eligible
+        .into_iter()
+        .filter(|candidate| Some(candidate.status) == current_status)
+        .collect();
 
-    AccountStatusProjection { current, rejected }
+    AccountStatusProjection {
+        current_status,
+        current_heads,
+        rejected,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn event_id(fill: u8) -> EventId {
+        EventId::from_event_digest(
+            &Hash::new(format!("sha256:{}", format!("{fill:02x}").repeat(32))).unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn candidate(
+        fill: u8,
+        status: AccountStatus,
+        supersedes_status_event_ids: Option<Vec<EventId>>,
+    ) -> AccountStatusProjectionCandidate {
+        AccountStatusProjectionCandidate {
+            event_id: event_id(fill),
+            status,
+            effective_at: "2026-08-15T00:00:00Z".parse().unwrap(),
+            event_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+            supersedes_status_event_ids,
+        }
+    }
+
+    #[test]
+    fn same_severity_heads_are_all_retained() {
+        let heads = vec![
+            candidate(1, AccountStatus::Locked, None),
+            candidate(2, AccountStatus::Locked, None),
+        ];
+        let projection = project_account_status_heads(&heads, &BTreeSet::new());
+        assert_eq!(projection.current_status, Some(AccountStatus::Locked));
+        assert_eq!(projection.current_heads.len(), 2);
+    }
+
+    #[test]
+    fn recovery_requires_the_complete_canonical_blocking_head_set() {
+        let locked = candidate(1, AccountStatus::Locked, None);
+        let suspended = candidate(2, AccountStatus::Suspended, None);
+        let recovery = candidate(
+            3,
+            AccountStatus::Active,
+            Some(vec![locked.event_id.clone(), suspended.event_id.clone()]),
+        );
+        let visible = BTreeSet::from([locked.event_id.clone(), suspended.event_id.clone()]);
+        let heads = vec![locked, suspended, recovery];
+        let projection = project_account_status_heads(&heads, &visible);
+        assert_eq!(projection.current_status, Some(AccountStatus::Active));
+        assert_eq!(projection.current_heads.len(), 1);
+        assert!(projection.rejected.is_empty());
+    }
+
+    #[test]
+    fn partial_recovery_is_rejected_and_deny_dominant_head_remains() {
+        let locked = candidate(1, AccountStatus::Locked, None);
+        let suspended = candidate(2, AccountStatus::Suspended, None);
+        let recovery = candidate(
+            3,
+            AccountStatus::Active,
+            Some(vec![locked.event_id.clone()]),
+        );
+        let visible = BTreeSet::from([locked.event_id.clone(), suspended.event_id.clone()]);
+        let heads = vec![locked, suspended, recovery];
+        let projection = project_account_status_heads(&heads, &visible);
+        assert_eq!(projection.current_status, Some(AccountStatus::Suspended));
+        assert_eq!(projection.rejected.len(), 1);
+    }
 }

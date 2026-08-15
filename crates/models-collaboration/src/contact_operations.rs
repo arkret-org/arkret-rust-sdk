@@ -1,6 +1,7 @@
 use arkret_wire::{
     Base64UrlString, ControlProposalAck, DeviceId, DidCoreId, DidFullId, Event, EventId, Hash,
-    IdempotencyKey, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, ReservationHandle,
+    IdempotencyKey, PrincipalAuthorityKey, ProtocolOpaqueId, ProtocolOperationId,
+    ProtocolSignature, ReservationHandle,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -308,6 +309,8 @@ pub struct ContactPrepareRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_terminal_contact_round_id: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuity_evidence: Option<ContactContinuityEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
@@ -367,6 +370,146 @@ pub struct ContactRoundEvidenceBundle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub glare_concurrency_attestations: Option<[GlareConcurrencyAttestation; 2]>,
     pub current_proofs: Vec<ContactCurrentProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuity_checkpoint: Option<BilateralContinuityCheckpoint>,
+}
+
+pub const BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN: &[u8] =
+    b"ak.bilateral-continuity.checkpoint.v1\n";
+pub const BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN: &[u8] =
+    b"ak.bilateral-continuity.accumulator.v1\n";
+pub const CONTACT_CONTINUITY_CONTEXT: &str = "ak.contact.round.continuity.v1";
+
+/// Domain-neutral, mutually signed commitment to a contiguous bilateral
+/// lineage prefix. Domain consumers interpret `root_basis`; the checkpoint
+/// mechanics do not contain Contact-specific winner or recovery rules.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct BilateralContinuityCheckpointCore {
+    pub context: String,
+    pub participants: [PrincipalAuthorityKey; 2],
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub root_basis: serde_json::Value,
+    pub root_basis_digest: Hash,
+    pub covered_through_basis_digest: Hash,
+    pub prefix_accumulator_root: Hash,
+    pub covered_prefix_count: u64,
+    pub sequence: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_checkpoint_digest: Option<Hash>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct BilateralContinuityCheckpointSignature {
+    pub signer: PrincipalAuthorityKey,
+    pub signature: ProtocolSignature,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct BilateralContinuityCheckpoint {
+    pub core: BilateralContinuityCheckpointCore,
+    pub checkpoint_digest: Hash,
+    pub signatures: [BilateralContinuityCheckpointSignature; 2],
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactContinuityEvidence {
+    pub checkpoint: BilateralContinuityCheckpoint,
+    pub uncompressed_tail: Vec<ContactRoundEvidenceBundle>,
+}
+
+impl BilateralContinuityCheckpoint {
+    pub fn signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        arkret_canonical::canonical_json_bytes(&self.core)
+    }
+
+    pub fn recompute_digest(&self) -> arkret_wire::Result<Hash> {
+        bilateral_checkpoint_digest(&self.core)
+    }
+
+    pub fn validate_contact_shape(&self) -> arkret_wire::Result<ContactRoundEvidenceBundle> {
+        if self.core.context != CONTACT_CONTINUITY_CONTEXT
+            || self.core.covered_prefix_count == 0
+            || self.core.sequence == 0
+            || (self.core.sequence == 1) == self.core.previous_checkpoint_digest.is_some()
+            || self.core.participants[0] >= self.core.participants[1]
+            || self.signatures[0].signer >= self.signatures[1].signer
+            || self.signatures[0].signer != self.core.participants[0]
+            || self.signatures[1].signer != self.core.participants[1]
+            || self.recompute_digest()? != self.checkpoint_digest
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "continuity_invalid: bilateral checkpoint shape or digest mismatch".to_owned(),
+            ));
+        }
+        let root: ContactRoundEvidenceBundle = serde_json::from_value(self.core.root_basis.clone())
+            .map_err(|error| {
+                arkret_wire::Error::Protocol(format!(
+                    "continuity_invalid: root basis is not Contact evidence: {error}"
+                ))
+            })?;
+        let root_digest = Hash::new(arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(&root).map_err(|error| {
+                arkret_wire::Error::Protocol(format!(
+                    "continuity_invalid: root basis canonicalization failed: {error}"
+                ))
+            })?,
+        ))?;
+        if root.previous_terminal_contact_round_id.is_some()
+            || root.continuity_checkpoint.is_some()
+            || root_digest != self.core.root_basis_digest
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "continuity_invalid: checkpoint root basis mismatch".to_owned(),
+            ));
+        }
+        Ok(root)
+    }
+}
+
+pub fn bilateral_checkpoint_digest(
+    core: &BilateralContinuityCheckpointCore,
+) -> arkret_wire::Result<Hash> {
+    let canonical = arkret_canonical::canonical_json_bytes(core)
+        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+    let mut material =
+        Vec::with_capacity(BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN.len() + canonical.len());
+    material.extend_from_slice(BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN);
+    material.extend_from_slice(&canonical);
+    Ok(Hash::new(arkret_canonical::sha256_digest(material))?)
+}
+
+pub fn bilateral_prefix_accumulator(
+    previous: Option<&Hash>,
+    covered_basis_digests: &[Hash],
+) -> arkret_wire::Result<Hash> {
+    if covered_basis_digests.is_empty() {
+        return Err(arkret_wire::Error::Protocol(
+            "continuity_invalid: accumulator extension is empty".to_owned(),
+        ));
+    }
+    #[derive(Serialize)]
+    struct Material<'a> {
+        previous: Option<&'a Hash>,
+        covered_basis_digests: &'a [Hash],
+    }
+    let canonical = arkret_canonical::canonical_json_bytes(&Material {
+        previous,
+        covered_basis_digests,
+    })
+    .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+    let mut material =
+        Vec::with_capacity(BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN.len() + canonical.len());
+    material.extend_from_slice(BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN);
+    material.extend_from_slice(&canonical);
+    Ok(Hash::new(arkret_canonical::sha256_digest(material))?)
 }
 
 pub fn validate_recontact_continuity(
@@ -410,16 +553,55 @@ pub fn validate_recontact_continuity(
                 "predecessor Contact request receipt continuity pointer mismatch".to_owned(),
             ));
         }
+        if predecessor
+            .continuity_checkpoint
+            .as_ref()
+            .is_some_and(|checkpoint| Some(checkpoint) != current.continuity_checkpoint.as_ref())
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "continuity_invalid: tail checkpoint binding changed".to_owned(),
+            ));
+        }
         expected = predecessor.previous_terminal_contact_round_id.as_ref();
     }
-    if expected.is_some()
+    if let Some(checkpoint) = &current.continuity_checkpoint {
+        let root = checkpoint.validate_contact_shape()?;
+        let current_pair = contact_round_participants(&current.contact_round);
+        let root_pair = contact_round_participants(&root.contact_round);
+        let checkpoint_pair = [
+            checkpoint.core.participants[0].principal_id.clone(),
+            checkpoint.core.participants[1].principal_id.clone(),
+        ];
+        if current_pair != root_pair
+            || root_pair != checkpoint_pair
+            || expected != Some(&checkpoint.core.covered_through_basis_digest)
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "continuity_invalid: checkpoint pair, root or tail terminator mismatch".to_owned(),
+            ));
+        }
+    } else if expected.is_some()
         || (current.previous_terminal_contact_round_id.is_some() && predecessors.is_empty())
     {
         return Err(arkret_wire::Error::Protocol(
-            "Contact round continuity does not terminate at one root".to_owned(),
+            "continuity_evidence_unavailable: Contact continuity does not reach its root"
+                .to_owned(),
         ));
     }
     Ok(())
+}
+
+fn contact_round_participants(round: &ContactRound) -> [DidCoreId; 2] {
+    match round {
+        ContactRound::Normal {
+            sorted_pair_members,
+            ..
+        }
+        | ContactRound::Glare {
+            sorted_pair_members,
+            ..
+        } => sorted_pair_members.clone(),
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

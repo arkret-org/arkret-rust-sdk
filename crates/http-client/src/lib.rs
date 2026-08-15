@@ -1761,7 +1761,7 @@ mod tests {
                         "room_policy_draft":"draft-ietf-mimi-room-policy-03",
                         "identifier_draft":"draft-kohbrok-mimi-identifiers-01",
                         "base_url":"https://mimi.example.test",
-                        "provider_id":"provider-a",
+                        "provider_id":"mimi://provider-a.example",
                         "endpoints":[{"endpoint_id":"mimi_v1","relative_path":"/messages"}],
                         "features":["mimi_v1"],
                         "mls_cipher_suites":["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
@@ -1785,7 +1785,10 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.service_kind, "mimi_provider");
-            assert_eq!(response.mimi.provider_id, "provider-a");
+            assert_eq!(
+                response.mimi.provider_id.as_str(),
+                "mimi://provider-a.example"
+            );
             assert_eq!(response.mimi.features, ["mimi_v1"]);
 
             let raw = capture.await.unwrap();

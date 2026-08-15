@@ -180,10 +180,9 @@ pub fn direct_conversation_realm_create_payload(
     Ok(RealmCreatePayload::new(genesis))
 }
 
-/// Build the sole explicit membership Event in the exact three-Event Direct
-/// Conversation founding unit. The founder membership is a fixed profile
-/// projection of `ak.realm.create`; authoring two membership Events would make
-/// the unit non-canonical.
+/// Build the peer membership payload in the exact four-Event Direct
+/// Conversation founding unit. The founder membership is the unit's final
+/// explicit genesis slot and uses [`direct_conversation_member_join_payload`].
 pub fn direct_conversation_peer_membership_bootstrap(
     realm_id: RealmId,
     founder: &DidCoreId,

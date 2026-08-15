@@ -1242,13 +1242,54 @@ per_subject_lattice!(
     &["ak.view.reconcile"]
 );
 
-per_subject_lattice!(
-    MimiRoomBinding,
-    arkret_wire::CellFamilyId::MIMI_ROOM_BINDING_V1,
-    Criticality::Required,
-    "room_id",
-    &["ak.mimi.room_binding"]
-);
+/// `ak.component.mimi.room_binding.v1` is the one v1 family whose registry
+/// `cell_subject.kind` is `uri`, so its subject is not the raw payload scalar:
+/// the canonical room URI is percent-encoded in full (`:`, `/` and `%`
+/// included) before it becomes a CellRef segment
+/// (`conformance/encoding.md` §4). Embedding the raw value would produce an id
+/// the CellRef grammar rejects, and keeping `%` verbatim would fold two
+/// different rooms onto one cell.
+pub struct MimiRoomBinding;
+
+impl MimiRoomBinding {
+    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::MIMI_ROOM_BINDING_V1;
+    const SUBJECT_FIELD: &'static str = "mimi_room_uri";
+}
+
+impl LatticeKind for MimiRoomBinding {
+    fn cell_family(&self) -> &'static str {
+        Self::CELL_FAMILY
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        generated_lattice(Self::CELL_FAMILY)
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        generated_bottom_policy(Self::CELL_FAMILY)
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: Self::CELL_FAMILY,
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        effect_payload
+            .get(Self::SUBJECT_FIELD)
+            .and_then(Value::as_str)
+            .map(|uri| Some(arkret_wire::uri_cell_subject(uri)))
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: Self::CELL_FAMILY,
+                field: Self::SUBJECT_FIELD,
+            })
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.mimi.room_binding"]
+    }
+}
 
 // ─────────── Realm families ───────────
 

@@ -487,15 +487,17 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 }
             }
             "canonical_event_tie_break" => {
-                // encoding.md 4.2: one winner rule for both concurrent
-                // candidate sets and logical-slot equivocation candidate sets.
-                // The key is the DECODED digest octets, bytewise greatest, with
-                // the canonical suite id as a second key only when the octets
-                // are identical. Comparing the typed `<suite>:<hex>` wire string
-                // would let the suite name decide before the content does.
                 let comparison = vector
                     .get("comparison")
                     .unwrap_or_else(|| panic!("{vector_id}: missing comparison"));
+                assert_eq!(comparison["semantic_winner_allowed"], false);
+                assert_eq!(vector["producer_bias"]["semantic_winner_allowed"], false);
+                assert!(
+                    vector["producer_bias"]["prohibited_consumers"]
+                        .as_array()
+                        .is_some_and(|consumers| consumers.len() >= 7),
+                    "{vector_id}: semantic consumers must remain explicitly prohibited"
+                );
                 for forbidden in comparison["forbidden_keys"]
                     .as_array()
                     .unwrap_or_else(|| panic!("{vector_id}: missing forbidden_keys"))
@@ -511,20 +513,13 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     .unwrap_or_else(|| panic!("{vector_id}: missing cases"));
                 for case in cases {
                     let case_name = case["name"].as_str().unwrap();
-                    let Some(expected_winner) = case.get("expected_winner").and_then(Value::as_str)
+                    let Some(expected_order) = case.get("expected_order").and_then(Value::as_array)
                     else {
-                        // Non-ordering cases (duplicate idempotence, collision
-                        // fail-closed, proofs-only difference) are executed by
-                        // the ordered-log lattice suite, which owns the slot
-                        // state machine. Here we only assert they are declared.
-                        assert!(
-                            case.get("expected").is_some(),
-                            "{vector_id}/{case_name}: case declares neither expected_winner nor expected"
-                        );
+                        assert!(case.get("expected").is_some());
                         continue;
                     };
                     let candidates = case["candidates"].as_array().unwrap();
-                    let mut best: Option<(&str, Vec<u8>, &str)> = None;
+                    let mut ordered = Vec::<(&str, Vec<u8>, &str)>::new();
                     for candidate in candidates {
                         let label = candidate["label"].as_str().unwrap();
                         let wire = candidate["event_digest"].as_str().unwrap_or_else(|| {
@@ -536,37 +531,42 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                         let octets = hex::decode(hex_digits).unwrap_or_else(|error| {
                             panic!("{vector_id}/{case_name}: digest hex decode failed: {error}")
                         });
-                        let replace = match &best {
-                            None => true,
-                            Some((_, best_octets, best_suite)) => {
-                                (octets.as_slice(), suite) > (best_octets.as_slice(), *best_suite)
-                            }
-                        };
-                        if replace {
-                            best = Some((label, octets, suite));
-                        }
+                        ordered.push((label, octets, suite));
                     }
-                    let (winner, ..) =
-                        best.unwrap_or_else(|| panic!("{vector_id}/{case_name}: no candidates"));
+                    ordered.sort_by(|left, right| {
+                        (left.1.as_slice(), left.2).cmp(&(right.1.as_slice(), right.2))
+                    });
+                    let labels = ordered.iter().map(|entry| entry.0).collect::<Vec<_>>();
+                    let expected = expected_order
+                        .iter()
+                        .map(|label| label.as_str().unwrap())
+                        .collect::<Vec<_>>();
                     assert_eq!(
-                        winner, expected_winner,
-                        "{vector_id}/{case_name}: decoded-octet winner drifted"
+                        labels, expected,
+                        "{vector_id}/{case_name}: decoded-octet presentation order drifted"
                     );
+                    assert!(case.get("expected_winner").is_none_or(Value::is_null));
                     if let Some(wrong) = case
-                        .get("expected_wrong_winner_if_wire_string_compared")
-                        .and_then(Value::as_str)
+                        .get("expected_wrong_order_if_wire_string_compared")
+                        .and_then(Value::as_array)
                     {
-                        let wire_winner = candidates
+                        let mut wire_order = candidates.iter().collect::<Vec<_>>();
+                        wire_order
+                            .sort_by_key(|candidate| candidate["event_digest"].as_str().unwrap());
+                        let wire_labels = wire_order
                             .iter()
-                            .max_by_key(|candidate| candidate["event_digest"].as_str().unwrap())
                             .map(|candidate| candidate["label"].as_str().unwrap())
-                            .unwrap();
+                            .collect::<Vec<_>>();
+                        let wrong = wrong
+                            .iter()
+                            .map(|label| label.as_str().unwrap())
+                            .collect::<Vec<_>>();
                         assert_eq!(
-                            wire_winner, wrong,
+                            wire_labels, wrong,
                             "{vector_id}/{case_name}: the wire-string trap case no longer traps"
                         );
                         assert_ne!(
-                            wire_winner, expected_winner,
+                            wire_labels, expected,
                             "{vector_id}/{case_name}: transition case must disagree with the wire-string order"
                         );
                     }
@@ -1020,6 +1020,83 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                             "{vector_id}/{name}: semantic mutation did not change digest"
                         );
                     }
+                }
+            }
+            // `conformance/encoding.md` section 4 `uri` subject kind. Two
+            // halves are locked here: the canonical wire form the typed value
+            // accepts, and the full percent-encoding that turns it into a
+            // single CellRef subject segment.
+            "uri_cell_subject" => {
+                let source = &vector["source_descriptor"];
+                let event_kind = source["event_kind"].as_str().unwrap();
+                let descriptor = EventKind::try_new(event_kind)
+                    .and_then(|kind| kind.descriptor())
+                    .unwrap_or_else(|| panic!("{vector_id}: source event kind is not registered"));
+                let write = descriptor
+                    .cell_writes
+                    .iter()
+                    .find(|write| {
+                        write.cell_family.map(|family| family.as_str())
+                            == source["cell_family"].as_str()
+                    })
+                    .unwrap_or_else(|| panic!("{vector_id}: source cell family is not registered"));
+                let registered_rule = write
+                    .cell_subject_rule
+                    .unwrap_or_else(|| panic!("{vector_id}: source subject rule is missing"))
+                    .to_json_value();
+                assert_eq!(
+                    registered_rule["kind"], source["subject_kind"],
+                    "{vector_id}: registered subject kind drifted"
+                );
+                assert_eq!(
+                    registered_rule["field"], source["field"],
+                    "{vector_id}: registered subject field drifted"
+                );
+
+                let mut subjects = std::collections::BTreeMap::new();
+                for case in vector["positive_cases"].as_array().unwrap() {
+                    let name = case["name"].as_str().unwrap();
+                    let input = case["input"].as_str().unwrap();
+                    let room = arkret_wire::MimiRoomUri::new(input)
+                        .unwrap_or_else(|error| panic!("{vector_id}/{name}: {error}"));
+                    let subject = room.cell_subject();
+                    assert_eq!(
+                        subject,
+                        case["expected_subject"].as_str().unwrap(),
+                        "{vector_id}/{name}: uri subject drifted"
+                    );
+                    assert_eq!(
+                        arkret_wire::subject_cell(
+                            source["cell_family"].as_str().unwrap(),
+                            &subject
+                        ),
+                        case["expected_cell_ref"].as_str().unwrap(),
+                        "{vector_id}/{name}: cell ref drifted"
+                    );
+                    assert!(
+                        arkret_identifiers::is_cell_ref(
+                            case["expected_cell_ref"].as_str().unwrap()
+                        ),
+                        "{vector_id}/{name}: derived cell ref is not a legal CellRef"
+                    );
+                    subjects.insert(name, subject);
+                }
+                for case in vector["positive_cases"].as_array().unwrap() {
+                    if let Some(other) = case.get("must_differ_from").and_then(Value::as_str) {
+                        assert_ne!(
+                            subjects[case["name"].as_str().unwrap()],
+                            subjects[other],
+                            "{vector_id}: escaped and unescaped separators must not fold"
+                        );
+                    }
+                }
+                for case in vector["negative_cases"].as_array().unwrap() {
+                    let name = case["name"].as_str().unwrap();
+                    assert!(
+                        arkret_wire::MimiRoomUri::new(case["input"].as_str().unwrap()).is_err(),
+                        "{vector_id}/{name}: non-canonical room URI was accepted"
+                    );
+                    assert_eq!(case["expected_error"], "schema_violation");
                 }
             }
             other => {

@@ -285,6 +285,7 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
     );
 }
 
+#[cfg(feature = "embedded-artifacts")]
 #[test]
 fn generated_relation_kind_metadata_matches_embedded_registry() {
     use arkret_wire::{

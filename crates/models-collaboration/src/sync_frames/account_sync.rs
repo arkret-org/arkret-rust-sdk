@@ -164,6 +164,132 @@ pub struct NotificationContainer {
     pub items: Vec<NotificationDelta>,
 }
 
+/// Closed sender endpoint of one to-device message.
+///
+/// A Native Agent runtime is not a human device:
+/// `identity/contact-and-direct-conversation.md` §8.2.1 forbids disguising it
+/// as an `ak:device`, and `crypto-media/device-lifecycle.md` forbids borrowing
+/// `requester_device_id` for it. So the endpoint is a closed XOR rather than an
+/// `Option<DeviceId>` a producer could fill with a principal id — the same
+/// shape [`crate::events_payloads::MemberRepairRequester`] and the KeyPackage
+/// consume / claim envelopes already use, so a reader meets one spelling of
+/// this distinction across the whole protocol.
+///
+/// The Agent branch carries the signer evidence the device branch gets from
+/// the accepted device projection: without `sender_agent_verification_method`
+/// and `sender_agent_key_authorize_event_id` a receiver would hold an Agent
+/// principal id and no way to say which key currently speaks for it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DeviceMessageSender {
+    Device {
+        sender_device_id: DeviceId,
+    },
+    NativeAgent {
+        sender_agent_id: DidCoreId,
+        sender_agent_verification_method: DidUrl,
+        sender_agent_key_authorize_event_id: EventId,
+    },
+}
+
+/// The four wire slots the endpoint XOR is spelled with.
+///
+/// Deliberately not `deny_unknown_fields`: this shape is flattened into the
+/// envelope and into the queued body, so the surrounding fields reach it as
+/// "unknown" ones. Strictness that matters here is the XOR itself.
+#[derive(Deserialize)]
+struct DeviceMessageSenderWire {
+    #[serde(default)]
+    sender_device_id: Option<DeviceId>,
+    #[serde(default)]
+    sender_agent_id: Option<DidCoreId>,
+    #[serde(default)]
+    sender_agent_verification_method: Option<DidUrl>,
+    #[serde(default)]
+    sender_agent_key_authorize_event_id: Option<EventId>,
+}
+
+impl<'de> Deserialize<'de> for DeviceMessageSender {
+    /// A derived `untagged` deserializer would accept a device id sitting next
+    /// to a complete Agent triple and silently keep only the device — the exact
+    /// smuggling the closed XOR exists to stop. So the branch is selected from
+    /// the full slot tuple instead of by first-variant-that-fits.
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = DeviceMessageSenderWire::deserialize(deserializer)?;
+        Self::from_slots(
+            wire.sender_device_id,
+            wire.sender_agent_id,
+            wire.sender_agent_verification_method,
+            wire.sender_agent_key_authorize_event_id,
+        )
+        .map_err(serde::de::Error::custom)
+    }
+}
+
+impl DeviceMessageSender {
+    /// Select the endpoint branch from the four wire slots, or reject.
+    ///
+    /// Exactly one complete branch is legal. A half-filled Agent branch, or a
+    /// device id beside an Agent id, would let a producer carry a second
+    /// unauthenticated sender identity past the rule that an Agent is never
+    /// spelled as an `ak:device`.
+    pub fn from_slots(
+        sender_device_id: Option<DeviceId>,
+        sender_agent_id: Option<DidCoreId>,
+        sender_agent_verification_method: Option<DidUrl>,
+        sender_agent_key_authorize_event_id: Option<EventId>,
+    ) -> std::result::Result<Self, &'static str> {
+        match (
+            sender_device_id,
+            sender_agent_id,
+            sender_agent_verification_method,
+            sender_agent_key_authorize_event_id,
+        ) {
+            (Some(sender_device_id), None, None, None) => Ok(Self::Device { sender_device_id }),
+            (
+                None,
+                Some(sender_agent_id),
+                Some(sender_agent_verification_method),
+                Some(sender_agent_key_authorize_event_id),
+            ) => Ok(Self::NativeAgent {
+                sender_agent_id,
+                sender_agent_verification_method,
+                sender_agent_key_authorize_event_id,
+            }),
+            _ => Err(
+                "device message sender must contain exactly one complete device or Native Agent branch",
+            ),
+        }
+    }
+
+    /// The endpoint half of the receiver dedupe key.
+    ///
+    /// `device-message.schema.json` keys deduplication on
+    /// `(sender_principal_id, <endpoint>, message_id)`; the endpoint is the
+    /// device for a human sender and the Agent principal for a Native Agent,
+    /// which has no device dimension to key on.
+    pub fn endpoint_id(&self) -> &str {
+        match self {
+            Self::Device { sender_device_id } => sender_device_id.as_str(),
+            Self::NativeAgent {
+                sender_agent_id, ..
+            } => sender_agent_id.as_str(),
+        }
+    }
+
+    /// The authoring device, when the sender is one.
+    pub fn device_id(&self) -> Option<&DeviceId> {
+        match self {
+            Self::Device { sender_device_id } => Some(sender_device_id),
+            Self::NativeAgent { .. } => None,
+        }
+    }
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/device-message.schema.json`.
 #[derive(Clone, Debug, Serialize)]
@@ -173,7 +299,9 @@ pub struct DeviceMessageEnvelope {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
     pub sender_principal_id: DidCoreId,
-    pub sender_device_id: DeviceId,
+    #[serde(flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub sender: DeviceMessageSender,
     pub recipient_principal_id: DidCoreId,
     pub recipient_device_id: DeviceId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
@@ -193,7 +321,14 @@ struct DeviceMessageEnvelopeWire {
     message_id: DeviceMessageId,
     kind: ProtocolKind,
     sender_principal_id: DidCoreId,
-    sender_device_id: DeviceId,
+    #[serde(default)]
+    sender_device_id: Option<DeviceId>,
+    #[serde(default)]
+    sender_agent_id: Option<DidCoreId>,
+    #[serde(default)]
+    sender_agent_verification_method: Option<DidUrl>,
+    #[serde(default)]
+    sender_agent_key_authorize_event_id: Option<EventId>,
     recipient_principal_id: DidCoreId,
     recipient_device_id: DeviceId,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
@@ -218,11 +353,18 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
                 "device message expires_at must be later than sent_at",
             ));
         }
+        let sender = DeviceMessageSender::from_slots(
+            wire.sender_device_id,
+            wire.sender_agent_id,
+            wire.sender_agent_verification_method,
+            wire.sender_agent_key_authorize_event_id,
+        )
+        .map_err(serde::de::Error::custom)?;
         Ok(Self {
             message_id: wire.message_id,
             kind: wire.kind,
             sender_principal_id: wire.sender_principal_id,
-            sender_device_id: wire.sender_device_id,
+            sender,
             recipient_principal_id: wire.recipient_principal_id,
             recipient_device_id: wire.recipient_device_id,
             sent_at: wire.sent_at,
@@ -301,22 +443,20 @@ pub struct Timeline {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview_only: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ordered_log_conflicts: Vec<OrderedLogConflictDiagnostic>,
+    pub ordered_log_siblings: Vec<OrderedLogSiblingDiagnostic>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct OrderedLogConflictDiagnostic {
+pub struct OrderedLogSiblingDiagnostic {
     pub cell: String,
     pub issuer: DidCoreId,
     pub issuer_seq: u64,
     pub reason: String,
-    pub winner_event_id: EventId,
-    pub winner_event_digest: String,
-    pub loser_event_ids: Vec<EventId>,
-    pub loser_event_digests: Vec<String>,
+    pub event_ids: Vec<EventId>,
+    pub event_digests: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -452,20 +592,28 @@ pub struct DeviceMessageTarget {
 /// The fields are exactly the `device-message.schema.json` envelope members
 /// that the delivery queue record does not already carry as its own columns:
 /// the queue reader rebuilds [`DeviceMessageEnvelope`] from this body plus the
-/// stored sender, recipient, recipient device and creation time. `sender_device_id`
-/// is absent only when the queued message was authored on behalf of a Native
-/// Agent principal, which has no human device identity.
+/// stored sender, recipient, recipient device and creation time.
+///
+/// The sender branch travels with the body rather than being re-derived at
+/// read time: the queue row records who the sender principal is, not which
+/// endpoint authored the message, and a Native Agent principal is not
+/// distinguishable from a human one by inspection.
 ///
 /// `C` is the closed content type selected by `kind`, so a producer can neither
 /// pair a kind with a foreign content shape nor hand-author the body as raw
 /// JSON.
+///
+/// No `deny_unknown_fields` here: serde does not support it alongside the
+/// flattened sender, and claiming it would be worse than not having it. The
+/// strictness that matters — exactly one complete sender endpoint branch — is
+/// enforced by [`DeviceMessageSender`]'s own deserializer, and the outward
+/// [`DeviceMessageEnvelope`] this body is rebuilt into is a closed object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct QueuedDeviceMessageBody<C> {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sender_device_id: Option<DeviceId>,
+    #[serde(flatten)]
+    pub sender: DeviceMessageSender,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub content: C,
@@ -754,6 +902,92 @@ mod device_message_tests {
             "device_proof": {"vendor_proof": true},
             "unsigned": {"retry_after_ms": 1000}
         })
+    }
+
+    fn agent_sender_fields() -> Value {
+        json!({
+            "sender_agent_id": "ak:did_core:webvh:z6mkfixtureagent",
+            "sender_agent_verification_method":
+                "did:webvh:z6mkfixtureagent:agent.example#agent-key-1",
+            "sender_agent_key_authorize_event_id":
+                "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e"
+        })
+    }
+
+    /// The two sender endpoints are one closed XOR: a Native Agent has no
+    /// device identity and MUST NOT be spelled as one, and its branch is only
+    /// usable complete — an Agent principal id without the key that currently
+    /// speaks for it is not an authenticatable sender.
+    /// A derived `untagged` deserializer picks the first variant that fits, so
+    /// a device id beside a complete Agent triple would parse as the device and
+    /// silently drop the Agent identity. This pins that it does not.
+    #[test]
+    fn a_sender_carrying_both_branches_is_rejected_not_narrowed() {
+        let both = json!({
+            "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "sender_agent_id": "ak:did_core:webvh:z6mkfixtureagent",
+            "sender_agent_verification_method":
+                "did:webvh:z6mkfixtureagent:agent.example#agent-key-1",
+            "sender_agent_key_authorize_event_id":
+                "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e"
+        });
+        assert!(serde_json::from_value::<DeviceMessageSender>(both).is_err());
+        assert!(
+            serde_json::from_value::<DeviceMessageSender>(json!({
+                "sender_agent_id": "ak:did_core:webvh:z6mkfixtureagent"
+            }))
+            .is_err(),
+            "a half-filled Agent branch is not a sender"
+        );
+        // Surrounding envelope keys are not the sender's business: the shape is
+        // flattened, so it must tolerate them while still enforcing the XOR.
+        assert!(
+            serde_json::from_value::<DeviceMessageSender>(json!({
+                "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
+                "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001"
+            }))
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn device_message_sender_endpoint_is_a_closed_xor() {
+        let mut agent = envelope_value();
+        agent.as_object_mut().unwrap().remove("sender_device_id");
+        for (key, value) in agent_sender_fields().as_object().unwrap() {
+            agent
+                .as_object_mut()
+                .unwrap()
+                .insert(key.clone(), value.clone());
+        }
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(agent.clone()).is_ok());
+
+        let mut both = agent.clone();
+        both.as_object_mut().unwrap().insert(
+            "sender_device_id".to_owned(),
+            json!("ak:device:01904100-0000-7000-8000-000000000001"),
+        );
+        assert!(
+            serde_json::from_value::<DeviceMessageEnvelope>(both).is_err(),
+            "a Native Agent sender must not also carry a device id"
+        );
+
+        let mut half_agent = agent.clone();
+        half_agent
+            .as_object_mut()
+            .unwrap()
+            .remove("sender_agent_verification_method");
+        assert!(
+            serde_json::from_value::<DeviceMessageEnvelope>(half_agent).is_err(),
+            "a half-filled Agent branch must not be accepted"
+        );
+
+        let mut no_endpoint = envelope_value();
+        no_endpoint
+            .as_object_mut()
+            .unwrap()
+            .remove("sender_device_id");
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(no_endpoint).is_err());
     }
 
     #[test]

@@ -333,7 +333,7 @@ pub fn principal_control_realm_history_sharing_policy()
 /// `ak.profile.direct_conversation_realm.v1`.
 ///
 /// A Direct Conversation cannot author an `ak.realm.history_sharing_policy`
-/// Event: its founding unit is exactly three Events and its participant
+/// Event: its founding unit is exactly four Events and its participant
 /// authorities never carry a policy action. Consumers must use this profile
 /// value rather than treating the absent Event as a missing policy.
 pub fn direct_conversation_realm_history_sharing_policy()

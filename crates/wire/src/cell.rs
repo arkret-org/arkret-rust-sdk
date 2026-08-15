@@ -210,6 +210,36 @@ pub fn composite_subject<T: CompositeSubjectComponent>(parts: &[T]) -> Result<St
     Ok(canonical::sha256_base64url(&bytes))
 }
 
+/// Canonical cell subject for a registry `cell_subject.kind = "uri"` field
+/// (`conformance/encoding.md` §4 subject-kind dispatch table).
+///
+/// Every octet outside the subject unreserved set (`ALPHA / DIGIT / - . _ ~`)
+/// is percent-encoded with upper-case hex, **including `:`, `/` and `%`
+/// itself**. The result therefore carries no CellRef structure character and
+/// occupies a single subject segment.
+///
+/// Encoding `%` is what makes the transform injective. Keeping already-escaped
+/// octets verbatim — the rule the `did` / `typed_id` / `string` kinds use —
+/// would fold `…/rooms/a%2Fb` and `…/rooms/a/b` onto one subject; those are two
+/// different rooms, so an external provider could mint an alias for, hijack or
+/// block somebody else's binding cell. The caller MUST pass the already
+/// canonical URI: this function addresses a cell, it does not normalize one.
+pub fn uri_cell_subject(uri: &str) -> String {
+    let mut subject = String::with_capacity(uri.len() * 3);
+    for byte in uri.as_bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            subject.push(char::from(*byte));
+        } else {
+            subject.push('%');
+            subject.push(char::from(HEX_UPPER[usize::from(byte >> 4)]));
+            subject.push(char::from(HEX_UPPER[usize::from(byte & 0x0f)]));
+        }
+    }
+    subject
+}
+
+const HEX_UPPER: &[u8; 16] = b"0123456789ABCDEF";
+
 /// Canonical domain-separated digest for a closed, non-empty JSON string set.
 ///
 /// This transformation happens before a value is passed to

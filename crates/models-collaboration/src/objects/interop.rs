@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, EventId, Hash, PayloadProof, RealmId, SchemaId, StrandId};
+use arkret_wire::{
+    DidCoreId, EventId, Hash, MimiRoomUri, MimiUri, PayloadProof, RealmId, SchemaId, StrandId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -41,7 +43,7 @@ pub struct ContentMappingReceipt {
     pub schema: Option<String>,
     pub kind: String,
     pub profile: String,
-    pub mimi_room_uri: MimiUri,
+    pub mimi_room_uri: MimiRoomUri,
     pub source_format: String,
     pub target_format: String,
     pub original_envelope_digest: Hash,
@@ -56,9 +58,6 @@ pub struct ContentMappingReceipt {
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/mimi_uri`.
-pub type MimiUri = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/provider_directory`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -151,7 +150,7 @@ pub struct RoomBindingPayloadBindingScope {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RoomBindingPayload {
     pub profile: String,
-    pub mimi_room_uri: MimiUri,
+    pub mimi_room_uri: MimiRoomUri,
     pub binding_scope: RoomBindingPayloadBindingScope,
     pub hub_provider: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]

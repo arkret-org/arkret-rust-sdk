@@ -41,20 +41,6 @@ pub struct PrincipalResolutionUpdatePayload {
     pub previous_method_history_head: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalResolutionCellProof {
-    pub cell_ref: String,
-    pub cell_value: PrincipalResolutionProjection,
-    pub seal_id: String,
-    pub state_root: Hash,
-    pub leaf_digest: Hash,
-    pub leaf_index: u64,
-    pub leaf_count: u64,
-    pub inclusion_proof: Vec<Hash>,
-}
-
 /// Domain-separation context for the Principal Server projection attestation.
 pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT: &str =
     "ak.principal-resolution-projection-attestation-proof-v1";
@@ -160,9 +146,10 @@ impl PublicPrincipalResolution {
 
 /// Authorized request for account-internal resolution audit evidence.
 ///
-/// Authorization is a holder session bound to `principal_authority`, an accepted
-/// recovery session for it, or an explicit recovery capability. A caller
-/// declared intent is not authorization, so no intent field exists here.
+/// Authorization is the current holder session bound to the exact
+/// `principal_authority`. Recovery first completes through the existing
+/// transaction and becomes current holder; no second audit authorization path
+/// or caller-declared intent exists.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -229,7 +216,6 @@ pub struct PrincipalResolutionAuditEvidence {
     pub history_complete: bool,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub accepted_seal: Seal,
-    pub resolution_cell_proof: PrincipalResolutionCellProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_audit_cursor: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

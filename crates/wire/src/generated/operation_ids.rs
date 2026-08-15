@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-15.3;
-//! sha256=f0154b9130d8f437610ed5c6e207a926122af8be286f018f28e191018dbc60da Entries: registered=242
+//! Input: registry/operation-registry.json; version=2026-08-16.1;
+//! sha256=0c15cbeb6bc03fc8b7dbb01feddb1b1bf264077663b302c087fb3262e5861b2c Entries: registered=242
 
 use serde::{Deserialize, Serialize};
 
@@ -501,6 +501,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
 pub enum DurableEffectKind {
     EventLog,
     ActorPrivateEvent,
+    Branched,
     None,
 }
 
@@ -516,6 +517,7 @@ pub struct DurableEffectDescriptor {
     pub kind: DurableEffectKind,
     pub target: Option<DurableEventTarget>,
     pub rationale: Option<&'static str>,
+    pub branch_contract_json: Option<&'static str>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2027,6 +2029,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2155,6 +2158,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2179,6 +2183,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2203,6 +2208,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2229,6 +2235,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2253,6 +2260,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2277,6 +2285,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2301,6 +2310,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2561,6 +2571,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "records_only_a_service_local_orphan_anchor_tombstone_audit_reservation_and_releases_the_identity_creation_lease_no_event_is_authored",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2585,6 +2596,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2611,6 +2623,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "issues_only_a_short_lived_signed_gate_attestation_and_may_retain_a_service_local_exact_replay_record",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2637,6 +2650,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2663,6 +2677,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2689,6 +2704,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_only_a_service_local_single_use_challenge_and_holder_authenticated_did_operation_checkpoint_no_event_is_authored",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2713,6 +2729,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2739,6 +2756,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2765,6 +2783,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2791,6 +2810,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2815,6 +2835,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2841,6 +2862,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.device.authorize"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2867,6 +2889,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2896,6 +2919,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.device.authorize",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2922,6 +2946,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2946,6 +2971,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2972,6 +2998,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_only_service_local_dpop_handoff_lease_fence_and_account_binding_state_no_event_is_authored",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -2994,6 +3021,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("reads_only_the_current_service_local_account_onboarding_projection"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3018,6 +3046,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3084,6 +3113,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3182,6 +3212,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3208,6 +3239,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3232,6 +3264,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3258,6 +3291,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3284,6 +3318,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3310,6 +3345,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "$request.consent_event.event.kind",
             )),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3333,9 +3369,12 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "{\"operation_id\":\"ak.open.mimi.read.group_info\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
+            kind: DurableEffectKind::Branched,
             target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            rationale: None,
+            branch_contract_json: Some(
+                "{\"discriminator\":{\"description\":\"The caller-declared semantic MIMI update kind. The decoded opaque payload MUST carry the same kind before a branch is admitted.\",\"request_path\":\"/update/kind\"},\"effect_branches\":[{\"effect\":{\"event_kinds\":[\"ak.mimi.room_binding\"],\"event_submission_path\":\"/room_binding_event\",\"kind\":\"event_log\"},\"equals\":\"ak.mimi.room_binding\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"receipt_only_mimi_room_update\"},\"otherwise\":true}]}",
+            ),
         }),
     },
     ServiceOperationDescriptor {
@@ -3362,6 +3401,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3458,6 +3498,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.account.status"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3502,6 +3543,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3526,6 +3568,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("origin_service_local_durable_revocation_gate_decision_ledger_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3552,6 +3595,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "atomically_freezes_one_closed_recipient_target_snapshot_and_queue_batch_without_authoring_an_event",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3578,6 +3622,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "accepts_a_signed_receipt_and_may_trigger_local_erasure_but_does_not_author_an_event",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3624,6 +3669,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "$request.agent_transitions[*].event.kind",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3724,6 +3770,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("delivers_existing_signed_event_without_committing_a_local_event"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3750,6 +3797,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3817,6 +3865,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.device.authorize",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3843,6 +3892,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "service_local_durable_route_mirror_ledger_and_ack_only_no_realm_event",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3883,6 +3933,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("ephemeral_signal_must_not_be_durable_event"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3923,6 +3974,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -3983,6 +4035,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4009,6 +4062,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4033,6 +4087,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4057,6 +4112,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4137,6 +4193,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.policy.set"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4181,6 +4238,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4207,6 +4265,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4265,6 +4324,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4307,6 +4367,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4334,6 +4395,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.profile.update",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4424,6 +4486,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::ActorPrivateEvent,
             target: Some(DurableEventTarget::Static(&["ak.account_data.set"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4466,6 +4529,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::ActorPrivateEvent,
             target: Some(DurableEventTarget::Static(&["ak.account_data.set"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4512,6 +4576,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "releases_only_service_local_slug_and_realm_id_claims_and_records_a_tombstone_audit_reservation_no_event_is_authored",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4538,6 +4603,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.agent.deactivate"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4564,6 +4630,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4590,6 +4657,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.agent.pause"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4614,6 +4682,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.agent.provision"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4640,6 +4709,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4666,6 +4736,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.agent.resume"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4692,6 +4763,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.capability.grant"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4716,6 +4788,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.capability.revoke"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4758,6 +4831,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("controller_private_versioned_account_state"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4817,6 +4891,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.sidecar.context.attach",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4896,6 +4971,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.capability.grant",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4923,6 +4999,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.member.state",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4950,6 +5027,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.profile.create",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4972,6 +5050,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("read_only_preview_despite_post_binding"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -4996,6 +5075,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("query_only_recomputed_revoke_plan"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5020,6 +5100,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("pre_admission_only_no_event_commit"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5098,6 +5179,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5152,6 +5234,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5178,6 +5261,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5202,6 +5286,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.circle.archive"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5226,6 +5311,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.circle.create"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5250,6 +5336,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.circle.restore"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5276,6 +5363,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "v1_surface_is_declared_but_always_returns_unsupported_feature_until_a_signed_event_submission_request_contract_is_registered",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5300,6 +5388,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.circle.tombstone"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5326,6 +5415,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.circle.member.state"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5350,6 +5440,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.circle.member.state"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5408,6 +5499,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.consent.grant"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5434,6 +5526,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5460,6 +5553,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.consent.revoke"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5520,6 +5614,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.contact.rejected"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5544,6 +5639,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.contact.requested"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5568,6 +5664,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.contact.accepted"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5592,6 +5689,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.contact.scope.update"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5616,6 +5714,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.contact.tombstone"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5656,6 +5755,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("pre_admission_receipt_only_no_event_commit"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5680,6 +5780,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("durable_control_proposal_decision_log_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5724,6 +5825,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5748,6 +5850,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5792,6 +5895,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_a_byte_identical_service_local_peer_relay_outbox_without_authoring_an_event",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5841,6 +5945,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "$request.agent_transitions[*].event.kind",
             ])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -5863,6 +5968,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("commits_a_seal_not_an_event"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6057,6 +6163,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6081,6 +6188,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6107,6 +6215,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6143,6 +6252,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6167,6 +6277,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_a_byte_identical_service_local_peer_relay_outbox_without_authoring_an_event",
             ),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6191,6 +6302,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6215,6 +6327,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6239,6 +6352,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6279,6 +6393,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6301,6 +6416,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6325,6 +6441,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6349,6 +6466,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6375,6 +6493,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6401,6 +6520,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6427,6 +6547,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6469,6 +6590,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6511,6 +6633,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6591,6 +6714,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::ActorPrivateEvent,
             target: Some(DurableEventTarget::Static(&["ak.read_cursor.advance"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6635,6 +6759,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.archive"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6661,6 +6786,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.destroy"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6687,6 +6813,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.freeze"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6713,6 +6840,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.tombstone"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6755,6 +6883,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6779,6 +6908,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6803,6 +6933,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6881,6 +7012,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.moderation_policy"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -6941,6 +7073,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.link"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -7001,6 +7134,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.link"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -7041,6 +7175,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -7083,6 +7218,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
             rationale: None,
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -7105,6 +7241,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -7125,6 +7262,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -7163,6 +7301,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("ephemeral_signal_must_not_be_durable_event"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
@@ -7251,6 +7390,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {

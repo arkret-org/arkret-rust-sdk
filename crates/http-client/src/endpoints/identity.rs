@@ -62,10 +62,11 @@ impl Client {
         Ok(resolution)
     }
 
-    /// Fetch account-internal resolution audit and recovery evidence.
+    /// Fetch account-internal resolution audit evidence.
     ///
     /// Authorization is a holder session bound to the request authority pair, an
-    /// accepted recovery session for it, or an explicit recovery capability.
+    /// current holder session for the exact authority pair. Recovery first
+    /// completes through the existing transaction and becomes current holder.
     pub async fn self_identity_resolution_audit(
         &self,
         request: &PrincipalResolutionAuditRequest,

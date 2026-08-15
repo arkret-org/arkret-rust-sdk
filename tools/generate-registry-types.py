@@ -235,6 +235,7 @@ def generate_operations(artifacts: Path) -> str:
             "pub enum DurableEffectKind {",
             "    EventLog,",
             "    ActorPrivateEvent,",
+            "    Branched,",
             "    None,",
             "}",
             "",
@@ -250,6 +251,7 @@ def generate_operations(artifacts: Path) -> str:
             "    pub kind: DurableEffectKind,",
             "    pub target: Option<DurableEventTarget>,",
             "    pub rationale: Option<&'static str>,",
+            "    pub branch_contract_json: Option<&'static str>,",
             "}",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
@@ -400,7 +402,7 @@ def generate_operations(artifacts: Path) -> str:
                 durable_expr = (
                     "Some(DurableEffectDescriptor { "
                     "kind: DurableEffectKind::EventLog, "
-                    f"target: {target}, rationale: None }})"
+                    f"target: {target}, rationale: None, branch_contract_json: None }})"
                 )
             elif kind == "actor_private_event":
                 event_kind = durable.get("event_kind")
@@ -412,7 +414,8 @@ def generate_operations(artifacts: Path) -> str:
                     "Some(DurableEffectDescriptor { "
                     "kind: DurableEffectKind::ActorPrivateEvent, "
                     "target: Some(DurableEventTarget::Static("
-                    f"{rust_slice([event_kind])})), rationale: None }})"
+                    f"{rust_slice([event_kind])})), rationale: None, "
+                    "branch_contract_json: None })"
                 )
             elif kind == "none":
                 rationale = durable.get("rationale")
@@ -423,7 +426,28 @@ def generate_operations(artifacts: Path) -> str:
                 durable_expr = (
                     "Some(DurableEffectDescriptor { "
                     "kind: DurableEffectKind::None, target: None, "
-                    f"rationale: Some({rust_string(rationale)}) }})"
+                    f"rationale: Some({rust_string(rationale)}), "
+                    "branch_contract_json: None })"
+                )
+            elif kind == "branched":
+                discriminator = durable.get("discriminator")
+                branches = durable.get("effect_branches")
+                if not isinstance(discriminator, dict) or not isinstance(branches, list):
+                    raise ValueError(
+                        f"{row['operation_id']} branched durable effect needs discriminator and effect_branches"
+                    )
+                branch_contract = json.dumps(
+                    {
+                        "discriminator": discriminator,
+                        "effect_branches": branches,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+                durable_expr = (
+                    "Some(DurableEffectDescriptor { "
+                    "kind: DurableEffectKind::Branched, target: None, rationale: None, "
+                    f"branch_contract_json: Some({rust_string(branch_contract)}) }})"
                 )
             else:
                 raise ValueError(

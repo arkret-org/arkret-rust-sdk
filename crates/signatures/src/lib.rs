@@ -40,6 +40,8 @@ mod device_authorization;
 pub mod device_pairing;
 
 #[cfg(feature = "keypackages")]
+pub mod device_projection;
+#[cfg(feature = "keypackages")]
 pub mod keypackages;
 
 mod protocol_api;

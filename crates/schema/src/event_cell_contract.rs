@@ -35,10 +35,10 @@ pub enum EventCellContractContext {
     /// no accepted Seal yet, so the control write MUST use the spec's
     /// bootstrap exception and carry no CBA basis fields.
     OrdinaryRealmBootstrap,
-    /// The exact three-Event Direct Conversation founding unit. Its peer join
+    /// The exact four-Event Direct Conversation founding unit. Its two joins
     /// is a basis-free control write and its initial Strand is the one
     /// registered basis-free data write because the same not-yet-created
-    /// genesis Seal atomically covers all three Events.
+    /// genesis Seal atomically covers all four Events.
     DirectConversationFounding,
 }
 
@@ -1367,6 +1367,22 @@ fn derive_subject_value(
                 }
             }
             Err(subject_error(&kind, "no coalesce field is present"))
+        }
+        // `conformance/encoding.md` section 4 dispatches subject embedding on
+        // the registry `cell_subject.kind`. A `uri` subject is percent-encoded
+        // in full — `:`, `/` and `%` included — so the canonical URI occupies a
+        // single CellRef subject segment and two different URIs can never fold
+        // onto one cell. Every other simple kind (`did` / `typed_id` /
+        // `string` / `id:<kind>`) embeds its canonical scalar verbatim.
+        "uri" => {
+            let path = rule
+                .get("field")
+                .and_then(Value::as_str)
+                .ok_or_else(|| subject_error(&kind, "cell subject field is missing"))?;
+            let value = field_value(event, path)
+                .ok_or_else(|| subject_error(&kind, &format!("{path} is missing")))?;
+            let scalar = scalar_subject(value).map_err(|message| subject_error(&kind, &message))?;
+            Ok(arkret_wire::uri_cell_subject(&scalar))
         }
         _ => {
             let path = rule
@@ -2792,9 +2808,10 @@ mod tests {
         let event = realm_create_event(json!([]));
 
         let object = event.payload.get("object").unwrap().clone();
-        // The genesis append carries the registry constant `issuer_seq: 0`, not
-        // the envelope `actor_seq` of 7: it is the log's first entry by
-        // construction, and a producer has no say in the sequence.
+        // The genesis append carries the envelope `actor_seq` of 7. The
+        // registry pins `issuer_seq` to `actor_seq` for every ordered_log
+        // append and forbids cell-local constants: the coordinate is sparse,
+        // and a genesis entry is not special-cased into slot zero.
         assert_eq!(
             project(&event),
             vec![
@@ -2803,7 +2820,7 @@ mod tests {
                     arkret_wire::REALM_CREATE_CELL,
                     append_op(
                         json!("ak:realm:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G"),
-                        0
+                        7
                     ),
                 ),
                 write(

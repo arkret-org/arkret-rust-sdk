@@ -319,10 +319,7 @@ pub fn resolve_controller_backup_trust_anchor(
         return Err(ControllerBackupTrustAnchorError::DeviceNotCurrent);
     }
     Ok(ControllerBackupTrustAnchor {
-        authorize_event_id: record
-            .device_authorize_event_id
-            .clone()
-            .ok_or(ControllerBackupTrustAnchorError::DeviceNotCurrent)?,
+        authorize_event_id: record.device_authorize_event_id.clone(),
         generation_ref: generation_state
             .expect("usable record has generation state")
             .current_device_generation_ref,

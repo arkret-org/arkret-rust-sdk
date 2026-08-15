@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-15.3;
-//! sha256=f0154b9130d8f437610ed5c6e207a926122af8be286f018f28e191018dbc60da Input: registry/
-//! operations-error-mapping.json; version=2026-08-15.2;
-//! sha256=2c9563dc3ddb3e9c51a0ba134250a9ee5bb3c864ea8321c468a99d9b1a003677 Input: registry/
-//! error-code-registry.json; version=2026-08-15.1;
-//! sha256=328bd8528126098eac0f2b07086d9666ea12746663859137a627404367bd9055 Entries: operations=242
+//! Input: registry/operation-registry.json; version=2026-08-16.1;
+//! sha256=0c15cbeb6bc03fc8b7dbb01feddb1b1bf264077663b302c087fb3262e5861b2c Input: registry/
+//! operations-error-mapping.json; version=2026-08-16.1;
+//! sha256=05fd0ea27bfb95e6c0b0a409f719d53ff90c67847d9cdd2dd6f81a5194fe9881 Input: registry/
+//! error-code-registry.json; version=2026-08-16.1;
+//! sha256=928375fa465bca908c32891d7b7555fee3166a56a3849f24682d48c2581ee005 Entries: operations=242
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -418,7 +418,9 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::OpenMimiCommandUpdateRoom,
-        operation_specific: &[],
+        operation_specific: &[OperationSpecificError::ErrorCode(
+            ErrorCode::MimiRoomBindingEventInvalid,
+        )],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::OpenMimiExchangeRequestKeyMaterial,
@@ -1104,6 +1106,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::SourceRefsUnverifiable),
             OperationSpecificError::ErrorCode(ErrorCode::ContactLineageConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::ContinuityEvidenceUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::ContinuityInvalid),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1355,10 +1359,7 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfKeysKeypackagesCommandClaim,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::OneTimeKeysExhausted),
-            OperationSpecificError::ErrorCode(ErrorCode::PrincipalUnknown),
-        ],
+        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::ClaimFailed)],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfKeysKeypackagesCommandConsume,

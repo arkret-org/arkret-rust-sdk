@@ -58,17 +58,11 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
                 "signature_algorithm": "Ed25519",
                 "sig": "c2ln"
             }
-        },
-        "failures": [{
-            "keypackage_ref": "ak:mls:keypackage:missing",
-            "reason_code": "not_found"
-        }],
-        "available_count": 1
+        }
     });
     let parsed: KeyPackagesClaimOutcome = serde_json::from_value(outcome).unwrap();
     assert_eq!(parsed.claims[0].principal_id, did("alice"));
     assert!(parsed.claims[0].device_authorize_event_id.is_some());
-    assert_eq!(parsed.failures[0].reason_code.as_str(), "not_found");
 
     let malformed_claim = json!({
         "claims": [{

@@ -1280,6 +1280,35 @@ pub fn embedded_json_artifact(path: &str) -> Result<Value> {
     read_embedded_json_artifact(path)
 }
 
+/// Return whether the named Realm bootstrap slot explicitly registers a
+/// genesis `head_eq null` precondition.
+///
+/// Bootstrap validators consume this machine contract instead of growing a
+/// second hard-coded exception list in each SDK/service implementation.
+pub fn realm_bootstrap_genesis_head_eq_registered(profile: &str, condition: &str) -> Result<bool> {
+    let registry = read_embedded_json_artifact("registry/contract-registry.json")?;
+    let slots = registry
+        .pointer(&format!(
+            "/realm_bootstrap_registry/{profile}/ordered_slots"
+        ))
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "Realm bootstrap profile {profile} has no ordered_slots registry"
+            ))
+        })?;
+    let matching = slots
+        .iter()
+        .filter(|slot| slot.get("condition").and_then(Value::as_str) == Some(condition))
+        .collect::<Vec<_>>();
+    if matching.len() != 1 {
+        return Err(Error::Protocol(format!(
+            "Realm bootstrap condition {profile}/{condition} is not unique"
+        )));
+    }
+    Ok(matches!(matching[0].get("head_eq"), Some(Value::Null)))
+}
+
 /// Return the canonical OpenAPI YAML copied from the spec artifact pipeline.
 pub fn embedded_openapi_yaml() -> Result<&'static str> {
     if EMBEDDED_OPENAPI_YAML.is_empty() {

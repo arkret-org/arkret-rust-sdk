@@ -318,10 +318,6 @@ impl KeyPackagesClaimRequestBody {
 pub struct KeyPackagesClaimOutcome {
     pub claims: Vec<KeyPackageClaimRecord>,
     pub claim_receipt: SelfKeyPackageClaimReceipt,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failures: Vec<Failure>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub available_count: Option<u64>,
 }
 
 pub const SELF_KEYPACKAGE_CLAIM_RECEIPT_SIGNATURE_DOMAIN: &str =

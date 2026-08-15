@@ -3,7 +3,8 @@
 use std::num::NonZeroU64;
 
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, Hash, MimiRoomUri, MlsGroupId, NonEmptyString, ReasonCode,
+    Base64UrlString, DeviceId, DidCoreId, Hash, MimiRoomUri, MimiUri, MlsGroupId, NonEmptyString,
+    ReasonCode,
 };
 use serde::{Deserialize, Serialize};
 
@@ -161,7 +162,7 @@ pub struct MimiIdentifierMatch {
     pub identifier_commitment: Hash,
     pub matched: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mimi_uri: Option<MimiRoomUri>,
+    pub mimi_uri: Option<MimiUri>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject: Option<DidCoreId>,
 }

@@ -146,10 +146,8 @@ pub(crate) fn state_root_from_projection(
     let mut ops_by_cell = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
     for (event, move_id) in covered {
         let effects = direct_projection(event, project)?;
-        // One Event may claim an ordered-log slot at most once: two writes on
-        // the same `(cell, issuer_seq)` would share this Event's digest, so the
-        // 4.2 tie-break cannot disambiguate them and it is not a collision
-        // between two Events either. Reject before anything reaches a lattice.
+        // One Event may project at most one ordered-log entry into one cell;
+        // Event identity is the grow-only set key.
         if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
             return Err(Error::Protocol(format!(
                 "bootstrap Event claims ordered-log slot {}#{} twice",
@@ -178,18 +176,10 @@ pub(crate) fn state_root_from_projection(
             .resolve(realm_id, &cell)
             .map_err(|error| Error::Protocol(format!("bootstrap cell registry: {error}")))?;
         if binding.lattice.kind() == LatticeKind::OrderedLog {
-            // A slot that failed closed (digest collision / unresolvable digest)
-            // or that carries issuer equivocation MUST NOT be folded into a
-            // state root as if it had one settled value.
             let report = OrderedLog.join_with_issuer_report(&issued);
-            if !report.fail_closed.is_empty() {
+            if !report.identity_collisions.is_empty() {
                 return Err(Error::Protocol(format!(
-                    "bootstrap cell {cell} ordered-log slot failed closed"
-                )));
-            }
-            if !report.equivocations.is_empty() {
-                return Err(Error::Protocol(format!(
-                    "bootstrap cell {cell} contains issuer equivocation"
+                    "bootstrap cell {cell} contains an Event identity collision"
                 )));
             }
         }

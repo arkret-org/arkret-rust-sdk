@@ -337,10 +337,8 @@ fn apply_managed_agent_batch(
             }
             effects
         };
-        // One Event may claim an ordered-log slot at most once: two writes on
-        // the same `(cell, issuer_seq)` would share this Event's digest, so the
-        // §4.2 tie-break could not disambiguate them and it is not a collision
-        // between two Events either. Reject before anything reaches a lattice.
+        // One Event may project at most one ordered-log entry into one cell;
+        // Event identity is the grow-only set key.
         if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
             return Err(Error::Protocol(format!(
                 "managed Agent PCR Event claims ordered-log slot {}#{} twice",
@@ -365,14 +363,9 @@ fn apply_managed_agent_batch(
             && binding.lattice.kind() == LatticeKind::OrderedLog
         {
             let report = OrderedLog.join_with_issuer_report(&issued);
-            if !report.fail_closed.is_empty() {
+            if !report.identity_collisions.is_empty() {
                 return Err(Error::Protocol(format!(
-                    "managed Agent PCR cell {cell} ordered-log slot failed closed"
-                )));
-            }
-            if !report.equivocations.is_empty() {
-                return Err(Error::Protocol(format!(
-                    "managed Agent PCR cell {cell} contains issuer equivocation"
+                    "managed Agent PCR cell {cell} contains an Event identity collision"
                 )));
             }
         }

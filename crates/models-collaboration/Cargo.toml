@@ -31,6 +31,7 @@ arkret-canonical = {workspace = true}
 arkret-identifiers = {workspace = true}
 arkret-models-crypto = {workspace = true}
 arkret-models-identity = {workspace = true}
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 arkret-wire = {workspace = true}
 salvo-oapi = {workspace = true, optional = true}
 chrono = {workspace = true,features = ["serde"]}
@@ -45,7 +46,6 @@ thiserror = {workspace = true}
 unicode-normalization = {workspace = true}
 
 [dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 arkret-wire = {workspace = true,features = ["test-support"]}
 proptest = {workspace = true,default-features = false,features = ["std"]}
 

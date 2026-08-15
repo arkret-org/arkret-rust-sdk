@@ -954,7 +954,7 @@ mod tests {
             limited: true,
             prev_cursor: Some("backfill-token".to_owned()),
             preview_only: None,
-            ordered_log_conflicts: Vec::new(),
+            ordered_log_siblings: Vec::new(),
             extra: BTreeMap::new(),
         };
 

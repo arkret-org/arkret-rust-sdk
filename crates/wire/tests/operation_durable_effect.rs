@@ -37,6 +37,19 @@ fn every_write_operation_has_a_closed_durable_effect_descriptor() {
             (DurableEffectKind::ActorPrivateEvent, Some(DurableEventTarget::Static([kind]))) => {
                 assert_eq!(event_wire_scope(kind), EventWireScope::ActorPrivateEvent);
             }
+            (DurableEffectKind::Branched, None) => {
+                let contract = effect
+                    .branch_contract_json
+                    .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+                    .unwrap_or_else(|| panic!("{} has no valid branch contract", operation.id));
+                assert!(contract.pointer("/discriminator/request_path").is_some());
+                assert!(
+                    contract
+                        .get("effect_branches")
+                        .and_then(serde_json::Value::as_array)
+                        .is_some_and(|branches| branches.len() >= 2)
+                );
+            }
             (DurableEffectKind::None, None) => {
                 assert!(effect.rationale.is_some_and(|value| !value.is_empty()));
             }

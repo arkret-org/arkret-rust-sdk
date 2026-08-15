@@ -608,26 +608,168 @@ impl<'de> Deserialize<'de> for NonEmptyJsonObject {
     }
 }
 
-/// MIMI room URI accepted by `mimi_room_binding_payload`.
+/// Canonical MIMI room URI accepted by `mimi_room_binding_payload`.
+///
+/// The value is the `ak.component.mimi.room_binding.v1` cell subject source, so
+/// it is a closed canonical form rather than a free URI
+/// (`zh/extensions/mimi-interop.md` §4). Two spellings of one room would
+/// otherwise each own a "first accepted binding" and the `revoked` terminal
+/// state could be bypassed by respelling, because the subject is both the
+/// `state_root` leaf preimage and the leaf sort key. A non-canonical value is
+/// rejected here; it is never normalized and then accepted.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRoomUri(String);
 
+/// Closed upper bound on the canonical wire form, in octets.
+const MIMI_ROOM_URI_MAX_LEN: usize = 512;
+
+/// The scheme's default port. Writing it explicitly is a second spelling of the
+/// same room, so it is rejected rather than stripped.
+const MIMI_DEFAULT_PORT: u32 = 443;
+
 impl MimiRoomUri {
     pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
         let value = value.into();
-        let Some(room) = value.strip_prefix("mimi://") else {
-            return Err("MIMI room URI must start with mimi://");
-        };
-        if room.is_empty() || room.chars().any(char::is_whitespace) {
-            return Err("MIMI room URI must contain a non-whitespace room identifier");
+        if value.len() > MIMI_ROOM_URI_MAX_LEN {
+            return Err("MIMI room URI exceeds the canonical 512-octet bound");
         }
+        let Some(rest) = value.strip_prefix("mimi://") else {
+            return Err("MIMI room URI must start with a lowercase mimi:// scheme");
+        };
+        if rest.contains(['?', '#']) {
+            return Err("MIMI room URI must not carry a query or a fragment");
+        }
+        let Some((authority, path)) = rest.split_once('/') else {
+            return Err("MIMI room URI must carry at least one non-empty path segment");
+        };
+        validate_mimi_authority(authority)?;
+        validate_mimi_path(path)?;
         Ok(Self(value))
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// Canonical `ak:cell:ak.component.mimi.room_binding.v1:<subject>` subject
+    /// segment for this room (`conformance/encoding.md` §4, `uri` kind).
+    pub fn cell_subject(&self) -> String {
+        crate::cell::uri_cell_subject(&self.0)
+    }
+}
+
+/// `host[:port]` with no userinfo, lowercase A-label host, and a port that is
+/// neither zero-padded nor the default.
+fn validate_mimi_authority(authority: &str) -> Result<(), &'static str> {
+    if authority.contains('@') {
+        return Err("MIMI room URI authority must not carry userinfo");
+    }
+    let (host, port) = match authority.split_once(':') {
+        Some((host, port)) => (host, Some(port)),
+        None => (authority, None),
+    };
+    if host.is_empty() {
+        return Err("MIMI room URI host must not be empty");
+    }
+    for label in host.split('.') {
+        let bytes = label.as_bytes();
+        if bytes.is_empty() {
+            return Err("MIMI room URI host label must not be empty");
+        }
+        if !bytes
+            .iter()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-')
+        {
+            return Err("MIMI room URI host must be a lowercase A-label");
+        }
+        if bytes[0] == b'-' || bytes[bytes.len() - 1] == b'-' {
+            return Err("MIMI room URI host label must not start or end with a hyphen");
+        }
+    }
+    let Some(port) = port else {
+        return Ok(());
+    };
+    if port.is_empty() || !port.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err("MIMI room URI port must be decimal digits");
+    }
+    if port.starts_with('0') {
+        return Err("MIMI room URI port must not have a leading zero");
+    }
+    let parsed = port
+        .parse::<u32>()
+        .map_err(|_| "MIMI room URI port is out of range")?;
+    if parsed == 0 || parsed > 65_535 {
+        return Err("MIMI room URI port is out of range");
+    }
+    if parsed == MIMI_DEFAULT_PORT {
+        return Err("MIMI room URI must omit the default port");
+    }
+    Ok(())
+}
+
+/// At least one non-empty segment, no dot segments, no trailing slash, and
+/// RFC 3986 §6.2.2.2 minimal percent-encoding with upper-case hex.
+fn validate_mimi_path(path: &str) -> Result<(), &'static str> {
+    if path.is_empty() {
+        return Err("MIMI room URI must carry at least one non-empty path segment");
+    }
+    for segment in path.split('/') {
+        if segment.is_empty() {
+            return Err("MIMI room URI path must not contain an empty segment");
+        }
+        if segment == "." || segment == ".." {
+            return Err("MIMI room URI path must not contain a dot segment");
+        }
+        validate_mimi_segment(segment)?;
+    }
+    Ok(())
+}
+
+fn validate_mimi_segment(segment: &str) -> Result<(), &'static str> {
+    let bytes = segment.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if byte == b'%' {
+            let (Some(high), Some(low)) = (bytes.get(index + 1), bytes.get(index + 2)) else {
+                return Err("MIMI room URI percent escape is truncated");
+            };
+            if !is_upper_hex(*high) || !is_upper_hex(*low) {
+                return Err("MIMI room URI percent escape must use upper-case hex");
+            }
+            let octet = hex_value(*high) * 16 + hex_value(*low);
+            if is_uri_unreserved(octet) {
+                return Err("MIMI room URI must not percent-encode an unreserved octet");
+            }
+            index += 3;
+            continue;
+        }
+        if !is_uri_unreserved(byte)
+            && !matches!(byte, b'!' | b'$' | b'&' | b'\'' | b'(' | b')')
+            && !matches!(byte, b'*' | b'+' | b',' | b';' | b'=' | b':' | b'@')
+        {
+            return Err("MIMI room URI path segment carries an unencoded reserved octet");
+        }
+        index += 1;
+    }
+    Ok(())
+}
+
+const fn is_uri_unreserved(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~')
+}
+
+const fn is_upper_hex(byte: u8) -> bool {
+    byte.is_ascii_digit() || matches!(byte, b'A'..=b'F')
+}
+
+const fn hex_value(byte: u8) -> u8 {
+    if byte.is_ascii_digit() {
+        byte - b'0'
+    } else {
+        byte - b'A' + 10
     }
 }
 
@@ -652,6 +794,65 @@ impl fmt::Display for MimiRoomUri {
 }
 
 impl<'de> Deserialize<'de> for MimiRoomUri {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(de::Error::custom)
+    }
+}
+
+/// Non-room MIMI URI (`mimi-interop.schema.json#/$defs/mimi_uri`).
+///
+/// Provider ids and identifier-query targets are ordinary MIMI URIs: they never
+/// address an Arkret cell, so they carry none of the canonicalization duties
+/// [`MimiRoomUri`] does and MUST NOT be substituted for one. A provider id such
+/// as `mimi://provider.example` has no path segment at all and is deliberately
+/// outside the room form.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiUri(String);
+
+impl MimiUri {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        let Some(rest) = value.strip_prefix("mimi://") else {
+            return Err("MIMI URI must start with mimi://");
+        };
+        if rest.is_empty() || rest.chars().any(char::is_whitespace) {
+            return Err("MIMI URI must contain a non-whitespace authority");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for MimiUri {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for MimiUri {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for MimiUri {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for MimiUri {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -899,6 +1100,7 @@ mod tests {
         assert!(OpaqueLocalId::new("agent_runtime_approval:request-1").is_ok());
         assert!(MimiRoomUri::new("mimi://").is_err());
         assert!(MimiRoomUri::new("https://example.test/room").is_err());
+        assert!(MimiUri::new("mimi://provider.example").is_ok());
         assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example").is_err());
         assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").is_ok());
         assert!(Base64UrlString::new("").is_err());
@@ -911,6 +1113,59 @@ mod tests {
         assert!(ProtocolKind::new("ak.key..request").is_err());
         assert!(ProtocolKind::new("ak.Key.request").is_err());
         assert!(ProtocolKind::new("vendor.key.request").is_err());
+    }
+
+    /// `zh/extensions/mimi-interop.md` §4: the room URI is a cell subject
+    /// source, so every non-canonical spelling is rejected rather than
+    /// normalized — two spellings would each own a "first accepted binding".
+    #[test]
+    fn mimi_room_uri_accepts_only_the_canonical_form() {
+        for value in [
+            "mimi://mimi.example.com/rooms/01JSMIMI",
+            "mimi://mimi.example.com:8443/rooms/01JSMIMI",
+            "mimi://xn--80ak6aa92e.example/rooms/a%2Fb",
+            "mimi://provider/rooms/a-b_c.d~e",
+        ] {
+            assert!(MimiRoomUri::new(value).is_ok(), "{value}");
+        }
+        for value in [
+            "mimi://MIMI.example.com/rooms/r",
+            "mimi://mimi.example.com",
+            "mimi://mimi.example.com/",
+            "mimi://mimi.example.com/rooms/",
+            "mimi://mimi.example.com//rooms",
+            "mimi://mimi.example.com/rooms/r?x=1",
+            "mimi://mimi.example.com/rooms/r#f",
+            "mimi://user@mimi.example.com/rooms/r",
+            "mimi://mimi.example.com:0443/rooms/r",
+            "mimi://mimi.example.com:443/rooms/r",
+            "mimi://mimi.example.com:70000/rooms/r",
+            "mimi://mimi.example.com/rooms/./r",
+            "mimi://mimi.example.com/rooms/../r",
+            "mimi://mimi.example.com/rooms/a%2fb",
+            "mimi://mimi.example.com/rooms/%41",
+            "mimi://-bad.example/rooms/r",
+        ] {
+            assert!(MimiRoomUri::new(value).is_err(), "{value}");
+        }
+        let long = format!("mimi://mimi.example.com/{}", "a".repeat(500));
+        assert!(long.len() > 512);
+        assert!(MimiRoomUri::new(long).is_err());
+    }
+
+    /// The escaped and the unescaped separator address different rooms, so the
+    /// subject transform must keep them apart — that is why `%` is encoded.
+    #[test]
+    fn mimi_room_uri_cell_subject_is_injective_over_the_separator() {
+        let escaped = MimiRoomUri::new("mimi://mimi.example.com/rooms/a%2Fb").unwrap();
+        let split = MimiRoomUri::new("mimi://mimi.example.com/rooms/a/b").unwrap();
+        assert_ne!(escaped.cell_subject(), split.cell_subject());
+        assert_eq!(
+            MimiRoomUri::new("mimi://mimi.example.com/rooms/01JSMIMI")
+                .unwrap()
+                .cell_subject(),
+            "mimi%3A%2F%2Fmimi.example.com%2Frooms%2F01JSMIMI"
+        );
     }
 
     #[test]

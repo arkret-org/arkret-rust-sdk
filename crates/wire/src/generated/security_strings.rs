@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-15.1;
-//! sha256=06e723215343e72d721d04c1346bd9b382587120be86cdda8714e0e8e5e3280b Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-15.2;
+//! sha256=987c4e3c3ca8f44df1328d189e92ed0b0ec65ba02f5d36b1fdca951eef25c081 Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
@@ -13,8 +13,8 @@
 //! mls-ciphersuite-registry.json; version=2026-07-29;
 //! sha256=dd8c2024b8d231fc94e169185a894c413dd16c40b99ae6cd1764a848535fb59f Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
-//! Entries: proof_contexts=48, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
+//! Entries: proof_contexts=49, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -36,6 +36,7 @@ pub enum ProofContextId {
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
     DeviceAuthorizePossessionProofV1,
     DeviceAuthorizeRecoveryPossessionProofV1,
+    DeviceProjectionAttestationProofV1,
     DeviceRevocationGateDecisionProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
@@ -88,6 +89,7 @@ impl ProofContextId {
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
         Self::DeviceAuthorizePossessionProofV1,
         Self::DeviceAuthorizeRecoveryPossessionProofV1,
+        Self::DeviceProjectionAttestationProofV1,
         Self::DeviceRevocationGateDecisionProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
@@ -149,6 +151,8 @@ impl ProofContextId {
         "ak.device-authorize-possession-proof-v1";
     pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
         "ak.device-authorize-recovery-possession-proof-v1";
+    pub const DEVICE_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
+        "ak.device-projection-attestation-proof-v1";
     pub const DEVICE_REVOCATION_GATE_DECISION_PROOF_V1: &'static str =
         "ak.device-revocation-gate-decision-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
@@ -228,6 +232,9 @@ impl ProofContextId {
             Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
             Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1
+            }
+            Self::DeviceProjectionAttestationProofV1 => {
+                Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1
             }
             Self::DeviceRevocationGateDecisionProofV1 => {
                 Self::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1
@@ -317,6 +324,9 @@ impl ProofContextId {
             }
             Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeRecoveryPossessionProofV1)
+            }
+            Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1 => {
+                Some(Self::DeviceProjectionAttestationProofV1)
             }
             Self::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1 => {
                 Some(Self::DeviceRevocationGateDecisionProofV1)
@@ -728,6 +738,27 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "authorization_binding_kind",
         ],
         schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::DeviceProjectionAttestationProofV1,
+        context: "ak.device-projection-attestation-proof-v1",
+        object_family: "device_projection_attestation",
+        binding_fields: &[
+            "payload_digest",
+            "principal_id",
+            "principal_server_id",
+            "device_id",
+            "device_signing_key",
+            "hpke_key",
+            "device_authorize_event_id",
+            "authorized_generation_ref",
+            "device_status",
+            "attested_at",
+            "expires_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/keys-operations.schema.json#/$defs/device_projection_attestation",
     },
     ProofContextDescriptor {
         id: ProofContextId::DeviceRevocationGateDecisionProofV1,

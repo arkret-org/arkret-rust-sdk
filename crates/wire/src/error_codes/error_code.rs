@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-15.1;
-//! sha256=328bd8528126098eac0f2b07086d9666ea12746663859137a627404367bd9055 Entries: error_codes=279
+//! Input: registry/error-code-registry.json; version=2026-08-16.1;
+//! sha256=928375fa465bca908c32891d7b7555fee3166a56a3849f24682d48c2581ee005 Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -88,6 +88,8 @@ pub enum ErrorCode {
     ContactRequestExpired,
     ContactRequestNotPending,
     ContactScopeStale,
+    ContinuityEvidenceUnavailable,
+    ContinuityInvalid,
     ControllerSignedEventRequired,
     CredentialExpired,
     CredentialNotFound,
@@ -175,6 +177,7 @@ pub enum ErrorCode {
     MimiPayloadDigestMismatch,
     MimiPayloadInvalid,
     MimiReporterResolutionRequired,
+    MimiRoomBindingEventInvalid,
     MlsGenerationProposalFanoutExceeded,
     MlsGovernanceAnchorUnreachable,
     MlsGovernanceProofBoundsExceeded,
@@ -381,6 +384,8 @@ impl ErrorCode {
         Self::ContactRequestExpired,
         Self::ContactRequestNotPending,
         Self::ContactScopeStale,
+        Self::ContinuityEvidenceUnavailable,
+        Self::ContinuityInvalid,
         Self::ControllerSignedEventRequired,
         Self::CredentialExpired,
         Self::CredentialNotFound,
@@ -468,6 +473,7 @@ impl ErrorCode {
         Self::MimiPayloadDigestMismatch,
         Self::MimiPayloadInvalid,
         Self::MimiReporterResolutionRequired,
+        Self::MimiRoomBindingEventInvalid,
         Self::MlsGenerationProposalFanoutExceeded,
         Self::MlsGovernanceAnchorUnreachable,
         Self::MlsGovernanceProofBoundsExceeded,
@@ -667,6 +673,8 @@ impl ErrorCode {
     pub const CONTACT_REQUEST_EXPIRED: &'static str = "contact_request_expired";
     pub const CONTACT_REQUEST_NOT_PENDING: &'static str = "contact_request_not_pending";
     pub const CONTACT_SCOPE_STALE: &'static str = "contact_scope_stale";
+    pub const CONTINUITY_EVIDENCE_UNAVAILABLE: &'static str = "continuity_evidence_unavailable";
+    pub const CONTINUITY_INVALID: &'static str = "continuity_invalid";
     pub const CONTROLLER_SIGNED_EVENT_REQUIRED: &'static str = "controller_signed_event_required";
     pub const CREDENTIAL_EXPIRED: &'static str = "credential_expired";
     pub const CREDENTIAL_NOT_FOUND: &'static str = "credential_not_found";
@@ -760,6 +768,7 @@ impl ErrorCode {
     pub const MIMI_PAYLOAD_DIGEST_MISMATCH: &'static str = "mimi_payload_digest_mismatch";
     pub const MIMI_PAYLOAD_INVALID: &'static str = "mimi_payload_invalid";
     pub const MIMI_REPORTER_RESOLUTION_REQUIRED: &'static str = "mimi_reporter_resolution_required";
+    pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
     pub const MLS_GENERATION_PROPOSAL_FANOUT_EXCEEDED: &'static str =
         "mls_generation_proposal_fanout_exceeded";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
@@ -981,6 +990,8 @@ impl ErrorCode {
             Self::ContactRequestExpired => "contact_request_expired",
             Self::ContactRequestNotPending => "contact_request_not_pending",
             Self::ContactScopeStale => "contact_scope_stale",
+            Self::ContinuityEvidenceUnavailable => "continuity_evidence_unavailable",
+            Self::ContinuityInvalid => "continuity_invalid",
             Self::ControllerSignedEventRequired => "controller_signed_event_required",
             Self::CredentialExpired => "credential_expired",
             Self::CredentialNotFound => "credential_not_found",
@@ -1070,6 +1081,7 @@ impl ErrorCode {
             Self::MimiPayloadDigestMismatch => "mimi_payload_digest_mismatch",
             Self::MimiPayloadInvalid => "mimi_payload_invalid",
             Self::MimiReporterResolutionRequired => "mimi_reporter_resolution_required",
+            Self::MimiRoomBindingEventInvalid => "mimi_room_binding_event_invalid",
             Self::MlsGenerationProposalFanoutExceeded => "mls_generation_proposal_fanout_exceeded",
             Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
             Self::MlsGovernanceProofBoundsExceeded => "mls_governance_proof_bounds_exceeded",
@@ -1283,6 +1295,8 @@ impl ErrorCode {
             "contact_request_expired" => Some(Self::ContactRequestExpired),
             "contact_request_not_pending" => Some(Self::ContactRequestNotPending),
             "contact_scope_stale" => Some(Self::ContactScopeStale),
+            "continuity_evidence_unavailable" => Some(Self::ContinuityEvidenceUnavailable),
+            "continuity_invalid" => Some(Self::ContinuityInvalid),
             "controller_signed_event_required" => Some(Self::ControllerSignedEventRequired),
             "credential_expired" => Some(Self::CredentialExpired),
             "credential_not_found" => Some(Self::CredentialNotFound),
@@ -1376,6 +1390,7 @@ impl ErrorCode {
             "mimi_payload_digest_mismatch" => Some(Self::MimiPayloadDigestMismatch),
             "mimi_payload_invalid" => Some(Self::MimiPayloadInvalid),
             "mimi_reporter_resolution_required" => Some(Self::MimiReporterResolutionRequired),
+            "mimi_room_binding_event_invalid" => Some(Self::MimiRoomBindingEventInvalid),
             "mls_generation_proposal_fanout_exceeded" => {
                 Some(Self::MlsGenerationProposalFanoutExceeded)
             }
@@ -2011,6 +2026,22 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "An existing Contact binding is discoverable but the source-signed issuer head checkpoint/current lease is stale, unknown or incomplete. Contact-based create/send fails closed while coordinates remain visible to authorized participants.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::ContinuityEvidenceUnavailable,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A required bilateral continuity checkpoint, predecessor checkpoint or uncompressed tail segment is not currently available. The operation writes nothing and may be retried only after importing or retrieving the exact portable evidence; no gap is inferred or skipped.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::ContinuityInvalid,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "Bilateral continuity evidence has an invalid signature, root/participant mismatch, broken or trimmed edge, rollback, same-sequence fork, accumulator mismatch or one-sided checkpoint. The operation writes nothing and MUST NOT downgrade this result to evidence retrieval.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ControllerSignedEventRequired,
@@ -2707,6 +2738,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "MIMI reporter resolution is required before this action.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::MimiRoomBindingEventInvalid,
+        http_status: 400,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The caller-authored room binding Event is missing, unexpected, semantically inconsistent, or does not exactly bind the authenticated MIMI room update. These pre-admission causes deliberately share one outward envelope; the precise reason is audit-only.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGenerationProposalFanoutExceeded,

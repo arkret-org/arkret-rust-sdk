@@ -21,7 +21,7 @@ pub struct AccountStatusPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<NullableTimestamp>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes_status_event_id: Option<EventId>,
+    pub supersedes_status_event_ids: Option<Vec<EventId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub admin_proof: Option<SignatureMaterial>,
 }

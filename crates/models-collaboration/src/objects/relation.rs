@@ -113,7 +113,6 @@ pub enum RelationConflictPolicy {
     Reject,
     ClosePrevious,
     #[default]
-    DeterministicWinner,
     RequireReview,
 }
 
@@ -122,7 +121,7 @@ fn relation_scope_is_default(value: &RelationScope) -> bool {
 }
 
 fn relation_conflict_policy_is_default(value: &RelationConflictPolicy) -> bool {
-    *value == RelationConflictPolicy::DeterministicWinner
+    *value == RelationConflictPolicy::RequireReview
 }
 
 fn bool_is_false(value: &bool) -> bool {
@@ -349,7 +348,7 @@ mod tests {
             max_from_per_to: None,
             multi_edge: false,
             rank_field: None,
-            on_conflict: RelationConflictPolicy::DeterministicWinner,
+            on_conflict: RelationConflictPolicy::RequireReview,
         }
     }
 
@@ -361,10 +360,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(minimal.relation_scope, RelationScope::Realm);
-        assert_eq!(
-            minimal.on_conflict,
-            RelationConflictPolicy::DeterministicWinner
-        );
+        assert_eq!(minimal.on_conflict, RelationConflictPolicy::RequireReview);
         assert!(!minimal.multi_edge);
         assert_eq!(
             serde_json::to_value(&minimal).unwrap(),
@@ -385,12 +381,12 @@ mod tests {
             max_from_per_to: Some(8),
             multi_edge: true,
             rank_field: Some("rank".to_owned()),
-            on_conflict: RelationConflictPolicy::RequireReview,
+            on_conflict: RelationConflictPolicy::Reject,
         };
         let value = serde_json::to_value(&complete).unwrap();
         assert_eq!(value["relation_scope"], "board");
         assert_eq!(value["cardinality"], "many_to_one");
-        assert_eq!(value["on_conflict"], "require_review");
+        assert_eq!(value["on_conflict"], "reject");
         assert_eq!(
             serde_json::from_value::<RelationProfile>(value).unwrap(),
             complete

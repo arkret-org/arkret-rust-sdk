@@ -1,5 +1,6 @@
 use arkret_schema::embedded_json_artifact;
 
+#[cfg(feature = "embedded-artifacts")]
 #[test]
 fn embedded_device_revocation_fixture_keeps_the_named_contract() {
     let fixture =

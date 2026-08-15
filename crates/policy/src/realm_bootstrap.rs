@@ -297,7 +297,7 @@ pub fn validate_realm_bootstrap_unit(
             })
         });
     if direct_conversation {
-        let exact: [&Event; 3] = events
+        let exact: [&Event; 4] = events
             .iter()
             .collect::<Vec<_>>()
             .try_into()
@@ -387,7 +387,14 @@ pub fn validate_realm_bootstrap_unit(
                 let creator_cell =
                     CellRef::new(format!("ak:cell:ak.component.member.state.v1:{actor_id}"))
                         .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
-                if followup.preconditions.len() != 1
+                let genesis_head_eq_registered =
+                    arkret_schema::realm_bootstrap_genesis_head_eq_registered(
+                        "ordinary_collaboration",
+                        "subject_is_genesis_actor_and_membership_is_join",
+                    )
+                    .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
+                if !genesis_head_eq_registered
+                    || followup.preconditions.len() != 1
                     || followup.preconditions[0].cell != creator_cell
                     || followup.preconditions[0].predicate.op != PredicateOp::HeadEq
                     || followup.preconditions[0].predicate.value != Some(serde_json::Value::Null)

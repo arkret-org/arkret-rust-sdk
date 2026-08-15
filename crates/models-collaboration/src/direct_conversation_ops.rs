@@ -10,8 +10,9 @@
 #[cfg(test)]
 use arkret_wire::Base64UrlString;
 use arkret_wire::{
-    CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId, EventInitialSubmission,
-    Hash, IdempotencyKey, ProtocolSignature, RealmId, ScopeRef, StrandId, TrustDomainId,
+    CbaProofBundle, CellRef, DidCoreId, Event, EventFederationSubmission, EventId,
+    EventInitialSubmission, Hash, IdempotencyKey, PredicateOp, ProtocolSignature, RealmId,
+    ScopeRef, StrandId, TrustDomainId,
 };
 pub use arkret_wire::{
     DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
@@ -53,7 +54,7 @@ pub enum DirectConversationFoundingAuthorityEvidence {
 pub struct DirectConversationFoundingUnitSubmission {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub idempotency_key: IdempotencyKey,
-    pub events: [EventInitialSubmission; 3],
+    pub events: [EventInitialSubmission; 4],
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
@@ -74,7 +75,7 @@ pub enum DirectConversationFoundingUnitKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationFoundingFederationSubmission {
     pub unit_kind: DirectConversationFoundingUnitKind,
-    pub events: [EventFederationSubmission; 3],
+    pub events: [EventFederationSubmission; 4],
     pub source_acceptance_receipt: DirectConversationFoundingAcceptanceReceipt,
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -95,14 +96,14 @@ pub enum DirectConversationFoundingAcceptanceStatus {
 pub struct DirectConversationFoundingAcceptanceOutcome {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub status: DirectConversationFoundingAcceptanceStatus,
-    pub event_ids: [EventId; 3],
+    pub event_ids: [EventId; 4],
     pub receipt: DirectConversationFoundingAcceptanceReceipt,
 }
 
 /// Coordinates and digest deterministically derived from the signed unit bytes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DirectConversationFoundingPlan {
-    pub event_ids: [EventId; 3],
+    pub event_ids: [EventId; 4],
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
@@ -110,11 +111,12 @@ pub struct DirectConversationFoundingPlan {
 
 impl DirectConversationFoundingPlan {
     /// Validate the closed wire order and derive every coordinate without allocating an ID.
-    pub fn from_events(events: [&Event; 3]) -> arkret_wire::Result<Self> {
-        let [create, member, strand] = events;
+    pub fn from_events(events: [&Event; 4]) -> arkret_wire::Result<Self> {
+        let [create, peer_member, strand, founder_member] = events;
         if create.kind.as_str() != "ak.realm.create"
-            || member.kind.as_str() != "ak.member.state"
+            || peer_member.kind.as_str() != "ak.member.state"
             || strand.kind.as_str() != "ak.strand.create"
+            || founder_member.kind.as_str() != "ak.member.state"
         {
             return Err(founding_unit_invalid(
                 "founding Event kinds or wire order mismatch",
@@ -132,28 +134,36 @@ impl DirectConversationFoundingPlan {
             }
         }
         if !matches!(create.scope_ref, ScopeRef::RealmGenesis)
-            || create.actor_id != member.actor_id
+            || create.actor_id != peer_member.actor_id
             || create.actor_id != strand.actor_id
+            || create.actor_id != founder_member.actor_id
         {
             return Err(founding_unit_invalid("founding scope or actor mismatch"));
         }
         let realm_id = RealmId::from_event_id(&create.event_id);
-        if create.realm_id != realm_id || member.realm_id != realm_id || strand.realm_id != realm_id
+        if create.realm_id != realm_id
+            || peer_member.realm_id != realm_id
+            || strand.realm_id != realm_id
+            || founder_member.realm_id != realm_id
         {
             return Err(founding_unit_invalid("founding Realm coordinate mismatch"));
         }
-        if member.scope_ref.realm_id_opt() != Some(&realm_id)
+        if peer_member.scope_ref.realm_id_opt() != Some(&realm_id)
             || strand.scope_ref.realm_id_opt() != Some(&realm_id)
-            || !member.prev_refs.contains(&create.event_id)
-            || !strand.prev_refs.contains(&member.event_id)
+            || founder_member.scope_ref.realm_id_opt() != Some(&realm_id)
+            || !peer_member.prev_refs.contains(&create.event_id)
+            || !strand.prev_refs.contains(&peer_member.event_id)
+            || !founder_member.prev_refs.contains(&strand.event_id)
         {
             return Err(founding_unit_invalid(
                 "founding scope or prev_refs chain mismatch",
             ));
         }
         let member_payload: crate::governance::membership_invite::MembershipPayload =
-            serde_json::from_value(serde_json::to_value(&member.payload).map_err(protocol_error)?)
-                .map_err(protocol_error)?;
+            serde_json::from_value(
+                serde_json::to_value(&peer_member.payload).map_err(protocol_error)?,
+            )
+            .map_err(protocol_error)?;
         if member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
             || member_payload
@@ -163,6 +173,35 @@ impl DirectConversationFoundingPlan {
             || member_payload.realm_id.as_ref() != Some(&realm_id)
         {
             return Err(founding_unit_invalid("founding peer membership mismatch"));
+        }
+        let founder_member_payload: crate::governance::membership_invite::MembershipPayload =
+            serde_json::from_value(
+                serde_json::to_value(&founder_member.payload).map_err(protocol_error)?,
+            )
+            .map_err(protocol_error)?;
+        let founder_cell = CellRef::new(format!(
+            "ak:cell:ak.component.member.state.v1:{}",
+            create.actor_id
+        ))
+        .map_err(protocol_error)?;
+        let genesis_head_eq_registered = arkret_schema::realm_bootstrap_genesis_head_eq_registered(
+            "direct_conversation",
+            "subject_is_genesis_actor_and_membership_is_join",
+        )
+        .map_err(protocol_error)?;
+        if founder_member_payload.membership
+            != crate::governance::membership_invite::MembershipPayloadState::Join
+            || founder_member_payload.actor_id.as_ref() != Some(&create.actor_id)
+            || founder_member_payload.realm_id.as_ref() != Some(&realm_id)
+            || !genesis_head_eq_registered
+            || founder_member.preconditions.len() != 1
+            || founder_member.preconditions[0].cell != founder_cell
+            || founder_member.preconditions[0].predicate.op != PredicateOp::HeadEq
+            || founder_member.preconditions[0].predicate.value != Some(serde_json::Value::Null)
+        {
+            return Err(founding_unit_invalid(
+                "founding founder membership or head_eq mismatch",
+            ));
         }
         let strand_payload: crate::events_payloads::StrandCreatePayload =
             serde_json::from_value(serde_json::to_value(&strand.payload).map_err(protocol_error)?)
@@ -179,8 +218,9 @@ impl DirectConversationFoundingPlan {
         }
         let event_ids = [
             create.event_id.clone(),
-            member.event_id.clone(),
+            peer_member.event_id.clone(),
             strand.event_id.clone(),
+            founder_member.event_id.clone(),
         ];
         let founding_unit_digest = direct_conversation_founding_unit_digest(&event_ids)?;
         Ok(Self {
@@ -217,9 +257,16 @@ impl DirectConversationFoundingAuthorityEvidence {
                     contact_round_evidence,
                     contact_round_continuity_chain,
                 )?;
-                let root = contact_round_continuity_chain
-                    .last()
-                    .unwrap_or(contact_round_evidence);
+                let checkpoint_root = contact_round_evidence
+                    .continuity_checkpoint
+                    .as_ref()
+                    .map(|checkpoint| checkpoint.validate_contact_shape())
+                    .transpose()?;
+                let root = checkpoint_root.as_ref().unwrap_or_else(|| {
+                    contact_round_continuity_chain
+                        .last()
+                        .unwrap_or(contact_round_evidence)
+                });
                 let (participants, request_ref) = match &root.contact_round {
                     crate::contact_operations::ContactRound::Normal {
                         sorted_pair_members,
@@ -281,9 +328,16 @@ impl DirectConversationFoundingAuthorityEvidence {
             ));
         };
         let (participants, founder) = self.participants_and_founder()?;
-        let root = contact_round_continuity_chain
-            .last()
-            .unwrap_or(contact_round_evidence);
+        let checkpoint_root = contact_round_evidence
+            .continuity_checkpoint
+            .as_ref()
+            .map(|checkpoint| checkpoint.validate_contact_shape())
+            .transpose()?;
+        let root = checkpoint_root.as_ref().unwrap_or_else(|| {
+            contact_round_continuity_chain
+                .last()
+                .unwrap_or(contact_round_evidence)
+        });
         let pair_key = crate::objects::direct_conversation::direct_conversation_pair_key(
             trust_domain_id,
             crate::objects::direct_conversation::DirectConversationPairKeyParticipant::unmapped(
@@ -460,13 +514,13 @@ fn founding_unit_invalid(detail: &str) -> arkret_wire::Error {
     ))
 }
 
-/// Stable identifier of the exact ordered three-Event unit.
+/// Stable identifier of the exact ordered four-Event unit.
 pub fn direct_conversation_founding_unit_digest(
-    event_ids: &[EventId; 3],
+    event_ids: &[EventId; 4],
 ) -> arkret_wire::Result<Hash> {
     #[derive(Serialize)]
     struct Material<'a> {
-        event_ids: &'a [EventId; 3],
+        event_ids: &'a [EventId; 4],
     }
     domain_separated_sha256(
         DIRECT_CONVERSATION_FOUNDING_UNIT_DOMAIN,
@@ -491,7 +545,7 @@ pub struct DirectConversationResolveRequestBody {
 }
 
 /// Verbatim authoring material returned only when the authenticated principal
-/// is entitled to author the immutable three-Event founding unit.
+/// is entitled to author the immutable four-Event founding unit.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -839,13 +893,15 @@ mod tests {
 
     use super::*;
 
-    fn event_ids() -> [EventId; 3] {
+    fn event_ids() -> [EventId; 4] {
         [
             EventId::new("ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD".to_owned())
                 .unwrap(),
             EventId::new("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA".to_owned())
                 .unwrap(),
             EventId::new("ak:event:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS".to_owned())
+                .unwrap(),
+            EventId::new("ak:event:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR".to_owned())
                 .unwrap(),
         ]
     }
@@ -856,7 +912,7 @@ mod tests {
             direct_conversation_founding_unit_digest(&event_ids())
                 .unwrap()
                 .as_str(),
-            "sha256:dc604271ea8bbefce03b4ef6916f12a01af81722e44b2f3640adc61d3a9e31dd"
+            "sha256:3cd20dd09f6c8bc93757a03640c1612a6b85599eeb702cc488e2cc083ebfa46e"
         );
     }
 
@@ -866,7 +922,7 @@ mod tests {
             "founder_id": "ak:did_core:webvh:z6mkfixturebob",
             "realm_id": "ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
             "main_strand_id": "ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS",
-            "founding_unit_digest": "sha256:dc604271ea8bbefce03b4ef6916f12a01af81722e44b2f3640adc61d3a9e31dd",
+            "founding_unit_digest": "sha256:3cd20dd09f6c8bc93757a03640c1612a6b85599eeb702cc488e2cc083ebfa46e",
             "authorization_core": {
                 "kind": "human",
                 "current_contact_round_id": "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
@@ -890,11 +946,11 @@ mod tests {
         let receipt = receipt();
         assert_eq!(
             receipt.transcript_digest().unwrap().as_str(),
-            "sha256:685e8a499cda01827b37c8485feddaab1e6ac7c9af636666de30d59127e851f2"
+            "sha256:2bef6462fa7e06eb14e233016225fd0ac6e6ec6e42ef65f974af00a744a66db5"
         );
         assert_eq!(
             receipt.signing_input_bytes().unwrap(),
-            b"sha256:685e8a499cda01827b37c8485feddaab1e6ac7c9af636666de30d59127e851f2"
+            b"sha256:2bef6462fa7e06eb14e233016225fd0ac6e6ec6e42ef65f974af00a744a66db5"
         );
         let mut changed_proof = receipt.clone();
         changed_proof.proof.jws = Base64UrlString::new("ZGlmZmVyZW50".to_owned()).unwrap();
