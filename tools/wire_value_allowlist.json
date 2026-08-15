@@ -4537,6 +4537,17 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
+      "finding": "json_authoring:soland/crates/http/src/routing/events/event_log/submit/agent_membership_cascade.rs::finalize_prepared_batch:fe5811b8d867d549",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_wire::event_spec::EventSpec associated Payload",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
       "finding": "json_authoring:soland/crates/http/src/routing/events/event_log/submit/delivery_binding.rs::delivery_binding_handover_witness:15f97cff592a2613",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
