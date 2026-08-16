@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use arkret_wire::{DidCoreId, Event, SchemaId, TrackName};
+use arkret_wire::{DidCoreId, Event, EventId, SchemaId, TrackName};
 use serde::de::DeserializeOwned;
 
 use crate::internal_prelude::*;
@@ -85,6 +85,7 @@ pub struct VerificationStubSealInclusion {
 #[serde(deny_unknown_fields)]
 pub struct VerificationStub {
     pub stub_schema: String,
+    pub triggering_event_id: EventId,
     pub subject: VerificationStubSubject,
     pub scope: VerificationStubScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]

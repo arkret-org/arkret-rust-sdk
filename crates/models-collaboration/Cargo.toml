@@ -42,6 +42,7 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 serde_path_to_error = {workspace = true}
 sha2 = {workspace = true}
+uuid = {workspace = true}
 thiserror = {workspace = true}
 unicode-normalization = {workspace = true}
 

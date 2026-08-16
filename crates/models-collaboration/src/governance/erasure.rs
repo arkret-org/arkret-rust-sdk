@@ -7,16 +7,41 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    DidCoreId, DidUrl, Error, Hash, PolicyId, ProtocolSignature, RealmId, Result, SchemaId,
+    DidCoreId, DidUrl, Error, EventId, Hash, PolicyId, ProtocolSignature, RealmId, Result, SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest as _, Sha256};
 
 use crate::events_payloads::event_wire::VerificationStub;
 
 pub const ERASURE_RECEIPT_DIGEST_DOMAIN: &[u8] = b"ak.erasure-receipt.v1\n";
 pub const ERASURE_RECEIPT_ACCEPTANCE_DOMAIN: &[u8] = b"ak.erasure-receipt-acceptance.v1\n";
+
+/// Deterministic receipt id for one status-Event/storage-boundary execution.
+/// Retries and crash recovery therefore address the same resource without a
+/// second operation id namespace.
+pub fn account_erasure_receipt_id(
+    triggering_status_event_id: &EventId,
+    storage_boundary: ErasureStorageBoundary,
+) -> String {
+    let mut input = triggering_status_event_id.as_str().as_bytes().to_vec();
+    input.push(0);
+    input.extend_from_slice(
+        serde_json::to_value(storage_boundary)
+            .expect("erasure storage boundary serializes")
+            .as_str()
+            .expect("erasure storage boundary is a string")
+            .as_bytes(),
+    );
+    let digest = Sha256::digest(input);
+    let mut bytes = [0_u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x70;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    format!("ak:receipt:{}", uuid::Uuid::from_bytes(bytes))
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -281,6 +306,7 @@ pub struct ErasurePeerReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasureReceipt {
     pub receipt_id: String,
+    pub triggering_event_id: EventId,
     pub schema: String,
     pub issuer: DidCoreId,
     pub subject: ErasureSubject,
@@ -375,6 +401,7 @@ impl ErasureReceipt {
         }
         if retained_stub.stub_schema != SchemaId::ERASURE_VERIFICATION_STUB_V1
             || retained_stub.receipt_id != self.receipt_id
+            || retained_stub.triggering_event_id != self.triggering_event_id
             || retained_stub.completed_at != self.completed_at
             || retained_stub.subject.kind
                 != serde_json::to_value(self.subject.kind)?
@@ -429,6 +456,7 @@ mod erasure_receipt_tests {
     fn receipt(stub: &VerificationStub) -> ErasureReceipt {
         let mut receipt = ErasureReceipt {
             receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
+            triggering_event_id: stub.triggering_event_id.clone(),
             schema: SchemaId::ERASURE_RECEIPT_V1.to_owned(),
             issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
             subject: ErasureSubject {
@@ -464,9 +492,30 @@ mod erasure_receipt_tests {
     }
 
     #[test]
+    fn account_receipt_id_is_stable_and_boundary_scoped() {
+        let event_id =
+            EventId::new("ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned())
+                .unwrap();
+        let first =
+            account_erasure_receipt_id(&event_id, ErasureStorageBoundary::AccountPrivateStore);
+        assert_eq!(
+            first,
+            account_erasure_receipt_id(&event_id, ErasureStorageBoundary::AccountPrivateStore,)
+        );
+        assert_ne!(
+            first,
+            account_erasure_receipt_id(&event_id, ErasureStorageBoundary::ProjectionStore)
+        );
+    }
+
+    #[test]
     fn retained_stub_digest_mismatch_fails_closed() {
         let stub = VerificationStub {
             stub_schema: "ak.schema.erasure_verification_stub.v1".to_owned(),
+            triggering_event_id: EventId::new(
+                "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),
+            )
+            .unwrap(),
             subject: VerificationStubSubject {
                 kind: "event".to_owned(),
                 subject_ref: "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),
@@ -499,6 +548,10 @@ mod erasure_receipt_tests {
     fn self_consistent_stub_for_another_receipt_fails_closed() {
         let stub = VerificationStub {
             stub_schema: "ak.schema.erasure_verification_stub.v1".to_owned(),
+            triggering_event_id: EventId::new(
+                "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),
+            )
+            .unwrap(),
             subject: VerificationStubSubject {
                 kind: "event".to_owned(),
                 subject_ref: "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),
@@ -526,5 +579,41 @@ mod erasure_receipt_tests {
             .validate_with_retained_stub(&stub)
             .expect_err("digest-valid stub for another receipt must fail closed");
         assert!(error.to_string().contains("stub_binding_mismatch"));
+    }
+
+    #[test]
+    fn receipt_and_stub_must_bind_the_same_trigger_event() {
+        let stub = VerificationStub {
+            stub_schema: "ak.schema.erasure_verification_stub.v1".to_owned(),
+            triggering_event_id: EventId::new(
+                "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),
+            )
+            .unwrap(),
+            subject: VerificationStubSubject {
+                kind: "event".to_owned(),
+                subject_ref: "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),
+            },
+            scope: VerificationStubScope {
+                storage_boundary: "canonical_log_minimization".to_owned(),
+                realm_id: None,
+                target_refs: None,
+                retention_policy_id: None,
+                service_scope: None,
+            },
+            event_digest: None,
+            retained_digests: None,
+            seal_inclusion: None,
+            redaction_authorization_ref: None,
+            legal_hold_ref: None,
+            receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
+            completed_at: Utc::now(),
+        };
+        let mut receipt = receipt(&stub);
+        receipt.triggering_event_id =
+            EventId::new("ak:event:AQ2tx4VdnpdE6WOuPQftPsY5gYkzM7Y7qadp81nkk9K4".to_owned())
+                .unwrap();
+        receipt.proofs[0].payload_digest = receipt.canonical_payload_digest().unwrap();
+
+        assert!(receipt.validate_with_retained_stub(&stub).is_err());
     }
 }

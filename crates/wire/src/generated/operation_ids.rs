@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-16.3;
-//! sha256=f6b39731d600bb8ad8d0a069021e5d0a1cb9f79b5e28e77d3d8f24bf6c423f30 Entries: registered=242
+//! Input: registry/operation-registry.json; version=2026-08-16.5;
+//! sha256=b71f1a11cf80f7b60a5cb0394a0c4db3d1daa46e19c6611ffe9406ae5fff69bd Entries: registered=243
 
 use serde::{Deserialize, Serialize};
 
@@ -167,6 +167,7 @@ pub enum ServiceOperationId {
     SelfConsentCommandRevoke,
     SelfConsentReadList,
     SelfConsentResourceGet,
+    SelfContactCommandCheckpoint,
     SelfContactCommandReject,
     SelfContactCommandRequest,
     SelfContactCommandRespond,
@@ -412,6 +413,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONSENT_COMMAND_REVOKE,
     ServiceOperationId::SELF_CONSENT_READ_LIST,
     ServiceOperationId::SELF_CONSENT_RESOURCE_GET,
+    ServiceOperationId::SELF_CONTACT_COMMAND_CHECKPOINT,
     ServiceOperationId::SELF_CONTACT_COMMAND_REJECT,
     ServiceOperationId::SELF_CONTACT_COMMAND_REQUEST,
     ServiceOperationId::SELF_CONTACT_COMMAND_RESPOND,
@@ -699,6 +701,7 @@ impl ServiceOperationId {
         Self::SelfConsentCommandRevoke,
         Self::SelfConsentReadList,
         Self::SelfConsentResourceGet,
+        Self::SelfContactCommandCheckpoint,
         Self::SelfContactCommandReject,
         Self::SelfContactCommandRequest,
         Self::SelfContactCommandRespond,
@@ -1036,6 +1039,7 @@ impl ServiceOperationId {
     pub const SELF_CONSENT_COMMAND_REVOKE: &'static str = "ak.self.consent.command.revoke";
     pub const SELF_CONSENT_READ_LIST: &'static str = "ak.self.consent.read.list";
     pub const SELF_CONSENT_RESOURCE_GET: &'static str = "ak.self.consent.resource.get";
+    pub const SELF_CONTACT_COMMAND_CHECKPOINT: &'static str = "ak.self.contact.command.checkpoint";
     pub const SELF_CONTACT_COMMAND_REJECT: &'static str = "ak.self.contact.command.reject";
     pub const SELF_CONTACT_COMMAND_REQUEST: &'static str = "ak.self.contact.command.request";
     pub const SELF_CONTACT_COMMAND_RESPOND: &'static str = "ak.self.contact.command.respond";
@@ -1409,6 +1413,7 @@ impl ServiceOperationId {
             Self::SelfConsentCommandRevoke => Self::SELF_CONSENT_COMMAND_REVOKE,
             Self::SelfConsentReadList => Self::SELF_CONSENT_READ_LIST,
             Self::SelfConsentResourceGet => Self::SELF_CONSENT_RESOURCE_GET,
+            Self::SelfContactCommandCheckpoint => Self::SELF_CONTACT_COMMAND_CHECKPOINT,
             Self::SelfContactCommandReject => Self::SELF_CONTACT_COMMAND_REJECT,
             Self::SelfContactCommandRequest => Self::SELF_CONTACT_COMMAND_REQUEST,
             Self::SelfContactCommandRespond => Self::SELF_CONTACT_COMMAND_RESPOND,
@@ -1814,6 +1819,7 @@ impl ServiceOperationId {
             Self::SELF_CONSENT_COMMAND_REVOKE => Some(Self::SelfConsentCommandRevoke),
             Self::SELF_CONSENT_READ_LIST => Some(Self::SelfConsentReadList),
             Self::SELF_CONSENT_RESOURCE_GET => Some(Self::SelfConsentResourceGet),
+            Self::SELF_CONTACT_COMMAND_CHECKPOINT => Some(Self::SelfContactCommandCheckpoint),
             Self::SELF_CONTACT_COMMAND_REJECT => Some(Self::SelfContactCommandReject),
             Self::SELF_CONTACT_COMMAND_REQUEST => Some(Self::SelfContactCommandRequest),
             Self::SELF_CONTACT_COMMAND_RESPOND => Some(Self::SelfContactCommandRespond),
@@ -3620,7 +3626,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "accepts_a_signed_receipt_and_may_trigger_local_erasure_but_does_not_author_an_event",
+                "accepts_a_signed_terminal_result_and_never_triggers_erasure_or_authors_an_event",
             ),
             branch_contract_json: None,
         }),
@@ -5591,6 +5597,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfContactCommandCheckpoint,
+        http_method: "POST",
+        http_path: "/_arkret/self/contacts/continuity-checkpoint",
+        grpc: Some("SelfContact/ContinuityCheckpoint"),
+        mq: Some("self.contact.command.checkpoint"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/contact-operations.schema.json#/$defs/contact_continuity_checkpoint_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/contact-operations.schema.json#/$defs/contact_continuity_checkpoint_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "compacts_already_accepted_contact_evidence_without_authoring_an_event",
+            ),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandReject,

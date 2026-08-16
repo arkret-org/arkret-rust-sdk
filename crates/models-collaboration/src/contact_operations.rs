@@ -197,7 +197,7 @@ impl ContactCurrentProof {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactRoundRequestRef {
@@ -205,7 +205,7 @@ pub struct ContactRoundRequestRef {
     pub request_acceptance_receipt_digest: Hash,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactRound {
@@ -356,7 +356,7 @@ pub enum ContactScopeUpdateRequestBody {
     Commit(ContactCommitRequestBody),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactRoundEvidenceBundle {
@@ -384,7 +384,7 @@ pub const CONTACT_CONTINUITY_CONTEXT: &str = "ak.contact.round.continuity.v1";
 /// prefix. The current v1 schema closes `root_basis` to one uncheckpointed
 /// Contact round bundle; a future domain-neutral carrier must register its
 /// own typed branch instead of reopening this field as arbitrary JSON.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct BilateralContinuityCheckpointCore {
@@ -393,7 +393,10 @@ pub struct BilateralContinuityCheckpointCore {
     #[serde(deserialize_with = "deserialize_uncheckpointed_root_basis")]
     pub root_basis: Box<ContactRoundEvidenceBundle>,
     pub root_basis_digest: Hash,
-    pub covered_through_basis_digest: Hash,
+    /// Contact round id at the compacted-prefix boundary. The first omitted
+    /// tail edge points to this value; bundle content digests remain confined
+    /// to `prefix_accumulator_root`.
+    pub covered_through_contact_round_id: Hash,
     pub prefix_accumulator_root: Hash,
     pub covered_prefix_count: u64,
     pub sequence: u64,
@@ -426,7 +429,20 @@ pub struct BilateralContinuityCheckpointSignature {
     pub signature: ProtocolSignature,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// One-sided proposal carried to the other participant's Principal Server.
+/// It is not portable continuity evidence until the counterparty has verified
+/// the exact core, appended its signature and durably committed the completed
+/// checkpoint.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct BilateralContinuityCheckpointProposal {
+    pub core: BilateralContinuityCheckpointCore,
+    pub checkpoint_digest: Hash,
+    pub proposer_signature: BilateralContinuityCheckpointSignature,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct BilateralContinuityCheckpoint {
@@ -435,7 +451,7 @@ pub struct BilateralContinuityCheckpoint {
     pub signatures: [BilateralContinuityCheckpointSignature; 2],
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactContinuityEvidence {
@@ -443,9 +459,38 @@ pub struct ContactContinuityEvidence {
     pub uncompressed_tail: Vec<ContactRoundEvidenceBundle>,
 }
 
+/// Holder-authorized request to compact the oldest contiguous terminal prefix
+/// of one durable Contact lineage. The service chooses the exact boundary
+/// deterministically from its accepted history; callers never submit a core.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactContinuityCheckpointRequestBody {
+    pub idempotency_key: IdempotencyKey,
+    pub peer: ContactPeer,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactContinuityCheckpointStatus {
+    Pending,
+    Committed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactContinuityCheckpointOutcome {
+    pub status: ContactContinuityCheckpointStatus,
+    pub checkpoint_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuity_evidence: Option<ContactContinuityEvidence>,
+}
+
 impl BilateralContinuityCheckpoint {
     pub fn signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        arkret_canonical::canonical_json_bytes(&self.core)
+        bilateral_checkpoint_signing_bytes(&self.core)
     }
 
     pub fn recompute_digest(&self) -> arkret_wire::Result<Hash> {
@@ -487,15 +532,61 @@ impl BilateralContinuityCheckpoint {
     }
 }
 
-pub fn bilateral_checkpoint_digest(
+impl BilateralContinuityCheckpointProposal {
+    pub fn signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        bilateral_checkpoint_signing_bytes(&self.core)
+    }
+
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if self.core.context != CONTACT_CONTINUITY_CONTEXT
+            || self.core.covered_prefix_count == 0
+            || self.core.sequence == 0
+            || (self.core.sequence == 1) == self.core.previous_checkpoint_digest.is_some()
+            || self.core.participants[0] >= self.core.participants[1]
+            || self.proposer_signature.signer != self.core.participants[0]
+                && self.proposer_signature.signer != self.core.participants[1]
+            || bilateral_checkpoint_digest(&self.core)? != self.checkpoint_digest
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "continuity_invalid: bilateral checkpoint proposal mismatch".to_owned(),
+            ));
+        }
+        let root = self.core.root_basis.as_ref();
+        let root_digest = Hash::new(arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(root).map_err(|error| {
+                arkret_wire::Error::Protocol(format!(
+                    "continuity_invalid: root basis canonicalization failed: {error}"
+                ))
+            })?,
+        ))?;
+        if root.previous_terminal_contact_round_id.is_some()
+            || root.continuity_checkpoint.is_some()
+            || root_digest != self.core.root_basis_digest
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "continuity_invalid: checkpoint proposal root basis mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn bilateral_checkpoint_signing_bytes(
     core: &BilateralContinuityCheckpointCore,
-) -> arkret_wire::Result<Hash> {
-    let canonical = arkret_canonical::canonical_json_bytes(core)
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+) -> arkret_canonical::Result<Vec<u8>> {
+    let canonical = arkret_canonical::canonical_json_bytes(core)?;
     let mut material =
         Vec::with_capacity(BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN.len() + canonical.len());
     material.extend_from_slice(BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN);
     material.extend_from_slice(&canonical);
+    Ok(material)
+}
+
+pub fn bilateral_checkpoint_digest(
+    core: &BilateralContinuityCheckpointCore,
+) -> arkret_wire::Result<Hash> {
+    let material = bilateral_checkpoint_signing_bytes(core)
+        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
     Ok(Hash::new(arkret_canonical::sha256_digest(material))?)
 }
 
@@ -611,7 +702,7 @@ pub fn validate_recontact_continuity(
         ];
         if current_pair != root_pair
             || root_pair != checkpoint_pair
-            || expected != Some(&checkpoint.core.covered_through_basis_digest)
+            || expected != Some(&checkpoint.core.covered_through_contact_round_id)
         {
             return Err(arkret_wire::Error::Protocol(
                 "continuity_invalid: checkpoint pair, root or tail terminator mismatch".to_owned(),
@@ -968,9 +1059,15 @@ pub enum PeerContactSubmitRequestBody {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
     },
+    ContinuityCheckpoint {
+        idempotency_key: IdempotencyKey,
+        proposal: BilateralContinuityCheckpointProposal,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        contact_address: PeerContactAddress,
+    },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct GlareConcurrencyAttestation {
@@ -1053,6 +1150,7 @@ string_marker!(
 pub enum PeerContactControlKind {
     ProofRefresh,
     GlareFinalize,
+    ContinuityCheckpoint,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1106,6 +1204,11 @@ pub enum PeerContactControlSubmitOutcome {
         glare_concurrency_attestation: GlareConcurrencyAttestation,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         current_proof: Option<ContactCurrentProof>,
+    },
+    ContinuityCheckpoint {
+        status: PeerContactOutcome,
+        control_receipt: PeerContactControlReceipt,
+        checkpoint: BilateralContinuityCheckpoint,
     },
 }
 

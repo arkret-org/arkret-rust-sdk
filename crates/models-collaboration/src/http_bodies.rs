@@ -19,7 +19,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::contact_operations::{
-    ContactNextPrepareInput, ContactPeer, ContactScopes, RequestAcceptanceReceipt,
+    ContactContinuityEvidence, ContactNextPrepareInput, ContactPeer, ContactScopes,
+    RequestAcceptanceReceipt,
 };
 use crate::direct_conversation_ops::{
     DirectConversationFoundingAcceptanceOutcome, DirectConversationFoundingUnitSubmission,
@@ -1569,6 +1570,10 @@ pub struct ContactListRow {
     /// same-Principal-Server contacts (spec contact-operations.schema.json).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peer_service_id: Option<DidCoreId>,
+    /// Portable checkpoint plus the exact remaining tail. Present only after
+    /// both participant Principal Servers have committed the same checkpoint.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_conversation: Option<DirectConversationSummary>,
     /// Active agents controlled by this contact that currently accept direct
@@ -1602,6 +1607,8 @@ struct ContactListRowWire {
     #[serde(default)]
     peer_service_id: Option<DidCoreId>,
     #[serde(default)]
+    continuity_evidence: Option<ContactContinuityEvidence>,
+    #[serde(default)]
     direct_conversation: Option<DirectConversationSummary>,
     #[serde(default)]
     agents: Vec<ContactAgentProjection>,
@@ -1624,6 +1631,7 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             bidirectional_scopes: wire.bidirectional_scopes,
             effective_scopes: wire.effective_scopes,
             peer_service_id: wire.peer_service_id,
+            continuity_evidence: wire.continuity_evidence,
             direct_conversation: wire.direct_conversation,
             agents: wire.agents,
         };

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-16.3;
-//! sha256=f6b39731d600bb8ad8d0a069021e5d0a1cb9f79b5e28e77d3d8f24bf6c423f30 Input: registry/
-//! operations-error-mapping.json; version=2026-08-16.1;
-//! sha256=05fd0ea27bfb95e6c0b0a409f719d53ff90c67847d9cdd2dd6f81a5194fe9881 Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-16.5;
+//! sha256=b71f1a11cf80f7b60a5cb0394a0c4db3d1daa46e19c6611ffe9406ae5fff69bd Input: registry/
+//! operations-error-mapping.json; version=2026-08-16.2;
+//! sha256=eb6aa2db34c5bde2ca3f031edef14cbdbc7194e48bf76a2a9c0b0aff8a9692a0 Input: registry/
 //! error-code-registry.json; version=2026-08-16.3;
-//! sha256=d52515e2324b379155b76fbeebc4c429649d84a58af5799d6f0a1fe60bad8be6 Entries: operations=242
+//! sha256=d52515e2324b379155b76fbeebc4c429649d84a58af5799d6f0a1fe60bad8be6 Entries: operations=243
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -1088,6 +1088,15 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfConsentResourceGet,
         operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfContactCommandCheckpoint,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::ContinuityInvalid),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfContactCommandReject,
