@@ -212,16 +212,6 @@ pub struct Identifier {
     pub identifier_commitment: Hash,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/keypackage`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyPackage {
-    pub device_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_package_ref: Option<String>,
-    pub mls_key_package: String,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/opaque_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

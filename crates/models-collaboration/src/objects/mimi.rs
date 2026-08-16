@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 pub struct MimiKeyPackage {
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_package_ref: Option<NonEmptyString>,
-    pub mls_key_package: Base64UrlString,
+    pub keypackage_ref: Option<NonEmptyString>,
+    pub mls_keypackage: Base64UrlString,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

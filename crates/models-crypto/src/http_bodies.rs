@@ -833,6 +833,7 @@ pub enum RecipientMlsDurableSigner {
 struct RecipientMlsDurableReceiptWire {
     domain: NonEmptyString,
     claim_request_id: Base64UrlString,
+    #[serde(rename = "keypackage_ref")]
     key_package_ref: NonEmptyString,
     recipient_principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
