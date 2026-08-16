@@ -110,7 +110,7 @@ fn main() {
             },
             "expected": {
                 "aead": "xchacha20_poly1305",
-                "aead_profile": "ak.aead.xchacha20_poly1305.v1",
+                "aead_profile": arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1,
                 "nonce_hex": hex(&ciphertext.nonce),
                 "nonce_b64u": ciphertext.nonce_b64,
                 "ciphertext_b64u": ciphertext.ciphertext_b64,

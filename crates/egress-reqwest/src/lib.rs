@@ -227,6 +227,7 @@ impl EgressGuard {
     }
 
     /// Parse, judge, resolve and lock `raw_url` on the async resolver.
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn lock_str_async(
         &self,
         raw_url: &str,
@@ -237,6 +238,7 @@ impl EgressGuard {
     }
 
     /// Judge, resolve and lock `url` on the async resolver.
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn lock_url_async(
         &self,
         url: &Url,

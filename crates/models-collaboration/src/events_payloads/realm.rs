@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use arkret_models_crypto::encrypted_envelope::{
     AadVisibilityCeiling, EncryptedEnvelopeAadVisibility,
 };
-use arkret_wire::DidCoreId;
+use arkret_wire::{DidCoreId, DomainSeparationId};
 
 use crate::events_payloads::device_identity::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, typed_device_authorize_payload_digest,
@@ -1211,7 +1211,8 @@ pub struct RealmSearchPolicyPayload {
 // `= Value` alias as part of the wire strong-type migration).
 
 /// Transcript discriminator for the bytes an organization-side proof signs over.
-pub const ORGANIZATION_STATEMENT_TRANSCRIPT_KIND: &str = "ak.realm.organization.statement.v1";
+pub const ORGANIZATION_STATEMENT_TRANSCRIPT_KIND: &str =
+    DomainSeparationId::REALM_ORGANIZATION_STATEMENT_V1;
 
 /// Canonical transcript the organization-side proof signs over. Every statement
 /// field except `authorization.proof` (the signature itself) and the redundant

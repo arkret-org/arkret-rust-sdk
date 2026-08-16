@@ -107,7 +107,9 @@ impl JoinApplicationPrivateBody {
             Self::ReviewerEnvelope {
                 encryption_envelope,
             } => {
-                if encryption_envelope.scheme != "ak.hpke_x25519_aead_chacha20poly1305.v1" {
+                if encryption_envelope.scheme
+                    != arkret_wire::HpkeSuiteId::X25519_AEAD_CHACHA20POLY1305_V1
+                {
                     return protocol_error("join application HPKE suite is unsupported");
                 }
                 if encryption_envelope.recipients.is_empty()
@@ -400,17 +402,29 @@ impl JoinApplicationReviewReceipt {
             &self.reviewer_actor_id,
             self.reviewed_at,
         )?;
-        canonical::canonical_json_bytes(&serde_json::json!({
-            "context": ProofContextId::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1,
-            "receipt_digest": self.review_receipt_digest,
-            "realm_id": self.realm_id,
-            "application_ref": self.application_ref,
-            "application_revision_digest": self.application_revision_digest,
-            "actor_id": self.reviewer_actor_id,
-            "principal_server_id": self.reviewer_principal_server_id,
-            "verification_method": self.proof.verification_method,
-            "created_at": self.proof.created_at,
-        }))
+        #[derive(Serialize)]
+        struct ProofBinding<'a> {
+            context: &'static str,
+            receipt_digest: &'a Hash,
+            realm_id: &'a RealmId,
+            application_ref: &'a Hash,
+            application_revision_digest: &'a Hash,
+            actor_id: &'a DidCoreId,
+            principal_server_id: &'a DidCoreId,
+            verification_method: &'a arkret_wire::DidUrl,
+            created_at: &'a DateTime<Utc>,
+        }
+        canonical::canonical_json_bytes(&ProofBinding {
+            context: ProofContextId::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1,
+            receipt_digest: &self.review_receipt_digest,
+            realm_id: &self.realm_id,
+            application_ref: &self.application_ref,
+            application_revision_digest: &self.application_revision_digest,
+            actor_id: &self.reviewer_actor_id,
+            principal_server_id: &self.reviewer_principal_server_id,
+            verification_method: &self.proof.verification_method,
+            created_at: &self.proof.created_at,
+        })
         .map_err(Into::into)
     }
 

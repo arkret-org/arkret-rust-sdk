@@ -11,7 +11,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const ACCOUNTABILITY_SCOPE_SET_CONTEXT: &str = "ak.accountability-scope-set-v1";
+pub const ACCOUNTABILITY_SCOPE_SET_CONTEXT: &str =
+    arkret_wire::DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

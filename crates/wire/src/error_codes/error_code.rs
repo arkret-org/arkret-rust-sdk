@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-16.1;
-//! sha256=928375fa465bca908c32891d7b7555fee3166a56a3849f24682d48c2581ee005 Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-08-16.3;
+//! sha256=d52515e2324b379155b76fbeebc4c429649d84a58af5799d6f0a1fe60bad8be6 Entries: error_codes=283
 
 use serde::{Deserialize, Serialize};
 
@@ -179,6 +179,7 @@ pub enum ErrorCode {
     MimiReporterResolutionRequired,
     MimiRoomBindingEventInvalid,
     MlsGenerationProposalFanoutExceeded,
+    MlsGenesisAlreadyExists,
     MlsGovernanceAnchorUnreachable,
     MlsGovernanceProofBoundsExceeded,
     MlsKeypackageClaimRequestExpired,
@@ -475,6 +476,7 @@ impl ErrorCode {
         Self::MimiReporterResolutionRequired,
         Self::MimiRoomBindingEventInvalid,
         Self::MlsGenerationProposalFanoutExceeded,
+        Self::MlsGenesisAlreadyExists,
         Self::MlsGovernanceAnchorUnreachable,
         Self::MlsGovernanceProofBoundsExceeded,
         Self::MlsKeypackageClaimRequestExpired,
@@ -771,6 +773,7 @@ impl ErrorCode {
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
     pub const MLS_GENERATION_PROPOSAL_FANOUT_EXCEEDED: &'static str =
         "mls_generation_proposal_fanout_exceeded";
+    pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
     pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
         "mls_governance_proof_bounds_exceeded";
@@ -1083,6 +1086,7 @@ impl ErrorCode {
             Self::MimiReporterResolutionRequired => "mimi_reporter_resolution_required",
             Self::MimiRoomBindingEventInvalid => "mimi_room_binding_event_invalid",
             Self::MlsGenerationProposalFanoutExceeded => "mls_generation_proposal_fanout_exceeded",
+            Self::MlsGenesisAlreadyExists => "mls_genesis_already_exists",
             Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
             Self::MlsGovernanceProofBoundsExceeded => "mls_governance_proof_bounds_exceeded",
             Self::MlsKeypackageClaimRequestExpired => "mls_keypackage_claim_request_expired",
@@ -1394,6 +1398,7 @@ impl ErrorCode {
             "mls_generation_proposal_fanout_exceeded" => {
                 Some(Self::MlsGenerationProposalFanoutExceeded)
             }
+            "mls_genesis_already_exists" => Some(Self::MlsGenesisAlreadyExists),
             "mls_governance_anchor_unreachable" => Some(Self::MlsGovernanceAnchorUnreachable),
             "mls_governance_proof_bounds_exceeded" => Some(Self::MlsGovernanceProofBoundsExceeded),
             "mls_keypackage_claim_request_expired" => Some(Self::MlsKeypackageClaimRequestExpired),
@@ -2754,6 +2759,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Sixteen not-yet-active candidate MLS groups already exist under one Direct Conversation active-generation predecessor, so the seventeenth ak.direct_conversation.mls_generation.activate candidate is refused. The cap is a hard structural bound and not a rate limit: 409 is correct and 429 is not, waiting alone never clears it, and progress requires one existing candidate to be activated by the cell or to expire. Only the offending candidate is refused with zero writes; the pair MUST NOT be quarantined and its coordinates, binding, membership and current active generation stay untouched. Servers MUST NOT promise a retry window through retry_after_ms for this code. Semantically it is the Direct Conversation sibling of contact_lineage_conflict rather than of rate_limited. See zh/identity/contact-and-direct-conversation.md §7.3.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::MlsGenesisAlreadyExists,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "An MLS genesis operation attempted to initialize a group whose genesis state is already durably accepted. Receivers MUST preserve the existing group state and reject the conflicting initialization.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceAnchorUnreachable,

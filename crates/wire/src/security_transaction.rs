@@ -201,11 +201,36 @@ pub struct BackupRotationBinding {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum SecurityTransactionBinding {
     Recovery(RecoveryBinding),
     SecurityRotation(SecurityRotationBinding),
+}
+
+impl<'de> Deserialize<'de> for SecurityTransactionBinding {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let recovery = value.get("identity_model").is_some();
+        let rotation = value.get("revoke_event_id").is_some();
+        match (recovery, rotation) {
+            (true, false) => serde_json::from_value(value)
+                .map(Self::Recovery)
+                .map_err(serde::de::Error::custom),
+            (false, true) => serde_json::from_value(value)
+                .map(Self::SecurityRotation)
+                .map_err(serde::de::Error::custom),
+            (true, true) => Err(serde::de::Error::custom(
+                "security transaction binding mixes recovery and rotation branch fields",
+            )),
+            (false, false) => Err(serde::de::Error::custom(
+                "security transaction binding is missing its branch discriminator field",
+            )),
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -232,7 +257,7 @@ impl PreparedEventUnit {
         let request = request.into_iter().collect::<BTreeMap<_, _>>();
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&request)?;
         Ok(Self {
-            operation_id: "ak.self.events.command.submit".to_owned(),
+            operation_id: crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT.to_owned(),
             audience: destination_service_id.clone(),
             destination_service_id,
             request_schema: "https://arkret.org/v1/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody".to_owned(),
@@ -959,7 +984,7 @@ fn validate_canonical_digest<T: Serialize + ?Sized>(
 
 impl PreparedEventUnit {
     fn validate_structural(&self, coordinator_service_id: &DidCoreId) -> Result<()> {
-        if self.operation_id != "ak.self.events.command.submit"
+        if self.operation_id != crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
             || self.request_schema
                 != "https://arkret.org/v1/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody"
             || &self.destination_service_id != coordinator_service_id
@@ -1239,8 +1264,14 @@ impl SecurityTransaction {
             .reanchor_unit
             .events_submit_request(&self.coordinator_service_id)?;
         let expected = [
-            (binding.reanchor_event_id.as_str(), "ak.device.reanchor"),
-            (binding.authorize_event_id.as_str(), "ak.device.authorize"),
+            (
+                binding.reanchor_event_id.as_str(),
+                crate::event_kind_str::DEVICE_REANCHOR,
+            ),
+            (
+                binding.authorize_event_id.as_str(),
+                crate::event_kind_str::DEVICE_AUTHORIZE,
+            ),
         ];
         if plan.did_publication.expected_entry_ref != binding.did_entry_ref
             || reanchor_request.events.len() != expected.len()
@@ -1269,7 +1300,7 @@ impl SecurityTransaction {
             .events_submit_request(&self.coordinator_service_id)?;
         if revoke_request.events.len() != 1
             || revoke_request.events[0].event.event_id != binding.revoke_event_id
-            || revoke_request.events[0].event.kind != "ak.device.revoke"
+            || revoke_request.events[0].event.kind != crate::event_kind_str::DEVICE_REVOKE
         {
             return Err(Error::Protocol(
                 "security-rotation revoke unit must contain exactly the reserved ak.device.revoke Event"
@@ -1346,7 +1377,8 @@ impl SecurityTransaction {
             if active_series_request.events.len() != 1
                 || active_series_request.events[0].event.event_id
                     != binding_rotation.active_series_event_id
-                || active_series_request.events[0].event.kind != "ak.key_backup.active_series"
+                || active_series_request.events[0].event.kind
+                    != crate::event_kind_str::KEY_BACKUP_ACTIVE_SERIES
             {
                 return Err(Error::Protocol(
                     "security-rotation active-series unit must contain exactly its reserved ak.key_backup.active_series Event"
@@ -1452,5 +1484,31 @@ impl SecurityTransaction {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod untagged_contract_tests {
+    use super::*;
+
+    #[test]
+    fn binding_rejects_mixed_branch_markers() {
+        let error = serde_json::from_value::<SecurityTransactionBinding>(serde_json::json!({
+            "identity_model": "root_anchored",
+            "revoke_event_id": "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"
+        }))
+        .unwrap_err();
+        assert!(error.to_string().contains("mixes recovery and rotation"));
+    }
+
+    #[test]
+    fn binding_rejects_missing_branch_marker() {
+        let error = serde_json::from_value::<SecurityTransactionBinding>(serde_json::json!({}))
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("missing its branch discriminator")
+        );
     }
 }

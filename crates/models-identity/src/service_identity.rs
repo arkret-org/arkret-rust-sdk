@@ -536,7 +536,7 @@ impl ServiceRegistrationReceipt {
             audience: &'a Option<arkret_wire::Audience>,
         }
         Ok(canonical::canonical_json_bytes(&Transcript {
-            context: "ak.service-registration-receipt-proof-v1",
+            context: arkret_wire::ProofContextId::SERVICE_REGISTRATION_RECEIPT_PROOF_V1,
             payload_digest: &self.proof.payload_digest,
             provider_service_id: &self.provider_service_id,
             registration_receipt_id: &self.registration_receipt_id,

@@ -11,17 +11,11 @@ pub struct SchemaCatalogEntry {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchemaCatalogReport {
-    pub profile: String,
     pub entries: Vec<SchemaCatalogEntry>,
 }
 
 impl SchemaCatalogReport {
     pub fn validate(&self) -> Result<()> {
-        if self.profile != CORE_SCHEMA_PROFILE {
-            return Err(Error::Protocol(
-                "schema catalog profile mismatch".to_owned(),
-            ));
-        }
         let registry = ProtocolSchemaRegistry::default();
         let registered = registry.schema_ids().collect::<BTreeSet<_>>();
         let reported = self
@@ -45,10 +39,7 @@ pub fn schema_catalog() -> SchemaCatalogReport {
         entries.push(catalog_entry(&registry, schema_id));
     }
     entries.sort_by(|left, right| left.schema_id.cmp(&right.schema_id));
-    SchemaCatalogReport {
-        profile: CORE_SCHEMA_PROFILE.to_owned(),
-        entries,
-    }
+    SchemaCatalogReport { entries }
 }
 
 fn catalog_entry(registry: &ProtocolSchemaRegistry, schema_id: &str) -> SchemaCatalogEntry {
@@ -73,7 +64,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "strand minimal valid".to_owned(),
             schema_id: SchemaId::STRAND_V1.to_owned(),
             input: json!({
-                "schema": "ak.schema.strand.v1",
+                "schema": arkret_wire::SchemaId::STRAND_V1,
                 "id": "ak:strand:AU3CMWGZ9fcGNNxRY0A7kmogpXARmmE24lLmsuUwxyVG",
                 "realm_id": "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
                 "metadata": {"title": "Payment refactor"},
@@ -89,7 +80,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             schema_id: SchemaId::EVENT_V1.to_owned(),
             input: json!({
                 "event_id": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
-                "kind": "ak.message.create",
+                "kind": arkret_wire::event_kind_str::MESSAGE_CREATE,
                 "space_id": "ak:space:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
                 "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "actor_seq": 1,
@@ -116,7 +107,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "space_id": "ak:space:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
                 "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "actor_seq": 1,
-                "kind": "ak.message.create",
+                "kind": arkret_wire::event_kind_str::MESSAGE_CREATE,
                 "created_at": "2026-05-02T00:00:00.000Z",
                 "hlc": "01970e589d21-0000-a13f9c2e",
                 "prev_refs": [],

@@ -1148,8 +1148,10 @@ pub struct MimiUpdateConsentRequestBody {
 impl MimiUpdateConsentRequestBody {
     pub fn validate_consent_event(&self) -> Result<()> {
         let expected_kind = match self.decision {
-            MimiConsentDecision::Accept => "ak.consent.grant",
-            MimiConsentDecision::Deny | MimiConsentDecision::Revoke => "ak.consent.revoke",
+            MimiConsentDecision::Accept => arkret_wire::event_kind_str::CONSENT_GRANT,
+            MimiConsentDecision::Deny | MimiConsentDecision::Revoke => {
+                arkret_wire::event_kind_str::CONSENT_REVOKE
+            }
         };
         let event = &self.consent_event.event;
         if event.kind.as_str() != expected_kind || event.actor_id != self.actor_id {

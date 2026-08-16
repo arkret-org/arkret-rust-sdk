@@ -67,7 +67,7 @@ impl RealmState {
 
     /// Reduce realm lifecycle events into resolved state.
     pub(super) fn reduce_realm_lifecycle_event(&mut self, event: &Event) -> Result<()> {
-        let reducer_profile = if event.kind == "ak.realm.create" {
+        let reducer_profile = if event.kind == arkret_wire::event_kind_str::REALM_CREATE {
             let profile = event
                 .payload
                 .get("object")
@@ -86,7 +86,7 @@ impl RealmState {
         } else {
             None
         };
-        if event.kind == "ak.realm.destroy" {
+        if event.kind == arkret_wire::event_kind_str::REALM_DESTROY {
             self.tombstone_event_id = Some(event.event_id.clone());
         }
         self.reduce_generic_state_event(event)?;
@@ -99,12 +99,16 @@ impl RealmState {
     pub(super) fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
         let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
-            "ak.capability.grant"
-            | "ak.capability.revoke"
-            | "ak.capability.relinquish"
-            | "ak.capability.derived" => "ak.capability",
-            "ak.invite.create" | "ak.invite.cancel" | "ak.invite.accept" => "ak.invite",
-            "ak.realm.policy" | "ak.policy.set" => "ak.policy",
+            arkret_wire::event_kind_str::CAPABILITY_GRANT
+            | arkret_wire::event_kind_str::CAPABILITY_REVOKE
+            | arkret_wire::event_kind_str::CAPABILITY_RELINQUISH
+            | arkret_wire::event_kind_str::CAPABILITY_DERIVED => "ak.capability",
+            arkret_wire::event_kind_str::INVITE_CREATE
+            | arkret_wire::event_kind_str::INVITE_CANCEL
+            | arkret_wire::event_kind_str::INVITE_ACCEPT => "ak.invite",
+            arkret_wire::event_kind_str::REALM_POLICY | arkret_wire::event_kind_str::POLICY_SET => {
+                "ak.policy"
+            }
             other => other,
         };
         let map_key = format!("{}|{}", family, subject);
@@ -225,7 +229,7 @@ impl RealmState {
             source_event_id: event.event_id.clone(),
             actor_seq: event.actor_seq,
             hlc: event.hlc.clone(),
-            active: event.kind == "ak.reaction.add",
+            active: event.kind == arkret_wire::event_kind_str::REACTION_ADD,
         };
         match self.reactions.get(&key) {
             Some(existing) if !Self::reaction_candidate_wins(existing, &candidate) => {}

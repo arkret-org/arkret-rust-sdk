@@ -71,9 +71,9 @@ pub struct AuthoritySetRef {
 }
 
 pub const RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID: &str =
-    "ak.authority_set.recovery_identity_reanchor.v1";
+    crate::AuthoritySetId::RECOVERY_IDENTITY_REANCHOR_V1;
 pub const RECOVERY_ACCOUNT_AUTHORITY_SET_ID: &str =
-    "ak.authority_set.recovery_account_authority.v1";
+    crate::AuthoritySetId::RECOVERY_ACCOUNT_AUTHORITY_V1;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

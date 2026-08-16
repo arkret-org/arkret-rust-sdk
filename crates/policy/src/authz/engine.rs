@@ -258,7 +258,7 @@ pub struct PolicyEvaluationRequest {
 impl PolicyEvaluationRequest {
     pub fn new(context: AuthzContext) -> Self {
         Self {
-            operation: "ak.self.policy.read.check".to_owned(),
+            operation: arkret_wire::ServiceOperationId::SELF_POLICY_READ_CHECK.to_owned(),
             context,
         }
     }
@@ -279,7 +279,7 @@ pub struct PolicyEvaluationResult {
 impl PolicyEvaluationResult {
     pub fn no_action() -> Self {
         Self {
-            operation: "ak.self.policy.read.check".to_owned(),
+            operation: arkret_wire::ServiceOperationId::SELF_POLICY_READ_CHECK.to_owned(),
             effect: PolicyServerEffect::NoAction,
             reason: "no policy restriction".to_owned(),
             policy_id: None,

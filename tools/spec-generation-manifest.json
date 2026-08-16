@@ -207,6 +207,17 @@
     {
       "generator": "registry-types",
       "outputs": [
+        "crates/wire/src/generated/authority_sources.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/authority-source-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
         "crates/wire/src/generated/security_strings.rs"
       ],
       "owner": "arkret-wire",
@@ -218,7 +229,50 @@
         "registry/signature-alg-registry.json",
         "registry/hpke-suite-registry.json",
         "registry/mls-ciphersuite-registry.json",
-        "registry/mls-extension-registry.json"
+        "registry/mls-extension-registry.json",
+        "registry/aead-profile-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/service_contract_ids.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum",
+      "artifacts": [
+        "registry/contract-registry.json"
+      ],
+      "provides": [
+        "ServiceContractId"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/device_message_kinds.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum",
+      "artifacts": [
+        "schemas/device-message.schema.json"
+      ],
+      "provides": [
+        "ActorPrivateUpdateKind"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/authority_set_ids.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum",
+      "artifacts": [
+        "registry/authority-set-policy-registry.json"
+      ],
+      "provides": [
+        "AuthoritySetId"
       ]
     },
     {

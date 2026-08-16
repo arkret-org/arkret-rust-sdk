@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-15.1;
-//! sha256=2d7edb27c6f541433aa9347236003fb231cdfbe4f0e8fa2aff614f70af0fc06f Entries: schema_ids=185,
-//! active=185
+//! Input: registry/schema-registry.json; version=2026-08-16.3;
+//! sha256=a19f84b5b3555913bd71da000b94460e8d3c682e3f37ea85a29a349cde9c95d2 Entries: schema_ids=187,
+//! active=187
 
 use serde::{Deserialize, Serialize};
 
@@ -93,6 +93,7 @@ pub enum SchemaId {
     GrantConstraintV1,
     HandleClaimV1,
     HighRiskAuthorityProofV1,
+    HttpErrorEnvelopeV1,
     IceConfigResponseV1,
     IdentityLinkV1,
     IdentityReceiptV1,
@@ -164,6 +165,7 @@ pub enum SchemaId {
     SecurityRotationLocalCommitV1,
     SecurityTransactionV1,
     ServiceDescribeV1,
+    ServiceIdentityBundleV1,
     ServiceOperationDtosV1,
     SignalEnvelopeV1,
     SignalMessageStreamV1,
@@ -282,6 +284,7 @@ impl SchemaId {
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HighRiskAuthorityProofV1,
+        Self::HttpErrorEnvelopeV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
@@ -353,6 +356,7 @@ impl SchemaId {
         Self::SecurityRotationLocalCommitV1,
         Self::SecurityTransactionV1,
         Self::ServiceDescribeV1,
+        Self::ServiceIdentityBundleV1,
         Self::ServiceOperationDtosV1,
         Self::SignalEnvelopeV1,
         Self::SignalMessageStreamV1,
@@ -471,6 +475,7 @@ impl SchemaId {
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HighRiskAuthorityProofV1,
+        Self::HttpErrorEnvelopeV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
@@ -542,6 +547,7 @@ impl SchemaId {
         Self::SecurityRotationLocalCommitV1,
         Self::SecurityTransactionV1,
         Self::ServiceDescribeV1,
+        Self::ServiceIdentityBundleV1,
         Self::ServiceOperationDtosV1,
         Self::SignalEnvelopeV1,
         Self::SignalMessageStreamV1,
@@ -819,6 +825,9 @@ impl SchemaId {
     /// common detached-JWS leaf. First consumer: active-series key backup tail deletion
     /// (key-management.md §7.8).
     pub const HIGH_RISK_AUTHORITY_PROOF_V1: &'static str = "ak.schema.high_risk_authority_proof.v1";
+    /// Canonical default application/json HTTP error envelope from sync/api-conventions.md section
+    /// 5.
+    pub const HTTP_ERROR_ENVELOPE_V1: &'static str = "ak.schema.http_error_envelope.v1";
     pub const ICE_CONFIG_RESPONSE_V1: &'static str = "ak.schema.ice_config_response.v1";
     /// Encrypted minimal-metadata binding from Realm-scoped pairwise DID to principal DID, scoped
     /// by realm_id and trust_domain.
@@ -1003,6 +1012,9 @@ impl SchemaId {
     /// compat_surfaces is limited to external interop surfaces. See service-surface.md §3.0 and
     /// discovery-directory.md §8.9.
     pub const SERVICE_DESCRIBE_V1: &'static str = "ak.schema.service_describe.v1";
+    /// Verifiable service DID disaster-recovery bundle containing public DID history, receipts and
+    /// key references but no private key bytes.
+    pub const SERVICE_IDENTITY_BUNDLE_V1: &'static str = "ak.schema.service_identity_bundle.v1";
     /// Canonical DTO bundle for service operation request/response shapes migrated out of OpenAPI
     /// inline components.
     pub const SERVICE_OPERATION_DTOS_V1: &'static str = "ak.schema.service_operation_dtos.v1";
@@ -1171,6 +1183,7 @@ impl SchemaId {
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
             Self::HandleClaimV1 => Self::HANDLE_CLAIM_V1,
             Self::HighRiskAuthorityProofV1 => Self::HIGH_RISK_AUTHORITY_PROOF_V1,
+            Self::HttpErrorEnvelopeV1 => Self::HTTP_ERROR_ENVELOPE_V1,
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::IdentityReceiptV1 => Self::IDENTITY_RECEIPT_V1,
@@ -1242,6 +1255,7 @@ impl SchemaId {
             Self::SecurityRotationLocalCommitV1 => Self::SECURITY_ROTATION_LOCAL_COMMIT_V1,
             Self::SecurityTransactionV1 => Self::SECURITY_TRANSACTION_V1,
             Self::ServiceDescribeV1 => Self::SERVICE_DESCRIBE_V1,
+            Self::ServiceIdentityBundleV1 => Self::SERVICE_IDENTITY_BUNDLE_V1,
             Self::ServiceOperationDtosV1 => Self::SERVICE_OPERATION_DTOS_V1,
             Self::SignalEnvelopeV1 => Self::SIGNAL_ENVELOPE_V1,
             Self::SignalMessageStreamV1 => Self::SIGNAL_MESSAGE_STREAM_V1,
@@ -1385,6 +1399,7 @@ impl SchemaId {
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
             Self::HandleClaimV1 => "schemas/handle-claim.schema.json",
             Self::HighRiskAuthorityProofV1 => "schemas/high-risk-authority-proof.schema.json",
+            Self::HttpErrorEnvelopeV1 => "schemas/http-error-envelope.schema.json",
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
             Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
             Self::IdentityReceiptV1 => "schemas/identity-receipt.schema.json",
@@ -1466,6 +1481,7 @@ impl SchemaId {
             Self::SecurityRotationLocalCommitV1 => "schemas/security-transaction.schema.json",
             Self::SecurityTransactionV1 => "schemas/security-transaction.schema.json",
             Self::ServiceDescribeV1 => "schemas/service-describe.schema.json",
+            Self::ServiceIdentityBundleV1 => "schemas/service-identity-bundle.schema.json",
             Self::ServiceOperationDtosV1 => "schemas/service-operation-dtos.schema.json",
             Self::SignalEnvelopeV1 => "schemas/signal-envelope.schema.json",
             Self::SignalMessageStreamV1 => "schemas/signal-message-stream.schema.json",
@@ -1605,6 +1621,7 @@ impl SchemaId {
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
             Self::HANDLE_CLAIM_V1 => Some(Self::HandleClaimV1),
             Self::HIGH_RISK_AUTHORITY_PROOF_V1 => Some(Self::HighRiskAuthorityProofV1),
+            Self::HTTP_ERROR_ENVELOPE_V1 => Some(Self::HttpErrorEnvelopeV1),
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
             Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
             Self::IDENTITY_RECEIPT_V1 => Some(Self::IdentityReceiptV1),
@@ -1680,6 +1697,7 @@ impl SchemaId {
             Self::SECURITY_ROTATION_LOCAL_COMMIT_V1 => Some(Self::SecurityRotationLocalCommitV1),
             Self::SECURITY_TRANSACTION_V1 => Some(Self::SecurityTransactionV1),
             Self::SERVICE_DESCRIBE_V1 => Some(Self::ServiceDescribeV1),
+            Self::SERVICE_IDENTITY_BUNDLE_V1 => Some(Self::ServiceIdentityBundleV1),
             Self::SERVICE_OPERATION_DTOS_V1 => Some(Self::ServiceOperationDtosV1),
             Self::SIGNAL_ENVELOPE_V1 => Some(Self::SignalEnvelopeV1),
             Self::SIGNAL_MESSAGE_STREAM_V1 => Some(Self::SignalMessageStreamV1),

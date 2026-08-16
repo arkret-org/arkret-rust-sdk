@@ -198,11 +198,4 @@ pub trait LatticeKind: Send + Sync {
     ) -> Result<Option<String>, LatticeKindError> {
         self.subject_for_effect(effect_payload)
     }
-
-    /// Durable Arkret event kinds whose projection feeds this cell
-    /// family. Empty by default — only kinds with a 1:N event-kind →
-    /// cell-family mapping declare it.
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &[]
-    }
 }

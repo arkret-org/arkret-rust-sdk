@@ -1594,7 +1594,9 @@ fn string_set_digest_component_value(
         .get("context")
         .and_then(Value::as_str)
         .ok_or_else(|| subject_error(kind, "string_set_digest component context is missing"))?;
-    if kind == "ak.identity.accountability_grant" && context != "ak.accountability-scope-set-v1" {
+    if kind == arkret_wire::event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT
+        && context != arkret_wire::DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1
+    {
         return Err(subject_error(
             kind,
             "accountability_scope string-set digest context is invalid",
@@ -1619,7 +1621,7 @@ fn string_set_digest_component_value(
             ));
         }
     };
-    if kind == "ak.identity.accountability_grant"
+    if kind == arkret_wire::event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT
         && values.iter().any(|value| {
             !matches!(
                 value.as_str(),

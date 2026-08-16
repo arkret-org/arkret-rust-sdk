@@ -7,6 +7,7 @@ use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::events_payloads::call::ParticipantBinding;
 use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
+    MediaBackendKind, MediaBackendToken,
 };
 use arkret_wire::DidCoreId;
 /// Fixed ASCII domain-separation label that prefixes the participant-binding
@@ -16,7 +17,7 @@ use arkret_wire::DidCoreId;
 use arkret_wire::{CallId, DeviceId, DidFullId, RealmId};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{Error, Result};
 
@@ -30,32 +31,10 @@ pub use ice::{IceConfig, verify_ice_config_outcome};
 /// `ak.realm.media_service.foci[].type`. Receivers MUST fail closed with
 /// [`ReasonCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ReasonCode::UNKNOWN_FOCUS_TYPE)
 /// on unrecognized variants.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MediaBackendType {
-    Livekit,
-    Mediasoup,
-    Janus,
-    ArkretNative,
-    MoqRelay,
-    /// Unknown / forward-compat backend label. Helpers MUST reject this
-    /// with `unknown_focus_type` before forwarding to the wire layer.
-    #[serde(other)]
-    Unknown,
-}
-
-impl MediaBackendType {
-    /// Reject the focus when the SDK does not understand the backend
-    /// label. Surface: `unknown_focus_type`.
-    pub fn ensure_known(&self) -> Result<()> {
-        match self {
-            Self::Unknown => Err(Error::Protocol(
-                "unknown_focus_type: media focus backend label not recognised".to_owned(),
-            )),
-            _ => Ok(()),
-        }
-    }
-}
+/// Backward-compatible SDK name for the closed machine-contract registry.
+/// Unknown labels now fail during deserialization instead of surviving as a
+/// permissive catch-all variant.
+pub type MediaBackendType = MediaBackendKind;
 
 /// Validate that `expires_at - now` is within the spec TTL ceiling
 /// ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS)).
@@ -335,7 +314,7 @@ pub fn verify_call_media_token_outcome(
     let binding = &outcome.participant_binding;
 
     if outcome.connect_url.trim().is_empty()
-        || outcome.backend_token.trim().is_empty()
+        || matches!(&outcome.backend_token, MediaBackendToken::Opaque(token) if token.trim().is_empty())
         || outcome.participant_identity.trim().is_empty()
         || binding.sig.trim().is_empty()
         || binding.issuer_kid.trim().is_empty()
@@ -470,9 +449,9 @@ mod tests {
         let identity = "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned();
         CallMediaTokenExchangeOutcome {
             focus_id: request.focus_id.clone(),
-            backend_kind: "livekit".to_owned(),
+            backend_kind: MediaBackendKind::Livekit,
             connect_url: "wss://livekit-fra.example.com".to_owned(),
-            backend_token: "opaque-backend-token".to_owned(),
+            backend_token: MediaBackendToken::Opaque("opaque-backend-token".to_owned()),
             participant_identity: identity.clone(),
             participant_binding: CallMediaParticipantBinding {
                 scheme: ParticipantBinding::SCHEMA.to_owned(),
@@ -549,6 +528,33 @@ mod tests {
         let signing_input =
             participant_binding_signing_input(&outcome.participant_binding).unwrap();
         assert!(signing_input.starts_with(b"ak.media.participant_binding.v1\x00"));
+    }
+
+    #[test]
+    fn media_token_outcome_rejects_backend_shape_mismatch() {
+        let request = token_request();
+        let key = issuer_key();
+        let now = Utc::now();
+        let outcome = signed_outcome(&request, &key, now + chrono::Duration::minutes(5));
+        let mut wire = serde_json::to_value(outcome).unwrap();
+
+        wire["backend_kind"] = serde_json::json!("arkret_native");
+        assert!(serde_json::from_value::<CallMediaTokenExchangeOutcome>(wire.clone()).is_err());
+
+        wire["backend_token"] = serde_json::json!({
+            "kid": ISSUER_KID,
+            "payload": {
+                "call_id": request.call_id,
+                "focus_id": request.focus_id,
+                "participant_identity": "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000",
+                "issued_at": "2026-08-16T00:00:00.000Z",
+                "expires_at": "2026-08-16T00:05:00.000Z",
+                "media": {"audio": true, "video": true, "screen": false}
+            },
+            "sig": "AA",
+            "signature_algorithm": "Ed25519"
+        });
+        assert!(serde_json::from_value::<CallMediaTokenExchangeOutcome>(wire).is_ok());
     }
 
     #[test]

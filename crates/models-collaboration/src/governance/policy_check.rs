@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AuthzDecision, DeviceId, DidCoreId, FreshnessState, Hash, RealmId, ReasonCode, Result,
-    TypedTrustDomainId, canonical,
+    AuthzDecision, DeviceId, DidCoreId, DomainSeparationId, FreshnessState, Hash, RealmId,
+    ReasonCode, Result, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -141,7 +141,7 @@ struct PolicyDecisionTranscript<'a> {
 /// Canonical v1 transcript signed by policy issuers and rebuilt by verifiers.
 pub fn policy_decision_transcript_bytes(outcome: &PolicyCheckOutcome) -> Result<Vec<u8>> {
     let transcript = PolicyDecisionTranscript {
-        kind: "ak.policy.check.transcript.v1",
+        kind: DomainSeparationId::POLICY_CHECK_TRANSCRIPT_V1,
         request_id: &outcome.request_id,
         decision: &outcome.decision,
         bound_to: &outcome.bound_to,

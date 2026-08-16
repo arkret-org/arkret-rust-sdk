@@ -105,7 +105,7 @@ impl AppletRegistrationPayload {
             controller_id,
             base_url: base_url.into(),
             bot_actor_id,
-            claimed_profiles: vec!["ak.profile.applet_service.v1".to_owned()],
+            claimed_profiles: vec![arkret_wire::ProfileId::APPLET_SERVICE_V1.to_owned()],
             protocols: Vec::new(),
             namespaces: BTreeMap::new(),
             receive_events: false,

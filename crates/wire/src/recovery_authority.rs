@@ -116,7 +116,7 @@ pub struct RecoveryCompletionAttestation {
 
 impl RecoveryCompletionAttestation {
     pub fn validate_structural(&self) -> Result<()> {
-        if self.schema != "ak.schema.recovery_completion_attestation.v1" {
+        if self.schema != crate::SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1 {
             return Err(Error::Protocol(
                 "recovery completion attestation schema is invalid".to_owned(),
             ));
@@ -218,7 +218,7 @@ impl UnsignedRecoveryCompletionAttestation {
     ) -> Result<RecoveryCompletionAttestation> {
         let body = self.body;
         let attestation = RecoveryCompletionAttestation {
-            schema: "ak.schema.recovery_completion_attestation.v1".to_owned(),
+            schema: crate::SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1.to_owned(),
             transaction_id: body.transaction_id,
             transaction_request_digest: body.transaction_request_digest,
             prepared_plan_digest: body.prepared_plan_digest,
@@ -263,7 +263,7 @@ fn recovery_completion_attestation_signing_bytes(
 ) -> Result<Vec<u8>> {
     validate_recovery_completion_attestation_body(body)?;
     let value = serde_json::json!({
-        "schema": "ak.schema.recovery_completion_attestation.v1",
+        "schema": crate::SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1,
         "transaction_id": &body.transaction_id,
         "transaction_request_digest": &body.transaction_request_digest,
         "prepared_plan_digest": &body.prepared_plan_digest,

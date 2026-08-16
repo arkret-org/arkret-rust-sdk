@@ -650,7 +650,10 @@ def scan_dynamic_file(
         )
 
     for match in FUNCTION_RE.finditer(masked):
-        opening = masked.find("(", match.start(), match.end())
+        # FUNCTION_RE consumes the function-parameter opening delimiter.  Using
+        # the first `(` in the whole match accidentally selects the visibility
+        # restriction in `pub(super)`, `pub(crate)` and `pub(in path)`.
+        opening = match.end() - 1
         try:
             closing = matching_delimiter(masked, opening)
         except (KeyError, ValueError):
@@ -663,9 +666,17 @@ def scan_dynamic_file(
         discriminator_parameters = [
             name
             for name, rust_type in parsed
-            if name in DISCRIMINATOR_FIELDS
-            or name.endswith("_kind")
-            or "Kind" in rust_type
+            if (
+                name in DISCRIMINATOR_FIELDS
+                or name.endswith("_kind")
+                or "Kind" in rust_type
+            )
+            # Service/projection context objects are commonly named `state`;
+            # they do not select the adjacent JSON shape.
+            and not (
+                name == "state"
+                and re.search(r"\b(?:AppState|ProjectionState)\b", rust_type)
+            )
         ]
         data_parameters = [
             name

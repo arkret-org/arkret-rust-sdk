@@ -40,6 +40,7 @@ SCHEMA_ID_PREFIXES = ("ak.schema.", "ak.")
 PROFILE_ID_PREFIXES = ("ak.profile.",)
 REDUCER_PROFILE_PREFIXES = ("ak.reducer.",)
 DID_FRESHNESS_PREFIXES = ("ak.did_freshness.",)
+AUTHORITY_SOURCE_PREFIXES = ("ak.authority.",)
 
 
 def rust_string(value: str) -> str:
@@ -1043,6 +1044,7 @@ def generate_security_strings(artifacts: Path) -> str:
         "hpke-suite-registry.json",
         "mls-ciphersuite-registry.json",
         "mls-extension-registry.json",
+        "aead-profile-registry.json",
     ]
     loaded = [
         (f"registry/{name}", *load(artifacts / "registry" / name))
@@ -1059,12 +1061,17 @@ def generate_security_strings(artifacts: Path) -> str:
     hpke = loaded[4][1]["suites"]
     mls = loaded[5][1]["ciphersuites"]
     mls_extensions = loaded[6][1]["extensions"]
+    domains = sorted(loaded[0][1]["domain_separations"], key=lambda row: row["domain"])
+    aead_profiles = sorted(loaded[7][1]["profiles"], key=lambda row: row["canonical_id"])
+    ensure_unique(domains, "domain", ("ak.",))
+    ensure_unique(aead_profiles, "canonical_id", ("ak.aead.",))
     lines = header(
         loaded,
         f"proof_contexts={len(proof)}, exporter_labels={len(labels)}, "
         f"digest_suites={len(digests)}, signature_algorithms={len(signatures)}, "
         f"hpke_suites={len(hpke)}, mls_ciphersuites={len(mls)}, "
-        f"mls_extensions={len(mls_extensions)}",
+        f"mls_extensions={len(mls_extensions)}, domain_separations={len(domains)}, "
+        f"aead_profiles={len(aead_profiles)}",
     )
     lines.extend(
         [
@@ -1116,6 +1123,174 @@ def generate_security_strings(artifacts: Path) -> str:
         lines.append(
             f"            Self::{associated_name(row['context'], ('ak.',))} => "
             f"Some(Self::{variant(row['context'], ('ak.',))}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum DomainSeparationId {",
+        ]
+    )
+    for row in domains:
+        lines.append(f"    {variant(row['domain'], ('ak.',))},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl DomainSeparationId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in domains:
+        lines.append(f"        Self::{variant(row['domain'], ('ak.',))},")
+    lines.extend(["    ];", ""])
+    for row in domains:
+        lines.append(
+            f"    pub const {associated_name(row['domain'], ('ak.',))}: &'static str = "
+            f"{rust_string(row['domain'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in domains:
+        lines.append(
+            f"            Self::{variant(row['domain'], ('ak.',))} => "
+            f"Self::{associated_name(row['domain'], ('ak.',))},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in domains:
+        lines.append(
+            f"            Self::{associated_name(row['domain'], ('ak.',))} => "
+            f"Some(Self::{variant(row['domain'], ('ak.',))}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum AeadProfileId {",
+        ]
+    )
+    for row in aead_profiles:
+        lines.append(f"    {variant(row['canonical_id'], ('ak.aead.',))},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl AeadProfileId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in aead_profiles:
+        lines.append(f"        Self::{variant(row['canonical_id'], ('ak.aead.',))},")
+    lines.extend(["    ];", ""])
+    for row in aead_profiles:
+        lines.append(
+            f"    pub const {associated_name(row['canonical_id'], ('ak.aead.',))}: &'static str = "
+            f"{rust_string(row['canonical_id'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in aead_profiles:
+        lines.append(
+            f"            Self::{variant(row['canonical_id'], ('ak.aead.',))} => "
+            f"Self::{associated_name(row['canonical_id'], ('ak.aead.',))},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in aead_profiles:
+        lines.append(
+            f"            Self::{associated_name(row['canonical_id'], ('ak.aead.',))} => "
+            f"Some(Self::{variant(row['canonical_id'], ('ak.aead.',))}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum HpkeSuiteId {",
+        ]
+    )
+    for row in sorted(hpke, key=lambda row: row["canonical_id"]):
+        lines.append(f"    {variant(row['canonical_id'], ('ak.hpke_',))},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl HpkeSuiteId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in sorted(hpke, key=lambda row: row["canonical_id"]):
+        lines.append(f"        Self::{variant(row['canonical_id'], ('ak.hpke_',))},")
+    lines.extend(["    ];", ""])
+    for row in sorted(hpke, key=lambda row: row["canonical_id"]):
+        lines.append(
+            f"    pub const {associated_name(row['canonical_id'], ('ak.hpke_',))}: &'static str = "
+            f"{rust_string(row['canonical_id'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in sorted(hpke, key=lambda row: row["canonical_id"]):
+        lines.append(
+            f"            Self::{variant(row['canonical_id'], ('ak.hpke_',))} => "
+            f"Self::{associated_name(row['canonical_id'], ('ak.hpke_',))},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in sorted(hpke, key=lambda row: row["canonical_id"]):
+        lines.append(
+            f"            Self::{associated_name(row['canonical_id'], ('ak.hpke_',))} => "
+            f"Some(Self::{variant(row['canonical_id'], ('ak.hpke_',))}),"
         )
     lines.extend(
         [
@@ -2681,6 +2856,301 @@ def generate_did_freshness_profiles(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def generate_authority_sources(artifacts: Path) -> str:
+    relative = "registry/authority-source-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(artifact["sources"], key=lambda row: row["authority_source_id"])
+    ensure_unique(rows, "authority_source_id", AUTHORITY_SOURCE_PREFIXES)
+    lines = header([(relative, artifact, digest)], f"registered={len(rows)}")
+    lines.extend(
+        [
+            "use serde::{Deserialize, Serialize};",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum AuthoritySourceId {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"    {variant(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)},"
+        )
+    lines.extend(
+        [
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct AuthoritySourcePhaseDescriptor {",
+            "    pub phase: &'static str,",
+            "    pub actor_rule: &'static str,",
+            "    pub action_allowlist: &'static [&'static str],",
+            "    pub activation_checks: &'static [&'static str],",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct AuthoritySourceDescriptor {",
+            "    pub authority_source_id: AuthoritySourceId,",
+            "    pub status: &'static str,",
+            "    pub profile: &'static str,",
+            "    pub wire_ref: &'static str,",
+            "    pub binding_event_kind: &'static str,",
+            "    pub binding_ref_role: &'static str,",
+            "    pub phases: &'static [AuthoritySourcePhaseDescriptor],",
+            "    pub phase_selection: Option<&'static str>,",
+            "    pub action_allowlist: &'static [&'static str],",
+            "    pub activation_checks: &'static [&'static str],",
+            "    pub forbidden_actions: &'static [&'static str],",
+            "    pub revocation_model: &'static str,",
+            "    pub authority_generation_independent: bool,",
+            "    pub grantable: bool,",
+            "    pub delegated_event_rule: &'static str,",
+            "    pub failure_mode: &'static str,",
+            "}",
+            "",
+            "impl AuthoritySourceId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"        Self::{variant(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)},"
+        )
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)}: "
+            f"&'static str = {rust_string(row['authority_source_id'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)} => "
+            f"Self::{associated_name(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)} => "
+            f"Some(Self::{variant(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "",
+            "    pub const fn descriptor(self) -> &'static AuthoritySourceDescriptor {",
+            "        &REGISTERED_AUTHORITY_SOURCES[self as usize]",
+            "    }",
+            "}",
+            "",
+            "impl std::fmt::Display for AuthoritySourceId {",
+            "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+            "        f.write_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl Serialize for AuthoritySourceId {",
+            "    fn serialize<S: serde::Serializer>(",
+            "        &self,",
+            "        serializer: S,",
+            "    ) -> Result<S::Ok, S::Error> {",
+            "        serializer.serialize_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl<'de> Deserialize<'de> for AuthoritySourceId {",
+            "    fn deserialize<D: serde::Deserializer<'de>>(",
+            "        deserializer: D,",
+            "    ) -> Result<Self, D::Error> {",
+            "        let raw = String::deserialize(deserializer)?;",
+            "        Self::from_wire(&raw).ok_or_else(|| {",
+            '            serde::de::Error::custom(format!("unknown authority source id: {raw}"))',
+            "        })",
+            "    }",
+            "}",
+            "",
+            "pub const REGISTERED_AUTHORITY_SOURCES: &[AuthoritySourceDescriptor] = &[",
+        ]
+    )
+    for row in rows:
+        lines.extend(
+            [
+                "    AuthoritySourceDescriptor {",
+                "        authority_source_id: AuthoritySourceId::"
+                f"{variant(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)},",
+                f"        status: {rust_string(row['status'])},",
+                f"        profile: {rust_string(row['profile'])},",
+                f"        wire_ref: {rust_string(row['wire_ref'])},",
+                f"        binding_event_kind: {rust_string(row['binding_event_kind'])},",
+                f"        binding_ref_role: {rust_string(row['binding_ref_role'])},",
+                "        phases: &[",
+            ]
+        )
+        for phase in row.get("phases", []):
+            lines.extend(
+                [
+                    "            AuthoritySourcePhaseDescriptor {",
+                    f"                phase: {rust_string(phase['phase'])},",
+                    f"                actor_rule: {rust_string(phase['actor_rule'])},",
+                    f"                action_allowlist: {rust_slice(phase.get('action_allowlist'))},",
+                    f"                activation_checks: {rust_slice(phase.get('activation_checks'))},",
+                    "            },",
+                ]
+            )
+        lines.extend(
+            [
+                "        ],",
+                f"        phase_selection: {rust_option(row.get('phase_selection'))},",
+                f"        action_allowlist: {rust_slice(row.get('action_allowlist'))},",
+                f"        activation_checks: {rust_slice(row.get('activation_checks'))},",
+                f"        forbidden_actions: {rust_slice(row.get('forbidden_actions'))},",
+                f"        revocation_model: {rust_string(row['revocation_model'])},",
+                "        authority_generation_independent: "
+                f"{str(bool(row['authority_generation_independent'])).lower()},",
+                f"        grantable: {str(bool(row['grantable'])).lower()},",
+                f"        delegated_event_rule: {rust_string(row['delegated_event_rule'])},",
+                f"        failure_mode: {rust_string(row['failure_mode'])},",
+                "    },",
+            ]
+        )
+    lines.append("];")
+    return "\n".join(lines) + "\n"
+
+
+def generate_service_contract_ids(artifacts: Path) -> str:
+    relative = "registry/contract-registry.json"
+    data, digest = load(artifacts / relative)
+    rows = sorted(data.get("service_contracts", []), key=lambda row: row["contract_id"])
+    ensure_unique(rows, "contract_id", ("ak.",))
+    lines = header([(relative, data, digest)], f"service_contracts={len(rows)}")
+    lines.extend(
+        [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum ServiceContractId {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['contract_id'], ('ak.',))},")
+    lines.extend(["}", "", "impl ServiceContractId {", "    pub const ALL: &'static [Self] = &["])
+    for row in rows:
+        lines.append(f"        Self::{variant(row['contract_id'], ('ak.',))},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['contract_id'], ('ak.',))}: &'static str = "
+            f"{rust_string(row['contract_id'])};"
+        )
+    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['contract_id'], ('ak.',))} => "
+            f"Self::{associated_name(row['contract_id'], ('ak.',))},"
+        )
+    lines.extend(["        }", "    }", "", "    pub fn from_wire(value: &str) -> Option<Self> {", "        match value {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['contract_id'], ('ak.',))} => "
+            f"Some(Self::{variant(row['contract_id'], ('ak.',))}),"
+        )
+    lines.extend(["            _ => None,", "        }", "    }", "}"])
+    return "\n".join(lines) + "\n"
+
+
+def generate_device_message_kinds(artifacts: Path) -> str:
+    relative = "schemas/device-message.schema.json"
+    data, digest = load(artifacts / relative)
+    rows = [
+        {"kind": value}
+        for value in sorted(data["$defs"]["actor_private_update_kind"]["enum"])
+    ]
+    ensure_unique(rows, "kind", ("ak.",))
+    lines = header([(relative, data, digest)], f"actor_private_update_kinds={len(rows)}")
+    lines.extend(
+        [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "pub enum ActorPrivateUpdateKind {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['kind'], ('ak.',))},")
+    lines.extend(["}", "", "impl ActorPrivateUpdateKind {", "    pub const ALL: &'static [Self] = &["])
+    for row in rows:
+        lines.append(f"        Self::{variant(row['kind'], ('ak.',))},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['kind'], ('ak.',))}: &'static str = "
+            f"{rust_string(row['kind'])};"
+        )
+    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['kind'], ('ak.',))} => "
+            f"Self::{associated_name(row['kind'], ('ak.',))},"
+        )
+    lines.extend(["        }", "    }", "", "    pub fn from_wire(value: &str) -> Option<Self> {", "        match value {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['kind'], ('ak.',))} => "
+            f"Some(Self::{variant(row['kind'], ('ak.',))}),"
+        )
+    lines.extend(["            _ => None,", "        }", "    }", "}"])
+    return "\n".join(lines) + "\n"
+
+
+def generate_authority_set_ids(artifacts: Path) -> str:
+    relative = "registry/authority-set-policy-registry.json"
+    data, digest = load(artifacts / relative)
+    rows = sorted(data["policies"], key=lambda row: row["authority_set_id"])
+    ensure_unique(rows, "authority_set_id", ("ak.authority_set.",))
+    lines = header([(relative, data, digest)], f"authority_sets={len(rows)}")
+    lines.extend([
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+        "pub enum AuthoritySetId {",
+    ])
+    for row in rows:
+        lines.append(f"    {variant(row['authority_set_id'], ('ak.authority_set.',))},")
+    lines.extend(["}", "", "impl AuthoritySetId {", "    pub const ALL: &'static [Self] = &["])
+    for row in rows:
+        lines.append(f"        Self::{variant(row['authority_set_id'], ('ak.authority_set.',))},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['authority_set_id'], ('ak.authority_set.',))}: &'static str = "
+            f"{rust_string(row['authority_set_id'])};"
+        )
+    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['authority_set_id'], ('ak.authority_set.',))} => "
+            f"Self::{associated_name(row['authority_set_id'], ('ak.authority_set.',))},"
+        )
+    lines.extend(["        }", "    }", "", "    pub fn from_wire(value: &str) -> Option<Self> {", "        match value {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['authority_set_id'], ('ak.authority_set.',))} => "
+            f"Some(Self::{variant(row['authority_set_id'], ('ak.authority_set.',))}),"
+        )
+    lines.extend(["            _ => None,", "        }", "    }", "}"])
+    return "\n".join(lines) + "\n"
+
+
 GENERATORS = {
     "crates/identifiers/src/generated/digest_suite_codes.rs": generate_digest_suite_codes,
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
@@ -2703,12 +3173,16 @@ GENERATORS = {
     "crates/wire/src/generated/security_strings.rs": (
         generate_security_strings
     ),
+    "crates/wire/src/generated/service_contract_ids.rs": generate_service_contract_ids,
+    "crates/wire/src/generated/device_message_kinds.rs": generate_device_message_kinds,
+    "crates/wire/src/generated/authority_set_ids.rs": generate_authority_set_ids,
     "crates/wire/src/generated/capability_actions.rs": (
         generate_capability_actions
     ),
     "crates/wire/src/generated/did_freshness_profiles.rs": (
         generate_did_freshness_profiles
     ),
+    "crates/wire/src/generated/authority_sources.rs": generate_authority_sources,
     "crates/schema/src/generated/registry_descriptors.rs": (
         generate_registry_descriptors
     ),

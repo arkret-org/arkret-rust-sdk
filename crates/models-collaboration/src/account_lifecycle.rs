@@ -20,7 +20,8 @@ use arkret_wire::{
     ActorProfileId, AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId,
     DidCoreId, DidFullId, DidUrl, Event, EventBatchReceipt, EventId, EventInitialSubmission,
     EventKind, Hash, NonEmptyString, PayloadProof, RealmId, ReasonCode, ReceiptId, Result,
-    ScopeRef, ServiceOperationId, SessionGrantId, canonical, project_full_id_to_core_id,
+    SchemaId, ScopeRef, ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -173,9 +174,7 @@ pub struct AccountLifecycleProof {
     pub signature: String,
 }
 
-pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = "ak.schema.account_lifecycle_proof.v1";
-pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
-    "ak.account.lifecycle_proof.session_revoke.v1";
+pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = SchemaId::ACCOUNT_OPERATIONS_V1;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantAppletSelector {
@@ -199,7 +198,7 @@ impl AccountLifecycleProof {
         applet_selector: Option<&SessionGrantAppletSelector>,
     ) -> Result<Hash> {
         let request = json!({
-            "schema": "ak.schema.session_revoke.request.v1",
+            "schema": SchemaId::ACCOUNT_OPERATIONS_V1,
             "operation": ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
             "actor_id": actor_id,
             "service_id": service_id,
@@ -231,6 +230,89 @@ pub const ACCOUNT_STATUS_AUTHORITY_EVIDENCE_CONTEXT: &str =
     "ak.account_status.authority_evidence.v1";
 pub const ACCOUNT_STATUS_RECEIPT_CONTEXT: &str = "ak.account_status.ingress_receipt.v1";
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnsignedAccountStatusAuthorityEvidence {
+    pub account_authority_id: DidCoreId,
+    pub issuer_service_id: DidCoreId,
+    pub principal_control_realm_id: RealmId,
+    pub account_id: NonEmptyString,
+    pub principal_id: DidCoreId,
+    pub binding_version: u64,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub verification_method: DidUrl,
+}
+
+impl UnsignedAccountStatusAuthorityEvidence {
+    fn payload_value(&self) -> serde_json::Value {
+        json!({
+            "account_authority_id": self.account_authority_id,
+            "issuer_service_id": self.issuer_service_id,
+            "principal_control_realm_id": self.principal_control_realm_id,
+            "account_id": self.account_id,
+            "principal_id": self.principal_id,
+            "binding_version": self.binding_version,
+            "issued_at": arkret_canonical::format_timestamp_canonical(self.issued_at),
+            "expires_at": arkret_canonical::format_timestamp_canonical(self.expires_at),
+        })
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::canonical_sha256(&self.payload_value())?).map_err(Into::into)
+    }
+
+    pub fn proof_metadata(&self) -> Result<UnsignedPayloadProof> {
+        Ok(UnsignedPayloadProof {
+            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: self.verification_method.clone(),
+            payload_digest: self.payload_digest()?,
+            created_at: self.issued_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+        })
+    }
+
+    pub fn canonical_proof_binding_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        if proof.payload_digest != self.payload_digest()?
+            || proof.verification_method != self.verification_method
+            || proof.created_at != self.issued_at
+            || proof.domain.is_some()
+            || proof.audience.is_some()
+            || proof.proof_purpose.is_some()
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "account status authority proof metadata does not match its evidence".to_owned(),
+            ));
+        }
+        canonical::canonical_json_bytes(&json!({
+            "context": ACCOUNT_STATUS_AUTHORITY_EVIDENCE_CONTEXT,
+            "payload_digest": proof.payload_digest,
+            "verification_method": proof.verification_method,
+            "created_at": arkret_canonical::format_timestamp_canonical(proof.created_at),
+        }))
+        .map_err(Into::into)
+    }
+
+    pub fn attach_proof(self, proof: PayloadProof) -> Result<AccountStatusAuthorityEvidence> {
+        self.canonical_proof_binding_bytes(&proof.unsigned())?;
+        let evidence = AccountStatusAuthorityEvidence {
+            account_authority_id: self.account_authority_id,
+            issuer_service_id: self.issuer_service_id,
+            principal_control_realm_id: self.principal_control_realm_id,
+            account_id: self.account_id,
+            principal_id: self.principal_id,
+            binding_version: self.binding_version,
+            issued_at: self.issued_at,
+            expires_at: self.expires_at,
+            proof,
+        };
+        evidence.validate_shape()?;
+        Ok(evidence)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -241,7 +323,6 @@ pub struct AccountStatusAuthorityEvidence {
     pub account_id: NonEmptyString,
     pub principal_id: DidCoreId,
     pub binding_version: u64,
-    pub authority_ref: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -250,6 +331,20 @@ pub struct AccountStatusAuthorityEvidence {
 }
 
 impl AccountStatusAuthorityEvidence {
+    pub fn unsigned(&self) -> UnsignedAccountStatusAuthorityEvidence {
+        UnsignedAccountStatusAuthorityEvidence {
+            account_authority_id: self.account_authority_id.clone(),
+            issuer_service_id: self.issuer_service_id.clone(),
+            principal_control_realm_id: self.principal_control_realm_id.clone(),
+            account_id: self.account_id.clone(),
+            principal_id: self.principal_id.clone(),
+            binding_version: self.binding_version,
+            issued_at: self.issued_at,
+            expires_at: self.expires_at,
+            verification_method: self.proof.verification_method.clone(),
+        }
+    }
+
     pub fn payload_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;
         value
@@ -276,22 +371,32 @@ impl AccountStatusAuthorityEvidence {
             ));
         }
         self.proof.validate_production()?;
+        self.unsigned()
+            .canonical_proof_binding_bytes(&self.proof.unsigned())?;
         if self.proof.payload_digest != self.payload_digest()? {
             return Err(arkret_wire::Error::Protocol(
                 "account status authority evidence proof digest mismatch".to_owned(),
             ));
         }
-        if !self
+        let proof_controller = self
             .proof
             .verification_method
             .as_str()
-            .starts_with(&format!("{}#", self.account_authority_id))
-        {
+            .rsplit_once('#')
+            .map(|(controller, _)| controller)
+            .and_then(|controller| DidFullId::new(controller.to_owned()).ok())
+            .and_then(|controller| project_full_id_to_core_id(&controller).ok());
+        if proof_controller.as_ref() != Some(&self.account_authority_id) {
             return Err(arkret_wire::Error::Protocol(
                 "account status authority evidence proof controller mismatch".to_owned(),
             ));
         }
         Ok(())
+    }
+
+    pub fn canonical_proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.unsigned()
+            .canonical_proof_binding_bytes(&self.proof.unsigned())
     }
 }
 
@@ -326,6 +431,7 @@ pub struct AccountStatusAuthoringFrontiersOutcome {
     pub issuer_service_id: DidCoreId,
     pub actor_frontier: RealmActorFrontierView,
     pub seal_frontier: RealmSealFrontierView,
+    pub current_status_event_ids: Vec<EventId>,
 }
 
 impl AccountStatusAuthoringFrontiersOutcome {
@@ -351,6 +457,17 @@ impl AccountStatusAuthoringFrontiersOutcome {
         }
         self.actor_frontier.validate()?;
         self.seal_frontier.validate_protocol_bounds()?;
+        if self.current_status_event_ids.len() > 64
+            || self
+                .current_status_event_ids
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "account-status current heads must be bounded, canonically sorted, and unique"
+                    .to_owned(),
+            ));
+        }
         if self.seal_frontier.governance_health.status != ControlGovernanceHealthStatus::Healthy {
             return Err(arkret_wire::Error::Protocol(
                 "account-status authoring frontiers require a healthy Seal frontier".to_owned(),
@@ -469,7 +586,7 @@ impl AccountStatusPublicationRequestBody {
     pub fn validate_shape(&self) -> Result<()> {
         self.authority_evidence.validate_shape()?;
         let event = self.publication.event();
-        if event.kind.as_str() != "ak.account.status" {
+        if event.kind.as_str() != arkret_wire::event_kind_str::ACCOUNT_STATUS {
             return Err(arkret_wire::Error::Protocol(
                 "account status publication must carry ak.account.status".to_owned(),
             ));

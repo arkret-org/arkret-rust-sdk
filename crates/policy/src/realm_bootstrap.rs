@@ -15,6 +15,9 @@ use arkret_models_collaboration::events_payloads::{
     RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmCreatePayload,
     RealmOwnerTransferPayload, RealmProfile, RealmPurpose,
 };
+use arkret_models_collaboration::governance::membership_invite::{
+    MembershipPayload, MembershipPayloadState,
+};
 use arkret_wire::{
     AuthorizationRef, CellRef, DidCoreId, Error, Event, EventId, EventKind, Hash, Hlc, PredicateOp,
     REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef, event_spec,
@@ -366,21 +369,12 @@ pub fn validate_realm_bootstrap_unit(
                     .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
             }
             EventKind::MemberState => {
-                let subject = followup
-                    .payload
-                    .get("actor_id")
-                    .and_then(serde_json::Value::as_str);
-                let membership = followup
-                    .payload
-                    .get("membership")
-                    .and_then(serde_json::Value::as_str);
-                let payload_realm = followup
-                    .payload
-                    .get("realm_id")
-                    .and_then(serde_json::Value::as_str);
-                if subject != Some(actor_id)
-                    || membership != Some("join")
-                    || payload_realm != Some(realm_id)
+                let payload: MembershipPayload = followup
+                    .typed_payload::<event_spec::MemberState>()
+                    .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
+                if payload.actor_id.as_ref().map(DidCoreId::as_str) != Some(actor_id)
+                    || payload.membership != MembershipPayloadState::Join
+                    || payload.realm_id.as_ref().map(arkret_wire::RealmId::as_str) != Some(realm_id)
                 {
                     return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
                 }

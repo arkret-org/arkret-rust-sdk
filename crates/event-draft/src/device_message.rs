@@ -34,7 +34,7 @@ pub mod device_message_kind {
     pub const KEY_VERIFICATION_MAC: &str = "ak.key.verification.mac";
     pub const KEY_VERIFICATION_DONE: &str = "ak.key.verification.done";
     pub const KEY_VERIFICATION_CANCEL: &str = "ak.key.verification.cancel";
-    pub const MLS_WELCOME_V1: &str = "ak.mls.welcome.v1";
+    pub const MLS_WELCOME_V1: &str = arkret_wire::event_kind_str::MLS_WELCOME;
     pub const REALM_KEY_REQUEST: &str = "ak.realm_key.request";
     pub const MEMBER_REPAIR_REQUEST: &str = "ak.member.repair.request";
 }

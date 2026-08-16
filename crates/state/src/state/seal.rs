@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_wire::DomainSeparationId;
 use arkret_wire::event_envelope::{Event, EventSubmitContext};
 use serde_json::Value;
 use thiserror::Error;
@@ -960,7 +961,7 @@ fn joined_control_view_hash(
     state_root: &Hash,
 ) -> Result<Hash, SealReject> {
     let json = serde_json::json!({
-        "schema": "ak.schema.joined_control_view.v1",
+        "domain": DomainSeparationId::JOINED_CONTROL_VIEW_DIGEST_V1,
         "leaves": leaves.iter().map(|leaf| leaf.as_str()).collect::<Vec<_>>(),
         "covered_event_digests": covered_event_digests
             .iter()

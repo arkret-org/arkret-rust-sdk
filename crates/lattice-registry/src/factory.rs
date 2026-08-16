@@ -22,6 +22,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(AgentStatus);
     registry.register(AppletRegistration);
     registry.register(AuditBinding);
+    registry.register(AuditBindingState);
     registry.register(AuditRelease);
     registry.register(AuditSession);
     registry.register(CallFocus);

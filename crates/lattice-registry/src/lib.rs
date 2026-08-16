@@ -212,10 +212,10 @@ mod tests {
         );
         assert_eq!(
             typed
-                .lookup_for_event_kind("ak.capability.relinquish")
-                .unwrap()
-                .cell_family(),
-            arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1
+                .lookups_for_event_kind("ak.capability.relinquish")
+                .map(|kind| kind.cell_family())
+                .collect::<Vec<_>>(),
+            vec![arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1]
         );
         let grant_adapter = typed
             .lookup(arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1)
@@ -511,7 +511,6 @@ mod tests {
                 .as_deref(),
             Some("ak:applet:fixture")
         );
-        assert_eq!(kind.event_kinds(), &["ak.applet.registration"]);
     }
 
     #[test]
@@ -540,10 +539,6 @@ mod tests {
                 .unwrap()
                 .as_deref(),
             Some("ak:event:target")
-        );
-        assert_eq!(
-            kind.event_kinds(),
-            &["ak.moderation.decision", "ak.moderation.decision.lift"]
         );
     }
 
@@ -594,7 +589,6 @@ mod tests {
             ])
             .unwrap()
         );
-        assert_eq!(kind.event_kinds(), &["ak.realm.link"]);
 
         let sdk_registry = build_sdk_cell_registry();
         let realm_id =
@@ -1037,7 +1031,6 @@ mod tests {
             .as_deref(),
             Some("ak:policy:01904100-0000-7000-8000-000000000001")
         );
-        assert_eq!(kind.event_kinds(), &["ak.policy.set"]);
     }
 
     #[test]
@@ -1133,18 +1126,30 @@ mod tests {
     fn event_kind_index_resolves_consent_grant_and_revoke() {
         let registry = default_lattice_registry();
         let grant = registry
-            .lookup_for_event_kind("ak.consent.grant")
-            .expect("ak.consent.grant should map to consent.grant.v1 cell");
-        assert_eq!(
-            grant.cell_family(),
-            arkret_wire::CellFamilyId::CONSENT_GRANT_V1
-        );
+            .lookups_for_event_kind("ak.consent.grant")
+            .map(|kind| kind.cell_family())
+            .collect::<Vec<_>>();
+        assert_eq!(grant, vec![arkret_wire::CellFamilyId::CONSENT_GRANT_V1]);
         let revoke = registry
-            .lookup_for_event_kind("ak.consent.revoke")
-            .expect("ak.consent.revoke shares the consent.grant.v1 cell (or-set rm)");
+            .lookups_for_event_kind("ak.consent.revoke")
+            .map(|kind| kind.cell_family())
+            .collect::<Vec<_>>();
+        assert_eq!(revoke, vec![arkret_wire::CellFamilyId::CONSENT_GRANT_V1]);
+    }
+
+    #[test]
+    fn event_kind_index_preserves_multi_cell_writes() {
+        let registry = default_lattice_registry();
+        let families = registry
+            .lookups_for_event_kind(arkret_wire::event_kind_str::AUDIT_APPLET_BINDING_CREATE)
+            .map(|kind| kind.cell_family())
+            .collect::<Vec<_>>();
         assert_eq!(
-            revoke.cell_family(),
-            arkret_wire::CellFamilyId::CONSENT_GRANT_V1
+            families,
+            vec![
+                arkret_wire::CellFamilyId::AUDIT_BINDING_V1,
+                arkret_wire::CellFamilyId::AUDIT_BINDING_STATE_V1,
+            ]
         );
     }
 

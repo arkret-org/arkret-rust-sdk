@@ -20,6 +20,19 @@ use crate::{DidCoreId, RiskTier, ScopeRef};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
+/// Mutually exclusive publication authority lanes. This selector describes
+/// where admission authority comes from; it is not serialized into an Event
+/// or submission wrapper.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventPublicationLane {
+    /// Sender-constrained verified session + typed request context.
+    OnlineSelf,
+    /// Pre-issued authorization lease, followed by an ingress receipt.
+    OfflineDelayed,
+    /// Origin Principal Server admission proof inside the Event envelope.
+    PeerFederation,
+}
+
 /// Classify a complete ordered submission unit before any network request.
 ///
 /// Basis-free Events are admitted only as one closed Realm-bootstrap or
@@ -59,7 +72,10 @@ fn classify_event_submit_context_shape(events: &[Event]) -> Result<EventSubmitCo
             .first()
             .map(|event| event.kind.as_str())
             .unwrap_or_default();
-        if !matches!(first_kind, "ak.realm.create" | "ak.device.reanchor") {
+        if !matches!(
+            first_kind,
+            crate::event_kind_str::REALM_CREATE | crate::event_kind_str::DEVICE_REANCHOR
+        ) {
             return Err(Error::Protocol(
                 "basis-free publication unit must be a registered Realm bootstrap or device re-anchor unit"
                     .to_owned(),
@@ -108,8 +124,8 @@ impl PcrGenesisUnit {
     pub fn validate_ordered_envelopes(&self) -> Result<()> {
         let create = self.create();
         let authorize = self.founding_authorize();
-        if create.kind.as_str() != "ak.realm.create"
-            || authorize.kind.as_str() != "ak.device.authorize"
+        if create.kind.as_str() != crate::event_kind_str::REALM_CREATE
+            || authorize.kind.as_str() != crate::event_kind_str::DEVICE_AUTHORIZE
             || create.actor_id != authorize.actor_id
             || create.realm_id != authorize.realm_id
             || create.realm_id != crate::RealmId::from_event_id(&create.event_id)
@@ -383,7 +399,7 @@ fn validate_membership_compensation_evidence(
     };
     evidence.validate_bindings()?;
     let core = &evidence.delegation.core;
-    if event.kind.as_str() != "ak.member.state"
+    if event.kind.as_str() != crate::event_kind_str::MEMBER_STATE
         || event.executed_by.as_ref().map(DidCoreId::as_core_id)
             != Some(core.executor_service_id.as_core_id())
         || event.authorization_ref.as_ref().map(|value| value.as_str())
@@ -404,6 +420,15 @@ fn validate_membership_compensation_evidence(
 }
 
 impl EventInitialSubmission {
+    #[must_use]
+    pub const fn publication_lane(&self) -> EventPublicationLane {
+        if self.authorization_lease.is_some() {
+            EventPublicationLane::OfflineDelayed
+        } else {
+            EventPublicationLane::OnlineSelf
+        }
+    }
+
     /// Build the default online submission path. Authorization is evaluated
     /// atomically against current accepted state by the receiver.
     pub fn online(event: Event) -> Self {
@@ -466,6 +491,11 @@ impl EventInitialSubmission {
 }
 
 impl EventFederationSubmission {
+    #[must_use]
+    pub const fn publication_lane(&self) -> EventPublicationLane {
+        EventPublicationLane::PeerFederation
+    }
+
     /// Structural gate a receiving peer runs before revalidating dependencies.
     ///
     /// Online federation carries neither a lease nor lease-bound receipts.
@@ -692,6 +722,10 @@ mod tests {
     #[test]
     fn online_submission_validates_and_omits_authorization_lease() {
         let submission = EventInitialSubmission::online(online_event());
+        assert_eq!(
+            submission.publication_lane(),
+            EventPublicationLane::OnlineSelf
+        );
         submission.validate_structural().unwrap();
 
         let value = serde_json::to_value(submission).unwrap();
@@ -730,6 +764,10 @@ mod tests {
     fn delayed_submission_keeps_the_explicit_lease() {
         let event = online_event();
         let submission = EventInitialSubmission::delayed(event, lease_for(&intent()));
+        assert_eq!(
+            submission.publication_lane(),
+            EventPublicationLane::OfflineDelayed
+        );
         submission.validate_structural().unwrap();
 
         let value = serde_json::to_value(submission).unwrap();
@@ -745,6 +783,10 @@ mod tests {
             control_proposal_ack: None,
             membership_compensation_evidence: None,
         };
+        assert_eq!(
+            submission.publication_lane(),
+            EventPublicationLane::PeerFederation
+        );
         submission.validate_structural().unwrap();
     }
 

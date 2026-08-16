@@ -1,7 +1,7 @@
 //! MLS lifecycle event payloads.
 
 use arkret_canonical::serde_helpers::{canonical_timestamp, serialize_canonical_timestamp};
-use arkret_models_crypto::{PeerKeyPackageClaimReceipt, SelfKeyPackageClaimReceipt};
+use arkret_models_crypto::PeerKeyPackageClaimReceipt;
 use arkret_wire::DidCoreId;
 
 use crate::internal_prelude::*;
@@ -121,11 +121,8 @@ pub enum MlsWelcomeRecipient {
     },
 }
 
-#[derive(Clone, Debug)]
-pub enum MlsWelcomeClaimReceipt {
-    SelfClaim(SelfKeyPackageClaimReceipt),
-    PeerClaim(PeerKeyPackageClaimReceipt),
-}
+/// The same destination-signed receipt is carried for local and remote claims.
+pub type MlsWelcomeClaimReceipt = PeerKeyPackageClaimReceipt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MlsWelcomeCarrier {
@@ -856,10 +853,7 @@ struct MlsWelcomePayloadWire {
     claim_id: NonEmptyString,
     claim_ref: MlsWelcomePayloadClaimRef,
     claim_envelope: MlsWelcomeClaimEnvelope,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    peer_claim_receipt: Option<PeerKeyPackageClaimReceipt>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    self_claim_receipt: Option<SelfKeyPackageClaimReceipt>,
+    claim_receipt: PeerKeyPackageClaimReceipt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     welcome_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -912,14 +906,7 @@ impl Serialize for MlsWelcomePayload {
             claim_id: self.claim_id.clone(),
             claim_ref: self.claim_ref.clone(),
             claim_envelope: self.claim_envelope.clone(),
-            peer_claim_receipt: match &self.claim_receipt {
-                MlsWelcomeClaimReceipt::PeerClaim(receipt) => Some(receipt.clone()),
-                MlsWelcomeClaimReceipt::SelfClaim(_) => None,
-            },
-            self_claim_receipt: match &self.claim_receipt {
-                MlsWelcomeClaimReceipt::SelfClaim(receipt) => Some(receipt.clone()),
-                MlsWelcomeClaimReceipt::PeerClaim(_) => None,
-            },
+            claim_receipt: self.claim_receipt.clone(),
             welcome_ref: self.carrier.welcome_ref.clone(),
             encrypted_welcome_ref: self.carrier.encrypted_welcome_ref.clone(),
             ciphertext: self.carrier.ciphertext.clone(),
@@ -965,15 +952,7 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
             wire.ciphertext,
         )
         .map_err(serde::de::Error::custom)?;
-        let claim_receipt = match (wire.self_claim_receipt, wire.peer_claim_receipt) {
-            (Some(receipt), None) => MlsWelcomeClaimReceipt::SelfClaim(receipt),
-            (None, Some(receipt)) => MlsWelcomeClaimReceipt::PeerClaim(receipt),
-            _ => {
-                return Err(serde::de::Error::custom(
-                    "MLS Welcome must contain exactly one self or peer claim receipt",
-                ));
-            }
-        };
+        let claim_receipt = wire.claim_receipt;
         if wire.governance_binding.mls_group_id() != wire.mls_group_id.as_str()
             || wire.governance_binding.next_epoch() != wire.epoch
         {

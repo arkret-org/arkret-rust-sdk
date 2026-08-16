@@ -261,7 +261,7 @@ impl EventBatchReceipt {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != "ak.schema.event_batch_receipt.v1" {
+        if self.schema != crate::SchemaId::EVENT_BATCH_RECEIPT_V1 {
             return Err(Error::Protocol(
                 "event batch receipt schema must be ak.schema.event_batch_receipt.v1".to_owned(),
             ));
@@ -319,7 +319,7 @@ impl EventBatchReceipt {
                 }
                 let reanchor = self.events.iter().find_map(|event| match event {
                     EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == "ak.device.reanchor" =>
+                        if item.kind.as_str() == crate::event_kind_str::DEVICE_REANCHOR =>
                     {
                         Some(item)
                     }
@@ -327,7 +327,7 @@ impl EventBatchReceipt {
                 });
                 let authorize = self.events.iter().find_map(|event| match event {
                     EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == "ak.device.authorize" =>
+                        if item.kind.as_str() == crate::event_kind_str::DEVICE_AUTHORIZE =>
                     {
                         Some(item)
                     }
@@ -355,7 +355,7 @@ impl EventBatchReceipt {
                 }
                 let create = self.events.iter().find_map(|event| match event {
                     EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == "ak.realm.create" =>
+                        if item.kind.as_str() == crate::event_kind_str::REALM_CREATE =>
                     {
                         Some(item)
                     }
@@ -363,7 +363,7 @@ impl EventBatchReceipt {
                 });
                 let authorize = self.events.iter().find_map(|event| match event {
                     EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == "ak.device.authorize" =>
+                        if item.kind.as_str() == crate::event_kind_str::DEVICE_AUTHORIZE =>
                     {
                         Some(item)
                     }

@@ -4,10 +4,9 @@ use std::collections::BTreeMap;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, CORE_REDUCER_PROFILE, CORE_SCHEMA_PROFILE, ControlProposalDecisionPolicy, DidCoreId,
-    DidUrl, Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility,
-    JoinRule, PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId,
-    canonical,
+    BlobRef, CORE_REDUCER_PROFILE, ControlProposalDecisionPolicy, DidCoreId, DidUrl,
+    Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule,
+    PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -358,7 +357,7 @@ impl Realm {
             security_class: None,
             trust_domain,
             owning_organizations: Vec::new(),
-            schema_refs: vec![CORE_SCHEMA_PROFILE.to_owned()],
+            schema_refs: Vec::new(),
             fields: BTreeMap::new(),
             relation_profiles: Vec::new(),
             policy_id: None,

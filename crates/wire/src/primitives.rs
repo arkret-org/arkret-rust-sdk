@@ -1136,7 +1136,8 @@ impl From<PrincipalServerAdmissionProof> for EventProof {
     }
 }
 
-pub const PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT: &str = "ak.principal-server-admission-proof-v1";
+pub const PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT: &str =
+    crate::ProofContextId::PRINCIPAL_SERVER_ADMISSION_PROOF_V1;
 
 impl PrincipalServerAdmissionProof {
     pub fn producer_proof_digest(proof: &ProducerEventProof) -> Result<Hash> {

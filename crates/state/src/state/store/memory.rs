@@ -927,31 +927,9 @@ impl Default for MemoryCellRegistry {
             },
         );
 
-        // Soft display state — mv-register, bottom=expose.
-        bindings.insert(
-            "ak.component.Realm.title.v1".to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::MvRegister,
-                bottom_mode: BottomMode::Expose,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
-        // Counter (audit / quota counters).
-        bindings.insert(
-            "ak.component.metric.counter.v1".to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::Counter,
-                bottom_mode: BottomMode::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
         // Audit log / message log — ordered-log.
         bindings.insert(
-            "ak.component.audit.log.v1".to_owned(),
+            arkret_wire::CellFamilyId::AUDIT_ACCESS_LOG_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrderedLog,
                 bottom_mode: BottomMode::Reject,

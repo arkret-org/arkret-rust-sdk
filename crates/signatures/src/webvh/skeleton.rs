@@ -34,10 +34,9 @@ pub enum WebvhSkeletonError {
 
 /// Inputs for the registered `did:webvh` v1.0 inception parameters.
 ///
-/// Deployment-specific extra parameters are deliberately absent: a caller that
-/// needs one inserts it into the returned skeleton's `parameters` object before
-/// deriving the SCID, so this constructor stays the single owner of the
-/// registered core.
+/// Deployment-specific extra parameters are deliberately absent. The v1.0
+/// registry is closed; Arkret governance belongs in the typed DID Document
+/// overlay and MUST NOT be inserted into this method-native object.
 pub struct WebvhInceptionSkeletonInput<'a> {
     /// RFC3339 `versionTime` of the inception entry.
     pub version_time: &'a str,
@@ -99,6 +98,8 @@ pub fn build_webvh_inception_skeleton(input: &WebvhInceptionSkeletonInput<'_>) -
     if let Some(witness) = input.witness {
         parameters.insert("witness".to_owned(), witness.clone());
     }
+    arkret_wire::validate_did_webvh_v1_parameter_names(parameters.keys().map(String::as_str))
+        .expect("the shared did:webvh skeleton only emits registered v1.0 parameters");
     json!({
         "versionId": WEBVH_SCID_PLACEHOLDER,
         "versionTime": input.version_time,

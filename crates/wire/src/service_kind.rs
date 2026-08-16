@@ -32,7 +32,10 @@ impl ServiceKind {
                 "ak.root.identity.service_registration.",
             ],
             Self::IdentityRegistry => &["ak.root.identity.", "ak.identity."],
-            Self::AuthServer => &["ak.gate.account.", "ak.self.policy.read.check"],
+            Self::AuthServer => &[
+                "ak.gate.account.",
+                crate::ServiceOperationId::SELF_POLICY_READ_CHECK,
+            ],
             Self::BlobNode => &["ak.self.blob."],
             Self::MediaService => &["ak.self.media.", "ak.self.call.media."],
             Self::MimiProviderFacade => &["ak.open.mimi."],
@@ -42,12 +45,18 @@ impl ServiceKind {
             Self::PolicyServer => &["ak.self.policy.", "ak.policy."],
             Self::PushGateway => &["ak.edge.push."],
             Self::AppletService => &["ak.edge.applet."],
-            Self::AgentRuntime => &["ak.self.agent.", "ak.gate.account.command.pair_agent_key"],
+            Self::AgentRuntime => &[
+                "ak.self.agent.",
+                crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
+            ],
             Self::SfuService => &["ak.self.call.media.", "ak.self.media."],
-            Self::TurnService => &["ak.self.media.read.ice_config"],
+            Self::TurnService => &[crate::ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG],
             Self::ModerationService => &["ak.self.moderation."],
             Self::Notary | Self::SearchService | Self::ArchiveNode => &[],
-            Self::KeyRecoveryService | Self::RecoveryService => &["ak.root.identity.recovery_"],
+            Self::KeyRecoveryService | Self::RecoveryService => &[
+                "ak.root.identity.recovery_policy.",
+                "ak.root.identity.recovery_session.",
+            ],
         }
     }
 

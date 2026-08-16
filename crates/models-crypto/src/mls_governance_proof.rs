@@ -10,6 +10,7 @@
 //! root derivation are owned by `arkret-state::mls_governance_proof`.
 
 use arkret_wire::base64url::base64url_decode;
+use arkret_wire::error_codes::ErrorCode;
 use arkret_wire::event_envelope::{Event, ScopeRef};
 use arkret_wire::{
     CellRef, DidCoreId, Error, Hash, NonEmptyString, ProfileId, RealmId, Result, SchemaId, Seal,
@@ -1006,17 +1007,24 @@ fn validate_chunk_range<T>(
 }
 
 fn schema<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!("{message} (schema_violation)")))
+    Err(Error::ProtocolCode {
+        code: ErrorCode::SchemaViolation,
+        message: message.to_owned(),
+    })
 }
 
 fn state_mismatch<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!("{message} (state_mismatch)")))
+    Err(Error::ProtocolCode {
+        code: ErrorCode::StateMismatch,
+        message: message.to_owned(),
+    })
 }
 
 fn bounds<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!(
-        "{message} (mls_governance_proof_bounds_exceeded)"
-    )))
+    Err(Error::ProtocolCode {
+        code: ErrorCode::MlsGovernanceProofBoundsExceeded,
+        message: message.to_owned(),
+    })
 }
 
 fn incomplete<T>(message: &str) -> Result<T> {

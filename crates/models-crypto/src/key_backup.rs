@@ -397,7 +397,9 @@ impl BackupSeriesEraseRequestBody {
             ));
         }
         self.authorization_lease.validate_structural()?;
-        if self.authorization_lease.action != "ak.keys.backup_series.erase" {
+        if self.authorization_lease.action
+            != arkret_wire::CapabilityActionId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE
+        {
             return Err(Error::Protocol(
                 "backup-series erase requires the exact erase authorization action".to_owned(),
             ));
@@ -1521,8 +1523,9 @@ fn active_hpke_suite_aead(suite_id: &str) -> Result<Option<String>> {
         return Ok(None);
     }
     let aead = match suite_id {
-        "ak.hpke_p256_aead_aes256gcm.v1" | "ak.hpke_x25519_aead_aes256gcm.v1" => "aes_256_gcm",
-        "ak.hpke_x25519_aead_chacha20poly1305.v1" => "chacha20_poly1305",
+        arkret_wire::HpkeSuiteId::P256_AEAD_AES256GCM_V1
+        | arkret_wire::HpkeSuiteId::X25519_AEAD_AES256GCM_V1 => "aes_256_gcm",
+        arkret_wire::HpkeSuiteId::X25519_AEAD_CHACHA20POLY1305_V1 => "chacha20_poly1305",
         other => {
             return Err(Error::Protocol(format!(
                 "key backup encryption: active hpke_suite `{other}` has no known aead binding \
@@ -1922,7 +1925,7 @@ impl RecoveryPolicy {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != "ak.schema.recovery_policy.v1" {
+        if self.schema != arkret_wire::SchemaId::RECOVERY_POLICY_V1 {
             return Err(Error::Protocol(
                 "recovery policy schema must be ak.schema.recovery_policy.v1".to_owned(),
             ));
@@ -2133,7 +2136,7 @@ impl RecoveryPolicy {
                 || !allowed_proof_kinds.contains(&rule.proof_kind)
                 || !seen_proof_kinds.insert(rule.proof_kind)
                 || rule.issuer_role != AuthoritySetIssuerRole::IdentityRecovery
-                || rule.allowed_actions.as_slice() != ["ak.device.reanchor"]
+                || rule.allowed_actions.as_slice() != [arkret_wire::event_kind_str::DEVICE_REANCHOR]
                 || rule.issuers.is_empty()
                 || rule.issuers.len() > 32
                 || rule.threshold == 0
@@ -2924,7 +2927,8 @@ pub struct RecoveryReceipt {
 
 impl RecoveryReceipt {
     pub const SCHEMA: &'static str = SchemaId::RECOVERY_RECEIPT_V1;
-    pub const SIGNATURE_TYPE: &'static str = "ak.identity.recovery_receipt.signature.v1";
+    pub const SIGNATURE_TYPE: &'static str =
+        arkret_wire::DomainSeparationId::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1;
 
     /// Canonical signature input shared by clients and verifiers.
     ///
@@ -2939,7 +2943,7 @@ impl RecoveryReceipt {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != "ak.schema.recovery_receipt.v1" {
+        if self.schema != arkret_wire::SchemaId::RECOVERY_RECEIPT_V1 {
             return Err(Error::Protocol(
                 "recovery receipt schema must be ak.schema.recovery_receipt.v1".to_owned(),
             ));

@@ -261,16 +261,137 @@ pub struct CallMediaServiceSignature {
     pub sig: String,
 }
 
+/// Closed media backend registry used by both focus selection and token exchange.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MediaBackendKind {
+    Livekit,
+    Mediasoup,
+    Janus,
+    ArkretNative,
+    MoqRelay,
+}
+
+impl MediaBackendKind {
+    /// Kept for callers that previously performed an explicit known-backend
+    /// check. The enum is now closed, so successful deserialization is the
+    /// check and every represented value is known.
+    pub const fn ensure_known(self) -> arkret_wire::Result<()> {
+        Ok(())
+    }
+}
+
+/// Media permissions carried by an Arkret-native backend token.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ArkretNativeMediaPermissions {
+    pub audio: bool,
+    pub video: bool,
+    pub screen: bool,
+}
+
+/// Signed Arkret-native token payload. Other backend bindings deliberately keep
+/// their token string opaque to the Arkret protocol layer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ArkretNativeMediaTokenPayload {
+    pub call_id: CallId,
+    pub focus_id: String,
+    pub participant_identity: String,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub media: ArkretNativeMediaPermissions,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ArkretNativeMediaSignatureAlgorithm {
+    #[serde(rename = "Ed25519")]
+    Ed25519,
+}
+
+/// Closed object token used only by the `arkret_native` backend binding.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ArkretNativeMediaBackendToken {
+    pub kid: DidUrl,
+    pub payload: ArkretNativeMediaTokenPayload,
+    pub sig: String,
+    pub signature_algorithm: ArkretNativeMediaSignatureAlgorithm,
+}
+
+/// Wire token shape. The containing outcome validates this structural branch
+/// against its sibling `backend_kind`; no JSON-string wrapper or open `Value`
+/// fallback exists.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MediaBackendToken {
+    ArkretNative(ArkretNativeMediaBackendToken),
+    Opaque(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CallMediaTokenExchangeOutcomeWire {
+    focus_id: String,
+    connect_url: String,
+    backend_token: MediaBackendToken,
+    participant_identity: String,
+    participant_binding: CallMediaParticipantBinding,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+    service_signature: CallMediaServiceSignature,
+    backend_kind: MediaBackendKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "CallMediaTokenExchangeOutcomeWire")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {
     pub focus_id: String,
     pub connect_url: String,
-    pub backend_token: String,
+    pub backend_token: MediaBackendToken,
     pub participant_identity: String,
     pub participant_binding: CallMediaParticipantBinding,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub service_signature: CallMediaServiceSignature,
-    pub backend_kind: String,
+    pub backend_kind: MediaBackendKind,
+}
+
+impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcome {
+    type Error = &'static str;
+
+    fn try_from(value: CallMediaTokenExchangeOutcomeWire) -> Result<Self, Self::Error> {
+        match (&value.backend_kind, &value.backend_token) {
+            (MediaBackendKind::ArkretNative, MediaBackendToken::ArkretNative(_)) => {}
+            (MediaBackendKind::ArkretNative, MediaBackendToken::Opaque(_)) => {
+                return Err("arkret_native backend_token must be the typed object branch");
+            }
+            (_, MediaBackendToken::ArkretNative(_)) => {
+                return Err("non-arkret-native backend_token must be an opaque string");
+            }
+            (_, MediaBackendToken::Opaque(token)) if token.trim().is_empty() => {
+                return Err("opaque backend_token must not be empty");
+            }
+            (_, MediaBackendToken::Opaque(_)) => {}
+        }
+        Ok(Self {
+            focus_id: value.focus_id,
+            connect_url: value.connect_url,
+            backend_token: value.backend_token,
+            participant_identity: value.participant_identity,
+            participant_binding: value.participant_binding,
+            expires_at: value.expires_at,
+            service_signature: value.service_signature,
+            backend_kind: value.backend_kind,
+        })
+    }
 }

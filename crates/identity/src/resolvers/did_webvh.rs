@@ -785,6 +785,14 @@ fn verify_did_webvh_v1_internal(
         .cloned()
         .map(serde_json::from_value)
         .collect::<std::result::Result<Vec<DidWebvhLogEntry>, _>>()?;
+    for entry in &entries {
+        let parameter_object = entry.parameters.as_object().ok_or_else(|| {
+            Error::Protocol("param_invalid: did:webvh parameters must be an object".to_owned())
+        })?;
+        arkret_wire::validate_did_webvh_v1_parameter_names(
+            parameter_object.keys().map(String::as_str),
+        )?;
+    }
     if derive_webvh_scid(&scid, &raw_entries[0])? != scid {
         return Err(Error::Protocol(
             "did:webvh SCID does not derive from initial entry".to_owned(),

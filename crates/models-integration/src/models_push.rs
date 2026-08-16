@@ -587,16 +587,16 @@ const FORBIDDEN_PLAINTEXT_PARENT_LEAF: &[(&str, &str)] = &[
 ];
 
 pub const AGENT_LIFECYCLE_SILENT_KINDS: &[&str] = &[
-    "ak.self.agent.pause",
-    "ak.self.agent.resume",
-    "ak.self.agent.deactivate",
+    arkret_wire::event_kind_str::SELF_AGENT_PAUSE,
+    arkret_wire::event_kind_str::SELF_AGENT_RESUME,
+    arkret_wire::event_kind_str::SELF_AGENT_DEACTIVATE,
 ];
 
 pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
-    "ak.agent.draft.propose",
-    "ak.agent.action_request",
-    "ak.agent.action_approve",
-    "ak.agent.action_reject",
+    arkret_wire::event_kind_str::AGENT_DRAFT_PROPOSE,
+    arkret_wire::event_kind_str::AGENT_ACTION_REQUEST,
+    arkret_wire::event_kind_str::AGENT_ACTION_APPROVE,
+    arkret_wire::event_kind_str::AGENT_ACTION_REJECT,
 ];
 
 pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[

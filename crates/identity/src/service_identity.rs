@@ -130,7 +130,7 @@ pub struct DidCoreIdentityBundle {
 }
 
 impl DidCoreIdentityBundle {
-    pub const SCHEMA: &'static str = "ak.service_identity_bundle.v1";
+    pub const SCHEMA: &'static str = arkret_wire::SchemaId::SERVICE_IDENTITY_BUNDLE_V1;
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA

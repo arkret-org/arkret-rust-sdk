@@ -449,6 +449,22 @@ fn webvh_rejects_forged_proof_signature() {
 }
 
 #[test]
+fn webvh_rejects_unknown_parameter_before_hash_or_proof_processing() {
+    let key1 = SigningKey::from_bytes(&[7u8; 32]);
+    let key2 = SigningKey::from_bytes(&[9u8; 32]);
+    let (did, body) = vector_valid_log(&key1, &key2);
+    let mut entries: Vec<Value> = body
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_slice(line).unwrap())
+        .collect();
+    entries[0]["parameters"]["governance"] = json!({"threshold": 1});
+
+    let error = verify_did_webvh_v1_chain(&did, &entries).unwrap_err();
+    assert!(error.to_string().contains("param_invalid"));
+}
+
+#[test]
 fn webvh_rejects_proof_value_tampering() {
     let key1 = SigningKey::from_bytes(&[7u8; 32]);
     let key2 = SigningKey::from_bytes(&[9u8; 32]);

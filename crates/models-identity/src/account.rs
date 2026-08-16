@@ -1296,8 +1296,10 @@ pub enum InitialSessionGrantOperation {
 impl InitialSessionGrantOperation {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::AccountReadDescribe => "ak.self.account.read.describe",
-            Self::EventsReadScan => "ak.self.events.read.scan",
+            Self::AccountReadDescribe => {
+                arkret_wire::ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE
+            }
+            Self::EventsReadScan => arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN,
         }
     }
 }

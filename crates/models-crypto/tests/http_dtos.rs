@@ -9,6 +9,7 @@ fn did(_name: &str) -> DidCoreId {
 #[test]
 fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     let outcome = json!({
+        "claim_request_id": "Y2xhaW0tbm9uY2U",
         "claims": [{
             "claim_id": "ak:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ak:mls:keypackage:test-01",
@@ -28,28 +29,21 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "revocation_status": "active"
         }],
         "claim_receipt": {
-            "operation_id": "ak.self.keys.keypackages.command.claim",
             "claim_request_id": "Y2xhaW0tbm9uY2U",
             "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "claims_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "source_service_id": "ak:did_core:webvh:z6mkfixtureservice",
             "destination_service_id": "ak:did_core:webvh:z6mkfixtureservice",
             "request": {
+                "claim_request_id": "Y2xhaW0tbm9uY2U",
                 "target_principal_id": "ak:did_core:webvh:z6mkfixture",
                 "intended_realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
                 "requester": "ak:did_core:webvh:z6mkfixture",
+                "mls_group_id": "ak:mls_group:fixture",
+                "claim_purpose": "realm_membership",
                 "required_capabilities": ["ak.mls.profile.full"],
                 "claim_nonce": "Y2xhaW0tbm9uY2U",
-                "expires_at": "2099-01-01T00:00:00.000Z",
-                "holder_acceptance_proof": {
-                    "kind": "detached_jws",
-                    "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
-                    "payload_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-                    "created_at": "2098-12-31T23:59:00.000Z",
-                    "audience": "ak:did_core:webvh:z6mkfixtureservice",
-                    "proof_purpose": "holder_acceptance",
-                    "jws": "a..b"
-                }
+                "expires_at": "2099-01-01T00:00:00.000Z"
             },
             "claimed_at": "2098-12-31T23:59:30.000Z",
             "expires_at": "2099-01-01T00:00:00.000Z",

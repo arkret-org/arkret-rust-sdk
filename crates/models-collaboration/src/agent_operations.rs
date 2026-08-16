@@ -21,7 +21,7 @@ use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody}
 use crate::internal_prelude::*;
 
 pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT: &str =
-    "ak.agent-runtime-key-possession-proof-v1";
+    arkret_wire::ProofContextId::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1;
 pub const AGENT_RUNTIME_KEY_BINDING_KIND: &str = "ak.agent.runtime_key_binding.v1";
 pub const AGENT_KEY_PAIRING_REQUEST_BINDING_KIND: &str = "ak.agent.key_pairing_request_binding.v1";
 
@@ -284,7 +284,7 @@ impl AgentRequestedScopeDisclosure {
             ));
         }
         Ok(canonical::canonical_json_bytes(&serde_json::json!({
-            "context": "ak.agent-requested-scope-disclosure-proof-v1",
+            "context": arkret_wire::ProofContextId::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1,
             "payload_digest": payload_digest,
             "agent_id": self.agent_id,
             "controller_id": self.controller_id,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-16.1;
-//! sha256=0c15cbeb6bc03fc8b7dbb01feddb1b1bf264077663b302c087fb3262e5861b2c Entries: registered=242
+//! Input: registry/operation-registry.json; version=2026-08-16.3;
+//! sha256=f6b39731d600bb8ad8d0a069021e5d0a1cb9f79b5e28e77d3d8f24bf6c423f30 Entries: registered=242
 
 use serde::{Deserialize, Serialize};
 
@@ -3785,10 +3785,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(false),
         request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_outcome",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.peer.keys.keypackages.read.claim\",\"strategy\":\"query_operation\"}",
@@ -6454,14 +6454,16 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
+        retry_safe: Some(false),
         request_schema_ref: Some(
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_outcome",
         ),
-        uncertain_outcome: None,
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.peer.keys.keypackages.read.claim\",\"strategy\":\"query_operation\"}",
+        ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,

@@ -1,12 +1,9 @@
-use crate::{CapabilityActionId, ReducerProfileId, ServiceOperationId};
+use crate::{CapabilityActionId, DomainSeparationId, ReducerProfileId, ServiceOperationId};
 
 /// Service operations for which this SDK ships generated route and metadata support.
 pub const SUPPORTED_OPERATION_IDS: &[ServiceOperationId] = ServiceOperationId::ALL;
 
 pub const PROTOCOL_VERSION: &str = "1.0";
-/// Schema profile carried by object `schema_refs` and the schema catalog. Not a
-/// `schema-registry.json` row, so it has no [`crate::SchemaId`] variant.
-pub const CORE_SCHEMA_PROFILE: &str = "ak.schema.core.v1";
 /// Canonical Realm reducer profile implemented by this SDK.
 pub const CORE_REDUCER_PROFILE: &str = ReducerProfileId::CORE_V1;
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
@@ -16,10 +13,11 @@ pub const READ_RECEIPT_KIND: &str = "read";
 
 /// AEAD profile id used by every Arkret payload envelope that seals with
 /// XChaCha20-Poly1305 (account data, key vaults, file transfer).
-pub const AEAD_PROFILE_XCHACHA20_POLY1305_V1: &str = "ak.aead.xchacha20_poly1305.v1";
+pub const AEAD_PROFILE_XCHACHA20_POLY1305_V1: &str = crate::AeadProfileId::XCHACHA20_POLY1305_V1;
 /// HPKE suite id (RFC 9180 base mode) used by secret share, key backup, and
 /// file-transfer key envelopes.
-pub const HPKE_SUITE_X25519_CHACHA20POLY1305_V1: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
+pub const HPKE_SUITE_X25519_CHACHA20POLY1305_V1: &str =
+    crate::HpkeSuiteId::X25519_AEAD_CHACHA20POLY1305_V1;
 /// Whole-file blob AEAD scheme id.
 pub const BLOB_SCHEME_WHOLE_FILE_AEAD_V1: &str = "ak.blob.whole_file_aead.v1";
 /// Chunked streaming blob AEAD scheme id (STREAM / OAE2).
@@ -33,7 +31,8 @@ pub const SECRET_SEND_KIND: &str = "ak.secret.send";
 /// Cell family carrying the per-Realm media-service binding.
 pub const REALM_MEDIA_SERVICE_CELL_FAMILY: &str = crate::CellFamilyId::REALM_MEDIA_SERVICE_V1;
 /// `signature.type` of a signed identity recovery policy.
-pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str = "ak.identity.recovery_policy.signature.v1";
+pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str =
+    DomainSeparationId::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1;
 
 /// Capability constraint shorthand from `capability-action-registry.json`.
 pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";

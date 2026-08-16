@@ -33,80 +33,31 @@ impl LatticeKind {
         }
     }
 
-    /// Per-kind declaration of the active spec event kinds that declare this
-    /// lattice in `event-kind-registry.json`.
-    ///
-    /// Event kinds not listed here either do not declare a cell lattice in the
-    /// v1 registry or are handled by a higher-level reducer. They MUST NOT be
-    /// accepted as lattice input through this closed routing table.
-    pub fn event_kinds(self) -> &'static [&'static str] {
-        match self {
-            Self::OrSet => &[
-                "ak.capability.grant",
-                "ak.capability.revoke",
-                "ak.capability.derived",
-                "ak.consent.grant",
-                "ak.consent.revoke",
-                "ak.device.authorize",
-                "ak.device.revoke",
-                "ak.device.list_update",
-            ],
-            Self::MvRegister => &[
-                "ak.view.create",
-                "ak.view.update",
-                "ak.view.reconcile",
-                "ak.profile.create",
-                "ak.profile.update",
-                "ak.mimi.room_binding",
-            ],
-            Self::CasRegister => &[
-                "ak.realm.upgrade",
-                "ak.realm.organization",
-                "ak.realm.policy",
-                "ak.realm.join_rule",
-                "ak.realm.history_visibility",
-                "ak.realm.discovery",
-                "ak.realm.policy_server",
-                "ak.realm.policy_bundle",
-                "ak.realm.history_sharing_policy",
-                "ak.realm.asset_privacy_policy",
-                "ak.realm.read_receipt_policy",
-                "ak.realm.moderation_policy",
-                "ak.realm.plaintext_visible_services",
-                "ak.realm.media_service",
-                "ak.realm.schema",
-                "ak.realm.inheritance_policy",
-                "ak.realm.archive",
-                "ak.realm.freeze",
-                "ak.realm.tombstone",
-                "ak.realm.destroy",
-                "ak.strand.move",
-                "ak.strand.reorder",
-                "ak.space.parent",
-            ],
-            Self::Fsm => &[
-                "ak.member.state",
-                "ak.realm.link",
-                "ak.audit.applet_binding",
-                "ak.audit.session.request",
-                "ak.audit.session.authorize",
-                "ak.audit.session.notice",
-                "ak.audit.session.close",
-                // Personal-agent lifecycle is an FSM with bottom=reject;
-                // deactivate is terminal.
-                "ak.self.agent.pause",
-                "ak.self.agent.resume",
-                "ak.self.agent.deactivate",
-            ],
-            Self::Counter => &[],
-            Self::OrderedLog => &[
-                "ak.audit.release",
-                "ak.space.create",
-                "ak.space.child",
-                "ak.policy.rule",
-                "ak.account.status",
-            ],
-        }
+    /// Active spec Event kinds with at least one cell write using this lattice.
+    /// A single Event may legitimately occur in more than one returned set
+    /// because the registry permits one Event to write multiple cell families.
+    pub fn event_kinds(self) -> Vec<&'static str> {
+        let target = match self {
+            Self::OrSet => Some(arkret_wire::EventCellLattice::OrSet),
+            Self::MvRegister => Some(arkret_wire::EventCellLattice::MvRegister),
+            Self::CasRegister => Some(arkret_wire::EventCellLattice::CasRegister),
+            Self::Fsm => Some(arkret_wire::EventCellLattice::Fsm),
+            Self::OrderedLog => Some(arkret_wire::EventCellLattice::OrderedLog),
+            Self::Counter => None,
+        };
+        let Some(target) = target else {
+            return Vec::new();
+        };
+        arkret_wire::EVENT_KIND_DESCRIPTORS
+            .iter()
+            .filter(|descriptor| {
+                descriptor
+                    .cell_writes
+                    .iter()
+                    .any(|write| write.lattice == Some(target))
+            })
+            .map(|descriptor| descriptor.kind)
+            .collect()
     }
 }
 
@@ -177,8 +128,6 @@ pub trait Lattice {
 
 #[cfg(test)]
 mod kind_tests {
-    use std::collections::BTreeSet;
-
     use super::*;
 
     #[test]
@@ -201,25 +150,15 @@ mod kind_tests {
     }
 
     #[test]
-    fn event_kinds_have_no_cross_kind_overlap() {
-        // Every ak.<...> event kind MUST belong to exactly one lattice kind
-        // so the LatticeRegistry route is unambiguous.
-        let mut seen: BTreeSet<&'static str> = BTreeSet::new();
-        for kind in [
-            LatticeKind::OrSet,
-            LatticeKind::MvRegister,
-            LatticeKind::CasRegister,
-            LatticeKind::Fsm,
-            LatticeKind::Counter,
-            LatticeKind::OrderedLog,
-        ] {
-            for ek in kind.event_kinds() {
-                assert!(
-                    seen.insert(ek),
-                    "event kind {ek} appears in more than one LatticeKind"
-                );
-            }
-        }
+    fn applet_binding_create_declares_both_registry_cell_lattices() {
+        let create = arkret_wire::event_kind_str::AUDIT_APPLET_BINDING_CREATE;
+        assert!(LatticeKind::CasRegister.event_kinds().contains(&create));
+        assert!(LatticeKind::Fsm.event_kinds().contains(&create));
+        assert!(
+            LatticeKind::Fsm
+                .event_kinds()
+                .contains(&arkret_wire::event_kind_str::AUDIT_APPLET_BINDING_STATE)
+        );
     }
 
     #[test]

@@ -1178,12 +1178,12 @@ pub struct FileTransferEncryption {
 
 impl FileTransferEncryption {
     pub fn validate(&self) -> Result<()> {
-        if self.scheme != "ak.file_transfer.encrypted_blob.v1" {
+        if self.scheme != arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1 {
             return Err(Error::Protocol(
                 "file-transfer encryption scheme mismatch".to_owned(),
             ));
         }
-        if self.aead_profile != "ak.aead.xchacha20_poly1305.v1" {
+        if self.aead_profile != arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1 {
             return Err(Error::Protocol(
                 "file-transfer AEAD profile mismatch".to_owned(),
             ));
@@ -1269,7 +1269,7 @@ impl FileTransferKeyMessage {
         validate_blob_ref(&self.blob_ref)?;
         Hash::new(self.content_digest.clone())?;
         validate_file_transfer_blob_digest_binding(&self.blob_ref, &self.content_digest)?;
-        if self.aead_profile != "ak.aead.xchacha20_poly1305.v1" {
+        if self.aead_profile != arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1 {
             return Err(Error::Protocol(
                 "file-transfer key message AEAD profile mismatch".to_owned(),
             ));
@@ -3074,7 +3074,7 @@ mod tests {
                 recipient_device_ids: Vec::new(),
             },
             encryption: FileTransferEncryption {
-                scheme: "ak.file_transfer.encrypted_blob.v1".to_owned(),
+                scheme: arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1.to_owned(),
                 aead_profile: "ak.aead.xchacha20_poly1305.v1".to_owned(),
                 nonce: "abc_DEF-012".to_owned(),
                 aad: FileTransferAad {

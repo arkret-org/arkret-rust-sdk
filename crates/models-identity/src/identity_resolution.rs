@@ -43,7 +43,7 @@ pub struct PrincipalResolutionUpdatePayload {
 
 /// Domain-separation context for the Principal Server projection attestation.
 pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT: &str =
-    "ak.principal-resolution-projection-attestation-proof-v1";
+    arkret_wire::ProofContextId::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1;
 
 /// Principal Server assertion that `resolution_projection` is the current
 /// accepted value of the account's singleton resolution cell.
@@ -541,7 +541,7 @@ impl ServiceResolutionRecord {
         }
         let payload_digest = Hash::new(arkret_canonical::canonical_sha256(&self.record)?)?;
         arkret_canonical::canonical_json_bytes(&Transcript {
-            context: "ak.service-resolution-record-proof-v1",
+            context: arkret_wire::ProofContextId::SERVICE_RESOLUTION_RECORD_PROOF_V1,
             payload_digest,
             service_id: &self.record.service_id,
             service_kind: &self.record.service_kind,
@@ -712,7 +712,9 @@ impl ServiceRouteHandoverNotice {
             .expect("handover notice core serializes as object");
         object.insert(
             "context".to_owned(),
-            serde_json::Value::String("ak.service-route-handover-notice-proof-v1".to_owned()),
+            serde_json::Value::String(
+                arkret_wire::ProofContextId::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1.to_owned(),
+            ),
         );
         object.insert(
             "payload_digest".to_owned(),
@@ -836,7 +838,7 @@ impl ServiceResolutionPublishAck {
     pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
         let payload_digest = Hash::new(arkret_canonical::canonical_sha256(&self.ack)?)?;
         arkret_canonical::canonical_json_bytes(&serde_json::json!({
-            "context": "ak.service-resolution-publish-ack-proof-v1",
+            "context": arkret_wire::ProofContextId::SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1,
             "payload_digest": payload_digest,
             "request_id": self.ack.request_id,
             "source_service_id": self.ack.source_service_id,

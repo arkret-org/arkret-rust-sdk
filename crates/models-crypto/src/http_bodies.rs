@@ -7,9 +7,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, KeyPackageRef,
-    NonEmptyString, RealmId, ServiceOperationId, StrandId, TypedTrustDomainId,
-    project_full_id_to_core_id,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, KeyPackageRef, NonEmptyString,
+    RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -186,230 +185,6 @@ pub struct KeyPackagesUploadOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum KeyPackageClaimProofKind {
-    #[serde(rename = "detached_jws")]
-    DetachedJws,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum KeyPackageClaimProofPurpose {
-    #[serde(rename = "holder_acceptance")]
-    HolderAcceptance,
-}
-
-/// Exact-one self KeyPackage claim authorization proof. The dedicated shape
-/// makes `domain`, a non-DID audience, and an unregistered proof purpose
-/// unrepresentable.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyPackageClaimProof {
-    pub kind: KeyPackageClaimProofKind,
-    pub verification_method: DidUrl,
-    pub payload_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    pub audience: DidCoreId,
-    pub proof_purpose: KeyPackageClaimProofPurpose,
-    pub jws: String,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyPackagesClaimRequestBody {
-    pub target_principal_id: DidCoreId,
-    pub intended_realm_id: RealmId,
-    pub requester: DidCoreId,
-    pub required_capabilities: Vec<String>,
-    pub claim_nonce: Base64UrlString,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub target_device_ids: Vec<DeviceId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub minimal_metadata_allowed: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub strand_id: Option<StrandId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    pub holder_acceptance_proof: KeyPackageClaimProof,
-}
-
-impl KeyPackagesClaimRequestBody {
-    /// The protocol payload digest removes `holder_acceptance_proof` entirely and preserves
-    /// every actually present optional request member.
-    pub fn payload_digest(&self) -> Result<Hash, arkret_wire::Error> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("KeyPackagesClaimRequestBody serializes as an object")
-            .remove("holder_acceptance_proof");
-        Hash::new(arkret_canonical::canonical_sha256(&value)?)
-            .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
-    }
-
-    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>, arkret_wire::Error> {
-        let proof = &self.holder_acceptance_proof;
-        Ok(arkret_canonical::canonical_json_bytes(
-            &serde_json::json!({
-                "context": "ak.keypackage-claim-request-proof-v1",
-                "payload_digest": proof.payload_digest,
-                "requester": self.requester,
-                "target_principal_id": self.target_principal_id,
-                "intended_realm_id": self.intended_realm_id,
-                "claim_nonce": self.claim_nonce,
-                "verification_method": proof.verification_method,
-                "created_at": arkret_canonical::format_timestamp_canonical(proof.created_at),
-                "proof_purpose": "holder_acceptance",
-                "audience": proof.audience,
-            }),
-        )?)
-    }
-
-    pub fn validate_proof_shape(
-        &self,
-        authority_service_id: &DidCoreId,
-        verifier_now: DateTime<Utc>,
-    ) -> Result<Vec<u8>, arkret_wire::Error> {
-        let nonce = arkret_canonical::base64url_decode(self.claim_nonce.as_str())?;
-        if !(22..=128).contains(&self.claim_nonce.as_str().len()) || nonce.len() < 16 {
-            return Err(arkret_wire::Error::Protocol(
-                "claim_nonce must be 22..=128 canonical base64url characters carrying at least 128 bits"
-                    .to_owned(),
-            ));
-        }
-        let proof = &self.holder_acceptance_proof;
-        let signer_matches_requester = proof
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .and_then(|(controller, _)| DidFullId::new(controller.to_owned()).ok())
-            .and_then(|controller| project_full_id_to_core_id(&controller).ok())
-            .is_some_and(|controller| controller == self.requester);
-        if proof.audience.as_core_id() != authority_service_id.as_core_id()
-            || proof.payload_digest != self.payload_digest()?
-            || !signer_matches_requester
-            || proof.created_at > verifier_now + Duration::seconds(60)
-            || proof.created_at >= self.expires_at
-            || self.expires_at > proof.created_at + Duration::seconds(300)
-            || verifier_now >= self.expires_at
-        {
-            return Err(arkret_wire::Error::Protocol(
-                "KeyPackage self-claim proof binding or freshness is invalid".to_owned(),
-            ));
-        }
-        let parts = proof.jws.split('.').collect::<Vec<_>>();
-        if parts.len() != 3 || !parts[1].is_empty() {
-            return Err(arkret_wire::Error::Protocol(
-                "KeyPackage self-claim proof must be a compact detached JWS".to_owned(),
-            ));
-        }
-        self.proof_binding_bytes()
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyPackagesClaimOutcome {
-    pub claims: Vec<KeyPackageClaimRecord>,
-    pub claim_receipt: SelfKeyPackageClaimReceipt,
-}
-
-pub const SELF_KEYPACKAGE_CLAIM_RECEIPT_SIGNATURE_DOMAIN: &str =
-    "ak.self-keypackage-claim-receipt-v1\n";
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SelfKeyPackageClaimReceipt {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub operation_id: ServiceOperationId,
-    pub claim_request_id: Base64UrlString,
-    pub request_digest: Hash,
-    pub claims_digest: Hash,
-    pub source_service_id: DidCoreId,
-    pub destination_service_id: DidCoreId,
-    pub request: KeyPackagesClaimRequestBody,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub claimed_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub signature: KeyOperationSignature,
-}
-
-impl SelfKeyPackageClaimReceipt {
-    pub fn validate_for_claims(
-        &self,
-        claims: &[KeyPackageClaimRecord],
-    ) -> Result<(), &'static str> {
-        if self.operation_id != ServiceOperationId::SelfKeysKeypackagesCommandClaim
-            || self.claim_request_id != self.request.claim_nonce
-            || self.source_service_id != self.destination_service_id
-            || self.claimed_at >= self.expires_at
-            || self.request.expires_at != self.expires_at
-            || claims
-                .iter()
-                .any(|claim| claim.expires_at < self.expires_at)
-        {
-            return Err("self KeyPackage claim receipt coordinates mismatch");
-        }
-        let request_digest = arkret_canonical::canonical_sha256(&self.request)
-            .map_err(|_| "self KeyPackage claim request digest failed")?;
-        let claims_digest = arkret_canonical::canonical_sha256(&claims)
-            .map_err(|_| "self KeyPackage claims digest failed")?;
-        if self.request_digest.as_str() != request_digest
-            || self.claims_digest.as_str() != claims_digest
-        {
-            return Err("self KeyPackage claim receipt digest mismatch");
-        }
-        Ok(())
-    }
-
-    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        let mut unsigned = serde_json::to_value(self)?;
-        unsigned
-            .as_object_mut()
-            .expect("self claim receipt serializes as an object")
-            .remove("signature");
-        let mut bytes = SELF_KEYPACKAGE_CLAIM_RECEIPT_SIGNATURE_DOMAIN
-            .as_bytes()
-            .to_vec();
-        bytes.extend(arkret_canonical::canonical_json_bytes(&unsigned)?);
-        Ok(bytes)
-    }
-
-    pub fn agent_observation_binding(
-        &self,
-    ) -> (
-        &ServiceOperationId,
-        &Hash,
-        &DidCoreId,
-        &DidCoreId,
-        &Base64UrlString,
-    ) {
-        (
-            &self.operation_id,
-            &self.request_digest,
-            &self.destination_service_id,
-            &self.source_service_id,
-            &self.claim_request_id,
-        )
-    }
-}
-
-impl KeyPackagesClaimOutcome {
-    pub fn validate_shape(&self) -> Result<(), &'static str> {
-        self.claim_receipt.validate_for_claims(&self.claims)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PeerKeyPackageClaimPurpose {
     RealmMembership,
@@ -477,21 +252,11 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerKeyPackagesClaimTransportBinding {
+pub struct KeyPackagesClaimServiceBinding {
     pub source_service_id: DidCoreId,
     pub destination_service_id: DidCoreId,
-    pub source_trust_domain: TypedTrustDomainId,
-    pub destination_trust_domain: TypedTrustDomainId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerKeyPackagesClaimAuthorizationDraft {
-    pub request: PeerKeyPackagesClaimUnsignedRequest,
-    pub transport_binding: PeerKeyPackagesClaimTransportBinding,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -528,6 +293,7 @@ pub struct PeerKeyPackagesClaimRequestBody {
     pub pair_key: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort_allowed: Option<bool>,
+    pub service_binding: KeyPackagesClaimServiceBinding,
     pub requester_authorization: PeerKeyPackageRequesterAuthorization,
 }
 
@@ -590,6 +356,9 @@ impl PeerKeyPackagesClaimRequestBody {
     }
 }
 
+/// Canonical KeyPackage claim request shared by self and peer operations.
+pub type KeyPackagesClaimRequestBody = PeerKeyPackagesClaimRequestBody;
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -615,6 +384,9 @@ pub struct PeerKeyPackagesClaimOutcome {
     pub claims: Vec<KeyPackageClaimRecord>,
     pub claim_receipt: PeerKeyPackageClaimReceipt,
 }
+
+/// Canonical KeyPackage claim outcome shared by self and peer operations.
+pub type KeyPackagesClaimOutcome = PeerKeyPackagesClaimOutcome;
 
 impl PeerKeyPackagesClaimOutcome {
     /// Enforce the cross-field receipt/outcome bindings that JSON Schema
@@ -923,7 +695,7 @@ fn validate_peer_claim_fields(
 struct PeerKeyPackageAuthorizationTranscript<'a> {
     authorization: PeerKeyPackageAuthorizationMetadata<'a>,
     request: &'a PeerKeyPackagesClaimUnsignedRequest,
-    transport_binding: &'a PeerKeyPackagesClaimTransportBinding,
+    service_binding: &'a KeyPackagesClaimServiceBinding,
 }
 
 #[derive(Serialize)]
@@ -942,8 +714,9 @@ struct PeerKeyPackageAuthorizationMetadata<'a> {
     signed_at: DateTime<Utc>,
 }
 
-pub fn peer_keypackage_claim_authorization_signing_bytes(
-    draft: &PeerKeyPackagesClaimAuthorizationDraft,
+pub fn keypackage_claim_authorization_signing_bytes(
+    request: &PeerKeyPackagesClaimUnsignedRequest,
+    service_binding: &KeyPackagesClaimServiceBinding,
     authorization: &PeerKeyPackageRequesterAuthorization,
 ) -> arkret_canonical::Result<Vec<u8>> {
     let metadata = match authorization {
@@ -980,11 +753,11 @@ pub fn peer_keypackage_claim_authorization_signing_bytes(
     };
     let transcript = PeerKeyPackageAuthorizationTranscript {
         authorization: metadata,
-        request: &draft.request,
-        transport_binding: &draft.transport_binding,
+        request,
+        service_binding,
     };
     let canonical = arkret_canonical::canonical_json_bytes(&transcript)?;
-    let mut bytes = b"ak.peer-keypackage-claim-authorization-v1\n".to_vec();
+    let mut bytes = b"ak.keypackage-claim-authorization-v1\n".to_vec();
     bytes.extend(canonical);
     Ok(bytes)
 }

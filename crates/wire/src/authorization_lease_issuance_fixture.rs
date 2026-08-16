@@ -7,7 +7,10 @@ use crate::{Error, Result, canonical};
 
 const SUITE: &str = "authorization_lease_issuance";
 const ENTRYPOINT: &str = "ak.suite.authz.authorization_lease_issuance.v1";
-const ORDINARY_REALM_ANCHOR: [&str; 2] = ["ak.realm.create", "ak.capability.grant"];
+const ORDINARY_REALM_ANCHOR: [&str; 2] = [
+    crate::event_kind_str::REALM_CREATE,
+    crate::event_kind_str::CAPABILITY_GRANT,
+];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -29,6 +29,8 @@ pub use eddsa_jcs_2022::{
 // they validate against the `PublicKey` wire model owned by
 // arkret-models-collaboration.
 #[cfg(feature = "collaboration")]
+pub mod account_status;
+#[cfg(feature = "collaboration")]
 pub mod agent;
 #[cfg(feature = "collaboration")]
 pub mod agent_evidence;

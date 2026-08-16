@@ -318,8 +318,8 @@ validated_wire_string!(
 
 fn is_authorization_ref(value: &str) -> bool {
     value == crate::REALM_AUTHORITY_ROOT_CELL
-        || value == "ak.authority.direct_conversation_participant.v1"
-        || value == "ak.authority.direct_conversation_repair.v1"
+        || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1
+        || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
         || crate::MembershipCompensationDelegationRef::new(value).is_ok()
         || GrantId::new(value).is_ok()
         || EventId::new(value).is_ok()
@@ -1073,13 +1073,15 @@ mod tests {
             "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
             "did:web:alice.example#managed-controller",
             crate::REALM_AUTHORITY_ROOT_CELL,
-            "ak.authority.direct_conversation_participant.v1",
-            "ak.authority.direct_conversation_repair.v1",
+            crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1,
+            crate::AuthoritySourceId::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1,
         ] {
             assert!(AuthorizationRef::new(value).is_ok(), "{value}");
         }
         for value in [
             crate::REALM_GENESIS_CELL,
+            crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1,
+            crate::AuthoritySourceId::SIDECAR_PARENT_BOOTSTRAP_V1,
             "ak:grant:not-a-uuid",
             "did:web:alice.example",
             "future.authorization.source.v1",

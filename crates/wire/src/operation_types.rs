@@ -228,11 +228,31 @@ impl<'de> Deserialize<'de> for MembershipCompensationDelegationRef {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MembershipCompensationAuthority {
-    #[serde(rename = "ak.authority.membership_compensation.v1")]
     V1,
+}
+
+impl Serialize for MembershipCompensationAuthority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(crate::AuthoritySourceId::MEMBERSHIP_COMPENSATION_V1)
+    }
+}
+
+impl<'de> Deserialize<'de> for MembershipCompensationAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        (value == crate::AuthoritySourceId::MEMBERSHIP_COMPENSATION_V1)
+            .then_some(Self::V1)
+            .ok_or_else(|| de::Error::custom("unknown membership compensation authority"))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -4,7 +4,7 @@
 //! `arkret_event_draft::ProjectedEventOperation` are owned by `arkret-event-draft`, which
 //! keeps this model crate free of behavior dependencies.
 
-use arkret_wire::{DidCoreId, Hash, RealmId};
+use arkret_wire::{DidCoreId, DomainSeparationId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +55,7 @@ impl FederationVerifyActorRequestBody {
         object.remove("signature");
         let request_binding_digest = arkret_canonical::canonical_sha256(&unsigned)?;
         arkret_canonical::canonical_json_bytes(&serde_json::json!({
-            "type": "ak.federation.verify_actor.signature.v1",
+            "type": DomainSeparationId::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1,
             "actor_id": self.actor_id.as_str(),
             "purpose": self.purpose,
             "challenge": self.challenge,

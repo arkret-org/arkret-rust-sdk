@@ -990,7 +990,9 @@ impl RecoveryPublicationAuthorityContext {
             .allowed_actions
             .iter()
             .map(|action| match action {
-                RecoveryPublicationAction::DeviceReanchor => "ak.device.reanchor",
+                RecoveryPublicationAction::DeviceReanchor => {
+                    arkret_wire::event_kind_str::DEVICE_REANCHOR
+                }
             })
             .collect::<std::collections::BTreeSet<_>>();
         if self
@@ -1007,7 +1009,9 @@ impl RecoveryPublicationAuthorityContext {
         }
         for action in &self.allowed_actions {
             let action = match action {
-                RecoveryPublicationAction::DeviceReanchor => "ak.device.reanchor",
+                RecoveryPublicationAction::DeviceReanchor => {
+                    arkret_wire::event_kind_str::DEVICE_REANCHOR
+                }
             };
             let matching_rules = self
                 .authority_set_policy
@@ -1185,7 +1189,7 @@ pub struct TrustedRecoveryServiceSessionProof {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum RecoverySessionProof {
     PrincipalSigning(RecoveryPrincipalSigningProof),
@@ -1193,6 +1197,38 @@ pub enum RecoverySessionProof {
     DeviceQuorum(RecoveryDeviceQuorumProof),
     TrustedRecoveryService(TrustedRecoveryServiceSessionProof),
     ThresholdRecovery(ThresholdRecoveryProof),
+}
+
+impl<'de> Deserialize<'de> for RecoverySessionProof {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match value.get("kind").and_then(Value::as_str) {
+            Some("principal_signing") => serde_json::from_value(value)
+                .map(Self::PrincipalSigning)
+                .map_err(serde::de::Error::custom),
+            Some("recovery_unlock") => serde_json::from_value(value)
+                .map(Self::RecoveryUnlock)
+                .map_err(serde::de::Error::custom),
+            Some("device_quorum") => serde_json::from_value(value)
+                .map(Self::DeviceQuorum)
+                .map_err(serde::de::Error::custom),
+            Some("trusted_recovery_service") => serde_json::from_value(value)
+                .map(Self::TrustedRecoveryService)
+                .map_err(serde::de::Error::custom),
+            Some("threshold_recovery") => serde_json::from_value(value)
+                .map(Self::ThresholdRecovery)
+                .map_err(serde::de::Error::custom),
+            Some(kind) => Err(serde::de::Error::custom(format!(
+                "unsupported recovery session proof kind '{kind}'"
+            ))),
+            None => Err(serde::de::Error::custom(
+                "recovery session proof is missing kind discriminator",
+            )),
+        }
+    }
 }
 
 fn deserialize_minimum_two<'de, D>(deserializer: D) -> std::result::Result<u64, D::Error>
@@ -1393,7 +1429,7 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
 
 impl RecoverySessionState {
     pub fn validate(&self) -> Result<()> {
-        if self.schema != "ak.schema.recovery_session.v1" {
+        if self.schema != arkret_wire::SchemaId::RECOVERY_SESSION_V1 {
             return Err(Error::Protocol(
                 "recovery session schema must be ak.schema.recovery_session.v1".to_owned(),
             ));
@@ -1496,12 +1532,25 @@ pub enum KeyPackageOperations {
     KeyPackagesUploadOutcome(crate::http_bodies::KeyPackagesUploadOutcome),
     KeyPackagesClaimRequestBody(crate::http_bodies::KeyPackagesClaimRequestBody),
     KeyPackagesClaimOutcome(crate::http_bodies::KeyPackagesClaimOutcome),
-    PeerKeyPackagesClaimRequestBody(crate::http_bodies::PeerKeyPackagesClaimRequestBody),
-    PeerKeyPackagesClaimOutcome(crate::http_bodies::PeerKeyPackagesClaimOutcome),
     PeerKeyPackagesClaimQueryRequestBody(crate::http_bodies::PeerKeyPackagesClaimQueryRequestBody),
     PeerKeyPackagesClaimQueryOutcome(crate::http_bodies::PeerKeyPackagesClaimQueryOutcome),
     KeyPackagesConsumeRequestBody(crate::http_bodies::KeyPackagesConsumeRequestBody),
     KeyPackagesConsumeOutcome(crate::http_bodies::KeyPackagesConsumeOutcome),
     KeyPackagesRevokeRequestBody(crate::http_bodies::KeyPackagesRevokeRequestBody),
     KeyPackagesRevokeOutcome(crate::http_bodies::KeyPackagesRevokeOutcome),
+}
+
+#[cfg(test)]
+mod untagged_contract_tests {
+    use super::*;
+
+    #[test]
+    fn recovery_session_proof_requires_a_registered_kind() {
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"kind": "future_recovery_proof"}),
+        ] {
+            assert!(serde_json::from_value::<RecoverySessionProof>(value).is_err());
+        }
+    }
 }

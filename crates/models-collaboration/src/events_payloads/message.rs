@@ -186,7 +186,6 @@ impl<'de> Deserialize<'de> for MessageRevisePayload {
 pub const CONTENT_KIND_COMPOSITE: &str = "ak.content.composite";
 pub const CONTENT_KIND_TEXT: &str = "ak.content.text";
 pub const CONTENT_KIND_LONG_TEXT: &str = "ak.content.long_text";
-pub const CONTENT_KIND_FORMATTED_TEXT: &str = "ak.content.formatted_text";
 pub const CONTENT_KIND_CODE: &str = "ak.content.code";
 pub const CONTENT_KIND_IMAGE: &str = "ak.content.image";
 pub const CONTENT_KIND_VIDEO: &str = "ak.content.video";
@@ -195,7 +194,6 @@ pub const CONTENT_KIND_FILE: &str = "ak.content.file";
 pub const CONTENT_KIND_LOCATION: &str = "ak.content.location";
 pub const CONTENT_KIND_POLL: &str = "ak.content.poll";
 pub const CONTENT_KIND_POLL_RESPONSE: &str = "ak.content.poll.response";
-pub const CONTENT_KIND_POLL_CLOSE: &str = "ak.content.poll.close";
 
 pub const MEDIA_CONTENT_KINDS: [&str; 4] = [
     CONTENT_KIND_IMAGE,
@@ -323,7 +321,6 @@ pub enum ContentBlockKind {
     Composite,
     Text,
     LongText,
-    FormattedText,
     Code,
     Image,
     Video,
@@ -332,7 +329,6 @@ pub enum ContentBlockKind {
     Location,
     Poll,
     PollResponse,
-    PollClose,
 }
 
 impl std::fmt::Display for ContentBlockKind {
@@ -347,7 +343,6 @@ impl ContentBlockKind {
             CONTENT_KIND_COMPOSITE => Some(Self::Composite),
             CONTENT_KIND_TEXT => Some(Self::Text),
             CONTENT_KIND_LONG_TEXT => Some(Self::LongText),
-            CONTENT_KIND_FORMATTED_TEXT => Some(Self::FormattedText),
             CONTENT_KIND_CODE => Some(Self::Code),
             CONTENT_KIND_IMAGE => Some(Self::Image),
             CONTENT_KIND_VIDEO => Some(Self::Video),
@@ -356,7 +351,6 @@ impl ContentBlockKind {
             CONTENT_KIND_LOCATION => Some(Self::Location),
             CONTENT_KIND_POLL => Some(Self::Poll),
             CONTENT_KIND_POLL_RESPONSE => Some(Self::PollResponse),
-            CONTENT_KIND_POLL_CLOSE => Some(Self::PollClose),
             _ => None,
         }
     }
@@ -366,7 +360,6 @@ impl ContentBlockKind {
             Self::Composite => CONTENT_KIND_COMPOSITE,
             Self::Text => CONTENT_KIND_TEXT,
             Self::LongText => CONTENT_KIND_LONG_TEXT,
-            Self::FormattedText => CONTENT_KIND_FORMATTED_TEXT,
             Self::Code => CONTENT_KIND_CODE,
             Self::Image => CONTENT_KIND_IMAGE,
             Self::Video => CONTENT_KIND_VIDEO,
@@ -375,7 +368,6 @@ impl ContentBlockKind {
             Self::Location => CONTENT_KIND_LOCATION,
             Self::Poll => CONTENT_KIND_POLL,
             Self::PollResponse => CONTENT_KIND_POLL_RESPONSE,
-            Self::PollClose => CONTENT_KIND_POLL_CLOSE,
         }
     }
 
@@ -1087,9 +1079,7 @@ pub fn validate_content_block(block: &Value) -> ContentBlockValidationResult<()>
     crate::events_payloads::mention::validate_mention_carriers(object)?;
     match parsed.kind {
         ContentBlockKind::Composite => validate_composite_content_block(block),
-        ContentBlockKind::Text | ContentBlockKind::FormattedText => {
-            validate_text_content_block(block)
-        }
+        ContentBlockKind::Text => validate_text_content_block(block),
         ContentBlockKind::LongText => ContentBlock::from_value(block.clone())
             .and_then(|parsed| parsed.validate_long_text())
             .map_err(|_| ContentBlockValidationError::new("long text content block is invalid")),
@@ -1101,7 +1091,6 @@ pub fn validate_content_block(block: &Value) -> ContentBlockValidationResult<()>
         ContentBlockKind::Location => validate_location_content_block(block),
         ContentBlockKind::Poll => validate_poll_content_block(block),
         ContentBlockKind::PollResponse => validate_poll_response_content_block(block),
-        ContentBlockKind::PollClose => validate_poll_close_content_block(block),
     }
 }
 
@@ -1123,19 +1112,6 @@ fn validate_code_content_block(block: &Value) -> ContentBlockValidationResult<()
     {
         return Err(ContentBlockValidationError::new(
             "code content block requires text",
-        ));
-    }
-    Ok(())
-}
-
-fn validate_poll_close_content_block(block: &Value) -> ContentBlockValidationResult<()> {
-    if block
-        .get("poll_id")
-        .and_then(Value::as_str)
-        .is_none_or(|value| value.trim().is_empty())
-    {
-        return Err(ContentBlockValidationError::new(
-            "poll close content block requires poll_id",
         ));
     }
     Ok(())

@@ -327,14 +327,10 @@ impl RealmState {
     pub(super) fn is_maintenance_event(event: &Event) -> bool {
         matches!(
             event.kind.as_str(),
-            "ak.message.redact"
-                | "ak.realm.redact"
-                | "ak.realm.export"
-                | "ak.realm.legal_hold"
-                | "ak.realm.migration_proof"
-                | "ak.realm.upgrade"
-                | "ak.realm.destroy"
-                | "ak.redaction"
+            arkret_wire::event_kind_str::MESSAGE_REDACT
+                | arkret_wire::event_kind_str::REALM_UPGRADE
+                | arkret_wire::event_kind_str::REALM_DESTROY
+                | arkret_wire::event_kind_str::REDACTION
         ) || event.redacts.is_some()
     }
 
@@ -364,7 +360,12 @@ impl RealmState {
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
         self.resolved_state
             .get(&format!("ak.capability|{}", capability_id))
-            .filter(|event| matches!(event.kind.as_str(), "ak.capability.grant"))
+            .filter(|event| {
+                matches!(
+                    event.kind.as_str(),
+                    arkret_wire::event_kind_str::CAPABILITY_GRANT
+                )
+            })
     }
 
     pub fn capability_allows(&self, capability_id: &str, action: &str) -> bool {

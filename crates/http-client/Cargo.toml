@@ -31,7 +31,6 @@ tls-rustls = ["reqwest/rustls"]
 chrono = {workspace = true,features = ["serde"]}
 arkret-canonical = {workspace = true}
 arkret-egress-policy = {workspace = true}
-arkret-egress-reqwest = {workspace = true}
 arkret-models-collaboration = {workspace = true}
 arkret-models-crypto = {workspace = true}
 arkret-models-discovery = {workspace = true}
@@ -55,6 +54,7 @@ arkret-wire = {workspace = true,features = ["test-support"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = {workspace = true}
+arkret-egress-reqwest = {workspace = true}
 # Native-only: consumed exclusively by `http_did_resolver` (reqwest + Tokio DID
 # resolver), which is itself gated out on wasm32.
 arkret-identity = {workspace = true}

@@ -17,7 +17,8 @@ use crate::event_sync::FederationServiceBindingRef;
 use crate::governance::membership_invite::{MembershipPayload, MembershipPayloadState};
 
 pub const AGENT_MEMBERSHIP_CASCADE_UNIT_KIND: &str = "agent_membership_cascade";
-pub const AGENT_MEMBERSHIP_CASCADE_SCHEMA: &str = "ak.schema.agent_membership_cascade.v1";
+pub const AGENT_MEMBERSHIP_CASCADE_SCHEMA: &str =
+    arkret_wire::SchemaId::AGENT_MEMBERSHIP_CASCADE_V1;
 pub const MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS: usize = 256;
 pub const MAX_AGENT_MEMBERSHIP_CASCADE_CBA_BUNDLES: usize = 64;
 
@@ -304,7 +305,7 @@ fn validate_cascade<'a>(
     agents: impl IntoIterator<Item = &'a Event>,
     cleanup_intent_digest: Option<&Hash>,
 ) -> Result<()> {
-    if controller.kind.as_str() != "ak.member.state" {
+    if controller.kind.as_str() != arkret_wire::event_kind_str::MEMBER_STATE {
         return Err(Error::Protocol(
             "agent membership cascade controller transition must be ak.member.state".to_owned(),
         ));
@@ -395,7 +396,7 @@ fn validate_cascade<'a>(
                 "agent membership cascade contains a duplicate Agent transition".to_owned(),
             ));
         }
-        if agent.kind.as_str() != "ak.member.state"
+        if agent.kind.as_str() != arkret_wire::event_kind_str::MEMBER_STATE
             || agent.realm_id != controller.realm_id
             || agent.actor_id == controller.actor_id
             || agent.executed_by.as_ref() != Some(initiator)

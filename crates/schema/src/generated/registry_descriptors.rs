@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-12.3;
 //! sha256=110f8b693d59cad81493da55f6e18c84c48a565ab5b5ced93b02f9e0f195dd77 Input: registry/
-//! capability-action-registry.json; version=2026-08-16.2;
-//! sha256=4f2f0019811d2d00318d800c1dbf3c3b5f667ca7c370108e5e6c382805eff958 Input: registry/
-//! schema-registry.json; version=2026-08-15.1;
-//! sha256=2d7edb27c6f541433aa9347236003fb231cdfbe4f0e8fa2aff614f70af0fc06f Input: registry/
+//! capability-action-registry.json; version=2026-08-16.6;
+//! sha256=219d9be557591170a6f82ad37006ffec2c391afef25a63e151974e4b513de68b Input: registry/
+//! schema-registry.json; version=2026-08-16.3;
+//! sha256=a19f84b5b3555913bd71da000b94460e8d3c682e3f37ea85a29a349cde9c95d2 Input: registry/
 //! account-data-key-registry.json; version=2026-08-13.2;
 //! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=56,
-//! special_forms=11, actions=170, schemas=185, account_data_patterns=24
+//! special_forms=11, actions=170, schemas=187, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3256,6 +3256,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/high-risk-authority-proof.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::HTTP_ERROR_ENVELOPE_V1,
+        file: "schemas/http-error-envelope.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::ICE_CONFIG_RESPONSE_V1,
         file: "schemas/ice-config-response.schema.json",
     },
@@ -3538,6 +3542,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::SERVICE_DESCRIBE_V1,
         file: "schemas/service-describe.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SERVICE_IDENTITY_BUNDLE_V1,
+        file: "schemas/service-identity-bundle.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SERVICE_OPERATION_DTOS_V1,

@@ -5,7 +5,7 @@
 //! ephemeral containers, timelines, and the per-Realm roster entry
 //! carried by account-subscribe frames.
 
-use arkret_wire::DidCoreId;
+use arkret_wire::{ActorPrivateUpdateKind, DidCoreId};
 use serde::Serializer;
 
 use crate::internal_prelude::*;
@@ -688,9 +688,9 @@ pub enum ActorPrivateDeviceUpdate {
 impl ActorPrivateDeviceUpdate {
     pub fn kind(&self) -> &'static str {
         match self {
-            Self::AccountData { .. } => "ak.account_data.update",
-            Self::Blocklist { .. } => "ak.account.blocklist.update",
-            Self::ReadCursor { .. } => "ak.read_cursor.update",
+            Self::AccountData { .. } => ActorPrivateUpdateKind::ACCOUNT_DATA_UPDATE,
+            Self::Blocklist { .. } => ActorPrivateUpdateKind::ACCOUNT_BLOCKLIST_UPDATE,
+            Self::ReadCursor { .. } => ActorPrivateUpdateKind::READ_CURSOR_UPDATE,
         }
     }
 

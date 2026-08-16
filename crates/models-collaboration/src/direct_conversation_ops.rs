@@ -113,10 +113,10 @@ impl DirectConversationFoundingPlan {
     /// Validate the closed wire order and derive every coordinate without allocating an ID.
     pub fn from_events(events: [&Event; 4]) -> arkret_wire::Result<Self> {
         let [create, peer_member, strand, founder_member] = events;
-        if create.kind.as_str() != "ak.realm.create"
-            || peer_member.kind.as_str() != "ak.member.state"
-            || strand.kind.as_str() != "ak.strand.create"
-            || founder_member.kind.as_str() != "ak.member.state"
+        if create.kind.as_str() != arkret_wire::event_kind_str::REALM_CREATE
+            || peer_member.kind.as_str() != arkret_wire::event_kind_str::MEMBER_STATE
+            || strand.kind.as_str() != arkret_wire::event_kind_str::STRAND_CREATE
+            || founder_member.kind.as_str() != arkret_wire::event_kind_str::MEMBER_STATE
         {
             return Err(founding_unit_invalid(
                 "founding Event kinds or wire order mismatch",

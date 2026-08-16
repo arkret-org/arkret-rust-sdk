@@ -64,7 +64,7 @@ pub struct ProjectedEventOperation {
 }
 
 impl ProjectedEventOperation {
-    pub const SCHEMA: &'static str = "ak.local.projected_event_operation.v1";
+    pub const SCHEMA: &'static str = "org.arkret.sdk.projected_event_operation.v1";
 
     /// Project one already accepted Event without rewriting its signed payload.
     pub fn from_accepted_event(
@@ -225,7 +225,7 @@ pub struct LocalOperationDraft<K: LocalOperationSpec> {
 }
 
 impl<K: LocalOperationSpec> LocalOperationDraft<K> {
-    pub const SCHEMA: &'static str = "ak.local.operation_draft.v1";
+    pub const SCHEMA: &'static str = "org.arkret.sdk.operation_draft.v1";
 
     fn new(operation_id: OperationId, realm_id: RealmId, payload: K::Payload) -> Self {
         Self {

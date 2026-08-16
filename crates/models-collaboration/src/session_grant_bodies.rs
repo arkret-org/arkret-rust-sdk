@@ -710,6 +710,29 @@ struct SessionGrantIntrospectGrantWire {
 }
 
 impl SessionGrantIntrospectGrant {
+    /// Exact online request-context authority pair. The audience is the
+    /// Principal Server named by the producer-signed Event; callers compare
+    /// both fields byte-for-byte rather than guessing from current DID state.
+    #[must_use]
+    pub fn principal_authority_key(&self) -> arkret_wire::PrincipalAuthorityKey {
+        arkret_wire::PrincipalAuthorityKey::new(self.subject.clone(), self.audience.clone())
+    }
+
+    /// Typed selector for replaying the accepted device authorization row in
+    /// an online human request transaction. Agent grants use their delegated
+    /// runtime binding instead and cannot be coerced into this human lane.
+    pub fn human_device_authorization_selector(&self) -> Result<&SessionGrantDeviceBinding> {
+        match (&self.holder_binding, self.device_binding.as_ref()) {
+            (SessionGrantHolderBinding::HumanDevice { .. }, Some(binding)) => Ok(binding),
+            (SessionGrantHolderBinding::HumanDevice { .. }, None) => Err(Error::Protocol(
+                "online human request context is missing device authorization selector".to_owned(),
+            )),
+            (SessionGrantHolderBinding::AgentRuntime { .. }, _) => Err(Error::Protocol(
+                "managed Agent request context must use delegated runtime authority".to_owned(),
+            )),
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         match (&self.holder_binding, &self.device_id, &self.device_binding) {
             (
@@ -937,7 +960,19 @@ mod session_grant_contract_tests {
     fn introspection_grant_requires_standard_holder_binding() {
         let mut valid = introspect_grant_base("standard");
         valid["holder_binding"] = holder_binding();
-        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).is_ok());
+        let grant = serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).unwrap();
+        assert_eq!(grant.principal_authority_key().principal_id, grant.subject);
+        assert_eq!(
+            grant.principal_authority_key().principal_server_id,
+            grant.audience
+        );
+        assert_eq!(
+            grant
+                .human_device_authorization_selector()
+                .unwrap()
+                .model_generation_ref,
+            7
+        );
 
         valid.as_object_mut().unwrap().remove("holder_binding");
         assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(valid).is_err());

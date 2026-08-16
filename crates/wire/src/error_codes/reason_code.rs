@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-16.1;
-//! sha256=928375fa465bca908c32891d7b7555fee3166a56a3849f24682d48c2581ee005
-//! Entries: reason_codes=470
+//! Input: registry/error-code-registry.json; version=2026-08-16.3;
+//! sha256=d52515e2324b379155b76fbeebc4c429649d84a58af5799d6f0a1fe60bad8be6
+//! Entries: reason_codes=471
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -264,6 +264,7 @@ pub enum ReasonCode {
     MinimalMetadataAuthorCredentialInvalid,
     MinimalMetadataPresignForbidden,
     Misinformation,
+    MlsGenesisAlreadyExists,
     MlsGovernanceBindingStale,
     MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile,
     ModerationControlLifted,
@@ -810,6 +811,7 @@ impl ReasonCode {
     pub const MINIMAL_METADATA_PRESIGN_FORBIDDEN: &'static str =
         "minimal_metadata_presign_forbidden";
     pub const MISINFORMATION: &'static str = "misinformation";
+    pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_BINDING_STALE: &'static str = "mls_governance_binding_stale";
     pub const MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &'static str =
         "mls_send_pause_advisory_requires_e2ee_relaxed_profile";
@@ -1377,6 +1379,7 @@ impl ReasonCode {
             }
             Self::MinimalMetadataPresignForbidden => Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN,
             Self::Misinformation => Self::MISINFORMATION,
+            Self::MlsGenesisAlreadyExists => Self::MLS_GENESIS_ALREADY_EXISTS,
             Self::MlsGovernanceBindingStale => Self::MLS_GOVERNANCE_BINDING_STALE,
             Self::MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile => {
                 Self::MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE
@@ -1949,6 +1952,7 @@ impl ReasonCode {
             }
             Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN => Self::MinimalMetadataPresignForbidden,
             Self::MISINFORMATION => Self::Misinformation,
+            Self::MLS_GENESIS_ALREADY_EXISTS => Self::MlsGenesisAlreadyExists,
             Self::MLS_GOVERNANCE_BINDING_STALE => Self::MlsGovernanceBindingStale,
             Self::MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE => {
                 Self::MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile
@@ -3546,6 +3550,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::MISINFORMATION,
         applies_to: &["moderation_report"],
         description: "Standard moderation reason: misleading / false information posing harm.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::MLS_GENESIS_ALREADY_EXISTS,
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "An MLS genesis operation attempted to initialize a group whose genesis state is already durably accepted. Receivers MUST preserve the existing group state and reject the conflicting initialization.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_GOVERNANCE_BINDING_STALE,

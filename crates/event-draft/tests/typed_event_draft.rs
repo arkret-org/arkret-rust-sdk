@@ -1,7 +1,9 @@
 use arkret_canonical::canonical_json_bytes;
 use arkret_event_draft::TypedEventDraft;
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
-use arkret_wire::{DidCoreId, EventKind, Hlc, RealmId, ScopeRef, StrandId, event_spec};
+use arkret_wire::{
+    DidCoreId, EventId, EventKind, Hlc, RealmId, ScopeRef, SealBasis, SealId, StrandId, event_spec,
+};
 use chrono::{TimeZone, Utc};
 
 fn fixture() -> (ScopeRef, DidCoreId, MessageCreatePayload) {
@@ -49,6 +51,31 @@ fn typed_authoring_is_byte_compatible_with_the_legacy_canonical_chain() {
         canonical_json_bytes(&legacy).unwrap()
     );
     assert_eq!(typed.event_id, typed.derive_event_id().unwrap());
+}
+
+#[test]
+fn typed_authoring_materializes_prev_refs_and_seal_basis() {
+    let (scope, actor, payload) = fixture();
+    let prev = EventId::new(format!("ak:event:A{}", "b".repeat(43))).unwrap();
+    let seal = SealId::new(format!("ak:seal:sha256:{}", "c".repeat(64))).unwrap();
+    let basis = SealBasis {
+        leaves: vec![seal.clone()],
+    };
+    let event =
+        TypedEventDraft::<event_spec::MessageCreate>::new(scope, actor.clone(), actor, payload)
+            .unwrap()
+            .with_prev_refs(vec![prev.clone()])
+            .with_seal_basis(basis.clone())
+            .author(
+                8,
+                Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
+                Utc.with_ymd_and_hms(2026, 8, 9, 1, 2, 4).single().unwrap(),
+            )
+            .unwrap();
+
+    assert_eq!(event.prev_refs, vec![prev]);
+    assert_eq!(event.seal_basis, Some(basis));
+    assert_eq!(event.event_id, event.derive_event_id().unwrap());
 }
 
 /// A marker cannot be paired with another marker's payload type.

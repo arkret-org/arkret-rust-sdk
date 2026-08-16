@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::error_codes::ErrorCode;
+
 pub type Result<T> = std::result::Result<T, WireError>;
 
 /// Errors produced while constructing or validating base wire shapes.
@@ -8,6 +10,11 @@ pub type Result<T> = std::result::Result<T, WireError>;
 pub enum WireError {
     #[error("wire validation failed: {0}")]
     Protocol(String),
+
+    /// Protocol rejection with a stable machine-readable code. Callers must
+    /// dispatch on `code`, never on the human-facing `message`.
+    #[error("wire validation failed [{code}]: {message}")]
+    ProtocolCode { code: ErrorCode, message: String },
 
     #[error("event payload kind mismatch: expected {expected}, got {actual}")]
     PayloadKindMismatch {
@@ -38,6 +45,16 @@ pub enum WireError {
         actual: usize,
         limit: usize,
     },
+}
+
+impl WireError {
+    /// Stable error code when this validation failure defines one.
+    pub const fn error_code(&self) -> Option<ErrorCode> {
+        match self {
+            Self::ProtocolCode { code, .. } => Some(*code),
+            _ => None,
+        }
+    }
 }
 
 pub type Error = WireError;

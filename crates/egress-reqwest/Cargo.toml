@@ -16,8 +16,10 @@ version.workspace = true
 arkret-egress-policy = {workspace = true}
 reqwest = {workspace = true}
 thiserror = {workspace = true}
-tokio = {workspace = true,features = ["net"]}
 url = {workspace = true}
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = {workspace = true,features = ["net"]}
 
 [dev-dependencies]
 tokio = {workspace = true,features = ["macros", "net", "rt", "rt-multi-thread"]}

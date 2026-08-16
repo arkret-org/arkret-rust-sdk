@@ -40,32 +40,32 @@ const SERVICE_ROUTES: [ServiceRoute; 6] = [
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/ping",
-        operation_id: "ak.edge.applet.read.ping",
+        operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_READ_PING,
     },
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/describe",
-        operation_id: "ak.edge.applet.read.describe",
+        operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_READ_DESCRIBE,
     },
     ServiceRoute {
         method: "POST",
         path: "/_arkret/edge/applet/transactions",
-        operation_id: "ak.edge.applet.command.transaction",
+        operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
     },
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/actors/{actor_id}",
-        operation_id: "ak.edge.applet.actor.read.resolve",
+        operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_ACTOR_READ_RESOLVE,
     },
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/realms/{realm_id_or_alias}",
-        operation_id: "ak.edge.applet.realm.read.resolve",
+        operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_REALM_READ_RESOLVE,
     },
     ServiceRoute {
         method: "GET",
         path: "/_arkret/edge/applet/protocols/{protocol}",
-        operation_id: "ak.edge.applet.read.protocol_metadata",
+        operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_READ_PROTOCOL_METADATA,
     },
 ];
 

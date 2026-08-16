@@ -1,12 +1,12 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/track-name-registry.json; version=2026-08-16.2;
-//! sha256=e2b4916d7d25a846f29599d62a768dcc48237305ad6185f649014fe70ddd25ca Input: registry/
-//! binding-kind-registry.json; version=2026-08-16.2;
-//! sha256=76d61c65b83182299f7a40b3ec3d05edc7472e2f9d5ea7aa348d3f156c5f4e5e Input: registry/
-//! authority-set-policy-registry.json; version=2026-08-12.1;
-//! sha256=9b53e516406ee2f08925f69bac1d5b9b026709e166a8abcb5a53e1f3370c8b78 Entries: track_names=2,
-//! binding_kinds=3, authority_policy_kinds=2, authority_source_kinds=2
+//! Input: registry/track-name-registry.json; version=2026-08-16.6;
+//! sha256=6085279d6f767d82bff90738a642057f4cba9137a0087e8a7714cf382197e594 Input: registry/
+//! binding-kind-registry.json; version=2026-08-16.6;
+//! sha256=aa251e1fbc234a6621b85cf0c2bd4e7d9873d577a2f77f921cee990b5de74075 Input: registry/
+//! authority-set-policy-registry.json; version=2026-08-16.1;
+//! sha256=90691ce3662a716d3b050b5e7fb638eac4d7a54fc368a62adbcbb903e43b4ec8 Entries: track_names=2,
+//! binding_kinds=3, authority_policy_kinds=3, authority_source_kinds=2
 
 use serde::{Deserialize, Serialize};
 
@@ -83,15 +83,21 @@ impl std::fmt::Display for BindingKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthoritySetPolicyKind {
+    AccountAuthority,
     PrincipalControl,
     RealmAdmission,
 }
 
 impl AuthoritySetPolicyKind {
-    pub const ALL: &'static [Self] = &[Self::PrincipalControl, Self::RealmAdmission];
+    pub const ALL: &'static [Self] = &[
+        Self::AccountAuthority,
+        Self::PrincipalControl,
+        Self::RealmAdmission,
+    ];
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AccountAuthority => "account_authority",
             Self::PrincipalControl => "principal_control",
             Self::RealmAdmission => "realm_admission",
         }
@@ -99,6 +105,7 @@ impl AuthoritySetPolicyKind {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            "account_authority" => Some(Self::AccountAuthority),
             "principal_control" => Some(Self::PrincipalControl),
             "realm_admission" => Some(Self::RealmAdmission),
             _ => None,

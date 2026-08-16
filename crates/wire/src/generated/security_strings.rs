@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-15.2;
-//! sha256=987c4e3c3ca8f44df1328d189e92ed0b0ec65ba02f5d36b1fdca951eef25c081 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-16.3;
+//! sha256=ca1e85c41c6d526f07d4868c34b20397ef76b0d1c58fc9dcb83c1cc49ace2e0d Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
@@ -13,9 +13,11 @@
 //! mls-ciphersuite-registry.json; version=2026-07-29;
 //! sha256=dd8c2024b8d231fc94e169185a894c413dd16c40b99ae6cd1764a848535fb59f Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=49, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
+//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8 Input: registry/
+//! aead-profile-registry.json; version=2026-08-16.1;
+//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! Entries: proof_contexts=48, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=22, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -50,7 +52,6 @@ pub enum ProofContextId {
     JoinApplicationCancelReceiptProofV1,
     JoinApplicationReceiptProofV1,
     JoinApplicationReviewReceiptProofV1,
-    KeypackageClaimRequestProofV1,
     MemberDeliveryBindingCandidateProofV1,
     MimiOperationProofV1,
     OrganizationRegistrationControlProofV1,
@@ -103,7 +104,6 @@ impl ProofContextId {
         Self::JoinApplicationCancelReceiptProofV1,
         Self::JoinApplicationReceiptProofV1,
         Self::JoinApplicationReviewReceiptProofV1,
-        Self::KeypackageClaimRequestProofV1,
         Self::MemberDeliveryBindingCandidateProofV1,
         Self::MimiOperationProofV1,
         Self::OrganizationRegistrationControlProofV1,
@@ -173,8 +173,6 @@ impl ProofContextId {
         "ak.join-application-receipt-proof-v1";
     pub const JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1: &'static str =
         "ak.join-application-review-receipt-proof-v1";
-    pub const KEYPACKAGE_CLAIM_REQUEST_PROOF_V1: &'static str =
-        "ak.keypackage-claim-request-proof-v1";
     pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
         "ak.member-delivery-binding-candidate-proof-v1";
     pub const MIMI_OPERATION_PROOF_V1: &'static str = "ak.mimi-operation-proof-v1";
@@ -255,7 +253,6 @@ impl ProofContextId {
             Self::JoinApplicationReviewReceiptProofV1 => {
                 Self::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1
             }
-            Self::KeypackageClaimRequestProofV1 => Self::KEYPACKAGE_CLAIM_REQUEST_PROOF_V1,
             Self::MemberDeliveryBindingCandidateProofV1 => {
                 Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1
             }
@@ -349,7 +346,6 @@ impl ProofContextId {
             Self::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1 => {
                 Some(Self::JoinApplicationReviewReceiptProofV1)
             }
-            Self::KEYPACKAGE_CLAIM_REQUEST_PROOF_V1 => Some(Self::KeypackageClaimRequestProofV1),
             Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1 => {
                 Some(Self::MemberDeliveryBindingCandidateProofV1)
             }
@@ -388,6 +384,248 @@ impl ProofContextId {
             }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
             Self::SNAPSHOT_PROOF_V1 => Some(Self::SnapshotProofV1),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(usize)]
+pub enum DomainSeparationId {
+    AccountabilityScopeSetV1,
+    AppletDeliveryAuthenticationRecordDigestV1,
+    ContactGlareUnconsumedSlotV1,
+    ContactNoOutgoingSlotV1,
+    ContactRequestAcceptanceCoreV1,
+    ContactRequestSourceCheckpointV1,
+    EventsFrontierLeafV1,
+    EventsFrontierNodeV1,
+    EventsFrontierRootV1,
+    EventsFrontierSignatureV1,
+    FederationVerifyActorSignatureV1,
+    HttpMessageSignatureV1,
+    IdentityRecoveryPolicySignatureV1,
+    IdentityRecoveryReceiptSignatureV1,
+    JoinedControlViewDigestV1,
+    MembershipCompensationSingleUseCasV1,
+    MembershipCompensationTerminalCertificateV1,
+    PeerEventsCommandSubmitServiceBindingV1,
+    PolicyCheckTranscriptV1,
+    RealmHistorySecretShareV1,
+    RealmOrganizationStatementV1,
+    SnapshotAuthStateIssuerLocalV1,
+}
+
+impl DomainSeparationId {
+    pub const ALL: &'static [Self] = &[
+        Self::AccountabilityScopeSetV1,
+        Self::AppletDeliveryAuthenticationRecordDigestV1,
+        Self::ContactGlareUnconsumedSlotV1,
+        Self::ContactNoOutgoingSlotV1,
+        Self::ContactRequestAcceptanceCoreV1,
+        Self::ContactRequestSourceCheckpointV1,
+        Self::EventsFrontierLeafV1,
+        Self::EventsFrontierNodeV1,
+        Self::EventsFrontierRootV1,
+        Self::EventsFrontierSignatureV1,
+        Self::FederationVerifyActorSignatureV1,
+        Self::HttpMessageSignatureV1,
+        Self::IdentityRecoveryPolicySignatureV1,
+        Self::IdentityRecoveryReceiptSignatureV1,
+        Self::JoinedControlViewDigestV1,
+        Self::MembershipCompensationSingleUseCasV1,
+        Self::MembershipCompensationTerminalCertificateV1,
+        Self::PeerEventsCommandSubmitServiceBindingV1,
+        Self::PolicyCheckTranscriptV1,
+        Self::RealmHistorySecretShareV1,
+        Self::RealmOrganizationStatementV1,
+        Self::SnapshotAuthStateIssuerLocalV1,
+    ];
+
+    pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability-scope-set-v1";
+    pub const APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1: &'static str =
+        "ak.applet.delivery_authentication_record_digest.v1";
+    pub const CONTACT_GLARE_UNCONSUMED_SLOT_V1: &'static str =
+        "ak.contact.glare-unconsumed-slot.v1";
+    pub const CONTACT_NO_OUTGOING_SLOT_V1: &'static str = "ak.contact.no-outgoing-slot.v1";
+    pub const CONTACT_REQUEST_ACCEPTANCE_CORE_V1: &'static str =
+        "ak.contact.request-acceptance-core.v1";
+    pub const CONTACT_REQUEST_SOURCE_CHECKPOINT_V1: &'static str =
+        "ak.contact.request-source-checkpoint.v1";
+    pub const EVENTS_FRONTIER_LEAF_V1: &'static str = "ak.events.frontier.leaf.v1";
+    pub const EVENTS_FRONTIER_NODE_V1: &'static str = "ak.events.frontier.node.v1";
+    pub const EVENTS_FRONTIER_ROOT_V1: &'static str = "ak.events.frontier.root.v1";
+    pub const EVENTS_FRONTIER_SIGNATURE_V1: &'static str = "ak.events.frontier.signature.v1";
+    pub const FEDERATION_VERIFY_ACTOR_SIGNATURE_V1: &'static str =
+        "ak.federation.verify_actor.signature.v1";
+    pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http-message-signature.v1";
+    pub const IDENTITY_RECOVERY_POLICY_SIGNATURE_V1: &'static str =
+        "ak.identity.recovery_policy.signature.v1";
+    pub const IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1: &'static str =
+        "ak.identity.recovery_receipt.signature.v1";
+    pub const JOINED_CONTROL_VIEW_DIGEST_V1: &'static str = "ak.joined-control-view-digest-v1";
+    pub const MEMBERSHIP_COMPENSATION_SINGLE_USE_CAS_V1: &'static str =
+        "ak.membership-compensation.single-use-cas.v1";
+    pub const MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1: &'static str =
+        "ak.membership-compensation.terminal-certificate.v1";
+    pub const PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1: &'static str =
+        "ak.peer.events.command.submit.service_binding.v1";
+    pub const POLICY_CHECK_TRANSCRIPT_V1: &'static str = "ak.policy.check.transcript.v1";
+    pub const REALM_HISTORY_SECRET_SHARE_V1: &'static str = "ak.realm-history-secret-share-v1";
+    pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
+    pub const SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1: &'static str =
+        "ak.snapshot.auth_state.issuer_local.v1";
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
+            Self::AppletDeliveryAuthenticationRecordDigestV1 => {
+                Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1
+            }
+            Self::ContactGlareUnconsumedSlotV1 => Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1,
+            Self::ContactNoOutgoingSlotV1 => Self::CONTACT_NO_OUTGOING_SLOT_V1,
+            Self::ContactRequestAcceptanceCoreV1 => Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
+            Self::ContactRequestSourceCheckpointV1 => Self::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,
+            Self::EventsFrontierLeafV1 => Self::EVENTS_FRONTIER_LEAF_V1,
+            Self::EventsFrontierNodeV1 => Self::EVENTS_FRONTIER_NODE_V1,
+            Self::EventsFrontierRootV1 => Self::EVENTS_FRONTIER_ROOT_V1,
+            Self::EventsFrontierSignatureV1 => Self::EVENTS_FRONTIER_SIGNATURE_V1,
+            Self::FederationVerifyActorSignatureV1 => Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1,
+            Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
+            Self::IdentityRecoveryPolicySignatureV1 => Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1,
+            Self::IdentityRecoveryReceiptSignatureV1 => {
+                Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1
+            }
+            Self::JoinedControlViewDigestV1 => Self::JOINED_CONTROL_VIEW_DIGEST_V1,
+            Self::MembershipCompensationSingleUseCasV1 => {
+                Self::MEMBERSHIP_COMPENSATION_SINGLE_USE_CAS_V1
+            }
+            Self::MembershipCompensationTerminalCertificateV1 => {
+                Self::MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1
+            }
+            Self::PeerEventsCommandSubmitServiceBindingV1 => {
+                Self::PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1
+            }
+            Self::PolicyCheckTranscriptV1 => Self::POLICY_CHECK_TRANSCRIPT_V1,
+            Self::RealmHistorySecretShareV1 => Self::REALM_HISTORY_SECRET_SHARE_V1,
+            Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
+            Self::SnapshotAuthStateIssuerLocalV1 => Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1,
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
+            Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {
+                Some(Self::AppletDeliveryAuthenticationRecordDigestV1)
+            }
+            Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1 => Some(Self::ContactGlareUnconsumedSlotV1),
+            Self::CONTACT_NO_OUTGOING_SLOT_V1 => Some(Self::ContactNoOutgoingSlotV1),
+            Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1 => Some(Self::ContactRequestAcceptanceCoreV1),
+            Self::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1 => {
+                Some(Self::ContactRequestSourceCheckpointV1)
+            }
+            Self::EVENTS_FRONTIER_LEAF_V1 => Some(Self::EventsFrontierLeafV1),
+            Self::EVENTS_FRONTIER_NODE_V1 => Some(Self::EventsFrontierNodeV1),
+            Self::EVENTS_FRONTIER_ROOT_V1 => Some(Self::EventsFrontierRootV1),
+            Self::EVENTS_FRONTIER_SIGNATURE_V1 => Some(Self::EventsFrontierSignatureV1),
+            Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1 => {
+                Some(Self::FederationVerifyActorSignatureV1)
+            }
+            Self::HTTP_MESSAGE_SIGNATURE_V1 => Some(Self::HttpMessageSignatureV1),
+            Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1 => {
+                Some(Self::IdentityRecoveryPolicySignatureV1)
+            }
+            Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1 => {
+                Some(Self::IdentityRecoveryReceiptSignatureV1)
+            }
+            Self::JOINED_CONTROL_VIEW_DIGEST_V1 => Some(Self::JoinedControlViewDigestV1),
+            Self::MEMBERSHIP_COMPENSATION_SINGLE_USE_CAS_V1 => {
+                Some(Self::MembershipCompensationSingleUseCasV1)
+            }
+            Self::MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1 => {
+                Some(Self::MembershipCompensationTerminalCertificateV1)
+            }
+            Self::PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1 => {
+                Some(Self::PeerEventsCommandSubmitServiceBindingV1)
+            }
+            Self::POLICY_CHECK_TRANSCRIPT_V1 => Some(Self::PolicyCheckTranscriptV1),
+            Self::REALM_HISTORY_SECRET_SHARE_V1 => Some(Self::RealmHistorySecretShareV1),
+            Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
+            Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1 => Some(Self::SnapshotAuthStateIssuerLocalV1),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(usize)]
+pub enum AeadProfileId {
+    Chacha20Poly1305V1,
+    Xchacha20Poly1305V1,
+}
+
+impl AeadProfileId {
+    pub const ALL: &'static [Self] = &[Self::Chacha20Poly1305V1, Self::Xchacha20Poly1305V1];
+
+    pub const CHACHA20_POLY1305_V1: &'static str = "ak.aead.chacha20_poly1305.v1";
+    pub const XCHACHA20_POLY1305_V1: &'static str = "ak.aead.xchacha20_poly1305.v1";
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Chacha20Poly1305V1 => Self::CHACHA20_POLY1305_V1,
+            Self::Xchacha20Poly1305V1 => Self::XCHACHA20_POLY1305_V1,
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            Self::CHACHA20_POLY1305_V1 => Some(Self::Chacha20Poly1305V1),
+            Self::XCHACHA20_POLY1305_V1 => Some(Self::Xchacha20Poly1305V1),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(usize)]
+pub enum HpkeSuiteId {
+    P256AeadAes256gcmV1,
+    X25519AeadAes256gcmV1,
+    X25519AeadChacha20poly1305V1,
+    XwingAeadChacha20poly1305V1,
+}
+
+impl HpkeSuiteId {
+    pub const ALL: &'static [Self] = &[
+        Self::P256AeadAes256gcmV1,
+        Self::X25519AeadAes256gcmV1,
+        Self::X25519AeadChacha20poly1305V1,
+        Self::XwingAeadChacha20poly1305V1,
+    ];
+
+    pub const P256_AEAD_AES256GCM_V1: &'static str = "ak.hpke_p256_aead_aes256gcm.v1";
+    pub const X25519_AEAD_AES256GCM_V1: &'static str = "ak.hpke_x25519_aead_aes256gcm.v1";
+    pub const X25519_AEAD_CHACHA20POLY1305_V1: &'static str =
+        "ak.hpke_x25519_aead_chacha20poly1305.v1";
+    pub const XWING_AEAD_CHACHA20POLY1305_V1: &'static str =
+        "ak.hpke_xwing_aead_chacha20poly1305.v1";
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::P256AeadAes256gcmV1 => Self::P256_AEAD_AES256GCM_V1,
+            Self::X25519AeadAes256gcmV1 => Self::X25519_AEAD_AES256GCM_V1,
+            Self::X25519AeadChacha20poly1305V1 => Self::X25519_AEAD_CHACHA20POLY1305_V1,
+            Self::XwingAeadChacha20poly1305V1 => Self::XWING_AEAD_CHACHA20POLY1305_V1,
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            Self::P256_AEAD_AES256GCM_V1 => Some(Self::P256AeadAes256gcmV1),
+            Self::X25519_AEAD_AES256GCM_V1 => Some(Self::X25519AeadAes256gcmV1),
+            Self::X25519_AEAD_CHACHA20POLY1305_V1 => Some(Self::X25519AeadChacha20poly1305V1),
+            Self::XWING_AEAD_CHACHA20POLY1305_V1 => Some(Self::XwingAeadChacha20poly1305V1),
             _ => None,
         }
     }
@@ -957,23 +1195,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/join-policy-operations.schema.json#/$defs/review_receipt",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::KeypackageClaimRequestProofV1,
-        context: "ak.keypackage-claim-request-proof-v1",
-        object_family: "keypackage_claim_request",
-        binding_fields: &[
-            "payload_digest",
-            "requester",
-            "target_principal_id",
-            "intended_realm_id",
-            "claim_nonce",
-            "verification_method",
-            "created_at",
-            "proof_purpose",
-            "audience",
-        ],
-        schema_ref: "schemas/keypackage-operations.schema.json#/$defs/keypackage_claim_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::MemberDeliveryBindingCandidateProofV1,

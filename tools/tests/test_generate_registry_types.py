@@ -136,6 +136,17 @@ class RegistryGeneratorTests(unittest.TestCase):
         )
         self.assertNotIn('        code: "', descriptors)
 
+    def test_authority_sources_generate_closed_ids_and_phase_descriptors(self) -> None:
+        temporary, artifacts = self.registry_fixture(["authority-source-registry.json"])
+        with temporary:
+            generated = GENERATOR.generate_authority_sources(artifacts)
+
+        self.assertIn("pub enum AuthoritySourceId", generated)
+        self.assertIn("Self::DirectConversationBootstrapParticipantV1", generated)
+        self.assertIn("pub struct AuthoritySourcePhaseDescriptor", generated)
+        self.assertIn('phase: "provisional_history_send"', generated)
+        self.assertIn("pub const REGISTERED_AUTHORITY_SOURCES", generated)
+
 
 if __name__ == "__main__":
     unittest.main()

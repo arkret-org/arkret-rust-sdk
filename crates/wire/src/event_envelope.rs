@@ -567,7 +567,7 @@ impl RegistrationDidEvidenceDraft {
     pub fn canonical_control_proof_signing_bytes(&self) -> Result<Vec<u8>> {
         self.validate_shape()?;
         let value = serde_json::json!({
-            "context": "ak.registration-did-evidence-control-proof-v1",
+            "context": crate::ProofContextId::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1,
             "principal_id": &self.principal_id,
             "full_id": &self.full_id,
             "adapter_version": &self.adapter_version,

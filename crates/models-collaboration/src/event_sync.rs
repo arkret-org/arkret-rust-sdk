@@ -1023,7 +1023,7 @@ impl EventsSubmitFederationBatchRequestBody {
 
 /// Closed request union for `ak.peer.events.command.submit`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
 pub enum EventsSubmitFederationRequestBody {
@@ -1034,6 +1034,29 @@ pub enum EventsSubmitFederationRequestBody {
     AgentMembershipCascade(
         crate::governance::agent_membership_cascade::AgentMembershipCascadeFederationSubmission,
     ),
+}
+
+impl<'de> Deserialize<'de> for EventsSubmitFederationRequestBody {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match value.get("unit_kind").and_then(Value::as_str) {
+            None => serde_json::from_value(value)
+                .map(Self::Batch)
+                .map_err(serde::de::Error::custom),
+            Some("direct_conversation_founding") => serde_json::from_value(value)
+                .map(Self::DirectConversationFounding)
+                .map_err(serde::de::Error::custom),
+            Some("agent_membership_cascade") => serde_json::from_value(value)
+                .map(Self::AgentMembershipCascade)
+                .map_err(serde::de::Error::custom),
+            Some(unit_kind) => Err(serde::de::Error::custom(format!(
+                "unsupported federation submit unit_kind '{unit_kind}'"
+            ))),
+        }
+    }
 }
 
 // `SnapshotBootstrap` migrated to `sync_frames::snapshot`. It reaches the
@@ -1053,6 +1076,20 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn federation_submit_union_rejects_unknown_unit_kind_without_fallback() {
+        let error = serde_json::from_value::<EventsSubmitFederationRequestBody>(json!({
+            "unit_kind": "future_unit",
+            "events": []
+        }))
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("unsupported federation submit unit_kind")
+        );
+    }
 
     #[test]
     fn realm_actor_frontier_distinguishes_empty_and_seq_zero_histories() {

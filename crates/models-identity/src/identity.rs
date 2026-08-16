@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, DidFullId, Error, Hash, Result};
+use arkret_wire::{DidCoreId, DidFullId, Error, Hash, NonEmptyString, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -51,7 +51,28 @@ pub struct IdentityDescription {
 pub struct IdentityResolveRequestBody {
     pub did: DidFullId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub requested_evidence_kinds: Vec<String>,
+    pub requested_evidence_kinds: Vec<IdentityMethodEvidenceKind>,
+}
+
+/// Closed method-native evidence kinds a caller may require from resolution.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityMethodEvidenceKind {
+    DidWebvh,
+}
+
+/// Method-native evidence emitted only after the corresponding resolver has
+/// verified the complete history that produced these pins.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum IdentityMethodEvidence {
+    DidWebvh {
+        version_id: NonEmptyString,
+        log_head_digest: Hash,
+        control_key_digest: Hash,
+    },
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -62,12 +83,65 @@ pub struct IdentityResolveOutcome {
     pub key_log_head: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method_evidence: Option<IdentityMethodEvidence>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
     pub receipts: Vec<IdentityReceipt>,
+}
+
+#[cfg(test)]
+mod identity_resolve_tests {
+    use super::*;
+
+    #[test]
+    fn webvh_method_evidence_is_closed_and_requires_all_pins() {
+        let complete = serde_json::json!({
+            "kind": "did_webvh",
+            "version_id": "2-zQmHead",
+            "log_head_digest": format!("sha256:{}", "1".repeat(64)),
+            "control_key_digest": format!("sha256:{}", "2".repeat(64)),
+        });
+        assert!(serde_json::from_value::<IdentityMethodEvidence>(complete.clone()).is_ok());
+
+        let mut missing = complete.clone();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("control_key_digest");
+        assert!(serde_json::from_value::<IdentityMethodEvidence>(missing).is_err());
+
+        let mut mixed = complete;
+        mixed["document_key"] = Value::String("not-method-evidence".to_owned());
+        assert!(serde_json::from_value::<IdentityMethodEvidence>(mixed).is_err());
+        assert!(
+            serde_json::from_value::<IdentityMethodEvidence>(serde_json::json!({
+                "kind": "did_web"
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn requested_evidence_kind_is_closed() {
+        assert!(
+            serde_json::from_value::<IdentityResolveRequestBody>(serde_json::json!({
+                "did": "did:webvh:z6mkfixture:example.com",
+                "requested_evidence_kinds": ["did_webvh"]
+            }))
+            .is_ok()
+        );
+        assert!(
+            serde_json::from_value::<IdentityResolveRequestBody>(serde_json::json!({
+                "did": "did:webvh:z6mkfixture:example.com",
+                "requested_evidence_kinds": ["caller_defined"]
+            }))
+            .is_err()
+        );
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

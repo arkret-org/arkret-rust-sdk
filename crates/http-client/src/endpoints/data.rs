@@ -102,9 +102,9 @@ pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<U
         .extra
         .get("operations")
         .and_then(|value| value.as_array())
-        && !operations
-            .iter()
-            .any(|operation| operation.as_str() == Some("ak.self.blob.upload.create"))
+        && !operations.iter().any(|operation| {
+            operation.as_str() == Some(arkret_wire::ServiceOperationId::SELF_BLOB_UPLOAD_CREATE)
+        })
     {
         return None;
     }

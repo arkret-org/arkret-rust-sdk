@@ -363,7 +363,7 @@ mod tests {
             takedown_contact: None,
             rate_limits: Some(BTreeMap::new()),
             supported_reducer_profiles: vec![arkret_wire::CORE_REDUCER_PROFILE.to_owned()],
-            supported_schema_profiles: vec!["ak.schema.core.v1".to_owned()],
+            supported_schema_profiles: Vec::new(),
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
             last_materialized_at: None,
@@ -374,7 +374,6 @@ mod tests {
             .service_kind(ServiceKind::DirectoryService)
             .profile(ProfileId::DIRECTORY_SERVICE_V1)
             .reducer_profile(arkret_wire::CORE_REDUCER_PROFILE)
-            .schema_profile("ak.schema.core.v1")
             .operation("ak.find.directory.read.search_realms")
             .verify(&description)
             .unwrap();

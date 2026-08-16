@@ -245,6 +245,15 @@ pub fn project_account_status_heads<'a>(
 mod tests {
     use super::*;
 
+    #[test]
+    fn empty_history_has_no_current_status_heads() {
+        let visible = BTreeSet::new();
+        let projection = project_account_status_heads(&[], &visible);
+        assert_eq!(projection.current_status, None);
+        assert!(projection.current_heads.is_empty());
+        assert!(projection.rejected.is_empty());
+    }
+
     fn event_id(fill: u8) -> EventId {
         EventId::from_event_digest(
             &Hash::new(format!("sha256:{}", format!("{fill:02x}").repeat(32))).unwrap(),

@@ -7,16 +7,11 @@ use super::types::*;
 // ────────────────────────── Helper macros ──────────────────────────
 //
 // A typed adapter supplies only what the generated bindings cannot: subject
-// derivation, event-kind dispatch and component metadata. `lattice()` and
-// `bottom_policy()` always read `SPEC_LATTICE_BINDINGS`, so no adapter — and no
-// call site of these macros — can restate, and therefore drift from, the
-// spec's algebra or bottom mode.
+// derivation and component metadata. Algebra, bottom mode and Event routing
+// are owned solely by the generated descriptors.
 
 macro_rules! singleton_lattice {
     ($struct_name:ident, $cell_family:expr, $criticality:expr) => {
-        singleton_lattice!($struct_name, $cell_family, $criticality, &[]);
-    };
-    ($struct_name:ident, $cell_family:expr, $criticality:expr, $event_kinds:expr) => {
         pub struct $struct_name;
         impl $struct_name {
             pub const CELL_FAMILY: &'static str = $cell_family;
@@ -44,30 +39,12 @@ macro_rules! singleton_lattice {
             ) -> Result<Option<String>, LatticeKindError> {
                 Ok(None)
             }
-            fn event_kinds(&self) -> &'static [&'static str] {
-                $event_kinds
-            }
         }
     };
 }
 
 macro_rules! per_subject_lattice {
     ($struct_name:ident, $cell_family:expr, $criticality:expr, $subject_field:expr) => {
-        per_subject_lattice!(
-            $struct_name,
-            $cell_family,
-            $criticality,
-            $subject_field,
-            &[]
-        );
-    };
-    (
-        $struct_name:ident,
-        $cell_family:expr,
-        $criticality:expr,
-        $subject_field:expr,
-        $event_kinds:expr
-    ) => {
         pub struct $struct_name;
         impl $struct_name {
             pub const CELL_FAMILY: &'static str = $cell_family;
@@ -102,9 +79,6 @@ macro_rules! per_subject_lattice {
                         field: $subject_field,
                     })
             }
-            fn event_kinds(&self) -> &'static [&'static str] {
-                $event_kinds
-            }
         }
     };
 }
@@ -115,16 +89,14 @@ per_subject_lattice!(
     ConsentGrant,
     arkret_wire::CellFamilyId::CONSENT_GRANT_V1,
     Criticality::Required,
-    "consent_id",
-    &["ak.consent.grant", "ak.consent.revoke"]
+    "consent_id"
 );
 
 per_subject_lattice!(
     ModerationState,
     arkret_wire::CellFamilyId::MODERATION_STATE_V1,
     Criticality::Required,
-    "target_ref",
-    &["ak.moderation.decision", "ak.moderation.decision.lift"]
+    "target_ref"
 );
 
 pub struct CapabilityGrant;
@@ -179,12 +151,13 @@ impl LatticeKind for CapabilityGrant {
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
         match event_kind {
-            "ak.capability.grant" => Ok(Some(
+            arkret_wire::event_kind_str::CAPABILITY_GRANT => Ok(Some(
                 arkret_wire::GrantId::from_event_id(envelope_event_id)
                     .as_str()
                     .to_owned(),
             )),
-            "ak.capability.revoke" | "ak.capability.relinquish" => {
+            arkret_wire::event_kind_str::CAPABILITY_REVOKE
+            | arkret_wire::event_kind_str::CAPABILITY_RELINQUISH => {
                 Self::referenced_grant_id(effect_payload)
             }
             observed => Err(LatticeKindError::UnknownEventKind {
@@ -193,22 +166,13 @@ impl LatticeKind for CapabilityGrant {
             }),
         }
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &[
-            "ak.capability.grant",
-            "ak.capability.revoke",
-            "ak.capability.relinquish",
-        ]
-    }
 }
 
 per_subject_lattice!(
     CapabilityDerived,
     arkret_wire::CellFamilyId::CAPABILITY_DERIVED_V1,
     Criticality::Required,
-    "grant_id",
-    &["ak.capability.derived"]
+    "grant_id"
 );
 
 pub struct DeviceAuthorized;
@@ -263,18 +227,13 @@ impl LatticeKind for DeviceAuthorized {
                 reason: error.to_string(),
             })
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.device.authorize", "ak.device.revoke"]
-    }
 }
 
 per_subject_lattice!(
     DeviceListUpdate,
     arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1,
     Criticality::Required,
-    "principal_id",
-    &["ak.device.list_update"]
+    "principal_id"
 );
 
 pub struct AgentKey;
@@ -318,9 +277,6 @@ impl LatticeKind for AgentKey {
                 cell_family: arkret_wire::CellFamilyId::AGENT_KEY_V1,
                 reason: error.to_string(),
             })
-    }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.agent.key.authorize", "ak.agent.key.revoke"]
     }
 }
 
@@ -367,9 +323,6 @@ impl LatticeKind for KeyBackupActiveSeries {
             })?;
         Ok(Some(format!("{actor_id}::{backup_kind}")))
     }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.key_backup.active_series"]
-    }
 }
 
 // ────── Applet, strand placement, notary, MLS and call families ──────
@@ -378,39 +331,34 @@ per_subject_lattice!(
     AppletRegistration,
     arkret_wire::CellFamilyId::APPLET_REGISTRATION_V1,
     Criticality::Required,
-    "applet_id",
-    &["ak.applet.registration"]
+    "applet_id"
 );
 
 singleton_lattice!(
     CircleTombstone,
     arkret_wire::CellFamilyId::CIRCLE_TOMBSTONE_V1,
-    Criticality::Required,
-    &["ak.circle.tombstone"]
+    Criticality::Required
 );
 
 per_subject_lattice!(
     StrandPosition,
     arkret_wire::CellFamilyId::STRAND_POSITION_V1,
     Criticality::Required,
-    "strand_id",
-    &["ak.strand.move", "ak.strand.reorder"]
+    "strand_id"
 );
 
 per_subject_lattice!(
     StrandStage,
     arkret_wire::CellFamilyId::STRAND_STAGE_V1,
     Criticality::Required,
-    "strand_id",
-    &["ak.strand.stage.set"]
+    "strand_id"
 );
 
 per_subject_lattice!(
     MorphStage,
     arkret_wire::CellFamilyId::MORPH_STAGE_V1,
     Criticality::Required,
-    "morph_id",
-    &["ak.morph.stage.set"]
+    "morph_id"
 );
 
 // Strand notification subscription cell, keyed by (strand_id, watcher_actor_id).
@@ -456,9 +404,6 @@ impl LatticeKind for StrandWatch {
                 field: "watcher_actor_id",
             })?;
         Ok(Some(format!("{strand_id}::{watcher_actor_id}")))
-    }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.strand.watch.set"]
     }
 }
 
@@ -508,10 +453,6 @@ impl LatticeKind for IdentityAccountability {
             }
         })
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.identity.accountability_grant"]
-    }
 }
 
 singleton_lattice!(
@@ -524,32 +465,28 @@ per_subject_lattice!(
     CallSummary,
     arkret_wire::CellFamilyId::CALL_SUMMARY_V1,
     Criticality::Required,
-    "call_id",
-    &["ak.call.summary"]
+    "call_id"
 );
 
 per_subject_lattice!(
     CallFocus,
     arkret_wire::CellFamilyId::CALL_FOCUS_V1,
     Criticality::Required,
-    "call_id",
-    &["ak.call.state"]
+    "call_id"
 );
 
 per_subject_lattice!(
     CallModeration,
     arkret_wire::CellFamilyId::CALL_MODERATION_V1,
     Criticality::Required,
-    "call_id",
-    &["ak.call.state"]
+    "call_id"
 );
 
 per_subject_lattice!(
     CallRoster,
     arkret_wire::CellFamilyId::CALL_ROSTER_V1,
     Criticality::Required,
-    "call_id",
-    &["ak.call.state"]
+    "call_id"
 );
 
 fn call_capture_subject(
@@ -613,10 +550,6 @@ impl LatticeKind for CallRecording {
     ) -> Result<Option<String>, LatticeKindError> {
         call_capture_subject(effect_payload, "recording_transition", self.cell_family())
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.call.recording.start", "ak.call.state"]
-    }
 }
 
 pub struct CallTranscript;
@@ -647,10 +580,6 @@ impl LatticeKind for CallTranscript {
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
         call_capture_subject(effect_payload, "transcript_transition", self.cell_family())
-    }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.call.recording.start", "ak.call.state"]
     }
 }
 
@@ -683,10 +612,6 @@ impl LatticeKind for CallRecordingResult {
     ) -> Result<Option<String>, LatticeKindError> {
         call_capture_subject(effect_payload, "recording_transition", self.cell_family())
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.call.recording.start", "ak.call.state"]
-    }
 }
 
 pub struct CallTranscriptResult;
@@ -717,10 +642,6 @@ impl LatticeKind for CallTranscriptResult {
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
         call_capture_subject(effect_payload, "transcript_transition", self.cell_family())
-    }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.call.recording.start", "ak.call.state"]
     }
 }
 
@@ -784,10 +705,6 @@ impl LatticeKind for CallMuteOverride {
                 reason: error.to_string(),
             })
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.call.state"]
-    }
 }
 
 // ────── Membership, invite, agent status and audit families ──────
@@ -796,8 +713,7 @@ per_subject_lattice!(
     MemberState,
     arkret_wire::CellFamilyId::MEMBER_STATE_V1,
     Criticality::Required,
-    "actor_id",
-    &["ak.member.state"]
+    "actor_id"
 );
 
 pub struct InviteLifecycle;
@@ -841,29 +757,13 @@ impl LatticeKind for InviteLifecycle {
                 field: "invite_id or invite.id",
             })
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &[
-            "ak.invite.create",
-            "ak.invite.cancel",
-            "ak.invite.accept",
-            "ak.invite.third_party",
-            "ak.invite.claim",
-            "ak.invite.revoke",
-        ]
-    }
 }
 
 per_subject_lattice!(
     AgentStatus,
     arkret_wire::CellFamilyId::AGENT_STATUS_V1,
     Criticality::Required,
-    "agent_id",
-    &[
-        "ak.self.agent.pause",
-        "ak.self.agent.resume",
-        "ak.self.agent.deactivate"
-    ]
+    "agent_id"
 );
 
 // The applet-binding lifecycle FSM lives on `audit.binding.state.v1`;
@@ -872,29 +772,28 @@ per_subject_lattice!(
     AuditBinding,
     arkret_wire::CellFamilyId::AUDIT_BINDING_V1,
     Criticality::Required,
-    "binding_id",
-    &["ak.audit.applet_binding"]
+    "binding_id"
+);
+
+per_subject_lattice!(
+    AuditBindingState,
+    arkret_wire::CellFamilyId::AUDIT_BINDING_STATE_V1,
+    Criticality::Required,
+    "binding_id"
 );
 
 per_subject_lattice!(
     AuditSession,
     arkret_wire::CellFamilyId::AUDIT_SESSION_V1,
     Criticality::Required,
-    "session_id",
-    &[
-        "ak.audit.session.request",
-        "ak.audit.session.authorize",
-        "ak.audit.session.notice",
-        "ak.audit.session.close"
-    ]
+    "session_id"
 );
 
 per_subject_lattice!(
     CallState,
     arkret_wire::CellFamilyId::CALL_STATE_V1,
     Criticality::Required,
-    "call_id",
-    &["ak.call.state"]
+    "call_id"
 );
 
 pub struct RealmLink;
@@ -944,10 +843,6 @@ impl LatticeKind for RealmLink {
                 reason: error.to_string(),
             })
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.realm.link"]
-    }
 }
 
 pub struct CircleMember;
@@ -988,9 +883,6 @@ impl LatticeKind for CircleMember {
             })?;
         Ok(Some(format!("{circle_id}::{actor_id}")))
     }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.circle.member.state"]
-    }
 }
 
 // ────── Audit release, create, account, policy and contact families ──────
@@ -999,22 +891,19 @@ per_subject_lattice!(
     AuditRelease,
     arkret_wire::CellFamilyId::AUDIT_RELEASE_V1,
     Criticality::Required,
-    "session_id",
-    &["ak.audit.release"]
+    "session_id"
 );
 
 singleton_lattice!(
     CircleCreate,
     arkret_wire::CellFamilyId::CIRCLE_CREATE_V1,
-    Criticality::Required,
-    &["ak.circle.create"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     SidecarCreate,
     arkret_wire::CellFamilyId::SIDECAR_CREATE_V1,
-    Criticality::Required,
-    &["ak.sidecar.create"]
+    Criticality::Required
 );
 
 // `ak.space.parent` is keyed by the child Space ID, not by the parent.
@@ -1022,24 +911,21 @@ per_subject_lattice!(
     SpaceParent,
     arkret_wire::CellFamilyId::SPACE_PARENT_V1,
     Criticality::Required,
-    "space_id",
-    &["ak.space.parent"]
+    "space_id"
 );
 
 per_subject_lattice!(
     AccountStatus,
     arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1,
     Criticality::Required,
-    "account_id",
-    &["ak.account.status"]
+    "account_id"
 );
 
 per_subject_lattice!(
     PolicyRule,
     arkret_wire::CellFamilyId::POLICY_RULE_V1,
     Criticality::Required,
-    "rule_id",
-    &["ak.policy.rule"]
+    "rule_id"
 );
 
 /// Lattice marker for the `ak.component.member.identity.v1` cell family.
@@ -1090,9 +976,6 @@ impl LatticeKind for MemberIdentityLattice {
             })?;
         Ok(Some(format!("{realm_id}::{actor_id}::{segment}")))
     }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.member.identity.update"]
-    }
 }
 
 pub struct ContactFactLog;
@@ -1128,14 +1011,6 @@ impl LatticeKind for ContactFactLog {
                 field: "target/requester/peer",
             })
     }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &[
-            "ak.contact.requested",
-            "ak.contact.accepted",
-            "ak.contact.rejected",
-            "ak.contact.tombstone",
-        ]
-    }
 }
 
 // The element key of `ak.direct_conversation.bound` is
@@ -1146,8 +1021,7 @@ per_subject_lattice!(
     DirectConversationBinding,
     arkret_wire::CellFamilyId::DIRECT_CONVERSATION_BINDING_V1,
     Criticality::Required,
-    "pair_key",
-    &["ak.direct_conversation.bound"]
+    "pair_key"
 );
 
 // ────── Profile, agent selector and view families ──────
@@ -1156,8 +1030,7 @@ per_subject_lattice!(
     ProfileCreate,
     arkret_wire::CellFamilyId::PROFILE_CREATE_V1,
     Criticality::Required,
-    "actor_id",
-    &["ak.profile.create", "ak.profile.update"]
+    "actor_id"
 );
 
 pub struct AgentSelectorClaim;
@@ -1212,34 +1085,27 @@ impl LatticeKind for AgentSelectorClaim {
                 reason: error.to_string(),
             })
     }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.agent.selector_claim"]
-    }
 }
 
 per_subject_lattice!(
     ViewCreate,
     arkret_wire::CellFamilyId::VIEW_CREATE_V1,
     Criticality::Required,
-    "view_id",
-    &["ak.view.create"]
+    "view_id"
 );
 
 per_subject_lattice!(
     ViewUpdate,
     arkret_wire::CellFamilyId::VIEW_UPDATE_V1,
     Criticality::Required,
-    "view_id",
-    &["ak.view.update"]
+    "view_id"
 );
 
 per_subject_lattice!(
     ViewReconcile,
     arkret_wire::CellFamilyId::VIEW_RECONCILE_V1,
     Criticality::Required,
-    "view_id",
-    &["ak.view.reconcile"]
+    "view_id"
 );
 
 /// `ak.component.mimi.room_binding.v1` is the one v1 family whose registry
@@ -1286,9 +1152,6 @@ impl LatticeKind for MimiRoomBinding {
                 field: Self::SUBJECT_FIELD,
             })
     }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.mimi.room_binding"]
-    }
 }
 
 // ─────────── Realm families ───────────
@@ -1299,15 +1162,13 @@ per_subject_lattice!(
     PolicyDefinition,
     arkret_wire::CellFamilyId::POLICY_DEFINITION_V1,
     Criticality::Required,
-    "policy_id",
-    &["ak.policy.set"]
+    "policy_id"
 );
 
 singleton_lattice!(
     RealmPolicy,
     arkret_wire::CellFamilyId::REALM_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.policy"]
+    Criticality::Required
 );
 
 // Per-Realm minimal identity/security root. Mutable and display state is never
@@ -1315,43 +1176,37 @@ singleton_lattice!(
 singleton_lattice!(
     RealmGenesis,
     arkret_wire::CellFamilyId::REALM_GENESIS_V1,
-    Criticality::Required,
-    &["ak.realm.create"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmProfile,
     arkret_wire::CellFamilyId::REALM_PROFILE_V1,
-    Criticality::Required,
-    &["ak.realm.profile"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmReadReceiptPolicy,
     arkret_wire::CellFamilyId::REALM_READ_RECEIPT_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.read_receipt_policy"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmHistoryVisibility,
     arkret_wire::CellFamilyId::REALM_HISTORY_VISIBILITY_V1,
-    Criticality::Required,
-    &["ak.realm.history_visibility"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmJoinRule,
     arkret_wire::CellFamilyId::REALM_JOIN_RULE_V1,
-    Criticality::Required,
-    &["ak.realm.join_rule"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmDiscovery,
     arkret_wire::CellFamilyId::REALM_DISCOVERY_V1,
-    Criticality::Required,
-    &["ak.realm.discovery"]
+    Criticality::Required
 );
 
 // `ak.realm.organization` declares a tuple `cell_subject`:
@@ -1396,121 +1251,102 @@ impl LatticeKind for RealmOrganization {
             })?;
         Ok(Some(format!("{organization_id}::{relationship}")))
     }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.realm.organization"]
-    }
 }
 
 singleton_lattice!(
     RealmArchive,
     arkret_wire::CellFamilyId::REALM_ARCHIVE_V1,
-    Criticality::Required,
-    &["ak.realm.archive"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmFreeze,
     arkret_wire::CellFamilyId::REALM_FREEZE_V1,
-    Criticality::Required,
-    &["ak.realm.freeze"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmTombstone,
     arkret_wire::CellFamilyId::REALM_TOMBSTONE_V1,
-    Criticality::Required,
-    &["ak.realm.tombstone"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmDestroy,
     arkret_wire::CellFamilyId::REALM_DESTROY_V1,
-    Criticality::Required,
-    &["ak.realm.destroy"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmModerationPolicy,
     arkret_wire::CellFamilyId::REALM_MODERATION_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.moderation_policy"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmHistorySharingPolicy,
     arkret_wire::CellFamilyId::REALM_HISTORY_SHARING_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.history_sharing_policy"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmPreviewPolicy,
     arkret_wire::CellFamilyId::REALM_PREVIEW_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.preview_policy"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmAssetPrivacyPolicy,
     arkret_wire::CellFamilyId::REALM_ASSET_PRIVACY_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.asset_privacy_policy"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmPolicyBundle,
     arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1,
-    Criticality::Required,
-    &["ak.realm.policy_bundle"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmPolicyServer,
     arkret_wire::CellFamilyId::REALM_POLICY_SERVER_V1,
-    Criticality::Required,
-    &["ak.realm.policy_server"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmAlias,
     arkret_wire::CellFamilyId::REALM_ALIAS_V1,
-    Criticality::Required,
-    &["ak.realm.alias"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmPlaintextVisibleServices,
     arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1,
-    Criticality::Required,
-    &["ak.realm.plaintext_visible_services"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmMediaService,
     arkret_wire::CellFamilyId::REALM_MEDIA_SERVICE_V1,
-    Criticality::Required,
-    &["ak.realm.media_service"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmSchema,
     arkret_wire::CellFamilyId::REALM_SCHEMA_V1,
-    Criticality::Required,
-    &["ak.realm.schema"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmDeliveryBindingPolicy,
     arkret_wire::CellFamilyId::REALM_DELIVERY_BINDING_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.delivery_binding_policy"]
+    Criticality::Required
 );
 
 singleton_lattice!(
     RealmSearchPolicy,
     arkret_wire::CellFamilyId::REALM_SEARCH_POLICY_V1,
-    Criticality::Required,
-    &["ak.realm.search_policy"]
+    Criticality::Required
 );
 
 // ── Realm per-subject families ──
@@ -1519,15 +1355,13 @@ per_subject_lattice!(
     RealmInheritancePolicy,
     arkret_wire::CellFamilyId::REALM_INHERITANCE_POLICY_V1,
     Criticality::Required,
-    "source_realm_id",
-    &["ak.realm.inheritance_policy"]
+    "source_realm_id"
 );
 
 singleton_lattice!(
     RealmReducerProfile,
     arkret_wire::CellFamilyId::REALM_REDUCER_PROFILE_V1,
-    Criticality::Required,
-    &["ak.realm.upgrade"]
+    Criticality::Required
 );
 
 // ── Realm and Strand create families ──
@@ -1535,8 +1369,7 @@ singleton_lattice!(
 singleton_lattice!(
     RealmCreate,
     arkret_wire::CellFamilyId::REALM_CREATE_V1,
-    Criticality::Required,
-    &["ak.realm.create"]
+    Criticality::Required
 );
 
 // `ak.strand.create` writes the strand object cell. Without this registration
@@ -1546,8 +1379,7 @@ singleton_lattice!(
 singleton_lattice!(
     StrandObject,
     arkret_wire::CellFamilyId::STRAND_OBJECT_V1,
-    Criticality::Required,
-    &["ak.strand.create"]
+    Criticality::Required
 );
 
 // ── Strand facet families (per-subject by Strand id) ──
@@ -1587,15 +1419,11 @@ impl LatticeKind for StrandMetadata {
                 field: "target_ref",
             })
     }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.strand.update"]
-    }
 }
 
 per_subject_lattice!(
     StrandTracks,
     arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
     Criticality::Required,
-    "target_ref",
-    &["ak.strand.tracks.update"]
+    "target_ref"
 );

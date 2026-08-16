@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
+use crate::error_codes::ErrorCode;
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
@@ -210,13 +211,15 @@ impl SignalAeadBinding<'_> {
         let ttl = self.expires_at - self.sent_at;
         let ceiling = self.signal_class.max_ttl();
         if ttl > ceiling || ttl > MAX_SIGNAL_TTL {
-            return Err(Error::Protocol(format!(
-                "{}: signal TTL {}s exceeds the {:?} class ceiling of {}s",
-                crate::error_codes::ErrorCode::SIGNAL_TTL_OUT_OF_RANGE,
-                ttl.num_seconds(),
-                self.signal_class,
-                ceiling.num_seconds()
-            )));
+            return Err(Error::ProtocolCode {
+                code: ErrorCode::SignalTtlOutOfRange,
+                message: format!(
+                    "signal TTL {}s exceeds the {:?} class ceiling of {}s",
+                    ttl.num_seconds(),
+                    self.signal_class,
+                    ceiling.num_seconds()
+                ),
+            });
         }
         Ok(())
     }
@@ -713,7 +716,7 @@ mod tests {
             (SignalClass::Setup, 121),
         ] {
             let err = envelope(class, over).validate_structural().unwrap_err();
-            assert!(err.to_string().contains("signal_ttl_out_of_range"), "{err}");
+            assert_eq!(err.error_code(), Some(ErrorCode::SignalTtlOutOfRange));
         }
     }
 

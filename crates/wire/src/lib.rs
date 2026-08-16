@@ -74,6 +74,7 @@ pub mod string_profiles;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 pub mod websocket_binding;
+pub mod webvh_parameters;
 pub mod wire_presence;
 pub mod wire_strings;
 
@@ -117,8 +118,9 @@ pub use event_receipt::*;
 pub use event_submission::{
     AuthorizationLeaseIssueIntent, AuthorizationLeaseIssueOutcome,
     AuthorizationLeaseIssueRequestBody, EventFederationSubmission, EventInitialSubmission,
-    EventsSubmitBatchRequestBody, PcrGenesisUnit, classify_event_submit_context,
-    classify_federated_event_submit_context, validate_anchor_unit_lease_bindings,
+    EventPublicationLane, EventsSubmitBatchRequestBody, PcrGenesisUnit,
+    classify_event_submit_context, classify_federated_event_submit_context,
+    validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{
@@ -130,19 +132,22 @@ pub use extension_manifest::{
 };
 pub use extension_map::XExtensionMap;
 pub use generated::{
-    AccountDataKey, AlgorithmSuiteDescriptor, AuthoritySetPolicyKind, AuthoritySetSourceKind,
-    BindingKind, CapabilityActionId, CellFamilyId, DIGEST_SUITES, DidFreshnessProfileDescriptor,
-    DidFreshnessProfileId, DidFreshnessRiskTier, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS,
+    AccountDataKey, ActorPrivateUpdateKind, AeadProfileId, AlgorithmSuiteDescriptor,
+    AuthoritySetId, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthoritySourceDescriptor,
+    AuthoritySourceId, AuthoritySourcePhaseDescriptor, BindingKind, CapabilityActionId,
+    CellFamilyId, DIGEST_SUITES, DidFreshnessProfileDescriptor, DidFreshnessProfileId,
+    DidFreshnessRiskTier, DomainSeparationId, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS,
     EVENT_KIND_REGISTRY_SHA256, EXPORTER_LABELS, EventCellRule, EventCellRuleField,
     EventCellRuleKey, EventCellRuleOperator, EventKind, ExporterLabelDescriptor, ExporterLabelId,
-    HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor,
+    HPKE_SUITES, HpkeSuiteId, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor,
     OPERATION_ERROR_MAPPINGS, OperationErrorMappingDescriptor, OperationSpecificError,
     PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextDescriptor, ProofContextId,
-    REDUCER_PROFILE_UPGRADE_EDGES, REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS,
-    ReducerProfileId, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
-    SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor, ServiceOperationDescriptor,
-    ServiceOperationId, TrackName, can_upgrade_reducer_profile, event_kind_str, event_spec,
-    is_reducer_profile_id, operation_error_mapping,
+    REDUCER_PROFILE_UPGRADE_EDGES, REGISTERED_AUTHORITY_SOURCES, REGISTERED_DID_FRESHNESS_PROFILES,
+    RELATION_KIND_DESCRIPTORS, ReducerProfileId, SERVICE_KIND_DESCRIPTORS,
+    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceContractId,
+    ServiceKindDescriptor, ServiceOperationDescriptor, ServiceOperationId, TrackName,
+    can_upgrade_reducer_profile, event_kind_str, event_spec, is_reducer_profile_id,
+    operation_error_mapping, requirements_for,
 };
 pub use genesis_salt::GenesisSalt;
 pub use http_signature::HttpMessageSignature;
@@ -209,6 +214,9 @@ pub use websocket_binding::{
     WebSocketCloseCode, WebSocketDpopClaims, WebSocketDpopProof, WebSocketDpopProtectedHeader,
     WebSocketDpopPublicJwk, WebSocketOperationId, WebSocketReplayLedgerKey,
     WebSocketTransportError, canonical_http_origin, validate_websocket_base_url,
+};
+pub use webvh_parameters::{
+    DID_WEBVH_V1_PARAMETER_NAMES, DidWebvhV1ParameterName, validate_did_webvh_v1_parameter_names,
 };
 pub use wire_presence::WirePresence;
 pub use wire_strings::*;

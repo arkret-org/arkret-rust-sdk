@@ -53,7 +53,8 @@ pub const SECRET_ID_MLS_ACCOUNT: &str = "inkson_mls_account_secret";
 // `base_nonce` (single-shot seq=0), NOT carried on the wire.
 
 /// HKDF info / AEAD-AAD domain separator for the history-secret seal.
-const HISTORY_SEAL_INFO: &[u8] = b"ak.realm-history-secret-share-v1";
+const HISTORY_SEAL_INFO: &[u8] =
+    arkret_wire::DomainSeparationId::REALM_HISTORY_SECRET_SHARE_V1.as_bytes();
 
 // The v1 default-MUST HPKE suite as `hpke`-crate trait types.
 type HpkeKem = X25519HkdfSha256;

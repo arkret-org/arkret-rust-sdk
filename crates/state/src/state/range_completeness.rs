@@ -471,7 +471,8 @@ pub fn verify_full_realm_range_completeness_with_suite(
             "full-Realm completeness requires at least one accepted Event".to_owned(),
         ));
     }
-    if attestation_event.kind.as_str() != "ak.attestation.range_completeness"
+    if attestation_event.kind.as_str()
+        != arkret_wire::event_kind_str::ATTESTATION_RANGE_COMPLETENESS
         || &attestation_event.realm_id != expected_realm
     {
         return Err(RangeCompletenessError::SchemaViolation(

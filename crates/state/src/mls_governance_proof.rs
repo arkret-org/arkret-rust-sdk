@@ -452,7 +452,7 @@ where
             "candidate create Event is not the one realm_id retypes to",
         ));
     }
-    if create_event.kind.as_str() != "ak.realm.create" {
+    if create_event.kind.as_str() != arkret_wire::event_kind_str::REALM_CREATE {
         return Err(anchor_rejected(
             "realm anchor must derive from ak.realm.create",
         ));
@@ -793,7 +793,7 @@ fn frontier_event_matches_effective_scope(
     if event.scope_ref == bundle.effective_scope {
         return true;
     }
-    event.kind.as_str() == "ak.realm.create"
+    event.kind.as_str() == arkret_wire::event_kind_str::REALM_CREATE
         && event.scope_ref == ScopeRef::RealmGenesis
         && event.event_id == bundle.realm_id.event_id()
         && matches!(

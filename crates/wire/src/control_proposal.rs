@@ -389,7 +389,7 @@ impl ControlProposalDecisionReadOutcome {
                 }
             }
         }
-        if self.proposal_event_kind == "ak.device.revoke"
+        if self.proposal_event_kind == crate::event_kind_str::DEVICE_REVOKE
             && self.proposal_authority_kind != ControlProposalAuthorityKind::ControlProposalAck
         {
             return Err(Error::Protocol(
@@ -625,7 +625,7 @@ impl ControlProposalAuthorityAck {
 
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
         proof_transcript(
-            "ak.control-proposal-authority-ack-proof-v1",
+            crate::ProofContextId::CONTROL_PROPOSAL_AUTHORITY_ACK_PROOF_V1,
             &self.authority_ack_digest()?,
             &self.signature.verification_method,
             self.signature.created_at,
@@ -1019,7 +1019,7 @@ impl ControlProposalDecision {
             ));
         }
         proof_transcript(
-            "ak.control-proposal-decision-proof-v1",
+            crate::ProofContextId::CONTROL_PROPOSAL_DECISION_PROOF_V1,
             &digest,
             &proof.verification_method,
             proof.created_at,
