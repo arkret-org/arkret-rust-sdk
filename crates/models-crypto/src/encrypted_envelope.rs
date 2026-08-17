@@ -89,7 +89,7 @@ impl EncryptedEnvelopeAad {
 }
 
 /// Disclosure axis of `encrypted-envelope.schema.json#/properties/
-/// aad_visibility_event_id`.
+/// aad_visibility_event_id_kind`.
 ///
 /// The derived `Ord` **is** the normative disclosure order
 /// `hidden < routing_digest < opaque_id`
@@ -153,7 +153,7 @@ impl AadVisibilityCeiling {
             return Ok(());
         }
         Err(Error::Protocol(format!(
-            "{}: encrypted envelope aad_visibility_event_id {:?} is wider than the Realm ceiling \
+            "{}: encrypted envelope aad_visibility_event_id_kind {:?} is wider than the Realm ceiling \
              {:?}",
             ReasonCode::AAD_VISIBILITY_POLICY_VIOLATION,
             envelope,
@@ -199,7 +199,7 @@ pub struct EncryptedEnvelope {
     pub epoch: u64,
     pub content_type: String,
     pub ciphertext: String,
-    pub aad_visibility_event_id: EncryptedEnvelopeAadVisibility,
+    pub aad_visibility_event_id_kind: EncryptedEnvelopeAadVisibility,
     pub aad: EncryptedEnvelopeAad,
     pub key_ref: EncryptedEnvelopeKeyRef,
     /// AEAD purpose. Required for `mls_exporter_aead_v1` and forbidden for
@@ -284,7 +284,7 @@ impl EncryptedEnvelope {
                     .to_owned(),
             ));
         }
-        match self.aad_visibility_event_id {
+        match self.aad_visibility_event_id_kind {
             EncryptedEnvelopeAadVisibility::Hidden => {
                 if self.aad.event_id.is_some() || self.aad.event_ref_digest.is_some() {
                     return Err(Error::Protocol(

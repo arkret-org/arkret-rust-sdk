@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, EventId, MessageId, NonEmptyString, ProfileId, RealmId, ReasonCode,
-    SchemaId, StrandId,
+    DeviceId, DidCoreId, EventId, MessageId, NonEmptyString, OpaqueLocalId, ProfileId, RealmId,
+    ReasonCode, SchemaId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -35,7 +35,7 @@ pub struct PushRegisterDeviceRequestBody {
 pub struct PushRegisterDeviceOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub registration_id: Option<String>,
+    pub registration_id: Option<OpaqueLocalId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,

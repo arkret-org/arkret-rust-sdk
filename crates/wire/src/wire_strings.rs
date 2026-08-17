@@ -429,7 +429,14 @@ non_empty_wire_string!(
 );
 
 /// Deployment-local short-lived account/auth artifact identifier matching
-/// `^[A-Za-z0-9._:-]{1,128}$`.
+/// `^(?!ak:)[A-Za-z0-9._:-]{1,128}$`.
+///
+/// The value is an `opaque_correlation` carrier, so its lexical space is
+/// disjoint from the `ak:` typed-ID namespace that `typed_object_id` and
+/// `responsibility_did` own exclusively (`common-fields.md` §2.1). A producer
+/// that spells a deployment-local artifact as `ak:<kind>:<token>` is minting an
+/// unregistered typed id, so the constructor rejects the prefix fail-closed
+/// rather than letting the value reach the wire.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -446,6 +453,11 @@ impl OpaqueLocalId {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
         {
             return Err("opaque local id contains a character outside [A-Za-z0-9._:-]");
+        }
+        if value.starts_with("ak:") {
+            return Err(
+                "opaque local id must not start with ak:, a lexical space reserved for typed object ids and responsibility DIDs",
+            );
         }
         Ok(Self(value))
     }
@@ -1115,6 +1127,28 @@ mod tests {
         assert!(ProtocolKind::new("ak.key..request").is_err());
         assert!(ProtocolKind::new("ak.Key.request").is_err());
         assert!(ProtocolKind::new("vendor.key.request").is_err());
+    }
+
+    /// `common-fields.md` §2.1: the `ak:` lexical space belongs exclusively to
+    /// `typed_object_id` and `responsibility_did`. An `opaque_correlation`
+    /// carrier that borrows the prefix mints an unregistered typed id, so the
+    /// constructor rejects it instead of shipping the value.
+    #[test]
+    fn opaque_local_id_rejects_the_typed_id_lexical_space() {
+        for value in [
+            "ak:pushreg:0196419b-0000-7000-8000-000000000001",
+            "ak:approval:request-1",
+            "ak:",
+        ] {
+            assert!(OpaqueLocalId::new(value).is_err(), "{value}");
+        }
+        for value in [
+            "pairing_request:0196419b-0000-7000-8000-000000000001",
+            "akx:still-fine",
+            "ak.not-a-typed-id",
+        ] {
+            assert!(OpaqueLocalId::new(value).is_ok(), "{value}");
+        }
     }
 
     /// `zh/extensions/mimi-interop.md` §4: the room URI is a cell subject

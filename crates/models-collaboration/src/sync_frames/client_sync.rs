@@ -598,7 +598,7 @@ pub enum ToDeviceAckStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToDeviceAck {
     /// Message ID from to-device content.
-    pub message_id: String,
+    pub device_message_id: String,
     /// Local device acknowledging the message.
     pub device_id: DeviceId,
     /// Acknowledgement status.

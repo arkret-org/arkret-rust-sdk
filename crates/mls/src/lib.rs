@@ -1315,7 +1315,7 @@ mod tests {
             "epoch",
             "content_type",
             "ciphertext",
-            "aad_visibility_event_id",
+            "aad_visibility_event_id_kind",
             "aad",
             "key_ref",
             "aad_digest",
@@ -1325,7 +1325,7 @@ mod tests {
         }
         assert_eq!(obj["scheme"], "mls_rfc9420");
         assert_eq!(obj["version"], "1.0");
-        assert_eq!(obj["aad_visibility_event_id"], "hidden");
+        assert_eq!(obj["aad_visibility_event_id_kind"], "hidden");
         assert_eq!(obj["key_ref"]["algorithm"], "MLS");
         assert_eq!(obj["key_ref"]["group_state_ref"], commit_ref);
         assert_eq!(obj["aad"]["realm_id"], realm_id);

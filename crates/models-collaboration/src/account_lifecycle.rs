@@ -189,7 +189,7 @@ impl AccountLifecycleProof {
         actor_id: &DidCoreId,
         service_id: &DidCoreId,
         session_device_id: &DeviceId,
-        target_grant_id: Option<&SessionGrantId>,
+        target_session_grant_id: Option<&SessionGrantId>,
         target_device_id: Option<&DeviceId>,
         all_sessions: bool,
         applet_selector: Option<&SessionGrantAppletSelector>,
@@ -200,7 +200,7 @@ impl AccountLifecycleProof {
             "actor_id": actor_id,
             "service_id": service_id,
             "session_device_id": session_device_id,
-            "target_grant_id": target_grant_id,
+            "target_session_grant_id": target_session_grant_id,
             "target_device_id": target_device_id,
             "all_sessions": all_sessions,
             "applet_selector": applet_selector,
@@ -1464,7 +1464,7 @@ mod account_update_profile_request_tests {
 #[serde(deny_unknown_fields)]
 pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_grant_id: Option<SessionGrantId>,
+    pub target_session_grant_id: Option<SessionGrantId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1488,7 +1488,7 @@ pub struct SessionRevokeRequestBody {
 pub struct SessionRevokeOutcome {
     pub revoked_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub revoked_grant_ids: Vec<SessionGrantId>,
+    pub revoked_session_grant_ids: Vec<SessionGrantId>,
 }
 
 /// `ak.self.applet.command.revoke` request body. Binds the account-lifecycle

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-17.7;
-//! sha256=9bbe0e4cd32bef9f49ea6de597cd2ba91a3e3c0e56302ba8922d5591955a9ca6
+//! Input: registry/error-code-registry.json; version=2026-08-18.1;
+//! sha256=6bd45526c25fc6593a11977e08bc2bf129484e6856c7867e64e9ce08173bbd07
 //! Entries: reason_codes=474
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -137,6 +137,7 @@ pub enum ReasonCode {
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
     DeviceGenerationFenced,
+    DeviceMessageIdConflict,
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
@@ -252,7 +253,6 @@ pub enum ReasonCode {
     MemberIdentityStateMismatch,
     MemberIdentityUnknownSegment,
     MessageAlreadyTerminal,
-    MessageIdConflict,
     MetadataEncryptionFloorDowngrade,
     MetadataEncryptionFloorViolation,
     MimiDraftUnsupported,
@@ -651,6 +651,7 @@ impl ReasonCode {
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
+    pub const DEVICE_MESSAGE_ID_CONFLICT: &'static str = "device_message_id_conflict";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
@@ -797,7 +798,6 @@ impl ReasonCode {
     pub const MEMBER_IDENTITY_STATE_MISMATCH: &'static str = "member_identity_state_mismatch";
     pub const MEMBER_IDENTITY_UNKNOWN_SEGMENT: &'static str = "member_identity_unknown_segment";
     pub const MESSAGE_ALREADY_TERMINAL: &'static str = "message_already_terminal";
-    pub const MESSAGE_ID_CONFLICT: &'static str = "message_id_conflict";
     pub const METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &'static str =
         "metadata_encryption_floor_downgrade";
     pub const METADATA_ENCRYPTION_FLOOR_VIOLATION: &'static str =
@@ -1218,6 +1218,7 @@ impl ReasonCode {
                 Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
             }
             Self::DeviceGenerationFenced => Self::DEVICE_GENERATION_FENCED,
+            Self::DeviceMessageIdConflict => Self::DEVICE_MESSAGE_ID_CONFLICT,
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
@@ -1369,7 +1370,6 @@ impl ReasonCode {
             Self::MemberIdentityStateMismatch => Self::MEMBER_IDENTITY_STATE_MISMATCH,
             Self::MemberIdentityUnknownSegment => Self::MEMBER_IDENTITY_UNKNOWN_SEGMENT,
             Self::MessageAlreadyTerminal => Self::MESSAGE_ALREADY_TERMINAL,
-            Self::MessageIdConflict => Self::MESSAGE_ID_CONFLICT,
             Self::MetadataEncryptionFloorDowngrade => Self::METADATA_ENCRYPTION_FLOOR_DOWNGRADE,
             Self::MetadataEncryptionFloorViolation => Self::METADATA_ENCRYPTION_FLOOR_VIOLATION,
             Self::MimiDraftUnsupported => Self::MIMI_DRAFT_UNSUPPORTED,
@@ -1794,6 +1794,7 @@ impl ReasonCode {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
             }
             Self::DEVICE_GENERATION_FENCED => Self::DeviceGenerationFenced,
+            Self::DEVICE_MESSAGE_ID_CONFLICT => Self::DeviceMessageIdConflict,
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
@@ -1945,7 +1946,6 @@ impl ReasonCode {
             Self::MEMBER_IDENTITY_STATE_MISMATCH => Self::MemberIdentityStateMismatch,
             Self::MEMBER_IDENTITY_UNKNOWN_SEGMENT => Self::MemberIdentityUnknownSegment,
             Self::MESSAGE_ALREADY_TERMINAL => Self::MessageAlreadyTerminal,
-            Self::MESSAGE_ID_CONFLICT => Self::MessageIdConflict,
             Self::METADATA_ENCRYPTION_FLOOR_DOWNGRADE => Self::MetadataEncryptionFloorDowngrade,
             Self::METADATA_ENCRYPTION_FLOOR_VIOLATION => Self::MetadataEncryptionFloorViolation,
             Self::MIMI_DRAFT_UNSUPPORTED => Self::MimiDraftUnsupported,
@@ -2278,7 +2278,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AAD_VISIBILITY_POLICY_VIOLATION,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "Sub-reason for failed_precondition when an encrypted envelope declares an aad_visibility_event_id wider than the Realm ceiling in ak.realm.policy_bundle payload aad_visibility.event_id (disclosure order hidden < routing_digest < opaque_id; an absent component means the hidden ceiling). Receivers and reducers MUST reject and MUST NOT silently downgrade the envelope to hidden. See zh/crypto-media/encryption-and-audit.md §2.8.",
+        description: "Sub-reason for failed_precondition when an encrypted envelope declares an aad_visibility_event_id_kind wider than the Realm ceiling in ak.realm.policy_bundle payload aad_visibility.event_id_kind (disclosure order hidden < routing_digest < opaque_id; an absent component means the hidden ceiling). Receivers and reducers MUST reject and MUST NOT silently downgrade the envelope to hidden. See zh/crypto-media/encryption-and-audit.md §2.8.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ABUSE_CLUSTER,
@@ -2925,6 +2925,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::DEVICE_MESSAGE_ID_CONFLICT,
+        applies_to: &["event_envelope", "client_sync"],
+        description: "A to-device retry reused the same device_message_id with different canonical target content. The queue service MUST return duplicate_conflict with this reason_code and MUST NOT enqueue a replacement message. Scheduled-send plan convergence is keyed independently by scheduled_send_id and account-data CAS; durable ak.message.create identity conflicts are keyed only by the content-bound Event.event_id.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The atomic replacement ak.device.authorize payload digest, prev_refs, principal, device, session, or enrollment-authority proof does not exactly match the binding in ak.device.reanchor. Dual-registered as a reason_code and a top-level service code (see codes[]).",
@@ -3012,7 +3017,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DUPLICATE_CONFLICT,
         applies_to: &["event_envelope", "client_sync"],
-        description: "A stable protocol identity was reused with different canonical content. For Event Envelope event_id this is quarantined per event-auth-state-resolution.md §11; for to-device message_id the send operation rejects the conflicting enqueue with reason message_id_conflict.",
+        description: "A stable protocol identity was reused with different canonical content. For Event Envelope event_id this is quarantined per event-auth-state-resolution.md §11; for to-device device_message_id the send operation rejects the conflicting enqueue with reason device_message_id_conflict.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED,
@@ -3047,7 +3052,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED,
         applies_to: &["schema_validation"],
-        description: "Sub-reason for schema_violation when an object content payload illegally carries `effective_scope` where its schema reserves that name for a read-only materialized projection. The Event envelope instead requires producer-signed `scope_ref`; the receiver derives the scope from payload and frozen pre-state, verifies exact equality, and only then may copy it into the object's effective_scope projection. See zh/models/circle.md §6.2.",
+        description: "Sub-reason for schema_violation when an actor-supplied payload illegally carries `effective_scope` where the object schema reserves that name for a read-only materialized projection. Both surfaces are decided by schema: the create shape bans the member (event-payload.schema.json#/$defs/relation_create_object), and the update shape bans the `effective_scope` / `effective_scope.*` patch paths (#/$defs/relation_update_payload), registered in registry/reducer-managed-path-registry.json. The Event envelope instead requires producer-signed `scope_ref`; the receiver derives the scope from payload and frozen pre-state, verifies exact equality, and only then may copy it into the object's effective_scope projection. See zh/models/circle.md §6.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::EGRESS_POLICY_DENIED,
@@ -3504,11 +3509,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "`ak.message.redact` / `ak.message.revise` / equivalent Message write rejected because the target Message is already in a terminal state (`redacted` or `deleted`). In particular, `ak.message.revise` targeting a terminal Message MUST be rejected with this reason_code.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::MESSAGE_ID_CONFLICT,
-        applies_to: &["event_envelope", "client_sync"],
-        description: "A to-device retry reused the same message_id with different canonical target content. The queue service MUST return duplicate_conflict with this reason_code and MUST NOT enqueue a replacement message. Scheduled-send plan convergence is keyed independently by scheduled_send_id and account-data CAS; durable ak.message.create identity conflicts are keyed only by the content-bound Event.event_id.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::METADATA_ENCRYPTION_FLOOR_DOWNGRADE,
         applies_to: &["state_resolution"],
         description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle or ak.circle.update would lower a scope's effective metadata encryption floor to a lower level (comparison order allow_plaintext < e2ee_required). The effective metadata encryption floor is a one-way ratchet (monotonically non-decreasing). See zh/models/realm-and-space.md §2.5 and zh/models/circle.md §7.",
@@ -3726,7 +3726,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PATCH_PATH_REDUCER_MANAGED,
         applies_to: &["event_envelope"],
-        description: "An `ak.schema.patch.v1` patch path attempts to modify a reducer-managed field (`id` / `schema` / `realm_id` / `created_by` / `created_at` / `state` / `state_changed_at`). These fields are owned by their corresponding lifecycle events; patch MUST NOT touch them. See zh/models/event-and-patch.md §4.2.5.",
+        description: "An `ak.schema.patch.v1` patch path addresses a field the generic update surface does not own. The normative per-object path set is registry/reducer-managed-path-registry.json (universal minimum set plus per-object-kind additions, minus the named View `state` exemption); the description here is not the criterion and MUST NOT be read as one. The forbidden path and every dotted descendant of it are rejected together. See zh/models/event-and-patch.md §4.2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PATCH_UNSET_REDACTABLE_FIELD,

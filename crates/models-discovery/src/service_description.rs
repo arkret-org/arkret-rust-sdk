@@ -153,8 +153,8 @@ pub struct ServiceDescribe {
     /// External-interop surfaces this service
     /// exposes outside its claimed v1 conformance (e.g. MIMI/Matrix
     /// passthrough). Wire shape per
-    /// `service-describe.schema.json#/properties/compat_surfaces`.
-    pub compat_surfaces: Vec<CompatSurfaceEntry>,
+    /// `service-describe.schema.json#/properties/interop_surfaces`.
+    pub interop_surfaces: Vec<InteropSurfaceEntry>,
     /// When `true` the service is in development
     /// mode; receivers MUST refuse to advertise `verified_profiles`
     /// and SHOULD warn on connection.
@@ -319,7 +319,7 @@ impl ServiceDescribe {
             claimed_profiles: Vec::new(),
             verified_profiles: Vec::new(),
             experimental_features: Vec::new(),
-            compat_surfaces: Vec::new(),
+            interop_surfaces: Vec::new(),
             development_mode: true,
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
@@ -627,7 +627,7 @@ mod tests {
             )],
             verified_profiles: vec![],
             experimental_features: vec![],
-            compat_surfaces: vec![],
+            interop_surfaces: vec![],
             development_mode: false,
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
@@ -1098,24 +1098,24 @@ pub enum ConformanceVerifiedKind {
 }
 
 /// Round 4 — wire-level entry in
-/// [`ServiceDescribe::compat_surfaces`]. Mirrors
-/// `service-describe.schema.json#/properties/compat_surfaces/items`:
+/// [`ServiceDescribe::interop_surfaces`]. Mirrors
+/// `service-describe.schema.json#/properties/interop_surfaces/items`:
 /// `name` + `kind` are required and `kind` is restricted to a closed
 /// enum so receivers can fast-path the dispatch.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CompatSurfaceEntry {
+pub struct InteropSurfaceEntry {
     pub name: String,
-    pub kind: CompatSurfaceKind,
+    pub kind: InteropSurfaceKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub since: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
 }
 
-impl CompatSurfaceEntry {
-    pub fn new(name: impl Into<String>, kind: CompatSurfaceKind) -> Self {
+impl InteropSurfaceEntry {
+    pub fn new(name: impl Into<String>, kind: InteropSurfaceKind) -> Self {
         Self {
             name: name.into(),
             kind,
@@ -1125,19 +1125,19 @@ impl CompatSurfaceEntry {
     }
 
     pub fn matrix_passthrough(name: impl Into<String>) -> Self {
-        Self::new(name, CompatSurfaceKind::MatrixPassthrough)
+        Self::new(name, InteropSurfaceKind::MatrixPassthrough)
     }
 
     pub fn mimi_passthrough(name: impl Into<String>) -> Self {
-        Self::new(name, CompatSurfaceKind::MimiPassthrough)
+        Self::new(name, InteropSurfaceKind::MimiPassthrough)
     }
 
     pub fn external_interop(name: impl Into<String>) -> Self {
-        Self::new(name, CompatSurfaceKind::ExternalInterop)
+        Self::new(name, InteropSurfaceKind::ExternalInterop)
     }
 
     pub fn delegated_resolver(name: impl Into<String>) -> Self {
-        Self::new(name, CompatSurfaceKind::DelegatedResolver)
+        Self::new(name, InteropSurfaceKind::DelegatedResolver)
     }
 
     pub fn with_since(mut self, since: impl Into<String>) -> Self {
@@ -1151,11 +1151,11 @@ impl CompatSurfaceEntry {
     }
 }
 
-/// Round 4 — closed enum of compat-surface kinds the spec recognises.
+/// Round 4 — closed enum of interop-surface kinds the spec recognises.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CompatSurfaceKind {
+pub enum InteropSurfaceKind {
     MatrixPassthrough,
     MimiPassthrough,
     ExternalInterop,

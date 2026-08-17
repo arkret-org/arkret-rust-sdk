@@ -153,7 +153,7 @@ fn event_scalability_helpers_reject_over_limits() {
 fn auth_context_rejects_a_producer_selected_capability_list() {
     let base = json!({
         "actor_id": "ak:did_core:webvh:z6mkfixture",
-        "key_id": "ak:device:01904100-0000-7000-8000-65c7feb295d8",
+        "key_id": "device:01904100-0000-7000-8000-65c7feb295d8",
         "key_epoch": 1
     });
     serde_json::from_value::<arkret_wire::AuthContext>(base.clone())

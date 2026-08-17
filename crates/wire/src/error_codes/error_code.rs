@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-17.7;
-//! sha256=9bbe0e4cd32bef9f49ea6de597cd2ba91a3e3c0e56302ba8922d5591955a9ca6 Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-08-18.1;
+//! sha256=6bd45526c25fc6593a11977e08bc2bf129484e6856c7867e64e9ce08173bbd07 Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -3505,7 +3505,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["schema_validation", "service_call"],
-        description: "`ak.gate.account.command.revoke_session` supplied more than one mutually exclusive selector (`target_grant_id`, `target_device_id`, `all_sessions=true`) or otherwise failed selector closure. Receivers MUST reject instead of choosing one selector implicitly.",
+        description: "`ak.gate.account.command.revoke_session` supplied more than one mutually exclusive selector (`target_session_grant_id`, `target_device_id`, `all_sessions=true`) or otherwise failed selector closure. Receivers MUST reject instead of choosing one selector implicitly.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SfuNotAllowed,

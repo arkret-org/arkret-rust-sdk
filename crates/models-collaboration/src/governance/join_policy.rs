@@ -7,8 +7,8 @@
 use arkret_canonical as canonical;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, Error, EventId, GrantId, Hash, PayloadProof, ProofContextId,
-    RealmId, Result, project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, Error, EventId, GrantId, Hash, OpaqueLocalId, PayloadProof,
+    ProofContextId, RealmId, Result, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ pub enum JoinApplicationAnswerValue {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationAnswer {
-    pub question_id: String,
+    pub question_id: OpaqueLocalId,
     pub value: JoinApplicationAnswerValue,
 }
 
@@ -95,13 +95,6 @@ impl JoinApplicationPrivateBody {
                     .is_some_and(|note| note.is_empty() || note.chars().count() > 2000)
                 {
                     return protocol_error("join application applicant_note length is invalid");
-                }
-                for answer in answers {
-                    if answer.question_id.is_empty() || answer.question_id.len() > 128 {
-                        return protocol_error(
-                            "join application answer question_id length is invalid",
-                        );
-                    }
                 }
             }
             Self::ReviewerEnvelope {
@@ -776,7 +769,7 @@ mod tests {
     fn private_body_digest_is_bound_by_submit_request() {
         let body = JoinApplicationPrivateBody::ServerProtected {
             answers: vec![JoinApplicationAnswer {
-                question_id: "q1".to_owned(),
+                question_id: OpaqueLocalId::new("q1").unwrap(),
                 value: JoinApplicationAnswerValue::String("hello".to_owned()),
             }],
             gate_proofs: Vec::new(),

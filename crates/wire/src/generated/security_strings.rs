@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-17.3;
-//! sha256=5703799aa1e10b7e0e70abe5f091d0cc324ff494ff9574fecfd7fdafc8c83a0c Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-18.1;
+//! sha256=1c75280f5aa5247c867dc66e4a8a82d5824f5013be77d0f37ff2e9792cd1c7d7 Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
-//! sha256=e51b58edc46ab7e1ab337883dc9fa36ccebb7536bb06eafb1b4771f844078151 Input: registry/
+//! sha256=1a309e38062e1f5a2276bed378b0e195d5d88dc1d2564d72ee1ddbb77bcf9908 Input: registry/
 //! signature-alg-registry.json; version=2026-08-04.2;
 //! sha256=8ae1433a884b7e57dcb22e527108ebe88d9a644447a3756d4b72e28fcfa62680 Input: registry/
 //! hpke-suite-registry.json; version=2026-08-09;
@@ -979,7 +979,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "kind",
             "verification_method",
-            "alg",
+            "signature_algorithm",
             "challenge",
             "audience",
             "created_at",

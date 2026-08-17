@@ -2008,7 +2008,7 @@ mod tests {
             "seal_ref": "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "auth_context": {
                 "actor_id": "ak:did_core:webvh:z6mkfixture",
-                "key_id": "ak:device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
+                "key_id": "device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
                 "key_epoch": 1
             },
             "payload": {
@@ -2455,7 +2455,7 @@ mod tests {
             "seal_ref": "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "auth_context": {
                 "actor_id": "ak:did_core:webvh:z6mkfixture",
-                "key_id": "ak:device:019f9000-0000-7000-8000-000000000004",
+                "key_id": "device:019f9000-0000-7000-8000-000000000004",
                 "key_epoch": 1
             },
             "payload": payload,

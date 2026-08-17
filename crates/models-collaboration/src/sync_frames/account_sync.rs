@@ -269,7 +269,7 @@ impl DeviceMessageSender {
     /// The endpoint half of the receiver dedupe key.
     ///
     /// `device-message.schema.json` keys deduplication on
-    /// `(sender_principal_id, <endpoint>, message_id)`; the endpoint is the
+    /// `(sender_principal_id, <endpoint>, device_message_id)`; the endpoint is the
     /// device for a human sender and the Agent principal for a Native Agent,
     /// which has no device dimension to key on.
     pub fn endpoint_id(&self) -> &str {
@@ -302,7 +302,7 @@ impl DeviceMessageSender {
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessageEnvelope {
-    pub message_id: DeviceMessageId,
+    pub device_message_id: DeviceMessageId,
     pub kind: ProtocolKind,
     pub sender_principal_id: DidCoreId,
     #[serde(flatten)]
@@ -324,7 +324,7 @@ pub struct DeviceMessageEnvelope {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceMessageEnvelopeWire {
-    message_id: DeviceMessageId,
+    device_message_id: DeviceMessageId,
     kind: ProtocolKind,
     sender_principal_id: DidCoreId,
     #[serde(default)]
@@ -367,7 +367,7 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
         )
         .map_err(serde::de::Error::custom)?;
         Ok(Self {
-            message_id: wire.message_id,
+            device_message_id: wire.device_message_id,
             kind: wire.kind,
             sender_principal_id: wire.sender_principal_id,
             sender,
@@ -585,7 +585,7 @@ pub struct DeviceMessagesSendRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessageTarget {
-    pub message_id: DeviceMessageId,
+    pub device_message_id: DeviceMessageId,
     pub kind: ProtocolKind,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -616,7 +616,7 @@ pub struct DeviceMessageTarget {
 /// [`DeviceMessageEnvelope`] this body is rebuilt into is a closed object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueuedDeviceMessageBody<C> {
-    pub message_id: DeviceMessageId,
+    pub device_message_id: DeviceMessageId,
     pub kind: ProtocolKind,
     #[serde(flatten)]
     pub sender: DeviceMessageSender,
@@ -856,22 +856,22 @@ mod device_message_dto_tests {
     #[test]
     fn device_message_target_rejects_non_object_content_and_invalid_kind() {
         let valid = json!({
-            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
+            "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "content": {"transaction_id": "txn"},
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(valid).is_ok());
 
-        let missing_message_id = json!({
+        let missing_device_message_id = json!({
             "kind": "ak.key.verification.request",
             "content": {"transaction_id": "txn"},
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
-        assert!(serde_json::from_value::<DeviceMessageTarget>(missing_message_id).is_err());
+        assert!(serde_json::from_value::<DeviceMessageTarget>(missing_device_message_id).is_err());
 
         let invalid_kind = json!({
-            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
+            "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "key.verification.request",
             "content": {},
             "expires_at": "2026-07-15T01:00:00.000Z"
@@ -879,7 +879,7 @@ mod device_message_dto_tests {
         assert!(serde_json::from_value::<DeviceMessageTarget>(invalid_kind).is_err());
 
         let scalar_content = json!({
-            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
+            "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "content": "legacy payload",
             "expires_at": "2026-07-15T01:00:00.000Z"
@@ -896,7 +896,7 @@ mod device_message_tests {
 
     fn envelope_value() -> Value {
         json!({
-            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
+            "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "sender_principal_id": "ak:did_core:webvh:z6mkfixture",
             "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
@@ -949,7 +949,7 @@ mod device_message_tests {
         // flattened, so it must tolerate them while still enforcing the XOR.
         assert!(
             serde_json::from_value::<DeviceMessageSender>(json!({
-                "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
+                "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
                 "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001"
             }))
             .is_ok()
@@ -1012,12 +1012,14 @@ mod device_message_tests {
         unknown_root_field["legacy"] = json!(true);
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(unknown_root_field).is_err());
 
-        let mut missing_message_id = envelope_value();
-        missing_message_id
+        let mut missing_device_message_id = envelope_value();
+        missing_device_message_id
             .as_object_mut()
             .unwrap()
-            .remove("message_id");
-        assert!(serde_json::from_value::<DeviceMessageEnvelope>(missing_message_id).is_err());
+            .remove("device_message_id");
+        assert!(
+            serde_json::from_value::<DeviceMessageEnvelope>(missing_device_message_id).is_err()
+        );
     }
 }
 

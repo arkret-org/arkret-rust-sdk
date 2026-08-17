@@ -753,7 +753,7 @@ mod tests {
             );
             assert_eq!(
                 preimage.grant_id().unwrap().as_str(),
-                vector["grant_id"].as_str().unwrap(),
+                vector["session_grant_id"].as_str().unwrap(),
                 "{} grant id",
                 vector["name"]
             );
@@ -800,7 +800,8 @@ mod tests {
                     continue;
                 }
                 "session_id"
-                    if case.get("value_from") == Some(&Value::String("grant_id".to_owned())) =>
+                    if case.get("value_from")
+                        == Some(&Value::String("session_grant_id".to_owned())) =>
                 {
                     value["session_id"] = value["jti"].clone();
                 }

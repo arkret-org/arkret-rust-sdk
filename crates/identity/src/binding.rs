@@ -214,8 +214,8 @@ impl std::fmt::Display for PinState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LimitedTrust {
-    pub history_head: PinState,
-    pub version_id: PinState,
+    pub history_head_status: PinState,
+    pub version_id_status: PinState,
 }
 
 impl LimitedTrust {
@@ -225,8 +225,8 @@ impl LimitedTrust {
     /// `did:key` / bare `did:web` legitimately reach.
     pub fn for_proofless_method(history_head: Option<&str>, version_id: Option<&str>) -> Self {
         Self {
-            history_head: pin_state(history_head.is_some(), PinState::MethodUnsupported),
-            version_id: pin_state(version_id.is_some(), PinState::MethodUnsupported),
+            history_head_status: pin_state(history_head.is_some(), PinState::MethodUnsupported),
+            version_id_status: pin_state(version_id.is_some(), PinState::MethodUnsupported),
         }
     }
 
@@ -240,14 +240,14 @@ impl LimitedTrust {
         version_id: Option<&str>,
     ) -> Self {
         Self {
-            history_head: pin_state(history_head.is_some(), PinState::NotSurfaced),
-            version_id: pin_state(version_id.is_some(), PinState::NotSurfaced),
+            history_head_status: pin_state(history_head.is_some(), PinState::NotSurfaced),
+            version_id_status: pin_state(version_id.is_some(), PinState::NotSurfaced),
         }
     }
 
     /// Whether every pin is present, in which case the record MUST be omitted.
     pub fn is_fully_pinned(self) -> bool {
-        self.history_head.is_pinned() && self.version_id.is_pinned()
+        self.history_head_status.is_pinned() && self.version_id_status.is_pinned()
     }
 
     /// The record a binding with these pins must carry, or `None` when both are
@@ -751,7 +751,7 @@ impl VerifiedDidBinding {
                 }
                 for ((pin, pinned), state) in pins
                     .iter()
-                    .zip([declared.history_head, declared.version_id])
+                    .zip([declared.history_head_status, declared.version_id_status])
                 {
                     if state.is_pinned() != *pinned {
                         return Err(BindingError::LimitedTrustMismatch {
@@ -1113,8 +1113,8 @@ mod tests {
         let mut input = input();
         input.history_head = None;
         input.limited_trust = Some(LimitedTrust {
-            history_head: PinState::Pinned,
-            version_id: PinState::MethodUnsupported,
+            history_head_status: PinState::Pinned,
+            version_id_status: PinState::MethodUnsupported,
         });
         assert!(matches!(
             VerifiedDidBinding::new(input),
@@ -1130,8 +1130,8 @@ mod tests {
     fn rejects_a_limited_trust_record_on_a_fully_pinned_binding() {
         let mut input = input();
         input.limited_trust = Some(LimitedTrust {
-            history_head: PinState::Pinned,
-            version_id: PinState::Pinned,
+            history_head_status: PinState::Pinned,
+            version_id_status: PinState::Pinned,
         });
         assert!(matches!(
             VerifiedDidBinding::new(input),
@@ -1146,15 +1146,15 @@ mod tests {
         assert_eq!(
             LimitedTrust::for_proofless_method(None, None),
             LimitedTrust {
-                history_head: PinState::MethodUnsupported,
-                version_id: PinState::MethodUnsupported,
+                history_head_status: PinState::MethodUnsupported,
+                version_id_status: PinState::MethodUnsupported,
             }
         );
         assert_eq!(
             LimitedTrust::for_evidence_bearing_method(None, Some("1-abc")),
             LimitedTrust {
-                history_head: PinState::NotSurfaced,
-                version_id: PinState::Pinned,
+                history_head_status: PinState::NotSurfaced,
+                version_id_status: PinState::Pinned,
             }
         );
         assert_eq!(

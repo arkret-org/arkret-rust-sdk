@@ -430,7 +430,7 @@ pub struct RealmEffectivePolicyOutcome {
 pub struct RealmLifecycleView {
     pub ok: bool,
     pub realm_id: RealmId,
-    pub owner: DidCoreId,
+    pub owner_id: DidCoreId,
     #[serde(default)]
     pub members: Vec<DidCoreId>,
     pub deleted: bool,

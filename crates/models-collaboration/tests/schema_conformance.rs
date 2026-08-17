@@ -42,24 +42,62 @@ use models::*;
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
     // No relation id: it is derived from the create Event's event_id.
-    let payload = RelationCreatePayload::new(
-        "ak.relation.parent_of",
-        "ak:strand:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
-        "ak:strand:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-    )
-    .with_rank("U");
+    let payload = RelationCreatePayload::new(relation_create_object()).with_rank("U");
     catalog
         .validate_payload("ak.relation.create", &payload.to_value().unwrap())
         .unwrap();
 
-    // Closed payload schemas reject unknown additive keys.
-    let mut leaky = payload.to_value().unwrap();
-    leaky["fields"] = json!({"role": "x"});
+    // `fields` is the one open extension container the create shape keeps
+    // (`relation.schema.json` declares it), so free edge metadata is accepted.
+    let mut with_fields = payload.to_value().unwrap();
+    with_fields["relation"]["fields"] = json!({"role": "x"});
+    catalog
+        .validate_payload("ak.relation.create", &with_fields)
+        .unwrap();
+
+    // `effective_scope` is reducer-managed and the create shape bans it.
+    let mut reducer_managed = payload.to_value().unwrap();
+    reducer_managed["relation"]["effective_scope"] =
+        json!({"kind": "realm", "realm_id": FIXTURE_REALM_ID});
     assert!(
         catalog
-            .validate_payload("ak.relation.create", &leaky)
+            .validate_payload("ak.relation.create", &reducer_managed)
             .is_err()
     );
+
+    // The id is derived from the create Event; carrying it is a violation.
+    let mut carries_id = payload.to_value().unwrap();
+    carries_id["relation"]["id"] =
+        json!("ak:relation:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD");
+    assert!(
+        catalog
+            .validate_payload("ak.relation.create", &carries_id)
+            .is_err()
+    );
+}
+
+const FIXTURE_REALM_ID: &str = "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5";
+
+fn relation_create_object() -> arkret_models_collaboration::objects::relation::Relation {
+    arkret_models_collaboration::objects::relation::Relation {
+        schema: SchemaId::RELATION_V1.to_owned(),
+        id: None,
+        realm_id: arkret_wire::RealmId::new(FIXTURE_REALM_ID.to_owned()).unwrap(),
+        scope_circle_id: None,
+        effective_scope: None,
+        relation_kind: arkret_wire::RelationKind::Contains,
+        from_ref: "ak:strand:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD".to_owned(),
+        to_ref: "ak:strand:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G".to_owned(),
+        rank: None,
+        fields: Default::default(),
+        state: None,
+        state_changed_at: None,
+        created_by: arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned())
+            .unwrap(),
+        created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
+        updated_by: None,
+        updated_at: None,
+    }
 }
 
 #[test]

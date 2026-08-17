@@ -178,7 +178,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         claimed_profiles: vec![],
                         verified_profiles: vec![],
                         experimental_features: vec![],
-                        compat_surfaces: vec![],
+                        interop_surfaces: vec![],
                         development_mode: false,
                         rate_limit_policy: Some(
                             arkret_models_discovery::service_description::RateLimitPolicy::unspecified(),

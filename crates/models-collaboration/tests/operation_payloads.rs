@@ -41,7 +41,7 @@ fn encrypted_envelope() -> EncryptedEnvelope {
         "epoch": 1,
         "content_type": "application/vnd.arkret.message+json",
         "ciphertext": "AA",
-        "aad_visibility_event_id": "hidden",
+        "aad_visibility_event_id_kind": "hidden",
         "aad": {
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",

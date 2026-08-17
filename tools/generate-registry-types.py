@@ -3215,6 +3215,126 @@ def generate_redactable_fields(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def generate_reducer_managed_paths(artifacts: Path) -> str:
+    relative = "registry/reducer-managed-path-registry.json"
+    artifact, digest = load(artifacts / relative)
+    universal = sorted(
+        artifact["universal_forbidden_patch_paths"], key=lambda row: row["path"]
+    )
+    objects = sorted(artifact["objects"], key=lambda row: row["object_kind"])
+    any_object_paths = sorted(
+        {row["path"] for row in universal}
+        | {
+            entry["path"]
+            for row in objects
+            for entry in row["forbidden_patch_paths"]
+        }
+    )
+    lines = header(
+        [(relative, artifact, digest)],
+        f"universal_paths={len(universal)}, object_kinds={len(objects)}, "
+        f"any_object_paths={len(any_object_paths)}",
+    )
+    lines.extend(
+        [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct ReducerManagedPathDescriptor {",
+            "    pub path: &'static str,",
+            "    pub basis: &'static str,",
+            "    pub reason_code: &'static str,",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct ReducerManagedObjectPathDescriptor {",
+            "    pub path: &'static str,",
+            "    pub basis: &'static str,",
+            "    pub reason_code: &'static str,",
+            "    pub schema_enforced: bool,",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct ReducerManagedObjectDescriptor {",
+            "    pub object_kind: &'static str,",
+            "    pub forbidden_paths: &'static [ReducerManagedObjectPathDescriptor],",
+            "    pub universal_exemptions: &'static [&'static str],",
+            "}",
+            "",
+            "/// General minimum set of `event-and-patch.md` section 4.2.5: the patch",
+            "/// paths every patch-bearing object kind forbids unless it declares an",
+            "/// explicit exemption.",
+            "pub const REDUCER_MANAGED_UNIVERSAL_PATHS: "
+            "&[ReducerManagedPathDescriptor] = &[",
+        ]
+    )
+    for row in universal:
+        lines.extend(
+            [
+                "    ReducerManagedPathDescriptor {",
+                f"        path: {rust_string(row['path'])},",
+                f"        basis: {rust_string(row['basis'])},",
+                f"        reason_code: {rust_string(row['reason_code'])},",
+                "    },",
+            ]
+        )
+    lines.extend(
+        [
+            "];",
+            "",
+            "/// Per-object-kind additions and exemptions. An object kind absent from",
+            "/// this table has no patch surface registered in the spec.",
+            "pub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[",
+        ]
+    )
+    for row in objects:
+        lines.extend(
+            [
+                "    ReducerManagedObjectDescriptor {",
+                f"        object_kind: {rust_string(row['object_kind'])},",
+            ]
+        )
+        entries = sorted(row["forbidden_patch_paths"], key=lambda item: item["path"])
+        if entries:
+            lines.append("        forbidden_paths: &[")
+            for entry in entries:
+                lines.extend(
+                    [
+                        "            ReducerManagedObjectPathDescriptor {",
+                        f"                path: {rust_string(entry['path'])},",
+                        f"                basis: {rust_string(entry['basis'])},",
+                        f"                reason_code: {rust_string(entry['reason_code'])},",
+                        "                schema_enforced: "
+                        f"{'true' if entry['schema_enforced'] else 'false'},",
+                        "            },",
+                    ]
+                )
+            lines.append("        ],")
+        else:
+            lines.append("        forbidden_paths: &[],")
+        exemptions = sorted(entry["path"] for entry in row["universal_exemptions"])
+        lines.extend(
+            [
+                f"        universal_exemptions: {rust_slice(exemptions)},",
+                "    },",
+            ]
+        )
+    lines.extend(
+        [
+            "];",
+            "",
+            "/// Conservative object-agnostic superset: every path forbidden on at",
+            "/// least one object kind, with no exemption applied. Only for callers",
+            "/// that cannot name the object kind; a caller that can name it MUST use",
+            "/// the per-object table instead, because applying this superset to a",
+            "/// View rejects the `state` patch that `views.md` section 3.1 requires.",
+            "pub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[",
+        ]
+    )
+    for path in any_object_paths:
+        lines.append(f"    {rust_string(path)},")
+    lines.append("];")
+    return "\n".join(lines) + "\n"
+
+
 GENERATORS = {
     "crates/identifiers/src/generated/digest_suite_codes.rs": generate_digest_suite_codes,
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
@@ -3248,6 +3368,9 @@ GENERATORS = {
     ),
     "crates/wire/src/generated/authority_sources.rs": generate_authority_sources,
     "crates/wire/src/generated/redactable_fields.rs": generate_redactable_fields,
+    "crates/wire/src/generated/reducer_managed_paths.rs": (
+        generate_reducer_managed_paths
+    ),
     "crates/schema/src/generated/registry_descriptors.rs": (
         generate_registry_descriptors
     ),

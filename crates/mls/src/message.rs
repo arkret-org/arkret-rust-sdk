@@ -55,7 +55,7 @@ pub fn encrypted_envelope_from_payload(
         epoch: payload.epoch,
         content_type: payload.content_type.clone(),
         ciphertext: payload.ciphertext.clone(),
-        aad_visibility_event_id: visibility,
+        aad_visibility_event_id_kind: visibility,
         aad_digest: Hash::new(arkret_crypto::envelope_aad_digest(&aad)?)?,
         aad,
         key_ref: EncryptedEnvelopeKeyRef {

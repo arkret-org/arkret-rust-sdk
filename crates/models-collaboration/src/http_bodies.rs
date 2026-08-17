@@ -2864,7 +2864,7 @@ mod device_pairing_tests {
             seal_ref: Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
             auth_context: Some(AuthContext {
                 actor_id: principal_id,
-                key_id: authorizing_device.as_str().to_owned(),
+                key_id: arkret_wire::OpaqueLocalId::new("authorizing-device-signing-1").unwrap(),
                 key_epoch: 1,
                 credential_epoch: None,
             }),

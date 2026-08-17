@@ -651,7 +651,7 @@ pub trait MlsWelcomeTargetExt {
     /// Welcome to the recipient device.
     fn welcome_device_message_target(
         &self,
-        message_id: DeviceMessageId,
+        device_message_id: DeviceMessageId,
         expires_at: DateTime<Utc>,
     ) -> Result<DeviceMessageTarget>;
 }
@@ -659,11 +659,11 @@ pub trait MlsWelcomeTargetExt {
 impl MlsWelcomeTargetExt for MlsWelcomeEnvelope {
     fn welcome_device_message_target(
         &self,
-        message_id: DeviceMessageId,
+        device_message_id: DeviceMessageId,
         expires_at: DateTime<Utc>,
     ) -> Result<DeviceMessageTarget> {
         TypedDeviceMessageTarget::<device_message_spec::MlsWelcome>::new(
-            message_id,
+            device_message_id,
             expires_at,
             self.clone(),
         )?

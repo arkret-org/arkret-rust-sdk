@@ -9,20 +9,20 @@ use serde_json::Value;
 /// grant has expired. This is not a hint to transparently issue again.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct SessionGrantReplayExpiredProblem {
-    grant_id: crate::SessionGrantId,
+    session_grant_id: crate::SessionGrantId,
     state: &'static str,
 }
 
 impl SessionGrantReplayExpiredProblem {
-    pub fn new(grant_id: crate::SessionGrantId) -> Self {
+    pub fn new(session_grant_id: crate::SessionGrantId) -> Self {
         Self {
-            grant_id,
+            session_grant_id,
             state: "expired",
         }
     }
 
-    pub fn grant_id(&self) -> &crate::SessionGrantId {
-        &self.grant_id
+    pub fn session_grant_id(&self) -> &crate::SessionGrantId {
+        &self.session_grant_id
     }
 
     pub const fn state(&self) -> &'static str {
@@ -38,7 +38,7 @@ impl<'de> Deserialize<'de> for SessionGrantReplayExpiredProblem {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct WireDetails {
-            grant_id: crate::SessionGrantId,
+            session_grant_id: crate::SessionGrantId,
             state: String,
         }
 
@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for SessionGrantReplayExpiredProblem {
         if wire.state != "expired" {
             return Err(serde::de::Error::custom("state must be expired"));
         }
-        Ok(Self::new(wire.grant_id))
+        Ok(Self::new(wire.session_grant_id))
     }
 }
 
@@ -62,17 +62,23 @@ pub enum SessionGrantReplayTerminalState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantReplayTerminalProblem {
-    grant_id: crate::SessionGrantId,
+    session_grant_id: crate::SessionGrantId,
     state: SessionGrantReplayTerminalState,
 }
 
 impl SessionGrantReplayTerminalProblem {
-    pub fn new(grant_id: crate::SessionGrantId, state: SessionGrantReplayTerminalState) -> Self {
-        Self { grant_id, state }
+    pub fn new(
+        session_grant_id: crate::SessionGrantId,
+        state: SessionGrantReplayTerminalState,
+    ) -> Self {
+        Self {
+            session_grant_id,
+            state,
+        }
     }
 
-    pub fn grant_id(&self) -> &crate::SessionGrantId {
-        &self.grant_id
+    pub fn session_grant_id(&self) -> &crate::SessionGrantId {
+        &self.session_grant_id
     }
 
     pub const fn state(&self) -> SessionGrantReplayTerminalState {
@@ -447,7 +453,7 @@ mod tests {
         assert_eq!(details.code, "vendor_remote_error");
     }
 
-    fn grant_id() -> crate::SessionGrantId {
+    fn session_grant_id() -> crate::SessionGrantId {
         crate::SessionGrantId::new("ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW")
             .unwrap()
     }
@@ -458,13 +464,13 @@ mod tests {
             crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_EXPIRED,
             "recorded grant expired",
         )
-        .with_detail("grant_id", json!(grant_id()))
+        .with_detail("session_grant_id", json!(session_grant_id()))
         .with_detail("state", json!("expired"));
         let details = expired
             .session_grant_replay_expired_details()
             .unwrap()
             .unwrap();
-        assert_eq!(details.grant_id(), &grant_id());
+        assert_eq!(details.session_grant_id(), &session_grant_id());
         assert_eq!(details.state(), "expired");
         assert_eq!(
             expired.session_grant_replay_terminal_details().unwrap(),
@@ -475,7 +481,7 @@ mod tests {
             crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_TERMINAL,
             "recorded grant is terminal",
         )
-        .with_detail("grant_id", json!(grant_id()))
+        .with_detail("session_grant_id", json!(session_grant_id()))
         .with_detail("state", json!("superseded"));
         assert_eq!(
             terminal
@@ -487,8 +493,8 @@ mod tests {
         );
 
         for invalid in [
-            json!({"grant_id": grant_id(), "state": "revoked", "extra": true}),
-            json!({"grant_id": grant_id(), "state": "active"}),
+            json!({"session_grant_id": session_grant_id(), "state": "revoked", "extra": true}),
+            json!({"session_grant_id": session_grant_id(), "state": "active"}),
             json!({"state": "expired"}),
         ] {
             assert!(serde_json::from_value::<SessionGrantReplayExpiredProblem>(invalid).is_err());
@@ -501,7 +507,7 @@ mod tests {
             crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_INDETERMINATE,
             "replay record no longer decidable",
         )
-        .with_detail("grant_id", json!(grant_id()))
+        .with_detail("session_grant_id", json!(session_grant_id()))
         .with_detail("state", json!("revoked"));
 
         assert_eq!(

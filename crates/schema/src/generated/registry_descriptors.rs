@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-17.4;
-//! sha256=493cb743f80ff33806ef67410f579a9be59e57e94821c2cf5988a5aac90ce712 Input: registry/
-//! capability-action-registry.json; version=2026-08-17.4;
-//! sha256=8e2217bae4e57ff905521aac0dba1a17eb2e61d464d1405d9ad4f499434a3182 Input: registry/
-//! schema-registry.json; version=2026-08-17.2;
-//! sha256=d0912f54f5d630f6644695e5387ca2e2fb555bf3fa99d813de9fee5c857c0b94 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-18.1;
+//! sha256=f7fa040a56d24e901635e0c803a8f7b15fe938596b8f590c752d97b354b1848a Input: registry/
+//! capability-action-registry.json; version=2026-08-18.1;
+//! sha256=0316a8764e3728dfff2c2e0f46fd70d35ad58779764fe58a375f0cc0b8415c0b Input: registry/
+//! schema-registry.json; version=2026-08-18.1;
+//! sha256=b32b6a7a06cb3df7b3de796591cfd790be98b8bfaa5d1d0051ca6a4ee841777c Input: registry/
 //! account-data-key-registry.json; version=2026-08-13.2;
 //! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=57,
 //! special_forms=13, actions=170, schemas=188, account_data_patterns=24
@@ -390,7 +390,7 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
     },
     SpecialFormIdKindDescriptor {
         kind: "membership_compensation_delegation",
-        wire_form: "ak:membership-compensation-delegation:sha256:<lowercase_hex>",
+        wire_form: "ak:membership_compensation_delegation:sha256:<lowercase_hex>",
         payload_pattern: "sha256:[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {

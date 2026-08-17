@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-17.2;
-//! sha256=d0912f54f5d630f6644695e5387ca2e2fb555bf3fa99d813de9fee5c857c0b94 Entries: schema_ids=188,
+//! Input: registry/schema-registry.json; version=2026-08-18.1;
+//! sha256=b32b6a7a06cb3df7b3de796591cfd790be98b8bfaa5d1d0051ca6a4ee841777c Entries: schema_ids=188,
 //! active=188
 
 use serde::{Deserialize, Serialize};
@@ -1013,9 +1013,9 @@ impl SchemaId {
     /// Canonical ServiceDescribe response for ak.server.read.describe and per-surface describe
     /// operations: base service metadata plus claim-level partitions (supported_operations /
     /// implemented_features / claimed_profiles / verified_profiles / experimental_features /
-    /// compat_surfaces) and the registered directory_service overlay fields used by
+    /// interop_surfaces) and the registered directory_service overlay fields used by
     /// ak.find.directory.read.describe. Enforces development_mode=true =&gt; verified_profiles=[].
-    /// compat_surfaces is limited to external interop surfaces. See service-surface.md §3.0 and
+    /// interop_surfaces is limited to external interop surfaces. See service-surface.md §3.0 and
     /// discovery-directory.md §8.9.
     pub const SERVICE_DESCRIBE_V1: &'static str = "ak.schema.service_describe.v1";
     /// Verifiable service DID disaster-recovery bundle containing public DID history, receipts and

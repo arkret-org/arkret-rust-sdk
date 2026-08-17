@@ -6684,7 +6684,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "soland/crates/domain/src/reducer/projections.rs::InviteProjection.third_party_id",
+      "finding": "soland/crates/domain/src/reducer/projections.rs::InviteProjection.third_party_invite",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -7622,7 +7622,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "soland/crates/services/src/events.rs::RealmInviteState.third_party_id",
+      "finding": "soland/crates/services/src/events.rs::RealmInviteState.third_party_invite",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -8518,7 +8518,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "soland/crates/storage/src/records.rs::RealmInviteRecord.third_party_id",
+      "finding": "soland/crates/storage/src/records.rs::RealmInviteRecord.third_party_invite",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

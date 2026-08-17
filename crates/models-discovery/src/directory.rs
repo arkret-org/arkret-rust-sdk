@@ -815,10 +815,11 @@ fn directory_required_issuer(requester: Option<&DidCoreId>) -> Result<Value> {
 /// (`discovery-directory.md` §9.0.1).
 ///
 /// `context` is the request family's own registered context, so a signature
-/// valid for one family can never be accepted by another. `audience` is the
-/// target Directory service DID and is mandatory; `domain` and `proof_purpose`
-/// MUST be absent — `governance_authorization` belongs to the §8.7.1 write
-/// surface only.
+/// valid for one family can never be accepted by another. `audience` is
+/// mandatory and MUST be the target Directory `service_id` published by
+/// `ak.find.directory.read.describe`, in single-valued `did_core_id` form;
+/// `domain` and `proof_purpose` MUST be absent — `governance_authorization`
+/// belongs to the §8.7.1 write surface only.
 fn directory_proof_binding_bytes(
     context: &str,
     operation_id: &str,
@@ -847,12 +848,24 @@ fn directory_proof_binding_bytes(
         .audience
         .as_ref()
         .ok_or_else(|| Error::Protocol("directory requester proof requires audience".to_owned()))?;
-    if !matches!(audience, Audience::Single(_)) {
+    let Audience::Single(audience_value) = audience else {
         return Err(Error::Protocol(
             "directory requester proof audience must be the single target Directory service DID"
                 .to_owned(),
         ));
-    }
+    };
+    // Section 9.0.1 pins the target Directory service DID to the `service_id`
+    // published by `ak.find.directory.read.describe`, which is a `did_core_id`.
+    // The full `did:<method>:<msi>` form is not an accepted alternative: it
+    // would produce different signed bytes and the mismatch is swallowed by the
+    // section 9.2 indistinguishable rejection, so it fails closed here instead.
+    DidCoreId::new(audience_value.as_str()).map_err(|_| {
+        Error::Protocol(
+            "directory requester proof audience must be the target Directory service_id in \
+             did_core_id form"
+                .to_owned(),
+        )
+    })?;
     let mut binding = serde_json::Map::new();
     binding.insert("context".to_owned(), Value::String(context.to_owned()));
     binding.insert(
@@ -1223,5 +1236,70 @@ mod agent_selector_outcome_tests {
             expires_at: None,
         };
         outcome.validate().unwrap();
+    }
+}
+
+#[cfg(test)]
+mod directory_requester_proof_binding_tests {
+    use arkret_wire::{Audience, DidCoreId, DidUrl, Hash, PayloadProof};
+    use chrono::Utc;
+
+    use super::DirectoryResolveTargetRequestBody;
+
+    fn body() -> DirectoryResolveTargetRequestBody {
+        DirectoryResolveTargetRequestBody {
+            address: "ak://realm/release".to_owned(),
+            requester: Some(DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
+            proof_challenge: None,
+            claim_presentations: Vec::new(),
+            proofs: Vec::new(),
+            token: None,
+        }
+    }
+
+    fn proof(audience: Audience, payload_digest: Hash) -> PayloadProof {
+        PayloadProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: DidUrl::new("did:web:alice.example#key-1").unwrap(),
+            payload_digest,
+            created_at: Utc::now(),
+            domain: None,
+            audience: Some(audience),
+            proof_purpose: None,
+            jws: "aaa.bbb.ccc".to_owned(),
+        }
+    }
+
+    /// `discovery-directory.md` §9.0.1 pins the binding `audience` to the target
+    /// Directory `service_id` published by `ak.find.directory.read.describe`,
+    /// which is a `did_core_id`. A full `did:<method>:<msi>` audience is not an
+    /// accepted alternative shape: it would only surface as a signature
+    /// mismatch that §9.2 collapses into an indistinguishable rejection, so the
+    /// binding helper refuses to produce transcript bytes for it.
+    #[test]
+    fn audience_must_be_the_directory_service_id_in_core_form() {
+        let body = body();
+        let digest = body.payload_digest().unwrap();
+
+        let core = proof(
+            Audience::Single("ak:did_core:web:directory.example".to_owned()),
+            digest.clone(),
+        );
+        body.proof_binding_bytes(&core)
+            .expect("a did_core_id audience is the pinned form");
+
+        let full = proof(
+            Audience::Single("did:web:directory.example".to_owned()),
+            digest.clone(),
+        );
+        body.proof_binding_bytes(&full)
+            .expect_err("the full DID form MUST NOT be accepted as a second shape");
+
+        let multiple = proof(
+            Audience::Multiple(vec!["ak:did_core:web:directory.example".to_owned()]),
+            digest,
+        );
+        body.proof_binding_bytes(&multiple)
+            .expect_err("audience MUST be single valued");
     }
 }

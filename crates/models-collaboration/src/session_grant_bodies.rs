@@ -376,8 +376,8 @@ pub struct SessionGrantOutcome {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     /// Stable id of the issued session grant. Returned for every grant (human
-    /// and agent). Mirrors `SessionGrantRefreshOutcome.grant_id`.
-    pub grant_id: SessionGrantId,
+    /// and agent). Mirrors `SessionGrantRefreshOutcome.session_grant_id`.
+    pub session_grant_id: SessionGrantId,
     /// JWK of the holder/session key the grant is bound to. The client needs
     /// this for RFC 9421 PoP / DPoP `cnf.jkt` derivation on `/_arkret/self/*`
     /// requests, returned at issue time to avoid a mandatory introspect
@@ -464,8 +464,8 @@ pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_KIND: &str =
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantIntrospectionProofClaims {
     pub kind: String,
-    pub grant_id: String,
-    pub grant_jwt_hash: String,
+    pub session_grant_id: String,
+    pub grant_jwt_digest: String,
     pub audience: DidCoreId,
     pub challenge: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -524,7 +524,7 @@ pub const SESSION_GRANT_REFRESH_OPERATION: &str = "resume_soft_logged_out_sessio
 #[derive(Serialize)]
 struct SessionGrantRefreshRequestDigestInput<'a> {
     operation: &'static str,
-    grant_jwt_hash: String,
+    grant_jwt_digest: String,
     principal_id: &'a str,
     device_id: &'a str,
     audience: &'a str,
@@ -556,7 +556,7 @@ pub fn session_grant_refresh_request_digest(
 ) -> Result<Hash> {
     let input = SessionGrantRefreshRequestDigestInput {
         operation: SESSION_GRANT_REFRESH_OPERATION,
-        grant_jwt_hash: canonical::sha256_digest(grant_jwt.as_bytes()),
+        grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
         principal_id,
         device_id,
         audience: audience.as_str(),
@@ -596,7 +596,7 @@ pub fn session_grant_refresh_proof_signing_bytes(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantRefreshOutcome {
-    pub grant_id: SessionGrantId,
+    pub session_grant_id: SessionGrantId,
     pub grant_jwt: String,
     /// JWK the rotated grant is bound to (the device holder key); the server
     /// does not mint a fresh session private key on rotation.
@@ -608,7 +608,7 @@ pub struct SessionGrantRefreshOutcome {
     /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
     pub dpop_jkt: String,
     /// The predecessor grant, atomically superseded on success.
-    pub previous_grant_id: SessionGrantId,
+    pub previous_session_grant_id: SessionGrantId,
 }
 
 /// `ak.gate.account.command.logout_auth_session` request.
@@ -859,13 +859,13 @@ mod session_grant_contract_tests {
             "principal_id": "ak:did_core:web:alice.example",
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:00:00.000Z",
-            "grant_id": GRANT_ID,
+            "session_grant_id": GRANT_ID,
             "session_public_key": CANONICAL_JWK,
             "audience": "ak:did_core:web:service.example"
         });
         assert!(serde_json::from_value::<SessionGrantOutcome>(valid.clone()).is_ok());
 
-        for field in ["grant_id", "session_public_key", "audience"] {
+        for field in ["session_grant_id", "session_public_key", "audience"] {
             let mut missing = valid.clone();
             missing.as_object_mut().unwrap().remove(field);
             assert!(
@@ -1026,14 +1026,14 @@ mod session_grant_contract_tests {
         assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(introspect).is_err());
 
         let mut refresh = json!({
-            "grant_id": GRANT_ID,
+            "session_grant_id": GRANT_ID,
             "grant_jwt": "successor.jwt",
             "session_public_key": CANONICAL_JWK,
             "expires_at": "2026-08-08T12:04:00.000Z",
             "audience": "ak:did_core:web:service.example",
             "scopes": [],
             "dpop_jkt": "holder-thumbprint",
-            "previous_grant_id": GRANT_ID
+            "previous_session_grant_id": GRANT_ID
         });
         assert!(serde_json::from_value::<SessionGrantRefreshOutcome>(refresh.clone()).is_ok());
         refresh.as_object_mut().unwrap().remove("scopes");

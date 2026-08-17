@@ -193,7 +193,7 @@ impl MembershipCompensationDelegationRef {
     pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
         let value = value.into();
         let suffix = value
-            .strip_prefix("ak:membership-compensation-delegation:sha256:")
+            .strip_prefix("ak:membership_compensation_delegation:sha256:")
             .ok_or("invalid membership compensation delegation prefix")?;
         if suffix.len() != 64
             || !suffix
@@ -326,7 +326,7 @@ impl MembershipCompensationExecutorDelegation {
         }
         let suffix = digest.strip_prefix("sha256:").unwrap_or_default();
         if self.delegation_id.as_str()
-            != format!("ak:membership-compensation-delegation:sha256:{suffix}")
+            != format!("ak:membership_compensation_delegation:sha256:{suffix}")
         {
             return Err(crate::Error::Protocol(
                 "membership compensation delegation id mismatch".to_owned(),

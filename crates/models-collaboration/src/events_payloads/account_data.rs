@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for AccountDataBody {
 pub struct AccountDataSetPayload {
     pub key: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub owner: Option<DidCoreId>,
+    pub holder_id: Option<DidCoreId>,
     /// Compare-and-set precondition. `0` creates a key that has never been
     /// written; every accepted write stores `expected_revision + 1`.
     pub expected_revision: u64,
@@ -131,7 +131,7 @@ pub struct AccountDataSetPayload {
 struct AccountDataSetPayloadWire {
     key: NonEmptyString,
     #[serde(default)]
-    owner: Option<DidCoreId>,
+    holder_id: Option<DidCoreId>,
     expected_revision: u64,
     #[serde(default)]
     body: AccountDataBody,
@@ -161,8 +161,8 @@ impl<'de> Deserialize<'de> for AccountDataSetPayload {
         }
         let payload = Self {
             key: wire.key,
+            holder_id: wire.holder_id,
             expected_revision: wire.expected_revision,
-            owner: wire.owner,
             body: wire.body,
             encrypted_payload: wire.encrypted_payload,
             body_digest: wire.body_digest,
@@ -253,7 +253,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(payload.body.as_value(), Some(&json!("dark")));
-        assert!(payload.owner.is_none());
+        assert!(payload.holder_id.is_none());
         assert!(payload.updated_at.is_none());
 
         let value = serde_json::to_value(&payload).unwrap();

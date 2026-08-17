@@ -26,7 +26,10 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::error_codes::ReasonCode;
-use crate::generated::REDACTABLE_FIELD_PATHS;
+use crate::generated::{
+    REDACTABLE_FIELD_PATHS, REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS, REDUCER_MANAGED_OBJECTS,
+    REDUCER_MANAGED_UNIVERSAL_PATHS,
+};
 
 /// Maximum patch-path length in bytes, per spec.
 pub const PATCH_PATH_MAX_BYTES: usize = 1024;
@@ -34,21 +37,65 @@ pub const PATCH_PATH_MAX_BYTES: usize = 1024;
 /// Maximum patch-path nesting depth (segments separated by `.`).
 pub const PATCH_PATH_MAX_SEGMENTS: usize = 16;
 
-const REDUCER_MANAGED_PATCH_FIELDS: &[&str] = &[
-    "id",
-    "schema",
-    "realm_id",
-    "created_by",
-    "created_at",
-    "updated_by",
-    "updated_at",
-    "state",
-    "state_changed_at",
-    "stage_changed_at",
-    "deleted_at",
-    "effective_scope",
-    "actor_kind",
-];
+/// Reason code for a patch path the named object kind does not let an actor
+/// write, or `None` when the path is writable.
+///
+/// The path set is the canonical projection in
+/// `registry/reducer-managed-path-registry.json`; this module never spells its
+/// own list. The decision is per object kind because the forbidden set is:
+/// `event-and-patch.md` section 4.2.5 registers a universal minimum set, each
+/// object kind adds its own paths (Relation `effective_scope`, Morph
+/// `morph_kind` / `stage`, Actor Profile `resolution`, ...), and View carves
+/// `state` back out because `views.md` section 3.1 makes an `ak.view.update`
+/// patch the only way to reach its terminal state. An unregistered object kind
+/// falls back to the universal minimum set.
+pub fn reducer_managed_patch_reason(object_kind: &str, path: &str) -> Option<&'static str> {
+    let Some(normalized) = normalized_patch_path(path) else {
+        return None;
+    };
+    if let Some(object) = REDUCER_MANAGED_OBJECTS
+        .iter()
+        .find(|descriptor| descriptor.object_kind == object_kind)
+    {
+        if let Some(entry) = object
+            .forbidden_paths
+            .iter()
+            .find(|entry| patch_path_covers(entry.path, &normalized))
+        {
+            return Some(entry.reason_code);
+        }
+        if object
+            .universal_exemptions
+            .iter()
+            .any(|exemption| patch_path_covers(exemption, &normalized))
+        {
+            return None;
+        }
+    }
+    REDUCER_MANAGED_UNIVERSAL_PATHS
+        .iter()
+        .find(|entry| patch_path_covers(entry.path, &normalized))
+        .map(|entry| entry.reason_code)
+}
+
+/// Whether a registered path bans `candidate`: the path itself and every dotted
+/// descendant of it fall together (`event-and-patch.md` section 4.2.5).
+fn patch_path_covers(registered: &str, candidate: &str) -> bool {
+    candidate == registered
+        || (candidate.len() > registered.len()
+            && candidate.starts_with(registered)
+            && candidate.as_bytes()[registered.len()] == b'.')
+}
+
+/// Strip selector suffixes and reject backtick-quoted segments so a registered
+/// path can be compared against a wire path segment by segment.
+fn normalized_patch_path(path: &str) -> Option<String> {
+    let mut segments = Vec::new();
+    for segment in path.split('.') {
+        segments.push(normalized_patch_segment_head(segment)?);
+    }
+    Some(segments.join("."))
+}
 
 /// Explicit op discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -596,6 +643,12 @@ fn patch_apply_failed(path: &str, detail: &str) -> Error {
 /// Validate the cross-object patch safety rules that do not require reducer
 /// state. Object-specific reducers may add stricter checks, but they must not
 /// accept reducer-managed paths or direct removal of redactable content.
+///
+/// This entry point has no object kind, so it applies the conservative
+/// object-agnostic superset. A caller that knows the object kind MUST decide
+/// with [`reducer_managed_patch_reason`] instead: the superset carries no
+/// exemption, so it also rejects the View `state` patch that `views.md`
+/// section 3.1 defines as the only way to tombstone a shared View.
 pub fn validate_patch_semantic_safety(patch: &Patch) -> Result<()> {
     patch.validate()?;
     for (path, op) in patch.iter() {
@@ -616,16 +669,15 @@ pub fn validate_patch_semantic_safety(patch: &Patch) -> Result<()> {
 }
 
 fn patch_path_targets_reducer_managed(path: &str) -> bool {
-    let Some(root) = normalized_patch_segment_head(path.split('.').next().unwrap_or_default())
-    else {
+    let Some(normalized) = normalized_patch_path(path) else {
         return false;
     };
-    if root == "object" {
-        let second = path.split('.').nth(1).unwrap_or_default();
-        return normalized_patch_segment_head(second)
-            .is_some_and(|field| REDUCER_MANAGED_PATCH_FIELDS.contains(&field));
-    }
-    REDUCER_MANAGED_PATCH_FIELDS.contains(&root)
+    // A payload that wraps the object under `object.` addresses the same fields
+    // one segment deeper.
+    let subject = normalized.strip_prefix("object.").unwrap_or(&normalized);
+    REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS
+        .iter()
+        .any(|registered| patch_path_covers(registered, subject))
 }
 
 /// Whether a patch path addresses a registered redactable content-carrier slot.
@@ -802,6 +854,44 @@ mod tests {
         assert!(
             err.to_string()
                 .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
+        );
+    }
+
+    #[test]
+    fn reducer_managed_patch_reason_is_decided_per_object_kind() {
+        // Relation is the only patch-surface object whose schema declares
+        // `effective_scope`, and the ban reaches every dotted descendant.
+        assert_eq!(
+            reducer_managed_patch_reason("relation", "effective_scope"),
+            Some("effective_scope_reducer_managed")
+        );
+        assert_eq!(
+            reducer_managed_patch_reason("relation", "effective_scope.circle_id"),
+            Some("effective_scope_reducer_managed")
+        );
+        assert_eq!(
+            reducer_managed_patch_reason("relation", "fields.note"),
+            None
+        );
+        assert_eq!(
+            reducer_managed_patch_reason("strand", "effective_scope"),
+            None
+        );
+
+        // The universal minimum set applies to every kind, registered or not.
+        for kind in ["relation", "strand", "view", "not_a_registered_kind"] {
+            assert_eq!(
+                reducer_managed_patch_reason(kind, "state_changed_at"),
+                Some(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
+            );
+        }
+
+        // views.md §3.1: a shared View reaches its terminal state through an
+        // ak.view.update patch, so `state` is authored on exactly this kind.
+        assert_eq!(reducer_managed_patch_reason("view", "state"), None);
+        assert_eq!(
+            reducer_managed_patch_reason("strand", "state"),
+            Some(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
         );
     }
 

@@ -1665,8 +1665,8 @@ mod tests {
         assert_eq!(
             proofless.binding().limited_trust(),
             Some(LimitedTrust {
-                history_head: crate::PinState::MethodUnsupported,
-                version_id: crate::PinState::MethodUnsupported,
+                history_head_status: crate::PinState::MethodUnsupported,
+                version_id_status: crate::PinState::MethodUnsupported,
             })
         );
     }

@@ -738,7 +738,7 @@ mod tests {
             "principal_id": "ak:did_core:web:alice.example",
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:04:00.000Z",
-            "grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+            "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "audience": "ak:did_core:web:service.example"
         })
@@ -766,14 +766,14 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_refresh_outcome_json() -> String {
         serde_json::json!({
-            "grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+            "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
             "grant_jwt": "successor.jwt",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "expires_at": "2026-08-08T12:04:00.000Z",
             "audience": "ak:did_core:web:service.example",
             "scopes": [],
             "dpop_jkt": "holder-thumbprint",
-            "previous_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
+            "previous_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
         })
         .to_string()
     }
@@ -781,7 +781,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     fn session_revoke_request() -> SessionRevokeRequestBody {
         serde_json::from_value(serde_json::json!({
-            "target_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
+            "target_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
         }))
         .unwrap()
     }
@@ -790,7 +790,7 @@ mod tests {
     fn session_revoke_outcome_json() -> String {
         serde_json::json!({
             "revoked_count": 1,
-            "revoked_grant_ids": [
+            "revoked_session_grant_ids": [
                 "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
             ]
         })
@@ -1075,7 +1075,7 @@ mod tests {
                     "code": "session_grant_replay_terminal",
                     "message": "recorded grant is superseded",
                     "details": {
-                        "grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+                        "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
                         "state": "superseded"
                     }
                 },

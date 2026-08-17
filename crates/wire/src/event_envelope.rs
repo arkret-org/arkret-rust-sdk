@@ -44,7 +44,8 @@ use crate::primitives::{
     Audience, CriticalExtension, EventProof, ProofBindingRequirements, SignatureBindingPayload,
 };
 use crate::{
-    AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, ProfileRef, SchemaId, canonical,
+    AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, OpaqueLocalId, ProfileRef, SchemaId,
+    canonical,
 };
 
 /// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
@@ -326,7 +327,7 @@ pub struct EventRequirements {
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {
     pub actor_id: DidCoreId,
-    pub key_id: String,
+    pub key_id: OpaqueLocalId,
     pub key_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credential_epoch: Option<u64>,

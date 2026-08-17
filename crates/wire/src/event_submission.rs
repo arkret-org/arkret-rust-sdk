@@ -675,7 +675,7 @@ mod tests {
         });
         event.auth_context = Some(AuthContext {
             actor_id: event.actor_id.clone(),
-            key_id: "device-1".to_owned(),
+            key_id: crate::OpaqueLocalId::new("device-1").unwrap(),
             key_epoch: 1,
             credential_epoch: None,
         });

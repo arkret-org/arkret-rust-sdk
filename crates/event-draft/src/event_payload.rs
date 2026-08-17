@@ -526,7 +526,7 @@ mod tests {
                 "epoch": 1,
                 "content_type": "application/vnd.arkret.message+json",
                 "ciphertext": "b3BhcXVl",
-                "aad_visibility_event_id": "hidden",
+                "aad_visibility_event_id_kind": "hidden",
                 "aad": {
                     "realm_id": realm_id,
                     "scope_digest": scope_digest,

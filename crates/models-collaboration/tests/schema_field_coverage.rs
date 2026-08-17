@@ -187,7 +187,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "content_encryption_floor": "e2ee_required",
             "metadata_encryption_floor": "e2ee_required",
             "federation_policy": "restricted",
-            "aad_visibility": { "event_id": "routing_digest" },
+            "aad_visibility": { "event_id_kind": "routing_digest" },
             "durability_policy": { "mode": "none" },
             "mls_send_pause": "advisory",
             "relaxed_window_max_ms": 60000,

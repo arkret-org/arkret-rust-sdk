@@ -1373,7 +1373,7 @@ mod tests {
                 "claimed_profiles":[],
                 "verified_profiles":[],
                 "experimental_features":[],
-                "compat_surfaces":[],
+                "interop_surfaces":[],
                 "development_mode":false,
                 "rate_limit_policy":{}
             }"#;
@@ -1424,7 +1424,7 @@ mod tests {
                 "claimed_profiles":[],
                 "verified_profiles":[],
                 "experimental_features":[],
-                "compat_surfaces":[],
+                "interop_surfaces":[],
                 "development_mode":false,
                 "rate_limit_policy":{}
             }"#;

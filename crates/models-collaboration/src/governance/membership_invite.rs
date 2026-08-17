@@ -12,6 +12,7 @@ use crate::ObjectRef;
 use crate::governance::delivery_binding::{DeliveryStatus, MemberDeliveryBinding};
 use crate::governance::invite_addressing::InviteDeliveryTarget;
 use crate::governance::third_party_invite::ThirdPartyInvite;
+use crate::objects::relation::Relation;
 
 /// Evaluate a third-party invite claim against the only canonical admission
 /// time available before acceptance: the signed claim Event's `created_at`.
@@ -445,7 +446,7 @@ impl InviteAcceptPayload {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteThirdPartyCreatePayload {
-    pub third_party_id: ThirdPartyInvite,
+    pub third_party_invite: ThirdPartyInvite,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
     #[serde(flatten, default)]
@@ -454,7 +455,7 @@ pub struct InviteThirdPartyCreatePayload {
 
 impl InviteThirdPartyCreatePayload {
     pub fn validate(&self) -> Result<()> {
-        self.third_party_id.validate_minimal()
+        self.third_party_invite.validate_minimal()
     }
 }
 
@@ -879,56 +880,32 @@ pub fn invite_subject_proof_transcript_digest(
 /// Flat-form payload for `ak.relation.create`
 /// (`#/$defs/relation_create_payload`).
 ///
-/// The spec `anyOf` allows either an embedded `{relation: <object_snapshot>}`
-/// or the flat `{relation_id, kind, from_ref, to_ref}` form; this strong type models the
-/// flat form (the only shape inkson constructs).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// The payload carries the whole Relation object under `relation`:
+/// `ak.relation.create`'s registered projection is `set value =
+/// payload.relation`, and `event-and-patch.md` §2.4.2 lets a projection move an
+/// existing root path wholesale but never assemble one, so a flat
+/// `{relation_id, kind, from_ref, to_ref}` form would reduce to nothing.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RelationCreatePayload {
-    /// The whole relation object.
+    /// The whole relation object, minus the id.
     ///
-    /// `ak.relation.create`'s registered projection is `set value =
-    /// payload.relation`, and `event-and-patch.md` §2.4.2 lets a projection
-    /// move an existing root path wholesale but never assemble one — so the
-    /// object is what the cell holds, and a flat
-    /// `{relation_id, kind, from_ref, to_ref}` form would reduce to nothing.
-    pub relation: RelationSnapshot,
+    /// `#/$defs/relation_create_object` is `allOf [relation.schema.json, not
+    /// required id/type/effective_scope]`, so this is the same object type the
+    /// projection materializes. The id is derived from the create Event
+    /// (`RelationId::from_event_id`) and `effective_scope` is reducer-managed;
+    /// both MUST stay unset here.
+    pub relation: Relation,
     /// Optional lexical ordering rank.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
 }
 
-/// The relation object a `ak.relation.create` payload carries.
-///
-/// There is deliberately no `id`: `ak.relation.create` is an `event_derived`
-/// kind, so the relation id is `RelationId::from_event_id(&event_id)` and the
-/// payload MUST omit it (spec `zh/models/common-fields.md` section 6.0). There
-/// is likewise no `type` member — the object kind comes from the typed-id
-/// prefix and the schema bans that name.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RelationSnapshot {
-    /// Registered `relation_kind` (e.g. `ak.relation.parent_of`).
-    pub kind: String,
-    /// Source endpoint `object_ref` (canonical typed id / did / digest).
-    pub from_ref: ObjectRef,
-    /// Target endpoint `object_ref`.
-    pub to_ref: ObjectRef,
-}
-
 impl RelationCreatePayload {
-    /// Build the payload. There is no `relation_id` parameter: the relation
-    /// id is derived from the create Event that carries this payload.
-    pub fn new(
-        kind: impl Into<String>,
-        from_ref: impl Into<ObjectRef>,
-        to_ref: impl Into<ObjectRef>,
-    ) -> Self {
+    /// Build the payload from the Relation object the create event materializes.
+    pub fn new(relation: Relation) -> Self {
         Self {
-            relation: RelationSnapshot {
-                kind: kind.into(),
-                from_ref: from_ref.into(),
-                to_ref: to_ref.into(),
-            },
+            relation,
             rank: None,
         }
     }

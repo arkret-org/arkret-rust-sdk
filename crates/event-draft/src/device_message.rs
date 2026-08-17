@@ -243,7 +243,7 @@ key_verification_spec!(
 /// Typed builder for one standard device-message target.
 #[derive(Clone, Debug)]
 pub struct TypedDeviceMessageTarget<K: DeviceMessageSpec> {
-    message_id: DeviceMessageId,
+    device_message_id: DeviceMessageId,
     expires_at: DateTime<Utc>,
     content: K::Content,
     marker: PhantomData<K>,
@@ -251,13 +251,13 @@ pub struct TypedDeviceMessageTarget<K: DeviceMessageSpec> {
 
 impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
     pub fn new(
-        message_id: DeviceMessageId,
+        device_message_id: DeviceMessageId,
         expires_at: DateTime<Utc>,
         content: K::Content,
     ) -> Result<Self> {
         K::validate(&content)?;
         Ok(Self {
-            message_id,
+            device_message_id,
             expires_at,
             content,
             marker: PhantomData,
@@ -272,7 +272,7 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
             ));
         };
         Ok(DeviceMessageTarget {
-            message_id: self.message_id,
+            device_message_id: self.device_message_id,
             kind: ProtocolKind::new(K::KIND)
                 .map_err(|error| EventDraftError::Protocol(error.to_owned()))?,
             expires_at: self.expires_at,
@@ -290,7 +290,7 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
         sender: DeviceMessageSender,
     ) -> Result<QueuedDeviceMessageBody<K::Content>> {
         Ok(QueuedDeviceMessageBody {
-            message_id: self.message_id,
+            device_message_id: self.device_message_id,
             kind: ProtocolKind::new(K::KIND)
                 .map_err(|error| EventDraftError::Protocol(error.to_owned()))?,
             sender,

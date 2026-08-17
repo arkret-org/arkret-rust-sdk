@@ -135,7 +135,7 @@ pub struct Invite {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invitee: Option<DidCoreId>,
     /// Public durable target for private invite delivery (required by the
-    /// schema `allOf` when `invitee` is set without `third_party_id`).
+    /// schema `allOf` when `invitee` is set without `third_party_invite`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invite_delivery_target: Option<InviteDeliveryTarget>,
     /// Digest of the private invite delivery `introduction_evidence`. Raw
@@ -143,7 +143,7 @@ pub struct Invite {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub introduction_evidence_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub third_party_id: Option<ThirdPartyInvite>,
+    pub third_party_invite: Option<ThirdPartyInvite>,
     pub join_rule_snapshot: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<GrantId>,

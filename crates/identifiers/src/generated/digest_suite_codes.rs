@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/digest-suite-registry.json; version=2026-08-10.1;
-//! sha256=e51b58edc46ab7e1ab337883dc9fa36ccebb7536bb06eafb1b4771f844078151 Entries: active=2
+//! sha256=1a309e38062e1f5a2276bed378b0e195d5d88dc1d2564d72ee1ddbb77bcf9908 Entries: active=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]

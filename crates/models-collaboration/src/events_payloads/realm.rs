@@ -204,7 +204,7 @@ pub struct RealmPreauthPolicy {
 /// `aad_visibility` component of [`RealmPolicyBundlePayload`].
 ///
 /// One registered axis in v1, matching the single encrypted-envelope
-/// discriminator `aad_visibility_event_id`. Closed, so an unregistered axis
+/// discriminator `aad_visibility_event_id_kind`. Closed, so an unregistered axis
 /// name is a wire-parse `schema_violation`: a new axis needs a real envelope
 /// field, not just a policy key.
 ///
@@ -214,7 +214,7 @@ pub struct RealmPreauthPolicy {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAadVisibilityPolicy {
-    pub event_id: EncryptedEnvelopeAadVisibility,
+    pub event_id_kind: EncryptedEnvelopeAadVisibility,
 }
 
 /// Absolute ceiling on `relaxed_window_max_ms`
@@ -377,11 +377,11 @@ impl RealmPolicyBundlePayload {
         }
     }
 
-    /// Resolved Realm ceiling for encrypted-envelope `aad_visibility_event_id`.
+    /// Resolved Realm ceiling for encrypted-envelope `aad_visibility_event_id_kind`.
     ///
     /// An absent component is the `hidden` ceiling, never "unchecked".
     pub fn aad_visibility_ceiling(&self) -> AadVisibilityCeiling {
-        AadVisibilityCeiling::from_declared(self.aad_visibility.map(|policy| policy.event_id))
+        AadVisibilityCeiling::from_declared(self.aad_visibility.map(|policy| policy.event_id_kind))
     }
 
     /// Effective removed-member decryption window.
@@ -1450,7 +1450,7 @@ mod realm_policy_bundle_tests {
     fn declared_bundle() -> RealmPolicyBundlePayload {
         let mut bundle = RealmPolicyBundlePayload::new(3);
         bundle.aad_visibility = Some(RealmAadVisibilityPolicy {
-            event_id: EncryptedEnvelopeAadVisibility::RoutingDigest,
+            event_id_kind: EncryptedEnvelopeAadVisibility::RoutingDigest,
         });
         bundle.media_service_decrypts = Some(true);
         bundle

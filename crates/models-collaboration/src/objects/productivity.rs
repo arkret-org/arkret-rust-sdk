@@ -1361,7 +1361,7 @@ pub enum FileTransferStatus {
 pub struct BlindIndexQuery {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
-    pub epoch_id: u64,
+    pub epoch: u64,
     pub index_generation: u64,
     pub blind_tokens: Vec<String>,
 }
@@ -1591,7 +1591,7 @@ pub fn parse_contact_remark_account_data_key(key: &str) -> Result<String> {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountBlocklistPayload {
-    pub owner: DidCoreId,
+    pub holder_id: DidCoreId,
     pub version: u64,
     pub entries: Vec<AccountBlocklistPayloadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2071,7 +2071,7 @@ pub fn blind_index_token(
     index_key: &[u8],
     realm_id: &RealmId,
     effective_scope: &ScopeRef,
-    epoch_id: u64,
+    epoch: u64,
     index_generation: u64,
     term: &str,
 ) -> Result<String> {
@@ -2086,7 +2086,7 @@ pub fn blind_index_token(
         "profile": ProfileId::SEARCH_BLIND_INDEX_V1,
         "realm_id": realm_id.as_str(),
         "effective_scope": effective_scope,
-        "epoch_id": epoch_id,
+        "epoch": epoch,
         "index_generation": index_generation,
         "term_digest": canonical::sha256_digest(normalized_term.as_bytes()),
     });
@@ -2100,7 +2100,7 @@ pub fn build_blind_index_query<I, S>(
     index_key: &[u8],
     realm_id: RealmId,
     effective_scope: ScopeRef,
-    epoch_id: u64,
+    epoch: u64,
     index_generation: u64,
     terms: I,
 ) -> Result<BlindIndexQuery>
@@ -2115,7 +2115,7 @@ where
                 index_key,
                 &realm_id,
                 &effective_scope,
-                epoch_id,
+                epoch,
                 index_generation,
                 term.as_ref(),
             )
@@ -2124,7 +2124,7 @@ where
     let query = BlindIndexQuery {
         realm_id,
         effective_scope,
-        epoch_id,
+        epoch,
         index_generation,
         blind_tokens,
     };
@@ -2685,7 +2685,7 @@ mod tests {
     #[test]
     fn account_blocklist_uses_closed_typed_targets_and_revision_semantics() {
         let payload: AccountBlocklistPayload = serde_json::from_value(json!({
-            "owner": "ak:did_core:webvh:z6mkfixture",
+            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 2,
             "entries": [
                 {
@@ -2713,7 +2713,7 @@ mod tests {
         assert_eq!(payload.version, 2);
 
         let cleared: AccountBlocklistPayload = serde_json::from_value(json!({
-            "owner": "ak:did_core:webvh:z6mkfixture",
+            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 3,
             "entries": []
         }))
@@ -2724,7 +2724,7 @@ mod tests {
     #[test]
     fn account_blocklist_rejects_wrong_typed_ref_and_overlapping_surface() {
         let wrong_ref = serde_json::from_value::<AccountBlocklistPayload>(json!({
-            "owner": "ak:did_core:webvh:z6mkfixture",
+            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 1,
             "entries": [{
                 "target": {
@@ -2739,7 +2739,7 @@ mod tests {
         assert!(wrong_ref.is_err());
 
         let overlap: AccountBlocklistPayload = serde_json::from_value(json!({
-            "owner": "ak:did_core:webvh:z6mkfixture",
+            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 1,
             "entries": [
                 {
@@ -3372,8 +3372,8 @@ mod tests {
         .unwrap();
         query.validate().unwrap();
         let wire = serde_json::to_value(&query).unwrap();
-        assert_eq!(wire["epoch_id"].as_u64(), Some(42));
-        assert!(wire["epoch_id"].as_str().is_none());
+        assert_eq!(wire["epoch"].as_u64(), Some(42));
+        assert!(wire["epoch"].as_str().is_none());
         assert_eq!(wire["blind_tokens"].as_array().unwrap().len(), 2);
 
         let duplicate = build_blind_index_query(

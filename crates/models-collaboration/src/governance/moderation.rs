@@ -311,7 +311,7 @@ mod signed_request_tests {
         event.seal_ref = Some(SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap());
         event.auth_context = Some(AuthContext {
             actor_id: actor(),
-            key_id: "device-1".to_owned(),
+            key_id: arkret_wire::OpaqueLocalId::new("device-1").unwrap(),
             key_epoch: 1,
             credential_epoch: None,
         });

@@ -1,24 +1,54 @@
 use arkret_models_discovery::{
-    CompatSurfaceEntry, CompatSurfaceKind, DirectoryRealmSearchOutcome,
-    DirectorySearchRealmsRequestBody, RealmMemberCountBucket, RealmMemberCountBucketLabel,
+    DirectoryRealmSearchOutcome, DirectorySearchRealmsRequestBody, InteropSurfaceEntry,
+    InteropSurfaceKind, RealmMemberCountBucket, RealmMemberCountBucketLabel, ServiceDescribe,
 };
-use arkret_wire::RealmId;
+use arkret_wire::{DidFullId, RealmId, ServiceKind, TrustDomainId};
 
 #[test]
-fn compat_surface_entry_is_closed_and_supports_delegated_resolver() {
-    let surface = CompatSurfaceEntry::delegated_resolver("auth_server_did_resolver")
+fn interop_surface_entry_is_closed_and_supports_delegated_resolver() {
+    let surface = InteropSurfaceEntry::delegated_resolver("auth_server_did_resolver")
         .with_since("1")
         .with_notes("delegated DID document surface");
     let encoded = serde_json::to_value(&surface).unwrap();
     assert_eq!(encoded["kind"], "delegated_resolver");
-    assert_eq!(surface.kind, CompatSurfaceKind::DelegatedResolver);
+    assert_eq!(surface.kind, InteropSurfaceKind::DelegatedResolver);
 
     let open = serde_json::json!({
         "name": "private_routes",
         "kind": "external_interop",
         "base_path": "/_product"
     });
-    assert!(serde_json::from_value::<CompatSurfaceEntry>(open).is_err());
+    assert!(serde_json::from_value::<InteropSurfaceEntry>(open).is_err());
+}
+
+#[test]
+fn service_describe_round_trips_interop_surfaces_on_the_canonical_key() {
+    let mut description = ServiceDescribe::development(
+        DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
+        TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        ServiceKind::PrincipalServer,
+    );
+    description.interop_surfaces = vec![
+        InteropSurfaceEntry::delegated_resolver("auth_server_did_resolver"),
+        InteropSurfaceEntry::matrix_passthrough("matrix_bridge"),
+    ];
+
+    let encoded = serde_json::to_value(&description).unwrap();
+    assert_eq!(encoded["interop_surfaces"][0]["kind"], "delegated_resolver");
+    assert_eq!(encoded["interop_surfaces"][1]["kind"], "matrix_passthrough");
+
+    let decoded: ServiceDescribe = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(decoded.interop_surfaces, description.interop_surfaces);
+
+    // The field is required, not defaulted: a payload carrying the surfaces
+    // under any other key leaves `interop_surfaces` missing and MUST fail.
+    let mut without_surfaces = encoded;
+    without_surfaces
+        .as_object_mut()
+        .unwrap()
+        .remove("interop_surfaces")
+        .unwrap();
+    assert!(serde_json::from_value::<ServiceDescribe>(without_surfaces).is_err());
 }
 
 #[test]
