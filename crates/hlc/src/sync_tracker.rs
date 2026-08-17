@@ -12,8 +12,7 @@
 
 use std::collections::HashMap;
 
-use crate::Result;
-use crate::{Cursor, SyncPositions};
+use crate::{Cursor, Result, SyncPositions};
 
 /// Sync positions for tracking incremental synchronization.
 #[derive(Clone, Debug, Default)]

@@ -19,8 +19,9 @@ use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorPro
 use arkret_wire::{
     ActorProfileId, AppletId, AppletRevokeMode, ConsentScope, Cursor, DeviceId, DidCoreId,
     DidFullId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash, NonEmptyString,
-    PayloadProof, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef, ServiceOperationId,
-    SessionGrantId, UnsignedPayloadProof, canonical, project_full_id_to_core_id,
+    PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
+    ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -222,9 +223,9 @@ impl AccountLifecycleProof {
     }
 }
 
-pub const ACCOUNT_STATUS_RECORD_CONTEXT: &str = "ak.account-status-record-proof-v1";
+pub const ACCOUNT_STATUS_RECORD_CONTEXT: &str = ProofContextId::ACCOUNT_STATUS_RECORD_PROOF_V1;
 pub const ACCOUNT_STATUS_RECEIPT_CONTEXT: &str =
-    "ak.account-status-replication-receipt-proof-v1";
+    ProofContextId::ACCOUNT_STATUS_REPLICATION_RECEIPT_PROOF_V1;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

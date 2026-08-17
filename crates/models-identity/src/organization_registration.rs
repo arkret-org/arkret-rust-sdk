@@ -211,7 +211,7 @@ impl OrganizationRegistrationChallenge {
         }
         if !self
             .challenge_id
-            .strip_prefix("ak:organization-registration-challenge:")
+            .strip_prefix("ak:organization_registration_challenge:")
             .is_some_and(is_lower_hex_sha256)
             || self.nonce.len() < 22
             || self.nonce.len() > 128
@@ -288,7 +288,7 @@ impl OrganizationRegistrationEnsureRequestBody {
             || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
             || !self
                 .challenge_id
-                .strip_prefix("ak:organization-registration-challenge:")
+                .strip_prefix("ak:organization_registration_challenge:")
                 .is_some_and(is_lower_hex_sha256)
         {
             return Err(Error::Protocol(
@@ -371,7 +371,7 @@ impl OrganizationRegistrationRefreshRequestBody {
             || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
             || !self
                 .challenge_id
-                .strip_prefix("ak:organization-registration-challenge:")
+                .strip_prefix("ak:organization_registration_challenge:")
                 .is_some_and(is_lower_hex_sha256)
         {
             return Err(Error::Protocol(
@@ -487,7 +487,7 @@ impl OrganizationRegistrationReceipt {
         object.remove("proof");
         let digest = arkret_canonical::canonical::canonical_sha256(&claims)?;
         Ok(format!(
-            "ak:organization-registration-receipt:{}",
+            "ak:organization_registration_receipt:{}",
             digest.strip_prefix("sha256:").unwrap_or(&digest)
         ))
     }
@@ -707,7 +707,7 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let base = OrganizationRegistrationChallenge {
-            challenge_id: format!("ak:organization-registration-challenge:{}", "a".repeat(64)),
+            challenge_id: format!("ak:organization_registration_challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
             full_id: request.full_id.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
@@ -761,7 +761,7 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let challenge = OrganizationRegistrationChallenge {
-            challenge_id: format!("ak:organization-registration-challenge:{}", "a".repeat(64)),
+            challenge_id: format!("ak:organization_registration_challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
             full_id: request.full_id.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
@@ -830,7 +830,7 @@ mod tests {
         let issuer_full = full("did:webvh:zService:service.example");
         let issuer = service(issuer_full.as_str());
         let mut receipt = OrganizationRegistrationReceipt {
-            registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
+            registration_receipt_id: "ak:organization_registration_receipt:placeholder".to_owned(),
             organization_id: core("did:webvh:zOrg:org.example"),
             full_id: full("did:webvh:zOrg:org.example"),
             registration_generation: 1,
@@ -866,7 +866,7 @@ mod tests {
         let issuer_full = full("did:webvh:zService:service.example");
         let issuer = service(issuer_full.as_str());
         let mut receipt = OrganizationRegistrationReceipt {
-            registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
+            registration_receipt_id: "ak:organization_registration_receipt:placeholder".to_owned(),
             organization_id: core("did:webvh:zOrg:org.example"),
             full_id: full("did:webvh:zOrg:org.example"),
             registration_generation: 1,
@@ -913,7 +913,7 @@ mod tests {
         let issuer_full = full("did:webvh:zService:service.example");
         let issuer = service(issuer_full.as_str());
         let mut receipt = OrganizationRegistrationReceipt {
-            registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
+            registration_receipt_id: "ak:organization_registration_receipt:placeholder".to_owned(),
             organization_id: core("did:webvh:zOrg:org.example"),
             full_id: full("did:webvh:zOrg:org.example"),
             registration_generation: 1,

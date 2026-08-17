@@ -17,7 +17,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{BindingKind, Error, ErrorCode, Result};
+use crate::{BindingKind, DomainSeparationId, Error, ErrorCode, Result};
 
 /// `supported_bindings[].kind` of this profile, as registered in
 /// `binding-kind-registry.json`. A media / SFU WebSocket MUST NOT reuse it.
@@ -39,7 +39,11 @@ pub const WEBSOCKET_AUTHENTICATION: &str = "challenge_dpop_session_v1";
 pub const WEBSOCKET_AUTH_METHOD_TOKEN: &str = "ARKRET-WEBSOCKET-AUTH";
 
 /// Third component of the replay ledger key `(cnf.jkt, jti, context)` (§3.1).
-pub const WEBSOCKET_AUTH_REPLAY_CONTEXT: &str = "ak.websocket-auth.v1";
+///
+/// Registered in `proof-context-registry.json` `domain_separations[]` as a
+/// `replay_cache_namespace` primitive — it partitions the replay ledger and is
+/// never a signing transcript, so it MUST NOT be spelled as a proof context.
+pub const WEBSOCKET_AUTH_REPLAY_CONTEXT: &str = DomainSeparationId::WEBSOCKET_AUTH_V1;
 
 /// Hard ceiling on one reassembled text message, independent of what discovery
 /// or `welcome` advertise (§4). The effective limit is the minimum of the

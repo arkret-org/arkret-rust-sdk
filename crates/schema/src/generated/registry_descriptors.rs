@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-17.2;
-//! sha256=9b05004bc27453e7c1216693ba04667d1c08f91bb1700230b432724e03967ed5 Input: registry/
-//! capability-action-registry.json; version=2026-08-17.2;
-//! sha256=6f5e619815e9d81ccba29760668ca8e2ce83e5086a3de2d83a997f6a8994c5f4 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-17.4;
+//! sha256=493cb743f80ff33806ef67410f579a9be59e57e94821c2cf5988a5aac90ce712 Input: registry/
+//! capability-action-registry.json; version=2026-08-17.4;
+//! sha256=8e2217bae4e57ff905521aac0dba1a17eb2e61d464d1405d9ad4f499434a3182 Input: registry/
 //! schema-registry.json; version=2026-08-17.2;
 //! sha256=d0912f54f5d630f6644695e5387ca2e2fb555bf3fa99d813de9fee5c857c0b94 Input: registry/
 //! account-data-key-registry.json; version=2026-08-13.2;
 //! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=57,
-//! special_forms=11, actions=170, schemas=188, account_data_patterns=24
+//! special_forms=13, actions=170, schemas=188, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,9 @@ pub struct IdKindDescriptor {
 pub struct SpecialFormIdKindDescriptor {
     pub kind: &'static str,
     pub wire_form: &'static str,
+    /// Registered regular expression the wire form's payload (everything
+    /// after the `ak:<kind>:` prefix) must match.
+    pub payload_pattern: &'static str,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -368,46 +371,67 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
     SpecialFormIdKindDescriptor {
         kind: "blob",
         wire_form: "ak:blob:<digest-suite>:<digest>",
+        payload_pattern: "(?:sha256|blake3):[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
         kind: "cell",
         wire_form: "ak:cell:ak.component.<facet-path>.v<n>:<subject>",
+        payload_pattern: "ak\\.component\\.[a-z0-9_]+(?:\\.[a-z0-9_]+)*\\.v[0-9]+:(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})*(?::(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})+)*",
     },
     SpecialFormIdKindDescriptor {
         kind: "cursor",
         wire_form: "ak:cursor:<base64url>",
+        payload_pattern: "[A-Za-z0-9_-]+",
     },
     SpecialFormIdKindDescriptor {
         kind: "did_core",
         wire_form: "ak:did_core:<method>:<core>",
+        payload_pattern: "[a-z0-9]+:[^\\s/?#]+",
     },
     SpecialFormIdKindDescriptor {
         kind: "membership_compensation_delegation",
         wire_form: "ak:membership-compensation-delegation:sha256:<lowercase_hex>",
+        payload_pattern: "sha256:[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
         kind: "mls",
         wire_form: "ak:mls:<profile>:<profile_id>",
+        payload_pattern: "[a-z0-9_]+:[A-Za-z0-9._:-]+",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "organization_registration_challenge",
+        wire_form: "ak:organization_registration_challenge:<64-lowercase-hex>",
+        payload_pattern: "[0-9a-f]{64}",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "organization_registration_receipt",
+        wire_form: "ak:organization_registration_receipt:<64-lowercase-hex>",
+        payload_pattern: "[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
         kind: "plan",
         wire_form: "ak:plan:<base64url>",
+        payload_pattern: "[A-Za-z0-9_-]+",
     },
     SpecialFormIdKindDescriptor {
         kind: "pseudonym",
         wire_form: "ak:pseudonym:<scope_id>:<random>",
+        payload_pattern: "[a-z0-9_]+:[A-Za-z0-9_-]+",
     },
     SpecialFormIdKindDescriptor {
         kind: "seal",
-        wire_form: "ak:seal:sha256:<digest>",
+        wire_form: "ak:seal:<digest-suite>:<digest>",
+        payload_pattern: "(?:sha256|blake3):[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
         kind: "service_registration_receipt",
         wire_form: "ak:service_registration_receipt:<sha256-hex>",
+        payload_pattern: "[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
         kind: "trust_domain",
         wire_form: "ak:trust_domain:<scope>",
+        payload_pattern: "[a-z0-9][a-z0-9._\\-:]{0,127}",
     },
 ];
 

@@ -5,11 +5,11 @@ use std::collections::BTreeMap;
 use arkret_canonical::base64url::base64url_decode;
 use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::events_payloads::call::ParticipantBinding;
+pub use arkret_models_collaboration::objects::media::MediaBackendKind;
 use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
     MediaBackendToken,
 };
-pub use arkret_models_collaboration::objects::media::MediaBackendKind;
 use arkret_wire::DidCoreId;
 /// Fixed ASCII domain-separation label that prefixes the participant-binding
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding

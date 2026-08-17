@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-17.5;
-//! sha256=dc3da6e28e39a4991296642dc6d40bc8af09f0ee7bc95ecc7c39a6fb060b4725
+//! Input: registry/error-code-registry.json; version=2026-08-17.7;
+//! sha256=9bbe0e4cd32bef9f49ea6de597cd2ba91a3e3c0e56302ba8922d5591955a9ca6
 //! Entries: reason_codes=474
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2313,7 +2313,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNT_STATUS_RECORD_STALE,
         applies_to: &["account_status", "service_call", "state_resolution"],
-        description: "A Principal Server received an otherwise valid AccountStatusRecord whose status_seq is lower than its durable replica head. The receiver MUST return failed_precondition with this reason, perform zero writes, and treat the exact record as terminal/non-retryable; this is distinct from duplicate, which requires the same sequence and record identity. See zh/identity/account-lifecycle.md §3.",
+        description: "A Principal Server received an otherwise valid AccountStatusRecord whose status_seq is lower than its durable replica head. The durable head is the only comparison baseline, so this reason applies even when the submitted record is byte-identical to a history row the receiver still stores for that status_seq; a retained history row MUST NOT downgrade the outcome to duplicate. The receiver MUST return failed_precondition with this reason, perform zero writes, and treat the exact record as terminal/non-retryable. duplicate is reserved for a submission whose status_seq and record identity both equal the durable head. The full ordered classification is registry/account-status-replica-decision-table.json. See zh/identity/account-lifecycle.md §3.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNT_STATUS_TRANSITION_INVALID,
@@ -3731,7 +3731,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PATCH_UNSET_REDACTABLE_FIELD,
         applies_to: &["event_envelope"],
-        description: "An `ak.schema.patch.v1` `$op=\"unset\"` was used on a redactable content field (e.g. message.content, strand.metadata.summary, encrypted_content / encrypted_metadata). Redaction MUST go through `ak.<kind>.redact` or `ak.redaction` events to enforce redaction-specific capability checks and audit. See zh/models/event-and-patch.md §4.2.4.",
+        description: "An `ak.schema.patch.v1` `$op=\"unset\"` addressed a redactable content-carrier slot. The normative path set is registry/redactable-field-registry.json (Message / Strand / Morph `content` and `encrypted_content`) plus any Realm-schema field marked `redactable: true`; the description here is not the criterion. Absence of a content slot on the materialized object is reserved for `never authored` and `cleared by redaction`, so an ordinary update MUST NOT remove it. This is a slot-existence rule, not a capability boundary: `$op=\"set\"` on the same path is ordinary authoring and MUST be accepted even when the new value carries an empty body, and no patch op can reproduce the whole-object, terminal, audit-sealed effect of redaction. `metadata`, `encrypted_metadata`, `metadata.title`, `metadata.summary` and paths under `metadata.fields` are NOT covered and MUST accept `$op=\"unset\"`. See zh/models/event-and-patch.md §4.2.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PCR_GENESIS_CONFLICT,

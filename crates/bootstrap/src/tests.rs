@@ -14,8 +14,8 @@ use arkret_wire::{
     AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidUrl, Event, EventDigestSuiteCode,
     EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc, NonEmptyString, NotarySig,
     PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
-    SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError,
-    composite_subject, project_full_id_to_core_id, proof_kind,
+    SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError, composite_subject,
+    project_full_id_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;

@@ -35,6 +35,17 @@ def evidence_path(reference: str) -> Path:
     return REPO / relative
 
 
+def operation_id_spellings(operation_id: str) -> tuple[str, str]:
+    """Every way an evidence file may name one operation.
+
+    Rust sources name operations through the generated
+    `ServiceOperationId` associated constant rather than a bare wire literal,
+    so both spellings prove the same binding.
+    """
+    associated = operation_id.removeprefix("ak.").replace(".", "_").upper()
+    return operation_id, associated
+
+
 def validate_evidence(
     evidence: dict[str, Any], operation_ids: set[str]
 ) -> dict[str, dict[str, list[str]]]:
@@ -62,7 +73,11 @@ def validate_evidence(
                 path = evidence_path(reference)
                 if not path.is_file():
                     raise ValueError(f"evidence path does not exist: {reference}")
-                if operation_id not in path.read_text(encoding="utf-8"):
+                source = path.read_text(encoding="utf-8")
+                if not any(
+                    spelling in source
+                    for spelling in operation_id_spellings(operation_id)
+                ):
                     raise ValueError(
                         f"evidence path {reference} does not contain {operation_id}"
                     )

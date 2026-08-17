@@ -3,7 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, EventId, Hash, MimiRoomUri, MimiUri, PayloadProof, RealmId, SchemaId, StrandId,
+    DidCoreId, EventId, Hash, MimiRoomUri, MimiUri, PayloadProof, ProofContextId, RealmId,
+    SchemaId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -112,7 +113,7 @@ impl ProviderDirectory {
     /// extensions and the proof wrapper are deliberately excluded.
     pub fn unsigned_projection(&self) -> Value {
         serde_json::json!({
-            "context": "ak.mimi.provider_directory.v1",
+            "context": ProofContextId::MIMI_PROVIDER_DIRECTORY_PROOF_V1,
             "schema": self.schema,
             "service_id": self.service_id,
             "service_kind": self.service_kind,

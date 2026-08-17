@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use arkret_wire::{
     Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalAck, Cursor, DeviceId,
     DidCoreId, DidKey, Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt,
-    MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
+    MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId,
     ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope,
     SpaceId, StrandId, canonical,
 };
@@ -1016,7 +1016,31 @@ pub struct MimiKeyMaterialRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl MimiKeyMaterialRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        mimi_unsigned_body_without_proofs(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL,
+            Some(serde_json::to_value(&self.requester)?),
+            vec![
+                ("strand_id", serde_json::to_value(&self.strand_id)?),
+                ("device_id", serde_json::to_value(&self.device_id)?),
+            ],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1030,6 +1054,29 @@ pub struct MimiKeyMaterialOutcome {
     pub failures: Vec<MimiFailure>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<PayloadProof>,
+}
+
+impl MimiKeyMaterialOutcome {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        mimi_unsigned_body_without_signature(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    /// Outcome families carry no wire issuer field: the signer identity is
+    /// borne only by `verification_method` (`mimi-interop.md` §5.1).
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL,
+            None,
+            Vec::new(),
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1108,7 +1155,32 @@ pub struct MimiGroupInfoOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub room_binding_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl MimiGroupInfoOutcome {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        mimi_unsigned_body_without_proofs(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        let mut targets = Vec::new();
+        if let Some(room_binding_ref) = &self.room_binding_ref {
+            targets.push(("room_binding_ref", serde_json::to_value(room_binding_ref)?));
+        }
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_GROUP_INFO_OUTCOME_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_READ_GROUP_INFO,
+            None,
+            targets,
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1126,7 +1198,31 @@ pub struct MimiRequestConsentRequestBody {
     )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl MimiRequestConsentRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        mimi_unsigned_body_without_proofs(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT,
+            Some(serde_json::to_value(&self.requester_id)?),
+            vec![
+                ("target", serde_json::to_value(&self.target)?),
+                ("purpose", serde_json::to_value(&self.purpose)?),
+            ],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1192,56 +1288,121 @@ impl MimiUpdateConsentRequestBody {
     /// Canonical request value covered by the operation proof. The detached
     /// proof is omitted to avoid a self-referential digest.
     pub fn unsigned_payload(&self) -> Result<Value> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("MimiUpdateConsentRequestBody serializes as an object")
-            .remove("signature");
-        Ok(value)
+        mimi_unsigned_body_without_signature(self)
     }
 
     /// Digest of the complete request with only the detached proof omitted.
     pub fn payload_digest(&self) -> Result<Hash> {
-        Hash::new(canonical::canonical_sha256(&self.unsigned_payload()?)?).map_err(Into::into)
+        mimi_payload_digest(&self.unsigned_payload()?)
     }
 
-    /// Canonical `ak.mimi-operation-proof-v1` transcript shared by MIMI
-    /// consent proof producers and verifiers.
+    /// Canonical `ak.mimi-update-consent-request-proof-v1` transcript shared by
+    /// MIMI consent proof producers and verifiers.
     pub fn signature_binding_bytes(&self) -> Result<Vec<u8>> {
-        self.signature.validate_production()?;
-        if self.signature.proof_purpose.is_some() {
-            return Err(Error::Protocol(
-                "MIMI operation proof must not carry proof_purpose".to_owned(),
-            ));
-        }
-        let payload_digest = self.payload_digest()?;
-        if self.signature.payload_digest != payload_digest {
-            return Err(Error::Protocol(
-                "MIMI consent proof payload_digest mismatch".to_owned(),
-            ));
-        }
-        let domain = self
-            .signature
-            .domain
-            .as_ref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| Error::Protocol("MIMI operation proof requires domain".to_owned()))?;
-        let audience =
-            self.signature.audience.as_ref().ok_or_else(|| {
-                Error::Protocol("MIMI operation proof requires audience".to_owned())
-            })?;
-        let binding = serde_json::json!({
-            "context": ProofContextId::MIMI_OPERATION_PROOF_V1,
-            "payload_digest": payload_digest,
-            "issuer": self.actor_id,
-            "operation_id": ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT,
-            "verification_method": self.signature.verification_method,
-            "created_at": canonical::format_timestamp_canonical(self.signature.created_at),
-            "domain": domain,
-            "audience": audience,
-        });
-        canonical::canonical_json_bytes(&binding).map_err(Into::into)
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT,
+            Some(serde_json::to_value(&self.actor_id)?),
+            vec![
+                ("consent_id", serde_json::to_value(&self.consent_id)?),
+                ("decision", serde_json::to_value(self.decision)?),
+            ],
+            &self.payload_digest()?,
+            &self.signature,
+        )
     }
+}
+
+/// Canonical unsigned MIMI body for the array-carrier families: the top-level
+/// `proofs` member is removed outright — never set to `null` — and every
+/// optional field that is actually present is retained (`mimi-interop.md` §5.1).
+fn mimi_unsigned_body_without_proofs<T: Serialize>(body: &T) -> Result<Value> {
+    let mut value = serde_json::to_value(body)?;
+    mimi_body_object_mut(&mut value)?.remove("proofs");
+    Ok(value)
+}
+
+/// Same rule for the two families whose detached proof is carried by a single
+/// top-level `signature` member.
+fn mimi_unsigned_body_without_signature<T: Serialize>(body: &T) -> Result<Value> {
+    let mut value = serde_json::to_value(body)?;
+    mimi_body_object_mut(&mut value)?.remove("signature");
+    Ok(value)
+}
+
+fn mimi_body_object_mut(value: &mut Value) -> Result<&mut serde_json::Map<String, Value>> {
+    value.as_object_mut().ok_or_else(|| {
+        Error::Protocol("MIMI operation body must serialize as an object".to_owned())
+    })
+}
+
+fn mimi_payload_digest(unsigned_body: &Value) -> Result<Hash> {
+    Hash::new(canonical::canonical_sha256(unsigned_body)?).map_err(Into::into)
+}
+
+/// Canonical MIMI actor-proof transcript (`mimi-interop.md` §5.1).
+///
+/// `context` is the object family's own registered context, so a signature that
+/// is valid under one family can never be replayed into another and a
+/// request/outcome direction swap is blocked by the context alone. `targets`
+/// carries the family's verbatim target identifiers in
+/// `proof-context-registry.json` `binding_fields` order; `issuer` is present iff
+/// the family's wire shape defines an originator field.
+fn mimi_proof_binding_bytes(
+    context: &str,
+    operation_id: &str,
+    issuer: Option<Value>,
+    targets: Vec<(&'static str, Value)>,
+    payload_digest: &Hash,
+    proof: &PayloadProof,
+) -> Result<Vec<u8>> {
+    proof.validate_production()?;
+    if proof.proof_purpose.is_some() {
+        return Err(Error::Protocol(
+            "MIMI operation proof must not carry proof_purpose".to_owned(),
+        ));
+    }
+    if &proof.payload_digest != payload_digest {
+        return Err(Error::Protocol(
+            "MIMI operation proof payload_digest mismatch".to_owned(),
+        ));
+    }
+    let domain = proof
+        .domain
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| Error::Protocol("MIMI operation proof requires domain".to_owned()))?;
+    let audience = proof
+        .audience
+        .as_ref()
+        .ok_or_else(|| Error::Protocol("MIMI operation proof requires audience".to_owned()))?;
+    let mut binding = serde_json::Map::new();
+    binding.insert("context".to_owned(), Value::String(context.to_owned()));
+    binding.insert(
+        "payload_digest".to_owned(),
+        serde_json::to_value(payload_digest)?,
+    );
+    if let Some(issuer) = issuer {
+        binding.insert("issuer".to_owned(), issuer);
+    }
+    binding.insert(
+        "operation_id".to_owned(),
+        Value::String(operation_id.to_owned()),
+    );
+    for (name, value) in targets {
+        binding.insert(name.to_owned(), value);
+    }
+    binding.insert(
+        "verification_method".to_owned(),
+        serde_json::to_value(&proof.verification_method)?,
+    );
+    binding.insert(
+        "created_at".to_owned(),
+        Value::String(canonical::format_timestamp_canonical(proof.created_at)),
+    );
+    binding.insert("domain".to_owned(), Value::String(domain.clone()));
+    binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+    canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1272,7 +1433,34 @@ pub struct MimiIdentifierQueryRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub privacy_profile: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl MimiIdentifierQueryRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        mimi_unsigned_body_without_proofs(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    /// `requester` may be absent; the transcript then omits `issuer` entirely
+    /// rather than encoding a null (`mimi-interop.md` §5.1).
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        let issuer = match &self.requester {
+            Some(requester) => Some(serde_json::to_value(requester)?),
+            None => None,
+        };
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS,
+            issuer,
+            Vec::new(),
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1281,8 +1469,29 @@ pub struct MimiIdentifierQueryOutcome {
     #[serde(default)]
     pub matches: Vec<MimiIdentifierMatch>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
     pub has_more: bool,
+}
+
+impl MimiIdentifierQueryOutcome {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        mimi_unsigned_body_without_proofs(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS,
+            None,
+            Vec::new(),
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1455,8 +1664,10 @@ mod mimi_consent_tests {
             binding,
             json!({
                 "audience": "did:webvh:z6mkservice:example.com",
-                "context": "ak.mimi-operation-proof-v1",
+                "consent_id": "ak:consent:01964137-0000-7000-8000-000000000777",
+                "context": "ak.mimi-update-consent-request-proof-v1",
                 "created_at": "2026-07-19T06:30:00.000Z",
+                "decision": "accept",
                 "domain": "ak:trust_domain:example.com",
                 "issuer": "ak:did_core:webvh:z6mkfixture",
                 "operation_id": "ak.open.mimi.command.update_consent",
@@ -1464,6 +1675,31 @@ mod mimi_consent_tests {
                 "verification_method": "did:webvh:z6mkfixture:example.com:users:alice#device-1"
             })
         );
+    }
+
+    #[test]
+    fn mimi_operation_contexts_are_per_object_family() {
+        let request = request();
+        let mut identifier_query = MimiIdentifierQueryRequestBody {
+            identifiers: Vec::new(),
+            requester: None,
+            privacy_profile: None,
+            proofs: Vec::new(),
+        };
+        let mut proof = request.signature.clone();
+        proof.payload_digest = identifier_query.payload_digest().unwrap();
+        identifier_query.proofs = vec![proof.clone()];
+
+        let binding: Value = canonical::from_canonical_json_slice(
+            &identifier_query.proof_binding_bytes(&proof).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            binding["context"],
+            json!("ak.mimi-identifier-query-request-proof-v1")
+        );
+        assert!(binding.get("issuer").is_none());
     }
 
     #[test]
@@ -2534,7 +2770,7 @@ mod federation_dependency_tests {
 #[cfg(test)]
 mod device_pairing_tests {
     use arkret_wire::{
-        AuthContext, DidCoreId, DidUrl, EventKind, EventRequirements, ScopeRef, proof_kind,
+        AuthContext, DidCoreId, DidUrl, EventKind, EventRequirements, Proof, ScopeRef, proof_kind,
     };
 
     use super::*;

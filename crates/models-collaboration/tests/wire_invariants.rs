@@ -14,8 +14,8 @@ use arkret_models_collaboration::object_lifecycle::{
 use arkret_wire::signal::{SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME};
 use arkret_wire::{
     ConsentId, DeviceId, DidCoreId, DidUrl, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
-    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, StrandId, TypedAppealId,
-    TrustDomainId,
+    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, StrandId, TrustDomainId,
+    TypedAppealId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{Value, json};

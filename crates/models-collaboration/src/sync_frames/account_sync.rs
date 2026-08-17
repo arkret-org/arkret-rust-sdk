@@ -292,8 +292,14 @@ impl DeviceMessageSender {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/device-message.schema.json`.
+///
+/// The schema root is `additionalProperties: false`, and that closure is
+/// enforced by [`DeviceMessageEnvelopeWire`] — the only deserializer for this
+/// type. This struct carries no `deny_unknown_fields` of its own: the attribute
+/// is consumed solely by serde's `Deserialize` derive, which this type does not
+/// use, and serde rejects it outright alongside `#[serde(flatten)]`, so
+/// spelling it here would claim a guarantee this derive cannot make.
 #[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessageEnvelope {
     pub message_id: DeviceMessageId,

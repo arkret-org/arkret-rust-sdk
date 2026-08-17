@@ -680,6 +680,7 @@ pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
 /// `drift_report` then checks the same set against the live
 /// `id-kind-registry.json`.
 pub const SUPPORTED_ID_KINDS: &[&str] = &[
+    "account_status_record",
     "actor_profile",
     "announce",
     "appeal",

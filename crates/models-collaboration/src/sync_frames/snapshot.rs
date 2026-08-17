@@ -229,6 +229,29 @@ pub struct SnapshotChunksItem {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/snapshot.schema.json#/$defs/snapshot_witness_attestation`.
+///
+/// A distinct object family from the manifest: the witness signs the canonical
+/// signature-free projection of `snapshot-schema.md` §5.1 under
+/// `ak.snapshot-witness-attestation-proof-v1`, never the manifest transcript.
+///
+/// This is the **wire DTO** half of the snapshot model, alongside [`Snapshot`]
+/// and [`SnapshotAuthorityBinding`]; it mirrors the schema shape verbatim and
+/// carries the full shared proof leaf as `PayloadProof`. The **verification
+/// model** half lives in `arkret_state::snapshot`, where
+/// `SnapshotWitnessAttestation` hangs off `SnapshotManifest` /
+/// `AuthorityBinding` and owns the canonical projection builder and the
+/// quorum verifier. The two halves are named apart on purpose — same as
+/// [`SnapshotChunksItem`] vs `SnapshotChunkDescriptor` — so neither shadows the
+/// other in the `arkret_sdk` prelude.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotWitnessAttestationItem {
+    pub witness_id: DidCoreId,
+    pub proof: PayloadProof,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SnapshotAuthorityBinding {
@@ -239,7 +262,7 @@ pub struct SnapshotAuthorityBinding {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub checked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub witness_attestations: Option<Vec<Proof>>,
+    pub witness_attestations: Option<Vec<SnapshotWitnessAttestationItem>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

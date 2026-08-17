@@ -12,8 +12,9 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    BlobRef, DidCoreId, EncryptionProfile, Error, EventId, Hash, JoinRule, NonEmptyString,
-    PayloadProof, Proof, RealmId, Result, SchemaId, SealBasis,
+    Audience, BlobRef, DidCoreId, EncryptionProfile, Error, EventId, Hash, JoinRule,
+    NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId, SealBasis,
+    ServiceOperationId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -299,9 +300,30 @@ pub struct DirectoryResolveTargetRequestBody {
     )]
     pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
+}
+
+impl DirectoryResolveTargetRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        directory_unsigned_request(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        directory_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        directory_proof_binding_bytes(
+            ProofContextId::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET,
+            Some(directory_required_issuer(self.requester.as_ref())?),
+            vec![("address", Value::String(self.address.clone()))],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 /// R3.3 (AKP-0011) — response body for `ak.find.directory.read.resolve_target`.
@@ -400,7 +422,32 @@ pub struct DirectoryResolveOrganizationRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl DirectoryResolveOrganizationRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        directory_unsigned_request(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        directory_payload_digest(&self.unsigned_payload()?)
+    }
+
+    /// This family has no originator wire field, so the binding object omits
+    /// `issuer` and the signer identity is borne only by `verification_method`.
+    /// Its resolution target is already fully covered by `payload_digest`, so no
+    /// extra target member is added (`discovery-directory.md` §9.0.1).
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        directory_proof_binding_bytes(
+            ProofContextId::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION,
+            None,
+            Vec::new(),
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -568,7 +615,28 @@ pub struct DirectoryResolveHandleRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<String>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl DirectoryResolveHandleRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        directory_unsigned_request(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        directory_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        directory_proof_binding_bytes(
+            ProofContextId::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE,
+            Some(directory_required_issuer(self.requester.as_ref())?),
+            vec![("handle", Value::String(self.handle.clone()))],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 /// Request body for `ak.find.directory.read.resolve_agent_selector`.
@@ -587,7 +655,34 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub realm_id: Option<RealmId>,
     pub requester: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl DirectoryResolveAgentSelectorRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        directory_unsigned_request(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        directory_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        directory_proof_binding_bytes(
+            ProofContextId::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR,
+            Some(serde_json::to_value(&self.requester)?),
+            vec![
+                (
+                    "controller_handle",
+                    serde_json::to_value(&self.controller_handle)?,
+                ),
+                ("agent_slug", Value::String(self.agent_slug.clone())),
+            ],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
 }
 
 /// Response body for `ak.find.directory.read.resolve_agent_selector`.
@@ -654,7 +749,7 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -663,6 +758,131 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
+}
+
+impl DirectoryListHandlesForSubjectRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        directory_unsigned_request(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        directory_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        directory_proof_binding_bytes(
+            ProofContextId::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1,
+            ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT,
+            Some(directory_required_issuer(self.requester.as_ref())?),
+            vec![("subject", serde_json::to_value(&self.subject)?)],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
+}
+
+/// Canonical unsigned directory request: the top-level `proofs` member is
+/// removed outright — never set to `null` — and every optional field that is
+/// actually present is retained (`discovery-directory.md` §9.0.1).
+fn directory_unsigned_request<T: Serialize>(request: &T) -> Result<Value> {
+    let mut value = serde_json::to_value(request)?;
+    value
+        .as_object_mut()
+        .ok_or_else(|| {
+            Error::Protocol("directory request body must serialize as an object".to_owned())
+        })?
+        .remove("proofs");
+    Ok(value)
+}
+
+fn directory_payload_digest(unsigned_request: &Value) -> Result<Hash> {
+    Hash::new(arkret_canonical::canonical::canonical_sha256(
+        unsigned_request,
+    )?)
+    .map_err(Into::into)
+}
+
+fn directory_required_issuer(requester: Option<&DidCoreId>) -> Result<Value> {
+    let requester = requester.ok_or_else(|| {
+        Error::Protocol(
+            "directory requester proof requires the object family's originator field".to_owned(),
+        )
+    })?;
+    Ok(serde_json::to_value(requester)?)
+}
+
+/// Canonical directory requester-proof binding object
+/// (`discovery-directory.md` §9.0.1).
+///
+/// `context` is the request family's own registered context, so a signature
+/// valid for one family can never be accepted by another. `audience` is the
+/// target Directory service DID and is mandatory; `domain` and `proof_purpose`
+/// MUST be absent — `governance_authorization` belongs to the §8.7.1 write
+/// surface only.
+fn directory_proof_binding_bytes(
+    context: &str,
+    operation_id: &str,
+    issuer: Option<Value>,
+    targets: Vec<(&'static str, Value)>,
+    payload_digest: &Hash,
+    proof: &PayloadProof,
+) -> Result<Vec<u8>> {
+    proof.validate_production()?;
+    if proof.proof_purpose.is_some() {
+        return Err(Error::Protocol(
+            "directory requester proof must not carry proof_purpose".to_owned(),
+        ));
+    }
+    if proof.domain.is_some() {
+        return Err(Error::Protocol(
+            "directory requester proof must not carry domain".to_owned(),
+        ));
+    }
+    if &proof.payload_digest != payload_digest {
+        return Err(Error::Protocol(
+            "directory requester proof payload_digest mismatch".to_owned(),
+        ));
+    }
+    let audience = proof
+        .audience
+        .as_ref()
+        .ok_or_else(|| Error::Protocol("directory requester proof requires audience".to_owned()))?;
+    if !matches!(audience, Audience::Single(_)) {
+        return Err(Error::Protocol(
+            "directory requester proof audience must be the single target Directory service DID"
+                .to_owned(),
+        ));
+    }
+    let mut binding = serde_json::Map::new();
+    binding.insert("context".to_owned(), Value::String(context.to_owned()));
+    binding.insert(
+        "payload_digest".to_owned(),
+        serde_json::to_value(payload_digest)?,
+    );
+    if let Some(issuer) = issuer {
+        binding.insert("issuer".to_owned(), issuer);
+    }
+    binding.insert(
+        "operation_id".to_owned(),
+        Value::String(operation_id.to_owned()),
+    );
+    for (name, value) in targets {
+        binding.insert(name.to_owned(), value);
+    }
+    binding.insert(
+        "verification_method".to_owned(),
+        serde_json::to_value(&proof.verification_method)?,
+    );
+    binding.insert(
+        "created_at".to_owned(),
+        Value::String(arkret_canonical::canonical::format_timestamp_canonical(
+            proof.created_at,
+        )),
+    );
+    binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+    Ok(arkret_canonical::canonical::canonical_json_bytes(
+        &Value::Object(binding),
+    )?)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

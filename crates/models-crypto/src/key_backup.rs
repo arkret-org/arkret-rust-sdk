@@ -10,9 +10,9 @@ use arkret_wire::{
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
     CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl, Error, Event, EventId,
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
-    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId,
-    ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId,
-    TrustDomainId, XExtensionMap,
+    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, ProofContextId,
+    RECOVERY_POLICY_SIGNATURE_TYPE, RealmId, ReasonCode, ReceiptId, RecoverySessionId, Result,
+    SchemaId, ServiceOperationId, TransactionId, TrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -101,8 +101,12 @@ pub struct KeysBackupsList {
 pub const VECTOR_ID_KEY_BACKUP_UNLOCK_PROOF: &str = "ak.vector.key_backup.unlock_proof.v1";
 
 /// Signing context of the canonical delete-intent transcript
-/// (`key-management.md` §7.8.1).
-pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = "ak.keys.backup_delete.v1";
+/// (`key-management.md` §7.8.1). `high-risk-authority-proof.schema.json` is one
+/// wire leaf shared by several consumers, so the leaf itself owns no context:
+/// this row is registered with
+/// `consumer_operation = ak.self.keys.backups.resource.delete`, and reusing
+/// another consumer's context MUST fail closed even when the JWS verifies.
+pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = ProofContextId::KEY_BACKUP_DELETE_PROOF_V1;
 
 /// High-risk authority proof over the canonical delete-intent transcript
 /// (`high-risk-authority-proof.schema.json`).

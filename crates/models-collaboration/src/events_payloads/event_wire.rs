@@ -84,7 +84,9 @@ pub struct VerificationStubSealInclusion {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ErasureTrigger {
-    Event { event_id: EventId },
+    Event {
+        event_id: EventId,
+    },
     AccountStatusRecord {
         account_status_record_id: AccountStatusRecordId,
     },

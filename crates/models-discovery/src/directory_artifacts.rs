@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{EventId, MessageId, NonEmptyString, Proof, StrandId};
+use arkret_wire::{EventId, MessageId, NonEmptyString, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -91,9 +91,6 @@ pub enum ObjectPreviewId {
     Message(MessageId),
     Event(EventId),
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/proofs`.
-pub type Proofs = Vec<Proof>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/source_refs`.
 pub type SourceRefs = Vec<EventId>;

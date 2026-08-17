@@ -218,6 +218,21 @@
     {
       "generator": "registry-types",
       "outputs": [
+        "crates/wire/src/generated/redactable_fields.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/redactable-field-registry.json"
+      ],
+      "provides": [
+        "REDACTABLE_FIELDS",
+        "REDACTABLE_FIELD_PATHS"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
         "crates/wire/src/generated/security_strings.rs"
       ],
       "owner": "arkret-wire",

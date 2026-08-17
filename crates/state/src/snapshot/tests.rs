@@ -610,3 +610,177 @@ fn state_digest_rejects_duplicate_kind_id() {
     let err = state_digest_from_items(&[item.clone(), item]).unwrap_err();
     assert!(format!("{err}").contains("duplicate snapshot item key"));
 }
+
+fn witness_quorum_manifest(witnesses: &[(&str, &str)], declared_quorum: u32) -> SnapshotManifest {
+    let item = state_item(
+        "strand",
+        "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+        "000000000001",
+    );
+    let (mut manifest, ..) = manifest_for_items(vec![item]);
+    manifest.authority_binding.authority_kind = SnapshotAuthorityKind::WitnessQuorum;
+    manifest.verification_hints = Some(SnapshotVerificationHints {
+        verification_profile: SnapshotSecurityClass::Standard,
+        inclusion_proof_url: None,
+        challenge_window_seconds: None,
+        witness_quorum: Some(declared_quorum),
+        conflict_records_digest: None,
+        soft_failed_digest: None,
+        quarantined_digest: None,
+    });
+    let created_at = manifest.created_at;
+    manifest.authority_binding.witness_attestations = witnesses
+        .iter()
+        .map(|(core_id, full_id)| {
+            let witness_id = DidCoreId::new((*core_id).to_owned()).unwrap();
+            let digest = manifest.witness_attestation_digest(&witness_id).unwrap();
+            SnapshotWitnessAttestation {
+                witness_id,
+                proof: DetachedJwsProof::ed25519(
+                    DidUrl::new(format!("{full_id}#snapshot-witness")).unwrap(),
+                    digest,
+                    created_at,
+                    "header..signature".to_owned(),
+                ),
+            }
+        })
+        .collect();
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    manifest
+}
+
+fn witness_policy(core_ids: &[&str], threshold: u32) -> SnapshotWitnessQuorumPolicy {
+    SnapshotWitnessQuorumPolicy {
+        authorized_witnesses: core_ids
+            .iter()
+            .map(|value| DidCoreId::new((*value).to_owned()).unwrap())
+            .collect(),
+        threshold,
+    }
+}
+
+const WITNESS_ONE: (&str, &str) = (
+    "ak:did_core:webvh:z6mkwitnessaaa",
+    "did:webvh:z6mkwitnessaaa:witness-a.example",
+);
+const WITNESS_TWO: (&str, &str) = (
+    "ak:did_core:webvh:z6mkwitnessbbb",
+    "did:webvh:z6mkwitnessbbb:witness-b.example",
+);
+
+#[test]
+fn witness_attestation_projection_excludes_signatures_and_witness_list() {
+    let manifest = witness_quorum_manifest(&[WITNESS_ONE, WITNESS_TWO], 2);
+    let witness_id = DidCoreId::new(WITNESS_ONE.0.to_owned()).unwrap();
+    let projection = manifest
+        .witness_attestation_projection(&witness_id)
+        .unwrap();
+    let projection = projection.as_object().unwrap();
+
+    assert_eq!(
+        projection["context"],
+        Value::String(SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT.to_owned())
+    );
+    for excluded in [
+        "signature",
+        "witness_attestations",
+        "verification_hints",
+        "chunks",
+        "created_by",
+        "checked_at",
+    ] {
+        assert!(
+            !projection.contains_key(excluded),
+            "projection must exclude {excluded}"
+        );
+    }
+    assert_eq!(projection["issuer"], serde_json::to_value(actor()).unwrap());
+    assert_eq!(
+        projection["snapshot_created_at"],
+        "2026-06-01T00:00:00.000Z"
+    );
+}
+
+#[test]
+fn witness_quorum_accepts_sorted_authorized_quorum() {
+    let manifest = witness_quorum_manifest(&[WITNESS_ONE, WITNESS_TWO], 2);
+    manifest
+        .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0, WITNESS_TWO.0], 2))
+        .unwrap();
+}
+
+#[test]
+fn witness_quorum_rejects_unsorted_or_duplicate_rows() {
+    let mut manifest = witness_quorum_manifest(&[WITNESS_ONE, WITNESS_TWO], 2);
+    manifest.authority_binding.witness_attestations.reverse();
+    let error = manifest
+        .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0, WITNESS_TWO.0], 2))
+        .unwrap_err();
+    assert_eq!(error.code, SnapshotValidationCode::SchemaViolation);
+
+    let mut duplicated = witness_quorum_manifest(&[WITNESS_ONE, WITNESS_TWO], 2);
+    duplicated.authority_binding.witness_attestations[1].witness_id =
+        DidCoreId::new(WITNESS_ONE.0.to_owned()).unwrap();
+    let error = duplicated
+        .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0, WITNESS_TWO.0], 2))
+        .unwrap_err();
+    assert_eq!(error.code, SnapshotValidationCode::SchemaViolation);
+}
+
+#[test]
+fn witness_quorum_requires_attestations_and_policy_threshold() {
+    let mut missing = witness_quorum_manifest(&[WITNESS_ONE], 1);
+    missing.authority_binding.witness_attestations.clear();
+    assert_eq!(
+        missing
+            .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 1))
+            .unwrap_err()
+            .code,
+        SnapshotValidationCode::SchemaViolation
+    );
+
+    let manifest = witness_quorum_manifest(&[WITNESS_ONE], 1);
+    assert_eq!(
+        manifest
+            .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 2))
+            .unwrap_err()
+            .code,
+        SnapshotValidationCode::SnapshotAuthorityUnverified
+    );
+
+    let unauthorized = witness_quorum_manifest(&[WITNESS_ONE], 1);
+    assert_eq!(
+        unauthorized
+            .verify_witness_attestations(&witness_policy(&[WITNESS_TWO.0], 1))
+            .unwrap_err()
+            .code,
+        SnapshotValidationCode::SnapshotAuthorityUnverified
+    );
+}
+
+#[test]
+fn witness_quorum_rejects_manifest_context_and_foreign_controller() {
+    let mut wrong_transcript = witness_quorum_manifest(&[WITNESS_ONE], 1);
+    wrong_transcript.authority_binding.witness_attestations[0]
+        .proof
+        .payload_digest = wrong_transcript.expected_signature_digest().unwrap();
+    assert_eq!(
+        wrong_transcript
+            .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 1))
+            .unwrap_err()
+            .code,
+        SnapshotValidationCode::SignatureInvalid
+    );
+
+    let mut foreign_controller = witness_quorum_manifest(&[WITNESS_ONE], 1);
+    foreign_controller.authority_binding.witness_attestations[0]
+        .proof
+        .verification_method = DidUrl::new(format!("{}#snapshot-witness", WITNESS_TWO.1)).unwrap();
+    assert_eq!(
+        foreign_controller
+            .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 1))
+            .unwrap_err()
+            .code,
+        SnapshotValidationCode::SignatureInvalid
+    );
+}

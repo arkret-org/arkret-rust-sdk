@@ -641,9 +641,13 @@ mod tests {
     #[test]
     fn ensure_request_and_outcome_validate_endpoint_binding() {
         let operation = inception();
-        let request =
-            ServiceRegistrationEnsureRequestBody::new(registration_key(), operation.clone(), None)
-                .unwrap();
+        let request = ServiceRegistrationEnsureRequestBody::new(
+            registration_key(),
+            operation.clone(),
+            "ensure-attempt-1",
+            None,
+        )
+        .unwrap();
         request.validate().unwrap();
         let outcome = ServiceRegistrationOutcome {
             service_id: project_full_id_to_core_id(&operation.state.id).unwrap(),

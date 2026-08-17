@@ -613,15 +613,28 @@ pub struct ServiceRegistrationEnsureRequestBody {
     pub public_base: CanonicalServiceUrl,
     pub full_id: DidFullId,
     pub inception_operation: ServiceWebvhInceptionOperation,
+    /// Bounded opaque caller-chosen correlation string. It relates audit
+    /// records for one ensure attempt and nothing else: it is outside the `ak:`
+    /// typed-ID namespace, is never parsed by the typed-ID parser, and never
+    /// establishes an object identity. Registration identity is the canonical
+    /// `(service_kind, public_base)` key that provider persistence enforces
+    /// with `UNIQUE(service_kind, public_base)`; the single idempotency
+    /// authority for this operation is the operation registry's
+    /// `idempotency_mechanism=object_id`.
     pub idempotency_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_receipt: Option<ServiceRegistrationReceipt>,
 }
 
+/// Inclusive length bounds of `idempotency_key`
+/// (`principal-operations.schema.json#/$defs/opaque_id`).
+const SERVICE_REGISTRATION_IDEMPOTENCY_KEY_MAX_LEN: usize = 512;
+
 impl ServiceRegistrationEnsureRequestBody {
     pub fn new(
         key: ServiceRegistrationKey,
         inception_operation: ServiceWebvhInceptionOperation,
+        idempotency_key: impl Into<String>,
         previous_receipt: Option<ServiceRegistrationReceipt>,
     ) -> Result<Self> {
         inception_operation.validate_for(&key)?;
@@ -630,7 +643,8 @@ impl ServiceRegistrationEnsureRequestBody {
         if let Some(receipt) = &previous_receipt {
             receipt.validate_for(&key, &service_id, &full_id)?;
         }
-        let idempotency_key = service_registration_idempotency_key(&key)?;
+        let idempotency_key = idempotency_key.into();
+        validate_service_registration_idempotency_key(&idempotency_key)?;
         Ok(Self {
             service_kind: key.service_kind,
             public_base: key.public_base,
@@ -655,12 +669,7 @@ impl ServiceRegistrationEnsureRequestBody {
             ));
         }
         let service_id = project_full_id_to_core_id(&self.full_id)?;
-        if self.idempotency_key != service_registration_idempotency_key(&key)? {
-            return Err(Error::Protocol(
-                "service registration idempotency_key does not match the registration key"
-                    .to_owned(),
-            ));
-        }
+        validate_service_registration_idempotency_key(&self.idempotency_key)?;
         if let Some(receipt) = &self.previous_receipt {
             receipt.validate_for(&key, &service_id, &self.full_id)?;
         }
@@ -722,13 +731,14 @@ impl ServiceRegistrationOutcome {
     }
 }
 
-pub fn service_registration_idempotency_key(key: &ServiceRegistrationKey) -> Result<String> {
-    Ok(format!(
-        "ak:service-registration:{}",
-        canonical::sha256_hex(canonical::canonical_json_bytes(&serde_json::to_value(
-            key
-        )?)?)
-    ))
+fn validate_service_registration_idempotency_key(value: &str) -> Result<()> {
+    if value.is_empty() || value.chars().count() > SERVICE_REGISTRATION_IDEMPOTENCY_KEY_MAX_LEN {
+        return Err(Error::Protocol(
+            "service registration idempotency_key must be a bounded non-empty opaque string"
+                .to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 /// Deterministic WebVH local id for a registration key. The principal

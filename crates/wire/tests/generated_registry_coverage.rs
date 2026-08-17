@@ -28,6 +28,7 @@ fn generated_closed_registry_types_reject_unregistered_values() {
     assert_eq!(
         AuthoritySetPolicyKind::ALL,
         &[
+            AuthoritySetPolicyKind::AccountAuthority,
             AuthoritySetPolicyKind::PrincipalControl,
             AuthoritySetPolicyKind::RealmAdmission,
         ]

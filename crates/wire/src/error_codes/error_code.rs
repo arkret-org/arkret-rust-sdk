@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-17.5;
-//! sha256=dc3da6e28e39a4991296642dc6d40bc8af09f0ee7bc95ecc7c39a6fb060b4725 Entries: error_codes=283
+//! Input: registry/error-code-registry.json; version=2026-08-17.7;
+//! sha256=9bbe0e4cd32bef9f49ea6de597cd2ba91a3e3c0e56302ba8922d5591955a9ca6 Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -67,7 +67,6 @@ pub enum ErrorCode {
     AuthExpired,
     AuthorizedGrantRevoked,
     AvatarBlobRefInvalid,
-    AvatarUrlInvalid,
     BlobDigestMismatch,
     BlobExpired,
     BlobPresignInvalid,
@@ -364,7 +363,6 @@ impl ErrorCode {
         Self::AuthExpired,
         Self::AuthorizedGrantRevoked,
         Self::AvatarBlobRefInvalid,
-        Self::AvatarUrlInvalid,
         Self::BlobDigestMismatch,
         Self::BlobExpired,
         Self::BlobPresignInvalid,
@@ -654,7 +652,6 @@ impl ErrorCode {
     pub const AUTH_EXPIRED: &'static str = "auth_expired";
     pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
     pub const AVATAR_BLOB_REF_INVALID: &'static str = "avatar_blob_ref_invalid";
-    pub const AVATAR_URL_INVALID: &'static str = "avatar_url_invalid";
     pub const BLOB_DIGEST_MISMATCH: &'static str = "blob_digest_mismatch";
     pub const BLOB_EXPIRED: &'static str = "blob_expired";
     pub const BLOB_PRESIGN_INVALID: &'static str = "blob_presign_invalid";
@@ -972,7 +969,6 @@ impl ErrorCode {
             Self::AuthExpired => "auth_expired",
             Self::AuthorizedGrantRevoked => "authorized_grant_revoked",
             Self::AvatarBlobRefInvalid => "avatar_blob_ref_invalid",
-            Self::AvatarUrlInvalid => "avatar_url_invalid",
             Self::BlobDigestMismatch => "blob_digest_mismatch",
             Self::BlobExpired => "blob_expired",
             Self::BlobPresignInvalid => "blob_presign_invalid",
@@ -1278,7 +1274,6 @@ impl ErrorCode {
             "auth_expired" => Some(Self::AuthExpired),
             "authorized_grant_revoked" => Some(Self::AuthorizedGrantRevoked),
             "avatar_blob_ref_invalid" => Some(Self::AvatarBlobRefInvalid),
-            "avatar_url_invalid" => Some(Self::AvatarUrlInvalid),
             "blob_digest_mismatch" => Some(Self::BlobDigestMismatch),
             "blob_expired" => Some(Self::BlobExpired),
             "blob_presign_invalid" => Some(Self::BlobPresignInvalid),
@@ -1863,14 +1858,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &["schema_validation", "service_call"],
         description: "`ak.self.account.command.update_profile` received an `avatar_blob_ref` that is not a valid Arkret Blob reference, does not resolve under the caller's profile/avatar policy, or points to a blob the server cannot authorize for profile display. Protocol profile updates MUST use `avatar_blob_ref`; `avatar_url` is not a protocol field.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AvatarUrlInvalid,
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The provided avatar URL is invalid.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BlobDigestMismatch,

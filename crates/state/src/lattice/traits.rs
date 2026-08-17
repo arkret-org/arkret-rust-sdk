@@ -181,7 +181,7 @@ mod kind_tests {
     #[test]
     fn ordered_log_handles_registry_ordered_cells() {
         let kinds = LatticeKind::OrderedLog.event_kinds();
-        assert!(kinds.contains(&"ak.space.create"));
+        assert!(kinds.contains(&"ak.message.create"));
         assert!(kinds.contains(&"ak.policy.rule"));
     }
 

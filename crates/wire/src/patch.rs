@@ -26,6 +26,7 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::error_codes::ReasonCode;
+use crate::generated::REDACTABLE_FIELD_PATHS;
 
 /// Maximum patch-path length in bytes, per spec.
 pub const PATCH_PATH_MAX_BYTES: usize = 1024;
@@ -47,18 +48,6 @@ const REDUCER_MANAGED_PATCH_FIELDS: &[&str] = &[
     "deleted_at",
     "effective_scope",
     "actor_kind",
-];
-
-const REDACTABLE_UNSET_PATCH_PATHS: &[&str] = &[
-    "content",
-    "encrypted_content",
-    "encrypted_metadata",
-    "encrypted_payload",
-    "body",
-    "attachments",
-    "summary",
-    "metadata.summary",
-    "metadata.fields.summary",
 ];
 
 /// Explicit op discriminator.
@@ -639,13 +628,20 @@ fn patch_path_targets_reducer_managed(path: &str) -> bool {
     REDUCER_MANAGED_PATCH_FIELDS.contains(&root)
 }
 
+/// Whether a patch path addresses a registered redactable content-carrier slot.
+///
+/// The slot set is the canonical projection in
+/// `registry/redactable-field-registry.json`; this module never spells its own
+/// list. `metadata`, `encrypted_metadata`, `metadata.title`, `metadata.summary`
+/// and every path under `metadata.fields` are ordinary optional members, not
+/// content slots: `$op="unset"` is their only non-terminal clear path and MUST
+/// be accepted (`event-and-patch.md` §4.2.4). Realm-defined
+/// `redactable: true` fields are declared by their own Realm schema and are
+/// enforced by the reducer holding that schema, not here.
 fn patch_path_targets_redactable_unset(path: &str) -> bool {
-    if path == "metadata" {
-        return true;
-    }
-    REDACTABLE_UNSET_PATCH_PATHS
+    REDACTABLE_FIELD_PATHS
         .iter()
-        .any(|redactable| path == *redactable || path.starts_with(&format!("{redactable}.")))
+        .any(|slot| path == *slot || path.starts_with(&format!("{slot}.")))
 }
 
 fn normalized_patch_segment_head(segment: &str) -> Option<&str> {
@@ -825,10 +821,54 @@ mod tests {
 
     #[test]
     fn validate_patch_semantic_safety_allows_non_redactable_metadata_unset() {
-        let mut patch = Patch::new();
-        patch.insert_op("metadata.title", PatchOp::unset()).unwrap();
+        // `event-and-patch.md` §4.2.4 keeps these out of the ban on purpose:
+        // they are ordinary optional members, and `unset` is their only
+        // non-terminal clear path.
+        for path in [
+            "metadata",
+            "metadata.title",
+            "metadata.summary",
+            "metadata.fields.summary",
+            "metadata.fields.due_date",
+            "encrypted_metadata",
+        ] {
+            let mut patch = Patch::new();
+            patch.insert_op(path, PatchOp::unset()).unwrap();
+            validate_patch_semantic_safety(&patch)
+                .unwrap_or_else(|error| panic!("unset on {path} must be accepted: {error}"));
+        }
+    }
 
-        validate_patch_semantic_safety(&patch).unwrap();
+    #[test]
+    fn validate_patch_semantic_safety_allows_set_on_a_redactable_slot() {
+        // Clearing a body is ordinary authoring: `set` with an empty body stays
+        // legal on the very paths whose `unset` is banned.
+        for path in REDACTABLE_FIELD_PATHS {
+            let mut patch = Patch::new();
+            patch
+                .insert_op(
+                    *path,
+                    PatchOp::set(serde_json::json!({"kind": "ak.content.text", "body": ""})),
+                )
+                .unwrap();
+            validate_patch_semantic_safety(&patch)
+                .unwrap_or_else(|error| panic!("set on {path} must be accepted: {error}"));
+        }
+    }
+
+    #[test]
+    fn redactable_slot_paths_come_from_the_registry_projection() {
+        assert_eq!(REDACTABLE_FIELD_PATHS, &["content", "encrypted_content"]);
+        for path in REDACTABLE_FIELD_PATHS {
+            let mut patch = Patch::new();
+            patch.insert_op(*path, PatchOp::unset()).unwrap();
+            let error = validate_patch_semantic_safety(&patch).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains(ReasonCode::PATCH_UNSET_REDACTABLE_FIELD)
+            );
+        }
     }
 
     fn patch_of(entries: &[(&str, PatchOp)]) -> Patch {

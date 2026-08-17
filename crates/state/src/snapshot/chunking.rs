@@ -530,6 +530,10 @@ impl SnapshotManifest {
                 "snapshot signature payload_digest does not match manifest canonical bytes",
             ));
         }
+        // The manifest signature covers the final witness list, so it is
+        // checked first and the per-row conditions only afterwards
+        // (`snapshot-schema.md` §5.1).
+        self.validate_witness_attestation_shape()?;
         if !manifest_frontiers_match(self) {
             return Err(SnapshotValidationError::new(
                 SnapshotValidationCode::InclusionProofFailed,

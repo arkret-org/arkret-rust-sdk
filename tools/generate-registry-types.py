@@ -1360,6 +1360,7 @@ def generate_security_strings(artifacts: Path) -> str:
             "    pub id: ProofContextId,",
             "    pub context: &'static str,",
             "    pub object_family: &'static str,",
+            "    pub consumer_operation: Option<&'static str>,",
             "    pub binding_fields: &'static [&'static str],",
             "    pub schema_ref: &'static str,",
             "}",
@@ -1401,6 +1402,7 @@ def generate_security_strings(artifacts: Path) -> str:
                 f"        id: ProofContextId::{variant(row['context'], ('ak.',))},",
                 f"        context: {rust_string(row['context'])},",
                 f"        object_family: {rust_string(row['object_family'])},",
+                f"        consumer_operation: {rust_option(row.get('consumer_operation'))},",
                 f"        binding_fields: {rust_slice(row['binding_fields'])},",
                 f"        schema_ref: {rust_string(row['schema_ref'])},",
                 "    },",
@@ -2529,6 +2531,9 @@ def generate_registry_descriptors(artifacts: Path) -> str:
             "pub struct SpecialFormIdKindDescriptor {",
             "    pub kind: &'static str,",
             "    pub wire_form: &'static str,",
+            "    /// Registered regular expression the wire form's payload (everything",
+            "    /// after the `ak:<kind>:` prefix) must match.",
+            "    pub payload_pattern: &'static str,",
             "}",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -2607,6 +2612,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
                 "    SpecialFormIdKindDescriptor {",
                 f"        kind: {rust_string(row['kind'])},",
                 f"        wire_form: {rust_string(row['wire_form'])},",
+                f"        payload_pattern: {rust_string(row['payload_pattern'])},",
                 "    },",
             ]
         )
@@ -3151,6 +3157,64 @@ def generate_authority_set_ids(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def generate_redactable_fields(artifacts: Path) -> str:
+    relative = "registry/redactable-field-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(
+        artifact["redactable_fields"],
+        key=lambda row: (row["object_kind"], row["path"]),
+    )
+    paths = sorted({row["path"] for row in rows})
+    lines = header(
+        [(relative, artifact, digest)],
+        f"redactable_fields={len(rows)}, distinct_paths={len(paths)}",
+    )
+    lines.extend(
+        [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct RedactableFieldDescriptor {",
+            "    pub object_kind: &'static str,",
+            "    pub path: &'static str,",
+            "    pub paired_path: &'static str,",
+            "    pub non_terminal_clear_op: &'static str,",
+            "    pub terminal_clear_event_kinds: &'static [&'static str],",
+            "}",
+            "",
+            "/// Registered redactable content-carrier slots",
+            "/// (`event-and-patch.md` section 4.2.4).",
+            "pub const REDACTABLE_FIELDS: &[RedactableFieldDescriptor] = &[",
+        ]
+    )
+    for row in rows:
+        lines.extend(
+            [
+                "    RedactableFieldDescriptor {",
+                f"        object_kind: {rust_string(row['object_kind'])},",
+                f"        path: {rust_string(row['path'])},",
+                f"        paired_path: {rust_string(row['paired_path'])},",
+                "        non_terminal_clear_op: "
+                f"{rust_string(row['non_terminal_clear_op'])},",
+                "        terminal_clear_event_kinds: "
+                f"{rust_slice(row['terminal_clear_event_kinds'])},",
+                "    },",
+            ]
+        )
+    lines.extend(
+        [
+            "];",
+            "",
+            "/// Distinct slot paths a patch `$op=\"unset\"` must never address.",
+            "/// Realm-defined `redactable: true` fields are declared by their own",
+            "/// Realm schema and are enforced separately.",
+            "pub const REDACTABLE_FIELD_PATHS: &[&str] = &[",
+        ]
+    )
+    for path in paths:
+        lines.append(f"    {rust_string(path)},")
+    lines.append("];")
+    return "\n".join(lines) + "\n"
+
+
 GENERATORS = {
     "crates/identifiers/src/generated/digest_suite_codes.rs": generate_digest_suite_codes,
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
@@ -3183,6 +3247,7 @@ GENERATORS = {
         generate_did_freshness_profiles
     ),
     "crates/wire/src/generated/authority_sources.rs": generate_authority_sources,
+    "crates/wire/src/generated/redactable_fields.rs": generate_redactable_fields,
     "crates/schema/src/generated/registry_descriptors.rs": (
         generate_registry_descriptors
     ),

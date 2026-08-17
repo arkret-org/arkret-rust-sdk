@@ -6,9 +6,9 @@
 //! - [`HlcGenerator`] — the monotonic Hybrid Logical Clock generator with future-drift tiers and
 //!   Realm-scoped pseudonymous node ids. The stateless HLC value helpers (parse/compare/validate)
 //!   live next to the validated `Hlc` newtype in `arkret_identifiers::hlc`.
-//! - [`Cursor`] — the issuing-service mint/validate surface for `ak:cursor:` tokens (fresh
-//!   ≥128-bit handles, TTL caps, clock-skew checks). The value type itself is a wire shape owned
-//!   by `arkret_wire::cursor`.
+//! - [`Cursor`] — the issuing-service mint/validate surface for `ak:cursor:` tokens (fresh ≥128-bit
+//!   handles, TTL caps, clock-skew checks). The value type itself is a wire shape owned by
+//!   `arkret_wire::cursor`.
 
 pub mod generator;
 pub mod sync_tracker;

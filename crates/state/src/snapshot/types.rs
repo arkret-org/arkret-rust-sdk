@@ -1,4 +1,6 @@
-use arkret_wire::{DidCoreId, DidUrl};
+use std::collections::BTreeSet;
+
+use arkret_wire::{DidCoreId, DidUrl, ProofContextId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -6,6 +8,13 @@ use serde_json::Value;
 use super::constants::DETACHED_JWS_PROOF_KIND;
 use super::merkle::sha256_digest;
 use crate::{BlobRef, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
+
+/// Object-family context of `authority_binding.witness_attestations[]`. It is
+/// deliberately not the manifest's `ak.snapshot-proof-v1`: a witness signature
+/// produced under the manifest context is rejected even when the JWS verifies
+/// (`snapshot-schema.md` §5.1).
+pub const SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT: &str =
+    ProofContextId::SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1;
 
 mod base64_url {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -125,6 +134,194 @@ impl UnsignedSnapshotManifest<'_> {
     }
 }
 
+impl SnapshotManifest {
+    /// Exact canonical `SnapshotWitnessAttestation` projection of
+    /// `snapshot-schema.md` §5.1.
+    ///
+    /// Every value is recomputed from the manifest and the row's `witness_id`.
+    /// The proof itself, `signature`, the whole `witness_attestations[]`,
+    /// `verification_hints`, `chunks[]`, `created_by` (whose value must equal
+    /// the included `issuer`) and `authority_binding.checked_at` are excluded —
+    /// that exclusion is what keeps a witness from ever signing a transcript
+    /// containing its own or another witness's signature.
+    pub fn witness_attestation_projection(&self, witness_id: &DidCoreId) -> Result<Value> {
+        Ok(serde_json::json!({
+            "context": SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT,
+            "witness_id": witness_id,
+            "snapshot_id": self.id,
+            "realm_id": self.realm_id,
+            "reducer_profile": self.reducer_profile,
+            "schema_profile_refs": self.schema_profile_refs,
+            "security_class": self.security_class,
+            "state_digest": self.state_digest,
+            "frontier": self.frontier,
+            "event_set_commitment": self.event_set_commitment,
+            "issuer": self.authority_binding.issuer,
+            "authority_kind": self.authority_binding.authority_kind,
+            "auth_state_digest": self.authority_binding.auth_state_digest,
+            "auth_frontier": self.authority_binding.auth_frontier,
+            "snapshot_created_at": arkret_canonical::canonical::format_timestamp_canonical(
+                self.created_at,
+            ),
+        }))
+    }
+
+    pub fn witness_attestation_canonical_bytes(&self, witness_id: &DidCoreId) -> Result<Vec<u8>> {
+        Ok(crate::canonical::canonical_json_bytes(
+            &self.witness_attestation_projection(witness_id)?,
+        )?)
+    }
+
+    /// `payload_digest` every witness attestation for this manifest must carry.
+    pub fn witness_attestation_digest(&self, witness_id: &DidCoreId) -> Result<Hash> {
+        Ok(sha256_digest(
+            &self.witness_attestation_canonical_bytes(witness_id)?,
+        ))
+    }
+
+    /// Witness-quorum admission of `snapshot-schema.md` §5.1.
+    ///
+    /// Callers must have already accepted the top-level issuer signature: the
+    /// manifest signature covers the final ordered witness list, so verifying it
+    /// first is what makes an added, dropped or reordered row detectable. This
+    /// function then enforces ordering and uniqueness, recomputes each row's
+    /// projection under the witness context, and applies the policy-derived
+    /// threshold. Cryptographic JWS verification stays with the caller's DID
+    /// resolver, exactly as for the manifest signature.
+    /// Schema-level witness-list conditions that need no auth state: presence
+    /// for `authority_kind=witness_quorum`, strict ascending `witness_id` order
+    /// and `witness_id` uniqueness. Violations are rejected, never normalized
+    /// first (`snapshot-schema.md` §5.1).
+    pub fn validate_witness_attestation_shape(
+        &self,
+    ) -> std::result::Result<(), SnapshotValidationError> {
+        let attestations = &self.authority_binding.witness_attestations;
+        if self.authority_binding.authority_kind != SnapshotAuthorityKind::WitnessQuorum {
+            if attestations.is_empty() {
+                return Ok(());
+            }
+            return Err(SnapshotValidationError::new(
+                SnapshotValidationCode::SchemaViolation,
+                "witness_attestations are only carried by authority_kind=witness_quorum",
+            ));
+        }
+        if attestations.is_empty() {
+            return Err(SnapshotValidationError::new(
+                SnapshotValidationCode::SchemaViolation,
+                "authority_kind=witness_quorum requires a non-empty witness_attestations list",
+            ));
+        }
+        for pair in attestations.windows(2) {
+            if pair[0].witness_id.as_str() >= pair[1].witness_id.as_str() {
+                return Err(SnapshotValidationError::new(
+                    SnapshotValidationCode::SchemaViolation,
+                    "witness_attestations must be sorted by unique witness_id in UTF-8 byte order",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn verify_witness_attestations(
+        &self,
+        policy: &SnapshotWitnessQuorumPolicy,
+    ) -> std::result::Result<(), SnapshotValidationError> {
+        self.validate_witness_attestation_shape()?;
+        let attestations = &self.authority_binding.witness_attestations;
+        if self.authority_binding.authority_kind != SnapshotAuthorityKind::WitnessQuorum {
+            return Ok(());
+        }
+
+        let declared_quorum = self
+            .verification_hints
+            .as_ref()
+            .and_then(|hints| hints.witness_quorum);
+        if declared_quorum != Some(policy.threshold) {
+            return Err(SnapshotValidationError::new(
+                SnapshotValidationCode::SnapshotAuthorityUnverified,
+                "verification_hints.witness_quorum does not match the policy-derived threshold",
+            ));
+        }
+
+        for attestation in attestations {
+            if !policy
+                .authorized_witnesses
+                .contains(&attestation.witness_id)
+            {
+                return Err(SnapshotValidationError::new(
+                    SnapshotValidationCode::SnapshotAuthorityUnverified,
+                    format!(
+                        "witness {} is not an authorized non-revoked snapshot witness at created_at",
+                        attestation.witness_id
+                    ),
+                ));
+            }
+            if attestation.proof.kind != DETACHED_JWS_PROOF_KIND
+                || attestation.proof.jws.trim().is_empty()
+            {
+                return Err(SnapshotValidationError::new(
+                    SnapshotValidationCode::SignatureInvalid,
+                    "witness attestation proof is not a structurally valid detached JWS proof",
+                ));
+            }
+            let controller = attestation
+                .proof
+                .verification_method
+                .as_str()
+                .split_once('#')
+                .map(|(controller, _)| controller)
+                .ok_or_else(|| {
+                    SnapshotValidationError::new(
+                        SnapshotValidationCode::SignatureInvalid,
+                        "witness attestation verification_method has no controller",
+                    )
+                })?;
+            let controller = project_witness_controller(controller).ok_or_else(|| {
+                SnapshotValidationError::new(
+                    SnapshotValidationCode::SignatureInvalid,
+                    "witness attestation verification_method controller is not projectable by a registered DID method adapter",
+                )
+            })?;
+            if controller != attestation.witness_id {
+                return Err(SnapshotValidationError::new(
+                    SnapshotValidationCode::SignatureInvalid,
+                    "witness attestation verification_method controller does not project to witness_id",
+                ));
+            }
+            let expected = self
+                .witness_attestation_digest(&attestation.witness_id)
+                .map_err(|error| {
+                    SnapshotValidationError::new(
+                        SnapshotValidationCode::DigestMismatch,
+                        format!("witness attestation projection could not be computed: {error}"),
+                    )
+                })?;
+            if attestation.proof.payload_digest != expected {
+                return Err(SnapshotValidationError::new(
+                    SnapshotValidationCode::SignatureInvalid,
+                    "witness attestation payload_digest does not match the canonical witness projection",
+                ));
+            }
+        }
+
+        if attestations.len() < policy.threshold as usize {
+            return Err(SnapshotValidationError::new(
+                SnapshotValidationCode::SnapshotAuthorityUnverified,
+                "deduplicated valid witness count is below the policy-derived threshold",
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Project a bare controller DID to its stable `did_core_id` through the
+/// registered method adapter. Direct full-DID / core-id string comparison is
+/// forbidden (`snapshot-schema.md` §5.1).
+fn project_witness_controller(controller: &str) -> Option<DidCoreId> {
+    let full_id = arkret_wire::DidFullId::new(controller).ok()?;
+    arkret_wire::project_full_id_to_core_id(&full_id).ok()
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SnapshotFrontier {
@@ -207,8 +404,56 @@ pub struct AuthorityBinding {
     pub auth_frontier: Vec<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub checked_at: DateTime<Utc>,
+    /// Typed witness quorum evidence, sorted by `witness_id` in UTF-8 byte
+    /// order with `witness_id` unique across rows. v1 has no untyped equivalent
+    /// quorum carrier (`snapshot-schema.md` §5.1).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub witness_attestations: Vec<crate::models::Proof>,
+    pub witness_attestations: Vec<SnapshotWitnessAttestation>,
+}
+
+/// One witness statement that the snapshot issuer held snapshot-sealing
+/// authority for this exact reduced state at manifest `created_at`
+/// (`snapshot.schema.json#/$defs/snapshot_witness_attestation`).
+///
+/// It is a separate object family from the manifest: the witness signs the
+/// canonical signature-free projection of `snapshot-schema.md` §5.1 under
+/// `ak.snapshot-witness-attestation-proof-v1`. Reusing the manifest-level
+/// `ak.snapshot-proof-v1` context here is rejected.
+///
+/// This is the **verification model** half of the snapshot model, alongside
+/// [`SnapshotManifest`] and [`AuthorityBinding`]: it carries the typed
+/// [`DetachedJwsProof`] this crate signs and verifies, and it is the half that
+/// owns [`SnapshotManifest::witness_attestation_projection`] and
+/// [`SnapshotManifest::verify_witness_attestations`]. The **wire DTO** half is
+/// `arkret_models_collaboration::sync_frames::snapshot::SnapshotWitnessAttestationItem`,
+/// which mirrors the schema verbatim with the full shared `PayloadProof` leaf.
+/// The two halves are named apart on purpose — same as [`SnapshotChunkDescriptor`]
+/// vs `SnapshotChunksItem` — so neither shadows the other in the `arkret_sdk`
+/// prelude.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SnapshotWitnessAttestation {
+    /// Stable `did_core_id` of the witness. Quorum counting is per
+    /// `witness_id`, so several keys of one witness count once.
+    pub witness_id: DidCoreId,
+    pub proof: DetachedJwsProof,
+}
+
+/// Witness-quorum admission inputs resolved from the accepted Realm
+/// auth/policy state at `manifest.created_at` through
+/// `authority_binding.auth_frontier` / `auth_state_digest`
+/// (`snapshot-schema.md` §5.1).
+///
+/// `verification_hints.witness_quorum` is never an input here: it is the
+/// issuer's declared value and is only cross-checked against `threshold`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SnapshotWitnessQuorumPolicy {
+    /// Witnesses authorized at `manifest.created_at` whose signing keys the
+    /// resolver confirmed valid and not revoked at that instant. A witness the
+    /// resolver could not confirm MUST be left out so it cannot reach quorum.
+    pub authorized_witnesses: BTreeSet<DidCoreId>,
+    /// Threshold derived from the same accepted auth/policy state.
+    pub threshold: u32,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -303,6 +548,8 @@ pub struct BuiltSnapshotChunk {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SnapshotValidationCode {
     DigestMismatch,
+    SchemaViolation,
+    SignatureInvalid,
     SnapshotAuthorityUnverified,
     SnapshotIssuerRevoked,
     InclusionProofFailed,
@@ -313,6 +560,8 @@ impl SnapshotValidationCode {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::DigestMismatch => crate::ErrorCode::DIGEST_MISMATCH,
+            Self::SchemaViolation => crate::error::ErrorCode::SCHEMA_VIOLATION,
+            Self::SignatureInvalid => crate::error::ErrorCode::SIGNATURE_INVALID,
             Self::SnapshotAuthorityUnverified => {
                 crate::error::ErrorCode::SNAPSHOT_AUTHORITY_UNVERIFIED
             }
