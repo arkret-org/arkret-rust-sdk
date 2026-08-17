@@ -146,6 +146,26 @@ pub enum EventsSubmitStatus {
     HistoricalOnly,
 }
 
+impl EventsSubmitStatus {
+    /// The wire token, so a diagnostic can quote what the server actually sent
+    /// instead of the Rust variant name. Mirrors `ReasonCode::as_str`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Duplicate => "duplicate",
+            Self::Partial => "partial",
+            Self::HistoricalOnly => "historical_only",
+        }
+    }
+}
+
+impl std::fmt::Display for EventsSubmitStatus {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -2881,5 +2901,29 @@ mod event_delivery_status_tests {
         });
         let outcome: EventsSubmitOutcome = serde_json::from_value(invalid).unwrap();
         assert!(outcome.validate_delivery_state().is_err());
+    }
+}
+
+#[cfg(test)]
+mod events_submit_status_tests {
+    use super::*;
+
+    /// `as_str` is a second spelling of the serde projection, so pin them to
+    /// each other: a renamed variant must not leave the diagnostic token
+    /// pointing at the old wire word.
+    #[test]
+    fn as_str_matches_the_serde_wire_token() {
+        for status in [
+            EventsSubmitStatus::Accepted,
+            EventsSubmitStatus::Duplicate,
+            EventsSubmitStatus::Partial,
+            EventsSubmitStatus::HistoricalOnly,
+        ] {
+            assert_eq!(
+                serde_json::to_value(status).unwrap(),
+                Value::String(status.as_str().to_owned()),
+            );
+            assert_eq!(status.to_string(), status.as_str());
+        }
     }
 }
