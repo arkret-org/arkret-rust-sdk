@@ -67,11 +67,6 @@ impl Blob {
     pub const SCHEMA: &'static str = SchemaId::BLOB_V1;
 }
 
-/// Compatibility name for consumers that historically imported blob metadata
-/// from an unrelated model module. This is an alias to the single canonical
-/// [`Blob`] wire model, not a second DTO.
-pub type BlobMetadata = Blob;
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

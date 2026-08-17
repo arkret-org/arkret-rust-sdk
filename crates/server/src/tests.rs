@@ -151,7 +151,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                             method_history_head: "fixture-head".to_owned(),
                             version_id: "fixture-version".to_owned(),
                         },
-                        trust_domain: arkret_wire::TypedTrustDomainId::new(
+                        trust_domain: arkret_wire::TrustDomainId::new(
                             "ak:trust_domain:example.net",
                         )
                         .unwrap(),

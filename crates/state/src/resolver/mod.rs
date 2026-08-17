@@ -9,9 +9,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 // `ResolvedStateEvent` is pure data owned by `arkret-models-collaboration`
-// (read by both this reducer runtime and `arkret-policy`). Re-exported here
-// so the historical `arkret_state::resolver::ResolvedStateEvent` path — and
-// the SDK shim over it — stays stable.
+// (read by both this reducer runtime and `arkret-policy`), re-exported here
+// for the reducer's own callers.
 pub use arkret_models_collaboration::ResolvedStateEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

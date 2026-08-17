@@ -6,7 +6,7 @@ use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     BlobRef, CORE_REDUCER_PROFILE, ControlProposalDecisionPolicy, DidCoreId, DidUrl,
     Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule,
-    PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
+    PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TrustDomainId, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -66,7 +66,7 @@ pub struct Realm {
     /// audit_policy_version_digest). This field is `Realm`-scoped because
     /// `Realm` is the security-boundary type; the container surface is
     /// `Space`.
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organizations: Vec<DidCoreId>,
     pub schema_refs: Vec<String>,
@@ -94,10 +94,13 @@ pub struct Realm {
     /// `ak.realm.upgrade` can change it.
     pub reducer_profile: String,
     pub encryption_profile: EncryptionProfile,
-    /// Content AEAD scheme selector. `Some("mls_exporter_aead_v1")` opts the
-    /// Realm into exporter-derived history-shareable content encryption;
-    /// `None` keeps the legacy per-epoch `mls_rfc9420` PrivateMessage path.
-    /// Additive — absent in existing genesis payloads.
+    /// Content AEAD scheme selector (realm-and-space.md §2, encryption-and-audit.md
+    /// §2.10). Applies only when `encryption_profile = mls_rfc9420`. Absent means
+    /// `mls_rfc9420`: MLS PrivateMessage, pre-join history undecryptable, so the
+    /// Realm may only use `history_visibility` `joined` / `restricted`.
+    /// `Some("mls_exporter_aead_v1")` selects per-epoch `history_secret`, which is
+    /// the only scheme that structurally admits `world_readable` / `shared` /
+    /// `invited` history and a `durability_policy` with `mode != none`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_scheme: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -341,7 +344,7 @@ impl Realm {
         id: RealmId,
         title: impl Into<String>,
         created_by: DidCoreId,
-        trust_domain: TypedTrustDomainId,
+        trust_domain: TrustDomainId,
         reducer_profile: impl Into<String>,
         notary_profile: NotaryProfile,
         notary: NotaryValue,
@@ -565,7 +568,7 @@ mod tests {
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             "Policy Realm",
             notary_actor.clone(),
-            TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
             NotaryProfile::SingleDid,
             NotaryValue::single_did(notary_actor),

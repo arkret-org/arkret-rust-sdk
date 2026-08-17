@@ -25,7 +25,7 @@ use arkret_identity::verifier::{
 };
 use arkret_identity::{DidDocument, DidResolver, ResolvedDid, document_canonical_digest};
 use arkret_signatures::jws::sign_jws_ed25519;
-use arkret_wire::{DidFullId, DidUrl, Hash, TypedTrustDomainId};
+use arkret_wire::{DidFullId, DidUrl, Hash, TrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::SigningKey;
 
@@ -51,8 +51,8 @@ fn hash(seed: u8) -> Hash {
     Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).expect("valid hash")
 }
 
-fn trust_domain() -> TypedTrustDomainId {
-    TypedTrustDomainId::new("ak:trust_domain:local".to_owned()).expect("valid trust domain")
+fn trust_domain() -> TrustDomainId {
+    TrustDomainId::new("ak:trust_domain:local".to_owned()).expect("valid trust domain")
 }
 
 fn document() -> DidDocument {

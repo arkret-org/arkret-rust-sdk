@@ -14,7 +14,7 @@ use arkret_wire::{
     AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidUrl, Event, EventDigestSuiteCode,
     EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc, NonEmptyString, NotarySig,
     PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
-    SealId, SemanticRefProof, SemanticRefProofKind, TypedTrustDomainId, WireError,
+    SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError,
     composite_subject, project_full_id_to_core_id, proof_kind,
 };
 use chrono::Utc;
@@ -149,7 +149,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
         principal_full_id: principal_full_id.clone(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
-        trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         did_inception_ref: EventRef::new(
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             DID_INCEPTION_REF_ROLE,
@@ -402,7 +402,7 @@ fn managed_agent_pcr_create() -> Event {
         controller_id: controller.clone(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
-        trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),
         created_at: Utc::now(),
@@ -436,7 +436,7 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
         controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
-        trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
+        trust_domain: TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
         capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
             .unwrap(),
         created_at: Utc::now(),

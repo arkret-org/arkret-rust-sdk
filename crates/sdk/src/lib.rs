@@ -80,7 +80,7 @@ pub use arkret_event_draft::{
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
-    SyncTracker, cursor, generate_cursor_handle,
+    SyncTracker, generate_cursor_handle,
 };
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
@@ -94,7 +94,7 @@ pub use arkret_identifiers::{
     ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
     ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId,
     RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId,
-    TransactionId, TrustDomainId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    TransactionId, TrustDomainId, TypedAppealId, ViewId, new_prefixed_uuid7,
     project_full_id_to_core_id,
 };
 pub use arkret_identity as identity;
@@ -175,9 +175,7 @@ pub use arkret_models_collaboration::mls_group_state_material::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
 pub use arkret_models_collaboration::object_patch::*;
 pub use arkret_models_collaboration::objects::account_status::{
-    AccountStatus, AccountStatusProjection, AccountStatusProjectionCandidate,
-    AccountStatusProjectionRejected, AccountStatusTransitionRejection,
-    project_account_status_heads,
+    AccountStatus, AccountStatusTransitionRejection,
 };
 pub use arkret_models_collaboration::objects::blob::*;
 pub use arkret_models_collaboration::objects::calendar_projection::*;
@@ -416,23 +414,22 @@ pub use arkret_hlc as hlc;
 // and HPKE-seals retained per-epoch history secrets to it. Reuses
 // `secret_share`'s HPKE seal primitive, so it carries the same feature gate.
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
-// The single source of truth now lives in `arkret-signatures`; this re-export
-// keeps the existing `arkret::http_signature::*` / `arkret_sdk::http_signature::*`
-// call paths stable.
+// The single source of truth is `arkret-signatures`, surfaced here as
+// `arkret::http_signature::*` / `arkret_sdk::http_signature::*`.
 // HttpDidResolver leans on a live Tokio runtime, blocking off-thread
 // scheduling, and reqwest's native ClientBuilder transport knobs — none
-// of which are available on the wasm32 fetch backend. It now lives in
-// arkret-http-client; this shim keeps the `arkret::http_did_resolver::*`
-// path stable. Gated out on wasm32; web embedders should plug in a
-// fetch-based resolver via the `DidResolver` trait directly.
+// of which are available on the wasm32 fetch backend. It is owned by
+// arkret-http-client and surfaced here as `arkret::http_did_resolver::*`.
+// Gated out on wasm32; web embedders should plug in a fetch-based resolver
+// via the `DidResolver` trait directly.
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub use arkret_http_client::http_did_resolver;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so principal-server-style consumers (inkson,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
 /// on `identity::DidResolver`.
-// `key_backup_client` now lives in arkret-http-client; this shim keeps the
-// `arkret::key_backup_client::*` path stable.
+// `key_backup_client` is owned by arkret-http-client and surfaced here as
+// `arkret::key_backup_client::*`.
 #[cfg(feature = "client")]
 pub use arkret_http_client::key_backup_client;
 // `lattice_registry` is intentionally NOT feature-gated: inkson Move
@@ -442,8 +439,8 @@ pub use arkret_lattice_registry as lattice_registry;
 pub use arkret_signatures::{dpop, http_signature};
 pub use arkret_state::{consent, mls_cells, resolver};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
-// (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
-// re-exporting it here under the same feature gate it always carried.
+// (the sole OpenMLS boundary), surfaced here as `arkret::mls::*` under the
+// same feature gate.
 #[cfg(feature = "mls")]
 pub mod mls {
     pub use arkret_mls::*;
@@ -475,7 +472,7 @@ pub use arkret_server::{
     MemoryCursorAuthority, TransactionClaim, TransactionIdempotencyStore, cursor_filter_digest,
 };
 pub use arkret_signatures::media::{
-    CallMediaTokenVerification, IceConfig, MediaBackendType, MediaServiceAnchors,
+    CallMediaTokenVerification, IceConfig, MediaBackendKind, MediaServiceAnchors,
     call_media_token_exchange, participant_binding_signing_input, validate_token_ttl,
     verify_call_media_token_outcome, verify_ice_config_outcome,
 };

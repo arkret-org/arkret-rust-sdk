@@ -96,7 +96,7 @@ pub struct ServiceDescribe {
     /// Required trust domain. Receivers MUST refuse to
     /// register a peer whose `trust_domain` disagrees with the
     /// expected deployment scope.
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub service_kind: ServiceKind,
     pub protocol_version: String,
     /// Profiles the service
@@ -289,7 +289,7 @@ impl ServiceDescribe {
     /// Build a complete development-mode description for a service surface.
     pub fn development(
         full_id: DidFullId,
-        trust_domain: TypedTrustDomainId,
+        trust_domain: TrustDomainId,
         service_kind: ServiceKind,
     ) -> Self {
         let service_id = project_full_id_to_core_id(&full_id)
@@ -585,7 +585,7 @@ mod tests {
     fn sdk_build_identity_round_trips_through_shared_type() {
         let mut description = ServiceDescribe::development(
             DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             ServiceKind::PrincipalServer,
         );
         description.install_current_arkret_build_identity().unwrap();
@@ -607,7 +607,7 @@ mod tests {
                 method_history_head: "fixture-head".to_owned(),
                 version_id: "fixture-version".to_owned(),
             },
-            trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
@@ -673,7 +673,7 @@ mod tests {
     fn candidate_join_policy_requires_complete_private_carrier_claim() {
         let mut description = ServiceDescribe::development(
             DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             ServiceKind::PrincipalServer,
         );
         description
@@ -728,7 +728,7 @@ mod tests {
     fn calendar_profile_claim_requires_an_executable_tzdb_release() {
         let mut description = ServiceDescribe::development(
             DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             ServiceKind::PrincipalServer,
         );
         description
@@ -987,7 +987,7 @@ pub struct EgressPrivateException {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trust_domain: Option<TypedTrustDomainId>,
+    pub trust_domain: Option<TrustDomainId>,
     pub cidrs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ports: Vec<u16>,

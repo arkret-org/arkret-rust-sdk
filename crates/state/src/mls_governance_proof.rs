@@ -181,14 +181,6 @@ fn project_frontier_value(
             }
             Ok(project_membership(value))
         }
-        arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1 => {
-            let principal = subject_single_string(&subject)?;
-            if !leaf_principals.contains(principal) {
-                return Ok(None);
-            }
-            let status = scalar_or_field(value, &["status", "state"])?;
-            Ok(Some(json!({"principal_id": principal, "status": status})))
-        }
         arkret_wire::CellFamilyId::AGENT_STATUS_V1 => {
             let principal = subject_single_string(&subject)?;
             if !leaf_principals.contains(principal) {

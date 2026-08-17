@@ -93,7 +93,7 @@ fn welcome_envelope_projects_to_device_message_target() {
         )
         .unwrap();
 
-    assert_eq!(target.kind.as_str(), "ak.mls.welcome.v1");
+    assert_eq!(target.kind.as_str(), "ak.mls.welcome");
     assert_eq!(
         target.content["recipient_device_id"],
         "ak:device:01904100-0000-7000-8000-00000000000e"

@@ -1059,9 +1059,8 @@ impl<'de> Deserialize<'de> for EventsSubmitFederationRequestBody {
     }
 }
 
-// `SnapshotBootstrap` migrated to `sync_frames::snapshot`. It reaches the
-// `arkret::SnapshotBootstrap` path via the `artifacts::sync`
-// re-export, so no shim is needed here.
+// `SnapshotBootstrap` lives in `sync_frames::snapshot` and reaches the
+// `arkret::SnapshotBootstrap` path via the `artifacts::sync` re-export.
 
 #[cfg(test)]
 mod tests {

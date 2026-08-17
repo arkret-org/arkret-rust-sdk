@@ -458,7 +458,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     record.supersede(now + Duration::seconds(30), successor.clone());
     assert!(!record.active(now));
     assert_eq!(record.successor_session_grant_id, Some(successor));
-    // Build the revoke projection used by the remainder of this legacy
+    // Build the revoke projection used by the remainder of this
     // notification adapter test.
     record.revoke(now + Duration::minutes(1), "logout");
 

@@ -1,12 +1,9 @@
 //! MLS record wire shapes: KeyPackage lifecycle + published-KeyPackage record,
 //! and the provider-opaque MLS group-state snapshot record.
 //!
-//! These record shapes moved here so the MLS behavior layer can consume them
-//! without depending on the higher crates that previously owned them:
-//! `MlsKeyPackageState` from `arkret-models-collaboration`,
-//! `MlsKeyPackageRecord` from the `arkret` umbrella, and `MlsGroupStateRecord` from the
-//! SDK crypto store. The original owners keep re-export shims so downstream
-//! paths are unchanged.
+//! This crate owns these record shapes so the MLS behavior layer can consume
+//! them without depending on the higher crates: `MlsKeyPackageState`,
+//! `MlsKeyPackageRecord`, and `MlsGroupStateRecord`.
 
 use std::collections::BTreeMap;
 

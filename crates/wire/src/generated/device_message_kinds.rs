@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: schemas/device-message.schema.json; version=unversioned;
-//! sha256=6a3658af09b63d28bc3b436ba08af0f1a3eeb5c3eecf37b4f3efbcbae6a911a9
+//! sha256=e7c2ca40911872d4ba08b51032611f363774e923622dc02ec6e2fe18c11eb6e1
 //! Entries: actor_private_update_kinds=3
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

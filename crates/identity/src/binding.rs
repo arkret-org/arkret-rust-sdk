@@ -15,7 +15,7 @@
 //! binding cannot be forged by round-tripping JSON either.
 
 use arkret_canonical::canonical;
-use arkret_wire::{DidFreshnessProfileId, DidFullId, DidUrl, Hash, TypedTrustDomainId};
+use arkret_wire::{DidFreshnessProfileId, DidFullId, DidUrl, Hash, TrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -563,7 +563,7 @@ pub struct VerifiedDidBindingInput {
     /// The bare DID that was verified.
     pub did: DidFullId,
     /// Local trust domain this acceptance is scoped to.
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     /// Purpose this acceptance authorizes — and only this one.
     pub purpose: DidBindingPurpose,
     /// DID method name; MUST equal `did.method()`.
@@ -617,7 +617,7 @@ pub struct VerifiedDidBindingInput {
 /// document so the caller cannot supply an inconsistent digest.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedDidBindingDocumentInput {
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub purpose: DidBindingPurpose,
     pub verification_method: Option<DidUrl>,
     pub history_head: Option<String>,
@@ -883,7 +883,7 @@ impl VerifiedDidBinding {
     }
 
     /// The local trust domain this acceptance is scoped to.
-    pub fn trust_domain(&self) -> &TypedTrustDomainId {
+    pub fn trust_domain(&self) -> &TrustDomainId {
         &self.inner.trust_domain
     }
 
@@ -977,7 +977,7 @@ impl VerifiedDidBinding {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct VerifiedDidBindingKey {
     pub did: DidFullId,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub purpose: DidBindingPurpose,
     pub policy_digest: Hash,
     pub verification_method: Option<DidUrl>,
@@ -991,8 +991,8 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).expect("valid hash")
     }
 
-    fn trust_domain(scope: &str) -> TypedTrustDomainId {
-        TypedTrustDomainId::new(format!("ak:trust_domain:{scope}")).expect("valid trust domain")
+    fn trust_domain(scope: &str) -> TrustDomainId {
+        TrustDomainId::new(format!("ak:trust_domain:{scope}")).expect("valid trust domain")
     }
 
     fn did() -> DidFullId {

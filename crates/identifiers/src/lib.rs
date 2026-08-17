@@ -910,6 +910,34 @@ fn decode_session_grant_token(value: &str) -> Option<[u8; 33]> {
     (token[0] == DigestSuiteCode::Sha256.as_u8()).then_some(token)
 }
 
+fn decode_account_status_record_token(value: &str) -> Option<[u8; 33]> {
+    let token = decode_digest_token(value, AccountStatusRecordId::KIND_PREFIX)?;
+    (token[0] == DigestSuiteCode::Sha256.as_u8()).then_some(token)
+}
+
+id_type!(AccountStatusRecordId, |value: &str| {
+    decode_account_status_record_token(value).is_some()
+});
+
+impl AccountStatusRecordId {
+    pub const KIND_PREFIX: &'static str = "ak:account_status_record:";
+
+    pub fn from_record_digest(digest: [u8; 32]) -> Self {
+        let mut token = [0_u8; 33];
+        token[0] = DigestSuiteCode::Sha256.as_u8();
+        token[1..].copy_from_slice(&digest);
+        Self(encode_digest_token(Self::KIND_PREFIX, token))
+    }
+
+    pub fn record_digest(&self) -> [u8; 32] {
+        let token = decode_account_status_record_token(&self.0)
+            .expect("validated account-status record id carries a canonical digest token");
+        let mut digest = [0_u8; 32];
+        digest.copy_from_slice(&token[1..]);
+        digest
+    }
+}
+
 id_type!(SessionGrantId, |value: &str| decode_session_grant_token(
     value
 )
@@ -947,8 +975,10 @@ impl SessionGrantId {
 
 /// Issuer-record identifiers whose wire payload is a complete registered
 /// suite byte plus a 32-byte digest, but whose authority is not an Event.
-pub const DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES: &[&str] =
-    &[SessionGrantId::KIND_PREFIX];
+pub const DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES: &[&str] = &[
+    SessionGrantId::KIND_PREFIX,
+    AccountStatusRecordId::KIND_PREFIX,
+];
 
 fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix("ak:realm:")?;
@@ -1044,11 +1074,6 @@ declare_special_form_id_kinds! {
     // the same kind-aligned convention as RealmId/EventId/DidCoreId.
     TrustDomainId, "trust_domain", is_trust_domain;
 }
-
-/// Backwards-compatible name retained while downstream crates migrate to
-/// [`TrustDomainId`]. New protocol and storage boundaries must use the
-/// kind-aligned canonical name.
-pub type TypedTrustDomainId = TrustDomainId;
 
 /// Applet identity accepted by the v1 wire protocol: either a stable service
 /// identity core or a typed `ak:applet:<uuidv7>` identifier.

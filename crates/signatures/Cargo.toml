@@ -22,8 +22,8 @@ signer = []
 [dependencies]
 # RFC 9421 HTTP Message Signatures + detached-JWS Ed25519 verify are always
 # available (the federation / push / teabay ingest verifiers need them
-# unconditionally); the `signer` feature is retained for API compatibility but
-# no longer gates these crypto deps.
+# unconditionally); the `signer` feature gates only the private-key signing
+# surface, not these crypto deps.
 base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-canonical = {workspace = true}

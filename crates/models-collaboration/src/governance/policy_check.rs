@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     AuthzDecision, DeviceId, DidCoreId, DomainSeparationId, FreshnessState, Hash, RealmId,
-    ReasonCode, Result, TypedTrustDomainId, canonical,
+    ReasonCode, Result, TrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ use serde_json::Value;
 /// hashed with SHA-256 per RFC 8785 JCS.
 pub fn compute_audit_policy_version_digest(
     realm_id: &RealmId,
-    trust_domain: &TypedTrustDomainId,
+    trust_domain: &TrustDomainId,
     audit_disclosure: &Value,
     audit_assurance: &Value,
 ) -> Result<[u8; 32]> {

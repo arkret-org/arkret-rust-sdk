@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-16.3;
-//! sha256=d52515e2324b379155b76fbeebc4c429649d84a58af5799d6f0a1fe60bad8be6
-//! Entries: reason_codes=471
+//! Input: registry/error-code-registry.json; version=2026-08-17.5;
+//! sha256=dc3da6e28e39a4991296642dc6d40bc8af09f0ee7bc95ecc7c39a6fb060b4725
+//! Entries: reason_codes=474
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -13,6 +13,9 @@ pub enum ReasonCode {
     AbuseNetwork,
     AbuseReview,
     AccountBindingPrincipalMismatch,
+    AccountStatusBindingRollback,
+    AccountStatusRecordFork,
+    AccountStatusRecordStale,
     AccountStatusTransitionInvalid,
     AccountabilityGrantMissing,
     ActorKindReducerManaged,
@@ -496,6 +499,9 @@ impl ReasonCode {
     pub const ABUSE_REVIEW: &'static str = "abuse_review";
     pub const ACCOUNT_BINDING_PRINCIPAL_MISMATCH: &'static str =
         "account_binding_principal_mismatch";
+    pub const ACCOUNT_STATUS_BINDING_ROLLBACK: &'static str = "account_status_binding_rollback";
+    pub const ACCOUNT_STATUS_RECORD_FORK: &'static str = "account_status_record_fork";
+    pub const ACCOUNT_STATUS_RECORD_STALE: &'static str = "account_status_record_stale";
     pub const ACCOUNT_STATUS_TRANSITION_INVALID: &'static str = "account_status_transition_invalid";
     pub const ACCOUNTABILITY_GRANT_MISSING: &'static str = "accountability_grant_missing";
     pub const ACTOR_KIND_REDUCER_MANAGED: &'static str = "actor_kind_reducer_managed";
@@ -1064,6 +1070,9 @@ impl ReasonCode {
             Self::AbuseNetwork => Self::ABUSE_NETWORK,
             Self::AbuseReview => Self::ABUSE_REVIEW,
             Self::AccountBindingPrincipalMismatch => Self::ACCOUNT_BINDING_PRINCIPAL_MISMATCH,
+            Self::AccountStatusBindingRollback => Self::ACCOUNT_STATUS_BINDING_ROLLBACK,
+            Self::AccountStatusRecordFork => Self::ACCOUNT_STATUS_RECORD_FORK,
+            Self::AccountStatusRecordStale => Self::ACCOUNT_STATUS_RECORD_STALE,
             Self::AccountStatusTransitionInvalid => Self::ACCOUNT_STATUS_TRANSITION_INVALID,
             Self::AccountabilityGrantMissing => Self::ACCOUNTABILITY_GRANT_MISSING,
             Self::ActorKindReducerManaged => Self::ACTOR_KIND_REDUCER_MANAGED,
@@ -1637,6 +1646,9 @@ impl ReasonCode {
             Self::ABUSE_NETWORK => Self::AbuseNetwork,
             Self::ABUSE_REVIEW => Self::AbuseReview,
             Self::ACCOUNT_BINDING_PRINCIPAL_MISMATCH => Self::AccountBindingPrincipalMismatch,
+            Self::ACCOUNT_STATUS_BINDING_ROLLBACK => Self::AccountStatusBindingRollback,
+            Self::ACCOUNT_STATUS_RECORD_FORK => Self::AccountStatusRecordFork,
+            Self::ACCOUNT_STATUS_RECORD_STALE => Self::AccountStatusRecordStale,
             Self::ACCOUNT_STATUS_TRANSITION_INVALID => Self::AccountStatusTransitionInvalid,
             Self::ACCOUNTABILITY_GRANT_MISSING => Self::AccountabilityGrantMissing,
             Self::ACTOR_KIND_REDUCER_MANAGED => Self::ActorKindReducerManaged,
@@ -2289,9 +2301,24 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The authenticated service account is already bound to a principal_id different from the DID locally derived from the frozen identity-creation draft. The client MUST fail closed, visibly disclose the conflict, and MUST NOT adopt the returned principal or silently regenerate a replacement identity.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::ACCOUNT_STATUS_BINDING_ROLLBACK,
+        applies_to: &["account_status", "service_call", "state_resolution"],
+        description: "A Principal Server received an otherwise valid AccountStatusRecord whose binding_version is lower than the durable floor for the same Account Authority and account. The receiver MUST return failed_precondition with this reason, perform zero replica/outbox/erasure-intent writes, and MUST NOT retry the same record. See zh/identity/account-lifecycle.md §3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ACCOUNT_STATUS_RECORD_FORK,
+        applies_to: &["account_status", "service_call", "state_resolution"],
+        description: "A Principal Server received an AccountStatusRecord that conflicts with the issuer-ledger chain: either the durable status_seq already names a different record, or the next status_seq does not name the durable head as previous_account_status_record_id. The receiver MUST return failed_precondition with this reason, perform zero writes, stop automatic retry or gap recovery for the conflicting record, and quarantine/alert for operator investigation. It MUST NOT reuse duplicate_conflict, which is reserved by this operation for Idempotency-Key reuse with different canonical request bytes. See zh/identity/account-lifecycle.md §3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ACCOUNT_STATUS_RECORD_STALE,
+        applies_to: &["account_status", "service_call", "state_resolution"],
+        description: "A Principal Server received an otherwise valid AccountStatusRecord whose status_seq is lower than its durable replica head. The receiver MUST return failed_precondition with this reason, perform zero writes, and treat the exact record as terminal/non-retryable; this is distinct from duplicate, which requires the same sequence and record identity. See zh/identity/account-lifecycle.md §3.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNT_STATUS_TRANSITION_INVALID,
         applies_to: &["account_status", "event_envelope", "state_resolution"],
-        description: "A `ak.account.status` event requested a `from → to` status transition not permitted by the account-status legal-transition table — e.g. reactivating a `deactivated` account (`deactivated → active`/any lower-severity), which v1 does not define because the §7.1 deactivation fanout (device revoked / KeyPackage retired / session revoked) is irreversible. The reducer / projection MUST `failed_precondition`. (Superseding `erasure_pending` uses the more specific `erasure_pending_is_terminal`.) See zh/identity/account-lifecycle.md §3.",
+        description: "An Account Authority issuer-ledger mutation requested a `from → to` status transition not permitted by the account-status legal-transition table — e.g. reactivating a `deactivated` account. The current-head transaction MUST fail with zero account-row/ledger/audit/outbox writes. A successor after `erasure_pending` uses the more specific `erasure_pending_is_terminal`. See zh/identity/account-lifecycle.md §3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNTABILITY_GRANT_MISSING,
@@ -3035,7 +3062,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ERASURE_PENDING_IS_TERMINAL,
         applies_to: &["account_status", "event_envelope", "state_resolution"],
-        description: "A `ak.account.status` event attempted to supersede an `erasure_pending` status (via `supersedes_status_event_ids`) down to a lower-severity status. `erasure_pending` is terminal: erasure physically destroys data, so reducers / projections MUST reject the downgrade and keep `erasure_pending` as the current status. See zh/identity/account-lifecycle.md §3.",
+        description: "An Account Authority issuer-ledger mutation attempted to create a successor after `erasure_pending`. The state is terminal because erasure physically destroys data; the current-head transaction and every receiver MUST reject the successor and retain the terminal record. See zh/identity/account-lifecycle.md §3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ERASURE_RECEIPT_AUTHORITY_INVALID,
@@ -4363,7 +4390,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SIGNAL_PLAINTEXT_FORBIDDEN,
         applies_to: &["service_call", "client_sync"],
-        description: "Sub-reason for failed_precondition when any legacy plaintext broadcast envelope is submitted or received. Signal is encrypted-only in every scope; implementations MUST fail closed and MUST NOT advertise Signal for a scope unless they can verify its MLS basis, AAD, and proof. See zh/crypto-media/encryption-and-audit.md section 2.9.1.",
+        description: "Sub-reason for failed_precondition when any plaintext broadcast envelope is submitted or received. Signal is encrypted-only in every scope; implementations MUST fail closed and MUST NOT advertise Signal for a scope unless they can verify its MLS basis, AAD, and proof. See zh/crypto-media/encryption-and-audit.md section 2.9.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SNAPSHOT_ISSUER_REVOKED,

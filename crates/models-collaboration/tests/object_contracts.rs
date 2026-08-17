@@ -1,5 +1,5 @@
 use arkret_canonical as canonical;
-use arkret_identifiers::{MorphId, PolicyId, RealmId, StrandId, TypedTrustDomainId};
+use arkret_identifiers::{MorphId, PolicyId, RealmId, StrandId, TrustDomainId};
 use arkret_models_collaboration::objects::profiles::{
     Morph, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
     validate_strand_track_name,
@@ -144,7 +144,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
         "Seal Test",
         actor("did:webvh:z6mkfixture:alice.example"),
-        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
@@ -259,7 +259,7 @@ fn realm_anchor_fields_include_required_notary() {
         RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
         "No Seal Hint",
         actor("did:webvh:z6mkfixture:alice.example"),
-        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
@@ -289,7 +289,7 @@ fn realm_notary_profile_must_match_notary_kind() {
         RealmId::new("ak:realm:AdIeygO8cj8jUpcxH6i4a15i1zh2wq8eNKz5RgGEItdA").unwrap(),
         "Mismatched Notary",
         actor("did:webvh:z6mkfixture:alice.example"),
-        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::Threshold,
         single_did_notary("did:webvh:z6mkfixture:notary.example"),
@@ -306,7 +306,7 @@ fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
         RealmId::new("ak:realm:ASc_XP_IqOBAY6GgbPMLFCeZmi0uBNaWvHazHgmn-B8K").unwrap(),
         "Digest Defaults",
         actor("did:webvh:z6mkfixture:alice.example"),
-        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
@@ -487,7 +487,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         RealmId::new("ak:realm:ATz4yMg8D3eSMJ7kiPNr0BF70hg3o_DBZklFZd5GZSuJ").unwrap(),
         "Order guard realm",
         created_by_did,
-        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:notary.example"),

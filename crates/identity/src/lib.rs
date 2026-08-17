@@ -29,10 +29,8 @@ mod tests;
 pub mod verifier;
 
 // Data types the identity behavior operates on, re-exported so the umbrella
-// `arkret` crate can surface `arkret::identity::*` unchanged via its shim.
-// Internal shared names the migrated modules reach through `use super::*` /
-// `use crate::*`, mirroring what the former `arkret::identity` module brought
-// into scope for its children.
+// `arkret` crate can surface `arkret::identity::*`. Internal shared names the
+// modules reach through `use super::*` / `use crate::*`.
 pub(crate) use std::collections::BTreeMap;
 
 pub use arkret_models_identity::primary_handle::{

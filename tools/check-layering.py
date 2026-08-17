@@ -6,8 +6,7 @@ Rules source: arkret-work/work/active/2026-07-19-arkret-rust-sdk-crate-architect
 
 Checks:
   1. Every direct arkret->arkret normal/optional edge must be declared in
-     ALLOWED_EDGES or LEGACY_EDGES (legacy edges are tracked with the phase
-     that removes them and reported, not failed).
+     ALLOWED_EDGES.
   2. Data crates (wire/model layer) must not pull runtime, framework, or
      crypto-machine third-party packages in their no-default-features
      normal graph.
@@ -131,9 +130,8 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-discovery",
         "arkret-state",
     },
-    # Phase 5-e: the issuing-service `Cursor` mint/validate surface (a wire
-    # sync token) moved to arkret-wire; arkret-hlc keeps a thin re-export
-    # shim for API stability, hence the wire edge.
+    # The issuing-service `Cursor` mint/validate surface is a wire sync token
+    # owned by arkret-wire; arkret-hlc re-exports it, hence the wire edge.
     "arkret-hlc": _WIRE,
     "arkret-event-draft": _WIRE
     | {
@@ -241,9 +239,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     },
 }
 
-# No legacy Arkret dependency edges are tolerated.
-LEGACY_EDGES: dict[tuple[str, str], str] = {}
-
 UMBRELLA = "arkret"
 
 
@@ -292,7 +287,6 @@ def main() -> int:
     assert isinstance(packages, list)
 
     failures: list[str] = []
-    legacy_seen: list[str] = []
 
     workspace = {pkg["name"]: pkg for pkg in packages}
 
@@ -318,10 +312,6 @@ def main() -> int:
         for dep in sorted(arkret_deps - {UMBRELLA}):
             if dep in allowed:
                 continue
-            phase = LEGACY_EDGES.get((name, dep))
-            if phase is not None:
-                legacy_seen.append(f"{name} -> {dep} (remove in {phase})")
-                continue
             failures.append(f"{name}: forbidden edge -> {dep}")
 
     checked = 0
@@ -341,10 +331,6 @@ def main() -> int:
             print(f"  {failure}", file=sys.stderr)
         return 1
 
-    if legacy_seen:
-        print(f"legacy edges remaining ({len(legacy_seen)}):")
-        for edge in legacy_seen:
-            print(f"  {edge}")
     print(
         f"layering OK: {len(workspace) - 1} crates checked, "
         f"{checked} data crates scanned for forbidden third-party deps"

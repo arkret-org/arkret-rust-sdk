@@ -294,7 +294,7 @@ impl ServiceRequirements {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, DidFullId, ProfileId, TypedTrustDomainId};
+    use arkret_wire::{DidCoreId, DidFullId, ProfileId, TrustDomainId};
 
     use super::*;
     use crate::service_description::{
@@ -312,7 +312,7 @@ mod tests {
                 method_history_head: "fixture-head".to_owned(),
                 version_id: "fixture-version".to_owned(),
             },
-            trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
@@ -395,7 +395,7 @@ mod tests {
                 method_history_head: "fixture-head".to_owned(),
                 version_id: "fixture-version".to_owned(),
             },
-            trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],

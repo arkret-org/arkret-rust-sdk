@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-16.3;
-//! sha256=a19f84b5b3555913bd71da000b94460e8d3c682e3f37ea85a29a349cde9c95d2 Entries: schema_ids=187,
-//! active=187
+//! Input: registry/schema-registry.json; version=2026-08-17.2;
+//! sha256=d0912f54f5d630f6644695e5387ca2e2fb555bf3fa99d813de9fee5c857c0b94 Entries: schema_ids=188,
+//! active=188
 
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +15,7 @@ pub enum SchemaId {
     AccountDataEncryptedValueV1,
     AccountDataOperationsV1,
     AccountOperationsV1,
+    AccountStatusRecordV1,
     AccountSubscribeFrameV1,
     AccountabilityGrantV1,
     ActorProfileV1,
@@ -206,6 +207,7 @@ impl SchemaId {
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
         Self::AccountOperationsV1,
+        Self::AccountStatusRecordV1,
         Self::AccountSubscribeFrameV1,
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
@@ -397,6 +399,7 @@ impl SchemaId {
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
         Self::AccountOperationsV1,
+        Self::AccountStatusRecordV1,
         Self::AccountSubscribeFrameV1,
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
@@ -592,6 +595,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for account self-service operations: viewer, register,
     /// profile update, and session revocation.
     pub const ACCOUNT_OPERATIONS_V1: &'static str = "ak.schema.account_operations.v1";
+    /// Immutable Account Authority issuer-ledger lifecycle record with a suite-tagged full-digest
+    /// identity and detached proof.
+    pub const ACCOUNT_STATUS_RECORD_V1: &'static str = "ak.schema.account_status_record.v1";
     pub const ACCOUNT_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.account_subscribe_frame.v1";
     /// Issuer-signed accountability endorsement for Actor Profile accountable_principal_ids
     /// verification.
@@ -1095,6 +1101,7 @@ impl SchemaId {
             Self::AccountDataEncryptedValueV1 => Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
             Self::AccountDataOperationsV1 => Self::ACCOUNT_DATA_OPERATIONS_V1,
             Self::AccountOperationsV1 => Self::ACCOUNT_OPERATIONS_V1,
+            Self::AccountStatusRecordV1 => Self::ACCOUNT_STATUS_RECORD_V1,
             Self::AccountSubscribeFrameV1 => Self::ACCOUNT_SUBSCRIBE_FRAME_V1,
             Self::AccountabilityGrantV1 => Self::ACCOUNTABILITY_GRANT_V1,
             Self::ActorProfileV1 => Self::ACTOR_PROFILE_V1,
@@ -1299,6 +1306,7 @@ impl SchemaId {
             Self::AccountDataEncryptedValueV1 => "schemas/account-data-encrypted-value.schema.json",
             Self::AccountDataOperationsV1 => "schemas/account-data-operations.schema.json",
             Self::AccountOperationsV1 => "schemas/account-operations.schema.json",
+            Self::AccountStatusRecordV1 => "schemas/account-operations.schema.json",
             Self::AccountSubscribeFrameV1 => "schemas/account-subscribe-frame.schema.json",
             Self::AccountabilityGrantV1 => "schemas/accountability-grant.schema.json",
             Self::ActorProfileV1 => "schemas/actor-profile.schema.json",
@@ -1523,6 +1531,7 @@ impl SchemaId {
             Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1 => Some(Self::AccountDataEncryptedValueV1),
             Self::ACCOUNT_DATA_OPERATIONS_V1 => Some(Self::AccountDataOperationsV1),
             Self::ACCOUNT_OPERATIONS_V1 => Some(Self::AccountOperationsV1),
+            Self::ACCOUNT_STATUS_RECORD_V1 => Some(Self::AccountStatusRecordV1),
             Self::ACCOUNT_SUBSCRIBE_FRAME_V1 => Some(Self::AccountSubscribeFrameV1),
             Self::ACCOUNTABILITY_GRANT_V1 => Some(Self::AccountabilityGrantV1),
             Self::ACTOR_PROFILE_V1 => Some(Self::ActorProfileV1),

@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use arkret_wire::{DidCoreId, Event, EventId, SchemaId, TrackName};
+use arkret_wire::{AccountStatusRecordId, DidCoreId, Event, EventId, SchemaId, TrackName};
 use serde::de::DeserializeOwned;
 
 use crate::internal_prelude::*;
@@ -80,12 +80,22 @@ pub struct VerificationStubSealInclusion {
     pub state_root: Option<Hash>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ErasureTrigger {
+    Event { event_id: EventId },
+    AccountStatusRecord {
+        account_status_record_id: AccountStatusRecordId,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStub {
     pub stub_schema: String,
-    pub triggering_event_id: EventId,
+    pub trigger: ErasureTrigger,
     pub subject: VerificationStubSubject,
     pub scope: VerificationStubScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -12,7 +12,7 @@ use arkret_wire::{
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
     LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId,
     ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId,
-    TypedTrustDomainId, XExtensionMap,
+    TrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1864,7 +1864,7 @@ pub struct RecoveryPolicy {
     pub version: u64,
     /// Predecessor `policy_id`; `None` only for the genesis policy.
     pub supersedes: Option<PolicyId>,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub allowed_proof_kinds: Vec<RecoveryProofKind>,
     pub publication_authorization_rules: Vec<RecoveryPublicationAuthorizationRule>,
     /// Threshold-recovery config; required when `allowed_proof_kinds`
@@ -2242,7 +2242,7 @@ pub struct UnsignedRecoveryPolicyBody {
     pub principal_id: DidCoreId,
     pub version: u64,
     pub supersedes: Option<PolicyId>,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub allowed_proof_kinds: Vec<RecoveryProofKind>,
     pub publication_authorization_rules: Vec<RecoveryPublicationAuthorizationRule>,
     pub threshold: Option<RecoveryThresholdConfig>,
@@ -2417,7 +2417,7 @@ pub struct RecoveryPolicySummary {
     pub acceptance_basis: LeaseBasisRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub allowed_proof_kinds: Vec<RecoveryProofKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes: Option<PolicyId>,
@@ -2889,7 +2889,7 @@ pub struct RecoveryReceipt {
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub new_device_id: DeviceId,
     pub identity_model: RecoveryIdentityModel,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -3040,7 +3040,7 @@ pub struct UnsignedRecoveryReceiptBody {
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub new_device_id: DeviceId,
     pub identity_model: RecoveryIdentityModel,
     pub previous_model_generation_ref: u64,

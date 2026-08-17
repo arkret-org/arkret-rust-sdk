@@ -16,7 +16,6 @@ use super::registry::*;
 pub fn default_lattice_registry() -> LatticeRegistry {
     let mut registry = LatticeRegistry::new();
 
-    registry.register(AccountStatus);
     registry.register(AgentKey);
     registry.register(AgentSelectorClaim);
     registry.register(AgentStatus);

@@ -3,7 +3,6 @@
 //! Builder functions that need schema validation or event-draft assembly stay
 //! in the `arkret` umbrella.
 
-pub mod account;
 pub mod account_data;
 pub mod actor_profile;
 pub mod agent;
@@ -43,7 +42,6 @@ pub mod state;
 pub mod strand;
 pub mod view;
 
-pub use account::*;
 pub use account_data::*;
 pub use actor_profile::*;
 pub use capability::*;

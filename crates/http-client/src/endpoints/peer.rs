@@ -1,7 +1,7 @@
 //! Typed service-authenticated peer query endpoints.
 
 use arkret_models_collaboration::account_lifecycle::{
-    AccountStatusAuthoringFrontiersOutcome, AccountStatusAuthoringFrontiersRequestBody,
+    AccountStatusResolveOutcome, AccountStatusResolveRequestBody,
 };
 use arkret_models_collaboration::direct_conversation_repair::{
     DirectConversationRepairEnqueueOutcome, DirectConversationRepairRelayRequest,
@@ -18,7 +18,7 @@ use arkret_models_identity::{
 };
 use arkret_wire::{
     DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody,
-    PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS, PATH_PEER_DEVICE_REVOCATIONS_CHECK,
+    PATH_PEER_ACCOUNT_STATUS_RESOLVE, PATH_PEER_DEVICE_REVOCATIONS_CHECK,
     PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY, PATH_PEER_MLS_GROUP_STATE_MATERIAL,
     PATH_PEER_PRINCIPAL_GENESIS,
 };
@@ -121,16 +121,14 @@ impl Client {
         Ok(outcome)
     }
 
-    /// `POST /_arkret/peer/account-status/authoring-frontiers`
-    /// (`ak.peer.account_status.read.authoring_frontiers`).
-    pub async fn peer_account_status_authoring_frontiers(
+    /// Read a bounded contiguous range from the Account Authority issuer ledger.
+    pub async fn peer_account_status_resolve(
         &self,
-        request: &AccountStatusAuthoringFrontiersRequestBody,
-    ) -> Result<AccountStatusAuthoringFrontiersOutcome> {
+        request: &AccountStatusResolveRequestBody,
+    ) -> Result<AccountStatusResolveOutcome> {
         request.validate()?;
-        let outcome: AccountStatusAuthoringFrontiersOutcome = self
-            .post(PATH_PEER_ACCOUNT_STATUS_AUTHORING_FRONTIERS, request)
-            .await?;
+        let outcome: AccountStatusResolveOutcome =
+            self.post(PATH_PEER_ACCOUNT_STATUS_RESOLVE, request).await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }

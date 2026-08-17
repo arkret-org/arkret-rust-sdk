@@ -7,8 +7,9 @@ use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::events_payloads::call::ParticipantBinding;
 use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    MediaBackendKind, MediaBackendToken,
+    MediaBackendToken,
 };
+pub use arkret_models_collaboration::objects::media::MediaBackendKind;
 use arkret_wire::DidCoreId;
 /// Fixed ASCII domain-separation label that prefixes the participant-binding
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding
@@ -26,15 +27,6 @@ mod ice;
 pub use ice::{IceConfig, verify_ice_config_outcome};
 
 // ─── AKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
-
-/// Backend type for a call's media focus. Wire enum mirrors
-/// `ak.realm.media_service.foci[].type`. Receivers MUST fail closed with
-/// [`ReasonCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ReasonCode::UNKNOWN_FOCUS_TYPE)
-/// on unrecognized variants.
-/// Backward-compatible SDK name for the closed machine-contract registry.
-/// Unknown labels now fail during deserialization instead of surviving as a
-/// permissive catch-all variant.
-pub type MediaBackendType = MediaBackendKind;
 
 /// Validate that `expires_at - now` is within the spec TTL ceiling
 /// ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS)).
@@ -64,8 +56,9 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 /// and the `service_signature` issuer to the current
 /// `ak.realm.media_service.service_id` ([`MediaServiceAnchors`]), enforces the
 /// ≤ 600s TTL ([`validate_token_ttl`]), and checks the binding six-tuple against
-/// this request. Focus backend labels are rejected up front via
-/// [`MediaBackendType::ensure_known`].
+/// this request. Focus backend labels are rejected up front by
+/// [`MediaBackendKind`] deserialization: the registry is closed, so an
+/// unrecognized label never reaches this helper.
 pub fn call_media_token_exchange(
     realm_id: RealmId,
     call_id: CallId,

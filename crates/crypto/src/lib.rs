@@ -316,9 +316,7 @@ mod tests {
 
     #[test]
     fn crypto_error_converts_to_core_protocol_error() {
-        // Backward-compat: every CryptoError still renders to
-        // Error::Protocol so callers that have not migrated keep
-        // seeing the same shape.
+        // Every CryptoError renders to Error::Protocol.
         let core_err: Error = CryptoError::ReplayDetected.into();
         assert!(matches!(core_err, Error::Protocol(_)));
 

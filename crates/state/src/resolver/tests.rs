@@ -123,7 +123,7 @@ fn realm_upgrade_rejects_an_unregistered_edge_without_mutating_profile() {
         .apply_event(&event(
             EventKind::RealmUpgrade,
             1,
-            json!({"target_reducer_profile": "ak.reducer.future.v2"}),
+            json!({"target_reducer_profile": "ak.reducer.unregistered.v1"}),
         ))
         .unwrap_err();
     assert!(error.to_string().contains("unsupported_profile"));

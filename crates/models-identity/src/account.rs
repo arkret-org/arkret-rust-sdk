@@ -1,6 +1,6 @@
 use arkret_wire::{
     DeviceId, DidCoreId, DidFullId, DidUrl, Error, EventId, Hash, PayloadProof, RealmId,
-    ReasonCode, RequestId, Result, TypedTrustDomainId, canonical, project_full_id_to_core_id,
+    ReasonCode, RequestId, Result, TrustDomainId, canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -998,7 +998,7 @@ pub struct IdentityAbandonmentChallengeOutcome {
     pub dpop_jkt: String,
     pub audience: DidCoreId,
     pub origin: String,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1166,7 +1166,7 @@ pub struct DidBindingChallengeOutcome {
     pub dpop_jkt: String,
     pub audience: DidCoreId,
     pub origin: String,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1217,7 +1217,7 @@ pub struct AccountRegistrationControlProof {
     pub dpop_jkt: String,
     pub audience: DidCoreId,
     pub origin: String,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1380,7 +1380,7 @@ pub struct IdentityBindingChallengeOutcome {
     pub dpop_jkt: String,
     pub audience: DidCoreId,
     pub origin: String,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1419,7 +1419,7 @@ pub struct IdentityCreationControlProof {
     pub dpop_jkt: String,
     pub audience: DidCoreId,
     pub origin: String,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1493,7 +1493,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub dpop_jkt: String,
     pub audience: DidCoreId,
     pub origin: String,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub verification_key_multibase: String,

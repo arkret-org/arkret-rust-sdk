@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-16.3;
-//! sha256=d52515e2324b379155b76fbeebc4c429649d84a58af5799d6f0a1fe60bad8be6 Entries: error_codes=283
+//! Input: registry/error-code-registry.json; version=2026-08-17.5;
+//! sha256=dc3da6e28e39a4991296642dc6d40bc8af09f0ee7bc95ecc7c39a6fb060b4725 Entries: error_codes=283
 
 use serde::{Deserialize, Serialize};
 
@@ -1862,7 +1862,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["schema_validation", "service_call"],
-        description: "`ak.self.account.command.update_profile` received an `avatar_blob_ref` that is not a valid Arkret Blob reference, does not resolve under the caller's profile/avatar policy, or points to a blob the server cannot authorize for profile display. Protocol profile updates MUST use `avatar_blob_ref`; `avatar_url` is only a compatibility-layer input outside the Arkret protocol path.",
+        description: "`ak.self.account.command.update_profile` received an `avatar_blob_ref` that is not a valid Arkret Blob reference, does not resolve under the caller's profile/avatar policy, or points to a blob the server cannot authorize for profile display. Protocol profile updates MUST use `avatar_blob_ref`; `avatar_url` is not a protocol field.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AvatarUrlInvalid,
@@ -2238,7 +2238,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The device is not authorized for the requested operation.",
+        description: "The device is not authorized for the requested operation. This is the typed local/self-surface outcome when no complete current accepted device authorization can be derived; anti-enumerating peer device-revocation checks instead return a signed authority_mismatch decision. A malformed row that claims current verified authorization while omitting its required Event/generation binding is an internal projection-integrity failure, not this ordinary authorization outcome.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceUnknown,

@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-12.3;
-//! sha256=110f8b693d59cad81493da55f6e18c84c48a565ab5b5ced93b02f9e0f195dd77 Input: registry/
-//! capability-action-registry.json; version=2026-08-16.8;
-//! sha256=672d30122b51a22e80a4182bfb2b3339bcdb4174f4bf72cf4d062ece16cc83c6 Input: registry/
-//! schema-registry.json; version=2026-08-16.3;
-//! sha256=a19f84b5b3555913bd71da000b94460e8d3c682e3f37ea85a29a349cde9c95d2 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-17.2;
+//! sha256=9b05004bc27453e7c1216693ba04667d1c08f91bb1700230b432724e03967ed5 Input: registry/
+//! capability-action-registry.json; version=2026-08-17.2;
+//! sha256=6f5e619815e9d81ccba29760668ca8e2ce83e5086a3de2d83a997f6a8994c5f4 Input: registry/
+//! schema-registry.json; version=2026-08-17.2;
+//! sha256=d0912f54f5d630f6644695e5387ca2e2fb555bf3fa99d813de9fee5c857c0b94 Input: registry/
 //! account-data-key-registry.json; version=2026-08-13.2;
-//! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=56,
-//! special_forms=11, actions=170, schemas=187, account_data_patterns=24
+//! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=57,
+//! special_forms=11, actions=170, schemas=188, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -77,6 +77,11 @@ pub struct AccountDataPatternDescriptor {
 }
 
 pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
+    IdKindDescriptor {
+        kind: "account_status_record",
+        category: "account",
+        wire_form: "ak:account_status_record:<44-char-suite-tagged-full-digest-token>",
+    },
     IdKindDescriptor {
         kind: "actor_profile",
         category: "core_object",
@@ -2941,6 +2946,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_OPERATIONS_V1,
+        file: "schemas/account-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::ACCOUNT_STATUS_RECORD_V1,
         file: "schemas/account-operations.schema.json",
     },
     SchemaDescriptor {

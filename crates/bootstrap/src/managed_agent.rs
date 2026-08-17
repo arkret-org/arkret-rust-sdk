@@ -15,7 +15,7 @@ use arkret_state::{
 use arkret_wire::{
     AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Error, Event, EventKind, GenesisSalt,
     Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result,
-    SchemaId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId, event_spec,
+    SchemaId, Seal, SealId, SealKind, SecurityClass, TrustDomainId, event_spec,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -33,7 +33,7 @@ pub struct ManagedAgentPcrCreatePayloadInput {
     /// published only by a later continuous DID update.
     pub initial_resolution: ResolutionCommitment,
     pub genesis_salt: GenesisSalt,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub capability_action_registry_digest: Hash,
     pub created_at: DateTime<Utc>,
 }

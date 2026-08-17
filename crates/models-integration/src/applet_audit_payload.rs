@@ -84,9 +84,9 @@ impl AppletRegistrationPayload {
     /// (`event-payload.schema.json#/$defs/applet_registration_payload`). The
     /// spec marks the complete field set required; the collection / flag
     /// fields default to their empty / false forms (all schema-valid) and are
-    /// set through the `with_*` chain. Downstream MUST stop sending the legacy
-    /// `{service_id, namespace, capabilities}` short form — it fails the strong
-    /// payload validator (missing required fields + `additionalProperties:false`).
+    /// set through the `with_*` chain. A `{service_id, namespace, capabilities}`
+    /// short form fails the strong payload validator (missing required fields +
+    /// `additionalProperties: false`).
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         applet_id: AppletIdentifier,

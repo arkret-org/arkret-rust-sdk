@@ -28,7 +28,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use arkret_wire::{DidFullId, DidUrl, Hash, TypedTrustDomainId};
+use arkret_wire::{DidFullId, DidUrl, Hash, TrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -241,7 +241,7 @@ pub struct BindingInvalidation {
     /// Match a witness controlling organization the evidence depends on (§5.6).
     pub evidence_witness_organization: Option<DidFullId>,
     /// Match the local trust domain.
-    pub trust_domain: Option<TypedTrustDomainId>,
+    pub trust_domain: Option<TrustDomainId>,
     /// Match the acceptance purpose (controller / service delegation change).
     pub purpose: Option<DidBindingPurpose>,
     /// Match the resolver / Realm policy digest (policy revision).
@@ -303,7 +303,7 @@ impl BindingInvalidation {
     }
 
     /// Narrow the selector to one trust domain.
-    pub fn with_trust_domain(mut self, trust_domain: TypedTrustDomainId) -> Self {
+    pub fn with_trust_domain(mut self, trust_domain: TrustDomainId) -> Self {
         self.trust_domain = Some(trust_domain);
         self
     }
@@ -618,8 +618,8 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).expect("valid hash")
     }
 
-    fn trust_domain(scope: &str) -> TypedTrustDomainId {
-        TypedTrustDomainId::new(format!("ak:trust_domain:{scope}")).expect("valid trust domain")
+    fn trust_domain(scope: &str) -> TrustDomainId {
+        TrustDomainId::new(format!("ak:trust_domain:{scope}")).expect("valid trust domain")
     }
 
     fn did() -> DidFullId {
@@ -642,7 +642,7 @@ mod tests {
 
     struct Fixture {
         did: DidFullId,
-        trust_domain: TypedTrustDomainId,
+        trust_domain: TrustDomainId,
         purpose: DidBindingPurpose,
         fragment: &'static str,
         history_head: Option<String>,

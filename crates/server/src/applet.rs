@@ -246,7 +246,7 @@ mod tests {
         DidVerificationMethodResolver, StaticDidVerificationMethodResolver,
         VerificationMethodDocument,
     };
-    use arkret_wire::{DidCoreId, DidFullId, TypedTrustDomainId};
+    use arkret_wire::{DidCoreId, DidFullId, TrustDomainId};
 
     use super::*;
     use crate::idempotency::IdempotencyDirection;
@@ -287,7 +287,7 @@ mod tests {
         fn describe(&self) -> Result<ServiceDescribe> {
             let mut description = ServiceDescribe::development(
                 DidFullId::new("did:webvh:QmSvc:svc.example").unwrap(),
-                TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+                TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
                 arkret_wire::ServiceKind::AppletService,
             );
             description.supported_profiles = vec!["ak.profile.applet.v1".to_owned()];

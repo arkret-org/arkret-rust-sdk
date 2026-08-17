@@ -183,7 +183,6 @@ mod kind_tests {
         let kinds = LatticeKind::OrderedLog.event_kinds();
         assert!(kinds.contains(&"ak.space.create"));
         assert!(kinds.contains(&"ak.policy.rule"));
-        assert!(kinds.contains(&"ak.account.status"));
     }
 
     #[test]

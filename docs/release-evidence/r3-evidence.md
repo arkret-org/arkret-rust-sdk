@@ -33,7 +33,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
   events with `reducer_input = false`. Marked `ak.agent.{pause, resume,
   deactivate}` with `lattice = fsm, bottom = reject`.
 - `model/call_media.rs` — `MediaTokenResponse`, `ParticipantBinding`,
-  `MediaBackendType` (with `Unknown(String)` arm), TTL gate helper, and
+  `MediaBackendKind` (with `Unknown(String)` arm), TTL gate helper, and
   capability action enum entries `CallJoin`, `CallScreenShare`, `CallRecord`,
   `CallTranscribe`, `CallModerate`.
 - `model/recovery.rs` — `RecoveryPolicy`, `RecoveryReceipt`,

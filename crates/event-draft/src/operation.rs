@@ -647,7 +647,7 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
 /// side (which already depends on it) rather than in the OpenMLS-isolation
 /// layer (`arkret-mls`), which must not reach the collaboration crate.
 pub trait MlsWelcomeTargetExt {
-    /// Build the `ak.mls.welcome.v1` to-device target that carries this
+    /// Build the registered `ak.mls.welcome` to-device target that carries this
     /// Welcome to the recipient device.
     fn welcome_device_message_target(
         &self,

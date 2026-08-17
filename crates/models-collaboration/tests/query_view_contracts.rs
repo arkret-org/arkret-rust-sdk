@@ -162,7 +162,7 @@ fn view_validate_enforces_kind_config_exclusivity_and_renderer_whitelist() {
     view.renderer = Some(ViewRenderer::Custom);
     view.validate().unwrap();
 
-    view.schema = "ak.schema.view.v2".to_owned();
+    view.schema = "ak.schema.view.unregistered.v1".to_owned();
     assert!(view.validate().is_err());
 }
 

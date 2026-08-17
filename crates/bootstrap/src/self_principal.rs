@@ -14,7 +14,7 @@ use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
     CellRef, DidCoreId, DidFullId, EncryptionProfile, Error, Event, EventKind, EventRef,
     GenesisSalt, Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
-    SecurityClass, TypedTrustDomainId, composite_subject, event_spec, project_full_id_to_core_id,
+    SecurityClass, TrustDomainId, composite_subject, event_spec, project_full_id_to_core_id,
     proof_kind,
 };
 use chrono::{DateTime, Utc};
@@ -34,7 +34,7 @@ pub struct SelfPrincipalPcrCreateInput {
     /// Resolvable DID admitted for the principal and published as Realm notary.
     pub principal_full_id: DidFullId,
     pub genesis_salt: GenesisSalt,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub did_inception_ref: EventRef,
     /// Initial owner-published DID resolution state committed by PCR genesis.
     pub initial_resolution: ResolutionCommitment,

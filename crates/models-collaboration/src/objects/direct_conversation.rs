@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     DidCoreId, EncryptionProfile, Error, EventId, GenesisSalt, Hash, ObjectStage, ObjectState,
-    ProfileId, RealmId, Result, SchemaId, SecurityClass, TypedTrustDomainId, canonical,
+    ProfileId, RealmId, Result, SchemaId, SecurityClass, TrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -97,13 +97,13 @@ impl DirectConversationPairKeyParticipant {
 #[derive(Serialize)]
 struct DirectConversationPairKeyMaterial {
     participants: [DidCoreId; 2],
-    trust_domain_id: TypedTrustDomainId,
+    trust_domain_id: TrustDomainId,
 }
 
 const DIRECT_CONVERSATION_PAIR_KEY_DOMAIN: &[u8] = b"ak.direct-conversation.pair-key.v1\n";
 
 pub fn direct_conversation_pair_key(
-    trust_domain: TypedTrustDomainId,
+    trust_domain: TrustDomainId,
     left: DirectConversationPairKeyParticipant,
     right: DirectConversationPairKeyParticipant,
 ) -> Result<Hash> {
@@ -155,7 +155,7 @@ impl DirectConversationRealmRole {
 
 pub fn direct_conversation_realm_create_payload(
     genesis_salt: GenesisSalt,
-    trust_domain: TypedTrustDomainId,
+    trust_domain: TrustDomainId,
     notary_profile: NotaryProfile,
     notary: NotaryValue,
     capability_action_registry_digest: Hash,
@@ -251,7 +251,7 @@ pub fn direct_conversation_main_strand_create_payload(
 
 pub fn validate_direct_conversation_binding(
     payload: &DirectConversationBoundPayload,
-    trust_domain: TypedTrustDomainId,
+    trust_domain: TrustDomainId,
     genesis: &RealmGenesis,
     realm_id: &RealmId,
     active_members: &BTreeSet<DidCoreId>,
@@ -407,8 +407,8 @@ mod tests {
         arkret_wire::project_full_id_to_core_id(&full_id(value)).unwrap()
     }
 
-    fn trust_domain() -> TypedTrustDomainId {
-        TypedTrustDomainId::new("ak:trust_domain:example.test".to_owned()).unwrap()
+    fn trust_domain() -> TrustDomainId {
+        TrustDomainId::new("ak:trust_domain:example.test".to_owned()).unwrap()
     }
 
     #[test]

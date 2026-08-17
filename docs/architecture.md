@@ -18,7 +18,7 @@ first-class typed builders. They share three common invariants:
    deactivate}` carry `lattice = fsm, bottom = reject`; recovery completion is
    driven by an idempotent `ak.recovery.session.complete` reducer; media tokens
    are bounded by a TTL gate (see [§Call media](#call-media-cxcallmediatoken_exchange)).
-2. **All three reject on unknown enums** — `MediaBackendType::Unknown(_)`,
+2. **All three reject on unknown enums** — `MediaBackendKind::Unknown(_)`,
    `RecoveryProofKind` enum, agent state enum all use the canonical
    `unknown_focus_type` / `member_identity_unknown_segment` style reject
    helpers. Forward-compat is opt-in per profile, not implicit.
@@ -119,7 +119,7 @@ Errors:
 
 - `focus_mismatch` — participant_binding focus_id differs from the realm's
   resolved focus.
-- `unknown_focus_type` — `MediaBackendType::Unknown(_)` arm hit; reject helper
+- `unknown_focus_type` — `MediaBackendKind::Unknown(_)` arm hit; reject helper
   surfaces this directly.
 - `token_issuer_unauthorised` — `issuer_kid` not registered for this realm's
   media-service binding.
@@ -133,10 +133,10 @@ Errors:
 - `focus_unavailable_for_client` — client doesn't ship the required backend
   profile (e.g. asked for Mediasoup but only ships LiveKit).
 
-`MediaBackendType`:
+`MediaBackendKind`:
 
 ```rust
-pub enum MediaBackendType {
+pub enum MediaBackendKind {
     LiveKit,
     Mediasoup,
     Janus,
@@ -147,7 +147,7 @@ pub enum MediaBackendType {
 ```
 
 `Unknown(String)` is preserved on decode so logs are useful, but every
-operational call site invokes `MediaBackendType::reject_if_unknown()` before
+operational call site invokes `MediaBackendKind::reject_if_unknown()` before
 trusting the value. The `ak.profile.media_service_binding.{livekit,
 arkret_native}.v1` profile entries gate which arms a client will negotiate.
 

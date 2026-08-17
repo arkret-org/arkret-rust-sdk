@@ -1069,19 +1069,12 @@ mod tests {
     }
 
     #[test]
-    fn ordered_log_families_have_per_issuer_subject_or_singleton() {
+    fn ordered_log_realm_create_is_registered() {
         let registry = default_lattice_registry();
         let kind = registry
             .lookup(arkret_wire::CellFamilyId::REALM_CREATE_V1)
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
-        let kind = registry
-            .lookup(arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1)
-            .unwrap();
-        assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
-        let payload = json!({"account_id": "act:01HXYZ"});
-        let subject = kind.subject_for_effect(&payload).unwrap();
-        assert_eq!(subject.as_deref(), Some("act:01HXYZ"));
     }
 
     #[test]

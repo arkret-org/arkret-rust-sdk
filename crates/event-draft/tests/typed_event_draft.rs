@@ -20,7 +20,7 @@ fn fixture() -> (ScopeRef, DidCoreId, MessageCreatePayload) {
 }
 
 #[test]
-fn typed_authoring_is_byte_compatible_with_the_legacy_canonical_chain() {
+fn typed_authoring_matches_the_raw_canonical_chain_byte_for_byte() {
     let (scope, actor, payload) = fixture();
     let created_at = Utc.with_ymd_and_hms(2026, 8, 9, 1, 2, 3).single().unwrap();
     let hlc = Hlc::new("01970e589d21-0001-a13f9c2e").unwrap();
@@ -33,7 +33,7 @@ fn typed_authoring_is_byte_compatible_with_the_legacy_canonical_chain() {
     .unwrap()
     .author(7, hlc.clone(), created_at)
     .unwrap();
-    let legacy = arkret_wire::test_support::raw_event_at(
+    let raw = arkret_wire::test_support::raw_event_at(
         EventKind::MessageCreate.as_str(),
         scope,
         actor.clone(),
@@ -45,10 +45,10 @@ fn typed_authoring_is_byte_compatible_with_the_legacy_canonical_chain() {
     )
     .unwrap();
 
-    assert_eq!(typed, legacy);
+    assert_eq!(typed, raw);
     assert_eq!(
         canonical_json_bytes(&typed).unwrap(),
-        canonical_json_bytes(&legacy).unwrap()
+        canonical_json_bytes(&raw).unwrap()
     );
     assert_eq!(typed.event_id, typed.derive_event_id().unwrap());
 }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-16.3;
-//! sha256=ca1e85c41c6d526f07d4868c34b20397ef76b0d1c58fc9dcb83c1cc49ace2e0d Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-17.1;
+//! sha256=a0b04b20985dc429608939a1f686cd2dc287c8812ed214d72f08bbedd4f8703c Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
@@ -16,7 +16,7 @@
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=48, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=50, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=22, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -25,6 +25,8 @@ pub enum ProofContextId {
     AccountBindingReceiptProofV1,
     AccountHandoffAuthenticationProofV1,
     AccountRegistrationControlProofV1,
+    AccountStatusRecordProofV1,
+    AccountStatusReplicationReceiptProofV1,
     AccountabilityGrantProofV1,
     AgentRequestedScopeDisclosureProofV1,
     AgentRuntimeKeyPossessionProofV1,
@@ -77,6 +79,8 @@ impl ProofContextId {
         Self::AccountBindingReceiptProofV1,
         Self::AccountHandoffAuthenticationProofV1,
         Self::AccountRegistrationControlProofV1,
+        Self::AccountStatusRecordProofV1,
+        Self::AccountStatusReplicationReceiptProofV1,
         Self::AccountabilityGrantProofV1,
         Self::AgentRequestedScopeDisclosureProofV1,
         Self::AgentRuntimeKeyPossessionProofV1,
@@ -130,6 +134,9 @@ impl ProofContextId {
         "ak.account-handoff-authentication-proof-v1";
     pub const ACCOUNT_REGISTRATION_CONTROL_PROOF_V1: &'static str =
         "ak.account-registration-control-proof-v1";
+    pub const ACCOUNT_STATUS_RECORD_PROOF_V1: &'static str = "ak.account-status-record-proof-v1";
+    pub const ACCOUNT_STATUS_REPLICATION_RECEIPT_PROOF_V1: &'static str =
+        "ak.account-status-replication-receipt-proof-v1";
     pub const ACCOUNTABILITY_GRANT_PROOF_V1: &'static str = "ak.accountability-grant-proof-v1";
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1: &'static str =
         "ak.agent-requested-scope-disclosure-proof-v1";
@@ -210,6 +217,10 @@ impl ProofContextId {
                 Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1
             }
             Self::AccountRegistrationControlProofV1 => Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1,
+            Self::AccountStatusRecordProofV1 => Self::ACCOUNT_STATUS_RECORD_PROOF_V1,
+            Self::AccountStatusReplicationReceiptProofV1 => {
+                Self::ACCOUNT_STATUS_REPLICATION_RECEIPT_PROOF_V1
+            }
             Self::AccountabilityGrantProofV1 => Self::ACCOUNTABILITY_GRANT_PROOF_V1,
             Self::AgentRequestedScopeDisclosureProofV1 => {
                 Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1
@@ -296,6 +307,10 @@ impl ProofContextId {
             }
             Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1 => {
                 Some(Self::AccountRegistrationControlProofV1)
+            }
+            Self::ACCOUNT_STATUS_RECORD_PROOF_V1 => Some(Self::AccountStatusRecordProofV1),
+            Self::ACCOUNT_STATUS_REPLICATION_RECEIPT_PROOF_V1 => {
+                Some(Self::AccountStatusReplicationReceiptProofV1)
             }
             Self::ACCOUNTABILITY_GRANT_PROOF_V1 => Some(Self::AccountabilityGrantProofV1),
             Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1 => {
@@ -789,6 +804,20 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "witness_evidence?",
         ],
         schema_ref: "schemas/account-operations.schema.json#/$defs/account_registration_control_proof",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::AccountStatusRecordProofV1,
+        context: "ak.account-status-record-proof-v1",
+        object_family: "account_status_record",
+        binding_fields: &["payload_digest", "verification_method", "created_at"],
+        schema_ref: "schemas/account-operations.schema.json#/$defs/account_status_record",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::AccountStatusReplicationReceiptProofV1,
+        context: "ak.account-status-replication-receipt-proof-v1",
+        object_family: "account_status_replication_receipt",
+        binding_fields: &["payload_digest", "verification_method", "created_at"],
+        schema_ref: "schemas/account-operations.schema.json#/$defs/account_status_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::AccountabilityGrantProofV1,

@@ -1687,7 +1687,7 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_grant_builder_rejects_wrong_schema() {
         let mut grant = base_grant();
-        grant.schema = "ak.schema.capability.v0".to_owned();
+        grant.schema = "ak.schema.capability.unregistered.v1".to_owned();
         let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
             .build(1, hlc())
             .expect_err("wrong schema constant must be rejected");

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-16.5;
-//! sha256=b71f1a11cf80f7b60a5cb0394a0c4db3d1daa46e19c6611ffe9406ae5fff69bd Input: registry/
-//! operations-error-mapping.json; version=2026-08-16.2;
-//! sha256=eb6aa2db34c5bde2ca3f031edef14cbdbc7194e48bf76a2a9c0b0aff8a9692a0 Input: registry/
-//! error-code-registry.json; version=2026-08-16.3;
-//! sha256=d52515e2324b379155b76fbeebc4c429649d84a58af5799d6f0a1fe60bad8be6 Entries: operations=243
+//! Input: registry/operation-registry.json; version=2026-08-17.2;
+//! sha256=907bc131eb69d4cf8461294295e3b235ebb8cb16814d4174edd1264b4197fa37 Input: registry/
+//! operations-error-mapping.json; version=2026-08-17.2;
+//! sha256=fe53d4d2f038d758a2df3ef96800828ccd3b5a88a199ad63ed0713000822e649 Input: registry/
+//! error-code-registry.json; version=2026-08-17.5;
+//! sha256=dc3da6e28e39a4991296642dc6d40bc8af09f0ee7bc95ecc7c39a6fb060b4725 Entries: operations=243
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -447,16 +447,18 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ReasonCode(ReasonCode::AccountStatusRecordStale),
+            OperationSpecificError::ReasonCode(ReasonCode::AccountStatusRecordFork),
+            OperationSpecificError::ReasonCode(ReasonCode::AccountStatusBindingRollback),
             OperationSpecificError::ReasonCode(ReasonCode::AccountStatusTransitionInvalid),
             OperationSpecificError::ReasonCode(ReasonCode::ErasurePendingIsTerminal),
             OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerAccountStatusReadAuthoringFrontiers,
+        operation: ServiceOperationId::PeerAccountStatusReadResolve,
         operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
             OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
         ],
     },

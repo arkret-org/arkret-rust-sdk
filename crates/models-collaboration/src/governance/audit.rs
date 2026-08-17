@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     DidCoreId, Error, EventId, Hash, ProfileId, Proof, RealmId, ReasonCode, Result, SchemaId,
-    TypedTrustDomainId,
+    TrustDomainId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -176,7 +176,7 @@ pub struct AuditRywReceipt {
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain
     /// binding. Mixed into the canonical `audit_policy_version_digest`
     /// 4-tuple so receipts cannot be replayed across deployments.
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub audit_actor_id: DidCoreId,
     pub frontier: RywFrontier,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

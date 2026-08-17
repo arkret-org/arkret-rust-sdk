@@ -9,7 +9,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_identifiers::{DidCoreId, EventId, Hash, RealmId, TypedTrustDomainId};
+use arkret_identifiers::{DidCoreId, EventId, Hash, RealmId, TrustDomainId};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{BlobRef, Error, Result};
 use chrono::{DateTime, Utc};
@@ -51,9 +51,9 @@ pub struct HttpMessageSignatureInput {
     /// Optional federation trust-domain transcript fields. When present they
     /// MUST be included in the canonical HTTP message signature base.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_trust_domain: Option<TypedTrustDomainId>,
+    pub source_trust_domain: Option<TrustDomainId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub destination_trust_domain: Option<TypedTrustDomainId>,
+    pub destination_trust_domain: Option<TrustDomainId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_canonical_digest: Option<Hash>,
 }

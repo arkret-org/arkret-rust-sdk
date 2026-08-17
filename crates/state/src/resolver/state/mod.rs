@@ -233,7 +233,6 @@ impl RealmState {
             // Account lifecycle (account-lifecycle.md §3 +
             // event-auth-state-resolution.md). The cell subject is the
             // account DID; the latest event wins per HLC ordering.
-            | EventKind::AccountStatus
             // Moderation reports / franks (moderation.md §3).
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.

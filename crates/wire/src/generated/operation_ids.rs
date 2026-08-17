@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-16.5;
-//! sha256=b71f1a11cf80f7b60a5cb0394a0c4db3d1daa46e19c6611ffe9406ae5fff69bd Entries: registered=243
+//! Input: registry/operation-registry.json; version=2026-08-17.2;
+//! sha256=907bc131eb69d4cf8461294295e3b235ebb8cb16814d4174edd1264b4197fa37 Entries: registered=243
 
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +74,7 @@ pub enum ServiceOperationId {
     OpenMimiReadProviderDirectory,
     OpenServiceReadResolution,
     PeerAccountStatusCommandSubmit,
-    PeerAccountStatusReadAuthoringFrontiers,
+    PeerAccountStatusReadResolve,
     PeerContactsCommandSubmit,
     PeerDeviceRevocationsCommandCheck,
     PeerDirectConversationCommandRepairRelay,
@@ -320,7 +320,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
     ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-    ServiceOperationId::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS,
+    ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK,
     ServiceOperationId::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY,
@@ -608,7 +608,7 @@ impl ServiceOperationId {
         Self::OpenMimiReadProviderDirectory,
         Self::OpenServiceReadResolution,
         Self::PeerAccountStatusCommandSubmit,
-        Self::PeerAccountStatusReadAuthoringFrontiers,
+        Self::PeerAccountStatusReadResolve,
         Self::PeerContactsCommandSubmit,
         Self::PeerDeviceRevocationsCommandCheck,
         Self::PeerDirectConversationCommandRepairRelay,
@@ -898,8 +898,8 @@ impl ServiceOperationId {
     pub const OPEN_SERVICE_READ_RESOLUTION: &'static str = "ak.open.service.read.resolution";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT: &'static str =
         "ak.peer.account_status.command.submit";
-    pub const PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS: &'static str =
-        "ak.peer.account_status.read.authoring_frontiers";
+    pub const PEER_ACCOUNT_STATUS_READ_RESOLVE: &'static str =
+        "ak.peer.account_status.read.resolve";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_DEVICE_REVOCATIONS_COMMAND_CHECK: &'static str =
         "ak.peer.device_revocations.command.check";
@@ -1278,9 +1278,7 @@ impl ServiceOperationId {
             Self::OpenMimiReadProviderDirectory => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY,
             Self::OpenServiceReadResolution => Self::OPEN_SERVICE_READ_RESOLUTION,
             Self::PeerAccountStatusCommandSubmit => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
-            Self::PeerAccountStatusReadAuthoringFrontiers => {
-                Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS
-            }
+            Self::PeerAccountStatusReadResolve => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE,
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerDeviceRevocationsCommandCheck => Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK,
             Self::PeerDirectConversationCommandRepairRelay => {
@@ -1660,9 +1658,7 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY => Some(Self::OpenMimiReadProviderDirectory),
             Self::OPEN_SERVICE_READ_RESOLUTION => Some(Self::OpenServiceReadResolution),
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT => Some(Self::PeerAccountStatusCommandSubmit),
-            Self::PEER_ACCOUNT_STATUS_READ_AUTHORING_FRONTIERS => {
-                Some(Self::PeerAccountStatusReadAuthoringFrontiers)
-            }
+            Self::PEER_ACCOUNT_STATUS_READ_RESOLVE => Some(Self::PeerAccountStatusReadResolve),
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK => {
                 Some(Self::PeerDeviceRevocationsCommandCheck)
@@ -3501,28 +3497,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.account.status"])),
-            rationale: None,
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "replicates_an_existing_account_authority_issuer_record_without_authoring_an_event",
+            ),
             branch_contract_json: None,
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerAccountStatusReadAuthoringFrontiers,
+        id: ServiceOperationId::PeerAccountStatusReadResolve,
         http_method: "POST",
-        http_path: "/_arkret/peer/account-status/authoring-frontiers",
-        grpc: Some("PeerAccountStatus/AuthoringFrontiers"),
-        mq: Some("peer.account_status.query.authoring_frontiers"),
+        http_path: "/_arkret/peer/account-status/resolve",
+        grpc: Some("PeerAccountStatus/Resolve"),
+        mq: Some("peer.account_status.query.resolve"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_authoring_frontiers_request_body",
+            "schemas/account-operations.schema.json#/$defs/account_status_resolve_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_authoring_frontiers_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_status_resolve_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

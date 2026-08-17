@@ -8,7 +8,7 @@ use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
     CircleId, DeviceId, DidCoreId, DidUrl, Error, Hash, MorphId, ObjectStage, ObjectState,
-    PolicyId, RealmId, Result, SchemaId, StrandId, TypedTrustDomainId, canonical,
+    PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -414,7 +414,7 @@ pub struct IdentityLink {
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(

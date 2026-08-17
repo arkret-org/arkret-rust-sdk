@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::{DidCoreId, Event, EventId, Hlc, Result, ScopeRef};
 
-/// Envelope metadata historically embedded in raw projection fixture payloads.
+/// Envelope metadata embedded in raw projection fixture payloads.
 ///
 /// Serde owns the split so fixture callers do not hand-edit an Event digest
 /// preimage or maintain another list of excluded Event members.
@@ -31,8 +31,8 @@ pub struct RawProjectionFixtureParts {
     pub payload: Value,
 }
 
-/// Decode the legacy test-only projection fixture overlay into explicit
-/// envelope metadata and a clean Event payload object.
+/// Decode the test-only projection fixture overlay into explicit envelope
+/// metadata and a clean Event payload object.
 #[doc(hidden)]
 pub fn split_raw_projection_fixture_payload(payload: Value) -> Result<RawProjectionFixtureParts> {
     let fixture: RawProjectionFixtureEnvelope =

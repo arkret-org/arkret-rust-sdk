@@ -1,8 +1,6 @@
-//! Crate-internal prelude for the artifact-counterpart modules migrated
-//! from the former Core compatibility panel, mirroring its flat namespace
-//! they were originally written against. New modules should prefer
-//! explicit imports; this exists to keep the migrated payload files
-//! byte-stable. Entries are kept trimmed to the names those files
+//! Crate-internal prelude for the artifact-counterpart payload modules,
+//! providing the flat namespace they are written against. New modules should
+//! prefer explicit imports. Entries are kept trimmed to the names those files
 //! actually resolve through it.
 
 pub(crate) use std::collections::BTreeMap;
@@ -28,7 +26,6 @@ pub(crate) use crate::governance::grant_constraint::*;
 pub(crate) use crate::governance::handle_claim::*;
 pub(crate) use crate::governance::history_visibility::*;
 pub(crate) use crate::governance::moderation_appeal::*;
-pub(crate) use crate::objects::account_status::*;
 pub(crate) use crate::objects::direct_conversation::*;
 pub(crate) use crate::objects::profiles::*;
 pub(crate) use crate::objects::realm::*;

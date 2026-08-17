@@ -300,7 +300,6 @@ event_payload_accessors! {
     event_spec::ContactScopeUpdate => (as_contact_scope_update, ContactScopeUpdatePayload),
     event_spec::DirectConversationBound => (as_direct_conversation_bound, DirectConversationBoundPayload),
     event_spec::DirectConversationMlsGenerationActivate => (as_direct_conversation_mls_generation_activate, DirectConversationMlsGenerationActivatePayload),
-    event_spec::AccountStatus => (as_account_status, AccountStatusPayload),
     event_spec::AccountBlocklist => (as_account_blocklist, AccountBlocklistPayload),
     event_spec::AccountDataSet => (as_account_data_set, AccountDataSetPayload),
     event_spec::ProfileCreate => (as_profile_create, ActorProfileCreatePayload),

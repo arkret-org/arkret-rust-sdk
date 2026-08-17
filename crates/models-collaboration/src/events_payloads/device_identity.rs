@@ -704,7 +704,7 @@ pub struct DirectConversationBoundPayload {
 }
 
 impl DirectConversationBoundPayload {
-    pub fn validate_pair_key(&self, trust_domain: TypedTrustDomainId) -> Result<()> {
+    pub fn validate_pair_key(&self, trust_domain: TrustDomainId) -> Result<()> {
         self.authorization_basis.validate_shape()?;
         let [left, right]: [DidCoreId; 2] = self
             .participants_unordered

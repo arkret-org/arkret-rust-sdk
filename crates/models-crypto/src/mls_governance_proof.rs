@@ -732,7 +732,6 @@ pub fn is_mls_membership_frontier_component(component: &str) -> bool {
         arkret_wire::CellFamilyId::MEMBER_STATE_V1
             | arkret_wire::CellFamilyId::REALM_CREATE_V1
             | arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1
-            | arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1
             | arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1
             | arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1
             | arkret_wire::CellFamilyId::REALM_TOMBSTONE_V1

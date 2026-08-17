@@ -262,6 +262,12 @@ pub struct CallMediaServiceSignature {
 }
 
 /// Closed media backend registry used by both focus selection and token exchange.
+///
+/// Mirrors the wire enum `ak.realm.media_service.foci[].type`. The registry is
+/// closed, so successful deserialization *is* the known-backend check: an
+/// unrecognized label fails to deserialize rather than surviving as a
+/// catch-all variant, and receivers MUST fail closed with
+/// [`ReasonCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ReasonCode::UNKNOWN_FOCUS_TYPE).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -271,15 +277,6 @@ pub enum MediaBackendKind {
     Janus,
     ArkretNative,
     MoqRelay,
-}
-
-impl MediaBackendKind {
-    /// Kept for callers that previously performed an explicit known-backend
-    /// check. The enum is now closed, so successful deserialization is the
-    /// check and every represented value is known.
-    pub const fn ensure_known(self) -> arkret_wire::Result<()> {
-        Ok(())
-    }
 }
 
 /// Media permissions carried by an Arkret-native backend token.

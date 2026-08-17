@@ -697,7 +697,7 @@ pub struct RealmGenesis {
     pub founding_device_descriptor: Option<FoundingDeviceDescriptor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_resolution: Option<arkret_models_identity::ResolutionCommitment>,
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     pub schema_refs: Vec<String>,
     pub reducer_profile: String,
     pub digest_algorithm: canonical::DigestSuite,
@@ -713,7 +713,7 @@ impl RealmGenesis {
     pub fn event_derived(
         purpose: RealmPurpose,
         genesis_salt: GenesisSalt,
-        trust_domain: TypedTrustDomainId,
+        trust_domain: TrustDomainId,
         schema_refs: Vec<String>,
         reducer_profile: impl Into<String>,
         digest_algorithm: canonical::DigestSuite,
@@ -748,7 +748,7 @@ impl RealmGenesis {
         genesis_salt: GenesisSalt,
         founding_device_descriptor: Option<FoundingDeviceDescriptor>,
         initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TypedTrustDomainId,
+        trust_domain: TrustDomainId,
         schema_refs: Vec<String>,
         reducer_profile: impl Into<String>,
         digest_algorithm: canonical::DigestSuite,
@@ -782,7 +782,7 @@ impl RealmGenesis {
     pub fn managed_agent_control(
         genesis_salt: GenesisSalt,
         initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TypedTrustDomainId,
+        trust_domain: TrustDomainId,
         schema_refs: Vec<String>,
         reducer_profile: impl Into<String>,
         digest_algorithm: canonical::DigestSuite,

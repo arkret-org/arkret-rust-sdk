@@ -915,13 +915,6 @@ per_subject_lattice!(
 );
 
 per_subject_lattice!(
-    AccountStatus,
-    arkret_wire::CellFamilyId::ACCOUNT_STATUS_V1,
-    Criticality::Required,
-    "account_id"
-);
-
-per_subject_lattice!(
     PolicyRule,
     arkret_wire::CellFamilyId::POLICY_RULE_V1,
     Criticality::Required,

@@ -1657,7 +1657,7 @@ mod engine_wire_tests {
     fn schema_violating_grant_contributes_no_authority() {
         let mut engine = AuthzEngine::new();
         let mut grant = wire_grant(Vec::new());
-        grant.schema = "ak.schema.capability.v0".to_owned();
+        grant.schema = "ak.schema.capability.unregistered.v1".to_owned();
         let decision = engine.check_authorization(&ctx(), &[grant]);
         assert!(matches!(
             decision,

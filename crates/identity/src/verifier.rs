@@ -64,7 +64,7 @@
 //! it is an identity-anchor path and belongs on the ordinary API.
 
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
-use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Hash, Proof, TypedTrustDomainId};
+use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Hash, Proof, TrustDomainId};
 use chrono::{DateTime, Utc};
 
 use crate::binding::{
@@ -623,7 +623,7 @@ pub struct BindingResolveRequest {
     /// The bare DID to establish or refresh a binding for.
     pub did: DidFullId,
     /// Local trust domain the acceptance is scoped to.
-    pub trust_domain: TypedTrustDomainId,
+    pub trust_domain: TrustDomainId,
     /// The single purpose being authorized.
     pub purpose: DidBindingPurpose,
     /// Digest of the resolver policy in force. Compute it with
@@ -845,8 +845,8 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).expect("valid hash")
     }
 
-    fn trust_domain() -> TypedTrustDomainId {
-        TypedTrustDomainId::new("ak:trust_domain:local".to_owned()).expect("valid trust domain")
+    fn trust_domain() -> TrustDomainId {
+        TrustDomainId::new("ak:trust_domain:local".to_owned()).expect("valid trust domain")
     }
 
     fn signing_key() -> SigningKey {

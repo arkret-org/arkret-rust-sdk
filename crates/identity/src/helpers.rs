@@ -12,7 +12,7 @@ use super::*;
 /// responses), so a host like `169.254.169.254` (cloud metadata),
 /// `127.0.0.1`, or `10.x.x.x` must never trigger an internal request. Bare
 /// `localhost` is also blocked. Registered domain names are allowed by this
-/// static compatibility helper; outbound clients must additionally use
+/// static helper; outbound clients must additionally use
 /// `arkret_egress_policy::OutboundPolicy` for scheme, DNS-answer, and
 /// connection-binding checks.
 ///
