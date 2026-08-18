@@ -187,12 +187,8 @@ impl RealmState {
     }
 
     pub(super) fn revise_message(&mut self, event: &Event) -> Result<()> {
-        let message_id = self
-            .extract_optional_field::<String>(&event.payload, "target_message_id")
-            .or_else(|| self.extract_optional_field::<String>(&event.payload, "message_id"))
-            .ok_or_else(|| {
-                Error::Protocol("message revision requires target_message_id".to_owned())
-            })?;
+        // `message_revise_payload` registers exactly one target carrier.
+        let message_id = self.extract_field::<String>(&event.payload, "message_id")?;
         let message = self
             .messages
             .get_mut(&message_id)
@@ -214,12 +210,7 @@ impl RealmState {
     }
 
     pub(super) fn redact_message(&mut self, event: &Event) -> Result<()> {
-        let message_id = self
-            .extract_optional_field::<String>(&event.payload, "target_message_id")
-            .or_else(|| self.extract_optional_field::<String>(&event.payload, "message_id"))
-            .ok_or_else(|| {
-                Error::Protocol("message redaction requires target_message_id".to_owned())
-            })?;
+        let message_id = self.extract_field::<String>(&event.payload, "message_id")?;
         if let Some(message) = self.messages.get_mut(&message_id) {
             if Self::message_candidate_wins(message, event) {
                 message.latest_event_id = event.event_id.clone();
@@ -235,8 +226,8 @@ impl RealmState {
     }
 
     pub(super) fn reduce_reaction(&mut self, event: &Event) -> Result<()> {
-        let message_id = self.extract_field::<String>(&event.payload, "message_id")?;
-        let reaction_key = self.extract_field::<String>(&event.payload, "reaction_key")?;
+        let message_id = self.extract_field::<String>(&event.payload, "target_ref")?;
+        let reaction_key = self.extract_field::<String>(&event.payload, "key")?;
         let key = format!("{}|{}|{}", message_id, event.actor_id, reaction_key);
         let candidate = ResolvedReaction {
             message_id,
@@ -291,23 +282,25 @@ impl RealmState {
         Ok(())
     }
 
-    /// Object-level redaction state-machine guard for `ak.redaction` events.
-    /// Reads the registered object-target member `payload.target_ref` of
-    /// `cross_object_redaction_payload`, and when it points to a Strand / Morph
-    /// subject, flips the projection state to `ObjectState::Redacted` per
-    /// spec common-fields.md §5.1. Source state MUST be `Active` or
-    /// `Archived`; terminal source (`Deleted` / `Redacted`) MUST
-    /// `failed_precondition` with `<kind>_already_terminal`. Unknown
-    /// subject is tolerated (causal / backfill window — same convention
-    /// as restore guards). An Event-target redaction (`ak:event:`) has no
-    /// object subject and returns `Ok(())`. Space (container) is intentionally
-    /// excluded because `SpaceState` has no `Redacted` variant — spec routes
-    /// Space removal through `ak.space.tombstone` instead.
+    /// Redaction guard for `ak.redaction` events.
+    ///
+    /// `payload.target_ref` is the single registered target carrier of
+    /// `cross_object_redaction_payload`. An `ak:event:` target trims that
+    /// Event's payload; an object target flips the projection state of a
+    /// Strand / Morph subject to `ObjectState::Redacted` per spec
+    /// common-fields.md §5.1. Source state MUST be `Active` or `Archived`;
+    /// terminal source (`Deleted` / `Redacted`) MUST `failed_precondition`
+    /// with `<kind>_already_terminal`. Unknown subject is tolerated (causal /
+    /// backfill window — same convention as restore guards). Space (container)
+    /// is intentionally excluded because `SpaceState` has no `Redacted`
+    /// variant — spec routes Space removal through `ak.space.tombstone`.
     pub(super) fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
-        let Some(target_ref) = self.extract_optional_field::<String>(&event.payload, "target_ref")
-        else {
-            return Ok(());
-        };
+        let target_ref = self.extract_field::<String>(&event.payload, "target_ref")?;
+        if let Some(rest) = target_ref.strip_prefix("ak:event:") {
+            let _ = rest;
+            let redacted_ref = EventId::new(target_ref)?;
+            return self.redact_event(&redacted_ref);
+        }
         if let Some(subject) = self.subjects.get_mut(&target_ref) {
             match subject.state {
                 Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}

@@ -395,7 +395,6 @@ impl OperationEnvelope {
             None,
             None,
             None,
-            None,
         )?;
         event.proofs = conversion.proofs.into_iter().map(Into::into).collect();
         event.unsigned.insert(

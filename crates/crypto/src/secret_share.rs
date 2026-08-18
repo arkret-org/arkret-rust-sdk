@@ -39,6 +39,67 @@ pub const SECRET_SEND_KIND: &str = arkret_wire::SECRET_SEND_KIND;
 /// agree on the exact opaque token.
 pub const SECRET_ID_MLS_ACCOUNT: &str = "inkson_mls_account_secret";
 
+/// Canonical HPKE AAD for an `ak.secret.send` to-device envelope.
+///
+/// `crypto-media/device-lifecycle.md` §10.7 fixes the AAD as the RFC 8785
+/// canonical JSON of exactly nine members: the envelope's `device_message_id`,
+/// `kind`, `sender_principal_id`, `sender_device_id`, `recipient_principal_id`,
+/// `recipient_device_id` and `expires_at`, plus the content's `request_id` and
+/// `secret_id`.
+///
+/// This is the single construction point. Callers pass the typed members and
+/// receive canonical bytes; they MUST NOT hand-assemble a JSON value, because a
+/// short AAD lets different messages / requests / secrets share one binding and
+/// leaves isolation to in-ciphertext claims alone.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SecretShareSendAad<'a> {
+    /// Envelope `device_message_id`; MUST be allocated before sealing so the
+    /// ciphertext, the envelope and the durable queue row all carry one value.
+    pub device_message_id: &'a arkret_wire::DeviceMessageId,
+    pub sender_principal_id: &'a arkret_wire::DidCoreId,
+    pub sender_device_id: &'a arkret_wire::DeviceId,
+    pub recipient_principal_id: &'a arkret_wire::DidCoreId,
+    pub recipient_device_id: &'a arkret_wire::DeviceId,
+    /// Content `request_id`, verbatim.
+    pub request_id: &'a str,
+    /// Content `secret_id`, verbatim.
+    pub secret_id: &'a str,
+    /// Envelope `expires_at`, already validated as the canonical `.sssZ` form.
+    /// It enters the AAD as that same string; no `*_unix` derivation exists.
+    pub expires_at: &'a str,
+}
+
+impl SecretShareSendAad<'_> {
+    /// Canonical AAD bytes. `kind` is pinned to [`SECRET_SEND_KIND`] and is not
+    /// a caller input, so an envelope of another kind cannot reuse this binding.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        arkret_canonical::validate_timestamp_canonical(self.expires_at).map_err(|err| {
+            Error::Protocol(format!(
+                "invalid secret-share expires_at {:?}: {err}",
+                self.expires_at
+            ))
+        })?;
+        if self.request_id.is_empty() || self.secret_id.is_empty() {
+            return Err(Error::Protocol(
+                "secret-share AAD requires non-empty request_id and secret_id".to_owned(),
+            ));
+        }
+        let aad = serde_json::json!({
+            "device_message_id": self.device_message_id.as_str(),
+            "kind": SECRET_SEND_KIND,
+            "sender_principal_id": self.sender_principal_id.as_str(),
+            "sender_device_id": self.sender_device_id.as_str(),
+            "recipient_principal_id": self.recipient_principal_id.as_str(),
+            "recipient_device_id": self.recipient_device_id.as_str(),
+            "request_id": self.request_id,
+            "secret_id": self.secret_id,
+            "expires_at": self.expires_at,
+        });
+        arkret_canonical::canonical_json_bytes(&aad)
+            .map_err(|err| Error::Protocol(format!("canonicalize secret-share AAD: {err}")))
+    }
+}
+
 // ─── RFC 9180 HPKE base-mode sealing (via the `hpke` crate) ──────────────────
 //
 // Standard RFC 9180 HPKE base mode, single-shot seal. Suite:
@@ -224,6 +285,171 @@ pub fn open_history_secret_with_device_privkey(
     let plaintext =
         open_base_mode_with_x25519_privkey(privkey, sealed, HISTORY_SEAL_INFO, HISTORY_SEAL_INFO)?;
     decode_history_secrets(&plaintext)
+}
+
+#[cfg(test)]
+mod secret_share_send_aad_tests {
+    use super::*;
+
+    const MESSAGE_ID: &str = "ak:device_message:01904100-0000-7000-8000-0000000000d1";
+    const SENDER: &str = "ak:did_core:webvh:z6mkfixturesender";
+    const SENDER_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000000a";
+    const RECIPIENT: &str = "ak:did_core:webvh:z6mkfixturerecipient";
+    const RECIPIENT_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000000b";
+    const REQUEST_ID: &str = "req-01904100";
+    const EXPIRES: &str = "2026-06-10T00:30:00.000Z";
+
+    struct Members {
+        device_message_id: arkret_wire::DeviceMessageId,
+        sender_principal_id: arkret_wire::DidCoreId,
+        sender_device_id: arkret_wire::DeviceId,
+        recipient_principal_id: arkret_wire::DidCoreId,
+        recipient_device_id: arkret_wire::DeviceId,
+        request_id: String,
+        secret_id: String,
+        expires_at: String,
+    }
+
+    impl Members {
+        fn golden() -> Self {
+            Self {
+                device_message_id: arkret_wire::DeviceMessageId::new(MESSAGE_ID.to_owned())
+                    .unwrap(),
+                sender_principal_id: arkret_wire::DidCoreId::new(SENDER.to_owned()).unwrap(),
+                sender_device_id: arkret_wire::DeviceId::new(SENDER_DEVICE.to_owned()).unwrap(),
+                recipient_principal_id: arkret_wire::DidCoreId::new(RECIPIENT.to_owned()).unwrap(),
+                recipient_device_id: arkret_wire::DeviceId::new(RECIPIENT_DEVICE.to_owned())
+                    .unwrap(),
+                request_id: REQUEST_ID.to_owned(),
+                secret_id: SECRET_ID_MLS_ACCOUNT.to_owned(),
+                expires_at: EXPIRES.to_owned(),
+            }
+        }
+
+        fn bytes(&self) -> Vec<u8> {
+            SecretShareSendAad {
+                device_message_id: &self.device_message_id,
+                sender_principal_id: &self.sender_principal_id,
+                sender_device_id: &self.sender_device_id,
+                recipient_principal_id: &self.recipient_principal_id,
+                recipient_device_id: &self.recipient_device_id,
+                request_id: &self.request_id,
+                secret_id: &self.secret_id,
+                expires_at: &self.expires_at,
+            }
+            .canonical_bytes()
+            .unwrap()
+        }
+    }
+
+    /// Byte-level KAT: the AAD is the RFC 8785 canonical JSON of exactly the
+    /// nine members `device-lifecycle.md` §10.7 lists, keys in JCS order.
+    #[test]
+    fn send_aad_is_the_nine_member_canonical_json() {
+        let expected = concat!(
+            r#"{"device_message_id":"ak:device_message:01904100-0000-7000-8000-0000000000d1","#,
+            r#""expires_at":"2026-06-10T00:30:00.000Z","#,
+            r#""kind":"ak.secret.send","#,
+            r#""recipient_device_id":"ak:device:01904100-0000-7000-8000-00000000000b","#,
+            r#""recipient_principal_id":"ak:did_core:webvh:z6mkfixturerecipient","#,
+            r#""request_id":"req-01904100","#,
+            r#""secret_id":"inkson_mls_account_secret","#,
+            r#""sender_device_id":"ak:device:01904100-0000-7000-8000-00000000000a","#,
+            r#""sender_principal_id":"ak:did_core:webvh:z6mkfixturesender"}"#,
+        );
+        assert_eq!(
+            String::from_utf8(Members::golden().bytes()).unwrap(),
+            expected
+        );
+    }
+
+    /// Every member is load-bearing: mutating any one of the eight caller-supplied
+    /// members changes the AAD, so a different message / request / secret cannot
+    /// reuse another one's binding. `kind` is pinned, not a caller input.
+    #[test]
+    fn every_member_changes_the_send_aad() {
+        let golden = Members::golden().bytes();
+
+        let mut mutated = Members::golden();
+        mutated.device_message_id = arkret_wire::DeviceMessageId::new(
+            "ak:device_message:01904100-0000-7000-8000-0000000000d2".to_owned(),
+        )
+        .unwrap();
+        assert_ne!(mutated.bytes(), golden, "device_message_id");
+
+        let mut mutated = Members::golden();
+        mutated.sender_principal_id =
+            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixtureother".to_owned()).unwrap();
+        assert_ne!(mutated.bytes(), golden, "sender_principal_id");
+
+        let mut mutated = Members::golden();
+        mutated.sender_device_id =
+            arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c".to_owned())
+                .unwrap();
+        assert_ne!(mutated.bytes(), golden, "sender_device_id");
+
+        let mut mutated = Members::golden();
+        mutated.recipient_principal_id =
+            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixtureother".to_owned()).unwrap();
+        assert_ne!(mutated.bytes(), golden, "recipient_principal_id");
+
+        let mut mutated = Members::golden();
+        mutated.recipient_device_id =
+            arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c".to_owned())
+                .unwrap();
+        assert_ne!(mutated.bytes(), golden, "recipient_device_id");
+
+        let mut mutated = Members::golden();
+        mutated.request_id = "req-other".to_owned();
+        assert_ne!(mutated.bytes(), golden, "request_id");
+
+        let mut mutated = Members::golden();
+        mutated.secret_id = "other_secret".to_owned();
+        assert_ne!(mutated.bytes(), golden, "secret_id");
+
+        let mut mutated = Members::golden();
+        mutated.expires_at = "2026-06-10T00:30:01.000Z".to_owned();
+        assert_ne!(mutated.bytes(), golden, "expires_at");
+    }
+
+    /// A non-canonical `expires_at` is rejected before any AAD is produced;
+    /// receivers must never see a leniently-parsed spelling.
+    #[test]
+    fn send_aad_rejects_non_canonical_expires_at_and_empty_ids() {
+        let mut bad = Members::golden();
+        bad.expires_at = "2026-06-10T00:30:00Z".to_owned();
+        assert!(
+            SecretShareSendAad {
+                device_message_id: &bad.device_message_id,
+                sender_principal_id: &bad.sender_principal_id,
+                sender_device_id: &bad.sender_device_id,
+                recipient_principal_id: &bad.recipient_principal_id,
+                recipient_device_id: &bad.recipient_device_id,
+                request_id: &bad.request_id,
+                secret_id: &bad.secret_id,
+                expires_at: &bad.expires_at,
+            }
+            .canonical_bytes()
+            .is_err()
+        );
+
+        let mut bad = Members::golden();
+        bad.request_id = String::new();
+        assert!(
+            SecretShareSendAad {
+                device_message_id: &bad.device_message_id,
+                sender_principal_id: &bad.sender_principal_id,
+                sender_device_id: &bad.sender_device_id,
+                recipient_principal_id: &bad.recipient_principal_id,
+                recipient_device_id: &bad.recipient_device_id,
+                request_id: &bad.request_id,
+                secret_id: &bad.secret_id,
+                expires_at: &bad.expires_at,
+            }
+            .canonical_bytes()
+            .is_err()
+        );
+    }
 }
 
 #[cfg(test)]

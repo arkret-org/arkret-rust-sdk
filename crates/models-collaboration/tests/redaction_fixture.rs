@@ -83,7 +83,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     // The fixture pins the audit-metadata set a redaction tombstone MUST keep.
     assert_eq!(
         preserve,
-        vec!["event_id", "created_at", "actor_id", "redacts"],
+        vec!["event_id", "created_at", "actor_id", "kind"],
         "preserved-field set drifted from the fixture"
     );
 
@@ -94,7 +94,6 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
         "event_id": "ak:event:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9",
         "created_at": "2026-04-26T00:00:00.000Z",
         "actor_id": "ak:did_core:webvh:z6mkfixture",
-        "redacts": "ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p",
         "content": {"kind": "ak.content.text", "body": "secret plaintext"},
         "reactions": [{"actor": "ak:did_core:webvh:z6mkfixture", "key": "+1"}],
         "mentions": [{"actor_id": "ak:did_core:webvh:z6mkfixture"}],
@@ -123,10 +122,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     );
     assert_eq!(event["created_at"], json!("2026-04-26T00:00:00.000Z"));
     assert_eq!(event["actor_id"], json!("ak:did_core:webvh:z6mkfixture"));
-    assert_eq!(
-        event["redacts"],
-        json!("ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p")
-    );
+    assert_eq!(event["kind"], json!("ak.message.create"));
 
     // The plaintext body and every derived surface must be gone / cleared.
     assert_eq!(

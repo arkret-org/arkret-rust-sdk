@@ -250,17 +250,6 @@ impl CallMediaParticipantBinding {
     pub const SCHEME: &'static str = ParticipantBinding::SCHEMA;
 }
 
-/// Detached service signature over the token-exchange response, carried as a
-/// typed `{kid, sig}` object (`media-service-binding.md` §3). The `kid` MUST
-/// resolve to a realm media-service anchor; `sig` is the backend-specific
-/// detached signature.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CallMediaServiceSignature {
-    pub kid: DidUrl,
-    pub sig: String,
-}
-
 /// Closed media backend registry used by both focus selection and token exchange.
 ///
 /// Mirrors the wire enum `ak.realm.media_service.foci[].type`. The registry is
@@ -344,7 +333,6 @@ struct CallMediaTokenExchangeOutcomeWire {
     participant_binding: CallMediaParticipantBinding,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
-    service_signature: CallMediaServiceSignature,
     backend_kind: MediaBackendKind,
 }
 
@@ -359,7 +347,6 @@ pub struct CallMediaTokenExchangeOutcome {
     pub participant_binding: CallMediaParticipantBinding,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub service_signature: CallMediaServiceSignature,
     pub backend_kind: MediaBackendKind,
 }
 
@@ -387,7 +374,6 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
             participant_identity: value.participant_identity,
             participant_binding: value.participant_binding,
             expires_at: value.expires_at,
-            service_signature: value.service_signature,
             backend_kind: value.backend_kind,
         })
     }

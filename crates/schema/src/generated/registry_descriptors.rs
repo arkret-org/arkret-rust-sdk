@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-18.1;
 //! sha256=f7fa040a56d24e901635e0c803a8f7b15fe938596b8f590c752d97b354b1848a Input: registry/
-//! capability-action-registry.json; version=2026-08-18.2;
-//! sha256=a7283dd1c5480bc04df6969d2ec8b9ea312b2db930b3223c8c389c61d2f448af Input: registry/
+//! capability-action-registry.json; version=2026-08-18.5;
+//! sha256=b1e2d6d87c8f45b7f8a5359f2c952ce5f796fed0670e8349dd65cc58c00bd2af Input: registry/
 //! schema-registry.json; version=2026-08-18.1;
 //! sha256=b32b6a7a06cb3df7b3de796591cfd790be98b8bfaa5d1d0051ca6a4ee841777c Input: registry/
-//! account-data-key-registry.json; version=2026-08-13.2;
-//! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9 Entries: id_kinds=57,
-//! special_forms=13, actions=170, schemas=188, account_data_patterns=24
+//! account-data-key-registry.json; version=2026-08-13.3;
+//! sha256=2c201f2784bdae6fbad412e0c589d209fe30d4280bc77fa08ac89465f201b1c9 Entries: id_kinds=57,
+//! special_forms=13, actions=170, schemas=188, account_data_patterns=23
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3745,15 +3745,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
             event_kind_str::AGENT_ACTION_APPROVE,
             event_kind_str::ACCOUNT_DATA_SET,
         ],
-        merge_strategy: "cas_register",
-        deletion_mode: "physical_delete",
-    },
-    AccountDataPatternDescriptor {
-        key_pattern: "ak.agent.participation.v1:<agent_id>:<scope_key>",
-        scope: "controller_private_state",
-        storage: "encrypted_account_data",
-        plaintext_schema: None,
-        write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
         merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },

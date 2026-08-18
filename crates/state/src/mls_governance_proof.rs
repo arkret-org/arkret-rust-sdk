@@ -953,7 +953,6 @@ mod tests {
                 leaves: vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
             }),
             requirements: EventRequirements::default(),
-            redacts: None,
             payload: BTreeMap::from([("state".to_owned(), json!("joined"))]),
             executed_by: None,
             authorization_ref: None,

@@ -56,10 +56,19 @@ fn applet_registration_epoch_fixture_executes_against_owner() {
 
 #[test]
 fn applet_registration_builder_validates_against_catalog() {
-    let webhook_auth: BTreeMap<String, Value> = [(
-        "key_ref".to_owned(),
-        json!("did:webvh:z6mkfixture:applet.example#svc"),
-    )]
+    // applet-package.schema.json#/$defs/webhook_auth is closed: kind, key_ref
+    // and accepted_signature_algorithms are all required.
+    let webhook_auth: BTreeMap<String, Value> = [
+        ("kind".to_owned(), json!("http_message_signature")),
+        (
+            "key_ref".to_owned(),
+            json!("did:webvh:z6mkfixture:applet.example#svc"),
+        ),
+        (
+            "accepted_signature_algorithms".to_owned(),
+            json!(["ed25519"]),
+        ),
+    ]
     .into_iter()
     .collect();
     let proof: BTreeMap<String, Value> = [("signature".to_owned(), json!("c2ln"))]

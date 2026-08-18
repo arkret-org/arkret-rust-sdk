@@ -437,7 +437,6 @@ mod tests {
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
-            redacts: None,
             payload: serde_json::from_value(json!({
                 "strand_id": strand_id,
                 "track_name": "discussion",

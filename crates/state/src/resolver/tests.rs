@@ -61,7 +61,6 @@ fn event(kind: EventKind, seq: u64, content: Value) -> Event {
         auth_context: None,
         seal_basis: None,
         requirements: EventRequirements::default(),
-        redacts: None,
         payload: serde_json::from_value(content).unwrap(),
         executed_by: None,
         authorization_ref: None,
@@ -912,7 +911,7 @@ fn message_revision_redaction_and_reaction_converge() {
         EventKind::MessageRevise,
         2,
         json!({
-            "target_message_id": message_id,
+            "message_id": message_id,
             "content": { "kind": "ak.content.text", "body": "edited" }
         }),
     );
@@ -920,7 +919,7 @@ fn message_revision_redaction_and_reaction_converge() {
     let mut reaction_add = event(
         EventKind::ReactionAdd,
         3,
-        json!({ "message_id": message_id, "reaction_key": "+1" }),
+        json!({ "target_ref": message_id, "key": "+1" }),
     );
     reaction_add.prev_refs.push(revise.event_id.clone());
 
@@ -1057,17 +1056,15 @@ fn reducer_convergence_is_order_independent() {
 // `<kind>_already_terminal`.
 
 fn redaction_event(seq: u64, target_ref: &str) -> Event {
-    let mut ev = event(
+    // `payload.target_ref` is the single registered target carrier: an
+    // `ak:event:` value trims that Event, any other typed id flips the object.
+    event(
         EventKind::Redaction,
         seq,
         json!({
             "target_ref": target_ref,
         }),
-    );
-    // `ak.redaction` dispatch path uses `event.redacts`; populate it so
-    // the dispatcher invokes redact_event AND redact_object_for_event.
-    ev.redacts = Some(test_event_id(0xdeadbeef + seq));
-    ev
+    )
 }
 
 #[test]

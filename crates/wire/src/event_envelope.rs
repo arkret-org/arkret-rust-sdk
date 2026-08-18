@@ -392,8 +392,6 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_basis: Option<SealBasis>,
     pub payload: BTreeMap<String, Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub redacts: Option<EventId>,
     /// Reducer/client-local extension data that is not part of the signed
     /// canonical Event Envelope transcript.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -817,8 +815,6 @@ struct EventSer<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     seal_basis: &'a Option<SealBasis>,
     payload: &'a BTreeMap<String, Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    redacts: &'a Option<EventId>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     unsigned: &'a BTreeMap<String, Value>,
     proofs: &'a Vec<EventProof>,
@@ -851,7 +847,6 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             auth_context: &event.auth_context,
             seal_basis: &event.seal_basis,
             payload: &event.payload,
-            redacts: &event.redacts,
             unsigned: &event.unsigned,
             proofs: &event.proofs,
             requirements: &event.requirements,
@@ -909,8 +904,6 @@ struct EventWire {
     pub seal_basis: Option<SealBasis>,
     pub payload: BTreeMap<String, Value>,
     #[serde(default)]
-    pub redacts: Option<EventId>,
-    #[serde(default)]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<EventProof>,
     #[serde(default)]
@@ -963,7 +956,6 @@ impl TryFrom<EventWire> for Event {
             auth_context: wire.auth_context,
             seal_basis: wire.seal_basis,
             payload: wire.payload,
-            redacts: wire.redacts,
             unsigned: wire.unsigned,
             proofs: wire.proofs,
             requirements: wire.requirements,
@@ -1678,7 +1670,6 @@ impl Event {
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
-            redacts: None,
             payload: payload.into_iter().collect(),
             executed_by: None,
             authorization_ref: None,
@@ -1736,7 +1727,6 @@ mod event_wire_surface_tests {
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
-            redacts: None,
             payload: serde_json::from_value(json!({
                 "strand_id": strand_id,
                 "track_name": "discussion",

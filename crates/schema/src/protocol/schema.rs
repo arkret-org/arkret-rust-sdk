@@ -664,7 +664,6 @@ impl Default for ProtocolSchemaRegistry {
                     ("effects", "array"),
                     ("seal_ref", "string"),
                     ("requirements", "object"),
-                    ("redacts", "string"),
                     ("payload", "object"),
                     ("unsigned", "object"),
                     ("proofs", "array"),

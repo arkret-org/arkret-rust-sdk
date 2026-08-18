@@ -13,7 +13,7 @@
 //! a reader that reloads after a redaction renders a tombstone marker rather
 //! than the plaintext.
 
-use arkret_wire::{Error, EventId, MessageId, Result};
+use arkret_wire::{Error, MessageId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -31,15 +31,15 @@ use crate::ObjectRef;
 /// object-scoped `ak.message.redact`. This type is the single place that
 /// decision is enforced; implementations MUST NOT keep a private prefix
 /// allow/deny table beside it.
+///
+/// `target_ref` is the single target carrier. Its lexical space already covers
+/// both object targets and `ak:event:` targets, so the registered
+/// `ak.component.object.redaction.v1` cell subject is that one scalar and the
+/// same target cannot be spelled two ways.
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CrossObjectRedactionPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_event_id: Option<EventId>,
+    pub target_ref: ObjectRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -49,12 +49,7 @@ pub struct CrossObjectRedactionPayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CrossObjectRedactionPayloadWire {
-    #[serde(default)]
-    target_ref: Option<ObjectRef>,
-    #[serde(default)]
-    event_id: Option<EventId>,
-    #[serde(default)]
-    target_event_id: Option<EventId>,
+    target_ref: ObjectRef,
     #[serde(default)]
     reason: Option<String>,
     #[serde(default)]
@@ -62,20 +57,12 @@ struct CrossObjectRedactionPayloadWire {
 }
 
 impl CrossObjectRedactionPayload {
-    /// Reject a target set the schema cannot express: no target at all, or a
-    /// Message target that belongs to `ak.message.redact`.
+    /// Reject a Message target: it belongs to `ak.message.redact`.
     pub fn validate(&self) -> Result<()> {
-        if self.target_ref.is_none() && self.event_id.is_none() && self.target_event_id.is_none() {
+        if MessageId::new(self.target_ref.as_str()).is_ok() {
             return Err(Error::Protocol(
-                "cross_object_redaction_payload requires a target identifier".to_owned(),
+                "cross_object_redaction_payload target_ref MUST NOT name a Message".to_owned(),
             ));
-        }
-        if let Some(target_ref) = self.target_ref.as_deref() {
-            if MessageId::new(target_ref).is_ok() {
-                return Err(Error::Protocol(
-                    "cross_object_redaction_payload target_ref MUST NOT name a Message".to_owned(),
-                ));
-            }
         }
         Ok(())
     }
@@ -89,8 +76,6 @@ impl<'de> Deserialize<'de> for CrossObjectRedactionPayload {
         let wire = CrossObjectRedactionPayloadWire::deserialize(deserializer)?;
         let payload = Self {
             target_ref: wire.target_ref,
-            event_id: wire.event_id,
-            target_event_id: wire.target_event_id,
             reason: wire.reason,
             preserve: wire.preserve,
         };
@@ -194,6 +179,7 @@ mod tests {
     #[test]
     fn cross_object_redaction_rejects_message_id_member() {
         serde_json::from_value::<CrossObjectRedactionPayload>(json!({
+            "target_ref": "ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw",
             "message_id": "ak:message:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw"
         }))
         .expect_err("message_id is not a member of the cross-object payload");
@@ -213,14 +199,24 @@ mod tests {
         }))
         .expect("a Strand target is a legal cross-object redaction");
         assert_eq!(
-            object.target_ref.as_deref(),
-            Some("ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw")
+            object.target_ref,
+            "ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw"
         );
 
         serde_json::from_value::<CrossObjectRedactionPayload>(json!({
-            "target_event_id": "ak:event:ASwq0QFg8faJScGgZD2ETHGz8WhBMT09jmLQI16Q3Z-U"
+            "target_ref": "ak:event:ASwq0QFg8faJScGgZD2ETHGz8WhBMT09jmLQI16Q3Z-U"
         }))
         .expect("an Event target is a legal cross-object redaction");
+    }
+
+    #[test]
+    fn cross_object_redaction_rejects_retired_event_target_spellings() {
+        for member in ["event_id", "target_event_id"] {
+            serde_json::from_value::<CrossObjectRedactionPayload>(json!({
+                member: "ak:event:ASwq0QFg8faJScGgZD2ETHGz8WhBMT09jmLQI16Q3Z-U"
+            }))
+            .expect_err("the only target carrier is target_ref");
+        }
     }
 
     #[test]
