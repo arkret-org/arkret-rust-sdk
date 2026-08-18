@@ -37,9 +37,9 @@ edge.
 
 The `crates/models-identity`, `crates/models-crypto`,
 `crates/models-collaboration`, `crates/models-discovery`, and
-`crates/models-integration` leaves own protocol data shapes. The
-`crates/models` package is a namespaced documentation aggregate; SDK-internal
-and server consumers depend on the semantic leaves directly.
+`crates/models-integration` leaves own protocol data shapes. There is no
+aggregate `crates/models` package; SDK-internal and server consumers depend
+on the semantic leaves directly.
 
 Model types should remain stable, explicit and serializable. Validation that is
 required for protocol safety belongs close to these types, especially when it
@@ -66,10 +66,12 @@ should remain available.
 
 ## MLS Layer
 
-`crates/sdk/src/mls/mod.rs` binds Arkret encrypted Realms to OpenMLS. It
-creates device KeyPackages, creates MLS groups, adds members, consumes Welcome
-messages, emits Commit / Welcome envelopes and encrypts application payloads
-into Arkret `EncryptedPayload` values.
+`crates/mls` (the `arkret-mls` crate, re-exported as `arkret::mls` under the
+`mls` feature) is the workspace's sole OpenMLS boundary. It binds Arkret
+encrypted Realms to OpenMLS: it creates device KeyPackages, creates MLS
+groups, adds members, consumes Welcome messages, emits Commit / Welcome
+envelopes and encrypts application payloads into Arkret `EncryptedPayload`
+values.
 
 The SDK treats MLS state as local cryptographic state. Repo and Sync services
 carry Commit, Welcome and encrypted application bytes, but they do not decrypt
@@ -91,11 +93,12 @@ implementation mistakes.
 
 ## Store Layer
 
-`crates/sdk/src/store.rs` defines local persistence behavior for state
-snapshots, event cache, account/session data, blob metadata, audit logs and
-federation replay records. Stores must be idempotent for repeated identical
-events or sessions and must report conflicts when an existing identifier is
-reused with a different digest.
+`crates/state/src/state/store/mod.rs` defines the store trait contracts for
+the control-plane Event / Seal / Lattice runtime: `ControlEventStore`
+(pending and sealed control-plane Event log keyed by the canonical
+`event_digest`), `SealStore` (the Seal DAG), `CellStore` (per-cell sealed op
+log and effective-state cache) and `CellRegistry`. Stores must report
+conflicts when an existing identifier is reused with a different digest.
 
 Persistent stores should implement the same trait contract as the in-memory
 store before they are exposed publicly.

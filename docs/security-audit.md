@@ -92,12 +92,12 @@ audit attestation.
 | Area | Source |
 | --- | --- |
 | Identifiers, canonical JSON and digests | `crates/identifiers/src/lib.rs`, `crates/canonical/src/canonical.rs`, `crates/wire/src/`, `crates/models-*/src/` |
-| Auth and recovery | `crates/sdk/src/auth.rs`, `identity.rs` |
-| Capability decisions | `crates/sdk/src/authz.rs`, `resolver.rs` |
-| Repo and crypto stores | `crates/sdk/src/store.rs`, `crypto_store.rs` |
-| E2EE and MLS | `crates/sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
-| Federation and service identity | `crates/sdk/src/federation.rs`, `crates/identity/src/service_identity.rs`, `crates/models-discovery/src/service_description.rs` |
-| Log redaction and feature safety | `crates/sdk/src/crypto.rs`, `crates/http-client/src/lib.rs`, `crates/server/src/lib.rs` |
+| Auth and recovery | `crates/auth/src/`, `crates/identity/src/` |
+| Capability decisions | `crates/policy/src/authz/`, `crates/state/src/resolver/` |
+| Repo and crypto stores | `crates/state/src/state/store/`, `crates/models-crypto/src/mls_store_ports.rs` |
+| E2EE and MLS | `crates/crypto/src/`, `crates/mls/src/`, `crates/crypto/src/device.rs` |
+| Federation and service identity | `crates/signatures/src/federation.rs`, `crates/models-collaboration/src/federation/`, `crates/identity/src/service_identity.rs`, `crates/models-discovery/src/service_description.rs` |
+| Log redaction and feature safety | `crates/crypto/src/lib.rs`, `crates/http-client/src/lib.rs`, `crates/server/src/lib.rs` |
 
 ## Agent Runtime + Recovery Surface (P5 / spec head 37ce729)
 
