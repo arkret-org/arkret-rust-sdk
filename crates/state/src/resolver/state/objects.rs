@@ -465,7 +465,7 @@ impl RealmState {
             let mut tracks = BTreeMap::new();
             tracks.insert(
                 crate::STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
-                crate::StrandTrackConfig::synthesis(),
+                crate::StrandTrack::synthesis(),
             );
             tracks
         } else {
@@ -480,7 +480,7 @@ impl RealmState {
             agent_participation: object.agent_participation,
             metadata: Some(metadata),
             encrypted_metadata: object.encrypted_metadata,
-            body: object.body,
+            content: object.content,
             encrypted_content: object.encrypted_content,
             tracks,
             state: Some(object.state.unwrap_or(crate::ObjectState::Active)),
@@ -492,6 +492,8 @@ impl RealmState {
             updated_by: None,
             updated_at: None,
         };
+        subject.validate_content_surfaces()?;
+        subject.validate_profile_activation()?;
         subject.validate_title()?;
         self.subjects.insert(strand_id_str, subject);
         Ok(())
@@ -511,67 +513,52 @@ impl RealmState {
         {
             return Err(Error::Protocol("strand_not_active".to_owned()));
         }
-        let patch = Some(patch_to_value_map(&payload.patch)?);
-        let state = patch_state(&patch).transpose()?;
-        let tracks = patch.as_ref().and_then(|p| p.get("tracks")).and_then(|v| {
-            serde_json::from_value::<BTreeMap<String, crate::StrandTrackConfig>>(v.clone()).ok()
-        });
-        let patched_body = patch
-            .as_ref()
-            .and_then(|patch| patch.get("content").cloned())
-            .map(serde_json::from_value)
-            .transpose()
-            .map_err(|error| Error::Protocol(format!("invalid Strand content: {error}")))?;
-        let patched_encrypted_content = patch
-            .as_ref()
-            .and_then(|patch| patch.get("encrypted_content").cloned())
-            .map(serde_json::from_value)
-            .transpose()
-            .map_err(|error| {
-                Error::Protocol(format!("invalid Strand encrypted_content: {error}"))
-            })?;
-
         let subject = self
             .subjects
             .get_mut(&strand_id_str)
             .ok_or_else(|| Error::Protocol(format!("strand not found: {}", strand_id_str)))?;
 
-        if let Some(title) = patch_metadata_string(&patch, "title") {
-            subject
-                .metadata
-                .get_or_insert_with(crate::StrandMetadata::default)
-                .title = Some(title);
+        // Apply the canonical dotted patch to the complete pre-state. The old
+        // reducer inspected only a parent `tracks` value and silently missed
+        // canonical paths such as `tracks.synthesis.content`.
+        let pre_synthesis = subject
+            .tracks
+            .get(crate::STRAND_TRACK_NAME_SYNTHESIS)
+            .cloned();
+        let pre_state = subject.state.clone();
+        let mut post_value = payload.patch.apply(&serde_json::to_value(&*subject)?)?;
+        normalize_strand_content_pair_writes(&payload.patch, &mut post_value)?;
+        let mut post: Strand = serde_json::from_value(post_value).map_err(|error| {
+            Error::Protocol(format!("invalid Strand post-patch object: {error}"))
+        })?;
+
+        let post_synthesis = post.tracks.get(crate::STRAND_TRACK_NAME_SYNTHESIS).cloned();
+        let synthesis_content_changed = pre_synthesis
+            .as_ref()
+            .map(|track| (&track.content, &track.encrypted_content))
+            != post_synthesis
+                .as_ref()
+                .map(|track| (&track.content, &track.encrypted_content));
+        if synthesis_content_changed
+            && (!pre_synthesis
+                .as_ref()
+                .is_some_and(|track| track.enabled != Some(false))
+                || !post_synthesis
+                    .as_ref()
+                    .is_some_and(|track| track.enabled != Some(false)))
+        {
+            return Err(Error::Protocol("track_disabled".to_owned()));
         }
-        if let Some(summary) = patch_metadata_string(&patch, "summary") {
-            subject
-                .metadata
-                .get_or_insert_with(crate::StrandMetadata::default)
-                .summary = Some(summary);
+
+        post.validate_content_surfaces()?;
+        post.validate_profile_activation()?;
+        post.validate_title()?;
+        if post.state != pre_state {
+            post.state_changed_at = Some(event.created_at);
         }
-        if let Some(fields) = patch_metadata_fields(&patch) {
-            subject
-                .metadata
-                .get_or_insert_with(crate::StrandMetadata::default)
-                .fields = fields;
-        }
-        if let Some(body) = patched_body {
-            subject.body = Some(body);
-            subject.encrypted_content = None;
-        }
-        if let Some(encrypted_content) = patched_encrypted_content {
-            subject.encrypted_content = Some(encrypted_content);
-            subject.body = None;
-        }
-        if let Some(tracks) = tracks {
-            subject.tracks = tracks;
-        }
-        if let Some(state) = state {
-            subject.state = Some(state);
-            subject.state_changed_at = Some(event.created_at);
-        }
-        subject.validate_title()?;
-        subject.updated_by = Some(event.actor_id.clone());
-        subject.updated_at = Some(event.created_at);
+        post.updated_by = Some(event.actor_id.clone());
+        post.updated_at = Some(event.created_at);
+        *subject = post;
         Ok(())
     }
 
@@ -671,24 +658,59 @@ fn validate_morph_schema_refs(schema_refs: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn normalize_strand_content_pair_writes(
+    patch: &crate::Patch,
+    post_state: &mut Value,
+) -> Result<()> {
+    let writes_description = patch.iter().any(|(path, _)| path == "content");
+    let writes_encrypted_description = patch.iter().any(|(path, _)| path == "encrypted_content");
+    if writes_description && writes_encrypted_description {
+        return Err(Error::Protocol(
+            "Strand Description patch must write only one of content or encrypted_content"
+                .to_owned(),
+        ));
+    }
+    let writes_synthesis = patch
+        .iter()
+        .any(|(path, _)| path == "tracks.synthesis.content");
+    let writes_encrypted_synthesis = patch
+        .iter()
+        .any(|(path, _)| path == "tracks.synthesis.encrypted_content");
+    if writes_synthesis && writes_encrypted_synthesis {
+        return Err(Error::Protocol(
+            "Synthesis patch must write only one of tracks.synthesis.content or tracks.synthesis.encrypted_content"
+                .to_owned(),
+        ));
+    }
+
+    let post = post_state
+        .as_object_mut()
+        .ok_or_else(|| Error::Protocol("Strand post-state must be an object".to_owned()))?;
+    if writes_description {
+        post.remove("encrypted_content");
+    } else if writes_encrypted_description {
+        post.remove("content");
+    }
+
+    if writes_synthesis || writes_encrypted_synthesis {
+        let synthesis = post
+            .get_mut("tracks")
+            .and_then(Value::as_object_mut)
+            .and_then(|tracks| tracks.get_mut(crate::STRAND_TRACK_NAME_SYNTHESIS))
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| Error::Protocol("track_disabled".to_owned()))?;
+        if writes_synthesis {
+            synthesis.remove("encrypted_content");
+        } else {
+            synthesis.remove("content");
+        }
+    }
+    Ok(())
+}
+
 fn patch_to_value_map(patch: &crate::Patch) -> Result<BTreeMap<String, Value>> {
     let value = serde_json::to_value(patch)?;
     serde_json::from_value(value).map_err(Into::into)
-}
-
-fn patch_metadata_fields(
-    patch: &Option<BTreeMap<String, Value>>,
-) -> Option<BTreeMap<String, Value>> {
-    let patch = patch.as_ref()?;
-    if let Some(value) = patch.get("metadata.fields") {
-        return serde_json::from_value(value.clone()).ok();
-    }
-    patch.get("metadata").and_then(|metadata| {
-        metadata
-            .get("fields")
-            .cloned()
-            .and_then(|fields| serde_json::from_value(fields).ok())
-    })
 }
 
 fn patch_metadata_string(patch: &Option<BTreeMap<String, Value>>, field: &str) -> Option<String> {

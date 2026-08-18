@@ -13,8 +13,8 @@ use serde_json::Value;
 use crate::events_payloads::ContentBlock;
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::objects::profiles::{
-    STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
-    resolve_primary_track, validate_strand_track_name,
+    STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrack, resolve_primary_track,
+    validate_strand_track_name,
 };
 
 /// Shared `metadata` shape for materialised objects that carry
@@ -153,13 +153,15 @@ pub struct Strand {
     pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_metadata: Option<EncryptedEnvelope>,
-    #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
-    pub body: Option<ContentBlock>,
+    /// Strand base body, rendered as Description. This field is independent
+    /// of every track and uses the canonical wire name `content` directly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<ContentBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_content: Option<EncryptedEnvelope>,
-    /// Active Strand tracks keyed by canonical track name.
+    /// Strand collaboration surfaces keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub tracks: BTreeMap<String, StrandTrackConfig>,
+    pub tracks: BTreeMap<String, StrandTrack>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -203,7 +205,7 @@ impl Strand {
         let mut tracks = BTreeMap::new();
         tracks.insert(
             STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
-            StrandTrackConfig::synthesis(),
+            StrandTrack::synthesis(),
         );
         Self {
             id: None,
@@ -214,7 +216,7 @@ impl Strand {
             agent_participation: None,
             metadata: Some(StrandMetadata::with_title(title)),
             encrypted_metadata: None,
-            body: None,
+            content: None,
             encrypted_content: None,
             tracks,
             state: Some(ObjectState::Active),
@@ -336,11 +338,11 @@ impl Strand {
         let mut tracks = BTreeMap::new();
         tracks.insert(
             STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
-            StrandTrackConfig::synthesis(),
+            StrandTrack::synthesis(),
         );
         tracks.insert(
             STRAND_TRACK_NAME_DISCUSSION.to_owned(),
-            StrandTrackConfig::discussion_primary(),
+            StrandTrack::discussion_primary(),
         );
         strand.tracks = tracks;
         strand
@@ -368,6 +370,62 @@ impl Strand {
         for track_name in self.tracks.keys() {
             validate_strand_track_name(track_name)?;
         }
+        Ok(())
+    }
+
+    /// Validate the three distinct Strand content surfaces and the closed v1
+    /// track registry. Description is the top-level content pair, Synthesis is
+    /// the pair inside `tracks.synthesis`, and Discussion content is carried by
+    /// Message objects rather than by the track entry.
+    pub fn validate_content_surfaces(&self) -> Result<()> {
+        if self.content.is_some() && self.encrypted_content.is_some() {
+            return Err(Error::Protocol(
+                "Strand Description content and encrypted_content are mutually exclusive"
+                    .to_owned(),
+            ));
+        }
+        if self.tracks.is_empty() {
+            return Err(Error::Protocol(
+                "strand tracks must not be empty".to_owned(),
+            ));
+        }
+        for (track_name, track) in &self.tracks {
+            validate_strand_track_name(track_name)?;
+            if track_name != STRAND_TRACK_NAME_SYNTHESIS
+                && track_name != STRAND_TRACK_NAME_DISCUSSION
+            {
+                return Err(Error::Protocol(format!(
+                    "unregistered Strand track name: {track_name}"
+                )));
+            }
+            if track.content.is_some() && track.encrypted_content.is_some() {
+                return Err(Error::Protocol(format!(
+                    "tracks.{track_name}.content and encrypted_content are mutually exclusive"
+                )));
+            }
+            if track_name == STRAND_TRACK_NAME_DISCUSSION
+                && (track.content.is_some() || track.encrypted_content.is_some())
+            {
+                return Err(Error::Protocol(
+                    "discussion track content must use Message objects".to_owned(),
+                ));
+            }
+        }
+        if self.state == Some(ObjectState::Redacted)
+            && (self.content.is_some()
+                || self.encrypted_content.is_some()
+                || self
+                    .tracks
+                    .get(STRAND_TRACK_NAME_SYNTHESIS)
+                    .is_some_and(|track| {
+                        track.content.is_some() || track.encrypted_content.is_some()
+                    }))
+        {
+            return Err(Error::Protocol(
+                "redacted Strand must not retain Description or Synthesis content".to_owned(),
+            ));
+        }
+        resolve_primary_track(&self.tracks, None)?;
         Ok(())
     }
 }

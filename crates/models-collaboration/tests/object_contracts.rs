@@ -1,7 +1,8 @@
 use arkret_canonical as canonical;
 use arkret_identifiers::{MorphId, PolicyId, RealmId, StrandId, TrustDomainId};
+use arkret_models_collaboration::events_payloads::ContentBlock;
 use arkret_models_collaboration::objects::profiles::{
-    Morph, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
+    Morph, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrack,
     validate_strand_track_name,
 };
 use arkret_models_collaboration::objects::realm::{CellLatticeDeclaration, NotaryProfile, Realm};
@@ -48,6 +49,42 @@ fn strand_constructor_sets_protocol_shape() {
 
     subject = subject.with_metadata_title(" ");
     assert!(subject.validate_title().is_err());
+}
+
+#[test]
+fn strand_description_and_synthesis_use_distinct_wire_slots() {
+    let mut strand = Strand::new(
+        StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
+        RealmId::new("ak:realm:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB").unwrap(),
+        "Payment refactor",
+        actor("did:webvh:z6mkfixture:alice.example"),
+    );
+    strand.content = Some(ContentBlock::text("Description body"));
+    strand
+        .tracks
+        .get_mut(STRAND_TRACK_NAME_SYNTHESIS)
+        .unwrap()
+        .content = Some(ContentBlock::text("Synthesis body"));
+
+    let value = serde_json::to_value(&strand).unwrap();
+    assert_eq!(value["content"]["body"], "Description body");
+    assert_eq!(
+        value["tracks"]["synthesis"]["content"]["body"],
+        "Synthesis body"
+    );
+    assert!(value.get("synthesis_content").is_none());
+    assert!(value.get("body").is_none());
+
+    let parsed: Strand = serde_json::from_value(value).unwrap();
+    assert_eq!(parsed.content.unwrap().body, "Description body");
+    assert_eq!(
+        parsed.tracks[STRAND_TRACK_NAME_SYNTHESIS]
+            .content
+            .as_ref()
+            .unwrap()
+            .body,
+        "Synthesis body"
+    );
 }
 
 /// Optional Strand stage accepts sparse wire objects.
@@ -111,24 +148,24 @@ fn synthesis_strand_is_not_conversational() {
     assert!(!strand.is_conversational());
 }
 
-/// T21 — StrandTrackConfig typed constructors honour the standard
+/// T21 — StrandTrack typed constructors honour the standard
 /// profile from spec §6.1; track names live in the parent map keys.
 #[test]
 fn strand_track_typed_constructors() {
-    let synth = StrandTrackConfig::synthesis();
+    let synth = StrandTrack::synthesis();
     assert!(synth.profile.is_none());
     assert!(synth.is_primary.is_none());
     validate_strand_track_name(STRAND_TRACK_NAME_SYNTHESIS).unwrap();
 
-    let disc = StrandTrackConfig::discussion();
+    let disc = StrandTrack::discussion();
     assert_eq!(disc.profile.as_deref(), Some("discussion"));
     assert!(disc.is_primary.is_none());
     validate_strand_track_name(STRAND_TRACK_NAME_DISCUSSION).unwrap();
 
-    let primary = StrandTrackConfig::discussion_primary();
+    let primary = StrandTrack::discussion_primary();
     assert_eq!(primary.is_primary, Some(true));
 
-    let custom = StrandTrackConfig::new().with_profile("review").primary();
+    let custom = StrandTrack::new().with_profile("review").primary();
     assert_eq!(custom.profile.as_deref(), Some("review"));
     assert_eq!(custom.is_primary, Some(true));
     validate_strand_track_name("review").unwrap();

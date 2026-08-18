@@ -210,6 +210,41 @@ pub enum GrantConstraint {
     /// preserves and validates shape; concrete counter enforcement is done
     /// by the service-side evaluator for the relevant action.
     RateLimiting { max_operations: u64, period: String },
+    /// Field-scoped access retained in the runtime projection.  These fields
+    /// must not be collapsed away: DataEvent admission needs the exact dotted
+    /// patch paths in order to distinguish, for example, Strand Description
+    /// (`content`) from Synthesis (`tracks.synthesis.content`).
+    FieldAccess {
+        effect: GrantDecisionVerdict,
+        #[serde(default)]
+        allowed_write_fields: Vec<String>,
+        #[serde(default)]
+        denied_write_fields: Vec<String>,
+        #[serde(default)]
+        allowed_read_fields: Vec<String>,
+        #[serde(default)]
+        denied_read_fields: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        condition: Option<serde_json::Value>,
+    },
+    /// Strand/track scope retained in the runtime projection.  Base Strand
+    /// fields have no track; only paths below `tracks.<name>` are checked
+    /// against the track lists by the operation-aware evaluator.
+    ScopeLimitation {
+        effect: GrantDecisionVerdict,
+        #[serde(default)]
+        allowed_strand_ids: Vec<String>,
+        #[serde(default)]
+        denied_strand_ids: Vec<String>,
+        #[serde(default)]
+        allowed_tracks: Vec<String>,
+        #[serde(default)]
+        denied_tracks: Vec<String>,
+        #[serde(default)]
+        allowed_circle_ids: BTreeSet<CircleId>,
+        #[serde(default)]
+        allowed_session_ids: BTreeSet<String>,
+    },
     /// Re-grant control. Ordinary child grants use `max_authority_depth`;
     /// Applet install grants use the registered
     /// `constraint_subkind=applet_authority` fields from

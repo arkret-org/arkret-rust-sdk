@@ -1,6 +1,116 @@
 {
   "entries": [
     {
+      "finding": "json_path_mutation:crates/state/src/resolver/state/objects.rs::normalize_strand_content_pair_writes:b2fc3d61f05f80f2",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "strand.schema.json canonical content/encrypted_content patch pair",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This reducer mutation is limited to the schema-validated Strand Description content/encrypted_content pair."
+    },
+    {
+      "finding": "json_path_mutation:crates/state/src/resolver/state/objects.rs::normalize_strand_content_pair_writes:d43278fc37373c1c",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "strand.schema.json canonical tracks.synthesis content/encrypted_content patch pair",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This reducer mutation is limited to the schema-validated Synthesis track content/encrypted_content pair."
+    },
+    {
+      "finding": "json_path_mutation:soland/crates/domain/src/reducer/apply_objects/strand.rs::apply_strand_narrative_patch:05fae48127075810",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "strand.schema.json canonical content/encrypted_content patch pair",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This projection mutation is limited to the schema-validated Strand Description content/encrypted_content pair."
+    },
+    {
+      "finding": "json_path_mutation:soland/crates/domain/src/reducer/apply_objects/strand.rs::apply_strand_narrative_patch:820629e7857705cb",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "strand.schema.json canonical tracks.synthesis content/encrypted_content patch pair",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This projection mutation is limited to the schema-validated Synthesis track content/encrypted_content pair."
+    },
+    {
+      "finding": "soland/crates/domain/src/reducer/projections.rs::StrandProjection.content",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_collaboration::ContentBlock",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The projection stores a schema-validated ContentBlock as JSON without accepting an alternative Strand field name."
+    },
+    {
+      "finding": "soland/crates/domain/src/reducer/projections.rs::StrandProjection.encrypted_content",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_crypto::EncryptedEnvelope",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The projection stores a schema-validated EncryptedEnvelope as JSON without accepting an alternative Strand field name."
+    },
+    {
+      "finding": "soland/crates/services/src/events.rs::StrandProjectionRecord.content",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_collaboration::ContentBlock",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The service projection record carries the canonical schema-validated Strand Description ContentBlock."
+    },
+    {
+      "finding": "soland/crates/services/src/events.rs::StrandProjectionRecord.encrypted_content",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_crypto::EncryptedEnvelope",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The service projection record carries the canonical schema-validated Strand Description EncryptedEnvelope."
+    },
+    {
+      "finding": "soland/crates/storage/src/projection.rs::StrandProjectionRecord.content",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_collaboration::ContentBlock",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The storage projection record carries the canonical schema-validated Strand Description ContentBlock."
+    },
+    {
+      "finding": "soland/crates/storage/src/projection.rs::StrandProjectionRecord.encrypted_content",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_crypto::EncryptedEnvelope",
+      "owner_repository": "soland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The storage projection record carries the canonical schema-validated Strand Description EncryptedEnvelope."
+    },
+    {
       "finding": "bridges/crates/runtime/src/config.rs::ArkretConfig.applet_namespaces",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -1577,17 +1687,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "morph.schema.json#/properties/fields"
-    },
-    {
-      "finding": "crates/models-collaboration/src/objects/profiles.rs::StrandTrackConfig.metadata",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "BTreeMap<String, Value>",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "crates/models-collaboration/src/objects/queries.rs::CollectionConfig.display_fields",

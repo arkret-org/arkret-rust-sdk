@@ -14,12 +14,11 @@
 // root so the resolver submodules can keep referring to them via `crate::`.
 use arkret_identifiers::Hlc;
 use arkret_models_collaboration::objects::profiles::{
-    Morph, MorphMetadata, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
-    validate_strand_track_name,
+    Morph, MorphMetadata, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrack,
 };
 use arkret_models_collaboration::objects::relation::Relation;
 use arkret_models_collaboration::objects::space::Space;
-use arkret_models_collaboration::objects::strand::{Strand, StrandMetadata};
+use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::*;
 
 mod base64url {

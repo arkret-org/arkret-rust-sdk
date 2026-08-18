@@ -5,35 +5,20 @@ use super::super::*;
 use super::RealmState;
 
 impl RealmState {
-    /// Reducer for canonical `ak.strand.tracks.update`: merge a batch of
-    /// `StrandTrackConfig` entries into `Strand.tracks`. Accepts either a top-level
-    /// `tracks` map or `patch.tracks`.
+    /// Reducer for canonical `ak.strand.tracks.update`. This event changes
+    /// track configuration only; narrative content remains owned by
+    /// `ak.strand.update` and its field-scoped capability.
     pub(super) fn update_strand_tracks(&mut self, event: &Event) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.payload)?;
-        let mut tracks = self
-            .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(
-                &event.payload,
-                "tracks",
-            )
-            .unwrap_or_default();
-
-        if let Some(patch_tracks) = self
-            .extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch")
-            .and_then(|patch| patch.get("tracks").cloned())
-            .and_then(|value| {
-                serde_json::from_value::<BTreeMap<String, crate::StrandTrackConfig>>(value).ok()
-            })
+        let payload = event.typed_payload::<event_spec::StrandTracksUpdate>()?;
+        let strand_id_str = payload.target_ref.as_str().to_owned();
+        if payload
+            .patch
+            .iter()
+            .any(|(path, _)| path != "tracks" && !path.starts_with("tracks."))
         {
-            tracks.extend(patch_tracks);
-        }
-
-        if tracks.is_empty() {
             return Err(Error::Protocol(
-                "strand tracks update requires tracks".to_owned(),
+                "ak.strand.tracks.update patch paths must stay under tracks".to_owned(),
             ));
-        }
-        for track_id in tracks.keys() {
-            crate::validate_strand_track_name(track_id)?;
         }
 
         let Some(subject) = self.subjects.get_mut(&strand_id_str) else {
@@ -42,11 +27,42 @@ impl RealmState {
         if subject.state != Some(crate::ObjectState::Active) {
             return Err(Error::Protocol("strand_not_active".to_owned()));
         }
-        for (track_id, track) in tracks {
-            subject.tracks.insert(track_id, track);
+        let previous_tracks = subject.tracks.clone();
+        let previous_description = (subject.content.clone(), subject.encrypted_content.clone());
+        let post_value = payload.patch.apply(&serde_json::to_value(&*subject)?)?;
+        let mut post: Strand = serde_json::from_value(post_value).map_err(|error| {
+            Error::Protocol(format!("invalid Strand tracks post-state: {error}"))
+        })?;
+
+        let description_unchanged =
+            previous_description == (post.content.clone(), post.encrypted_content.clone());
+        let track_content_unchanged = |name: &str| {
+            let previous = previous_tracks.get(name).map_or((None, None), |track| {
+                (track.content.clone(), track.encrypted_content.clone())
+            });
+            let next = post.tracks.get(name).map_or((None, None), |track| {
+                (track.content.clone(), track.encrypted_content.clone())
+            });
+            previous == next
+        };
+        if !description_unchanged
+            || !track_content_unchanged(crate::STRAND_TRACK_NAME_SYNTHESIS)
+            || !track_content_unchanged(crate::STRAND_TRACK_NAME_DISCUSSION)
+        {
+            return Err(Error::Protocol(
+                "ak.strand.tracks.update changes configuration only; Description and Synthesis content require field-scoped ak.strand.update"
+                    .to_owned(),
+            ));
         }
-        subject.updated_by = Some(event.actor_id.clone());
-        subject.updated_at = Some(event.created_at);
+        post.validate_content_surfaces()?;
+        arkret_models_collaboration::objects::profiles::validate_primary_track_transition(
+            &previous_tracks,
+            &post.tracks,
+            None,
+        )?;
+        post.updated_by = Some(event.actor_id.clone());
+        post.updated_at = Some(event.created_at);
+        *subject = post;
         Ok(())
     }
 
@@ -299,6 +315,12 @@ impl RealmState {
             }
             subject.state = Some(crate::ObjectState::Redacted);
             subject.state_changed_at = Some(event.created_at);
+            subject.content = None;
+            subject.encrypted_content = None;
+            if let Some(synthesis) = subject.tracks.get_mut(crate::STRAND_TRACK_NAME_SYNTHESIS) {
+                synthesis.content = None;
+                synthesis.encrypted_content = None;
+            }
             subject.updated_by = Some(event.actor_id.clone());
             subject.updated_at = Some(event.created_at);
             return Ok(());
@@ -309,6 +331,9 @@ impl RealmState {
                 _ => return Err(Error::Protocol("morph_already_terminal".to_owned())),
             }
             morph.state = Some(crate::ObjectState::Redacted);
+            morph.state_changed_at = Some(event.created_at);
+            morph.content = None;
+            morph.encrypted_content = None;
             morph.updated_by = Some(event.actor_id.clone());
             morph.updated_at = Some(event.created_at);
             return Ok(());

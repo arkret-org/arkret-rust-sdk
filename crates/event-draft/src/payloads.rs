@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_models_collaboration::events_payloads::ContentBlock;
 use arkret_models_collaboration::governance::agent_participation::AgentParticipationPolicy;
-use arkret_models_collaboration::objects::profiles::StrandTrackConfig;
+use arkret_models_collaboration::objects::profiles::StrandTrack;
 use arkret_models_collaboration::objects::strand::StrandMetadata;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{CircleId, DidCoreId, ObjectStage, ObjectState, RealmId, SchemaId, StrandId};
@@ -40,7 +40,7 @@ pub struct StrandCreateObject {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_content: Option<EncryptedEnvelope>,
     #[serde(default)]
-    pub tracks: BTreeMap<String, StrandTrackConfig>,
+    pub tracks: BTreeMap<String, StrandTrack>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
     pub stage: ObjectStage,
@@ -94,7 +94,7 @@ impl StrandCreateObject {
         self
     }
 
-    pub fn with_track(mut self, name: impl Into<String>, track: StrandTrackConfig) -> Self {
+    pub fn with_track(mut self, name: impl Into<String>, track: StrandTrack) -> Self {
         self.tracks.insert(name.into(), track);
         self
     }

@@ -668,6 +668,7 @@ fn strand_events_create_update_and_default_view_relation() {
             "object": {
                 "schema": SchemaId::STRAND_V1,
                 "realm_id": realm_id().as_str(),
+                "content": {"kind": "ak.content.text", "body": "Description body"},
                 "metadata": {
                     "title": "Payment refactor",
                     "summary": "Unify payment strands"
@@ -693,10 +694,12 @@ fn strand_events_create_update_and_default_view_relation() {
         json!({
             "target_ref": strand_id,
             "patch": {
-                "metadata": {
-                    "summary": "Risk, refunds and callbacks are tracked together.",
-                    "fields": {"priority": "high"}
-                }
+                "tracks.synthesis.content": {
+                    "kind": "ak.content.text",
+                    "body": "Synthesis body"
+                },
+                "metadata.summary": "Risk, refunds and callbacks are tracked together.",
+                "metadata.fields": {"priority": "high"}
             }
         }),
     )
@@ -732,11 +735,81 @@ fn strand_events_create_update_and_default_view_relation() {
         Some("Risk, refunds and callbacks are tracked together.")
     );
     assert_eq!(strand.metadata_fields().unwrap()["priority"], "high");
+    assert_eq!(strand.content.as_ref().unwrap().body, "Description body");
+    assert_eq!(
+        strand.tracks["synthesis"].content.as_ref().unwrap().body,
+        "Synthesis body"
+    );
 
     let relation = state.relations.get(&relation_id).unwrap();
     assert_eq!(relation.relation_kind, crate::RelationKind::HasDefaultView);
     assert_eq!(relation.from_ref, strand_id);
     assert_eq!(relation.to_ref, view_ref);
+}
+
+#[test]
+fn strand_synthesis_content_requires_an_active_synthesis_track() {
+    let create = arkret_wire::test_support::raw_event(
+        EventKind::StrandCreate.as_str(),
+        scope_ref(),
+        actor_id(),
+        actor_id(),
+        11,
+        Hlc::new("01970e589d21-0011-a13f9c2e").unwrap(),
+        json!({
+            "object": {
+                "schema": SchemaId::STRAND_V1,
+                "realm_id": realm_id().as_str(),
+                "content": {"kind": "ak.content.text", "body": "Description survives"},
+                "metadata": {"title": "Discussion-only Strand"},
+                "tracks": {"discussion": {"is_primary": true}},
+                "created_by": actor_id().as_str(),
+                "created_at": "2026-05-02T00:00:00.000Z"
+            }
+        }),
+    )
+    .unwrap();
+    let strand_id = arkret_wire::StrandId::from_event_id(&create.event_id);
+    let mut state = RealmState::new(realm_id());
+    state.apply_events(&[create]).unwrap();
+    assert_eq!(
+        state.subjects[strand_id.as_str()]
+            .content
+            .as_ref()
+            .unwrap()
+            .body,
+        "Description survives"
+    );
+
+    let update = arkret_wire::test_support::raw_event(
+        EventKind::StrandUpdate.as_str(),
+        scope_ref(),
+        actor_id(),
+        actor_id(),
+        12,
+        Hlc::new("01970e589d21-0012-a13f9c2e").unwrap(),
+        json!({
+            "target_ref": strand_id,
+            "patch": {
+                "tracks": {
+                    "synthesis": {
+                        "content": {
+                            "kind": "ak.content.text",
+                            "body": "must be rejected"
+                        }
+                    }
+                }
+            }
+        }),
+    )
+    .unwrap();
+    let error = state.apply_events(&[update]).unwrap_err();
+    assert!(error.to_string().contains("track_disabled"), "{error}");
+    assert!(
+        !state.subjects[strand_id.as_str()]
+            .tracks
+            .contains_key("synthesis")
+    );
 }
 
 #[test]
@@ -1001,7 +1074,25 @@ fn redaction_event(seq: u64, target_ref: &str) -> Event {
 fn redaction_with_strand_target_ref_flips_subject_to_redacted() {
     let strand_id_owned = derived_object_id("ak:strand:", 1);
     let strand_id = strand_id_owned.as_str();
-    let create = strand_create_event(1);
+    let create = event(
+        EventKind::StrandCreate,
+        1,
+        json!({
+            "object": {
+                "schema": SchemaId::STRAND_V1,
+                "realm_id": realm_id().as_str(),
+                "metadata": {"title": "Sensitive Strand"},
+                "content": {"kind": "ak.content.text", "body": "Description secret"},
+                "tracks": {
+                    "synthesis": {
+                        "content": {"kind": "ak.content.text", "body": "Synthesis secret"}
+                    }
+                },
+                "created_by": actor_id().as_str(),
+                "created_at": "2026-05-02T00:00:00.000Z"
+            }
+        }),
+    );
     let mut redact = redaction_event(2, strand_id);
     redact.prev_refs.push(create.event_id.clone());
     let redact_at = redact.created_at;
@@ -1012,6 +1103,10 @@ fn redaction_with_strand_target_ref_flips_subject_to_redacted() {
     let strand = state.subjects.get(strand_id).unwrap();
     assert_eq!(strand.state, Some(crate::ObjectState::Redacted));
     assert_eq!(strand.state_changed_at, Some(redact_at));
+    assert!(strand.content.is_none());
+    assert!(strand.encrypted_content.is_none());
+    assert!(strand.tracks["synthesis"].content.is_none());
+    assert!(strand.tracks["synthesis"].encrypted_content.is_none());
 }
 
 #[test]
@@ -1052,7 +1147,7 @@ fn redaction_against_already_redacted_strand_rejects() {
 }
 
 #[test]
-fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
+fn strand_tracks_update_applies_canonical_dotted_config_paths() {
     let strand_id_owned = derived_object_id("ak:strand:", 1);
     let strand_id = strand_id_owned.as_str();
     let create = strand_create_event(1);
@@ -1060,20 +1155,10 @@ fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
         EventKind::StrandTracksUpdate,
         2,
         json!({
-            "strand_id": strand_id,
-            "tracks": {
-                "discussion": {
-                    "profile": "discussion",
-                    "metadata": {"capacity": 25}
-                }
-            },
+            "target_ref": strand_id,
             "patch": {
-                "tracks": {
-                    "review": {
-                        "profile": "review",
-                        "template": "Review"
-                    }
-                }
+                "tracks.discussion.profile": "discussion",
+                "tracks.discussion.metadata.capacity": 25
             }
         }),
     );
@@ -1093,8 +1178,42 @@ fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
         Some("discussion")
     );
     assert_eq!(strand.tracks["discussion"].metadata["capacity"], 25);
-    assert_eq!(strand.tracks["review"].profile.as_deref(), Some("review"));
-    assert_eq!(strand.tracks["review"].template.as_deref(), Some("Review"));
+    assert!(strand.tracks["discussion"].content.is_none());
+    assert!(strand.tracks["discussion"].encrypted_content.is_none());
+}
+
+#[test]
+fn strand_tracks_update_cannot_write_synthesis_content() {
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = strand_create_event(1);
+    let mut update = event(
+        EventKind::StrandTracksUpdate,
+        2,
+        json!({
+            "target_ref": strand_id,
+            "patch": {
+                "tracks.synthesis.content": {
+                    "kind": "ak.content.text",
+                    "body": "wrong event kind"
+                }
+            }
+        }),
+    );
+    update.prev_refs.push(create.event_id.clone());
+
+    let mut state = RealmState::new(realm_id());
+    state.apply_events(&[create]).unwrap();
+    let error = state.apply_events(&[update]).unwrap_err();
+    assert!(
+        error.to_string().contains("changes configuration only"),
+        "{error}"
+    );
+    assert!(
+        state.subjects[strand_id].tracks["synthesis"]
+            .content
+            .is_none()
+    );
 }
 
 // ── SDK-ORG-05 (2026-06-25): ak.realm.organization composite cell subject ──

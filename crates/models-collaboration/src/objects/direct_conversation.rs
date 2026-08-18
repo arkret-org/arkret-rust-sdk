@@ -14,7 +14,7 @@ use crate::events_payloads::device_identity::DirectConversationBoundPayload;
 use crate::events_payloads::{RealmCreatePayload, RealmGenesis, RealmPurpose, StrandCreatePayload};
 use crate::governance::delivery_binding::DeliveryStatus;
 use crate::governance::membership_invite::MembershipPayload;
-use crate::objects::profiles::{STRAND_TRACK_NAME_DISCUSSION, StrandTrackConfig};
+use crate::objects::profiles::{STRAND_TRACK_NAME_DISCUSSION, StrandTrack};
 use crate::objects::realm::NotaryProfile;
 use crate::objects::strand::Strand;
 
@@ -237,7 +237,7 @@ pub fn direct_conversation_main_strand_create_payload(
     strand.tracks.clear();
     strand.tracks.insert(
         STRAND_TRACK_NAME_DISCUSSION.to_owned(),
-        StrandTrackConfig::discussion_primary(),
+        StrandTrack::discussion_primary(),
     );
     strand.scope_circle_id = None;
     strand.state = Some(ObjectState::Active);

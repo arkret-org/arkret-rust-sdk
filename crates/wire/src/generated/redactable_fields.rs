@@ -1,8 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/redactable-field-registry.json; version=2026-08-17;
-//! sha256=1fb9d682568336bb6b885277dcf7b03e246659f367edcff766b3501851dcd387
-//! Entries: redactable_fields=6, distinct_paths=2
+//! Input: registry/redactable-field-registry.json; version=2026-08-18; sha256=0eca623e433825e1582003e00343b1ecb1b702995644403f84524abd2d115d40
+//! Entries: redactable_fields=8, distinct_paths=4
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RedactableFieldDescriptor {
@@ -58,9 +57,28 @@ pub const REDACTABLE_FIELDS: &[RedactableFieldDescriptor] = &[
         non_terminal_clear_op: "set",
         terminal_clear_event_kinds: &["ak.redaction"],
     },
+    RedactableFieldDescriptor {
+        object_kind: "strand",
+        path: "tracks.synthesis.content",
+        paired_path: "tracks.synthesis.encrypted_content",
+        non_terminal_clear_op: "set",
+        terminal_clear_event_kinds: &["ak.redaction"],
+    },
+    RedactableFieldDescriptor {
+        object_kind: "strand",
+        path: "tracks.synthesis.encrypted_content",
+        paired_path: "tracks.synthesis.content",
+        non_terminal_clear_op: "set",
+        terminal_clear_event_kinds: &["ak.redaction"],
+    },
 ];
 
 /// Distinct slot paths a patch `$op="unset"` must never address.
 /// Realm-defined `redactable: true` fields are declared by their own
 /// Realm schema and are enforced separately.
-pub const REDACTABLE_FIELD_PATHS: &[&str] = &["content", "encrypted_content"];
+pub const REDACTABLE_FIELD_PATHS: &[&str] = &[
+    "content",
+    "encrypted_content",
+    "tracks.synthesis.content",
+    "tracks.synthesis.encrypted_content",
+];

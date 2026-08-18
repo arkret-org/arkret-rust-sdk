@@ -157,7 +157,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
                 .to_owned(),
         ));
     }
-    validate_event_proof_digests(authorize)?;
+    let authorize_proof = validate_event_proof_digests(authorize)?;
     let payload: DeviceAuthorizePayload =
         authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
     if payload.principal_id.as_core_id() != create.actor_id.as_core_id()
@@ -201,9 +201,6 @@ pub fn validate_self_principal_pcr_genesis_unit(
         &Value::Object(authorize.payload.clone().into_iter().collect()),
         arkret_canonical::DigestSuite::Sha256,
     )?;
-    let authorize_proof = authorize.proofs[0].as_producer().ok_or_else(|| {
-        Error::Protocol("founding device proof must be a producer proof".to_owned())
-    })?;
     let (verification_controller, verification_fragment) = authorize_proof
         .verification_method
         .as_str()
@@ -213,7 +210,6 @@ pub fn validate_self_principal_pcr_genesis_unit(
     let verification_principal = project_full_id_to_core_id(&verification_controller)?;
     if !authorized_by_matches
         || notary_actor_id != &create.actor_id
-        || authorize.proofs.len() != 1
         || verification_principal != create.actor_id
         || verification_controller != initial_resolution.full_id
         || verification_fragment != descriptor.device_id.as_str()
@@ -276,12 +272,8 @@ pub(crate) fn validate_self_principal_pcr_create(
         ));
     }
     if require_proof {
-        validate_event_proof_digests(event)?;
-        if event.proofs.len() != 1
-            || event.proofs[0]
-                .as_producer()
-                .is_none_or(|proof| !proof.verification_method.starts_with("did:key:"))
-        {
+        let proof = validate_event_proof_digests(event)?;
+        if !proof.verification_method.starts_with("did:key:") {
             return Err(Error::Protocol(
                 "self principal PCR genesis requires exactly one identity-root proof".to_owned(),
             ));
@@ -334,23 +326,34 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
     genesis.validate()
 }
 
-fn validate_event_proof_digests(event: &Event) -> Result<()> {
-    if event.proofs.is_empty() {
-        return Err(Error::Protocol(
-            "bootstrap event proof is missing".to_owned(),
-        ));
-    }
+fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerEventProof> {
+    // The producer form is used at initial registration. The accepted form is
+    // returned by events.read and appends the origin Principal Server proof
+    // needed for federation. Both represent one and only one Event author.
+    let producer = match event.proofs.as_slice() {
+        [arkret_wire::EventProof::Producer(producer)] => producer,
+        [
+            arkret_wire::EventProof::Producer(producer),
+            arkret_wire::EventProof::PrincipalServerAdmission(_),
+        ] => {
+            event.validate_principal_server_admission_binding()?;
+            producer
+        }
+        _ => {
+            return Err(Error::Protocol(
+                "bootstrap event must carry exactly one producer proof and at most one bound principal server admission proof"
+                    .to_owned(),
+            ));
+        }
+    };
     let digest = event.event_digest()?;
-    if event.proofs.iter().any(|proof| {
-        proof.as_producer().is_none_or(|proof| {
-            proof.kind != proof_kind::DETACHED_JWS
-                || proof.event_digest.as_str() != digest
-                || proof.jws.is_empty()
-        })
-    }) {
+    if producer.kind != proof_kind::DETACHED_JWS
+        || producer.event_digest.as_str() != digest
+        || producer.jws.is_empty()
+    {
         return Err(Error::Protocol(
             "bootstrap event carries an invalid proof envelope".to_owned(),
         ));
     }
-    Ok(())
+    Ok(producer)
 }

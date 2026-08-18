@@ -677,7 +677,9 @@ impl<'a> PatchTargetKind<'a> {
             return Self::Unverified;
         };
         match rest.split_once(':') {
-            Some((kind, payload)) if !kind.is_empty() && !payload.is_empty() => Self::Verified(kind),
+            Some((kind, payload)) if !kind.is_empty() && !payload.is_empty() => {
+                Self::Verified(kind)
+            }
             _ => Self::Unverified,
         }
     }
@@ -929,13 +931,25 @@ mod tests {
             PatchTargetKind::Unverified,
         ] {
             let error = validate_patch_semantic_safety(&patch, target).unwrap_err();
-            assert!(error.to_string().contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED));
+            assert!(
+                error
+                    .to_string()
+                    .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
+            );
         }
     }
 
     #[test]
     fn a_non_typed_target_proves_nothing_and_stays_on_the_superset() {
-        for candidate in ["", "view", "ak:", "ak:view", "ak:view:", "ak::token", "did:web:x"] {
+        for candidate in [
+            "",
+            "view",
+            "ak:",
+            "ak:view",
+            "ak:view:",
+            "ak::token",
+            "did:web:x",
+        ] {
             assert_eq!(
                 PatchTargetKind::from_typed_target(candidate),
                 PatchTargetKind::Unverified,
@@ -1039,7 +1053,8 @@ mod tests {
         for path in REDACTABLE_FIELD_PATHS {
             let mut patch = Patch::new();
             patch.insert_op(*path, PatchOp::unset()).unwrap();
-            let error = validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
+            let error =
+                validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
             assert!(
                 error
                     .to_string()

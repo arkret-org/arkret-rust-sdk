@@ -1,22 +1,22 @@
 {
   "summary": {
-    "total": 1207,
+    "total": 1206,
     "by_classification": {
       "A": 9,
       "B": 702,
-      "needs_review": 496
+      "needs_review": 495
     },
     "by_openness": {
       "closed": 709,
       "open": 2,
-      "unresolved": 495,
+      "unresolved": 494,
       "unspecified": 1
     },
     "by_crate": {
       "crypto": 2,
       "event-draft": 2,
       "identity": 16,
-      "models-collaboration": 737,
+      "models-collaboration": 736,
       "models-crypto": 104,
       "models-discovery": 14,
       "models-identity": 143,
@@ -7689,7 +7689,7 @@
       "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::DisplaySymbol",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/object_facets.rs",
-      "line": 17,
+      "line": 19,
       "kind": "struct",
       "value_kind": "DisplaySymbol",
       "spec_pointer": "circle.schema.json#/$defs/display",
@@ -7702,7 +7702,7 @@
       "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::Display",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/object_facets.rs",
-      "line": 26,
+      "line": 28,
       "kind": "struct",
       "value_kind": "Display",
       "spec_pointer": "circle.schema.json#/$defs/display",
@@ -7715,7 +7715,7 @@
       "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::StrandTrack",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/object_facets.rs",
-      "line": 35,
+      "line": 37,
       "kind": "struct",
       "value_kind": "StrandTrack",
       "spec_pointer": "strand.schema.json#/$defs/strand_track",
@@ -7728,7 +7728,7 @@
       "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::MorphCustomerRisk",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/object_facets.rs",
-      "line": 62,
+      "line": 70,
       "kind": "struct",
       "value_kind": "MorphCustomerRisk",
       "spec_pointer": "morph-customer-risk.schema.json",
@@ -8258,23 +8258,10 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/objects/profiles.rs::StrandTrackConfig",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/objects/profiles.rs",
-      "line": 30,
-      "kind": "struct",
-      "value_kind": "StrandTrackConfig",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/objects/profiles.rs::Morph",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/profiles.rs",
-      "line": 246,
+      "line": 256,
       "kind": "struct",
       "value_kind": "Morph",
       "spec_pointer": "morph.schema.json",

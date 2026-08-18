@@ -2,10 +2,12 @@
 
 use std::collections::BTreeMap;
 
+use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::SchemaId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::events_payloads::ContentBlock;
 use crate::objects::productivity::{
     BlindIndexQuery, EncryptedIndexManifest, PersonalProductivityValue, PinAddPayload,
     PinRemovePayload, PinReorderPayload, ReminderValue, RsvpSetPayload, SavedItemValue,
@@ -31,7 +33,7 @@ pub struct Display {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/strand_track`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrandTrack {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -42,8 +44,14 @@ pub struct StrandTrack {
     pub profile: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub template: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
+    /// Track-owned narrative body. In v1 only the `synthesis` entry may carry
+    /// this field; discussion bodies are Message objects.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<BTreeMap<String, Value>>,
+    pub content: Option<ContentBlock>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_content: Option<EncryptedEnvelope>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/metadata_fields`.

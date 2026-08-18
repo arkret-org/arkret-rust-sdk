@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::events_payloads::ContentBlock;
+pub use crate::objects::object_facets::StrandTrack;
 use crate::objects::strand::ObjectMetadata;
 
 fn now_utc_canonical() -> DateTime<Utc> {
@@ -25,33 +26,17 @@ fn now_utc_canonical() -> DateTime<Utc> {
 pub const STRAND_TRACK_NAME_SYNTHESIS: &str = "synthesis";
 pub const STRAND_TRACK_NAME_DISCUSSION: &str = "discussion";
 
-/// Per-track configuration carried as the value side of the `Strand.tracks` map.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StrandTrackConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enabled: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub is_primary: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub profile: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub template: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub metadata: BTreeMap<String, Value>,
-}
-
-impl StrandTrackConfig {
+impl StrandTrack {
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Standard `synthesis` track config.
+    /// Standard `synthesis` track entry.
     pub fn synthesis() -> Self {
         Self::default()
     }
 
-    /// Standard `discussion` track config.
+    /// Standard `discussion` track entry.
     pub fn discussion() -> Self {
         Self {
             profile: Some("discussion".to_owned()),
@@ -59,7 +44,7 @@ impl StrandTrackConfig {
         }
     }
 
-    /// Standard `discussion` track config marked as the Strand's primary entry point.
+    /// Standard `discussion` track entry marked as the Strand's primary entry point.
     pub fn discussion_primary() -> Self {
         Self {
             is_primary: Some(true),
@@ -77,6 +62,31 @@ impl StrandTrackConfig {
     pub fn with_profile(mut self, profile: impl Into<String>) -> Self {
         self.profile = Some(profile.into());
         self
+    }
+
+    /// Merge a sparse patch value into the existing track projection.
+    pub fn merge_from(&mut self, patch: Self) {
+        if patch.enabled.is_some() {
+            self.enabled = patch.enabled;
+        }
+        if patch.is_primary.is_some() {
+            self.is_primary = patch.is_primary;
+        }
+        if patch.profile.is_some() {
+            self.profile = patch.profile;
+        }
+        if patch.template.is_some() {
+            self.template = patch.template;
+        }
+        self.metadata.extend(patch.metadata);
+        if let Some(content) = patch.content {
+            self.content = Some(content);
+            self.encrypted_content = None;
+        }
+        if let Some(encrypted_content) = patch.encrypted_content {
+            self.encrypted_content = Some(encrypted_content);
+            self.content = None;
+        }
     }
 
     /// Add one track-local UI metadata field.
@@ -114,13 +124,13 @@ pub fn validate_strand_track_name(name: &str) -> Result<()> {
 
 /// Resolve the primary track of a Strand.
 pub fn resolve_primary_track<'a>(
-    tracks: &'a BTreeMap<String, StrandTrackConfig>,
+    tracks: &'a BTreeMap<String, StrandTrack>,
     profile_default: Option<&str>,
-) -> Result<Option<(&'a String, &'a StrandTrackConfig)>> {
+) -> Result<Option<(&'a String, &'a StrandTrack)>> {
     if tracks.is_empty() {
         return Ok(None);
     }
-    let explicit: Vec<(&String, &StrandTrackConfig)> = tracks
+    let explicit: Vec<(&String, &StrandTrack)> = tracks
         .iter()
         .filter(|(_, cfg)| cfg.is_primary == Some(true))
         .collect();
@@ -162,8 +172,8 @@ pub fn resolve_primary_track<'a>(
 }
 
 pub fn validate_primary_track_transition(
-    previous: &BTreeMap<String, StrandTrackConfig>,
-    next: &BTreeMap<String, StrandTrackConfig>,
+    previous: &BTreeMap<String, StrandTrack>,
+    next: &BTreeMap<String, StrandTrack>,
     profile_default: Option<&str>,
 ) -> Result<()> {
     let previous_primary = resolve_primary_track(previous, profile_default)?;
@@ -183,9 +193,9 @@ pub fn validate_primary_track_transition(
 }
 
 pub fn select_primary_track<'a>(
-    tracks: &'a BTreeMap<String, StrandTrackConfig>,
+    tracks: &'a BTreeMap<String, StrandTrack>,
     track_name: &str,
-) -> Result<(&'a String, &'a StrandTrackConfig)> {
+) -> Result<(&'a String, &'a StrandTrack)> {
     let selected = tracks.get_key_value(track_name).ok_or_else(|| {
         Error::Protocol("primary_track_required: selected track does not exist".to_owned())
     })?;

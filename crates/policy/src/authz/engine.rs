@@ -1599,6 +1599,56 @@ mod engine_wire_tests {
     }
 
     #[test]
+    fn strand_description_and_synthesis_require_distinct_allowed_write_fields() {
+        let description_constraint = constraint(json!({
+            "constraint_kind": "field_access",
+            "effect": "allow",
+            "allowed_write_fields": ["content", "encrypted_content"]
+        }));
+        let mut description_grant = wire_grant(vec![description_constraint]);
+        description_grant.actions = vec!["ak.strand.update".to_owned()];
+
+        let mut description_ctx = ctx();
+        description_ctx.action = "ak.strand.update".to_owned();
+        description_ctx.write_fields = vec!["content".to_owned()];
+        let mut engine = AuthzEngine::new();
+        assert_eq!(
+            engine.check_authorization(&description_ctx, std::slice::from_ref(&description_grant)),
+            EngineDecision::Allow
+        );
+
+        let mut synthesis_ctx = description_ctx.clone();
+        synthesis_ctx.write_fields = vec!["tracks.synthesis.content".to_owned()];
+        assert!(matches!(
+            engine.check_authorization(&synthesis_ctx, std::slice::from_ref(&description_grant)),
+            EngineDecision::Deny { reason }
+                if reason.contains("field access not allowed: tracks.synthesis.content")
+        ));
+
+        let synthesis_constraint = constraint(json!({
+            "constraint_kind": "field_access",
+            "effect": "allow",
+            "allowed_write_fields": [
+                "tracks.synthesis.content",
+                "tracks.synthesis.encrypted_content"
+            ]
+        }));
+        let mut synthesis_grant = wire_grant(vec![synthesis_constraint]);
+        synthesis_grant.actions = vec!["ak.strand.update".to_owned()];
+        assert_eq!(
+            engine.check_authorization(&synthesis_ctx, std::slice::from_ref(&synthesis_grant)),
+            EngineDecision::Allow
+        );
+        assert!(matches!(
+            engine.check_authorization(
+                &description_ctx,
+                std::slice::from_ref(&synthesis_grant)
+            ),
+            EngineDecision::Deny { reason } if reason.contains("field access not allowed: content")
+        ));
+    }
+
+    #[test]
     fn fast_path_cache_requires_authz_frontier() {
         let mut engine = AuthzEngine::new();
         let mut ctx = ctx();

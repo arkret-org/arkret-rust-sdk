@@ -48,6 +48,9 @@ pub enum LoopbackHostScope {
     /// must resolve wholly to loopback. Used by debug and test-harness clients
     /// that must not be able to leave the machine.
     LoopbackOnly,
+    /// Only explicit loopback hosts plus the named deployment hosts are
+    /// reachable, and every named host must resolve wholly to loopback.
+    LoopbackOnlyTrusted(Arc<HashSet<String>>),
 }
 
 /// Structured, auditable egress rejection carrying the caller's purpose.
@@ -159,6 +162,23 @@ impl EgressGuard {
     #[must_use]
     pub fn loopback_only(mut self) -> Self {
         self.loopback_hosts = LoopbackHostScope::LoopbackOnly;
+        self
+    }
+
+    /// Restrict this guard to loopback destinations while admitting an exact
+    /// allowlist of stable host names that resolve wholly to loopback.
+    #[must_use]
+    pub fn loopback_only_with_trusted_hosts<I, S>(mut self, hosts: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let hosts = hosts
+            .into_iter()
+            .map(|host| normalize_host(host.as_ref()))
+            .filter(|host| !host.is_empty())
+            .collect();
+        self.loopback_hosts = LoopbackHostScope::LoopbackOnlyTrusted(Arc::new(hosts));
         self
     }
 
@@ -323,9 +343,7 @@ impl EgressGuard {
             .host_str()
             .filter(|host| !host.trim().is_empty())
             .ok_or(PolicyError::MissingHost)?;
-        if self.loopback_hosts == LoopbackHostScope::LoopbackOnly
-            && !is_explicit_loopback_host(host)
-        {
+        if self.loopback_only_denies_host(host) {
             return Err(EgressErrorKind::LoopbackOnlyHost {
                 host: host.to_owned(),
             });
@@ -335,9 +353,7 @@ impl EgressGuard {
     }
 
     fn check_host(&self, host: &str) -> Result<(), EgressErrorKind> {
-        if self.loopback_hosts == LoopbackHostScope::LoopbackOnly
-            && !is_explicit_loopback_host(host)
-        {
+        if self.loopback_only_denies_host(host) {
             return Err(EgressErrorKind::LoopbackOnlyHost {
                 host: host.to_owned(),
             });
@@ -348,7 +364,7 @@ impl EgressGuard {
 
     fn check_addresses(&self, host: &str, addresses: &[SocketAddr]) -> Result<(), EgressErrorKind> {
         match &self.loopback_hosts {
-            LoopbackHostScope::LoopbackOnly => {
+            LoopbackHostScope::LoopbackOnly | LoopbackHostScope::LoopbackOnlyTrusted(_) => {
                 if addresses.is_empty() {
                     return Err(PolicyError::NoAddresses.into());
                 }
@@ -374,6 +390,16 @@ impl EgressGuard {
         }
         self.policy.validate_resolved_addresses(addresses)?;
         Ok(())
+    }
+
+    fn loopback_only_denies_host(&self, host: &str) -> bool {
+        match &self.loopback_hosts {
+            LoopbackHostScope::LoopbackOnly => !is_explicit_loopback_host(host),
+            LoopbackHostScope::LoopbackOnlyTrusted(hosts) => {
+                !is_explicit_loopback_host(host) && !hosts.contains(&normalize_host(host))
+            }
+            LoopbackHostScope::PolicyOnly | LoopbackHostScope::Trusted(_) => false,
+        }
     }
 
     fn plan(&self, url: &Url) -> Result<Plan, EgressErrorKind> {
@@ -734,6 +760,42 @@ mod tests {
             guard
                 .validate_addresses("localhost", &[addr("127.0.0.1:80")], "test")
                 .is_ok()
+        );
+    }
+
+    #[test]
+    fn loopback_only_trusted_scope_admits_exact_stable_local_names() {
+        let guard = EgressGuard::local_development()
+            .loopback_only_with_trusted_hosts(["auth.local.host", "local.host"]);
+
+        assert!(
+            guard
+                .validate_url(
+                    &Url::parse("http://AUTH.LOCAL.HOST.:7080/x").unwrap(),
+                    "test"
+                )
+                .is_ok()
+        );
+        assert!(guard.validate_host("local.host", "test").is_ok());
+        assert!(guard.validate_host("attacker.local.host", "test").is_err());
+        assert!(
+            guard
+                .validate_addresses("auth.local.host", &[addr("127.0.0.1:7080")], "test")
+                .is_ok()
+        );
+        assert!(
+            guard
+                .validate_addresses("auth.local.host", &[addr("8.8.8.8:7080")], "test")
+                .is_err()
+        );
+        assert!(
+            guard
+                .validate_addresses(
+                    "auth.local.host",
+                    &[addr("127.0.0.1:7080"), addr("8.8.8.8:7080")],
+                    "test",
+                )
+                .is_err()
         );
     }
 

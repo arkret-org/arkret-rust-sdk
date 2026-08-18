@@ -11,9 +11,10 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidUrl, Event, EventDigestSuiteCode,
-    EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc, NonEmptyString, NotarySig,
-    PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
+    AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidKey, DidUrl, Event,
+    EventDigestSuiteCode, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc,
+    NonEmptyString, NotarySig, PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
+    PrincipalServerAdmissionProofKind, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
     SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError, composite_subject,
     project_full_id_to_core_id, proof_kind,
 };
@@ -99,6 +100,27 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
         }
         .into(),
     ];
+}
+
+fn attach_fixture_admission_proof(event: &mut Event) {
+    let producer = event.proofs[0]
+        .as_producer()
+        .expect("fixture producer proof")
+        .clone();
+    let admission = PrincipalServerAdmissionProof {
+        kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+        verification_method: DidUrl::new("did:web:principal.example#admission").unwrap(),
+        event_digest: producer.event_digest.clone(),
+        producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(&producer)
+            .unwrap(),
+        producer_verification_method: producer.verification_method.clone(),
+        producer_signing_key: DidKey::new(founding_device_public_key()).unwrap(),
+        accepted_at: event.created_at,
+        jws: "fixture.admission-signature".to_owned(),
+    };
+    event
+        .proofs
+        .push(EventProof::PrincipalServerAdmission(admission));
 }
 
 fn bootstrap_unit() -> (Event, Event) {
@@ -325,6 +347,31 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
         validate_self_principal_pcr_genesis_unit(&create, &unrelated, &registry_projection)
             .is_err()
     );
+}
+
+#[test]
+fn accepted_bootstrap_history_remains_valid_for_successor_seal_replay() {
+    let (mut create, mut authorize) = bootstrap_unit();
+    attach_fixture_admission_proof(&mut create);
+    attach_fixture_admission_proof(&mut authorize);
+
+    validate_self_principal_pcr_genesis_unit(&create, &authorize, &registry_projection).unwrap();
+    let principal_id = input().principal_full_id;
+    let signer = FixtureSigner {
+        did: principal_id.clone(),
+        verification_method: DidUrl::new(format!("{principal_id}#{}", founding_device_id()))
+            .unwrap(),
+    };
+    let seal = build_self_principal_bootstrap_seal(
+        &create,
+        &authorize,
+        Hlc::new("01970e589d21-0006-a13f9c2f").unwrap(),
+        &signer,
+        &registry_projection,
+    )
+    .unwrap();
+
+    assert_eq!(seal.delta.len(), 2);
 }
 
 #[test]
