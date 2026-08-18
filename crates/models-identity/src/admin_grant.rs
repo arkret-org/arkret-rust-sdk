@@ -32,6 +32,11 @@ pub mod admin_scopes {
     pub const BOTTOM_REPAIR: &str = "bottom.repair";
     /// Read admin-scoped collection surfaces (accounts, spaces, etc.).
     pub const ADMIN_READ: &str = "admin.read";
+    /// Plan or cancel a same-core service route handover: sign a
+    /// `ServiceRouteHandoverNotice` against the current record basis and
+    /// drive the owner-side publish/ACK barrier. Write-scoped and distinct
+    /// from [`ADMIN_READ`], which only exposes the route projection.
+    pub const SERVICE_ROUTE_HANDOVER: &str = "service_route.handover";
 }
 
 /// Typed view of an OAuth-style session-grant introspection response.

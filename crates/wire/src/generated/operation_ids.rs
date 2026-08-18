@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-18.2;
-//! sha256=562e3e2a855d9d9c9e7a1bd3a3a7d6ee1b62536d7a54effb5f6dc0d8ec917ba9 Entries: registered=244
+//! sha256=1d164ca47337fe83c6248fe8175024a17f80fb2ee744f539e624cce2ae9b0ed6 Entries: registered=244
 
 use serde::{Deserialize, Serialize};
 
@@ -3888,7 +3888,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("PeerServiceResolution/Publish"),
         mq: Some("peer.service_resolution.command.publish"),
         body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(262144),
+        max_canonical_body_bytes: Some(65536),
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
