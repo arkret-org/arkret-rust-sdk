@@ -44,7 +44,7 @@ pub struct AppletTransactionOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AppletApprovalRequest {
     pub approve_actions: Vec<String>,
-    pub ghost_actors_allowed: bool,
+    pub ghost_actor_mode: AppletGhostActorMode,
     pub delegated_native_actors_allowed: bool,
     pub e2ee_join_allowed: bool,
     pub widget_allowed: bool,

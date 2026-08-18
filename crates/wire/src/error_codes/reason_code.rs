@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-18.2;
-//! sha256=dc6b0fc9b8c290a602ab4fcbfd085ce6ed92eb21f4064718b3838bb6a3e3e06b
-//! Entries: reason_codes=477
+//! Input: registry/error-code-registry.json; version=2026-08-18.5;
+//! sha256=9364e7ab33d67e528ed65698672f12263f0e3bf4d80ede83c7dcdf8d977d2e38
+//! Entries: reason_codes=480
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -133,6 +133,7 @@ pub enum ReasonCode {
     DeliveryBindingInvalid,
     DeliveryBindingPolicyMismatch,
     DeliveryBindingStale,
+    DeliveryTargetUnreachable,
     DeltaContainsDataEvent,
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
@@ -305,6 +306,7 @@ pub enum ReasonCode {
     PcrGenesisNotFirst,
     PcrGenesisUnitInvalid,
     PermissionDenied,
+    PinTargetNotPinned,
     PlaneCrossWrite,
     PolicyDenied,
     PolicyRecall,
@@ -409,6 +411,7 @@ pub enum ReasonCode {
     SegmentStreamTruncated,
     SelectorActorWildcardForbidden,
     SelectorGovernanceWildcardForbidden,
+    SelectorMissingRealmScope,
     SelectorTooComplex,
     SendFailed,
     SeriesChainBroken,
@@ -649,6 +652,7 @@ impl ReasonCode {
     pub const DELIVERY_BINDING_INVALID: &'static str = "delivery_binding_invalid";
     pub const DELIVERY_BINDING_POLICY_MISMATCH: &'static str = "delivery_binding_policy_mismatch";
     pub const DELIVERY_BINDING_STALE: &'static str = "delivery_binding_stale";
+    pub const DELIVERY_TARGET_UNREACHABLE: &'static str = "delivery_target_unreachable";
     pub const DELTA_CONTAINS_DATA_EVENT: &'static str = "delta_contains_data_event";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
@@ -866,6 +870,7 @@ impl ReasonCode {
     pub const PCR_GENESIS_NOT_FIRST: &'static str = "pcr_genesis_not_first";
     pub const PCR_GENESIS_UNIT_INVALID: &'static str = "pcr_genesis_unit_invalid";
     pub const PERMISSION_DENIED: &'static str = "permission_denied";
+    pub const PIN_TARGET_NOT_PINNED: &'static str = "pin_target_not_pinned";
     pub const PLANE_CROSS_WRITE: &'static str = "plane_cross_write";
     pub const POLICY_DENIED: &'static str = "policy_denied";
     pub const POLICY_RECALL: &'static str = "policy_recall";
@@ -988,6 +993,7 @@ impl ReasonCode {
     pub const SELECTOR_ACTOR_WILDCARD_FORBIDDEN: &'static str = "selector_actor_wildcard_forbidden";
     pub const SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN: &'static str =
         "selector_governance_wildcard_forbidden";
+    pub const SELECTOR_MISSING_REALM_SCOPE: &'static str = "selector_missing_realm_scope";
     pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SEND_FAILED: &'static str = "send_failed";
     pub const SERIES_CHAIN_BROKEN: &'static str = "series_chain_broken";
@@ -1221,6 +1227,7 @@ impl ReasonCode {
             Self::DeliveryBindingInvalid => Self::DELIVERY_BINDING_INVALID,
             Self::DeliveryBindingPolicyMismatch => Self::DELIVERY_BINDING_POLICY_MISMATCH,
             Self::DeliveryBindingStale => Self::DELIVERY_BINDING_STALE,
+            Self::DeliveryTargetUnreachable => Self::DELIVERY_TARGET_UNREACHABLE,
             Self::DeltaContainsDataEvent => Self::DELTA_CONTAINS_DATA_EVENT,
             Self::DependencyMissing => Self::DEPENDENCY_MISSING,
             Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
@@ -1445,6 +1452,7 @@ impl ReasonCode {
             Self::PcrGenesisNotFirst => Self::PCR_GENESIS_NOT_FIRST,
             Self::PcrGenesisUnitInvalid => Self::PCR_GENESIS_UNIT_INVALID,
             Self::PermissionDenied => Self::PERMISSION_DENIED,
+            Self::PinTargetNotPinned => Self::PIN_TARGET_NOT_PINNED,
             Self::PlaneCrossWrite => Self::PLANE_CROSS_WRITE,
             Self::PolicyDenied => Self::POLICY_DENIED,
             Self::PolicyRecall => Self::POLICY_RECALL,
@@ -1563,6 +1571,7 @@ impl ReasonCode {
             Self::SelectorGovernanceWildcardForbidden => {
                 Self::SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN
             }
+            Self::SelectorMissingRealmScope => Self::SELECTOR_MISSING_REALM_SCOPE,
             Self::SelectorTooComplex => Self::SELECTOR_TOO_COMPLEX,
             Self::SendFailed => Self::SEND_FAILED,
             Self::SeriesChainBroken => Self::SERIES_CHAIN_BROKEN,
@@ -1802,6 +1811,7 @@ impl ReasonCode {
             Self::DELIVERY_BINDING_INVALID => Self::DeliveryBindingInvalid,
             Self::DELIVERY_BINDING_POLICY_MISMATCH => Self::DeliveryBindingPolicyMismatch,
             Self::DELIVERY_BINDING_STALE => Self::DeliveryBindingStale,
+            Self::DELIVERY_TARGET_UNREACHABLE => Self::DeliveryTargetUnreachable,
             Self::DELTA_CONTAINS_DATA_EVENT => Self::DeltaContainsDataEvent,
             Self::DEPENDENCY_MISSING => Self::DependencyMissing,
             Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH => {
@@ -2026,6 +2036,7 @@ impl ReasonCode {
             Self::PCR_GENESIS_NOT_FIRST => Self::PcrGenesisNotFirst,
             Self::PCR_GENESIS_UNIT_INVALID => Self::PcrGenesisUnitInvalid,
             Self::PERMISSION_DENIED => Self::PermissionDenied,
+            Self::PIN_TARGET_NOT_PINNED => Self::PinTargetNotPinned,
             Self::PLANE_CROSS_WRITE => Self::PlaneCrossWrite,
             Self::POLICY_DENIED => Self::PolicyDenied,
             Self::POLICY_RECALL => Self::PolicyRecall,
@@ -2144,6 +2155,7 @@ impl ReasonCode {
             Self::SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN => {
                 Self::SelectorGovernanceWildcardForbidden
             }
+            Self::SELECTOR_MISSING_REALM_SCOPE => Self::SelectorMissingRealmScope,
             Self::SELECTOR_TOO_COMPLEX => Self::SelectorTooComplex,
             Self::SEND_FAILED => Self::SendFailed,
             Self::SERIES_CHAIN_BROKEN => Self::SeriesChainBroken,
@@ -2922,6 +2934,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::DELIVERY_BINDING_STALE,
         applies_to: &["push_notify_outcome"],
         description: "Per-device rejection reason in ak.edge.push.command.notify: the receiver's delivery-binding frontier has advanced past the route this notify was built against. Terminal for this attempt; the caller MUST re-resolve the route rather than retry the same one. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::DELIVERY_TARGET_UNREACHABLE,
+        applies_to: &["event_envelope", "service_call"],
+        description: "Sub-reason carried by the ak.invite.revoke that moves a pending Invite to target_state=send_failed: the delivery service could not reach the private invite delivery target after its retry budget. It is a delivery diagnostic only and MUST NOT leak the 3PID plaintext, the invite token or a verification code. See zh/models/governance-objects.md section 5 and zh/sync/third-party-invites.md section 6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DELTA_CONTAINS_DATA_EVENT,
@@ -3765,7 +3782,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PATCH_UNSET_REDACTABLE_FIELD,
         applies_to: &["event_envelope"],
-        description: "An `ak.schema.patch.v1` `$op=\"unset\"` addressed a redactable content-carrier slot. The normative path set is registry/redactable-field-registry.json (Message / Strand / Morph `content` and `encrypted_content`) plus any Realm-schema field marked `redactable: true`; the description here is not the criterion. Absence of a content slot on the materialized object is reserved for `never authored` and `cleared by redaction`, so an ordinary update MUST NOT remove it. This is a slot-existence rule, not a capability boundary: `$op=\"set\"` on the same path is ordinary authoring and MUST be accepted even when the new value carries an empty body, and no patch op can reproduce the whole-object, terminal, audit-sealed effect of redaction. `metadata`, `encrypted_metadata`, `metadata.title`, `metadata.summary` and paths under `metadata.fields` are NOT covered and MUST accept `$op=\"unset\"`. See zh/models/event-and-patch.md §4.2.4.",
+        description: "An `ak.schema.patch.v1` `$op=\"unset\"` addressed a redactable content-carrier slot. The normative path set is registry/redactable-field-registry.json (Message / Morph content pairs; Strand Description and synthesis content pairs) plus any Realm-schema field marked `redactable: true`; the description here is not the criterion. Absence of a content slot on the materialized object is reserved for `never authored` and `cleared by redaction`, so an ordinary update MUST NOT remove it. This is a slot-existence rule, not a capability boundary: `$op=\"set\"` on the same path is ordinary authoring and MUST be accepted even when the new value carries an empty body, and no patch op can reproduce the whole-object, terminal, audit-sealed effect of redaction. `metadata`, `encrypted_metadata`, `metadata.title`, `metadata.summary` and paths under `metadata.fields` are NOT covered and MUST accept `$op=\"unset\"`. See zh/models/event-and-patch.md §4.2.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PCR_GENESIS_CONFLICT,
@@ -3786,6 +3803,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::PERMISSION_DENIED,
         applies_to: &["event_envelope", "service_call"],
         description: "A recording or transcription backend could not obtain the required media permission.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::PIN_TARGET_NOT_PINNED,
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "Sub-reason for failed_precondition when ak.pin.reorder addresses a (pin_scope, target_ref) that has no causally earlier surviving ak.pin.add assertion to inherit note and the remaining entry fields from. Reducers MUST NOT synthesize a rank-only entry that would put the target back into the roster. See zh/models/pins.md section 4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PLANE_CROSS_WRITE,
@@ -4259,7 +4281,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SCOPE_EXPANSION_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A grant or delegation set `scope_expansion_allowed=true`. v1 does not permit a child to expand beyond the parent's resources/actions; the reducer MUST reject (schema_violation) because the field directly conflicts with the §10.1 `resources MUST ⊆ parent` invariant. See zh/authz/constraint-schema.md §7 / zh/authz/capabilities.md §10.1.",
+        description: "A grant or delegation attempted to widen a child's actions[] or resources[] beyond its parent. v1 does not permit scope expansion: capabilities.md 10.1's narrowing invariant is unconditional and there is no wire switch that relaxes it. Reducers MUST reject with schema_violation.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SCOPE_INCOMPARABLE,
@@ -4315,6 +4337,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN,
         applies_to: &["authz", "schema_violation"],
         description: "Governance-plane resource selector wildcard (e.g. policy:*, schema:*, or a governance object:* selector) was used without the required mitigation (denied by deployment policy, or constrained with max_authority_depth=0 plus bounded expiry plus admin approval). Receiver MUST reject.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SELECTOR_MISSING_REALM_SCOPE,
+        applies_to: &["authz", "schema_validation"],
+        description: "Sub-reason for schema_violation when a resource selector names a Realm-local kind without a realm_id, including the shorthand form where both the realm part and the object id are the wildcard. Parsers MUST reject the whole grant rather than silently treating the selector as global. See zh/authz/resource-selector-grammar.md sections 3.1 and 6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SELECTOR_TOO_COMPLEX,

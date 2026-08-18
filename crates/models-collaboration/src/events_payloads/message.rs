@@ -35,17 +35,14 @@ pub type MessageMetadataFields = BTreeMap<String, Value>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_redact_payload`.
-#[derive(Clone, Debug, Serialize)]
+///
+/// `message_id` is the single target carrier: the registered
+/// `ak.component.object.redaction.v1` cell subject is that typed Message ID, so
+/// the same Message cannot be addressed two ways.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageRedactPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<MessageId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_event_id: Option<EventId>,
+    pub message_id: MessageId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub track_name: Option<MessageTrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -54,63 +51,15 @@ pub struct MessageRedactPayload {
     pub preserve: Option<Vec<String>>,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MessageRedactPayloadWire {
-    #[serde(default)]
-    message_id: Option<MessageId>,
-    #[serde(default)]
-    target_ref: Option<ObjectRef>,
-    #[serde(default)]
-    event_id: Option<EventId>,
-    #[serde(default)]
-    target_event_id: Option<EventId>,
-    #[serde(default)]
-    track_name: Option<MessageTrackName>,
-    #[serde(default)]
-    reason: Option<String>,
-    #[serde(default)]
-    preserve: Option<Vec<String>>,
-}
-
-impl<'de> Deserialize<'de> for MessageRedactPayload {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = MessageRedactPayloadWire::deserialize(deserializer)?;
-        if wire.message_id.is_none()
-            && wire.target_ref.is_none()
-            && wire.event_id.is_none()
-            && wire.target_event_id.is_none()
-        {
-            return Err(serde::de::Error::custom(
-                "message_redact_payload requires a target identifier",
-            ));
-        }
-        Ok(Self {
-            message_id: wire.message_id,
-            target_ref: wire.target_ref,
-            event_id: wire.event_id,
-            target_event_id: wire.target_event_id,
-            track_name: wire.track_name,
-            reason: wire.reason,
-            preserve: wire.preserve,
-        })
-    }
-}
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_revise_payload`.
+///
+/// `message_id` is the single target carrier: the registered
+/// `ak.component.message.revision.v1` cell subject is that typed Message ID.
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageRevisePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<MessageId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revision_of: Option<MessageId>,
+    pub message_id: MessageId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub track_name: Option<MessageTrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -128,12 +77,7 @@ pub struct MessageRevisePayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MessageRevisePayloadWire {
-    #[serde(default)]
-    message_id: Option<MessageId>,
-    #[serde(default)]
-    target_ref: Option<ObjectRef>,
-    #[serde(default)]
-    revision_of: Option<MessageId>,
+    message_id: MessageId,
     #[serde(default)]
     track_name: Option<MessageTrackName>,
     #[serde(default)]
@@ -154,11 +98,6 @@ impl<'de> Deserialize<'de> for MessageRevisePayload {
         D: serde::Deserializer<'de>,
     {
         let wire = MessageRevisePayloadWire::deserialize(deserializer)?;
-        if wire.message_id.is_none() && wire.target_ref.is_none() && wire.revision_of.is_none() {
-            return Err(serde::de::Error::custom(
-                "message_revise_payload requires a target identifier",
-            ));
-        }
         if wire.content.is_some() == wire.encrypted_content.is_some() {
             return Err(serde::de::Error::custom(
                 "message_revise_payload requires exactly one content carrier",
@@ -171,8 +110,6 @@ impl<'de> Deserialize<'de> for MessageRevisePayload {
         }
         Ok(Self {
             message_id: wire.message_id,
-            target_ref: wire.target_ref,
-            revision_of: wire.revision_of,
             track_name: wire.track_name,
             content: wire.content,
             encrypted_content: wire.encrypted_content,

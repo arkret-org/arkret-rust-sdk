@@ -1130,7 +1130,6 @@ mod tests {
                 auth_context: None,
                 seal_basis: None,
                 requirements: EventRequirements::default(),
-                redacts: None,
                 payload: BTreeMap::from([("body".to_owned(), serde_json::json!("hello"))]),
                 executed_by: None,
                 authorization_ref: None,

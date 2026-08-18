@@ -1049,7 +1049,18 @@ mod tests {
 
     #[test]
     fn redactable_slot_paths_come_from_the_registry_projection() {
-        assert_eq!(REDACTABLE_FIELD_PATHS, &["content", "encrypted_content"]);
+        // The registry projection is the source: separating Strand Description
+        // from Synthesis added the two `tracks.synthesis.*` slots, and this
+        // assertion is what keeps the constant honest about that.
+        assert_eq!(
+            REDACTABLE_FIELD_PATHS,
+            &[
+                "content",
+                "encrypted_content",
+                "tracks.synthesis.content",
+                "tracks.synthesis.encrypted_content"
+            ]
+        );
         for path in REDACTABLE_FIELD_PATHS {
             let mut patch = Patch::new();
             patch.insert_op(*path, PatchOp::unset()).unwrap();

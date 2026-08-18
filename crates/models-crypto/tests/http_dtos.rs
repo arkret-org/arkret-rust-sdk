@@ -11,7 +11,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     let outcome = json!({
         "claim_request_id": "Y2xhaW0tbm9uY2U",
         "claims": [{
-            "claim_id": "ak:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
+            "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ak:mls:keypackage:test-01",
             "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "principal_id": "ak:did_core:webvh:z6mkfixture",
@@ -60,7 +60,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
 
     let malformed_claim = json!({
         "claims": [{
-            "claim_id": "ak:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
+            "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ak:mls:keypackage:test-01",
             "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "principal_id": "ak:did_core:webvh:z6mkfixture",

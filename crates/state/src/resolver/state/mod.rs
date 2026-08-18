@@ -150,11 +150,6 @@ impl RealmState {
             return Err(Error::Protocol("realm is destroyed".to_owned()));
         }
 
-        // Check for redaction
-        if let Some(redacted_ref) = &event.redacts {
-            self.redact_event(redacted_ref)?;
-        }
-
         // Process event content
         self.process_event_content(event)?;
 
@@ -257,12 +252,7 @@ impl RealmState {
             // already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `ak.space.tombstone` only.
-            EventKind::Redaction => {
-                self.redact_object_for_event(event)?;
-                if let Some(redacted_ref) = &event.redacts {
-                    self.redact_event(redacted_ref)?;
-                }
-            }
+            EventKind::Redaction => self.redact_object_for_event(event)?,
 
             _ => {
                 // Unknown event types do not affect the local reducer state.
@@ -330,7 +320,7 @@ impl RealmState {
                 | arkret_wire::event_kind_str::REALM_UPGRADE
                 | arkret_wire::event_kind_str::REALM_DESTROY
                 | arkret_wire::event_kind_str::REDACTION
-        ) || event.redacts.is_some()
+        )
     }
 
     /// Create a state snapshot at the current point. Fails when the manifest

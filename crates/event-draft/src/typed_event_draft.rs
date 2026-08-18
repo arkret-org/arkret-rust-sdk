@@ -42,7 +42,6 @@ pub struct TypedEventDraft<K: EventSpec> {
     auth_context: Option<AuthContext>,
     seal_basis: Option<SealBasis>,
     requirements: EventRequirements,
-    redacts: Option<EventId>,
     executed_by: Option<DidCoreId>,
     authorization_ref: Option<AuthorizationRef>,
     applet_id: Option<AppletId>,
@@ -73,7 +72,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
-            redacts: None,
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -142,11 +140,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
         self
     }
 
-    pub fn with_redacts(mut self, event_id: EventId) -> Self {
-        self.redacts = Some(event_id);
-        self
-    }
-
     pub fn with_executed_by(mut self, executed_by: DidCoreId) -> Self {
         self.executed_by = Some(executed_by);
         self
@@ -209,7 +202,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
             self.auth_context,
             self.seal_basis,
             self.requirements,
-            self.redacts,
             self.executed_by,
             self.authorization_ref,
             self.applet_id,
@@ -338,7 +330,6 @@ impl ValidatedExtensionPayload {
             None,
             None,
             None,
-            None,
         )
     }
 }
@@ -362,7 +353,6 @@ pub(crate) fn author_erased_event(
     auth_context: Option<AuthContext>,
     seal_basis: Option<SealBasis>,
     requirements: EventRequirements,
-    redacts: Option<EventId>,
     executed_by: Option<DidCoreId>,
     authorization_ref: Option<AuthorizationRef>,
     applet_id: Option<AppletId>,
@@ -396,7 +386,6 @@ pub(crate) fn author_erased_event(
         auth_context,
         seal_basis,
         payload,
-        redacts,
         unsigned: BTreeMap::new(),
         proofs: Vec::new(),
         requirements,

@@ -2393,7 +2393,6 @@ mod tests {
             auth_context: None,
             seal_basis: None,
             payload: BTreeMap::from([("grant_id".to_owned(), serde_json::json!(DETACH_GRANT_ID))]),
-            redacts: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
             requirements: EventRequirements::default(),

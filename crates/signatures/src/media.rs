@@ -53,7 +53,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 /// POSTs this body to `/_arkret/self/rtc/token` and returns the raw
 /// [`CallMediaTokenExchangeOutcome`]. Callers MUST then pass the response through
 /// [`verify_call_media_token_outcome`], which anchors `participant_binding.issuer_kid`
-/// and the `service_signature` issuer to the current
+/// to the current
 /// `ak.realm.media_service.service_id` ([`MediaServiceAnchors`]), enforces the
 /// ≤ 600s TTL ([`validate_token_ttl`]), and checks the binding six-tuple against
 /// this request. Focus backend labels are rejected up front by
@@ -87,7 +87,7 @@ pub fn call_media_token_exchange(
 /// resolves the media-service service DID document and supplies the
 /// `kid -> ed25519 public key` map via [`with_keys`](Self::with_keys) /
 /// [`insert_key`](Self::insert_key). [`verify_call_media_token_outcome`] looks
-/// up the binding's `issuer_kid` and the `service_signature.kid` in this map to
+/// up the binding's `issuer_kid` in this map to
 /// verify the Ed25519 signatures; a missing key or a failed signature is rejected
 /// with `token_issuer_unauthorised`.
 #[derive(Clone, Debug, Default)]
@@ -218,7 +218,7 @@ struct ParticipantBindingSigningFields<'a> {
 ///
 /// This is `pub` so issuers (e.g. soland) can lock their construction against
 /// the SDK verifier byte-for-byte: the bytes returned here are exactly what
-/// `participant_binding.sig` and `service_signature.sig` cover, so a
+/// `participant_binding.sig` covers, so a
 /// cross-implementation test can assert the issuer's signing input equals this.
 pub fn participant_binding_signing_input(binding: &CallMediaParticipantBinding) -> Result<Vec<u8>> {
     let fields = ParticipantBindingSigningFields {
@@ -282,18 +282,18 @@ fn verify_issuer_signature(
 /// Checks performed (all fail closed):
 /// - required fields present (`connect_url`, `backend_token`, `participant_identity`,
 ///   `participant_binding.sig`, `issuer_kid`);
-/// - `participant_binding.issuer_kid` and the `service_signature.kid` resolve to an anchored
-///   `ak.realm.media_service.service_id` → else `token_issuer_unauthorised`;
+/// - `participant_binding.issuer_kid` resolves to an anchored `ak.realm.media_service.service_id` →
+///   else `token_issuer_unauthorised`;
 /// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
 ///   request and `participant_identity` matches the top-level one;
 /// - the binding's `expires_at` is after its `issued_at`;
 /// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]);
-/// - **both** `participant_binding.sig` and `service_signature.sig` verify as Ed25519(ed25519)
-///   signatures over the normative `signing_input` ([`participant_binding_signing_input`]) under
-///   the issuer verifying keys in `anchors`. Per `media-service-binding.md` §3 the default
-///   verification path MUST verify both signatures; either failing — or a missing key — rejects
-///   with `token_issuer_unauthorised`. Because the signature covers the seven authoritative fields,
-///   tampering with any of them fails verification.
+/// - `participant_binding.sig` verifies as Ed25519(ed25519) signatures over the normative
+///   `signing_input` ([`participant_binding_signing_input`]) under the issuer verifying keys in
+///   `anchors`. Per `media-service-binding.md` §3 the default verification path MUST verify both
+///   signatures; either failing — or a missing key — rejects with `token_issuer_unauthorised`.
+///   Because the signature covers the seven authoritative fields, tampering with any of them fails
+///   verification.
 ///
 /// The caller resolves the media-service service DID document and supplies the
 /// `kid -> ed25519 public key` map through [`MediaServiceAnchors::with_keys`] /
@@ -324,18 +324,12 @@ pub fn verify_call_media_token_outcome(
         )));
     }
 
-    // Issuer DID anchoring — the binding issuer and the service_signature kid
-    // MUST both resolve to an anchored service_id.
+    // Issuer DID anchoring — the binding issuer MUST resolve to an anchored
+    // service_id.
     let issuer_did = did_from_kid(&binding.issuer_kid);
     if anchors.is_empty() || !anchors.contains(issuer_did) {
         return Err(Error::Protocol(format!(
             "token_issuer_unauthorised: participant_binding issuer {issuer_did} not in realm media_service anchors"
-        )));
-    }
-    let service_id = did_from_kid(&outcome.service_signature.kid);
-    if !anchors.contains(service_id) {
-        return Err(Error::Protocol(format!(
-            "token_issuer_unauthorised: service_signature issuer {service_id} not in realm media_service anchors"
         )));
     }
 
@@ -369,9 +363,9 @@ pub fn verify_call_media_token_outcome(
     validate_token_ttl(now, binding.expires_at)?;
     validate_token_ttl(now, outcome.expires_at)?;
 
-    // Default verification path (spec §3): MUST verify BOTH the participant
-    // binding signature and the service signature over the same signing_input.
-    // Either failing — or a key the anchors do not publish — is
+    // Verification path (spec §3): the participant binding signature is the
+    // single issuer assertion over the seven-tuple signing_input. A failing
+    // signature — or a key the anchors do not publish — is
     // `token_issuer_unauthorised`.
     let signing_input = participant_binding_signing_input(binding)?;
     verify_issuer_signature(
@@ -380,13 +374,6 @@ pub fn verify_call_media_token_outcome(
         &binding.sig,
         &signing_input,
         "participant_binding",
-    )?;
-    verify_issuer_signature(
-        anchors,
-        &outcome.service_signature.kid,
-        &outcome.service_signature.sig,
-        &signing_input,
-        "service_signature",
     )?;
 
     Ok(CallMediaTokenVerification {
@@ -460,22 +447,16 @@ mod tests {
                 expires_at,
             },
             expires_at,
-            service_signature:
-                arkret_models_collaboration::objects::media::CallMediaServiceSignature {
-                    kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
-                    sig: String::new(),
-                },
         }
     }
 
-    /// Sign the binding and the service signature over the spec signing_input
-    /// with `key`, mutating `outcome` in place. Call this AFTER any tampering so
-    /// signatures cover the (possibly tampered) authoritative fields.
+    /// Sign the participant binding over the spec signing_input with `key`,
+    /// mutating `outcome` in place. Call this AFTER any tampering so the
+    /// signature covers the (possibly tampered) authoritative fields.
     fn sign_outcome(outcome: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
         let input = participant_binding_signing_input(&outcome.participant_binding).unwrap();
-        let sig = arkret_canonical::base64url::base64url_encode(key.sign(&input).to_bytes());
-        outcome.participant_binding.sig = sig.clone();
-        outcome.service_signature.sig = sig;
+        outcome.participant_binding.sig =
+            arkret_canonical::base64url::base64url_encode(key.sign(&input).to_bytes());
     }
 
     /// A fully signed, verifiable outcome over the request and issuer key.
@@ -622,14 +603,14 @@ mod tests {
                 .contains("token_issuer_unauthorised")
         );
 
-        // service_signature tampered alone → only the second signature fails.
-        let mut t_service = signed_outcome(&request, &key, expires_at);
-        t_service.service_signature.sig = signed_outcome(&request, &other, expires_at)
-            .service_signature
+        // A binding signed by a non-anchored key fails as token_issuer_unauthorised.
+        let mut t_sig = signed_outcome(&request, &key, expires_at);
+        t_sig.participant_binding.sig = signed_outcome(&request, &other, expires_at)
+            .participant_binding
             .sig;
-        let err = verify_call_media_token_outcome(&request, &t_service, &anchors, now).unwrap_err();
+        let err = verify_call_media_token_outcome(&request, &t_sig, &anchors, now).unwrap_err();
         assert!(err.to_string().contains("token_issuer_unauthorised"));
-        assert!(err.to_string().contains("service_signature"));
+        assert!(err.to_string().contains("participant_binding"));
     }
 
     #[test]

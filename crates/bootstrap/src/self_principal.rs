@@ -259,7 +259,6 @@ pub(crate) fn validate_self_principal_pcr_create(
         || event.seal_ref.is_some()
         || event.auth_context.is_some()
         || event.seal_basis.is_some()
-        || event.redacts.is_some()
         || event.executed_by.is_some()
         || event.authorization_ref.is_some()
         || event.applet_id.is_some()

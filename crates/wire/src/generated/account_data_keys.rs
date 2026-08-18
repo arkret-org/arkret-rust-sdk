@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-13.2;
-//! sha256=68b34763ba3c5fc0c9804e069de632338ded983b73be0da325d206a69ea87fb9
-//! Entries: account_data_keys=24
+//! Input: registry/account-data-key-registry.json; version=2026-08-13.3;
+//! sha256=2c201f2784bdae6fbad412e0c589d209fe30d4280bc77fa08ac89465f201b1c9
+//! Entries: account_data_keys=23
 
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,6 @@ pub enum AccountDataKey {
     AccountBlocklist,
     AccountInviteQuarantine,
     AgentDraftV1,
-    AgentParticipationV1,
     AgentSidecarViewStateV1,
     ClientUiState,
     CollectionsStickers,
@@ -44,7 +43,6 @@ impl AccountDataKey {
         Self::AccountBlocklist,
         Self::AccountInviteQuarantine,
         Self::AgentDraftV1,
-        Self::AgentParticipationV1,
         Self::AgentSidecarViewStateV1,
         Self::ClientUiState,
         Self::CollectionsStickers,
@@ -81,16 +79,6 @@ impl AccountDataKey {
     /// event referencing only an opaque digest. See private-objects.md §4.1. Key pattern:
     /// `ak.agent.draft.v1:<agent_id>:<draft_id>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
-    /// Account-Authority-owned versioned per-scope Agent participation selection. scope_key is
-    /// realm:&lt;realm_id&gt; | circle:&lt;realm_id&gt;:&lt;circle_id&gt; |
-    /// strand:&lt;realm_id&gt;:&lt;strand_id&gt;, where every placeholder is the complete typed
-    /// token including its ak:&lt;kind&gt;: prefix. The record stores only target_scope, the
-    /// required five-bit selection, and its CAS version. It grants no capability and copies no
-    /// ceiling/effective value; target enforcement intersects current selection with current local
-    /// governance/deployment ceilings, ordinary capability and lifecycle. See
-    /// zh/models/private-objects.md §4.1. Key pattern:
-    /// `ak.agent.participation.v1:<agent_id>:<scope_key>`.
-    pub const AGENT_PARTICIPATION_V1: &'static str = "ak.agent.participation.v1";
     /// Controller-private per-context Sidecar hosted-view state. Synchronizes display_mode
     /// (context_merged or sidecar_only), pin/collapse state, and HLC without changing either
     /// Strand, Track, access, read, watch, notification, or search state. Key pattern:
@@ -172,7 +160,6 @@ impl AccountDataKey {
             Self::AccountBlocklist => Self::ACCOUNT_BLOCKLIST,
             Self::AccountInviteQuarantine => Self::ACCOUNT_INVITE_QUARANTINE,
             Self::AgentDraftV1 => Self::AGENT_DRAFT_V1,
-            Self::AgentParticipationV1 => Self::AGENT_PARTICIPATION_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
             Self::ClientUiState => Self::CLIENT_UI_STATE,
             Self::CollectionsStickers => Self::COLLECTIONS_STICKERS,
@@ -211,7 +198,6 @@ impl AccountDataKey {
             Self::ACCOUNT_BLOCKLIST => Some(Self::AccountBlocklist),
             Self::ACCOUNT_INVITE_QUARANTINE => Some(Self::AccountInviteQuarantine),
             Self::AGENT_DRAFT_V1 => Some(Self::AgentDraftV1),
-            Self::AGENT_PARTICIPATION_V1 => Some(Self::AgentParticipationV1),
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
             Self::CLIENT_UI_STATE => Some(Self::ClientUiState),
             Self::COLLECTIONS_STICKERS => Some(Self::CollectionsStickers),

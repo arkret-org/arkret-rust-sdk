@@ -1621,7 +1621,6 @@ mod mimi_consent_tests {
                     ]
                     .into_iter()
                     .collect(),
-                    redacts: None,
                     unsigned: Default::default(),
                     proofs: Vec::new(),
                     requirements: EventRequirements::default(),
@@ -2876,7 +2875,6 @@ mod device_pairing_tests {
                 .clone()
                 .into_iter()
                 .collect(),
-            redacts: None,
             unsigned: BTreeMap::new(),
             proofs: vec![
                 Proof {

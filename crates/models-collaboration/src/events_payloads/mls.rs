@@ -1233,14 +1233,12 @@ mod tests {
     }
 
     #[test]
-    fn message_redact_payload_event_fields_serialize_as_schema_strings() {
+    fn message_redact_payload_carries_only_the_registered_target() {
         let payload = MessageRedactPayload {
-            message_id: None,
-            target_ref: None,
-            event_id: None,
-            target_event_id: Some(
-                EventId::new("ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            ),
+            message_id: MessageId::new(
+                "ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned(),
+            )
+            .unwrap(),
             track_name: None,
             reason: Some("author_redaction".to_owned()),
             preserve: None,
@@ -1249,10 +1247,13 @@ mod tests {
         let value = serde_json::to_value(payload).unwrap();
 
         assert_eq!(
-            value["target_event_id"],
-            "ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+            value["message_id"],
+            "ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
         );
-        assert!(value.get("event_id").is_none());
+        // The retired alternative spellings are not members of the closed payload.
+        for retired in ["target_ref", "event_id", "target_event_id"] {
+            assert!(value.get(retired).is_none());
+        }
     }
 
     #[test]

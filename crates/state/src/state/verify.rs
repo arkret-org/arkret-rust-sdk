@@ -913,7 +913,6 @@ mod tests {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "aa".repeat(32))).unwrap()],
             }),
             payload: BTreeMap::from([("state".to_owned(), json!("join"))]),
-            redacts: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
             requirements: EventRequirements::default(),

@@ -187,14 +187,6 @@ pub(super) fn did_webvh_document_url(did: &DidFullId) -> Option<String> {
     did_webvh_url(did, "did.json")
 }
 
-pub(super) fn did_webvh_log_url(did: &DidFullId) -> Option<String> {
-    did_webvh_url(did, "did.jsonl")
-}
-
-pub(super) fn did_webvh_witness_url(did: &DidFullId) -> Option<String> {
-    did_webvh_url(did, "did-witness.json")
-}
-
 pub(super) fn did_webvh_url(did: &DidFullId, leaf: &str) -> Option<String> {
     try_did_webvh_url(did, leaf).ok()
 }

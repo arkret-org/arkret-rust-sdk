@@ -422,8 +422,6 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_scope: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_expansion_allowed: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<DidCoreId>,
@@ -566,7 +564,6 @@ impl GrantConstraint {
             authority_path: Vec::new(),
             authority_regrant_allowed: None,
             authority_scope: None,
-            scope_expansion_allowed: None,
             applet_id: None,
             executed_by: None,
             registration_epoch: None,
