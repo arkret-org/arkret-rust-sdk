@@ -250,11 +250,11 @@ impl RealmState {
             // Realm upgrade
             EventKind::RealmUpgrade => self.upgrade_realm(event)?,
 
-            // Generic redaction. Round 11 (2026-05-16): also flips Strand /
-            // Morph subject state to Redacted per spec common-fields.md
-            // §5.1 when the event content carries an `object_ref` pointing
-            // to a `ak:strand:` / `ak:morph:` typed-id. State-machine guard
-            // rejects already-terminal source with `<kind>_already_terminal`.
+            // Cross-object redaction. Also flips Strand / Morph subject state
+            // to Redacted per spec common-fields.md §5.1 when the registered
+            // object-target member `payload.target_ref` names a `ak:strand:` /
+            // `ak:morph:` typed-id. State-machine guard rejects an
+            // already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `ak.space.tombstone` only.
             EventKind::Redaction => {

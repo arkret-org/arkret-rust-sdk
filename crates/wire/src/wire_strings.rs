@@ -428,6 +428,154 @@ non_empty_wire_string!(
     ContentProfileId
 );
 
+/// Join-policy gate identifier, unique within one policy `gates[]`.
+///
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/join_policy_gate_id`. The definition site
+/// and every reference site (`gate_proofs[].gate_id`, `Answer.gate_id`) share
+/// this one type, so the two lexical spaces cannot drift
+/// (`zh/governance/join-policy.md` §3.1).
+///
+/// The lexical floor is the `document_local_symbol` rule of
+/// `common-fields.md` §2.1: the value MUST NOT reuse the `ak:` namespace that
+/// `typed_object_id` and `responsibility_did` own exclusively, so the
+/// constructor rejects that prefix fail-closed.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct JoinPolicyGateId(String);
+
+impl JoinPolicyGateId {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if value.is_empty() || value.len() > 64 {
+            return Err("join policy gate id must contain 1 to 64 ASCII characters");
+        }
+        if !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
+        {
+            return Err("join policy gate id contains a character outside [A-Za-z0-9._:-]");
+        }
+        if value.starts_with("ak:") {
+            return Err(
+                "join policy gate id must not start with ak:, a lexical space reserved for typed object ids and responsibility DIDs",
+            );
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for JoinPolicyGateId {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for JoinPolicyGateId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for JoinPolicyGateId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for JoinPolicyGateId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(de::Error::custom)
+    }
+}
+
+/// Join-policy application-form question identifier matching
+/// `^[a-z][a-z0-9_-]{0,63}$`, unique within one `application_form` gate.
+///
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/join_policy_question_id`. The slug is
+/// gate-scoped, so a reference is only unambiguous as the pair
+/// `(gate_id, question_id)`; the definition site and `Answer` share this one
+/// type so no answer can spell a reference the policy could never define
+/// (`zh/governance/join-policy.md` §3.3).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct JoinPolicyQuestionId(String);
+
+impl JoinPolicyQuestionId {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if value.is_empty() || value.len() > 64 {
+            return Err("join policy question id must contain 1 to 64 characters");
+        }
+        let mut bytes = value.bytes();
+        let first = bytes.next().expect("non-empty checked above");
+        if !first.is_ascii_lowercase() {
+            return Err("join policy question id must start with a lowercase ASCII letter");
+        }
+        if !bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        }) {
+            return Err("join policy question id contains a character outside [a-z0-9_-]");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for JoinPolicyQuestionId {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for JoinPolicyQuestionId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for JoinPolicyQuestionId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for JoinPolicyQuestionId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(de::Error::custom)
+    }
+}
+
 /// Deployment-local short-lived account/auth artifact identifier matching
 /// `^(?!ak:)[A-Za-z0-9._:-]{1,128}$`.
 ///

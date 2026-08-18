@@ -7,8 +7,9 @@
 use arkret_canonical as canonical;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, Error, EventId, GrantId, Hash, OpaqueLocalId, PayloadProof,
-    ProofContextId, RealmId, Result, project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, Error, EventId, GrantId, Hash, JoinPolicyGateId,
+    JoinPolicyQuestionId, PayloadProof, ProofContextId, RealmId, Result,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,11 +28,19 @@ pub enum JoinApplicationAnswerValue {
     Boolean(bool),
 }
 
+/// One application-form answer.
+///
+/// `join-policy.md` §3.3: `question_id` is only unique within one
+/// `application_form` gate, so the reference key is the pair
+/// `(gate_id, question_id)`. Both members reuse the definition-side slug types
+/// verbatim, so an answer cannot spell a reference the policy could never
+/// define.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationAnswer {
-    pub question_id: OpaqueLocalId,
+    pub gate_id: JoinPolicyGateId,
+    pub question_id: JoinPolicyQuestionId,
     pub value: JoinApplicationAnswerValue,
 }
 
@@ -769,7 +778,8 @@ mod tests {
     fn private_body_digest_is_bound_by_submit_request() {
         let body = JoinApplicationPrivateBody::ServerProtected {
             answers: vec![JoinApplicationAnswer {
-                question_id: OpaqueLocalId::new("q1").unwrap(),
+                gate_id: JoinPolicyGateId::new("g-form").unwrap(),
+                question_id: JoinPolicyQuestionId::new("q1").unwrap(),
                 value: JoinApplicationAnswerValue::String("hello".to_owned()),
             }],
             gate_proofs: Vec::new(),

@@ -71,7 +71,7 @@ pub struct JoinPolicyQuestionChoice {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JoinPolicyQuestion {
-    pub question_id: String,
+    pub question_id: JoinPolicyQuestionId,
     pub prompt_canonical: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt_locales: Option<BTreeMap<String, String>>,
@@ -91,7 +91,7 @@ pub struct JoinPolicyQuestion {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct JoinPolicyPayloadGatesItem {
-    pub gate_id: String,
+    pub gate_id: JoinPolicyGateId,
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_resolve: Option<bool>,

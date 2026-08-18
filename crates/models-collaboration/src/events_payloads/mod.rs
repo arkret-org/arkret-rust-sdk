@@ -68,6 +68,7 @@ pub use reaction::*;
 pub use read_receipt::*;
 pub use realm::*;
 pub use realm_key::*;
+pub use redaction::*;
 pub use relation::*;
 pub use sidecar::*;
 pub use signature::*;

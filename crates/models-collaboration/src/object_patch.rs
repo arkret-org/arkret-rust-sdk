@@ -10,7 +10,7 @@
 
 use std::sync::OnceLock;
 
-use arkret_wire::patch::{Patch, validate_patch_semantic_safety};
+use arkret_wire::patch::{Patch, PatchTargetKind, validate_patch_semantic_safety};
 use arkret_wire::{Error, Hash, Result};
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
@@ -73,7 +73,12 @@ impl ObjectPatchPayload {
                 "object_patch_payload.object_ref is not canonical; use target_ref".to_owned(),
             ));
         }
-        validate_patch_semantic_safety(&self.patch)
+        // `target_ref` was just validated as this payload's typed patch target, so
+        // it is the proven object kind for the reducer-managed path decision.
+        validate_patch_semantic_safety(
+            &self.patch,
+            PatchTargetKind::from_typed_target(&self.target_ref),
+        )
     }
 
     /// Serialize after validating the same constraints enforced by the

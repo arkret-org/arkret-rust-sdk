@@ -976,19 +976,19 @@ fn reducer_convergence_is_order_independent() {
     assert_eq!(state_a.frontier, state_b.frontier);
 }
 
-// ── SDK Round 11 (2026-05-16): ak.redaction → Strand / Morph state flip ──
-// Mirror of soland round 14b. When ak.redaction event content carries
-// `object_ref` pointing to a Strand / Morph, the reducer flips the subject
-// state to Redacted (terminal). State-machine guard rejects already-
-// terminal source with `<kind>_already_terminal`.
+// ── ak.redaction → Strand / Morph state flip ──
+// Mirror of the soland reducer. When the registered object-target member
+// `payload.target_ref` of `cross_object_redaction_payload` points to a Strand /
+// Morph, the reducer flips the subject state to Redacted (terminal). The
+// state-machine guard rejects an already-terminal source with
+// `<kind>_already_terminal`.
 
-fn redaction_event(seq: u64, object_ref: &str) -> Event {
+fn redaction_event(seq: u64, target_ref: &str) -> Event {
     let mut ev = event(
         EventKind::Redaction,
         seq,
         json!({
-            "target_event_id": test_event_id(0xdeadbeef + seq),
-            "object_ref": object_ref,
+            "target_ref": target_ref,
         }),
     );
     // `ak.redaction` dispatch path uses `event.redacts`; populate it so
@@ -998,7 +998,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
 }
 
 #[test]
-fn redaction_with_strand_object_ref_flips_subject_to_redacted() {
+fn redaction_with_strand_target_ref_flips_subject_to_redacted() {
     let strand_id_owned = derived_object_id("ak:strand:", 1);
     let strand_id = strand_id_owned.as_str();
     let create = strand_create_event(1);
@@ -1015,7 +1015,7 @@ fn redaction_with_strand_object_ref_flips_subject_to_redacted() {
 }
 
 #[test]
-fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
+fn redaction_with_morph_target_ref_flips_subject_to_redacted() {
     let morph_id_owned = derived_object_id("ak:morph:", 1);
     let morph_id = morph_id_owned.as_str();
     let create = morph_event(1, "Sensitive task");

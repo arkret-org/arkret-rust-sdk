@@ -275,24 +275,24 @@ impl RealmState {
         Ok(())
     }
 
-    /// Round 11 (2026-05-16) — Object-level redaction state-machine
-    /// guard for `ak.redaction` events. Looks at the redaction event's
-    /// content for `object_ref`, and when that points to a Strand / Morph
+    /// Object-level redaction state-machine guard for `ak.redaction` events.
+    /// Reads the registered object-target member `payload.target_ref` of
+    /// `cross_object_redaction_payload`, and when it points to a Strand / Morph
     /// subject, flips the projection state to `ObjectState::Redacted` per
     /// spec common-fields.md §5.1. Source state MUST be `Active` or
     /// `Archived`; terminal source (`Deleted` / `Redacted`) MUST
     /// `failed_precondition` with `<kind>_already_terminal`. Unknown
     /// subject is tolerated (causal / backfill window — same convention
-    /// as restore guards). Returns `Ok(())` for redactions without
-    /// `object_ref` (message-only path). Space (container) is intentionally
+    /// as restore guards). An Event-target redaction (`ak:event:`) has no
+    /// object subject and returns `Ok(())`. Space (container) is intentionally
     /// excluded because `SpaceState` has no `Redacted` variant — spec routes
     /// Space removal through `ak.space.tombstone` instead.
     pub(super) fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
-        let Some(object_ref) = self.extract_optional_field::<String>(&event.payload, "object_ref")
+        let Some(target_ref) = self.extract_optional_field::<String>(&event.payload, "target_ref")
         else {
             return Ok(());
         };
-        if let Some(subject) = self.subjects.get_mut(&object_ref) {
+        if let Some(subject) = self.subjects.get_mut(&target_ref) {
             match subject.state {
                 Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}
                 _ => return Err(Error::Protocol("strand_already_terminal".to_owned())),
@@ -303,7 +303,7 @@ impl RealmState {
             subject.updated_at = Some(event.created_at);
             return Ok(());
         }
-        if let Some(morph) = self.morphs.get_mut(&object_ref) {
+        if let Some(morph) = self.morphs.get_mut(&target_ref) {
             match morph.state {
                 Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}
                 _ => return Err(Error::Protocol("morph_already_terminal".to_owned())),
@@ -315,7 +315,7 @@ impl RealmState {
         }
         // Unknown object — causal / backfill window. Tolerate silently
         // (mirrors restore_*/archive_* guards). Note that Space is also
-        // hit here when `object_ref` is `ak:space:...` and Space is
+        // hit here when `target_ref` is `ak:space:...` and Space is
         // unmaterialised; that's also fine because ak.redaction targeting
         // a Space is undefined per spec (no `Redacted` variant), and
         // any space removal strand uses `ak.space.tombstone` directly.

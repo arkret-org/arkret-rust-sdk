@@ -590,7 +590,7 @@ mod tests {
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ak:mls_group:last-resort-add-test")
+            .create_group(b"mls-group-last-resort-add-test")
             .unwrap();
 
         let bob = ArkretMlsIdentity::new_basic(

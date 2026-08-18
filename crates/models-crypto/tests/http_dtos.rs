@@ -39,7 +39,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
                 "target_principal_id": "ak:did_core:webvh:z6mkfixture",
                 "intended_realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
                 "requester": "ak:did_core:webvh:z6mkfixture",
-                "mls_group_id": "ak:mls_group:fixture",
+                "mls_group_id": "mls-group-fixture",
                 "claim_purpose": "realm_membership",
                 "required_capabilities": ["ak.mls.profile.full"],
                 "claim_nonce": "Y2xhaW0tbm9uY2U",

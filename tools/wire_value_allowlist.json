@@ -1222,18 +1222,6 @@
       "spec_pointer": "event-payload.schema.json#/$defs/membership_payload/properties/gate_proofs"
     },
     {
-      "finding": "crates/models-collaboration/src/governance/operation_wire.rs::Invite.join_rule_snapshot",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "invite.schema.json#/properties/join_rule_snapshot",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "invite.schema.json#/properties/join_rule_snapshot"
-    },
-    {
       "finding": "crates/models-collaboration/src/governance/policy_check.rs::PolicyCheckOutcome.obligations",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
@@ -6673,17 +6661,6 @@
       "adjudication": "manual"
     },
     {
-      "finding": "soland/crates/domain/src/reducer/projections.rs::InviteProjection.join_rule_snapshot",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "soland/crates/domain/src/reducer/projections.rs::InviteProjection.third_party_invite",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -7611,17 +7588,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "soland/crates/services/src/events.rs::RealmInviteState.join_rule_snapshot",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "soland/crates/services/src/events.rs::RealmInviteState.third_party_invite",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -8497,17 +8463,6 @@
     },
     {
       "finding": "soland/crates/storage/src/records.rs::RealmInviteRecord.invite_delivery_target",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "soland/crates/storage/src/records.rs::RealmInviteRecord.join_rule_snapshot",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

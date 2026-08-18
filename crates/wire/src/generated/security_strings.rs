@@ -5,7 +5,7 @@
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-10.1;
-//! sha256=1a309e38062e1f5a2276bed378b0e195d5d88dc1d2564d72ee1ddbb77bcf9908 Input: registry/
+//! sha256=e51b58edc46ab7e1ab337883dc9fa36ccebb7536bb06eafb1b4771f844078151 Input: registry/
 //! signature-alg-registry.json; version=2026-08-04.2;
 //! sha256=8ae1433a884b7e57dcb22e527108ebe88d9a644447a3756d4b72e28fcfa62680 Input: registry/
 //! hpke-suite-registry.json; version=2026-08-09;

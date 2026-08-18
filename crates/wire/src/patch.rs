@@ -331,7 +331,11 @@ impl Patch {
     /// Redactable-field and reducer-managed-field protection run first, per
     /// §4.3.1 step 1: a path hitting either set is rejected immediately.
     pub fn apply(&self, prestate: &Value) -> Result<Value> {
-        validate_patch_semantic_safety(self)?;
+        // `apply` only receives prestate JSON, and trusting an `id` found inside
+        // it to choose the safety policy would let a caller borrow another
+        // kind's carve-outs. The object kind is proven one layer up, from the
+        // payload's typed target, so this hop stays on the superset.
+        validate_patch_semantic_safety(self, PatchTargetKind::Unverified)?;
 
         let mut parsed: Vec<(&str, Vec<String>, &PatchOp)> = Vec::with_capacity(self.entries.len());
         for (path, op) in &self.entries {
@@ -640,19 +644,59 @@ fn patch_apply_failed(path: &str, detail: &str) -> Error {
     Error::Protocol(format!("patch path '{path}' cannot be applied: {detail}"))
 }
 
+/// Whether the patch guard may honour the per-object-kind carve-outs of
+/// `registry/reducer-managed-path-registry.json`.
+///
+/// The registry's forbidden set is per object kind, and View deliberately carves
+/// `state` back out because `views.md` section 3.1 makes an `ak.view.update`
+/// patch the only way to reach its terminal state. Applying the object-agnostic
+/// superset there rejects the one legal terminal path, so a caller that has
+/// *proven* which object it is patching passes [`Self::Verified`].
+///
+/// Proof means the object kind came from the payload's own typed target
+/// (`object_patch_payload.target_ref`, `view_payload.view_id`), not from an `id`
+/// found inside arbitrary prestate JSON: a guard that trusted that could be
+/// steered into another kind's exemptions. Anything unproven is
+/// [`Self::Unverified`] and keeps the conservative superset, so the guard fails
+/// closed by default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PatchTargetKind<'a> {
+    /// The object kind was proven from the payload's typed target.
+    Verified(&'a str),
+    /// No target binding was proven; apply the object-agnostic superset.
+    Unverified,
+}
+
+impl<'a> PatchTargetKind<'a> {
+    /// Derive the verified kind from a typed target id (`ak:<kind>:<payload>`).
+    ///
+    /// A value that is not a typed id proves nothing, so it degrades to
+    /// [`Self::Unverified`] rather than guessing a kind.
+    pub fn from_typed_target(target_ref: &'a str) -> Self {
+        let Some(rest) = target_ref.strip_prefix("ak:") else {
+            return Self::Unverified;
+        };
+        match rest.split_once(':') {
+            Some((kind, payload)) if !kind.is_empty() && !payload.is_empty() => Self::Verified(kind),
+            _ => Self::Unverified,
+        }
+    }
+}
+
 /// Validate the cross-object patch safety rules that do not require reducer
 /// state. Object-specific reducers may add stricter checks, but they must not
 /// accept reducer-managed paths or direct removal of redactable content.
 ///
-/// This entry point has no object kind, so it applies the conservative
-/// object-agnostic superset. A caller that knows the object kind MUST decide
-/// with [`reducer_managed_patch_reason`] instead: the superset carries no
-/// exemption, so it also rejects the View `state` patch that `views.md`
-/// section 3.1 defines as the only way to tombstone a shared View.
-pub fn validate_patch_semantic_safety(patch: &Patch) -> Result<()> {
+/// `target` decides which reducer-managed path set applies:
+/// [`PatchTargetKind::Verified`] consults [`reducer_managed_patch_reason`] for
+/// that exact kind, so registered carve-outs such as the View terminal `state`
+/// patch of `views.md` section 3.1 are honoured;
+/// [`PatchTargetKind::Unverified`] applies the object-agnostic superset, which
+/// carries no carve-out at all.
+pub fn validate_patch_semantic_safety(patch: &Patch, target: PatchTargetKind<'_>) -> Result<()> {
     patch.validate()?;
     for (path, op) in patch.iter() {
-        if patch_path_targets_reducer_managed(path) {
+        if patch_path_targets_reducer_managed(path, target) {
             return Err(Error::Protocol(
                 ReasonCode::PATCH_PATH_REDUCER_MANAGED.to_owned(),
             ));
@@ -668,13 +712,16 @@ pub fn validate_patch_semantic_safety(patch: &Patch) -> Result<()> {
     Ok(())
 }
 
-fn patch_path_targets_reducer_managed(path: &str) -> bool {
+fn patch_path_targets_reducer_managed(path: &str, target: PatchTargetKind<'_>) -> bool {
     let Some(normalized) = normalized_patch_path(path) else {
         return false;
     };
     // A payload that wraps the object under `object.` addresses the same fields
     // one segment deeper.
     let subject = normalized.strip_prefix("object.").unwrap_or(&normalized);
+    if let PatchTargetKind::Verified(object_kind) = target {
+        return reducer_managed_patch_reason(object_kind, subject).is_some();
+    }
     REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS
         .iter()
         .any(|registered| patch_path_covers(registered, subject))
@@ -850,11 +897,51 @@ mod tests {
             .insert_op("state", PatchOp::set(json!("archived")))
             .unwrap();
 
-        let err = validate_patch_semantic_safety(&patch).unwrap_err();
+        let err = validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
         assert!(
             err.to_string()
                 .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
         );
+    }
+
+    #[test]
+    fn verified_view_target_accepts_the_registered_terminal_state_patch() {
+        // views.md 3.1: an `ak.view.update` patch setting state="tombstoned" is
+        // the only protocol-level removal of a shared View, and the registry
+        // carves `state` out of the reducer-managed set for kind `view`.
+        let mut patch = Patch::new();
+        patch
+            .insert_op("state", PatchOp::set(json!("tombstoned")))
+            .unwrap();
+        let view_target = PatchTargetKind::from_typed_target(
+            "ak:view:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw",
+        );
+        assert_eq!(view_target, PatchTargetKind::Verified("view"));
+        validate_patch_semantic_safety(&patch, view_target)
+            .expect("the View terminal patch is the one legal removal path");
+
+        // The same path on a kind without the carve-out stays rejected, and so
+        // does the object-agnostic superset.
+        for target in [
+            PatchTargetKind::from_typed_target(
+                "ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw",
+            ),
+            PatchTargetKind::Unverified,
+        ] {
+            let error = validate_patch_semantic_safety(&patch, target).unwrap_err();
+            assert!(error.to_string().contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED));
+        }
+    }
+
+    #[test]
+    fn a_non_typed_target_proves_nothing_and_stays_on_the_superset() {
+        for candidate in ["", "view", "ak:", "ak:view", "ak:view:", "ak::token", "did:web:x"] {
+            assert_eq!(
+                PatchTargetKind::from_typed_target(candidate),
+                PatchTargetKind::Unverified,
+                "{candidate} is not a typed target, so it must not select a kind"
+            );
+        }
     }
 
     #[test]
@@ -902,7 +989,7 @@ mod tests {
             .insert_op("encrypted_content", PatchOp::unset())
             .unwrap();
 
-        let err = validate_patch_semantic_safety(&patch).unwrap_err();
+        let err = validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
         assert!(
             err.to_string()
                 .contains(ReasonCode::PATCH_UNSET_REDACTABLE_FIELD)
@@ -924,7 +1011,7 @@ mod tests {
         ] {
             let mut patch = Patch::new();
             patch.insert_op(path, PatchOp::unset()).unwrap();
-            validate_patch_semantic_safety(&patch)
+            validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified)
                 .unwrap_or_else(|error| panic!("unset on {path} must be accepted: {error}"));
         }
     }
@@ -941,7 +1028,7 @@ mod tests {
                     PatchOp::set(serde_json::json!({"kind": "ak.content.text", "body": ""})),
                 )
                 .unwrap();
-            validate_patch_semantic_safety(&patch)
+            validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified)
                 .unwrap_or_else(|error| panic!("set on {path} must be accepted: {error}"));
         }
     }
@@ -952,7 +1039,7 @@ mod tests {
         for path in REDACTABLE_FIELD_PATHS {
             let mut patch = Patch::new();
             patch.insert_op(*path, PatchOp::unset()).unwrap();
-            let error = validate_patch_semantic_safety(&patch).unwrap_err();
+            let error = validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
             assert!(
                 error
                     .to_string()

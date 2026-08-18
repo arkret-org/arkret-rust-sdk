@@ -1389,7 +1389,7 @@ mod tests {
             "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
             "realm_id": realm(),
             "effective_scope": {"kind": "realm", "realm_id": realm()},
-            "mls_group_id": "ak:mls_group:test",
+            "mls_group_id": "mls-group-test",
             "previous_epoch": 0,
             "next_epoch": 1,
             "security_frontier_digest": hash('2'),

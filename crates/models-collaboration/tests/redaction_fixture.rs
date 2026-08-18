@@ -63,6 +63,7 @@ fn fixture_case_manifest_is_pinned() {
             "audit_visibility",
             "snapshot_pruning_stub",
             "space_target_ref_schema",
+            "message_target_exclusive_kind",
             "policy_scope",
             "hard_erasure_receipt",
         ],

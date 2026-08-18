@@ -2,8 +2,6 @@
 //! documents and invite objects (`policy.schema.json` /
 //! `invite.schema.json`).
 
-use std::collections::BTreeMap;
-
 use arkret_wire::{
     DidCoreId, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
     RealmId, Result, SchemaId, XExtensionMap,
@@ -124,8 +122,13 @@ impl PolicyRule {
 }
 
 /// Invite object. Mirrors `invite.schema.json` (required: `id`, `schema`,
-/// `realm_id`, `inviter`, `join_rule_snapshot`, `state`, `expires_at`,
-/// `created_at`).
+/// `realm_id`, `inviter`, `state`, `expires_at`, `created_at`).
+///
+/// There is deliberately no materialized join-rule snapshot: the admission
+/// basis is the create Event's own CBA governance basis, reachable by retyping
+/// the Invite id back to that Event (`governance-objects.md` §5.3). Private
+/// delivery material never reaches this object either — only
+/// `introduction_evidence_digest` and `invite_delivery_target`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Invite {
     pub id: InviteId,
@@ -144,7 +147,6 @@ pub struct Invite {
     pub introduction_evidence_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub third_party_invite: Option<ThirdPartyInvite>,
-    pub join_rule_snapshot: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<GrantId>,
     pub state: InviteState,

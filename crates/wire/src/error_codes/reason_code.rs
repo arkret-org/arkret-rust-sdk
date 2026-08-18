@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-18.1;
-//! sha256=6bd45526c25fc6593a11977e08bc2bf129484e6856c7867e64e9ce08173bbd07
-//! Entries: reason_codes=474
+//! Input: registry/error-code-registry.json; version=2026-08-18.2;
+//! sha256=dc6b0fc9b8c290a602ab4fcbfd085ce6ed92eb21f4064718b3838bb6a3e3e06b
+//! Entries: reason_codes=477
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -226,7 +226,10 @@ pub enum ReasonCode {
     InviteKindRequiresRevoke,
     InviteOobEntropyTooLow,
     JoinAuthorisationInvalid,
+    JoinPolicyDuplicateAnswerReference,
     JoinPolicyDuplicateGateId,
+    JoinPolicyQuestionBudgetExceeded,
+    JoinPolicyUnknownAnswerReference,
     JoinRulePolicyMismatch,
     JoinRuleTightened,
     KeyBackupWireSchemaRequired,
@@ -765,7 +768,13 @@ impl ReasonCode {
     pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
     pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
     pub const JOIN_AUTHORISATION_INVALID: &'static str = "join_authorisation_invalid";
+    pub const JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE: &'static str =
+        "join_policy_duplicate_answer_reference";
     pub const JOIN_POLICY_DUPLICATE_GATE_ID: &'static str = "join_policy_duplicate_gate_id";
+    pub const JOIN_POLICY_QUESTION_BUDGET_EXCEEDED: &'static str =
+        "join_policy_question_budget_exceeded";
+    pub const JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE: &'static str =
+        "join_policy_unknown_answer_reference";
     pub const JOIN_RULE_POLICY_MISMATCH: &'static str = "join_rule_policy_mismatch";
     pub const JOIN_RULE_TIGHTENED: &'static str = "join_rule_tightened";
     pub const KEY_BACKUP_WIRE_SCHEMA_REQUIRED: &'static str = "key_backup_wire_schema_required";
@@ -1337,7 +1346,12 @@ impl ReasonCode {
             Self::InviteKindRequiresRevoke => Self::INVITE_KIND_REQUIRES_REVOKE,
             Self::InviteOobEntropyTooLow => Self::INVITE_OOB_ENTROPY_TOO_LOW,
             Self::JoinAuthorisationInvalid => Self::JOIN_AUTHORISATION_INVALID,
+            Self::JoinPolicyDuplicateAnswerReference => {
+                Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE
+            }
             Self::JoinPolicyDuplicateGateId => Self::JOIN_POLICY_DUPLICATE_GATE_ID,
+            Self::JoinPolicyQuestionBudgetExceeded => Self::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED,
+            Self::JoinPolicyUnknownAnswerReference => Self::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE,
             Self::JoinRulePolicyMismatch => Self::JOIN_RULE_POLICY_MISMATCH,
             Self::JoinRuleTightened => Self::JOIN_RULE_TIGHTENED,
             Self::KeyBackupWireSchemaRequired => Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED,
@@ -1913,7 +1927,12 @@ impl ReasonCode {
             Self::INVITE_KIND_REQUIRES_REVOKE => Self::InviteKindRequiresRevoke,
             Self::INVITE_OOB_ENTROPY_TOO_LOW => Self::InviteOobEntropyTooLow,
             Self::JOIN_AUTHORISATION_INVALID => Self::JoinAuthorisationInvalid,
+            Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE => {
+                Self::JoinPolicyDuplicateAnswerReference
+            }
             Self::JOIN_POLICY_DUPLICATE_GATE_ID => Self::JoinPolicyDuplicateGateId,
+            Self::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED => Self::JoinPolicyQuestionBudgetExceeded,
+            Self::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE => Self::JoinPolicyUnknownAnswerReference,
             Self::JOIN_RULE_POLICY_MISMATCH => Self::JoinRulePolicyMismatch,
             Self::JOIN_RULE_TIGHTENED => Self::JoinRuleTightened,
             Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED => Self::KeyBackupWireSchemaRequired,
@@ -3374,9 +3393,24 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A `ak.member.state{membership=join}` event's `join_authorisation` proof (the equivalent of Matrix `join_authorised_via_users_server`) does not verify against the cited reviewer's capability state at the citing frontier. See zh/governance/join-policy.md §6.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE,
+        applies_to: &["schema_validation", "state_resolution"],
+        description: "Sub-reason for a schema_violation on a join-policy application whose answers[] repeats a (gate_id, question_id) reference. question_id is only unique within one application_form gate, so the reference key is the pair; a repeated pair leaves the reviewer with two answers for one question and no rule to choose between them. Wire response uses code=schema_violation with reason_code=join_policy_duplicate_answer_reference. See zh/governance/join-policy.md 3.3.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::JOIN_POLICY_DUPLICATE_GATE_ID,
         applies_to: &["schema_validation", "state_resolution"],
         description: "Sub-reason for a schema_violation on ak.realm.join_policy where gates[] contains duplicate gate_id values. gate_id MUST be stable and unique within the policy so that audit refs in ak.member.state{gate_proofs[gate_id=…]} are unambiguous. Wire response uses code=schema_violation with reason_code=join_policy_duplicate_gate_id. See zh/governance/join-policy.md §3.1.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED,
+        applies_to: &["schema_validation", "state_resolution"],
+        description: "Sub-reason for a schema_violation on ak.realm.join_policy whose application_form gates declare more questions[] in total than one application can carry in answers[]. Under combinator=all such a policy has no satisfiable application at all, so it MUST be rejected at the policy rather than discovered at submit time. The budget is the same machine constant as the answers[] cap. Wire response uses code=schema_violation with reason_code=join_policy_question_budget_exceeded. See zh/governance/join-policy.md 3.3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE,
+        applies_to: &["schema_validation", "state_resolution"],
+        description: "Sub-reason for a schema_violation on a join-policy application whose answers[] names a (gate_id, question_id) pair the referenced policy version does not define, or names a gate that is not an application_form gate. Lexical validity of both slugs is not existence: the reducer MUST resolve the pair against the policy version pinned by policy_version_digest. Wire response uses code=schema_violation with reason_code=join_policy_unknown_answer_reference. See zh/governance/join-policy.md 3.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::JOIN_RULE_POLICY_MISMATCH,

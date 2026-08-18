@@ -262,7 +262,7 @@ event_payload_accessors! {
     event_spec::PinAdd => (as_pin_add, PinAddPayload),
     event_spec::PinRemove => (as_pin_remove, PinRemovePayload),
     event_spec::PinReorder => (as_pin_reorder, PinReorderPayload),
-    event_spec::Redaction => (as_redaction, MessageRedactPayload),
+    event_spec::Redaction => (as_redaction, CrossObjectRedactionPayload),
     event_spec::MorphCreate => (as_morph_create, MorphCreatePayload),
     event_spec::MorphUpdate => (as_morph_update, MorphUpdatePayload, MorphUpdatePayload::validate),
     event_spec::MorphArchive => (as_morph_archive, ObjectLifecyclePayload),

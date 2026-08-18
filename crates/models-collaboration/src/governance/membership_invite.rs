@@ -8,7 +8,6 @@ use arkret_wire::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::ObjectRef;
 use crate::governance::delivery_binding::{DeliveryStatus, MemberDeliveryBinding};
 use crate::governance::invite_addressing::InviteDeliveryTarget;
 use crate::governance::third_party_invite::ThirdPartyInvite;

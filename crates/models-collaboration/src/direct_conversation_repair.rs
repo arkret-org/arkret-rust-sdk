@@ -4,7 +4,9 @@
 //! `schemas/direct-conversation-operations.schema.json`. These operations carry
 //! a non-authorizing trigger only; Commit, Welcome and activation remain Events.
 
-use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, ProtocolSignature};
+use arkret_wire::{
+    Base64UrlString, DeviceId, DeviceMessageId, DidCoreId, DidUrl, EventId, Hash, ProtocolSignature,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +14,69 @@ use crate::events_payloads::{MemberRepairRequestPayload, MemberRepairRequester};
 
 pub const DIRECT_CONVERSATION_REPAIR_DISPATCH_DOMAIN: &[u8] =
     b"ak.direct-conversation-repair-dispatch-v1\n";
+
+/// Domain separator of the human-principal member-repair target snapshot
+/// transcript (`contact-and-direct-conversation.md` §8.2.1).
+pub const MEMBER_REPAIR_TARGET_SNAPSHOT_HUMAN_DOMAIN: &[u8] =
+    b"ak.member-repair-target-snapshot-human-v1\n";
+
+/// Domain separator of the Native Agent member-repair target snapshot
+/// transcript (`contact-and-direct-conversation.md` §8.2.1).
+pub const MEMBER_REPAIR_TARGET_SNAPSHOT_NATIVE_AGENT_DOMAIN: &[u8] =
+    b"ak.member-repair-target-snapshot-native-agent-v1\n";
+
+/// One frozen human-device target of a member-repair enqueue batch.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct MemberRepairHumanTarget {
+    pub recipient_device_id: DeviceId,
+    pub device_message_id: DeviceMessageId,
+}
+
+/// The one frozen Native Agent runtime endpoint of a member-repair enqueue.
+///
+/// The three `recipient_*` members are the closed Agent endpoint triple the
+/// spec uses for every other Agent role (`sender` / `requester` / `consumer` /
+/// `target`). §8.2.1 forbids an opaque `*_ref` here: member names enter the JCS
+/// preimage verbatim, so hiding `verification_method` and
+/// `agent_key_authorize_event_id` behind one string would let two
+/// implementations compute different digests from the same endpoint.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct MemberRepairNativeAgentTarget {
+    pub recipient_agent_id: DidCoreId,
+    pub recipient_agent_verification_method: DidUrl,
+    pub recipient_agent_key_authorize_event_id: EventId,
+    pub device_message_id: DeviceMessageId,
+}
+
+/// Canonical `target_snapshot_digest` of a human-principal repair enqueue.
+///
+/// Targets are sorted by `recipient_device_id` so the transcript is a pure
+/// function of the frozen snapshot rather than of enqueue order.
+pub fn member_repair_human_target_snapshot_digest(
+    targets: &[MemberRepairHumanTarget],
+) -> arkret_wire::Result<Hash> {
+    let mut sorted = targets.to_vec();
+    sorted.sort_by(|left, right| left.recipient_device_id.cmp(&right.recipient_device_id));
+    member_repair_snapshot_digest(MEMBER_REPAIR_TARGET_SNAPSHOT_HUMAN_DOMAIN, &sorted)
+}
+
+/// Canonical `target_snapshot_digest` of a Native Agent repair enqueue.
+pub fn member_repair_native_agent_target_snapshot_digest(
+    target: &MemberRepairNativeAgentTarget,
+) -> arkret_wire::Result<Hash> {
+    member_repair_snapshot_digest(MEMBER_REPAIR_TARGET_SNAPSHOT_NATIVE_AGENT_DOMAIN, target)
+}
+
+fn member_repair_snapshot_digest(
+    domain: &[u8],
+    value: &impl Serialize,
+) -> arkret_wire::Result<Hash> {
+    let canonical = arkret_canonical::canonical_json_bytes(value).map_err(protocol_error)?;
+    let mut input = Vec::with_capacity(domain.len() + canonical.len());
+    input.extend_from_slice(domain);
+    input.extend_from_slice(&canonical);
+    Hash::new(arkret_canonical::sha256_digest(input)).map_err(protocol_error)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
