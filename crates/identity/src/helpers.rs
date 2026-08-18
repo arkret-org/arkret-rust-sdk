@@ -145,6 +145,44 @@ pub(super) fn did_webvh_scid(did: &DidFullId) -> Option<String> {
     did_webvh_parts(did).map(|(scid, ..)| scid)
 }
 
+/// Why a `did:webvh` URL could not be produced.
+///
+/// The two arms are deliberately distinct. Syntax is a property of the DID and
+/// makes the value permanently unusable; egress policy is a property of the
+/// *deployment* and says nothing about whether the DID is well formed. Folding
+/// them into one "unsupported did:webvh form" message sent at least one
+/// investigation down the wrong path, because a loopback authority — legal
+/// did:webvh syntax that a public-only egress policy declines — reported itself
+/// as a malformed DID.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DidWebvhUrlError {
+    /// Not a `did:webvh` DID at all.
+    UnsupportedMethod,
+    /// `did:webvh` syntax is malformed: empty scid or host, an unparsable port,
+    /// or a path segment containing `/` or `..`.
+    InvalidSyntax,
+    /// Syntax is well formed but the authority cannot host a `did:webvh` log:
+    /// the host is not a registrable domain name.
+    InvalidAuthority,
+    /// Syntax and authority are well formed, but this deployment's outbound
+    /// policy declines the host. The DID is not at fault, and a deployment that
+    /// trusts this authority can still resolve it.
+    EgressPolicyDeclined,
+}
+
+impl DidWebvhUrlError {
+    pub fn as_message(self) -> &'static str {
+        match self {
+            Self::UnsupportedMethod => "not a did:webvh DID",
+            Self::InvalidSyntax => "malformed did:webvh syntax",
+            Self::InvalidAuthority => "did:webvh authority is not a registrable domain name",
+            Self::EgressPolicyDeclined => {
+                "did:webvh authority is declined by the outbound egress policy;                  the DID itself is well formed"
+            }
+        }
+    }
+}
+
 pub(super) fn did_webvh_document_url(did: &DidFullId) -> Option<String> {
     did_webvh_url(did, "did.json")
 }
@@ -158,22 +196,38 @@ pub(super) fn did_webvh_witness_url(did: &DidFullId) -> Option<String> {
 }
 
 pub(super) fn did_webvh_url(did: &DidFullId, leaf: &str) -> Option<String> {
-    let (_, host, port, path) = did_webvh_parts(did)?;
+    try_did_webvh_url(did, leaf).ok()
+}
+
+/// Derive a `did:webvh` artifact URL, reporting *why* on failure.
+///
+/// The egress check still runs here so this change is behaviour-preserving at
+/// the security boundary; it is the classification that improves. Moving the
+/// check out to the request layer is a separate step that first requires every
+/// caller to hold an address-pinned egress guard.
+pub(super) fn try_did_webvh_url(
+    did: &DidFullId,
+    leaf: &str,
+) -> std::result::Result<String, DidWebvhUrlError> {
+    if !did.as_str().starts_with("did:webvh:") {
+        return Err(DidWebvhUrlError::UnsupportedMethod);
+    }
+    let (_, host, port, path) = did_webvh_parts(did).ok_or(DidWebvhUrlError::InvalidSyntax)?;
     if !host.contains('.') {
-        return None;
+        return Err(DidWebvhUrlError::InvalidAuthority);
     }
     if !host_is_safe_for_outbound(&host) {
-        return None;
+        return Err(DidWebvhUrlError::EgressPolicyDeclined);
     }
     let authority = match port {
         Some(port) => format!("{host}:{port}"),
         None => host,
     };
-    if path.is_empty() {
-        Some(format!("https://{authority}/.well-known/{leaf}"))
+    Ok(if path.is_empty() {
+        format!("https://{authority}/.well-known/{leaf}")
     } else {
-        Some(format!("https://{authority}/{}/{leaf}", path.join("/")))
-    }
+        format!("https://{authority}/{}/{leaf}", path.join("/"))
+    })
 }
 
 pub(super) fn did_key_material(did: &DidFullId) -> Option<String> {

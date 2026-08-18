@@ -72,7 +72,7 @@ pub(crate) use helpers::*;
 /// Public re-export of the `did:webvh` splitter + outbound SSRF egress guard so
 /// downstream crates (e.g. starid) reuse the low-level classifier instead of
 /// re-implementing address tables (STA-05-001).
-pub use helpers::{did_webvh_parts, host_is_safe_for_outbound, ip_is_public};
+pub use helpers::{DidWebvhUrlError, did_webvh_parts, host_is_safe_for_outbound, ip_is_public};
 pub use records::*;
 pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};

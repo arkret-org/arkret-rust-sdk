@@ -130,20 +130,28 @@ impl DidWebvhResolver {
 
     /// HTTPS URL where the current `did.json` is hosted.
     pub fn document_url(did: &DidFullId) -> Result<String> {
-        did_webvh_document_url(did)
-            .ok_or_else(|| Error::Protocol("unsupported did:webvh form".to_owned()))
+        Self::artifact_url(did, "did.json")
     }
 
     /// HTTPS URL of the append-only history.
     pub fn log_url(did: &DidFullId) -> Result<String> {
-        did_webvh_log_url(did)
-            .ok_or_else(|| Error::Protocol("unsupported did:webvh form".to_owned()))
+        Self::artifact_url(did, "did.jsonl")
     }
 
     /// HTTPS URL of the separate method-native witness proofs file.
     pub fn witness_url(did: &DidFullId) -> Result<String> {
-        did_webvh_witness_url(did)
-            .ok_or_else(|| Error::Protocol("unsupported did:webvh form".to_owned()))
+        Self::artifact_url(did, "did-witness.json")
+    }
+
+    /// Derive one `did:webvh` artifact URL, reporting the specific reason on
+    /// failure instead of a single "unsupported did:webvh form" for every cause.
+    ///
+    /// A caller that has to tell "this DID is broken" apart from "this
+    /// deployment declines that authority" — a device-revocation gate reporting
+    /// `failed_precondition`, say — needs the distinction to say anything true.
+    fn artifact_url(did: &DidFullId, leaf: &str) -> Result<String> {
+        try_did_webvh_url(did, leaf)
+            .map_err(|error| Error::Protocol(format!("{}: {}", error.as_message(), did.as_str())))
     }
 
     /// Validate and cache a `did.json` response.

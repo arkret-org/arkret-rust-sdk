@@ -1271,3 +1271,73 @@ fn pairwise_did_visibility_enum_roundtrips() {
     let back: DidVisibility = serde_json::from_str(&json).unwrap();
     assert_eq!(back, DidVisibility::Pairwise);
 }
+
+// ── did:webvh URL derivation reports why, not just "unsupported" ──
+//
+// A public-only egress policy declining a loopback authority used to surface as
+// "unsupported did:webvh form", which reads as "this DID is malformed". It is
+// not: the syntax is fine and a deployment that trusts that authority resolves
+// it normally. The two causes must stay distinguishable, because a caller that
+// reports `failed_precondition` on top of them cannot say anything true
+// otherwise.
+
+fn webvh_url_error(did: &str) -> crate::DidWebvhUrlError {
+    let did = DidFullId::new(did.to_owned()).expect("DID syntax is accepted by the wire type");
+    // The resolver flattens to Error::Protocol for the wire, so assert both:
+    // that the accessor still refuses, and how the helper classified it.
+    DidWebvhResolver::log_url(&did).expect_err("this DID must not yield a URL");
+    crate::helpers::try_did_webvh_url(&did, "did.jsonl").expect_err("this DID must not yield a URL")
+}
+
+#[test]
+fn loopback_authority_is_an_egress_decision_not_a_malformed_did() {
+    assert_eq!(
+        webvh_url_error(
+            "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:127.0.0.1%3A20623:webvh:service"
+        ),
+        crate::DidWebvhUrlError::EgressPolicyDeclined,
+        "a loopback authority is legal did:webvh syntax that this policy declines"
+    );
+}
+
+#[test]
+fn malformed_and_unsupported_forms_stay_distinguishable() {
+    // A bare host with no dot cannot host a did:webvh log.
+    assert_eq!(
+        webvh_url_error("did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:example"),
+        crate::DidWebvhUrlError::InvalidAuthority
+    );
+    // A path segment escaping its directory is malformed syntax.
+    assert_eq!(
+        webvh_url_error(
+            "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:example.com:..:service"
+        ),
+        crate::DidWebvhUrlError::InvalidSyntax
+    );
+    // Another method is neither malformed nor declined.
+    assert_eq!(
+        webvh_url_error("did:web:example.com"),
+        crate::DidWebvhUrlError::UnsupportedMethod
+    );
+}
+
+#[test]
+fn a_public_authority_still_derives_every_artifact_url() {
+    let did = DidFullId::new(
+        "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:example.com:webvh:service"
+            .to_owned(),
+    )
+    .unwrap();
+    assert_eq!(
+        DidWebvhResolver::log_url(&did).unwrap(),
+        "https://example.com/webvh/service/did.jsonl"
+    );
+    assert_eq!(
+        DidWebvhResolver::document_url(&did).unwrap(),
+        "https://example.com/webvh/service/did.json"
+    );
+    assert_eq!(
+        DidWebvhResolver::witness_url(&did).unwrap(),
+        "https://example.com/webvh/service/did-witness.json"
+    );
+}
