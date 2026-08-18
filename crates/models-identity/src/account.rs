@@ -1131,6 +1131,7 @@ pub struct AccountRequestErasureOutcome {
     /// Account Authority MUST NOT sign the `erasure_pending` AccountStatusRecord
     /// before this time, and once the record is signed no withdrawal is
     /// possible.
+    #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub withdrawal_window_ends_at: Option<DateTime<Utc>>,
@@ -2218,6 +2219,45 @@ mod account_handoff_tests {
         let wire = serde_json::to_value(snapshot).unwrap();
         assert_eq!(wire["goal"]["goal"], "complete_identity");
         assert!(wire["binding"]["full_id"].is_string());
+    }
+
+    /// `account-lifecycle.md` section 8.1 says the acceptance outcome omits
+    /// `withdrawal_window_ends_at` when the deployment grants no withdrawal
+    /// window, and the schema keeps it out of `required`. The type must
+    /// therefore round-trip a response that leaves the field out.
+    #[test]
+    fn acceptance_outcome_round_trips_without_a_withdrawal_window() {
+        let outcome = AccountRequestErasureOutcome {
+            request_id: RequestId::new("ak:request:0196419b-0000-7000-8000-00000000000a").unwrap(),
+            status: AccountRequestErasureStatus::Accepted,
+            principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            // Canonical timestamps carry millisecond precision, so the
+            // fixture is pinned to a whole millisecond: a `now()` with
+            // sub-millisecond digits would fail the round-trip on the
+            // serializer's truncation rather than on the field's optionality.
+            recorded_at: DateTime::from_timestamp_millis(1_775_000_000_000).unwrap(),
+            withdrawal_window_ends_at: None,
+        };
+        outcome.validate().unwrap();
+        let wire = serde_json::to_value(&outcome).unwrap();
+        assert!(wire.get("withdrawal_window_ends_at").is_none());
+        let parsed: AccountRequestErasureOutcome = serde_json::from_value(wire).unwrap();
+        assert_eq!(parsed, outcome);
+    }
+
+    /// A window that does not end after `recorded_at` grants nothing, so it is
+    /// a malformed acceptance rather than a zero-length window.
+    #[test]
+    fn acceptance_outcome_rejects_a_window_that_does_not_outlast_recording() {
+        let recorded_at = DateTime::from_timestamp_millis(1_775_000_000_000).unwrap();
+        let outcome = AccountRequestErasureOutcome {
+            request_id: RequestId::new("ak:request:0196419b-0000-7000-8000-00000000000b").unwrap(),
+            status: AccountRequestErasureStatus::Accepted,
+            principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            recorded_at,
+            withdrawal_window_ends_at: Some(recorded_at),
+        };
+        outcome.validate().unwrap_err();
     }
 
     #[test]
