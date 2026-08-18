@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-18.1;
-//! sha256=77fdf89010337b7317c8deaf3a96e530964ecac8defb1e27d9b8de9dd6f0d89c Input: registry/
-//! operations-error-mapping.json; version=2026-08-18.1;
-//! sha256=afc0685c0f0ee7b9d53cd4ce72741d84118b6181fd242cc655f8323a9897071b Input: registry/
-//! error-code-registry.json; version=2026-08-18.5;
-//! sha256=9364e7ab33d67e528ed65698672f12263f0e3bf4d80ede83c7dcdf8d977d2e38 Entries: operations=243
+//! Input: registry/operation-registry.json; version=2026-08-18.2;
+//! sha256=562e3e2a855d9d9c9e7a1bd3a3a7d6ee1b62536d7a54effb5f6dc0d8ec917ba9 Input: registry/
+//! operations-error-mapping.json; version=2026-08-18.2;
+//! sha256=53df19dbf1d2b5f9dc828bb858d006b70cb32880f40f59b1985ca5b281a3c978 Input: registry/
+//! error-code-registry.json; version=2026-08-18.6;
+//! sha256=90f8feadf5ff715b2987e160cd2dfd6d66e447d144980f2b07f99b002df72e49 Entries: operations=244
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -742,6 +742,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::ServiceIdentityProviderUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::DidNotFound),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfAccountCommandRequestErasure,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::ReauthenticationRequired),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
         ],
     },
     OperationErrorMappingDescriptor {

@@ -1106,6 +1106,68 @@ fn redaction_with_strand_target_ref_flips_subject_to_redacted() {
     assert!(strand.tracks["synthesis"].encrypted_content.is_none());
 }
 
+// ── ak.redaction ak:event: target vs object target (spec ruling) ──
+// common-fields.md section 5.2 (pinned by
+// ak.vector.redaction.event_target_does_not_drive_object_state.v1): an
+// event-targeted redaction only trims that Event's fields and MUST NOT drive
+// the event-derived object's state, even though both spellings share one
+// 33-octet token. The two spellings land in two distinct
+// `ak.component.object.redaction.v1` cells that stay independent.
+
+#[test]
+fn redaction_with_event_target_ref_trims_event_and_keeps_object_active() {
+    let strand_id_owned = derived_object_id("ak:strand:", 1);
+    let strand_id = strand_id_owned.as_str();
+    let create = event(
+        EventKind::StrandCreate,
+        1,
+        json!({
+            "object": {
+                "schema": SchemaId::STRAND_V1,
+                "realm_id": realm_id().as_str(),
+                "metadata": {"title": "Sensitive Strand"},
+                "content": {"kind": "ak.content.text", "body": "Description secret"},
+                "tracks": {
+                    "synthesis": {
+                        "content": {"kind": "ak.content.text", "body": "Synthesis secret"}
+                    }
+                },
+                "created_by": actor_id().as_str(),
+                "created_at": "2026-05-02T00:00:00.000Z"
+            }
+        }),
+    );
+    let create_event_id = create.event_id.clone();
+    let mut event_redact = redaction_event(2, create_event_id.as_str());
+    event_redact.prev_refs.push(create_event_id.clone());
+
+    let mut state = RealmState::new(realm_id());
+    state.apply_events(&[create, event_redact]).unwrap();
+
+    // The event spelling trims the targeted Event only; the derived object
+    // keeps its active state and content slots.
+    assert!(
+        state
+            .processed_events
+            .get(&create_event_id)
+            .unwrap()
+            .payload
+            .is_empty()
+    );
+    let strand = state.subjects.get(strand_id).unwrap();
+    assert_eq!(strand.state, Some(crate::ObjectState::Active));
+    assert!(strand.content.is_some());
+
+    // The object spelling of the same token still drives the object into the
+    // redacted terminal: the two cells are independent.
+    let mut object_redact = redaction_event(3, strand_id);
+    object_redact.prev_refs.push(create_event_id.clone());
+    state.apply_events(&[object_redact]).unwrap();
+    let strand = state.subjects.get(strand_id).unwrap();
+    assert_eq!(strand.state, Some(crate::ObjectState::Redacted));
+    assert!(strand.content.is_none());
+}
+
 #[test]
 fn redaction_with_morph_target_ref_flips_subject_to_redacted() {
     let morph_id_owned = derived_object_id("ak:morph:", 1);

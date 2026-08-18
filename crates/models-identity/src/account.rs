@@ -1080,6 +1080,76 @@ pub struct IdentityAbandonmentOutcome {
     pub abandoned_at: DateTime<Utc>,
 }
 
+/// Request body of `ak.self.account.command.request_erasure`
+/// (`POST /_arkret/self/account/erasure-requests`; account-lifecycle.md
+/// section 8.1). Acceptance records the erasure intent only; it is neither
+/// the signed `erasure_pending` AccountStatusRecord nor a completion receipt.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountRequestErasureRequestBody {
+    /// Idempotency identity of the erasure request. Exact replay returns the
+    /// recorded acceptance outcome; the same request_id with different
+    /// canonical bytes is `duplicate_conflict`; a different request_id while
+    /// a live unsigned-record intent exists is `failed_precondition` with
+    /// reason code `erasure_request_already_pending`.
+    pub request_id: RequestId,
+}
+
+impl AccountRequestErasureRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountRequestErasureStatus {
+    Accepted,
+}
+
+/// Acceptance confirmation of a self-initiated account erasure request. It
+/// proves only that the intent is durably recorded; completion is observed
+/// through the existing account-status read surface and physical completion
+/// through the erasure receipt rail (account-lifecycle.md section 8).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountRequestErasureOutcome {
+    pub request_id: RequestId,
+    pub status: AccountRequestErasureStatus,
+    pub principal_id: DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub recorded_at: DateTime<Utc>,
+    /// Present only when the deployment grants a withdrawal window; the
+    /// Account Authority MUST NOT sign the `erasure_pending` AccountStatusRecord
+    /// before this time, and once the record is signed no withdrawal is
+    /// possible.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub withdrawal_window_ends_at: Option<DateTime<Utc>>,
+}
+
+impl AccountRequestErasureOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .withdrawal_window_ends_at
+            .is_some_and(|ends_at| ends_at <= self.recorded_at)
+        {
+            return Err(Error::Protocol(
+                "erasure acceptance withdrawal window must end after recorded_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

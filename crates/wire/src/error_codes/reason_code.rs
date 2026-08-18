@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-18.5;
-//! sha256=9364e7ab33d67e528ed65698672f12263f0e3bf4d80ede83c7dcdf8d977d2e38
-//! Entries: reason_codes=480
+//! Input: registry/error-code-registry.json; version=2026-08-18.6;
+//! sha256=90f8feadf5ff715b2987e160cd2dfd6d66e447d144980f2b07f99b002df72e49
+//! Entries: reason_codes=481
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -171,6 +171,7 @@ pub enum ReasonCode {
     ErasureReceiptProofInvalid,
     ErasureReceiptStubBindingMismatch,
     ErasureReceiptStubDigestMismatch,
+    ErasureRequestAlreadyPending,
     EventIdDigestMismatch,
     EvidenceRecipientMismatch,
     ExecutedByMissing,
@@ -710,6 +711,7 @@ impl ReasonCode {
         "erasure_receipt_stub_binding_mismatch";
     pub const ERASURE_RECEIPT_STUB_DIGEST_MISMATCH: &'static str =
         "erasure_receipt_stub_digest_mismatch";
+    pub const ERASURE_REQUEST_ALREADY_PENDING: &'static str = "erasure_request_already_pending";
     pub const EVENT_ID_DIGEST_MISMATCH: &'static str = "event_id_digest_mismatch";
     pub const EVIDENCE_RECIPIENT_MISMATCH: &'static str = "evidence_recipient_mismatch";
     pub const EXECUTED_BY_MISSING: &'static str = "executed_by_missing";
@@ -1293,6 +1295,7 @@ impl ReasonCode {
             Self::ErasureReceiptProofInvalid => Self::ERASURE_RECEIPT_PROOF_INVALID,
             Self::ErasureReceiptStubBindingMismatch => Self::ERASURE_RECEIPT_STUB_BINDING_MISMATCH,
             Self::ErasureReceiptStubDigestMismatch => Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH,
+            Self::ErasureRequestAlreadyPending => Self::ERASURE_REQUEST_ALREADY_PENDING,
             Self::EventIdDigestMismatch => Self::EVENT_ID_DIGEST_MISMATCH,
             Self::EvidenceRecipientMismatch => Self::EVIDENCE_RECIPIENT_MISMATCH,
             Self::ExecutedByMissing => Self::EXECUTED_BY_MISSING,
@@ -1877,6 +1880,7 @@ impl ReasonCode {
             Self::ERASURE_RECEIPT_PROOF_INVALID => Self::ErasureReceiptProofInvalid,
             Self::ERASURE_RECEIPT_STUB_BINDING_MISMATCH => Self::ErasureReceiptStubBindingMismatch,
             Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH => Self::ErasureReceiptStubDigestMismatch,
+            Self::ERASURE_REQUEST_ALREADY_PENDING => Self::ErasureRequestAlreadyPending,
             Self::EVENT_ID_DIGEST_MISMATCH => Self::EventIdDigestMismatch,
             Self::EVIDENCE_RECIPIENT_MISMATCH => Self::EvidenceRecipientMismatch,
             Self::EXECUTED_BY_MISSING => Self::ExecutedByMissing,
@@ -3124,6 +3128,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH,
         applies_to: &["account_status", "identity_resolution"],
         description: "Retained erasure stub bytes do not match retained_stub_digest in the erasure receipt. Verifier MUST reject the receipt and treat the erasure as not completed (fail closed).",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::ERASURE_REQUEST_ALREADY_PENDING,
+        applies_to: &["account_status"],
+        description: "Sub-reason for failed_precondition on ak.self.account.command.request_erasure: the account already holds a live self-initiated erasure intent whose erasure_pending AccountStatusRecord has not yet been signed. The client MUST NOT submit a second distinct request; it either awaits the recorded intent or withdraws it inside the deployment-granted withdrawal window. Once the record is signed, requests fail at authentication with account_erased instead. See zh/identity/account-lifecycle.md section 8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::EVENT_ID_DIGEST_MISMATCH,

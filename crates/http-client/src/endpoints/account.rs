@@ -35,7 +35,8 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
     AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
-    AccountOnboardingSnapshot, AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
+    AccountOnboardingSnapshot, AccountRequestErasureOutcome, AccountRequestErasureRequestBody,
+    AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
     IdentityAbandonmentChallengeRequestBody, IdentityAbandonmentOutcome,
     IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
     IdentityBindingChallengeRequestBody, SessionGrantProofKind,
@@ -306,6 +307,23 @@ impl Client {
     ) -> Result<AccountUpdateProfileOutcome> {
         request.validate()?;
         self.post("/_arkret/self/account/profile", request).await
+    }
+
+    /// `POST /_arkret/self/account/erasure-requests`
+    /// (`ak.self.account.command.request_erasure`). Success is an acceptance
+    /// confirmation only: the erasure intent is durably recorded and the
+    /// Account Authority starts its existing `erasure_pending` issuance flow.
+    /// Exact request-id replay returns the recorded outcome.
+    pub async fn account_request_erasure(
+        &self,
+        request: &AccountRequestErasureRequestBody,
+    ) -> Result<AccountRequestErasureOutcome> {
+        request.validate()?;
+        let outcome: AccountRequestErasureOutcome = self
+            .post("/_arkret/self/account/erasure-requests", request)
+            .await?;
+        outcome.validate()?;
+        Ok(outcome)
     }
 
     pub async fn account_device_pair(

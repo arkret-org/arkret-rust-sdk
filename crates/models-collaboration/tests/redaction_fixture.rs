@@ -64,6 +64,7 @@ fn fixture_case_manifest_is_pinned() {
             "snapshot_pruning_stub",
             "space_target_ref_schema",
             "message_target_exclusive_kind",
+            "event_target_does_not_drive_object_state",
             "policy_scope",
             "hard_erasure_receipt",
         ],
@@ -166,6 +167,10 @@ fn reducer_residual_cases_pin_their_expected_outcomes() {
         (
             "space_target_ref_schema",
             "schema_accepts_ak_space_target_ref_rejects_malformed",
+        ),
+        (
+            "event_target_does_not_drive_object_state",
+            "derived_object_state_stays_active_and_redaction_cells_stay_independent",
         ),
         (
             "policy_scope",

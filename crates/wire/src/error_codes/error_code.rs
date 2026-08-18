@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-18.5;
-//! sha256=9364e7ab33d67e528ed65698672f12263f0e3bf4d80ede83c7dcdf8d977d2e38 Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-08-18.6;
+//! sha256=90f8feadf5ff715b2987e160cd2dfd6d66e447d144980f2b07f99b002df72e49 Entries: error_codes=283
 
 use serde::{Deserialize, Serialize};
 
@@ -230,6 +230,7 @@ pub enum ErrorCode {
     RealmFederationPolicyRestricted,
     RealmFrozen,
     RealmModerationPolicyDenied,
+    ReauthenticationRequired,
     RecordingDenied,
     RecoveryAuthorizationDeviceMismatch,
     RecoveryAuthorizationPrincipalMismatch,
@@ -526,6 +527,7 @@ impl ErrorCode {
         Self::RealmFederationPolicyRestricted,
         Self::RealmFrozen,
         Self::RealmModerationPolicyDenied,
+        Self::ReauthenticationRequired,
         Self::RecordingDenied,
         Self::RecoveryAuthorizationDeviceMismatch,
         Self::RecoveryAuthorizationPrincipalMismatch,
@@ -830,6 +832,7 @@ impl ErrorCode {
         "realm_federation_policy_restricted";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
     pub const REALM_MODERATION_POLICY_DENIED: &'static str = "realm_moderation_policy_denied";
+    pub const REAUTHENTICATION_REQUIRED: &'static str = "reauthentication_required";
     pub const RECORDING_DENIED: &'static str = "recording_denied";
     pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str =
         "recovery_authorization_device_mismatch";
@@ -1140,6 +1143,7 @@ impl ErrorCode {
             Self::RealmFederationPolicyRestricted => "realm_federation_policy_restricted",
             Self::RealmFrozen => "realm_frozen",
             Self::RealmModerationPolicyDenied => "realm_moderation_policy_denied",
+            Self::ReauthenticationRequired => "reauthentication_required",
             Self::RecordingDenied => "recording_denied",
             Self::RecoveryAuthorizationDeviceMismatch => "recovery_authorization_device_mismatch",
             Self::RecoveryAuthorizationPrincipalMismatch => {
@@ -1453,6 +1457,7 @@ impl ErrorCode {
             "realm_federation_policy_restricted" => Some(Self::RealmFederationPolicyRestricted),
             "realm_frozen" => Some(Self::RealmFrozen),
             "realm_moderation_policy_denied" => Some(Self::RealmModerationPolicyDenied),
+            "reauthentication_required" => Some(Self::ReauthenticationRequired),
             "recording_denied" => Some(Self::RecordingDenied),
             "recovery_authorization_device_mismatch" => {
                 Some(Self::RecoveryAuthorizationDeviceMismatch)
@@ -3162,6 +3167,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "The realm moderation policy denied the federated action.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::ReauthenticationRequired,
+        http_status: 401,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A high-risk self-service action (for example ak.self.account.command.request_erasure) requires fresh high-risk action authentication — recent login, WebAuthn, recovery key or a deployment equivalent — and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecordingDenied,
