@@ -148,5 +148,13 @@ class RegistryGeneratorTests(unittest.TestCase):
         self.assertIn("pub const REGISTERED_AUTHORITY_SOURCES", generated)
 
 
+class RustdocTextTests(unittest.TestCase):
+    def test_escapes_html_metacharacters_from_registry_descriptions(self) -> None:
+        self.assertEqual(
+            GENERATOR.rustdoc_text("@<controller>/<agent> & peer"),
+            "@&lt;controller&gt;/&lt;agent&gt; &amp; peer",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

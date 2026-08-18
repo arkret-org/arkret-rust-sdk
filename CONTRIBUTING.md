@@ -158,7 +158,7 @@ Wire shape ownership is strict:
 - The protocol wire shape source of truth is `arkret-spec/spec/v1/artifacts/schemas/*.schema.json`
   and the matching registry artifacts.
 - The Rust expression of shared protocol types belongs in
-  `arkret-rust-sdk/crates/{identifiers,core,api}`. Product crates should import
+  `arkret-rust-sdk/crates/{identifiers,wire,models-*}`. Product crates should import
   these types or wrap them; they should not redefine wire enums or DTOs.
 - Product-local types are fine for DB rows, UI view models, platform config,
   service aggregates, and admin metadata. When they overlap a protocol type,

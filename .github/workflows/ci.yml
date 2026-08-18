@@ -44,7 +44,11 @@ jobs:
         run: |
           python tools/test_identity_type_audit.py
           python tools/identity_type_audit.py
+          python tools/tests/test_wire_value_audit.py
           python tools/wire_value_audit.py --check
+          # Package-style imports (`from tools.deny_unknown_audit import ...`),
+          # so it must be run as a module from the repo root, not as a script.
+          python -m tools.test_deny_unknown_audit
           python tools/deny_unknown_audit.py --check
       - run: cargo check -p arkret
       - name: Guard default arkret dependency surface
@@ -240,6 +244,12 @@ jobs:
       - name: Verify embedded artifact generator
         working-directory: arkret-rust-sdk
         run: python tools/test_refresh_embedded_artifacts.py
+      # Runs here rather than in the `rust` job: the test builds its fixtures by
+      # copying real registry files out of the sibling arkret-spec checkout, so
+      # it needs this job's two-repo layout.
+      - name: Verify registry type generator
+        working-directory: arkret-rust-sdk
+        run: python tools/tests/test_generate_registry_types.py
       - name: Verify embedded artifact snapshot
         working-directory: arkret-rust-sdk
         run: >-

@@ -167,5 +167,5 @@ Apache-2.0
 
 <!-- circle-rollout milestone pointer -->
 > **Active milestone tracking** (local-only, gitignored): see
-> `_arkret-rust-sdk_todos.md` in the parent `arkret/` directory for the
+> `_arkret-rust-sdk_todos.md` in the parent `arkret-org/` directory for the
 > circle-rollout (AKP-0007) work item list and per-stage checkpoints.

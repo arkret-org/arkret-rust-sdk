@@ -5,7 +5,7 @@ param(
     [int]$Runs = 3,
     [string]$OutputRoot = "",
     [switch]$IncludeIncremental,
-    [string[]]$Scenario = @("umbrella", "umbrella-salvo", "floria", "bridges", "garth")
+    [string[]]$Scenario = @("umbrella", "floria", "bridges", "garth")
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,10 +28,6 @@ $scenarios = @{
     "umbrella" = @{
         Root = Join-Path $workspace "arkret-rust-sdk"
         Args = @("check", "-p", "arkret", "--no-default-features", "--locked", "--timings")
-    }
-    "umbrella-salvo" = @{
-        Root = Join-Path $workspace "arkret-rust-sdk"
-        Args = @("check", "-p", "arkret", "--no-default-features", "--features", "salvo", "--locked", "--timings")
     }
     "floria" = @{
         Root = Join-Path $workspace "floria"

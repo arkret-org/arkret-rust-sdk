@@ -14,14 +14,17 @@ arkret (umbrella SDK)
     |-- arkret-crypto: local encryption, backup and key-management helpers
     |-- arkret-http-client: HTTP transport for Arkret service endpoints
     |-- arkret-keystore: platform KeyStore backends behind target feature gates
-    |-- arkret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
+    |-- arkret-server: endpoint registry, routed dispatch, server middleware, adapter contracts and OpenAPI helpers
     |-- arkret-signatures: HTTP signatures, JWS/JWT and proof verification
     |-- focused model/behavior crates: protocol types and semantic operations
-    |-- auth/identity/e2ee/push: production protocol services
-    |-- federation: discovery, replay/fork quarantine and digest helpers (the
-    |   protocol federation wire surface is the spec `ak.peer.*` family)
-    |-- typing/webrtc: realtime client features
-    |-- mls: OpenMLS-backed group encryption and epoch handling
+    |-- arkret-auth / arkret-identity: session grants, device and service identity, binding verification
+    |-- arkret-models-collaboration: realm and conversation semantics, including
+    |   the `ak.peer.*` federation frames (`crates/models-collaboration/src/federation/`),
+    |   `ak.typing` composition indicators (`src/signal_plaintext.rs`) and
+    |   `ak.call.*` signalling (`src/call_signal.rs`); WebRTC media/ICE config
+    |   verification lives in `crates/signatures/src/media_ice.rs`
+    |-- arkret-push-policy: push payload redaction policy
+    |-- arkret-mls: OpenMLS-backed group encryption and epoch handling
     `-- arkret-bootstrap / arkret-lattice-registry: bootstrap and lattice behavior
 ```
 
