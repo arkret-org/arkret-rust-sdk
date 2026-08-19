@@ -22,20 +22,12 @@ client = ["dep:arkret-http-client", "dep:url"]
 signer = ["arkret-signatures/signer"]
 server = ["dep:arkret-server"]
 mls = ["dep:arkret-mls"]
-# TLS backend passthrough (`cargo add arkret --features client,tls-rustls`
-# gives a working https client out of the box). The SDK stays TLS-neutral
-# without this feature. PQ-hybrid TLS (X25519MLKEM768) is a MUST for all
-# profiles per arkret-spec transport-bindings section 5 — see the
-# arkret-http-client crate docs for the recommended provider configuration.
-tls-rustls = ["client", "arkret-http-client/tls-rustls"]
-tracing = ["arkret-http-client?/tracing"]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
 # embedding the umbrella `arkret` crate can opt into OS-native key storage
 # without a direct arkret-keystore dependency.
 keystore-macos = ["arkret-keystore/keystore-macos"]
 keystore-linux = ["arkret-keystore/keystore-linux"]
 keystore-windows = ["arkret-keystore/keystore-windows"]
-keystore-encrypted-file = ["arkret-keystore/keystore-encrypted-file"]
 
 [dependencies]
 

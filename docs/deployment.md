@@ -19,10 +19,10 @@ in the host application rather than through SDK features.
 
 ## Minimal HTTP binding
 
-The host framework should parse an inbound request into the appropriate
-`ServerRequest`, call an `EndpointHandler`, and serialize the returned
-`ServerResponse`. Authentication, idempotency, CORS and rate limiting live in
-the host service stack.
+The host framework owns request parsing and routing against the operation
+registry; the SDK contributes the wire request/response models plus the
+framework-free applet, cursor-authority and idempotency contracts.
+Authentication, CORS and rate limiting live in the host service stack.
 
 ## TLS termination
 
@@ -85,8 +85,8 @@ verification (DID resolved, key store loaded, MLS state ready).
 
 ## Observability
 
-- The SDK gates all `tracing` calls on the `tracing` feature flag, off by
-  default. Enable it in the binary when you wire in a `tracing-subscriber`.
+- The SDK emits no logs of its own; wire request/response logging into the
+  host framework where the routing lives.
 - Do not log structured fields that may contain DIDs, tokens, signatures,
   proofs or private key material. Apply field-aware redaction at the
   application's logging boundary; validators are not log sanitizers.

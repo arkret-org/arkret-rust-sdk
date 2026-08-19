@@ -49,7 +49,6 @@
 
 mod sdk_error;
 mod sidecar_recovery;
-mod verified_actor_binding;
 pub use arkret_auth as auth;
 pub use arkret_auth::{AdminKeyStore, session_grant};
 pub use arkret_bootstrap as bootstrap;
@@ -75,12 +74,12 @@ pub use arkret_event_draft::{
     OperationSignature, ProjectedEventOperation, ProjectionContext, RsvpAuthoring,
     RsvpResponseBranch, StrandCreateObject, TypedDeviceMessageTarget, TypedEventDraft,
     ValidatedExtensionPayload, accountability_grant_event, container_rebalance_assignments,
-    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors, operations,
-    rank_between, rank_exhausted,
+    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors, rank_between,
+    rank_exhausted,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
-    SyncTracker, generate_cursor_handle,
+    generate_cursor_handle,
 };
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
@@ -105,8 +104,6 @@ pub use arkret_identity::service_identity::{
     IdentityBundleBackend, IdentityBundleBackendAvailability, KeyStoreIdentityBundleBackend,
     LocalDidCoreIdentity, ResolvedService, StoredDidCoreIdentity,
 };
-#[cfg(feature = "keystore-encrypted-file")]
-pub use arkret_keystore::EncryptedFileKeyStore;
 pub use arkret_keystore::{
     BackendKind, InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore,
     MacOsKeychainKeyStore, WindowsCredentialKeyStore, durable_platform_keystore,
@@ -299,8 +296,7 @@ pub use arkret_policy::profile_claim::{
     ClaimedProfile, ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
 };
 pub use arkret_policy::profile_feature_guard::{
-    ProfileFeatureGap, implied_features_for_profiles,
-    verify_declared_profiles_against_core_features, verify_declared_profiles_against_features,
+    ProfileFeatureGap, implied_features_for_profiles, verify_declared_profiles_against_features,
 };
 pub use arkret_policy::profile_semantics::{
     ProfileSemanticCoverageError, ProfileSemanticCoverageReport, ProfileSemanticRequirements,
@@ -390,7 +386,6 @@ pub use arkret_wire::{
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};
-pub use verified_actor_binding::*;
 
 pub mod events {
     pub use arkret_models_collaboration::events_payloads::redaction::*;
@@ -477,24 +472,17 @@ pub use arkret_signatures::media::{
     verify_call_media_token_outcome, verify_ice_config_outcome,
 };
 pub use auth::{
-    ARKRET_DEVICE_SCOPE_PREFIX, AccountAuthState, AccountRecoveryMethod,
-    AccountRecoveryRequestBody, AuthClaimKind, AuthManager, AuthRateLimitAction,
-    AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot, ClaimDisclosurePolicy,
-    ClaimDisclosureRequirement, DidProofVerification, DidProofVerificationRequestBody,
-    DidProofVerifier, DisclosureProofAdapterBoundary, DisclosureProofFormat,
-    MemorySessionGrantOutbox, MfaChallenge, OidcAuthRequestBody, OidcCredential,
-    OidcIssuerMetadata, OidcVerificationRequestBody, OidcVerifiedIdentity, OidcVerifier,
-    PasskeyChallenge, PasskeyVerification, PasskeyVerificationRequestBody, PasskeyVerifier,
-    PasswordHashAlgorithm, PasswordHashVerifier, PasswordUser, PasswordVerification,
-    PasswordVerificationRequestBody, PersistedAuthSession, PresentationRequestBody,
+    ARKRET_DEVICE_SCOPE_PREFIX, AccountAuthState, AuthClaimKind, AuthManager, AuthSession,
+    ClaimDisclosurePolicy, ClaimDisclosureRequirement, DisclosureProofAdapterBoundary,
+    DisclosureProofFormat, MemorySessionGrantOutbox, PasswordUser, PresentationRequestBody,
     PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
     PrincipalSessionGrantNotificationOutcome, PrincipalSessionGrantNotifier, RejectedClaim,
     RenewalCredentialMetadata, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
     SessionGrantOutboxState, SessionGrantPayload, SessionGrantProjectionState, SessionGrantRecord,
     SessionGrantRetryPolicy, SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier,
-    SessionPrincipalBinding, SessionRevocation, WebAuthnPasskeyOutcome, arkret_device_scope,
-    device_id_from_scope_token, issue_session_grant_with_signer, primary_device_id_from_scopes,
-    validate_presentation, verify_presentation_with_adapter, verify_session_grant_with_verifier,
+    SessionPrincipalBinding, SessionRevocation, arkret_device_scope, device_id_from_scope_token,
+    issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
+    verify_presentation_with_adapter, verify_session_grant_with_verifier,
 };
 #[cfg(feature = "client")]
 pub use http_client::{
@@ -530,11 +518,7 @@ pub use resolver::{
     verify_snapshot_chunks,
 };
 #[cfg(feature = "server")]
-pub use server::{
-    EndpointHandler, ProtocolFixtureReport, ProtocolFixtureStep, ProtocolFixtureStrand,
-    ProtocolGoldenVector, ProtocolServerFixture, ServerOutcome, ServerRequestBody,
-    WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
-};
+pub use server::reject_query_auth;
 
 /// Calendar RSVP authoring.
 ///

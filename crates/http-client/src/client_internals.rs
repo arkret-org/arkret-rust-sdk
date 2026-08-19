@@ -31,22 +31,6 @@ pub(crate) fn transport_error(error: reqwest::Error) -> Error {
     Error::Http(error.to_string())
 }
 
-#[cfg(feature = "tracing")]
-#[derive(Clone, Debug)]
-struct RequestTraceFields {
-    method: String,
-    path: String,
-}
-
-#[cfg(feature = "tracing")]
-fn request_trace_fields(builder: &RequestBuilder) -> Option<RequestTraceFields> {
-    let request = builder.try_clone()?.build().ok()?;
-    Some(RequestTraceFields {
-        method: request.method().as_str().to_owned(),
-        path: request.url().path().to_owned(),
-    })
-}
-
 pub(crate) fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
     while bytes.first().is_some_and(u8::is_ascii_whitespace) {
         bytes = &bytes[1..];
@@ -411,42 +395,13 @@ impl Client {
         protocol_replay_safe: bool,
     ) -> Result<Response> {
         validate_request_builder(&builder)?;
-        #[cfg(feature = "tracing")]
-        let trace = request_trace_fields(&builder);
-        #[cfg(feature = "tracing")]
-        if let Some(trace) = &trace {
-            tracing::debug!(
-                method = %trace.method,
-                path = %trace.path,
-                max_retries = self.retry.max_retries,
-                "sending Arkret HTTP request"
-            );
-        }
         if self.retry.max_retries == 0 {
             let response = self.send_request_builder(builder).await?;
-            #[cfg(feature = "tracing")]
-            if let Some(trace) = &trace {
-                tracing::debug!(
-                    method = %trace.method,
-                    path = %trace.path,
-                    status = response.status().as_u16(),
-                    "received Arkret HTTP response"
-                );
-            }
             return Ok(response);
         }
 
         let Some(template) = builder.try_clone() else {
             let response = self.send_request_builder(builder).await?;
-            #[cfg(feature = "tracing")]
-            if let Some(trace) = &trace {
-                tracing::debug!(
-                    method = %trace.method,
-                    path = %trace.path,
-                    status = response.status().as_u16(),
-                    "received Arkret HTTP response"
-                );
-            }
             return Ok(response);
         };
 
@@ -488,17 +443,6 @@ impl Client {
                         && self.retry.should_retry_status(response.status()) =>
                 {
                     attempts += 1;
-                    #[cfg(feature = "tracing")]
-                    if let Some(trace) = &trace {
-                        tracing::warn!(
-                            method = %trace.method,
-                            path = %trace.path,
-                            status = response.status().as_u16(),
-                            attempt = attempts,
-                            max_retries = self.retry.max_retries,
-                            "retrying Arkret HTTP request after retryable status"
-                        );
-                    }
                     sleep(
                         self.retry
                             .retry_delay_from_headers(response.headers(), attempts),
@@ -506,16 +450,6 @@ impl Client {
                     .await;
                 }
                 Ok(response) => {
-                    #[cfg(feature = "tracing")]
-                    if let Some(trace) = &trace {
-                        tracing::debug!(
-                            method = %trace.method,
-                            path = %trace.path,
-                            status = response.status().as_u16(),
-                            attempts = attempts + 1,
-                            "received Arkret HTTP response"
-                        );
-                    }
                     return Ok(response);
                 }
                 Err(error)
@@ -527,41 +461,11 @@ impl Client {
                     // resend then.
                     let retryable = error.is_connect() || (retry_safe && error.is_timeout());
                     if !retryable {
-                        #[cfg(feature = "tracing")]
-                        if let Some(trace) = &trace {
-                            tracing::warn!(
-                                method = %trace.method,
-                                path = %trace.path,
-                                error = %error,
-                                "Arkret HTTP request failed without retry"
-                            );
-                        }
                         return Err(transport_error(error));
-                    }
-                    #[cfg(feature = "tracing")]
-                    if let Some(trace) = &trace {
-                        tracing::warn!(
-                            method = %trace.method,
-                            path = %trace.path,
-                            error = %error,
-                            attempt = attempts,
-                            max_retries = self.retry.max_retries,
-                            "retrying Arkret HTTP request after transport error"
-                        );
                     }
                     sleep(self.retry.retry_delay(attempts)).await;
                 }
                 Err(error) => {
-                    #[cfg(feature = "tracing")]
-                    if let Some(trace) = &trace {
-                        tracing::warn!(
-                            method = %trace.method,
-                            path = %trace.path,
-                            error = %error,
-                            attempts = attempts + 1,
-                            "Arkret HTTP request failed"
-                        );
-                    }
                     return Err(transport_error(error));
                 }
             }
@@ -587,37 +491,10 @@ impl Client {
         _protocol_replay_safe: bool,
     ) -> Result<Response> {
         validate_request_builder(&builder)?;
-        // Surface the platform parity gap instead of silently ignoring the
-        // caller's RetryConfig (see `ClientBuilder::retry` / `RetryConfig`
-        // docs): retry is not implemented on wasm32.
-        #[cfg(feature = "tracing")]
-        if self.retry.max_retries > 0 {
-            tracing::warn!(
-                max_retries = self.retry.max_retries,
-                "RetryConfig is ignored on wasm32: execute() sends exactly once; \
-                 layer retry above the client if needed"
-            );
-        }
-        #[cfg(feature = "tracing")]
-        let trace = request_trace_fields(&builder);
-        #[cfg(feature = "tracing")]
-        if let Some(trace) = &trace {
-            tracing::debug!(
-                method = %trace.method,
-                path = %trace.path,
-                "sending Arkret HTTP request"
-            );
-        }
+        // Retry is not implemented on wasm32: execute() sends exactly once and
+        // the caller's RetryConfig is ignored (see `ClientBuilder::retry` /
+        // `RetryConfig` docs). Callers layer retry above the client if needed.
         let response = self.send_request_builder(builder).await?;
-        #[cfg(feature = "tracing")]
-        if let Some(trace) = &trace {
-            tracing::debug!(
-                method = %trace.method,
-                path = %trace.path,
-                status = response.status().as_u16(),
-                "received Arkret HTTP response"
-            );
-        }
         Ok(response)
     }
 }

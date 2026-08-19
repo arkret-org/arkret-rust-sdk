@@ -13,7 +13,6 @@ version.workspace = true
 
 [features]
 default = []
-mls = []
 
 [dependencies]
 arkret-canonical = {workspace = true}

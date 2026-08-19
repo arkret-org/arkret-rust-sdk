@@ -20,7 +20,6 @@ mod device_message;
 mod event_payload;
 mod ghost_profile;
 mod operation;
-pub mod operations;
 mod payloads;
 mod rank;
 mod registry;

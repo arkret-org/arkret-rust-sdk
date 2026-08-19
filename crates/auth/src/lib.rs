@@ -1,5 +1,5 @@
 //! Arkret v1 authentication behavior: sessions, session grants, claims,
-//! passwords, MFA, and DID / OIDC / passkey proof verification.
+//! and passwords.
 //!
 //! Depends only on the wire / model / signature data crates; the umbrella
 //! `arkret` crate re-exports this surface under `arkret::auth::*`. The
@@ -16,14 +16,13 @@ mod manager;
 pub mod session_grant;
 #[cfg(test)]
 mod tests;
-mod verification;
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 
 pub use admin_key::AdminKeyStore;
-use arkret_models_identity::{DidDocument, SignedSessionGrantClaims};
-use arkret_wire::{DeviceId, DidUrl, EventKind, NonEmptyString, Proof, RealmId};
+use arkret_models_identity::SignedSessionGrantClaims;
+use arkret_wire::{DeviceId, EventKind, RealmId};
 use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
 use error::AuthError as Error;
@@ -32,7 +31,6 @@ pub use grants::*;
 pub use manager::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-pub use verification::*;
 
 /// Registered password user.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,8 +41,6 @@ pub struct PasswordUser {
     pub user_id: DidCoreId,
     /// Password hash.
     pub password_hash: String,
-    /// Whether MFA is required.
-    pub mfa_enabled: bool,
 }
 
 impl fmt::Debug for PasswordUser {
@@ -53,91 +49,8 @@ impl fmt::Debug for PasswordUser {
             .field("username", &self.username)
             .field("user_id", &self.user_id)
             .field("password_hash", &"<redacted>")
-            .field("mfa_enabled", &self.mfa_enabled)
             .finish()
     }
-}
-
-/// OIDC authorization request metadata.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcAuthRequestBody {
-    pub issuer: String,
-    pub client_id: String,
-    pub redirect_uri: String,
-    pub state: String,
-    pub authorization_url: String,
-}
-
-/// Passkey challenge.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PasskeyChallenge {
-    pub user_id: DidCoreId,
-    pub challenge: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
-/// MFA challenge.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MfaChallenge {
-    pub user_id: DidCoreId,
-    pub code: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub verified: bool,
-}
-
-impl fmt::Debug for MfaChallenge {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MfaChallenge")
-            .field("user_id", &self.user_id)
-            .field("code", &"<redacted>")
-            .field("expires_at", &self.expires_at)
-            .field("verified", &self.verified)
-            .finish()
-    }
-}
-
-/// Account recovery method types.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AccountRecoveryMethod {
-    DidProof { verification_method: DidUrl },
-    PasswordReset { reset_token_hash: String },
-    PasskeyWebAuthnRebinding { credential_id: String },
-}
-
-impl fmt::Debug for AccountRecoveryMethod {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::DidProof {
-                verification_method,
-            } => f
-                .debug_struct("DidProof")
-                .field("verification_method", verification_method)
-                .finish(),
-            Self::PasswordReset { .. } => f
-                .debug_struct("PasswordReset")
-                .field("reset_token_hash", &"<redacted>")
-                .finish(),
-            Self::PasskeyWebAuthnRebinding { credential_id } => f
-                .debug_struct("PasskeyWebAuthnRebinding")
-                .field("credential_id", credential_id)
-                .finish(),
-        }
-    }
-}
-
-/// Account recovery request tracked by the auth layer.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AccountRecoveryRequestBody {
-    pub request_id: String,
-    pub user_id: DidCoreId,
-    pub method: AccountRecoveryMethod,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub completed_at: Option<DateTime<Utc>>,
 }
 
 /// Account state enforced before issuing or refreshing sessions.
@@ -183,33 +96,6 @@ pub struct SessionRevocation {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
     pub reason: String,
-}
-
-/// Persisted session metadata. Token material is represented only by hashes.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PersistedAuthSession {
-    pub session_id: String,
-    pub user_id: DidCoreId,
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub revoked: bool,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    pub session_credential_hash: String,
-    pub renewal_credential_hash: String,
-}
-
-/// Auth state contract for applications that back `AuthManager` with durable storage.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AuthStateSnapshot {
-    pub password_users: BTreeMap<String, PasswordUser>,
-    pub sessions: Vec<PersistedAuthSession>,
-    pub account_states: BTreeMap<DidCoreId, AccountAuthState>,
-    pub renewal_credentials: BTreeMap<String, RenewalCredentialMetadata>,
-    pub revoked_sessions: BTreeMap<String, SessionRevocation>,
-    pub recovery_requests: BTreeMap<String, AccountRecoveryRequestBody>,
 }
 
 /// Session-to-DID principal binding.

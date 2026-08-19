@@ -18,7 +18,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-tracing = ["dep:tracing"]
 # Convenience TLS backend passthrough: enables reqwest's rustls backend so a
 # fresh downstream gets a working https client out of the box. This crate
 # stays TLS-neutral by default (downstream services pick their own backend /
@@ -46,7 +45,6 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 thiserror = {workspace = true}
 tokio = {workspace = true,features = ["time"]}
-tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"]}
 
 [dev-dependencies]

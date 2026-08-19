@@ -133,7 +133,9 @@ pub const UUID_VERSION_PRODUCER_ALLOCATED: u8 = b'7';
 
 macro_rules! uuid_id_type {
     ($name:ident, $prefix:literal, $version:expr) => {
-        id_type!($name, |value: &str| is_strict_typed_id(value, $prefix, $version));
+        id_type!($name, |value: &str| is_strict_typed_id(
+            value, $prefix, $version
+        ));
 
         impl $name {
             /// The `ak:<kind>:` wire prefix this id-kind validates against.
@@ -170,33 +172,6 @@ macro_rules! uuid_id_type {
             /// kind's prefix. Used at the persistence read boundary.
             pub fn from_uuid(value: uuid::Uuid) -> Self {
                 Self(format!("{}{}", $prefix, value))
-            }
-        }
-
-        #[cfg(feature = "diesel")]
-        impl diesel::serialize::ToSql<diesel::sql_types::Uuid, diesel::pg::Pg> for $name {
-            fn to_sql<'b>(
-                &'b self,
-                out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
-            ) -> diesel::serialize::Result {
-                let value = self.uuid();
-                <uuid::Uuid as diesel::serialize::ToSql<
-                                                            diesel::sql_types::Uuid,
-                                                            diesel::pg::Pg,
-                                                        >>::to_sql(&value, &mut out.reborrow())
-            }
-        }
-
-        #[cfg(feature = "diesel")]
-        impl diesel::deserialize::FromSql<diesel::sql_types::Uuid, diesel::pg::Pg> for $name {
-            fn from_sql(
-                bytes: <diesel::pg::Pg as diesel::backend::Backend>::RawValue<'_>,
-            ) -> diesel::deserialize::Result<Self> {
-                let value = <uuid::Uuid as diesel::deserialize::FromSql<
-                    diesel::sql_types::Uuid,
-                    diesel::pg::Pg,
-                >>::from_sql(bytes)?;
-                Ok(Self::from_uuid(value))
             }
         }
     };

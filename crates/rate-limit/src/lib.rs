@@ -5,26 +5,6 @@ use std::hash::Hash;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-const DEFAULT_RETRY_AFTER: Duration = Duration::from_secs(60);
-
-/// Shared token-bucket mechanism configuration.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TokenBucketConfig {
-    pub burst: u32,
-    pub refill_per_second: f64,
-    pub max_entries: usize,
-}
-
-impl TokenBucketConfig {
-    pub fn new(burst: u32, refill_per_second: f64, max_entries: usize) -> Self {
-        Self {
-            burst,
-            refill_per_second,
-            max_entries: max_entries.max(1),
-        }
-    }
-}
-
 /// Shared fixed-window mechanism configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FixedWindowConfig {
@@ -48,98 +28,6 @@ impl FixedWindowConfig {
 pub struct RateLimitRejection<K> {
     pub key: K,
     pub retry_after: Duration,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct TokenBucket {
-    tokens: f64,
-    touched_at: Instant,
-}
-
-struct TokenBucketState<K> {
-    buckets: HashMap<K, TokenBucket>,
-    insertion_order: VecDeque<K>,
-}
-
-impl<K> Default for TokenBucketState<K> {
-    fn default() -> Self {
-        Self {
-            buckets: HashMap::new(),
-            insertion_order: VecDeque::new(),
-        }
-    }
-}
-
-/// In-memory token bucket with an explicit attacker-controlled key cap.
-pub struct MemoryTokenBucketRateLimiter<K> {
-    state: Mutex<TokenBucketState<K>>,
-    config: TokenBucketConfig,
-}
-
-impl<K> MemoryTokenBucketRateLimiter<K>
-where
-    K: Clone + Eq + Hash,
-{
-    pub fn new(config: TokenBucketConfig) -> Self {
-        Self {
-            state: Mutex::new(TokenBucketState::default()),
-            config,
-        }
-    }
-
-    pub fn check(&self, key: K) -> Result<(), RateLimitRejection<K>> {
-        let now = Instant::now();
-        let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
-        let state = &mut *state;
-        evict_fifo_if_full(
-            &mut state.buckets,
-            &mut state.insertion_order,
-            &key,
-            self.config.max_entries,
-        );
-        let is_new = !state.buckets.contains_key(&key);
-        if is_new {
-            state.insertion_order.push_back(key.clone());
-        }
-        let bucket = state.buckets.entry(key.clone()).or_insert(TokenBucket {
-            tokens: f64::from(self.config.burst),
-            touched_at: now,
-        });
-        let elapsed = now.duration_since(bucket.touched_at).as_secs_f64();
-        bucket.tokens = (bucket.tokens + elapsed * self.config.refill_per_second)
-            .min(f64::from(self.config.burst));
-        bucket.touched_at = now;
-        if bucket.tokens >= 1.0 {
-            bucket.tokens -= 1.0;
-            return Ok(());
-        }
-        let retry_after = if self.config.refill_per_second > 0.0 {
-            Duration::from_secs_f64(
-                ((1.0 - bucket.tokens) / self.config.refill_per_second).max(0.001),
-            )
-        } else {
-            DEFAULT_RETRY_AFTER
-        };
-        Err(RateLimitRejection { key, retry_after })
-    }
-
-    pub fn check_all<I>(&self, keys: I) -> Result<(), RateLimitRejection<K>>
-    where
-        I: IntoIterator<Item = K>,
-    {
-        for key in keys {
-            self.check(key)?;
-        }
-        Ok(())
-    }
-
-    pub fn entry_count(&self) -> usize {
-        self.state
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .buckets
-            .len()
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -279,16 +167,6 @@ fn evict_fifo_if_full<K, V>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn token_bucket_denies_and_bounds_distinct_keys() {
-        let limiter = MemoryTokenBucketRateLimiter::new(TokenBucketConfig::new(1, 0.0, 2));
-        assert!(limiter.check("a").is_ok());
-        assert!(limiter.check("a").is_err());
-        assert!(limiter.check("b").is_ok());
-        assert!(limiter.check("c").is_ok());
-        assert_eq!(limiter.entry_count(), 2);
-    }
 
     #[test]
     fn fixed_window_reports_retry_and_bounds_distinct_keys() {

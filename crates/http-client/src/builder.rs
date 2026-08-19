@@ -353,9 +353,8 @@ impl ClientBuilder {
     ///
     /// **Ignored on wasm32.** The browser fetch backend has no in-crate
     /// sleep primitive and no connect-error discrimination, so `execute()`
-    /// always sends exactly once there; a configured `RetryConfig` produces
-    /// a `tracing::warn` per request (with the `tracing` feature) instead of
-    /// retries. Layer retry above the client (e.g. via
+    /// always sends exactly once there and a configured `RetryConfig` is
+    /// ignored. Layer retry above the client (e.g. via
     /// `wasm-bindgen-futures`) when running in the browser.
     pub fn retry(mut self, retry: RetryConfig) -> Self {
         self.retry = retry;

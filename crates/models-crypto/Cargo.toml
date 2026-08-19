@@ -15,14 +15,12 @@ version.workspace = true
 default = []
 openapi = [
     "dep:salvo-oapi",
-    "arkret-models-identity/openapi",
     "arkret-wire/openapi",
     "salvo-oapi/chrono",
 ]
 
 [dependencies]
 arkret-canonical = {workspace = true}
-arkret-models-identity = {workspace = true}
 arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 hex = {workspace = true}

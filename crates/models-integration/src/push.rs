@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 #[cfg(test)]
 use crate::integration::IntegrationDependencyDescriptor;
@@ -13,16 +13,6 @@ fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
     haystack
         .iter()
         .any(|entry| entry.eq_ignore_ascii_case(needle))
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PushPriority {
-    Low,
-    Normal,
-    High,
-    Urgent,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -42,16 +32,6 @@ pub struct PushRule {
     pub conditions: Vec<PushCondition>,
     #[serde(default)]
     pub actions: Vec<String>,
-}
-
-impl PushRule {
-    pub fn delivery_priority(&self) -> PushPriority {
-        if self.actions.iter().any(|action| action == "sound_critical") {
-            PushPriority::Urgent
-        } else {
-            PushPriority::Normal
-        }
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -122,59 +102,6 @@ where
 
 fn default_push_rule_enabled() -> bool {
     true
-}
-
-pub fn wakeup_kind_for_event_kind(event_kind: &str) -> &'static str {
-    if event_kind.contains("call") {
-        "call_invite"
-    } else if event_kind.contains("mention") {
-        "mention"
-    } else if event_kind.contains("assignment") {
-        "assignment"
-    } else if event_kind.contains("scheduled_send") {
-        "scheduled_send"
-    } else if event_kind.contains("schedule") {
-        "schedule"
-    } else if event_kind.contains("reaction") {
-        "reaction"
-    } else if event_kind.contains("reminder") {
-        "reminder"
-    } else if event_kind.contains("expiry") {
-        "expiry_invalidation"
-    } else {
-        "message"
-    }
-}
-
-pub fn push_hint_for_wakeup_kind(wakeup_kind: &str) -> Option<&'static str> {
-    match wakeup_kind {
-        "message" => Some("new_message"),
-        "mention" => Some("mention_self"),
-        "call_invite" => Some("incoming_call"),
-        _ => None,
-    }
-}
-
-pub fn blind_push_body_for_wakeup_kind(wakeup_kind: &str) -> &'static str {
-    match wakeup_kind {
-        "call_invite" => "Incoming call",
-        "mention" => "New mention",
-        "message" => "New message",
-        _ => "New activity",
-    }
-}
-
-pub fn blind_payload_data_for_event_kind(event_kind: &str) -> Value {
-    let wakeup_kind = wakeup_kind_for_event_kind(event_kind);
-    let mut data = Map::new();
-    data.insert(
-        "wakeup_kind".to_owned(),
-        Value::String(wakeup_kind.to_owned()),
-    );
-    if let Some(push_hint) = push_hint_for_wakeup_kind(wakeup_kind) {
-        data.insert("push_hint".to_owned(), Value::String(push_hint.to_owned()));
-    }
-    Value::Object(data)
 }
 
 /// B.5 #6 — spec revision chime was compiled against. Used by
@@ -463,16 +390,6 @@ impl IntegrationView {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn blind_payload_data_carries_no_event_identifiers() {
-        let data = blind_payload_data_for_event_kind("ak.message.create");
-        assert_eq!(data["wakeup_kind"], "message");
-        assert_eq!(data["push_hint"], "new_message");
-        assert!(data.get("event_id").is_none());
-        assert!(data.get("realm_id").is_none());
-        assert_eq!(blind_push_body_for_wakeup_kind("message"), "New message");
-    }
 
     #[test]
     fn bridge_descriptor_helpers_match_supported_lists() {

@@ -26,8 +26,8 @@ This SDK audit checklist is intended for release review.
 
 ## Authentication And Identity
 
-- Password/OIDC/passkey/MFA helpers are state-machine helpers; deployments must
-  connect them to production verifiers.
+- Password login helpers hash with salted Argon2id; session issuance fails
+  closed on non-active account states.
 - DID documents must contain verification methods.
 - Handle claims require proof validation before attestation.
 

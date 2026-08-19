@@ -86,9 +86,9 @@ pub fn implied_features_for_profiles(
 /// Cross-check declared profiles against the compiled Cargo feature set.
 ///
 /// `compiled_features` is the set of features the caller reports as linked in
-/// (assembled via `cfg!(feature = "...")` at the call site — see
-/// [`current_core_feature_set`]). Any profile whose required surface implies a
-/// feature not present in `compiled_features` yields a [`ProfileFeatureGap`].
+/// (assembled via `cfg!(feature = "...")` at the call site). Any profile whose
+/// required surface implies a feature not present in `compiled_features`
+/// yields a [`ProfileFeatureGap`].
 ///
 /// Returns `Ok(())` when every declared profile is fully backed by code, or
 /// `Err(gaps)` listing each unmet dependency. Returns an early
@@ -122,30 +122,6 @@ pub fn verify_declared_profiles_against_features(
     } else {
         Ok(Err(gaps))
     }
-}
-
-/// The Cargo feature set compiled into the `arkret` umbrella.
-///
-/// Only `mls` is observable from this crate (see `crates/sdk/Cargo.toml`);
-/// the client-side key-backup crypto (`backup`) lives in `arkret-crypto` and is
-/// not a feature of `core`, so higher crates that can observe it should call
-/// [`verify_declared_profiles_against_features`] with an augmented feature set.
-pub fn current_core_feature_set() -> Vec<&'static str> {
-    let mut features = Vec::new();
-    if cfg!(feature = "mls") {
-        features.push(FEATURE_MLS);
-    }
-    features
-}
-
-/// Convenience wrapper: cross-check declared profiles against the features
-/// the `arkret` umbrella itself was compiled with. Higher-level crates that can also
-/// observe `backup` should call [`verify_declared_profiles_against_features`]
-/// directly with the fuller set.
-pub fn verify_declared_profiles_against_core_features(
-    declared: &[&str],
-) -> Result<Result<(), Vec<ProfileFeatureGap>>, ProfileRequirementsError> {
-    verify_declared_profiles_against_features(declared, &current_core_feature_set())
 }
 
 #[cfg(test)]

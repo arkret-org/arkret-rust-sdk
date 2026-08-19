@@ -1,89 +1,17 @@
-use super::*;
+use std::collections::BTreeMap;
+
+use serde_json::Value;
+
 use crate::registry::service_routes;
+use crate::reject_query_auth;
 
 #[test]
-fn query_auth_and_wire_negative_vectors_are_available() {
+fn query_auth_material_is_rejected() {
     let query = BTreeMap::from([("access_token".to_owned(), "secret".to_owned())]);
     assert!(reject_query_auth(&query).is_err());
 
-    let vectors = wire_negative_vectors();
-    assert!(
-        vectors
-            .iter()
-            .any(|vector| vector.name == "query_auth_rejected")
-    );
-    assert!(
-        vectors
-            .iter()
-            .any(|vector| vector.expected_error_code == "digest_mismatch")
-    );
-    assert!(
-        vectors
-            .iter()
-            .any(|vector| vector.expected_error_code == "param_missing")
-    );
-
-    let golden = protocol_golden_vectors();
-    assert!(
-        golden
-            .iter()
-            .any(|vector| vector.profile == "ak.conformance.digest.v1")
-    );
-}
-
-#[test]
-fn protocol_golden_vectors_pass_real_validators() {
-    for vector in protocol_golden_vectors() {
-        match vector.profile.as_str() {
-            "ak.conformance.cursor.v1" => {
-                let token = vector.input["cursor"]
-                    .as_str()
-                    .expect("cursor vector input");
-                arkret_wire::cursor::Cursor::decode(token)
-                    .unwrap_or_else(|err| panic!("golden cursor vector must decode: {err}"));
-            }
-            "ak.conformance.hlc.v1" => {
-                let hlc = vector.input["hlc"].as_str().expect("hlc vector input");
-                arkret_wire::Hlc::new(hlc)
-                    .unwrap_or_else(|err| panic!("golden HLC vector must validate: {err}"));
-            }
-            _ => {}
-        }
-    }
-}
-
-#[test]
-fn protocol_server_fixture_covers_core_strand_groups() {
-    let report = ProtocolServerFixture::default().run().unwrap();
-
-    for strand in [
-        ProtocolFixtureStrand::Server,
-        ProtocolFixtureStrand::Identity,
-        ProtocolFixtureStrand::Sync,
-        ProtocolFixtureStrand::Blob,
-        ProtocolFixtureStrand::Authz,
-        ProtocolFixtureStrand::Directory,
-        ProtocolFixtureStrand::Push,
-        ProtocolFixtureStrand::DeviceMessages,
-        ProtocolFixtureStrand::Keys,
-        ProtocolFixtureStrand::Policy,
-        ProtocolFixtureStrand::Media,
-        ProtocolFixtureStrand::Moderation,
-        ProtocolFixtureStrand::Applet,
-    ] {
-        assert!(report.covers(strand));
-    }
-    assert!(
-        report
-            .steps
-            .iter()
-            .any(|step| step.strand == ProtocolFixtureStrand::Blob
-                && step.operation_id == "ak.self.blob.resource.get")
-    );
-    assert!(report.steps.iter().any(|step| {
-        step.strand == ProtocolFixtureStrand::Sync
-            && step.operation_id == "ak.self.events.command.submit"
-    }));
+    let clean = BTreeMap::from([("limit".to_owned(), "10".to_owned())]);
+    assert!(reject_query_auth(&clean).is_ok());
 }
 
 #[test]
@@ -128,101 +56,4 @@ fn service_routes_match_embedded_operation_registry() {
     expected.sort_unstable();
     actual.sort_unstable();
     assert_eq!(actual, expected);
-}
-
-#[test]
-fn framework_independent_handler_shape_can_be_mocked() {
-    struct MockHandler;
-
-    impl EndpointHandler for MockHandler {
-        fn handle(&mut self, request: ServerRequestBody) -> Result<ServerOutcome> {
-            match request {
-                ServerRequestBody::ServerDescribe => {
-                    Ok(ServerOutcome::ServerDescribe(Box::new(ServiceDescribe {
-                        service_id: arkret_wire::DidCoreId::new(
-                            "ak:did_core:webvh:z6mkfixture",
-                        )
-                        .unwrap(),
-                        service_resolution: arkret_models_identity::ResolutionCommitment {
-                            full_id: arkret_wire::DidFullId::new(
-                                "did:webvh:z6mkfixture:svc.example",
-                            )
-                            .unwrap(),
-                            method_history_head: "fixture-head".to_owned(),
-                            version_id: "fixture-version".to_owned(),
-                        },
-                        trust_domain: arkret_wire::TrustDomainId::new(
-                            "ak:trust_domain:example.net",
-                        )
-                        .unwrap(),
-                        service_kind: arkret_wire::ServiceKind::PrincipalServer,
-                        protocol_version: arkret_wire::PROTOCOL_VERSION.to_owned(),
-                        supported_profiles: vec![],
-                        profile_bindings: Default::default(),
-                        supported_features: vec![],
-                        calendar_tzdb_versions: vec![],
-                        supported_operations: service_routes()
-                            .iter()
-                            .map(|route| route.operation_id.to_owned())
-                            .collect(),
-                        supported_bindings: vec![],
-                        auth_metadata: arkret_models_discovery::service_description::AuthMetadata::minimal(
-                            "development",
-                        ),
-                        limits: arkret_models_discovery::service_description::ServerLimits::default(),
-                        plaintext_visibility:
-                            arkret_models_discovery::service_description::PlaintextVisibility::none(),
-                        privacy_derivation: None,
-                        receive_policy_constraints: None,
-                        implemented_features: vec![],
-                        claimed_profiles: vec![],
-                        verified_profiles: vec![],
-                        experimental_features: vec![],
-                        interop_surfaces: vec![],
-                        development_mode: false,
-                        rate_limit_policy: Some(
-                            arkret_models_discovery::service_description::RateLimitPolicy::unspecified(),
-                        ),
-                        rate_limit_policy_id: None,
-                        egress_network_policy: Some(
-                            arkret_models_discovery::service_description::EgressNetworkPolicy::deny_private_defaults(),
-                        ),
-                        resource_kinds: vec![],
-                        discovery_profiles: vec![],
-                        restricted_query_proof: None,
-                        ingest_modes: vec![],
-                        accept_policy_kind: None,
-                        accept_policy_ref: None,
-                        default_ttl_seconds: None,
-                        max_ttl_seconds: None,
-                        revalidation_grace_seconds: None,
-                        accepted_resource_kinds: vec![],
-                        accepted_did_methods: vec![],
-                        takedown_contact: None,
-                        rate_limits: None,
-                        supported_reducer_profiles: vec![],
-                        supported_schema_profiles: vec![],
-                        frontier: Vec::new(),
-                        snapshot_frontier: Vec::new(),
-                        last_materialized_at: None,
-                        extensions: Default::default(),
-                    })))
-                }
-                _ => Err(arkret_wire::Error::Protocol(
-                    "mock endpoint not implemented".to_owned(),
-                )),
-            }
-        }
-    }
-
-    let mut handler = MockHandler;
-    let response = handler.handle(ServerRequestBody::ServerDescribe).unwrap();
-    let ServerOutcome::ServerDescribe(description) = response else {
-        panic!("unexpected response");
-    };
-    assert!(
-        description
-            .supported_operations
-            .contains(&"ak.self.account.stream.subscribe".to_owned())
-    );
 }

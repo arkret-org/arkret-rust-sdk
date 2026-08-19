@@ -1,4 +1,4 @@
-use arkret_wire::{DidCoreId, DidFullId, Hash};
+use arkret_wire::{DidCoreId, DidFullId};
 
 use super::helpers::sha256_hex;
 use super::*;
@@ -17,14 +17,6 @@ fn device(id: &str) -> DeviceId {
         acc & 0x0000_ffff_ffff_ffff
     ))
     .unwrap()
-}
-
-fn deny_password_login(ctx: &AuthRateLimitContext) -> Result<()> {
-    if ctx.action == AuthRateLimitAction::PasswordLogin {
-        Err(Error::Protocol("rate limited".to_owned()))
-    } else {
-        Ok(())
-    }
 }
 
 fn session_grant_payload(now: DateTime<Utc>, device_id: &DeviceId) -> SessionGrantPayload {
@@ -84,138 +76,6 @@ fn session_grant_notification(
         admin_actor: Some(did("admin")),
         reason: Some("logout".to_owned()),
     }
-}
-
-#[test]
-fn auth_handles_password_mfa_and_sessions() {
-    let alice = did("alice");
-    let mut auth = AuthManager::new(1);
-    auth.register_password_user("alice", "secret", alice.clone())
-        .unwrap();
-    auth.enable_mfa("alice").unwrap();
-    assert!(auth.login_password("alice", "secret", device("1")).is_err());
-
-    let mfa = auth.issue_mfa(alice.clone());
-    auth.verify_mfa(&alice, &mfa.code).unwrap();
-    let first = auth.login_password("alice", "secret", device("1")).unwrap();
-    let second = auth.login_password("alice", "secret", device("2")).unwrap();
-
-    assert_eq!(auth.active_sessions(&alice).len(), 1);
-    let binding = auth.session_principal_binding(&second.session_id).unwrap();
-    assert_eq!(binding.principal_id, alice);
-    assert!(
-        auth.refresh_session(&second.session_id, &second.renewal_credential)
-            .is_ok()
-    );
-    assert!(
-        auth.refresh_session(&first.session_id, &first.renewal_credential)
-            .is_err()
-    );
-    auth.revoke_session(&second.session_id).unwrap();
-    assert!(auth.active_sessions(&alice).is_empty());
-}
-
-#[test]
-fn auth_handles_oidc_and_passkeys() {
-    let alice = did("alice");
-    let mut auth = AuthManager::default();
-    auth.set_account_state(alice.clone(), AccountAuthState::Active);
-    let oidc = auth.start_oidc(
-        "https://issuer.example",
-        "client",
-        "https://app/cb",
-        "state",
-    );
-    assert!(oidc.authorization_url.contains("response_type=code"));
-    assert!(auth.complete_oidc(alice.clone(), device("oidc")).is_ok());
-
-    let challenge = auth.start_passkey(alice.clone());
-    let response = sha256_hex(challenge.challenge.as_bytes());
-    let session = auth
-        .verify_passkey(&alice, &response, device("passkey"))
-        .unwrap();
-    assert_eq!(session.user_id, alice);
-}
-
-#[test]
-fn auth_uses_provider_password_verifier() {
-    let alice = did("alice");
-    let mut auth = AuthManager::default();
-    auth.register_password_hash("alice", "$argon2id$hash", alice.clone())
-        .unwrap();
-
-    let verifier = |request: &PasswordVerificationRequestBody| {
-        assert_eq!(request.username, "alice");
-        assert_eq!(request.user_id, alice);
-        assert_eq!(request.password_hash, "$argon2id$hash");
-        assert_eq!(request.algorithm, PasswordHashAlgorithm::Argon2id);
-        Ok(PasswordVerification {
-            verified: request.password == "secret",
-            rehash_needed: false,
-        })
-    };
-
-    let session = auth
-        .login_password_with_verifier(
-            "alice",
-            "secret",
-            PasswordHashAlgorithm::Argon2id,
-            device("password-provider"),
-            &verifier,
-        )
-        .unwrap();
-    assert_eq!(session.user_id, did("alice"));
-
-    assert!(
-        auth.login_password_with_verifier(
-            "alice",
-            "wrong",
-            PasswordHashAlgorithm::Argon2id,
-            device("password-provider-2"),
-            &verifier,
-        )
-        .is_err()
-    );
-}
-
-#[test]
-fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
-    let alice = did("alice");
-    let mut auth = AuthManager::default();
-    auth.set_account_state(alice.clone(), AccountAuthState::Active);
-    let request = OidcVerificationRequestBody {
-        issuer_metadata: OidcIssuerMetadata {
-            issuer: "https://issuer.example".to_owned(),
-            authorization_endpoint: "https://issuer.example/authorize".to_owned(),
-            token_endpoint: "https://issuer.example/token".to_owned(),
-            jwks_uri: "https://issuer.example/jwks".to_owned(),
-        },
-        jwks: arkret_signatures::JsonWebKeySet::new(Vec::new()).unwrap(),
-        client_id: "client".to_owned(),
-        expected_nonce: Some("nonce".to_owned()),
-        credential: OidcCredential::IdToken {
-            id_token: "token".to_owned(),
-        },
-    };
-    let verifier = |request: &OidcVerificationRequestBody| {
-        assert_eq!(
-            request.issuer_metadata.jwks_uri,
-            "https://issuer.example/jwks"
-        );
-        Ok(OidcVerifiedIdentity {
-            user_id: alice.clone(),
-            issuer: request.issuer_metadata.issuer.clone(),
-            subject: "sub-123".to_owned(),
-            email: Some("alice@example.com".to_owned()),
-            email_verified: true,
-            expires_at: Some(Utc::now() + Duration::minutes(5)),
-        })
-    };
-
-    let session = auth
-        .complete_oidc_with_verifier(request, device("oidc-provider"), &verifier)
-        .unwrap();
-    assert_eq!(session.user_id, alice);
 }
 
 #[test]
@@ -282,80 +142,6 @@ fn json_web_key_set_accepts_typed_public_keys_and_rejects_ambiguous_input() {
 }
 
 #[test]
-fn auth_uses_provider_passkey_verifier() {
-    let alice = did("alice");
-    let mut auth = AuthManager::default();
-    auth.set_account_state(alice.clone(), AccountAuthState::Active);
-    let challenge = auth.start_passkey(alice.clone());
-    let response = WebAuthnPasskeyOutcome {
-        credential_id: "credential-1".to_owned(),
-        client_data_json: br#"{"type":"webauthn.get"}"#.to_vec(),
-        authenticator_data: vec![1, 2, 3],
-        signature: vec![4, 5, 6],
-        user_handle: None,
-    };
-    let verifier = |request: &PasskeyVerificationRequestBody| {
-        assert_eq!(request.challenge.challenge, challenge.challenge);
-        assert_eq!(request.origin, "https://app.example");
-        assert_eq!(request.relying_party_id, "app.example");
-        Ok(PasskeyVerification {
-            verified: true,
-            user_id: request.user_id.clone(),
-            credential_id: request.response.credential_id.clone(),
-        })
-    };
-
-    let session = auth
-        .verify_passkey_with_verifier(
-            &alice,
-            response,
-            "https://app.example",
-            "app.example",
-            device("passkey-provider"),
-            &verifier,
-        )
-        .unwrap();
-    assert_eq!(session.user_id, alice);
-}
-
-#[test]
-fn auth_models_account_recovery_methods() {
-    let mut auth = AuthManager::default();
-    let verification_method = "did:webvh:z6mkfixture:alice.example#key-1";
-    let request = auth
-        .start_recovery(
-            did("alice"),
-            AccountRecoveryMethod::DidProof {
-                verification_method: DidUrl::new(verification_method).unwrap(),
-            },
-        )
-        .unwrap();
-    assert!(request.request_id.starts_with("recovery_"));
-    assert!(request.completed_at.is_none());
-
-    // DID-proof recovery is a PUBLIC identifier, so the built-in
-    // `complete_recovery` MUST fail closed and force the caller through the
-    // signature-verifying `complete_recovery_with_did_verifier` path. The
-    // hash of the public verification method is no longer accepted as proof.
-    assert!(
-        auth.complete_recovery(
-            &request.request_id,
-            &sha256_hex(verification_method.as_bytes())
-        )
-        .is_err()
-    );
-    assert!(
-        auth.complete_recovery(&request.request_id, "wrong")
-            .is_err()
-    );
-    // The request stays open for the verifier-backed completion path.
-    assert!(
-        auth.complete_recovery(&request.request_id, "anything")
-            .is_err()
-    );
-}
-
-#[test]
 fn auth_password_hash_is_salted_argon2id() {
     let mut auth = AuthManager::default();
     let user = auth
@@ -375,54 +161,14 @@ fn auth_password_hash_is_salted_argon2id() {
 }
 
 #[test]
-fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
+fn auth_account_state_defaults_fail_closed() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
+    // Unknown accounts fail closed as suspended until registration.
     assert_eq!(auth.account_state(&alice), AccountAuthState::Suspended);
     auth.register_password_user("alice", "secret", alice.clone())
         .unwrap();
-
-    let session = auth
-        .login_password("alice", "secret", device("desktop"))
-        .unwrap();
-    auth.validate_session(
-        &session.session_id,
-        &session.session_credential,
-        &device("desktop"),
-    )
-    .unwrap();
-    assert!(
-        auth.validate_session(
-            &session.session_id,
-            &session.session_credential,
-            &device("phone")
-        )
-        .is_err()
-    );
-
-    let snapshot = auth.export_state();
-    assert_eq!(snapshot.sessions.len(), 1);
-    assert!(
-        !serde_json::to_string(&snapshot)
-            .unwrap()
-            .contains(&session.renewal_credential)
-    );
-
-    let mut restored = AuthManager::default();
-    restored.import_state(snapshot).unwrap();
-    restored
-        .validate_session(
-            &session.session_id,
-            &session.session_credential,
-            &device("desktop"),
-        )
-        .unwrap();
-    restored.set_account_state(alice, AccountAuthState::Locked);
-    assert!(
-        restored
-            .refresh_session(&session.session_id, &session.renewal_credential)
-            .is_err()
-    );
+    assert_eq!(auth.account_state(&alice), AccountAuthState::Active);
 }
 
 #[test]
@@ -764,51 +510,6 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
 }
 
 #[test]
-fn auth_uses_provider_did_proof_verifier_for_recovery() {
-    let alice = did("alice");
-    let verification_method = "did:webvh:z6mkfixturealice:alice.example#key-1";
-    let mut auth = AuthManager::default();
-    let request = auth
-        .start_recovery(
-            alice.clone(),
-            AccountRecoveryMethod::DidProof {
-                verification_method: DidUrl::new(verification_method).unwrap(),
-            },
-        )
-        .unwrap();
-    let document = DidDocument::new(
-        DidFullId::new("did:webvh:z6mkfixturealice:alice.example").unwrap(),
-        verification_method,
-        "public-key",
-    );
-    let proof = Proof {
-        kind: "did-proof".to_owned(),
-        verification_method: DidUrl::new(verification_method).unwrap(),
-        event_digest: Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
-        created_at: Utc::now(),
-        domain: Some("arkret-auth".to_owned()),
-        audience: None,
-        proof_purpose: None,
-        jws: "signed-proof".to_owned(),
-    };
-    let verifier = |request: &DidProofVerificationRequestBody| {
-        assert_eq!(request.subject, alice);
-        assert_eq!(request.public_key.as_str(), "public-key");
-        assert_eq!(request.proof.jws, "signed-proof");
-        Ok(DidProofVerification {
-            verified: true,
-            subject: request.subject.clone(),
-            verification_method: request.verification_method.clone(),
-        })
-    };
-
-    let completed = auth
-        .complete_recovery_with_did_verifier(&request.request_id, document, proof, &verifier)
-        .unwrap();
-    assert!(completed.completed_at.is_some());
-}
-
-#[test]
 fn auth_redacts_secrets_in_debug_output() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
@@ -818,25 +519,10 @@ fn auth_redacts_secrets_in_debug_output() {
     let session = auth
         .login_password("alice", "secret", device("desktop"))
         .unwrap();
-    let challenge = auth.issue_mfa(alice);
 
     assert!(!format!("{user:?}").contains(&user.password_hash));
     assert!(!format!("{session:?}").contains(&session.session_credential));
     assert!(!format!("{session:?}").contains(&session.renewal_credential));
-    assert!(!format!("{challenge:?}").contains(&challenge.code));
-}
-
-#[test]
-fn auth_rate_limit_hook_can_deny_login() {
-    let alice = did("alice");
-    let mut auth = AuthManager::default().with_rate_limit_hook(deny_password_login);
-    auth.register_password_user("alice", "secret", alice)
-        .unwrap();
-
-    let err = auth
-        .login_password("alice", "secret", device("desktop"))
-        .unwrap_err();
-    assert!(err.to_string().contains("rate limited"));
 }
 
 #[test]

@@ -212,15 +212,6 @@ impl RetryPolicy {
         self.retry_window
     }
 
-    /// The retry budget this curve carries.
-    #[must_use]
-    pub const fn budget(&self) -> RetryBudget {
-        RetryBudget {
-            max_retries: self.max_retries,
-            window: self.retry_window,
-        }
-    }
-
     /// The un-jittered delay before retry number `retry`, counted from zero:
     /// `base_delay(0)` is the wait before the first retry.
     #[must_use]
@@ -240,49 +231,6 @@ impl RetryPolicy {
     #[must_use]
     pub fn delay(&self, retry: u32, jitter: &mut Jitter) -> Duration {
         apply_jitter(self.base_delay(retry), self.jitter_ratio, jitter)
-    }
-}
-
-/// The `(max retries, window)` half of a policy, for callers that track
-/// attempts themselves.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct RetryBudget {
-    max_retries: u32,
-    window: Duration,
-}
-
-impl RetryBudget {
-    #[must_use]
-    pub const fn new(max_retries: u32, window: Duration) -> Self {
-        Self {
-            max_retries,
-            window,
-        }
-    }
-
-    /// The `api-conventions.md` §9 budget: 5 retries per 5 minutes.
-    #[must_use]
-    pub const fn arkret_default() -> Self {
-        Self::new(SPEC_MAX_RETRIES, SPEC_RETRY_WINDOW)
-    }
-
-    #[must_use]
-    pub const fn max_retries(&self) -> u32 {
-        self.max_retries
-    }
-
-    #[must_use]
-    pub const fn window(&self) -> Duration {
-        self.window
-    }
-
-    /// Whether one more automatic retry is permitted.
-    ///
-    /// `elapsed_since_first_retry` past the window restarts the count, so a
-    /// long-lived caller is throttled per window rather than forever.
-    #[must_use]
-    pub fn permits(&self, retries_in_window: u32, elapsed_since_first_retry: Duration) -> bool {
-        elapsed_since_first_retry >= self.window || retries_in_window < self.max_retries
     }
 }
 
@@ -572,15 +520,6 @@ mod tests {
     }
 
     #[test]
-    fn budget_stops_at_five_retries_inside_the_window() {
-        let budget = RetryBudget::arkret_default();
-        assert!(budget.permits(4, Duration::from_secs(10)));
-        assert!(!budget.permits(5, Duration::from_secs(10)));
-        // A new window restarts the count.
-        assert!(budget.permits(5, Duration::from_secs(300)));
-    }
-
-    #[test]
     fn schedule_reports_exhaustion_at_the_policy_retry_count() {
         let mut schedule = RetrySchedule::from_policy(RetryPolicy::arkret_default());
         for _ in 0..SPEC_MAX_RETRIES {
@@ -594,7 +533,10 @@ mod tests {
     fn no_retry_policy_never_permits_an_attempt() {
         let policy = RetryPolicy::none();
         assert_eq!(policy.max_retries(), 0);
-        assert!(!policy.budget().permits(0, Duration::ZERO));
+        let mut schedule = RetrySchedule::from_policy(policy);
+        assert!(schedule.exhausted());
+        let _ = schedule.next_delay();
+        assert!(schedule.exhausted());
     }
 
     #[test]

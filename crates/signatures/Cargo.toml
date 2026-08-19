@@ -13,10 +13,10 @@ version.workspace = true
 
 [features]
 default = []
-collaboration = ["dep:arkret-event-draft", "dep:arkret-models-collaboration", "dep:arkret-models-identity", "dep:arkret-state"]
+collaboration = ["dep:arkret-models-collaboration", "dep:arkret-models-identity", "dep:arkret-state"]
 keypackages = ["dep:arkret-models-crypto"]
 service-identity = ["dep:arkret-models-identity"]
-webvh = ["dep:arkret-models-discovery", "dep:arkret-models-identity"]
+webvh = ["dep:arkret-models-identity"]
 signer = []
 
 [dependencies]
@@ -27,13 +27,11 @@ signer = []
 base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-canonical = {workspace = true}
-arkret-event-draft = {workspace = true,optional = true}
 # Optional data crates are enabled only by the behavior that signs their
 # models. The model leaves must not be unified by a composite feature.
 arkret-models-collaboration = {workspace = true,optional = true}
 arkret-state = {workspace = true,optional = true}
 arkret-models-crypto = {workspace = true,optional = true}
-arkret-models-discovery = {workspace = true,optional = true}
 arkret-models-identity = {workspace = true,optional = true}
 arkret-wire = {workspace = true}
 ed25519-dalek = {workspace = true}

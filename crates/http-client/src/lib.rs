@@ -294,9 +294,8 @@ impl ClientRequestOptions {
 /// Retry is **not implemented on wasm32**: the browser fetch backend has no
 /// in-crate sleep primitive and no connect-error discrimination, so
 /// `execute()` collapses to a single send there and this configuration is
-/// ignored (a `tracing::warn` is emitted once per call when the `tracing`
-/// feature is enabled). Callers that need retry on wasm must layer it above
-/// the client (e.g. via `wasm-bindgen-futures`).
+/// ignored. Callers that need retry on wasm must layer it above the client
+/// (e.g. via `wasm-bindgen-futures`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RetryConfig {
     pub max_retries: usize,
