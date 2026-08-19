@@ -906,7 +906,16 @@ impl AccountOnboardingSnapshot {
                     }
                 }
             }
-            AccountHandoffBinding::Bound { .. } => {
+            AccountHandoffBinding::Bound {
+                principal_id,
+                full_id,
+            } => {
+                if project_full_id_to_core_id(full_id)?.as_str() != principal_id.as_str() {
+                    return Err(Error::Protocol(
+                        "bound account onboarding full_id does not project to principal_id"
+                            .to_owned(),
+                    ));
+                }
                 if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
                     return Err(Error::Protocol(
                         "a bound account cannot have a provisional abandonment goal".to_owned(),
@@ -2204,13 +2213,14 @@ mod account_handoff_tests {
 
     #[test]
     fn onboarding_snapshot_is_a_closed_server_goal_projection() {
+        let full_id = DidFullId::new("did:webvh:z6mkfixture:example.com").unwrap();
         let snapshot = AccountOnboardingSnapshot {
             handoff_request_id: handoff_request().request_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             observed_at: Utc::now(),
             binding: AccountHandoffBinding::Bound {
-                principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:example.com").unwrap(),
-                full_id: DidFullId::new("did:webvh:z6mkfixture:example.com").unwrap(),
+                principal_id: project_full_id_to_core_id(&full_id).unwrap(),
+                full_id,
             },
             goal: AccountOnboardingGoal::CompleteIdentity,
         };
@@ -2219,6 +2229,24 @@ mod account_handoff_tests {
         let wire = serde_json::to_value(snapshot).unwrap();
         assert_eq!(wire["goal"]["goal"], "complete_identity");
         assert!(wire["binding"]["full_id"].is_string());
+    }
+
+    #[test]
+    fn bound_onboarding_rejects_a_core_and_full_id_mismatch() {
+        let alice = DidFullId::new("did:webvh:z6mkalice:alice.example").unwrap();
+        let snapshot = AccountOnboardingSnapshot {
+            handoff_request_id: handoff_request().request_id,
+            account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            observed_at: Utc::now(),
+            binding: AccountHandoffBinding::Bound {
+                principal_id: project_full_id_to_core_id(&alice).unwrap(),
+                full_id: DidFullId::new("did:webvh:z6mkbob:bob.example").unwrap(),
+            },
+            goal: AccountOnboardingGoal::CompleteIdentity,
+        };
+
+        let error = snapshot.validate().unwrap_err();
+        assert!(error.to_string().contains("does not project"));
     }
 
     /// `account-lifecycle.md` section 8.1 says the acceptance outcome omits
