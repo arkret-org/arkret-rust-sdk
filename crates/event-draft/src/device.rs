@@ -1,6 +1,6 @@
 use arkret_identifiers::{DidCoreId, Hlc};
 use arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload;
-use arkret_wire::{Event, ScopeRef, event_spec};
+use arkret_wire::{AuthoredEvent, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
 
 use crate::{Result, TypedEventDraft};
@@ -14,7 +14,7 @@ pub fn build_device_authorize_event_at(
     hlc: Hlc,
     payload: DeviceAuthorizePayload,
     created_at: DateTime<Utc>,
-) -> Result<Event> {
+) -> Result<AuthoredEvent> {
     let event = TypedEventDraft::<event_spec::DeviceAuthorize>::new(
         scope_ref,
         actor_id,

@@ -68,14 +68,14 @@ pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
     AppletBridgeErrorBuilder, CausalRef, ContainerRebalanceAssignment, DeviceMessageSpec,
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
-    EventDraftKindValidation, EventPayloadExt, EventSpec, ExtensionPayloadValidator,
+    EventDraftKindValidation, EventIntent, EventPayloadExt, EventSpec, ExtensionPayloadValidator,
     GhostActorProfileRequest, LocalOperationDraft, LocalOperationSpec, MessageEventPayload,
     MlsEnvelopeOperationExt, OperationEnvelope, OperationEnvelopeBuilder, OperationEventConversion,
     OperationSignature, ProjectedEventOperation, ProjectionContext, RsvpAuthoring,
     RsvpResponseBranch, StrandCreateObject, TypedDeviceMessageTarget, TypedEventDraft,
-    ValidatedExtensionPayload, accountability_grant_event, container_rebalance_assignments,
-    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors, rank_between,
-    rank_exhausted,
+    ValidatedExtensionPayload, accountability_grant_intent, container_rebalance_assignments,
+    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors,
+    rank_between, rank_exhausted,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
@@ -343,6 +343,7 @@ pub use arkret_signatures::{
 };
 pub use arkret_state::mls_governance_proof::*;
 pub use arkret_state::{lattice, snapshot, state, *};
+pub use arkret_wire::authored_event::AuthoredEvent;
 pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use arkret_wire::cba::{
     LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
@@ -532,28 +533,85 @@ pub use server::reject_query_auth;
 /// `effects_payload_mismatch`. It deliberately checks the projection only, not
 /// the DataEvent-vs-Control-Move plane routing — the draft has no `seal_ref`
 /// yet, so that check belongs to the submit gate, not to authoring.
+/// A sentinel Event identity used only to prove that a projected cell does NOT
+/// depend on the Event's own id. It never reaches an envelope.
+const CELL_PROJECTION_SENTINEL: [u8; 32] = [0xEE; 32];
+
+/// The registered cells an intent will write, resolved before authoring.
+///
+/// A precondition, or a producer self-check, names a cell — and a producer has
+/// to know that cell before it signs. Most kinds address a cell keyed by an
+/// object the payload already names, so the registry resolves it with no Event
+/// identity at all. A create keys its cell by `retype(event_id)` instead, which
+/// does not exist yet: that case fails closed here rather than pinning a
+/// producer decision to a cell that authoring is about to rename.
+pub fn pre_authoring_cell_writes(
+    intent: &arkret_event_draft::EventIntent,
+) -> std::result::Result<Vec<arkret_wire::ProjectedCellWrite>, arkret_schema::EventCellContractError>
+{
+    let sentinel = arkret_wire::EventId::from_digest(
+        arkret_canonical::DigestSuite::Sha256,
+        CELL_PROJECTION_SENTINEL,
+    );
+    let input = arkret_wire::ProjectedEventInput {
+        kind: intent.kind().clone(),
+        event_id: sentinel.clone(),
+        actor_id: intent.actor_id().clone(),
+        principal_server_id: intent.principal_server_id().clone(),
+        authorization_ref: intent.authorization_ref().cloned(),
+        actor_seq: 0,
+        realm_id: intent
+            .realm_id_opt()
+            .cloned()
+            .unwrap_or_else(|| arkret_wire::RealmId::from_event_id(&sentinel)),
+        created_at: intent.created_at(),
+        payload: intent.payload().clone(),
+        refs: intent.refs().to_vec(),
+        preconditions: intent.preconditions().to_vec(),
+        seal_ref: intent.seal_ref().cloned(),
+        seal_basis: intent.seal_basis().cloned(),
+    };
+    let writes = arkret_schema::project_registered_operation_writes(
+        &input,
+        arkret_canonical::DigestSuite::Sha256,
+    )?;
+    // Registry-driven, not a substring guess: these are exactly the object ids
+    // this kind would retype from the sentinel identity, so a cell naming one is
+    // a cell that moves when the real identity is derived.
+    let derived = arkret_schema::derived_object_ids_for_kind(intent.kind().as_str(), &sentinel);
+    if writes.iter().any(|write| {
+        derived
+            .iter()
+            .any(|object_id| write.cell.as_str().contains(object_id))
+    }) {
+        return Err(arkret_schema::EventCellContractError::SubjectDerivation {
+            kind: intent.kind().as_str().to_owned(),
+            message: "the cell is keyed by this Event's own identity, which does not exist before authoring"
+                .to_owned(),
+        });
+    }
+    Ok(writes)
+}
+
 pub mod calendar {
-    use arkret_event_draft::RsvpAuthoring;
+    use arkret_event_draft::{EventIntent, RsvpAuthoring};
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
-    use arkret_schema::project_registered_cell_writes;
-    use arkret_wire::{DidCoreId, Error, Event, Hash, Hlc, Result, ScopeRef};
+    use arkret_wire::{DidCoreId, Error, Hash, Result, ScopeRef};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
     ///
     /// `causal_refs` MUST already contain every entry of
     /// `schedule_basis_refs`; the subset rule is enforced here because a
     /// producer, unlike a JSON Schema, can see both sides.
-    #[allow(clippy::too_many_arguments)]
-    pub fn build_rsvp_set_event(
+    pub fn build_rsvp_set_intent(
         authoring: RsvpAuthoring,
         calendar: &CalendarEventFields,
         schedule: &crate::CalendarScheduleProjection,
         scope_ref: ScopeRef,
         actor_id: DidCoreId,
-        actor_seq: u64,
-        hlc: Hlc,
+        created_at: chrono::DateTime<chrono::Utc>,
         causal_refs: Vec<Hash>,
-    ) -> Result<Event> {
+    ) -> Result<EventIntent> {
         let payload = authoring.into_payload(calendar, schedule)?;
         for basis in &payload.entry.schedule_basis_refs {
             if !causal_refs
@@ -566,7 +624,7 @@ pub mod calendar {
                 ));
             }
         }
-        let event = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RsvpSet>::new(
+        let intent = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RsvpSet>::new(
             scope_ref,
             actor_id.clone(),
             actor_id,
@@ -574,15 +632,16 @@ pub mod calendar {
         )
         .map_err(|error| Error::Protocol(error.to_string()))?
         .with_causal_refs(causal_refs)
-        .author_now(actor_seq, hlc)
+        .into_intent(created_at)
         .map_err(|error| Error::Protocol(error.to_string()))?;
         // No materialization step: v1 has no producer-written effect array, so
         // there is nothing for the builder to stamp. The check below is the
         // producer running the same registry projection a receiver will run,
         // which is what makes an unprojectable payload fail here instead of on
-        // the wire.
-        project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
+        // the wire. It runs on the intent because an RSVP cell is keyed by the
+        // Strand its payload names, not by the Event's own identity.
+        super::pre_authoring_cell_writes(&intent)
             .map_err(|error| Error::Protocol(format!("rsvp cell contract failed: {error}")))?;
-        Ok(event)
+        Ok(intent)
     }
 }

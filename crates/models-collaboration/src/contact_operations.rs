@@ -852,7 +852,13 @@ pub struct ContactPreparedEventDraft {
 }
 
 impl ContactPreparedEventDraft {
-    pub fn unsigned_event(&self) -> arkret_wire::Result<Event> {
+    /// Reconstruct the prepared Event and prove it carries its own identity.
+    ///
+    /// The result is an [`AuthoredEvent`]: authoring finished on the preparing
+    /// side, so the holder's only remaining job is to sign it. Nothing here may
+    /// re-derive the id — that would silently accept a draft the preparer never
+    /// committed to.
+    pub fn unsigned_event(&self) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
         let bytes =
             arkret_canonical::base64url_decode(self.unsigned_event_bytes.as_str().as_bytes())?;
         let event = Event::from_digest_payload_bytes(&bytes)?;
@@ -865,7 +871,7 @@ impl ContactPreparedEventDraft {
             ));
         }
         event.validate_for_authoring_structural()?;
-        Ok(event)
+        arkret_wire::AuthoredEvent::from_verified(event)
     }
 }
 

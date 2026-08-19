@@ -17,6 +17,7 @@ mod applet;
 mod calendar;
 mod device;
 mod device_message;
+mod event_intent;
 mod event_payload;
 mod ghost_profile;
 mod operation;
@@ -28,10 +29,10 @@ mod registry;
 pub mod test_support;
 mod typed_event_draft;
 
-pub use accountability::accountability_grant_event;
+pub use accountability::accountability_grant_intent;
 pub use agent::{
-    build_agent_deactivate_event, build_agent_key_authorize_event, build_agent_key_revoke_event,
-    build_agent_pause_event, build_agent_resume_event,
+    build_agent_deactivate_intent, build_agent_key_authorize_intent, build_agent_key_revoke_intent,
+    build_agent_pause_intent, build_agent_resume_intent,
 };
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
@@ -39,6 +40,7 @@ pub use device::build_device_authorize_event_at;
 pub use device_message::{
     DeviceMessageSpec, TypedDeviceMessageTarget, device_message_kind, device_message_spec,
 };
+pub use event_intent::EventIntent;
 pub use event_payload::{
     EVENT_KINDS_WITHOUT_RUST_PAYLOAD, EVENT_PAYLOAD_BINDINGS,
     EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT, EventPayloadBinding, EventPayloadExt, EventSpec,

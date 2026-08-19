@@ -24,10 +24,10 @@ use serde_json::Value;
 use crate::projection::direct_projection;
 use crate::self_principal::validate_self_principal_pcr_create;
 use crate::{
-    AgentProvisionEventDraftOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrCreatePayloadInput,
+    AgentProvisionIntentOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrCreatePayloadInput,
     ManagedAgentPcrGenesisAuthority, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
     REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
-    build_agent_provision_event_draft, build_managed_agent_pcr_create_payload,
+    build_agent_provision_intent, build_managed_agent_pcr_create_payload,
     build_managed_agent_pcr_event_seal, build_self_principal_bootstrap_seal,
     build_self_principal_pcr_create, build_self_principal_pcr_genesis_unit,
     materialize_managed_agent_pcr_control, validate_self_principal_pcr_genesis_unit,
@@ -127,7 +127,9 @@ fn bootstrap_unit() -> (Event, Event) {
     let input = input();
     let principal_id = input.principal_id.clone();
     let principal_full_id = input.principal_full_id.clone();
-    let mut create = build_self_principal_pcr_create(input, &registry_projection).unwrap();
+    let mut create = build_self_principal_pcr_create(input, &registry_projection)
+        .unwrap()
+        .into_event();
     attach_fixture_proof(
         &mut create,
         &DidUrl::new(
@@ -304,7 +306,9 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
 
 #[test]
 fn validation_rejects_a_non_self_realm_and_builder_rejects_indirect_inception_ref() {
-    let mut wrong_realm = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
+    let mut wrong_realm = build_self_principal_pcr_create(input(), &registry_projection)
+        .unwrap()
+        .into_event();
     wrong_realm.realm_id =
         RealmId::new("ak:realm:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
     assert!(validate_self_principal_pcr_create(&wrong_realm, false, &registry_projection).is_err());
@@ -677,7 +681,7 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     let controller_full = DidFullId::new("did:webvh:z6mkfixture:controller.example").unwrap();
     let controller = DidCoreId::new("ak:did_core:webvh:z6mkfixture:controller.example").unwrap();
     let agent = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent.example").unwrap();
-    let event = build_agent_provision_event_draft(
+    let intent = build_agent_provision_intent(
         &controller,
         &fixture_realm(1),
         &agent,
@@ -687,19 +691,22 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
         &Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
         HandleVisibility::Private,
         None,
-        AgentProvisionEventDraftOptions {
+        AgentProvisionIntentOptions {
             controller_principal_server_id: DidCoreId::new("ak:did_core:web:principal.example")
                 .unwrap(),
             created_at: "2026-07-18T01:02:03Z".parse().unwrap(),
-            actor_seq: 4,
-            hlc: Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
-            prev_refs: vec![fixture_event_id(3)],
             seal_basis: Some(SealBasis {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap()],
             }),
         },
     )
     .unwrap();
+    // The registered cells are subject-keyed, but the OR-Set dots are the
+    // Event's own, so the projection runs on the finalized envelope.
+    let event = intent
+        .with_prev_refs(vec![fixture_event_id(3)])
+        .author(4, Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap())
+        .expect("the provision intent finalizes");
 
     let payload: AgentProvisionPayload =
         serde_json::from_value(serde_json::to_value(&event.payload).unwrap()).unwrap();

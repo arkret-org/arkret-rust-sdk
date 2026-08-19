@@ -5,14 +5,14 @@ use std::marker::PhantomData;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    AppletId, AuthContext, AuthorizationRef, CriticalExtension, DidCoreId, Event, EventId,
+    AppletId, AuthContext, AuthoredEvent, AuthorizationRef, CriticalExtension, DidCoreId, EventId,
     EventKind, EventRef, EventRequirements, ExtensionManifest, FeatureRef, Hash, Hlc, Precondition,
-    ProfileRef, RealmId, RegistryContentRef, ScopeRef, SealBasis, SealId,
+    ProfileRef, RegistryContentRef, ScopeRef, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-use crate::{EventDraftError, EventSpec, Result};
+use crate::{EventDraftError, EventIntent, EventSpec, Result};
 
 /// A standard Event draft whose kind and payload type are one type-level fact.
 ///
@@ -160,9 +160,50 @@ impl<K: EventSpec> TypedEventDraft<K> {
         self
     }
 
-    /// Erase the typed payload into the canonical wire Event only after every
-    /// producer-signed envelope field has been supplied.
-    pub fn author(self, actor_seq: u64, hlc: Hlc, created_at: DateTime<Utc>) -> Result<Event> {
+    /// Erase `K` into a kind-agnostic [`EventIntent`] after proving the
+    /// marker's payload pairing.
+    ///
+    /// This is how a heterogeneous command bus or durable queue holds drafts of
+    /// many kinds without authoring first: [`EventIntent`] carries every
+    /// producer decision and no derived identity.
+    pub fn into_intent(self, created_at: DateTime<Utc>) -> Result<EventIntent> {
+        let payload = serde_json::to_value(self.payload)?;
+        let Value::Object(payload) = payload else {
+            return Err(EventDraftError::Protocol(format!(
+                "{} payload must serialize as a JSON object",
+                K::KIND_STR
+            )));
+        };
+        Ok(EventIntent::new(
+            K::KIND,
+            self.scope_ref,
+            self.actor_id,
+            self.principal_server_id,
+            created_at,
+            payload.into_iter().collect(),
+        )
+        .with_prev_refs(self.prev_refs)
+        .with_refs(self.refs)
+        .with_causal_refs(self.causal_refs)
+        .with_preconditions(self.preconditions)
+        .with_requirements(self.requirements)
+        .with_optional_seal_ref(self.seal_ref)
+        .with_optional_auth_context(self.auth_context)
+        .with_optional_seal_basis(self.seal_basis)
+        .with_optional_executed_by(self.executed_by)
+        .with_optional_authorization_ref(self.authorization_ref)
+        .with_optional_applet_id(self.applet_id)
+        .with_optional_external_ref(self.external_ref))
+    }
+
+    /// Erase the typed payload and derive the content-bound identity only after
+    /// every producer-signed envelope field has been supplied.
+    pub fn author(
+        self,
+        actor_seq: u64,
+        hlc: Hlc,
+        created_at: DateTime<Utc>,
+    ) -> Result<AuthoredEvent> {
         self.author_with_digest_suite(actor_seq, hlc, created_at, DigestSuite::Sha256)
     }
 
@@ -176,40 +217,12 @@ impl<K: EventSpec> TypedEventDraft<K> {
         hlc: Hlc,
         created_at: DateTime<Utc>,
         digest_suite: DigestSuite,
-    ) -> Result<Event> {
-        let payload = serde_json::to_value(self.payload)?;
-        let Value::Object(payload) = payload else {
-            return Err(EventDraftError::Protocol(format!(
-                "{} payload must serialize as a JSON object",
-                K::KIND_STR
-            )));
-        };
-        author_erased_event(
-            K::KIND,
-            self.scope_ref,
-            self.actor_id,
-            self.principal_server_id,
-            actor_seq,
-            hlc,
-            created_at,
-            digest_suite,
-            payload.into_iter().collect(),
-            self.prev_refs,
-            self.refs,
-            self.causal_refs,
-            self.preconditions,
-            self.seal_ref,
-            self.auth_context,
-            self.seal_basis,
-            self.requirements,
-            self.executed_by,
-            self.authorization_ref,
-            self.applet_id,
-            self.external_ref,
-        )
+    ) -> Result<AuthoredEvent> {
+        self.into_intent(created_at)?
+            .author_with_digest_suite(actor_seq, hlc, digest_suite)
     }
 
-    pub fn author_now(self, actor_seq: u64, hlc: Hlc) -> Result<Event> {
+    pub fn author_now(self, actor_seq: u64, hlc: Hlc) -> Result<AuthoredEvent> {
         self.author(actor_seq, hlc, Utc::now())
     }
 }
@@ -307,91 +320,17 @@ impl ValidatedExtensionPayload {
         actor_seq: u64,
         hlc: Hlc,
         created_at: DateTime<Utc>,
-    ) -> Result<Event> {
-        author_erased_event(
+    ) -> Result<AuthoredEvent> {
+        EventIntent::new(
             self.kind,
             scope_ref,
             actor_id,
             principal_server_id,
-            actor_seq,
-            hlc,
             created_at,
-            DigestSuite::Sha256,
             self.payload,
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            None,
-            None,
-            None,
-            EventRequirements::default(),
-            None,
-            None,
-            None,
-            None,
         )
+        .author(actor_seq, hlc)
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn author_erased_event(
-    kind: EventKind,
-    scope_ref: ScopeRef,
-    actor_id: DidCoreId,
-    principal_server_id: DidCoreId,
-    actor_seq: u64,
-    hlc: Hlc,
-    created_at: DateTime<Utc>,
-    digest_suite: DigestSuite,
-    payload: BTreeMap<String, Value>,
-    prev_refs: Vec<EventId>,
-    refs: Vec<EventRef>,
-    causal_refs: Vec<Hash>,
-    preconditions: Vec<Precondition>,
-    seal_ref: Option<SealId>,
-    auth_context: Option<AuthContext>,
-    seal_basis: Option<SealBasis>,
-    requirements: EventRequirements,
-    executed_by: Option<DidCoreId>,
-    authorization_ref: Option<AuthorizationRef>,
-    applet_id: Option<AppletId>,
-    external_ref: Option<BTreeMap<String, Value>>,
-) -> Result<Event> {
-    let placeholder = EventId::from_digest(digest_suite, [0; 32]);
-    let realm_id = scope_ref
-        .realm_id_opt()
-        .cloned()
-        .unwrap_or_else(|| RealmId::from_event_id(&placeholder));
-    let mut event = Event {
-        event_id: placeholder,
-        kind,
-        realm_id,
-        scope_ref,
-        actor_id,
-        executed_by,
-        principal_server_id,
-        authorization_ref,
-        applet_id,
-        external_ref,
-        actor_kind: None,
-        actor_seq,
-        created_at: arkret_canonical::normalize_timestamp_canonical(created_at),
-        hlc: Some(hlc),
-        prev_refs,
-        refs,
-        causal_refs,
-        preconditions,
-        seal_ref,
-        auth_context,
-        seal_basis,
-        payload,
-        unsigned: BTreeMap::new(),
-        proofs: Vec::new(),
-        requirements,
-    };
-    event.refresh_content_bound_identity_with_digest_suite(digest_suite)?;
-    Ok(event)
 }
 
 #[cfg(test)]

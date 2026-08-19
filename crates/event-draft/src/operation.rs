@@ -5,17 +5,17 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    Audience, AuthorizationRef, CriticalExtension, DeviceMessageId, DidCoreId, Event, EventId,
-    EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc, OperationId,
-    OperationKind, Precondition, ProfileRef, Proof, ProofBindingRequirements, RealmId, ScopeRef,
-    SealBasis, SealId, SignatureBindingPayload, canonical,
+    Audience, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceMessageId, DidCoreId,
+    Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc,
+    OperationId, OperationKind, Precondition, ProfileRef, Proof, ProofBindingRequirements, RealmId,
+    ScopeRef, SealBasis, SealId, SignatureBindingPayload, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::event_intent::EventIntent;
 use crate::registry::EventDraftKindRegistry;
-use crate::typed_event_draft::author_erased_event;
 use crate::{EventDraftError, EventSpec, Result, TypedDeviceMessageTarget, device_message_spec};
 
 /// Envelope facts consumed while projecting one accepted Event.
@@ -363,54 +363,46 @@ impl OperationEnvelope {
     /// Operation envelopes are not Arkret v1 wire facts. Callers must choose
     /// the event causal/auth references during conversion, then submit the
     /// returned [`Event`] to network, sync, federation or reducers.
-    pub(crate) fn into_event_envelope(self, conversion: OperationEventConversion) -> Result<Event> {
+    pub(crate) fn into_event_envelope(
+        self,
+        conversion: OperationEventConversion,
+    ) -> Result<AuthoredEvent> {
         let Value::Object(payload) = self.payload else {
             return Err(EventDraftError::Protocol(
                 "operation envelope payload must be a JSON object".to_owned(),
             ));
         };
-        let mut event = author_erased_event(
+        let mut event = EventIntent::new(
             self.kind,
             self.scope_ref,
             self.actor_id.clone(),
             self.actor_id,
-            self.causal.actor_seq,
-            self.causal.hlc,
             Utc::now(),
-            arkret_canonical::DigestSuite::Sha256,
             payload.into_iter().collect(),
-            conversion.prev_refs,
-            conversion.refs,
-            Vec::new(),
-            Vec::new(),
-            None,
-            None,
-            None,
-            EventRequirements {
-                schema_profile_refs: conversion.schema_profile_refs,
-                required_features: conversion.required_features,
-                critical_extensions: conversion.critical_extensions,
-            },
-            None,
-            None,
-            None,
-            None,
-        )?;
-        event.proofs = conversion.proofs.into_iter().map(Into::into).collect();
-        event.unsigned.insert(
-            "local_operation_idempotency_alias".to_owned(),
+        )
+        .with_prev_refs(conversion.prev_refs)
+        .with_refs(conversion.refs)
+        .with_requirements(EventRequirements {
+            schema_profile_refs: conversion.schema_profile_refs,
+            required_features: conversion.required_features,
+            critical_extensions: conversion.critical_extensions,
+        })
+        .author(self.causal.actor_seq, self.causal.hlc)?;
+        for proof in conversion.proofs {
+            event.attach_proof(proof.into());
+        }
+        event.insert_unsigned(
+            "local_operation_idempotency_alias",
             Value::String(self.operation_id.to_string()),
         );
         if !self.causal.deps.is_empty() {
-            event.unsigned.insert(
-                "local_operation_dependencies".to_owned(),
+            event.insert_unsigned(
+                "local_operation_dependencies",
                 serde_json::to_value(self.causal.deps)?,
             );
         }
         if let Some(target_ref) = self.target_ref {
-            event
-                .unsigned
-                .insert("local_target_ref".to_owned(), Value::String(target_ref));
+            event.insert_unsigned("local_target_ref", Value::String(target_ref));
         }
         Ok(event)
     }
@@ -543,7 +535,7 @@ impl<K: EventSpec> OperationEnvelopeBuilder<K> {
         self,
         registry: &EventDraftKindRegistry,
         conversion: OperationEventConversion,
-    ) -> Result<Event> {
+    ) -> Result<AuthoredEvent> {
         self.build(registry)?.into_event_envelope(conversion)
     }
 }

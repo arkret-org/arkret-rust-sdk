@@ -5,25 +5,28 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload,
 };
-use arkret_wire::{DidCoreId, DidUrl, Event, Hlc, ScopeRef, event_spec};
+use arkret_wire::{DidCoreId, DidUrl, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
 
-use crate::{EventSpec, Result, TypedEventDraft};
+use crate::{EventIntent, EventSpec, Result, TypedEventDraft};
 
-/// Build an unsigned controller-executed `ak.agent.key.authorize` Event draft.
+/// Draft a controller-executed `ak.agent.key.authorize`.
+///
+/// An [`EventIntent`], not an authored Event: the agent signing-key binding
+/// commits to this Event's `event_id`, so the caller has to author it through
+/// its submit path — with a real actor frontier and HLC — before it can bind
+/// anything to that identity.
 // Every parameter is a distinct protocol-required binding on the authorize
 // Event; collapsing them into one input struct would hide which of them the
 // caller may omit.
-#[allow(clippy::too_many_arguments)]
-pub fn build_agent_key_authorize_event(
+pub fn build_agent_key_authorize_intent(
     payload: &AgentKeyAuthorizePayload,
     scope_ref: ScopeRef,
     agent_actor_id: DidCoreId,
     controller_id: DidCoreId,
     controller_authorization_ref: DidUrl,
-    actor_seq: u64,
-    hlc: Hlc,
-) -> Result<Event> {
+    created_at: DateTime<Utc>,
+) -> Result<EventIntent> {
     TypedEventDraft::<event_spec::AgentKeyAuthorize>::new(
         scope_ref,
         agent_actor_id,
@@ -32,20 +35,18 @@ pub fn build_agent_key_authorize_event(
     )?
     .with_executed_by(controller_id)
     .with_authorization_ref(controller_authorization_ref.into())
-    .author_now(actor_seq, hlc)
+    .into_intent(created_at)
 }
 
-/// Build an unsigned controller-executed `ak.agent.key.revoke` Event draft.
-#[allow(clippy::too_many_arguments)]
-pub fn build_agent_key_revoke_event(
+/// Build the controller-executed `ak.agent.key.revoke` write.
+pub fn build_agent_key_revoke_intent(
     payload: &AgentKeyRevokePayload,
     scope_ref: ScopeRef,
     agent_actor_id: DidCoreId,
     controller_id: DidCoreId,
     controller_authorization_ref: DidUrl,
-    actor_seq: u64,
-    hlc: Hlc,
-) -> Result<Event> {
+    created_at: DateTime<Utc>,
+) -> Result<EventIntent> {
     TypedEventDraft::<event_spec::AgentKeyRevoke>::new(
         scope_ref,
         agent_actor_id,
@@ -54,7 +55,7 @@ pub fn build_agent_key_revoke_event(
     )?
     .with_executed_by(controller_id)
     .with_authorization_ref(controller_authorization_ref.into())
-    .author_now(actor_seq, hlc)
+    .into_intent(created_at)
 }
 
 struct AgentLifecycleEventInput<P> {
@@ -63,14 +64,12 @@ struct AgentLifecycleEventInput<P> {
     controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
-    actor_seq: u64,
-    hlc: Hlc,
     status_changed_at: DateTime<Utc>,
 }
 
-fn build_agent_lifecycle_event<K: EventSpec>(
+fn build_agent_lifecycle_intent<K: EventSpec>(
     input: AgentLifecycleEventInput<K::Payload>,
-) -> Result<Event> {
+) -> Result<EventIntent> {
     TypedEventDraft::<K>::new(
         input.principal_control_scope_ref,
         input.agent_id.clone(),
@@ -79,21 +78,18 @@ fn build_agent_lifecycle_event<K: EventSpec>(
     )?
     .with_executed_by(input.controller_id)
     .with_authorization_ref(input.controller_authorization_ref.into())
-    .author(input.actor_seq, input.hlc, input.status_changed_at)
+    .into_intent(input.status_changed_at)
 }
 
-/// Build an unsigned controller-executed `ak.self.agent.pause` Event draft.
-#[allow(clippy::too_many_arguments)]
-pub fn build_agent_pause_event(
+/// Build the controller-executed `ak.self.agent.pause` write.
+pub fn build_agent_pause_intent(
     agent_id: DidCoreId,
     controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     reason: Option<String>,
-    actor_seq: u64,
-    hlc: Hlc,
     status_changed_at: DateTime<Utc>,
-) -> Result<Event> {
+) -> Result<EventIntent> {
     let payload = AgentPausePayload {
         agent_id: agent_id.clone(),
         controller_id: controller_id.clone(),
@@ -102,29 +98,24 @@ pub fn build_agent_pause_event(
         status_changed_at,
         reason,
     };
-    build_agent_lifecycle_event::<event_spec::SelfAgentPause>(AgentLifecycleEventInput {
+    build_agent_lifecycle_intent::<event_spec::SelfAgentPause>(AgentLifecycleEventInput {
         payload,
         agent_id,
         controller_id,
         principal_control_scope_ref,
         controller_authorization_ref,
-        actor_seq,
-        hlc,
         status_changed_at,
     })
 }
 
-/// Build an unsigned controller-executed `ak.self.agent.resume` Event draft.
-#[allow(clippy::too_many_arguments)]
-pub fn build_agent_resume_event(
+/// Build the controller-executed `ak.self.agent.resume` write.
+pub fn build_agent_resume_intent(
     agent_id: DidCoreId,
     controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
-    actor_seq: u64,
-    hlc: Hlc,
     status_changed_at: DateTime<Utc>,
-) -> Result<Event> {
+) -> Result<EventIntent> {
     let payload = AgentResumePayload {
         agent_id: agent_id.clone(),
         controller_id: controller_id.clone(),
@@ -133,32 +124,28 @@ pub fn build_agent_resume_event(
         status_changed_at,
         reason: None,
     };
-    build_agent_lifecycle_event::<event_spec::SelfAgentResume>(AgentLifecycleEventInput {
+    build_agent_lifecycle_intent::<event_spec::SelfAgentResume>(AgentLifecycleEventInput {
         payload,
         agent_id,
         controller_id,
         principal_control_scope_ref,
         controller_authorization_ref,
-        actor_seq,
-        hlc,
         status_changed_at,
     })
 }
 
-/// Build an unsigned controller-executed `ak.self.agent.deactivate` Event
-/// draft. Deactivation may start from either active or paused and is terminal.
+/// Build the controller-executed `ak.self.agent.deactivate` write.
+/// Deactivation may start from either active or paused and is terminal.
 #[allow(clippy::too_many_arguments)]
-pub fn build_agent_deactivate_event(
+pub fn build_agent_deactivate_intent(
     agent_id: DidCoreId,
     controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     previous_status: AgentLifecycleState,
     reason: Option<String>,
-    actor_seq: u64,
-    hlc: Hlc,
     status_changed_at: DateTime<Utc>,
-) -> Result<Event> {
+) -> Result<EventIntent> {
     let previous_status = match previous_status {
         AgentLifecycleState::Active => "active",
         AgentLifecycleState::Paused => "paused",
@@ -176,14 +163,12 @@ pub fn build_agent_deactivate_event(
         status_changed_at,
         reason,
     };
-    build_agent_lifecycle_event::<event_spec::SelfAgentDeactivate>(AgentLifecycleEventInput {
+    build_agent_lifecycle_intent::<event_spec::SelfAgentDeactivate>(AgentLifecycleEventInput {
         payload,
         agent_id,
         controller_id,
         principal_control_scope_ref,
         controller_authorization_ref,
-        actor_seq,
-        hlc,
         status_changed_at,
     })
 }
@@ -197,8 +182,8 @@ mod tests {
     use arkret_schema::{or_set_dot, project_registered_cell_writes};
     use arkret_wire::cell::composite_subject;
     use arkret_wire::{
-        CellRef, EventId, EventKind, Hash, LatticeOp, LatticeOpType, ProjectedCellWrite,
-        ProjectedOp, RealmId,
+        AuthoredEvent, CellRef, Event, EventId, EventKind, Hash, Hlc, LatticeOp, LatticeOpType,
+        ProjectedCellWrite, ProjectedOp, RealmId,
     };
     use chrono::TimeZone;
     use serde_json::{Value, json};
@@ -245,6 +230,21 @@ mod tests {
 
     fn payload_object(event: &Event) -> Value {
         Value::Object(event.payload.clone().into_iter().collect())
+    }
+
+    /// Finalize an intent at a pinned chain position.
+    ///
+    /// The projections below are keyed by the Event's own dot, which exists only
+    /// after the identity is derived. Production positions the write from the
+    /// accepted actor frontier and the durable signing stamp; a unit test has
+    /// neither, so it pins both.
+    fn authored(intent: EventIntent, actor_seq: u64) -> AuthoredEvent {
+        intent
+            .author(
+                actor_seq,
+                Hlc::new(format!("01970e589d21-{actor_seq:04}-a13f9c2e")).unwrap(),
+            )
+            .expect("a test intent finalizes")
     }
 
     fn transition_write(cell: CellRef, from: Value, to: Value) -> ProjectedCellWrite {
@@ -299,16 +299,18 @@ mod tests {
         let agent_full_id = full_id("agent");
         let controller_id = did("controller");
         let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
-        let event = build_agent_key_authorize_event(
-            &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
-            scope(),
-            agent_id.clone(),
-            controller_id.clone(),
-            DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
+        let event = authored(
+            build_agent_key_authorize_intent(
+                &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
+                scope(),
+                agent_id.clone(),
+                controller_id.clone(),
+                DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
+                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
+            )
+            .unwrap(),
             7,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-        )
-        .unwrap();
+        );
 
         assert_eq!(event.kind, EventKind::AgentKeyAuthorize);
         assert_eq!(event.actor_id, agent_id);
@@ -328,16 +330,18 @@ mod tests {
         let agent_full_id = full_id("agent");
         let controller_id = did("controller");
         let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
-        let event = build_agent_key_authorize_event(
-            &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
-            scope(),
-            agent_id.clone(),
-            controller_id,
-            DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
+        let event = authored(
+            build_agent_key_authorize_intent(
+                &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
+                scope(),
+                agent_id.clone(),
+                controller_id,
+                DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
+                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
+            )
+            .unwrap(),
             7,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-        )
-        .unwrap();
+        );
 
         let cell = agent_key_cell(&agent_id, "runtime-key-1");
         let mut add = LatticeOp::empty();
@@ -367,22 +371,24 @@ mod tests {
     fn key_revoke_projects_remove_and_revocation_fact() {
         let agent_id = did("agent");
         let controller_id = did("controller");
-        let event = build_agent_key_revoke_event(
-            &AgentKeyRevokePayload {
-                agent_id: agent_id.clone(),
-                key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
-                revoked_by: controller_id.clone(),
-                revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
-                reason: Some("controller_deactivated".to_owned()),
-            },
-            scope(),
-            agent_id.clone(),
-            controller_id,
-            DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
+        let event = authored(
+            build_agent_key_revoke_intent(
+                &AgentKeyRevokePayload {
+                    agent_id: agent_id.clone(),
+                    key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
+                    revoked_by: controller_id.clone(),
+                    revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
+                    reason: Some("controller_deactivated".to_owned()),
+                },
+                scope(),
+                agent_id.clone(),
+                controller_id,
+                DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
+                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
+            )
+            .unwrap(),
             8,
-            Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
-        )
-        .unwrap();
+        );
 
         // The first write clears every active authorization dot observed in the
         // frozen pre-state. The second records the revocation payload under the
@@ -420,17 +426,18 @@ mod tests {
 
         let status_cell = agent_status_cell(&agent_id);
 
-        let pause = build_agent_pause_event(
-            agent_id.clone(),
-            controller_id.clone(),
-            scope(),
-            authorization_ref.clone(),
-            Some("user_requested".to_owned()),
+        let pause = authored(
+            build_agent_pause_intent(
+                agent_id.clone(),
+                controller_id.clone(),
+                scope(),
+                authorization_ref.clone(),
+                Some("user_requested".to_owned()),
+                changed_at,
+            )
+            .unwrap(),
             8,
-            Hlc::new("01970e589d21-0008-a13f9c2e").unwrap(),
-            changed_at,
-        )
-        .unwrap();
+        );
         assert_eq!(pause.kind, EventKind::SelfAgentPause);
         assert_eq!(
             project(&pause),
@@ -446,16 +453,17 @@ mod tests {
         // operator's reason survives as a signed payload field instead.
         assert_eq!(pause.payload["reason"], "user_requested");
 
-        let resume = build_agent_resume_event(
-            agent_id,
-            controller_id,
-            scope(),
-            authorization_ref,
+        let resume = authored(
+            build_agent_resume_intent(
+                agent_id,
+                controller_id,
+                scope(),
+                authorization_ref,
+                changed_at,
+            )
+            .unwrap(),
             9,
-            Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
-            changed_at,
-        )
-        .unwrap();
+        );
         assert_eq!(resume.kind, EventKind::SelfAgentResume);
         assert_eq!(
             project(&resume),
@@ -466,18 +474,19 @@ mod tests {
             )]
         );
 
-        let deactivate = build_agent_deactivate_event(
-            resume.actor_id.clone(),
-            resume.executed_by.clone().unwrap(),
-            scope(),
-            DidUrl::new(resume.authorization_ref.unwrap()).unwrap(),
-            AgentLifecycleState::Paused,
-            Some("user_requested".to_owned()),
+        let deactivate = authored(
+            build_agent_deactivate_intent(
+                resume.actor_id.clone(),
+                resume.executed_by.clone().unwrap(),
+                scope(),
+                DidUrl::new(resume.authorization_ref.clone().unwrap()).unwrap(),
+                AgentLifecycleState::Paused,
+                Some("user_requested".to_owned()),
+                changed_at,
+            )
+            .unwrap(),
             10,
-            Hlc::new("01970e589d21-000a-a13f9c2e").unwrap(),
-            changed_at,
-        )
-        .unwrap();
+        );
         assert_eq!(deactivate.kind, EventKind::SelfAgentDeactivate);
         assert_eq!(
             project(&deactivate),

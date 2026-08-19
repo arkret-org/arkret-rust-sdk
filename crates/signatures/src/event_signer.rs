@@ -29,7 +29,7 @@
 //! object via [`arkret_wire::Proof::canonical_binding_bytes`].
 
 use arkret_canonical::canonical;
-use arkret_wire::{Audience, DidUrl, Event, Hash, PayloadSigner, Proof, proof_kind};
+use arkret_wire::{Audience, AuthoredEvent, DidUrl, Hash, PayloadSigner, Proof, proof_kind};
 use chrono::{DateTime, Utc};
 
 use crate::{Error, Result};
@@ -68,9 +68,8 @@ impl SignEventOptions {
     }
 }
 
-/// Sign an Event Envelope in-place: compute its canonical digest,
-/// produce a detached JWS with `signer`, and append a [`Proof`] to
-/// `event.proofs`.
+/// Sign an [`AuthoredEvent`] in place: compute its canonical digest,
+/// produce a detached JWS with `signer`, and attach a [`Proof`].
 ///
 /// The signing transcript covers canonical event bytes (with
 /// `proofs` / `unsigned` removed). Because `executed_by` and
@@ -82,42 +81,29 @@ impl SignEventOptions {
 /// The produced `Proof::payload_digest` equals
 /// [`arkret_wire::Event::event_digest`].
 ///
-/// Refuses to append if `event.proofs` already contains a [`Proof`]
-/// produced by a different `verification_method` — pass a fresh
-/// envelope (or pop existing proofs) to re-sign. Calling `sign_event`
-/// again with the **same** signer is idempotent (replaces the existing
-/// proof).
-pub fn sign_event<S: PayloadSigner + ?Sized>(
-    event: &mut Event,
-    signer: &S,
-    verification_method: &DidUrl,
-    options: SignEventOptions,
-) -> Result<()> {
-    sign_event_with_digest_suite(
-        event,
-        signer,
-        verification_method,
-        arkret_canonical::DigestSuite::Sha256,
-        options,
-    )
-}
-
-/// Sign an Event Envelope with the active digest suite of its Realm.
+/// The input is an [`AuthoredEvent`], not a bare `Event`, because signing comes
+/// *after* the authoring boundary rather than being part of it: a caller that
+/// still has producer fields to write does not yet have anything to sign. This
+/// function re-proves that boundary and fails closed on a mismatch instead of
+/// quietly re-deriving `event_id`. The old silent refresh hid exactly that
+/// caller error, and let anything that had already read the pre-refresh id
+/// persist an identity no Event would ever carry.
 ///
-/// Callers authoring into a Realm whose `digest_algorithm` is not the v1
-/// default must use this entry point. The suite is an explicit input so the
-/// signer cannot infer security state from an untrusted Event payload.
-pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
-    event: &mut Event,
+/// The digest suite comes from the `AuthoredEvent`, so the proof can never be
+/// bound under a suite other than the one that produced the identity.
+///
+/// Refuses to attach if the event already carries a producer [`Proof`] from a
+/// different `verification_method` — clear the proofs to re-sign with another
+/// key. Calling `sign_event` again with the **same** signer is idempotent
+/// (replaces the existing proof).
+pub fn sign_event<S: PayloadSigner + ?Sized>(
+    event: &mut AuthoredEvent,
     signer: &S,
     verification_method: &DidUrl,
-    digest_suite: arkret_canonical::DigestSuite,
     options: SignEventOptions,
 ) -> Result<()> {
-    // Signing is the last authoring boundary. Actor-chain, HLC, CBA and other
-    // signed fields may have been attached since the Event was constructed, so
-    // refresh the content-bound identity before computing the proof digest.
-    event.refresh_content_bound_identity_with_digest_suite(digest_suite)?;
+    let digest_suite = event.digest_suite();
+    event.verify_identity()?;
 
     // Refuse to mix proofs from different signers — caller mistake.
     if let Some(existing) = event
@@ -165,15 +151,7 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
 
     // Idempotent: replace any existing proof from the same verification
     // method (e.g. a re-sign with a refreshed `created_at`).
-    if let Some(slot) = event.proofs.iter_mut().find(|proof| {
-        proof
-            .as_producer()
-            .is_some_and(|proof| &proof.verification_method == verification_method)
-    }) {
-        *slot = proof.into();
-    } else {
-        event.proofs.push(proof.into());
-    }
+    event.attach_proof(proof.into());
 
     debug_assert_eq!(
         canonical::digest(digest_suite, canonical_bytes),
@@ -187,8 +165,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        Audience, DidCoreId, DidFullId, Event, EventId, EventRequirements, Hash, Hlc,
-        PayloadSignature, PayloadSigner, RealmId, Result as WireResult, canonical,
+        Audience, AuthoredEvent, DidCoreId, DidFullId, Event, EventId, EventRequirements, Hash,
+        Hlc, PayloadSignature, PayloadSigner, RealmId, Result as WireResult, canonical,
     };
     use chrono::{DateTime, TimeZone, Utc};
     use serde_json::json;
@@ -244,6 +222,11 @@ mod tests {
         }
     }
 
+    /// `make_event` finished: the identity derived once from that content.
+    fn authored() -> AuthoredEvent {
+        AuthoredEvent::finalize(make_event()).unwrap()
+    }
+
     /// Minimal in-test signer that mimics a detached JWS over arbitrary
     /// canonical bytes. Mirrors the production
     /// `Ed25519DetachedJwsSigner` shape, but lives in-crate so the
@@ -285,7 +268,7 @@ mod tests {
 
     #[test]
     fn sign_event_attaches_one_proof_matching_digest() {
-        let mut event = make_event();
+        let mut event = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
         assert_eq!(event.proofs.len(), 1);
@@ -299,37 +282,61 @@ mod tests {
         event.validate_proof_bindings().unwrap();
     }
 
+    /// Authoring must be finished BEFORE signing, and signing must not move
+    /// the identity. The old behavior re-derived `event_id` inside
+    /// `sign_event`, which silently repaired a caller that was still writing
+    /// producer fields — and orphaned every id already read off that draft.
     #[test]
-    fn sign_event_refreshes_content_bound_identity_after_authoring_mutations() {
+    fn sign_event_does_not_move_the_authored_identity() {
         let mut event = make_event();
-        let draft_event_id = event.event_id.clone();
         event.actor_seq = 42;
         event.prev_refs = vec![EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [0x42; 32],
         )];
         event.hlc = Some(Hlc::new("01970e589d21-0042-a13f9c2e").unwrap());
+        let mut event = AuthoredEvent::finalize(event).unwrap();
+        let authored_event_id = event.event_id().clone();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
 
-        assert_ne!(event.event_id, draft_event_id);
-        event.verify_event_id_matches_content().unwrap();
+        assert_eq!(event.event_id(), &authored_event_id);
+        event.verify_identity().unwrap();
         event.validate_proof_bindings().unwrap();
     }
 
+    /// Fail closed on authored content that no longer matches its id, instead
+    /// of quietly re-deriving one that does. Only a test-support constructor
+    /// can build this input; the public ones derive or verify.
     #[test]
-    fn sign_event_with_digest_suite_uses_the_realm_suite() {
-        let mut event = make_event();
+    fn sign_event_rejects_authored_content_that_does_not_match_its_id() {
+        let mut tampered = make_event();
+        tampered.event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0xa0; 32]);
+        let mut tampered = AuthoredEvent::from_unverified_for_test(
+            tampered,
+            arkret_canonical::DigestSuite::Sha256,
+        );
+
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event_with_digest_suite(
-            &mut event,
-            &signer,
-            &vm_alice(),
+        let err = sign_event(&mut tampered, &signer, &vm_alice(), SignEventOptions::new())
+            .expect_err("signing tampered authored content must fail closed");
+        assert!(
+            format!("{err}").contains("event_id_digest_mismatch"),
+            "got: {err}"
+        );
+        assert!(tampered.proofs.is_empty(), "no proof may be attached");
+    }
+
+    #[test]
+    fn sign_event_uses_the_realm_suite_the_event_was_authored_under() {
+        let mut event = AuthoredEvent::finalize_with_digest_suite(
+            make_event(),
             arkret_canonical::DigestSuite::Blake3,
-            SignEventOptions::new(),
         )
         .unwrap();
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
+        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
         assert!(
             event.proofs[0]
                 .as_producer()
@@ -342,9 +349,10 @@ mod tests {
 
     #[test]
     fn sign_event_with_executed_by_signs_over_executed_by() {
-        let mut without = make_event();
+        let mut without = authored();
         let mut with = make_event();
         with.executed_by = Some(DidCoreId::new("ak:did_core:web:applet.example").unwrap());
+        let mut with = AuthoredEvent::finalize(with).unwrap();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
@@ -365,7 +373,7 @@ mod tests {
 
     #[test]
     fn sign_event_with_authorization_ref_signs_over_it() {
-        let mut without = make_event();
+        let mut without = authored();
         let mut with = make_event();
         with.authorization_ref = Some(
             arkret_wire::AuthorizationRef::new(
@@ -373,6 +381,7 @@ mod tests {
             )
             .unwrap(),
         );
+        let mut with = AuthoredEvent::finalize(with).unwrap();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
@@ -387,7 +396,7 @@ mod tests {
 
     #[test]
     fn sign_event_with_options_binds_domain_and_audience() {
-        let mut event = make_event();
+        let mut event = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         let opts = SignEventOptions::new()
             .with_domain("api.example")
@@ -403,7 +412,7 @@ mod tests {
 
     #[test]
     fn sign_event_normalizes_proof_timestamp_to_canonical_milliseconds() {
-        let mut event = make_event();
+        let mut event = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         let subsecond = DateTime::parse_from_rfc3339("2026-05-26T12:00:00.987654Z")
             .unwrap()
@@ -424,7 +433,7 @@ mod tests {
 
     #[test]
     fn sign_event_idempotent_against_redundant_call() {
-        let mut event = make_event();
+        let mut event = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         let pinned_at = Utc.with_ymd_and_hms(2026, 5, 26, 12, 0, 0).unwrap();
         sign_event(
@@ -450,7 +459,7 @@ mod tests {
 
     #[test]
     fn sign_event_rejects_when_proofs_already_populated_with_other_signer() {
-        let mut event = make_event();
+        let mut event = authored();
         let alice_signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(
             &mut event,
@@ -476,10 +485,11 @@ mod tests {
     /// above never exercised the reject arm of `validate_proof_bindings`.
     #[test]
     fn tampered_event_fails_proof_binding_validation() {
-        let mut event = make_event();
+        let mut authored = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
-        event.validate_proof_bindings().unwrap();
+        sign_event(&mut authored, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        authored.validate_proof_bindings().unwrap();
+        let event = authored.into_event();
 
         // Payload tamper: the recomputed canonical event digest changes, so
         // the signed proof binding no longer matches.

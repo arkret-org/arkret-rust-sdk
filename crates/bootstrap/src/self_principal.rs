@@ -51,7 +51,7 @@ pub struct SelfPrincipalPcrCreateInput {
 pub fn build_self_principal_pcr_create(
     input: SelfPrincipalPcrCreateInput,
     project: CellWriteProjector<'_>,
-) -> Result<Event> {
+) -> Result<arkret_wire::AuthoredEvent> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
     let actor_id = input.principal_id.clone();
     if project_full_id_to_core_id(&input.principal_full_id)? != input.principal_id {

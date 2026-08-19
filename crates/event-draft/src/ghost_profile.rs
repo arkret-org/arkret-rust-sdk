@@ -5,9 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_collaboration::events_payloads::ActorProfileCreatePayload;
 use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
-use arkret_wire::{
-    ActorKind, AppletId, BlobRef, DidCoreId, Event, Hlc, RealmId, SchemaId, ScopeRef,
-};
+use arkret_wire::{ActorKind, AppletId, BlobRef, DidCoreId, RealmId, SchemaId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -154,13 +152,12 @@ impl GhostActorProfileRequest {
         })?)
     }
 
-    pub fn profile_create_event(
+    pub fn profile_create_intent(
         &self,
         scope_ref: ScopeRef,
-        actor_seq: u64,
-        hlc: Hlc,
+        created_at: chrono::DateTime<chrono::Utc>,
         authorization: Option<&AppletDelegatedEventAuthorization>,
-    ) -> Result<Event> {
+    ) -> Result<crate::EventIntent> {
         let payload = ActorProfileCreatePayload {
             object: self.to_actor_profile()?,
         };
@@ -179,7 +176,7 @@ impl GhostActorProfileRequest {
                 .with_authorization_ref(authorization.authorization_ref.clone())
                 .with_applet_id(authorization.applet_id.clone());
         }
-        draft.author_now(actor_seq, hlc)
+        draft.into_intent(created_at)
     }
 }
 
@@ -212,24 +209,23 @@ mod tests {
     }
 
     #[test]
-    fn request_builds_profile_create_event() {
+    fn request_builds_profile_create_intent() {
         let request = GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id())
             .with_accountable_principal_ids(vec![principal("owner")]);
-        let event = request
-            .profile_create_event(
+        let intent = request
+            .profile_create_intent(
                 ScopeRef::Realm {
                     realm_id: RealmId::new("ak:realm:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM")
                         .unwrap(),
                 },
-                1,
-                Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+                "2026-05-26T10:30:00.000Z".parse().unwrap(),
                 None,
             )
             .unwrap();
 
-        assert_eq!(event.kind, EventKind::ProfileCreate);
+        assert_eq!(intent.kind(), &EventKind::ProfileCreate);
         assert_eq!(
-            event.payload["object"]["profile_fields"]["managed_by_applet"],
+            intent.payload()["object"]["profile_fields"]["managed_by_applet"],
             "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         );
     }

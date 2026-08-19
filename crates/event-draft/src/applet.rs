@@ -5,10 +5,11 @@ use std::collections::BTreeMap;
 use arkret_models_integration::{
     AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope, AppletIdentifier,
 };
-use arkret_wire::{DidCoreId, Event, Hlc, NonEmptyString, RealmId, ScopeRef};
+use arkret_wire::{DidCoreId, NonEmptyString, RealmId, ScopeRef};
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-use crate::{EventDraftError, Result, TypedEventDraft};
+use crate::{EventDraftError, EventIntent, Result, TypedEventDraft};
 
 /// Draft builder for the canonical `ak.applet.bridge_error` Event payload.
 #[derive(Clone, Debug)]
@@ -68,7 +69,7 @@ impl AppletBridgeErrorBuilder {
         self
     }
 
-    pub fn build(self, actor_seq: u64, hlc: Hlc) -> Result<Event> {
+    pub fn build(self, created_at: DateTime<Utc>) -> Result<EventIntent> {
         let external_ref = self
             .external_ref
             .map(|value| match value {
@@ -99,7 +100,7 @@ impl AppletBridgeErrorBuilder {
             self.actor_id,
             payload,
         )?
-        .author_now(actor_seq, hlc)
+        .into_intent(created_at)
     }
 }
 
@@ -131,15 +132,15 @@ mod tests {
         .with_message("external network rejected the message")
         .with_external_ref(json!({"slack_response_code": 429}))
         .with_retry_after_ms(1000)
-        .build(1, Hlc::new("01970e589d21-0004-a13f9c2e").unwrap())
+        .build("2026-05-26T10:30:00.000Z".parse().unwrap())
         .unwrap();
 
-        assert_eq!(event.kind, EventKind::AppletBridgeError);
-        assert_eq!(event.payload["realm_id"], realm().as_str());
-        assert_eq!(event.payload["error_class"], "external_network");
-        assert_eq!(event.payload["visibility_scope"], "realm_admins");
-        assert_eq!(event.payload["retry_after_ms"], 1000);
-        assert_eq!(event.payload["external_ref"]["slack_response_code"], 429);
+        assert_eq!(event.kind(), &EventKind::AppletBridgeError);
+        assert_eq!(event.payload()["realm_id"], realm().as_str());
+        assert_eq!(event.payload()["error_class"], "external_network");
+        assert_eq!(event.payload()["visibility_scope"], "realm_admins");
+        assert_eq!(event.payload()["retry_after_ms"], 1000);
+        assert_eq!(event.payload()["external_ref"]["slack_response_code"], 429);
     }
 
     #[test]
@@ -157,7 +158,7 @@ mod tests {
             AppletBridgeVisibilityScope::AppletController,
         )
         .with_external_ref(json!(["not", "an", "object"]))
-        .build(1, Hlc::new("01970e589d21-0004-a13f9c2e").unwrap());
+        .build("2026-05-26T10:30:00.000Z".parse().unwrap());
 
         assert!(matches!(result, Err(EventDraftError::Protocol(_))));
     }

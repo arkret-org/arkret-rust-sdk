@@ -3,7 +3,7 @@
 //! RSVP that never reaches its CBA cell, and a basis the envelope does not
 //! causally carry.
 
-use arkret::calendar::build_rsvp_set_event;
+use arkret::calendar::build_rsvp_set_intent;
 use arkret::{
     CalendarEventFields, CalendarStatus, RsvpAuthoring, RsvpResponse, RsvpResponseBranch,
     RsvpStatus,
@@ -52,9 +52,12 @@ fn schedule(basis: Vec<Hash>) -> arkret::CalendarScheduleProjection {
     )
 }
 
-fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret_wire::Event> {
+fn build(
+    basis: Vec<Hash>,
+    causal_refs: Vec<Hash>,
+) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
     let projection = schedule(basis.clone());
-    build_rsvp_set_event(
+    build_rsvp_set_intent(
         authoring(basis),
         &calendar(),
         &projection,
@@ -66,17 +69,18 @@ fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret
         },
         project_full_id_to_core_id(&DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap())
             .unwrap(),
-        1,
-        Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
+        "2026-05-26T10:30:00.000Z".parse().unwrap(),
         causal_refs,
-    )
+    )?
+    .author(1, Hlc::new("01970e589d21-0000-a13f9c2e").unwrap())
+    .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
 }
 
 #[test]
 fn authored_rsvp_projects_onto_the_registered_cell() {
     let basis = Hash::new(BASIS_A).unwrap();
     let event = build(vec![basis.clone()], vec![basis]).unwrap();
-    event.verify_event_id_matches_content().unwrap();
+    event.verify_identity().unwrap();
 
     // The Event states no writes; they are derived from kind + payload through
     // the registry, so this asserts the projection a receiver computes rather

@@ -16,7 +16,7 @@ mod self_principal_seal;
 #[cfg(test)]
 mod tests;
 
-pub use agent_provision::{AgentProvisionEventDraftOptions, build_agent_provision_event_draft};
+pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_intent};
 pub use managed_agent::{
     ManagedAgentPcrControlMaterial, ManagedAgentPcrCreatePayloadInput,
     ManagedAgentPcrGenesisAuthority, build_managed_agent_pcr_create_payload,

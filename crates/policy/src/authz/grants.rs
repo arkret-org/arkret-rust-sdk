@@ -1466,7 +1466,10 @@ impl CapabilityGrantBuilder {
     /// Validates the grant against the spec wire contract first (schema
     /// constant, non-empty actions / resources, parseable
     /// selectors / constraints) so a violating grant can never be encoded.
-    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
+    pub fn build(
+        self,
+        created_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<arkret_event_draft::EventIntent> {
         if self.grant.issuer != self.actor_id {
             return Err(Error::Protocol(format!(
                 "CapabilityGrantBuilder: grant.issuer '{}' does not match actor_id '{}'",
@@ -1500,7 +1503,7 @@ impl CapabilityGrantBuilder {
             payload,
         )
         .map_err(|error| Error::Protocol(error.to_string()))?
-        .author_now(actor_seq, hlc)
+        .into_intent(created_at)
         .map_err(|error| Error::Protocol(error.to_string()))
     }
 }
@@ -1508,13 +1511,12 @@ impl CapabilityGrantBuilder {
 /// Build an unsigned subject-only `ak.capability.relinquish` Event. This path
 /// intentionally carries no `authorization_ref`: the reducer authorizes it by
 /// matching the Event signer to the target grant subject.
-pub fn build_capability_relinquish_event(
+pub fn build_capability_relinquish_intent(
     scope_ref: arkret_wire::ScopeRef,
     subject: DidCoreId,
-    actor_seq: u64,
-    hlc: crate::Hlc,
+    created_at: chrono::DateTime<chrono::Utc>,
     payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
-) -> Result<crate::Event> {
+) -> Result<arkret_event_draft::EventIntent> {
     arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityRelinquish>::new(
         scope_ref,
         subject.clone(),
@@ -1522,7 +1524,7 @@ pub fn build_capability_relinquish_event(
         payload,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
-    .author_now(actor_seq, hlc)
+    .into_intent(created_at)
     .map_err(|error| Error::Protocol(error.to_string()))
 }
 
@@ -1562,6 +1564,23 @@ mod capability_grant_builder_tests {
         crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
     }
 
+    fn created_at() -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::parse_from_rfc3339("2026-05-26T10:30:00.000Z")
+            .expect("a canonical test timestamp")
+            .with_timezone(&chrono::Utc)
+    }
+
+    /// Finalize a built grant at a pinned chain position.
+    ///
+    /// The grant's own wire form only exists once the identity is derived from
+    /// it; production positions the write from the accepted actor frontier and
+    /// the durable signing stamp, which a unit test has neither of.
+    fn authored(intent: arkret_event_draft::EventIntent) -> arkret_wire::AuthoredEvent {
+        intent
+            .author(1, crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap())
+            .expect("a test grant intent finalizes")
+    }
+
     fn base_grant() -> arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
         arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu").unwrap(),
@@ -1595,9 +1614,11 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_grant_builder_emits_spec_wire_form() {
-        let event = CapabilityGrantBuilder::new(scope(), alice(), base_grant())
-            .build(1, hlc())
-            .unwrap();
+        let event = authored(
+            CapabilityGrantBuilder::new(scope(), alice(), base_grant())
+                .build(created_at())
+                .unwrap(),
+        );
         assert_eq!(event.kind, arkret_wire::EventKind::CapabilityGrant);
         // Genesis carries only the grant create body; its GrantId is derived
         // from the accepted EventId by the reducer.
@@ -1644,7 +1665,7 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_grant_builder_rejects_issuer_actor_mismatch() {
         let err = CapabilityGrantBuilder::new(scope(), bob(), base_grant())
-            .build(1, hlc())
+            .build(created_at())
             .expect_err("issuer / actor mismatch must be rejected");
         assert!(format!("{err}").contains("does not match"));
     }
@@ -1665,7 +1686,7 @@ mod capability_grant_builder_tests {
         let mut grant = base_grant();
         grant.issuer_authority_refs.clear();
         let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
-            .build(1, hlc())
+            .build(created_at())
             .expect_err("an authority-less grant must be rejected");
         assert!(format!("{err}").contains("requires issuer_authority_refs"));
     }
@@ -1689,7 +1710,7 @@ mod capability_grant_builder_tests {
         let mut grant = base_grant();
         grant.schema = "ak.schema.capability.unregistered.v1".to_owned();
         let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
-            .build(1, hlc())
+            .build(created_at())
             .expect_err("wrong schema constant must be rejected");
         assert!(format!("{err}").contains("schema_violation"));
     }
@@ -1699,7 +1720,7 @@ mod capability_grant_builder_tests {
         let mut grant = base_grant();
         grant.actions = vec!["ak.realm.admin".to_owned()];
         let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
-            .build(1, hlc())
+            .build(created_at())
             .expect_err("aggregate admin without registry basis must fail closed");
         assert!(format!("{err}").contains("capability_registry_basis_unavailable"));
     }
@@ -1709,10 +1730,12 @@ mod capability_grant_builder_tests {
         let digest = current_capability_action_registry_digest().unwrap();
         let mut grant = base_grant();
         grant.actions = vec!["ak.realm.admin".to_owned()];
-        let event = CapabilityGrantBuilder::new(scope(), alice(), grant)
-            .with_capability_action_registry_digest(digest.clone())
-            .build(1, hlc())
-            .unwrap();
+        let event = authored(
+            CapabilityGrantBuilder::new(scope(), alice(), grant)
+                .with_capability_action_registry_digest(digest.clone())
+                .build(created_at())
+                .unwrap(),
+        );
         assert_eq!(
             event.payload["grant"]["capability_action_registry_digest"],
             digest.as_str()
@@ -1726,17 +1749,19 @@ mod capability_grant_builder_tests {
         grant.capability_action_registry_digest =
             Some(Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap());
         let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
-            .build(1, hlc())
+            .build(created_at())
             .expect_err("unknown registry basis must fail closed");
         assert!(format!("{err}").contains("capability_registry_basis_unavailable"));
     }
 
     #[test]
     fn capability_grant_builder_encodes_authority_control_constraint() {
-        let event = CapabilityGrantBuilder::new(scope(), alice(), base_grant())
-            .with_authority_control(2, true)
-            .build(1, hlc())
-            .unwrap();
+        let event = authored(
+            CapabilityGrantBuilder::new(scope(), alice(), base_grant())
+                .with_authority_control(2, true)
+                .build(created_at())
+                .unwrap(),
+        );
         let constraints = event.payload["grant"]["constraints"].as_array().unwrap();
         assert_eq!(constraints.len(), 1);
         assert_eq!(constraints[0]["constraint_kind"], "authority_control");
@@ -1751,10 +1776,12 @@ mod capability_grant_builder_tests {
             DidCoreId::new("ak:did_core:web:calendar.example").unwrap(),
             Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
         ));
-        let event = CapabilityGrantBuilder::new(scope(), alice(), grant)
-            .with_authority_control(2, true)
-            .build(1, hlc())
-            .unwrap();
+        let event = authored(
+            CapabilityGrantBuilder::new(scope(), alice(), grant)
+                .with_authority_control(2, true)
+                .build(created_at())
+                .unwrap(),
+        );
         let constraints = event.payload["grant"]["constraints"].as_array().unwrap();
         assert_eq!(constraints.len(), 2);
         assert!(constraints.iter().any(|constraint| {
@@ -2107,10 +2134,11 @@ mod capability_grant_builder_tests {
                 .unwrap(),
             reason: Some("no longer needed".to_owned()),
         };
-        let event =
-            build_capability_relinquish_event(scope(), bob_principal(), 7, hlc(), payload).unwrap();
-        assert_eq!(event.kind, arkret_wire::EventKind::CapabilityRelinquish);
-        assert!(event.authorization_ref.is_none());
-        assert_eq!(event.actor_id, bob());
+        let intent =
+            build_capability_relinquish_intent(scope(), bob_principal(), created_at(), payload)
+                .unwrap();
+        assert_eq!(intent.kind(), &arkret_wire::EventKind::CapabilityRelinquish);
+        assert!(intent.authorization_ref().is_none());
+        assert_eq!(intent.actor_id(), &bob());
     }
 }

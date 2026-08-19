@@ -45,12 +45,12 @@ fn typed_authoring_matches_the_raw_canonical_chain_byte_for_byte() {
     )
     .unwrap();
 
-    assert_eq!(typed, raw);
+    assert_eq!(typed.event(), &raw);
     assert_eq!(
         canonical_json_bytes(&typed).unwrap(),
         canonical_json_bytes(&raw).unwrap()
     );
-    assert_eq!(typed.event_id, typed.derive_event_id().unwrap());
+    typed.verify_identity().unwrap();
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn typed_authoring_materializes_prev_refs_and_seal_basis() {
 
     assert_eq!(event.prev_refs, vec![prev]);
     assert_eq!(event.seal_basis, Some(basis));
-    assert_eq!(event.event_id, event.derive_event_id().unwrap());
+    event.verify_identity().unwrap();
 }
 
 /// A marker cannot be paired with another marker's payload type.

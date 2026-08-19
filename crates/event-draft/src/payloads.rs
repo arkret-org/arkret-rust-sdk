@@ -94,6 +94,18 @@ impl StrandCreateObject {
         self
     }
 
+    pub fn with_metadata_summary(mut self, summary: impl Into<String>) -> Self {
+        self.metadata
+            .get_or_insert_with(StrandMetadata::default)
+            .summary = Some(summary.into());
+        self
+    }
+
+    pub fn with_scope_circle_id(mut self, circle_id: CircleId) -> Self {
+        self.scope_circle_id = Some(circle_id);
+        self
+    }
+
     pub fn with_track(mut self, name: impl Into<String>, track: StrandTrack) -> Self {
         self.tracks.insert(name.into(), track);
         self
