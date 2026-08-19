@@ -261,7 +261,7 @@ impl EventBatchReceipt {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != crate::SchemaId::EVENT_BATCH_RECEIPT_V1 {
+        if self.schema != SchemaId::EVENT_BATCH_RECEIPT_V1 {
             return Err(Error::Protocol(
                 "event batch receipt schema must be ak.schema.event_batch_receipt.v1".to_owned(),
             ));

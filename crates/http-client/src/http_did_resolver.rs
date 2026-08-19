@@ -127,9 +127,14 @@ impl<T: Clone> SingleFlight<T> {
 }
 
 /// Reqwest-backed DID resolver covering `did:web` and `did:webvh`.
+///
+/// Every fetch goes through the shared egress lock: the target URL is judged
+/// before DNS, every resolved address is judged, and the validated answer set
+/// is pinned into the per-target client so DNS cannot rebind between the
+/// check and the connect. There is deliberately no way to build this resolver
+/// without an [`OutboundPolicy`].
 pub struct HttpDidResolver {
-    http: HttpClient,
-    egress_policy: Option<OutboundPolicy>,
+    egress_policy: OutboundPolicy,
     policy: ResolverPolicy,
     cache: Mutex<BTreeMap<DidFullId, CacheEntry>>,
     max_cache_entries: usize,
@@ -181,41 +186,22 @@ impl HttpDidResolver {
         policy: ResolverPolicy,
         egress_policy: OutboundPolicy,
     ) -> Result<Self> {
-        let http = HttpClient::builder()
-            .timeout(Duration::from_millis(DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .map_err(|err| Error::Protocol(format!("failed to build reqwest client: {err}")))?;
-        Self::build(
-            http,
-            policy,
-            DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES,
-            Some(egress_policy),
-        )
-    }
-
-    /// Build a resolver from a pre-configured [`reqwest::Client`].
-    ///
-    /// The caller owns the transport policy for an injected client. Production
-    /// callers should prefer [`Self::with_policy_and_egress`].
-    pub fn with_client(http: HttpClient, policy: ResolverPolicy) -> Result<Self> {
-        Self::with_client_and_cache_limit(http, policy, DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES)
+        Self::build(policy, DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES, egress_policy)
     }
 
     /// Build a resolver with an explicit in-memory cache bound.
-    pub fn with_client_and_cache_limit(
-        http: HttpClient,
+    pub fn with_cache_limit(
         policy: ResolverPolicy,
+        egress_policy: OutboundPolicy,
         max_cache_entries: usize,
     ) -> Result<Self> {
-        Self::build(http, policy, max_cache_entries, None)
+        Self::build(policy, max_cache_entries, egress_policy)
     }
 
     fn build(
-        http: HttpClient,
         policy: ResolverPolicy,
         max_cache_entries: usize,
-        egress_policy: Option<OutboundPolicy>,
+        egress_policy: OutboundPolicy,
     ) -> Result<Self> {
         if max_cache_entries == 0 {
             return Err(Error::Protocol(
@@ -228,7 +214,6 @@ impl HttpDidResolver {
             ))
         })?;
         Ok(Self {
-            http,
             egress_policy,
             policy,
             cache: Mutex::new(BTreeMap::new()),
@@ -240,10 +225,7 @@ impl HttpDidResolver {
     }
 
     async fn client_for_url(&self, url: &str) -> Result<HttpClient> {
-        let Some(policy) = self.egress_policy else {
-            return Ok(self.http.clone());
-        };
-        let target = EgressGuard::new(policy)
+        let target = EgressGuard::new(self.egress_policy)
             .lock_str_async(url, "did fetch")
             .await
             .map_err(|error| Error::Protocol(error.to_string()))?;
@@ -687,9 +669,9 @@ mod tests {
 
     #[tokio::test]
     async fn resolver_cache_is_bounded_and_removes_expired_entries() {
-        let resolver = HttpDidResolver::with_client_and_cache_limit(
-            HttpClient::new(),
+        let resolver = HttpDidResolver::with_cache_limit(
             ResolverPolicy::default(),
+            OutboundPolicy::public_https(),
             2,
         )
         .unwrap();
@@ -833,5 +815,27 @@ mod tests {
         let resolver = HttpDidResolver::new().unwrap();
         let did = DidFullId::new("did:web:nonexistent.invalid").unwrap();
         assert!(resolver.resolve_did(&did).is_err());
+    }
+
+    // Caller-closure gate: every network fetch must pass through the shared
+    // egress lock. `fetch_bytes` is the single dispatch point and its first
+    // step is the address-pinning `client_for_url`; a future "derive a URL,
+    // then reqwest it directly" path fails here instead of reopening the
+    // SSRF gap that the derivation-layer decoupling moved to this layer.
+    #[test]
+    fn every_fetch_dispatches_through_the_pinned_egress_client() {
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/http_did_resolver.rs");
+        let text = std::fs::read_to_string(&path).expect("http_did_resolver.rs source");
+        let production = text.split("\n#[cfg(test)]").next().unwrap_or(&text);
+        let sends = production
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//") && line.contains(".send()"))
+            .count();
+        assert_eq!(sends, 1, "fetch_bytes must remain the only dispatch point");
+        assert!(
+            production.contains("let client = self.client_for_url(url).await?;"),
+            "fetch_bytes must pin the locked egress target before dispatch"
+        );
     }
 }

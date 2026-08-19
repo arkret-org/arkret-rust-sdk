@@ -291,7 +291,7 @@ pub struct ResolvedService {
     pub supported_operations: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub resolved_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -775,5 +775,23 @@ mod tests {
             .validate()
             .is_err()
         );
+    }
+
+    #[test]
+    fn resolved_service_omitted_expires_at_round_trip() {
+        let service = super::ResolvedService {
+            service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:auth.example").unwrap(),
+            service_kind: ServiceKind::AuthServer,
+            endpoint: CanonicalServiceUrl::new("https://auth.example/").unwrap(),
+            supported_operations: vec!["ak.self.account.register".to_owned()],
+            resolved_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
+            expires_at: None,
+        };
+
+        let serialized = serde_json::to_value(&service).unwrap();
+        assert!(!serialized.as_object().unwrap().contains_key("expires_at"));
+
+        let restored: super::ResolvedService = serde_json::from_value(serialized).unwrap();
+        assert_eq!(restored, service);
     }
 }

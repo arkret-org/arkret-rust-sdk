@@ -1929,7 +1929,7 @@ impl RecoveryPolicy {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != arkret_wire::SchemaId::RECOVERY_POLICY_V1 {
+        if self.schema != SchemaId::RECOVERY_POLICY_V1 {
             return Err(Error::Protocol(
                 "recovery policy schema must be ak.schema.recovery_policy.v1".to_owned(),
             ));
@@ -2947,7 +2947,7 @@ impl RecoveryReceipt {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != arkret_wire::SchemaId::RECOVERY_RECEIPT_V1 {
+        if self.schema != SchemaId::RECOVERY_RECEIPT_V1 {
             return Err(Error::Protocol(
                 "recovery receipt schema must be ak.schema.recovery_receipt.v1".to_owned(),
             ));

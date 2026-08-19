@@ -93,10 +93,10 @@ impl Resource {
 pub enum Constraint {
     /// Temporal constraint
     Temporal {
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
         not_before: Option<DateTime<Utc>>,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
         expires_at: Option<DateTime<Utc>>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -728,16 +728,16 @@ pub struct VerifiedClaim {
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub roles: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub issued_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub refreshed_at: Option<DateTime<Utc>>,
 }
@@ -941,5 +941,70 @@ mod constraint_parse_error_tests {
             ConstraintParseError::OutsideRecurrenceDays(Weekday::Wed)
         ));
         assert_eq!(err.to_string(), "outside recurrence days: Wed");
+    }
+}
+
+#[cfg(test)]
+mod optional_timestamp_serde_tests {
+    use super::*;
+
+    #[test]
+    fn verified_claim_omitted_optional_timestamps_round_trip() {
+        let claim = VerifiedClaim {
+            claim_id: Some("claim-1".to_owned()),
+            subject: DidCoreId::new("ak:did_core:webvh:z6mkfixture:bob.example").unwrap(),
+            claim_kind: "verified_handle".to_owned(),
+            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixture:issuer.example").unwrap(),
+            organization: None,
+            status: None,
+            roles: Vec::new(),
+            issued_at: None,
+            expires_at: None,
+            revoked_at: None,
+            refreshed_at: None,
+        };
+
+        let serialized = serde_json::to_value(&claim).unwrap();
+        let object = serialized.as_object().unwrap();
+        for key in ["issued_at", "expires_at", "revoked_at", "refreshed_at"] {
+            assert!(!object.contains_key(key), "serialized claim omits {key}");
+        }
+
+        let restored: VerifiedClaim = serde_json::from_value(serialized).unwrap();
+        assert!(restored.issued_at.is_none());
+        assert!(restored.expires_at.is_none());
+        assert!(restored.revoked_at.is_none());
+        assert!(restored.refreshed_at.is_none());
+        assert_eq!(restored.claim_id, claim.claim_id);
+    }
+
+    #[test]
+    fn temporal_constraint_omitted_optional_timestamps_round_trip() {
+        let constraint = Constraint::Temporal {
+            not_before: None,
+            expires_at: None,
+            recurrence: None,
+        };
+
+        let serialized = serde_json::to_value(&constraint).unwrap();
+        let variant = serialized
+            .as_object()
+            .and_then(|object| object.get("temporal"))
+            .and_then(serde_json::Value::as_object)
+            .unwrap();
+        assert!(!variant.contains_key("not_before"));
+        assert!(!variant.contains_key("expires_at"));
+
+        let restored: Constraint = serde_json::from_value(serialized).unwrap();
+        let Constraint::Temporal {
+            not_before,
+            expires_at,
+            ..
+        } = restored
+        else {
+            panic!("temporal constraint variant must survive the round trip")
+        };
+        assert!(not_before.is_none());
+        assert!(expires_at.is_none());
     }
 }

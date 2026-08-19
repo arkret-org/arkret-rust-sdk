@@ -403,7 +403,7 @@ pub fn validate_key_backup_active_series_transition(
 pub fn validate_key_backup_active_series_record(
     record: &KeyBackupActiveSeries,
 ) -> std::result::Result<(), KeyBackupActiveSeriesTransitionError> {
-    if record.schema != arkret_wire::SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1
+    if record.schema != SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1
         || record
             .extra
             .keys()

@@ -27,6 +27,10 @@ jobs:
         run: python tools/check-layering.py
       - name: Guard protocol time representations
         run: python tools/lint-time-representations.py
+      - name: Guard optional canonical timestamp defaults
+        run: |
+          python tools/test_lint_optional_timestamp_defaults.py
+          python tools/lint-optional-timestamp-defaults.py
       - name: Guard registered cell-family constants
         run: python tools/lint-cell-family-literals.py
       - name: Guard hand-rolled Event digest preimages
@@ -76,6 +80,49 @@ jobs:
       # arkret-wire / arkret-identifiers only add `ToSchema` derives for service
       # crates to assemble downstream, and `cargo check --all-features` above
       # already compiles them.
+
+  downstream-matrix-gate:
+    name: downstream compile matrix gate
+    runs-on: ubuntu-latest
+    # Public-surface changes under crates/wire or crates/models-* can break
+    # downstream repositories that this repo's own `cargo check` never compiles
+    # (indirect consumers reached through `arkret` re-exports). A cross-repo
+    # compile job was evaluated and rejected (see CONTRIBUTING.md), so this
+    # gate instead requires an explicit assertion: the PR body must contain
+    # `compile-matrix: green` — added by the author after running
+    # arkret-work/tools/check-workspace-compiles.ps1 — or
+    # `compile-matrix: n/a` with a reason.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require matrix assertion on wire/models public surface changes
+        shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" \
+            | grep -E '^crates/(wire|models-[^/]+)/src/.+\.rs$' || true)
+          if [ -z "$changed" ]; then
+            echo "no crates/wire or crates/models-* source changes; gate not triggered"
+            exit 0
+          fi
+          echo "wire/models source files changed:"
+          echo "$changed"
+          if printf '%s' "$PR_BODY" | grep -qE 'compile-matrix:[[:space:]]*(green|n/a)'; then
+            echo "compile matrix assertion present in PR body"
+            exit 0
+          fi
+          echo "::error::This PR changes the wire/models public surface. Single-repo"
+          echo "::error::\`cargo check\` cannot see indirect downstream consumers — run the"
+          echo "::error::workspace compile matrix first:"
+          echo "::error::  powershell -File arkret-work/tools/check-workspace-compiles.ps1"
+          echo "::error::Then add 'compile-matrix: green' to the PR body (or"
+          echo "::error::'compile-matrix: n/a — <reason>' if the change cannot affect"
+          echo "::error::downstream compilation)."
+          exit 1
 
   wasm:
     name: wasm32 checks

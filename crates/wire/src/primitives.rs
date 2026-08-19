@@ -951,6 +951,9 @@ pub type Proof = ProducerEventProof;
 pub enum PayloadProofPurpose {
     IssuerAttestation,
     HolderAcceptance,
+    /// `discovery-directory.md` §8.7.1 write-surface authorization by the
+    /// resource governance key (`DirectoryGovernanceProof`).
+    GovernanceAuthorization,
 }
 
 /// Fully typed proof metadata before a detached JWS exists.

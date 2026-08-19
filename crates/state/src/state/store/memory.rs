@@ -18,8 +18,9 @@ use serde_json::{Value, json};
 
 use super::{
     BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
-    ControlProposalSnapshot, PendingControlEventRecord, SealStore, SealedControlEventRecord,
-    StoreError, StoreResult, control_event_digest,
+    ControlProposalIngress, ControlProposalIngressClass, ControlProposalSnapshot,
+    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
+    control_event_digest,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{
@@ -42,17 +43,20 @@ struct MemoryControlEventStoreInner {
     /// Insertion order so list_pending is deterministic.
     insertion_order: Vec<String>,
     control_proposal_acks: BTreeMap<String, ControlProposalAck>,
+    /// Durable ingress classification per Event digest.
+    ingress_classes: BTreeMap<String, ControlProposalIngressClass>,
     proposal_decisions: BTreeMap<String, Vec<ControlProposalDecision>>,
     decision_overdue: BTreeSet<String>,
 }
 
 impl ControlEventStore for MemoryControlEventStore {
-    fn put_pending_with_ack(
+    fn put_pending_with_ingress(
         &self,
         event: &Event,
-        control_proposal_ack: Option<&ControlProposalAck>,
+        ingress: &ControlProposalIngress,
     ) -> StoreResult<()> {
         let digest = control_event_digest(event)?;
+        let control_proposal_ack = ingress.ack();
         if let Some(ack) = control_proposal_ack
             && (ack.proposal_digest != digest || ack.realm_id != event.realm_id)
         {
@@ -64,6 +68,7 @@ impl ControlEventStore for MemoryControlEventStore {
             ack.validate_protocol_bounds()
                 .map_err(|error| StoreError::Conflict(error.to_string()))?;
         }
+        let ingress_class = ingress.class();
         let mut inner = self
             .inner
             .lock()
@@ -77,11 +82,22 @@ impl ControlEventStore for MemoryControlEventStore {
                 "pending Control Move already has a different Control Proposal Ack".to_owned(),
             ));
         }
+        if let Some(stored) = inner.ingress_classes.get(digest.as_str())
+            && stored != &ingress_class
+        {
+            return Err(StoreError::Conflict(
+                "pending Control Move already has a different ingress class".to_owned(),
+            ));
+        }
         let key = digest.as_str().to_owned();
         if !inner.events.contains_key(&key) {
             inner.insertion_order.push(key.clone());
         }
         inner.events.entry(key).or_insert_with(|| event.clone());
+        inner
+            .ingress_classes
+            .entry(digest.as_str().to_owned())
+            .or_insert(ingress_class);
         if let Some(ack) = control_proposal_ack {
             match inner.control_proposal_acks.get(digest.as_str()) {
                 Some(_) => {}
@@ -271,6 +287,9 @@ impl ControlEventStore for MemoryControlEventStore {
             })
             .filter_map(|digest| {
                 let event = inner.events.get(digest)?;
+                // Written atomically with the Event row in
+                // `put_pending_with_ingress`, under the same lock.
+                let ingress_class = inner.ingress_classes.get(digest)?.clone();
                 (event.realm_id == *realm_id).then(|| PendingControlEventRecord {
                     event: event.clone(),
                     control_proposal_ack: inner.control_proposal_acks.get(digest).cloned(),
@@ -279,6 +298,7 @@ impl ControlEventStore for MemoryControlEventStore {
                         .get(digest)
                         .cloned()
                         .unwrap_or_default(),
+                    ingress_class,
                 })
             })
             .take(limit)
@@ -371,6 +391,11 @@ impl ControlEventStore for MemoryControlEventStore {
             if let (Some(event), Some(seal)) = (inner.events.get(digest), inner.sealed.get(digest))
                 && event.realm_id == *realm_id
             {
+                // Written atomically with the Event row in
+                // `put_pending_with_ingress`, under the same lock.
+                let Some(ingress_class) = inner.ingress_classes.get(digest).cloned() else {
+                    continue;
+                };
                 out.push(SealedControlEventRecord {
                     event: event.clone(),
                     seal: seal.clone(),
@@ -381,6 +406,7 @@ impl ControlEventStore for MemoryControlEventStore {
                         .cloned()
                         .unwrap_or_default(),
                     decision_overdue: inner.decision_overdue.contains(digest),
+                    ingress_class,
                 });
                 if out.len() >= limit {
                     break;
@@ -1070,6 +1096,7 @@ mod tests {
     use arkret_wire::event_envelope::ScopeRef;
     use chrono::{TimeZone, Utc};
 
+    use super::super::AcklessSelfPrincipalIngress;
     use super::*;
     use crate::{Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis};
 
@@ -1244,7 +1271,9 @@ mod tests {
             "the protocol ceiling must not substitute for the effective Realm policy"
         );
 
-        store.put_pending_with_ack(&event, Some(&ack)).unwrap();
+        store
+            .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack.clone()))
+            .unwrap();
         store
             .record_proposal_decision(&event_digest, &decision, policy)
             .unwrap();
@@ -1278,7 +1307,9 @@ mod tests {
         let digest = control_event_digest(&event).unwrap();
         let ack = control_proposal_ack(&event);
 
-        store.put_pending_with_ack(&event, Some(&ack)).unwrap();
+        store
+            .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack.clone()))
+            .unwrap();
 
         let pending = store.list_pending_records(&realm(), 10).unwrap();
         assert_eq!(pending.len(), 1);
@@ -1314,8 +1345,12 @@ mod tests {
         let first = control_move(1);
         let digest = control_event_digest(&first).unwrap();
         let ack = control_proposal_ack(&first);
-        store.put_pending_with_ack(&first, Some(&ack)).unwrap();
-        store.put_pending_with_ack(&first, Some(&ack)).unwrap(); // idempotent
+        store
+            .put_pending_with_ingress(&first, &ControlProposalIngress::AckRequired(ack.clone()))
+            .unwrap();
+        store
+            .put_pending_with_ingress(&first, &ControlProposalIngress::AckRequired(ack.clone()))
+            .unwrap(); // idempotent
         assert_eq!(
             store.get(&digest).unwrap().unwrap().event_id,
             first.event_id
@@ -1327,6 +1362,69 @@ mod tests {
         let sealed = store.list_sealed(&realm(), None, 10).unwrap();
         assert_eq!(sealed.len(), 1);
         assert_eq!(sealed[0].seal, seal.id);
+    }
+
+    fn ackless_ingress() -> ControlProposalIngress {
+        ControlProposalIngress::AcklessSelfPrincipal(AcklessSelfPrincipalIngress {
+            device_id: "ak:device:fixture".to_owned(),
+            device_authorize_event_id: "ak:event:fixture".to_owned(),
+            device_generation_ref: 1,
+            seal_basis_digest: "sha256:fixture".to_owned(),
+        })
+    }
+
+    #[test]
+    fn control_event_store_rejects_ingress_class_mismatch_on_replay() {
+        let store = MemoryControlEventStore::default();
+        let event = control_move(1);
+        let ack = control_proposal_ack(&event);
+        store
+            .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack.clone()))
+            .unwrap();
+        // The same digest replayed under a different class is a conflict:
+        // the first admission's class is part of the durable basis.
+        let ackless = ControlProposalIngress::AcklessSelfPrincipal(AcklessSelfPrincipalIngress {
+            device_id: "ak:device:fixture".to_owned(),
+            device_authorize_event_id: "ak:event:fixture".to_owned(),
+            device_generation_ref: 1,
+            seal_basis_digest: "sha256:fixture".to_owned(),
+        });
+        assert!(
+            store.put_pending_with_ingress(&event, &ackless).is_err(),
+            "an Ack-required Move cannot be replayed as Ack-less"
+        );
+        assert!(
+            store
+                .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack))
+                .is_ok(),
+            "the byte-identical class and Ack remain idempotent"
+        );
+    }
+
+    #[test]
+    fn control_event_store_retains_ackless_self_principal_classification() {
+        let store = MemoryControlEventStore::default();
+        let event = control_move(1);
+        let class = AcklessSelfPrincipalIngress {
+            device_id: "ak:device:fixture".to_owned(),
+            device_authorize_event_id: "ak:event:fixture".to_owned(),
+            device_generation_ref: 7,
+            seal_basis_digest: "sha256:fixture".to_owned(),
+        };
+        store
+            .put_pending_with_ingress(
+                &event,
+                &ControlProposalIngress::AcklessSelfPrincipal(class.clone()),
+            )
+            .unwrap();
+        let pending = store.list_pending_records(&realm(), 10).unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].control_proposal_ack, None);
+        assert_eq!(
+            pending[0].ingress_class,
+            ControlProposalIngressClass::AcklessSelfPrincipal(class),
+            "the Ack-less classification is part of the durable pending row"
+        );
     }
 
     #[test]
@@ -1359,9 +1457,17 @@ mod tests {
         let first = control_move(1);
         let second = control_move(2);
         store
-            .put_pending_with_ack(&first, Some(&control_proposal_ack(&first)))
+            .put_pending_with_ingress(
+                &first,
+                &ControlProposalIngress::AckRequired(control_proposal_ack(&first)),
+            )
             .unwrap();
-        store.put_pending(&second).unwrap();
+        store
+            .put_pending_with_ingress(
+                &second,
+                &ControlProposalIngress::AckRequired(control_proposal_ack(&second)),
+            )
+            .unwrap();
 
         let pending = store.list_pending_for_notary(&realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 2);
@@ -1391,8 +1497,12 @@ mod tests {
         variant.created_at = Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap();
         assert_eq!(variant.event_id, original.event_id);
 
-        store.put_pending(&original).unwrap();
-        store.put_pending(&variant).unwrap();
+        store
+            .put_pending_with_ingress(&original, &ackless_ingress())
+            .unwrap();
+        store
+            .put_pending_with_ingress(&variant, &ackless_ingress())
+            .unwrap();
         assert_ne!(
             control_event_digest(&original).unwrap(),
             control_event_digest(&variant).unwrap()

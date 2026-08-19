@@ -838,3 +838,67 @@ fn auth_rate_limit_hook_can_deny_login() {
         .unwrap_err();
     assert!(err.to_string().contains("rate limited"));
 }
+
+#[test]
+fn presented_claim_omitted_optional_timestamps_round_trip() {
+    let value = serde_json::json!({
+        "claim_id": "claim-1",
+        "subject": did("subject"),
+        "issuer": did("issuer"),
+        "claim_kind": "verified_handle",
+        "value": {"display": "alice"},
+        "issued_at": "2026-08-18T00:00:00.000Z",
+    });
+
+    let claim: PresentedClaim = serde_json::from_value(value).unwrap();
+    assert_eq!(claim.refreshed_at, None);
+    assert_eq!(claim.expires_at, None);
+    assert_eq!(claim.revoked_at, None);
+
+    let serialized = serde_json::to_value(&claim).unwrap();
+    let object = serialized.as_object().unwrap();
+    assert!(!object.contains_key("refreshed_at"));
+    assert!(!object.contains_key("expires_at"));
+    assert!(!object.contains_key("revoked_at"));
+}
+
+#[test]
+fn session_grant_record_omitted_revoked_at_round_trip() {
+    let now: DateTime<Utc> = "2026-08-18T00:00:00.000Z".parse().unwrap();
+    let record = SessionGrantRecord {
+        payload: session_grant_payload(now, &device("laptop")),
+        grant_hash: "sha256:grant".to_owned(),
+        created_at: now,
+        state: SessionGrantProjectionState::Active,
+        revoked_at: None,
+        revoke_reason: None,
+        successor_session_grant_id: None,
+    };
+
+    let serialized = serde_json::to_value(&record).unwrap();
+    assert!(!serialized.as_object().unwrap().contains_key("revoked_at"));
+
+    let restored: SessionGrantRecord = serde_json::from_value(serialized).unwrap();
+    assert_eq!(restored, record);
+}
+
+#[test]
+fn renewal_credential_metadata_omitted_revoked_at_round_trip() {
+    let now: DateTime<Utc> = "2026-08-18T00:00:00.000Z".parse().unwrap();
+    let metadata = RenewalCredentialMetadata {
+        session_id: "session-1".to_owned(),
+        user_id: did("alice"),
+        device_id: device("desktop"),
+        session_credential_hash: "sha256:session".to_owned(),
+        renewal_credential_hash: "sha256:renewal".to_owned(),
+        issued_at: now,
+        expires_at: now,
+        revoked_at: None,
+    };
+
+    let serialized = serde_json::to_value(&metadata).unwrap();
+    assert!(!serialized.as_object().unwrap().contains_key("revoked_at"));
+
+    let restored: RenewalCredentialMetadata = serde_json::from_value(serialized).unwrap();
+    assert_eq!(restored, metadata);
+}

@@ -50,7 +50,7 @@ impl ObjectMetadata {
 /// Strand profile subtree means adding its pair here and in
 /// `strand.schema.json` together, never in prose alone.
 pub const PROFILE_SUBTREE_ACTIVATION_PAIRS: &[(&str, &str)] =
-    &[(arkret_wire::SchemaId::CALENDAR_EVENT_V1, "calendar")];
+    &[(SchemaId::CALENDAR_EVENT_V1, "calendar")];
 
 /// Strand `metadata` shape — see [`ObjectMetadata`].
 pub type StrandMetadata = ObjectMetadata;

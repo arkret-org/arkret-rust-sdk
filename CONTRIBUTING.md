@@ -88,34 +88,49 @@ The fifteen workspace crates share a single version (`shared-version = true`) an
 ship breaking changes git-only, with **no compatibility shim** — see the
 "Wire-breaking, no compatibility shim" entries in `CHANGELOG.md`. The
 correctness of that model rests entirely on the "change every consumer in the
-same commit" discipline. To keep that discipline from being purely a matter of
-memory, **any wire- or API-breaking SDK change MUST be compile-checked against
-the four first-party downstream repos before it lands**:
+same commit" discipline.
 
-- `soland`, `inkson`, `garth`, `bridges` (each an independent repo that consumes
-  the SDK via a relative path dependency, e.g.
-  `arkret = { version = "0.3.0", path = "../arkret-rust-sdk/crates/sdk" }`).
+Single-repo `cargo check` is **not sufficient** to prove such a change is safe:
+it compiles only this workspace, while the SDK is consumed via relative path
+dependencies by sibling repositories — including *indirect* consumers that
+reach a wire type through `arkret` re-exports and never appear in this repo's
+build graph. (2026-08-18: the `StrandTrackConfig` → `StrandTrack` rename was
+green here and broke `bridges` and `cotest` at HEAD, which nothing compiled.)
+To keep that discipline from being purely a matter of memory, **any change that
+touches the public surface of `crates/wire` or `crates/models-*` MUST be
+compile-checked against the full workspace matrix before it lands**:
 
-Run them from a sibling checkout layout (each downstream repo next to
-`arkret-rust-sdk`, which their `../arkret-rust-sdk/...` path deps require):
-
-```sh
-for repo in soland inkson garth bridges; do
-  (cd "../$repo" && cargo check --workspace) || echo "DOWNSTREAM BREAK: $repo"
-done
+```powershell
+powershell -File ../arkret-work/tools/check-workspace-compiles.ps1
 ```
+
+The matrix runs `cargo check --workspace --all-targets` over all eleven Rust
+repositories in the sibling workspace (the repository list lives in the script
+and is kept in sync with `arkret-work/docs/project-map.md`; `--all-targets`
+matters because a past breakage existed only in a downstream lib test target).
+
+### CI assertion gate
+
+A cross-repo compile job was evaluated and rejected (see below), so the
+enforcement on the SDK side is the `downstream-matrix-gate` job in
+`.github/workflows/ci.yml`: when a pull request changes files under
+`crates/wire/src` or `crates/models-*/src`, the job fails unless the PR body
+contains a `compile-matrix: green` line — added after running the matrix
+locally — or `compile-matrix: n/a — <reason>` when the change provably cannot
+affect downstream compilation (e.g. a doc-comment-only edit). The gate cannot
+verify the run itself; it exists so the step cannot be skipped *silently*.
 
 If the break is intentional, update the downstream consumers (and, when the
 version is bumped, their pinned `version = "…"` requirement) in lockstep and
 record the affected repos in the `CHANGELOG.md` entry.
 
-### Why this is a documented gate and not a CI job
+### Why not a cross-repo compile job in CI
 
-Adding a "downstream four-repo compile smoke test" job to `.github/workflows/`
-was evaluated and rejected. Cross-repo checkout itself is supported (the
-`embedded-snapshot` and `spec-drift` jobs already check out `arkret/arkret-spec`
-into a sibling path), but a *reliable, cheap* downstream compile job is not
-practical here:
+Adding a "downstream compile smoke test" job that checks out and builds the
+downstream repositories in `.github/workflows/` was evaluated and rejected.
+Cross-repo checkout itself is supported (the `embedded-snapshot` and
+`spec-drift` jobs already check out `arkret/arkret-spec` into a sibling path),
+but a *reliable, cheap* downstream compile job is not practical here:
 
 - **Version-pin noise defeats the signal.** Downstream manifests pin
   `version = "0.3.0"` alongside the path dependency. With `shared-version`, the
@@ -129,16 +144,17 @@ practical here:
   (`github.com/arkret/dioxus*` at pinned revs) plus a full wasm + UI + crypto
   (OpenMLS/HPKE) stack; `cargo check` there is a heavy, fork-availability-
   dependent build. `soland` similarly carries a server/DB/Docker surface.
-- **Access and duplication cost.** The four are separate GitHub repos that each
-  already run their own `ci.yml`; checking them out from the SDK repo would
-  require cross-repo PAT secrets (only `arkret-spec` is public) and would
-  duplicate builds those repos already perform, coupling SDK CI latency and
-  flakiness to four heavy external builds for little marginal signal.
+- **Access and duplication cost.** The downstream consumers are separate GitHub
+  repos that each already run their own `ci.yml`; checking them out from the
+  SDK repo would require cross-repo PAT secrets (only `arkret-spec` is public)
+  and would duplicate builds those repos already perform, coupling SDK CI
+  latency and flakiness to a fleet of heavy external builds for little
+  marginal signal.
 
-The local gate above is therefore the enforced mechanism; revisit a CI job only
-if the downstream repos move to a published (versioned) SDK dependency, which
-would remove the path-layout and version-pin coupling that makes it impractical
-today.
+The local matrix plus the PR assertion gate above is therefore the enforced
+mechanism; revisit a real cross-repo compile job only if the downstream repos
+move to a published (versioned) SDK dependency, which would remove the
+path-layout and version-pin coupling that makes it impractical today.
 
 ## API Rules
 

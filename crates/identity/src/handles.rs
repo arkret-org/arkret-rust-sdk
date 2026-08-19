@@ -37,7 +37,7 @@ pub struct PairwiseActorBinding {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// When this pairwise binding expires (if applicable).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -595,4 +595,31 @@ pub fn handle_well_known_url(handle: &str) -> Result<String> {
     Ok(format!(
         "https://{domain}/.well-known/arkret/handle/{local}.json"
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn did(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture:{name}.example")).unwrap()
+    }
+
+    #[test]
+    fn pairwise_actor_binding_omitted_expires_at_round_trip() {
+        let binding = PairwiseActorBinding {
+            pairwise_actor_id: did("pairwise"),
+            principal_id: did("alice"),
+            peer_principal_id: did("bob"),
+            scope: None,
+            created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
+            expires_at: None,
+        };
+
+        let serialized = serde_json::to_value(&binding).unwrap();
+        assert!(!serialized.as_object().unwrap().contains_key("expires_at"));
+
+        let restored: PairwiseActorBinding = serde_json::from_value(serialized).unwrap();
+        assert_eq!(restored, binding);
+    }
 }

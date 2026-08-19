@@ -146,9 +146,10 @@ impl DidWebvhResolver {
     /// Derive one `did:webvh` artifact URL, reporting the specific reason on
     /// failure instead of a single "unsupported did:webvh form" for every cause.
     ///
-    /// A caller that has to tell "this DID is broken" apart from "this
-    /// deployment declines that authority" — a device-revocation gate reporting
-    /// `failed_precondition`, say — needs the distinction to say anything true.
+    /// The failure reasons are all properties of the DID itself (wrong method,
+    /// malformed syntax, an authority that cannot host a log). Whether this
+    /// deployment may connect to the derived authority is decided later, at
+    /// the caller's request layer, by the shared egress lock — never here.
     fn artifact_url(did: &DidFullId, leaf: &str) -> Result<String> {
         try_did_webvh_url(did, leaf)
             .map_err(|error| Error::Protocol(format!("{}: {}", error.as_message(), did.as_str())))

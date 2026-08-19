@@ -35,7 +35,7 @@ pub struct GhostActorProfileRequest {
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<DidCoreId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -232,5 +232,19 @@ mod tests {
             event.payload["object"]["profile_fields"]["managed_by_applet"],
             "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         );
+    }
+
+    #[test]
+    fn request_omitted_updated_at_round_trip() {
+        let mut request = GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id());
+        // Canonical timestamps carry millisecond precision; pin created_at so the
+        // round-trip comparison is not foiled by sub-millisecond clock digits.
+        request.created_at = "2026-08-18T00:00:00.000Z".parse().unwrap();
+
+        let serialized = serde_json::to_value(&request).unwrap();
+        assert!(!serialized.as_object().unwrap().contains_key("updated_at"));
+
+        let restored: GhostActorProfileRequest = serde_json::from_value(serialized).unwrap();
+        assert_eq!(restored, request);
     }
 }

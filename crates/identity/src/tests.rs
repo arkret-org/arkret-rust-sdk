@@ -1274,12 +1274,12 @@ fn pairwise_did_visibility_enum_roundtrips() {
 
 // ── did:webvh URL derivation reports why, not just "unsupported" ──
 //
-// A public-only egress policy declining a loopback authority used to surface as
-// "unsupported did:webvh form", which reads as "this DID is malformed". It is
-// not: the syntax is fine and a deployment that trusts that authority resolves
-// it normally. The two causes must stay distinguishable, because a caller that
-// reports `failed_precondition` on top of them cannot say anything true
-// otherwise.
+// URL derivation is a pure syntax-to-URL function: it reports malformed DIDs
+// precisely, and it never answers the separate question of whether this
+// deployment may connect to the derived authority. That egress judgment lives
+// in the request layer (the shared lock-and-pin guard immediately before
+// dispatch); folding it into derivation once reported a legal loopback
+// authority as a malformed DID and sent an investigation down the wrong path.
 
 fn webvh_url_error(did: &str) -> crate::DidWebvhUrlError {
     let did = DidFullId::new(did.to_owned()).expect("DID syntax is accepted by the wire type");
@@ -1290,13 +1290,18 @@ fn webvh_url_error(did: &str) -> crate::DidWebvhUrlError {
 }
 
 #[test]
-fn loopback_authority_is_an_egress_decision_not_a_malformed_did() {
+fn loopback_authority_derives_a_url_egress_is_a_request_layer_decision() {
+    // A loopback authority is legal did:webvh syntax. Derivation must succeed;
+    // declining the connection target is the request layer's job (the shared
+    // egress lock), not the derivation layer's.
+    let did = DidFullId::new(
+        "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:127.0.0.1%3A20623:webvh:service"
+            .to_owned(),
+    )
+    .unwrap();
     assert_eq!(
-        webvh_url_error(
-            "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:127.0.0.1%3A20623:webvh:service"
-        ),
-        crate::DidWebvhUrlError::EgressPolicyDeclined,
-        "a loopback authority is legal did:webvh syntax that this policy declines"
+        DidWebvhResolver::log_url(&did).unwrap(),
+        "https://127.0.0.1:20623/webvh/service/did.jsonl"
     );
 }
 
@@ -1314,7 +1319,8 @@ fn malformed_and_unsupported_forms_stay_distinguishable() {
         ),
         crate::DidWebvhUrlError::InvalidSyntax
     );
-    // Another method is neither malformed nor declined.
+    // Another method is not malformed did:webvh syntax; it is simply not
+    // this helper's method.
     assert_eq!(
         webvh_url_error("did:web:example.com"),
         crate::DidWebvhUrlError::UnsupportedMethod
@@ -1340,4 +1346,45 @@ fn a_public_authority_still_derives_every_artifact_url() {
         DidWebvhResolver::witness_url(&did).unwrap(),
         "https://example.com/webvh/service/did-witness.json"
     );
+}
+
+// ── Caller-closure gate: the derivation layer must stay policy-free ──
+//
+// The SSRF boundary is the request layer's shared egress lock, not URL
+// derivation. This source-level gate fails if a future change reintroduces
+// an egress judgment (`host_is_safe_for_outbound` / `classify_host` /
+// `classify_ip`) into either derivation helper, because that is exactly the
+// coupling that made a legal DID report itself as "unsupported did:webvh
+// form" and that prevented deployments from applying their own trust
+// anchors.
+
+#[test]
+fn url_derivation_helpers_hold_no_egress_judgment() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/helpers.rs");
+    let text = std::fs::read_to_string(&path).expect("helpers.rs source");
+    let production = text.split("\n#[cfg(test)]").next().unwrap_or(&text);
+    let banned = ["host_is_safe_for_outbound", "classify_host", "classify_ip"];
+    for (start, end) in [
+        (
+            "fn did_web_document_url",
+            "fn is_allowed_did_web_content_type",
+        ),
+        ("fn try_did_webvh_url", "fn did_key_material"),
+    ] {
+        let body = production
+            .split(start)
+            .nth(1)
+            .unwrap_or_else(|| panic!("{start} must exist in helpers.rs"))
+            .split(end)
+            .next()
+            .unwrap_or_else(|| panic!("{end} must follow {start} in helpers.rs"));
+        for needle in banned {
+            assert!(
+                !body
+                    .lines()
+                    .any(|line| { !line.trim_start().starts_with("//") && line.contains(needle) }),
+                "{start} must stay a pure syntax-to-URL derivation; found {needle:?}"
+            );
+        }
+    }
 }

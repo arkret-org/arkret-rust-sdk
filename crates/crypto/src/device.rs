@@ -102,7 +102,7 @@ pub struct DeviceVerificationStrand {
     pub state: VerificationStrandState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -164,5 +164,34 @@ impl DeviceVerificationStrand {
                 self.state, next
             )))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn device(id: &str) -> DeviceId {
+        DeviceId::new(format!("ak:device:01904100-0000-7000-8000-{id}")).unwrap()
+    }
+
+    #[test]
+    fn device_verification_strand_omitted_expires_at_round_trip() {
+        let strand = DeviceVerificationStrand {
+            transaction_id: "txn-1".to_owned(),
+            user_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+            from_device: device("000000000001"),
+            to_device: device("000000000002"),
+            methods: vec!["sas".to_owned()],
+            state: VerificationStrandState::Requested,
+            created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
+            expires_at: None,
+        };
+
+        let serialized = serde_json::to_value(&strand).unwrap();
+        assert!(!serialized.as_object().unwrap().contains_key("expires_at"));
+
+        let restored: DeviceVerificationStrand = serde_json::from_value(serialized).unwrap();
+        assert_eq!(restored, strand);
     }
 }

@@ -62,7 +62,7 @@ pub struct AuthzContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_resource_count: Option<u64>,
     /// Creation time of the target object (for `EditWindow`).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub target_created_at: Option<DateTime<Utc>>,
     /// Active Strand track (`discussion` / `synthesis` / profile-defined)
@@ -1835,5 +1835,22 @@ mod engine_wire_tests {
         engine.clear_cache();
         let decision = engine.check_authorization_with_approvals(&ctx(), &[grant], &approvals);
         assert_eq!(decision, EngineDecision::Allow);
+    }
+
+    #[test]
+    fn authz_context_omitted_target_created_at_round_trip() {
+        let context = ctx();
+
+        let serialized = serde_json::to_value(&context).unwrap();
+        assert!(
+            !serialized
+                .as_object()
+                .unwrap()
+                .contains_key("target_created_at")
+        );
+
+        let restored: AuthzContext = serde_json::from_value(serialized).unwrap();
+        assert!(restored.target_created_at.is_none());
+        assert_eq!(restored.actor_id, context.actor_id);
     }
 }

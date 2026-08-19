@@ -152,7 +152,7 @@ pub struct SecretGossipRequestBody {
     pub recipient_device: DeviceId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -235,7 +235,7 @@ pub struct SecretBackupDescriptor {
     pub state: SecretBackupState,
     pub algorithm: String,
     pub public_key: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub last_recovery_at: Option<DateTime<Utc>>,
 }
@@ -622,4 +622,53 @@ pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
     // Delegate to the authoritative `sha256:<lowercase-hex>` formatter in
     // the `arkret` umbrella so the prefix/encoding lives in a single place.
     arkret_canonical::canonical::sha256_digest(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn device(id: &str) -> DeviceId {
+        DeviceId::new(format!("ak:device:01904100-0000-7000-8000-{id}")).unwrap()
+    }
+
+    #[test]
+    fn secret_gossip_request_omitted_expires_at_round_trip() {
+        let request = SecretGossipRequestBody {
+            request_id: "gossip-1".to_owned(),
+            name: "backup-key".to_owned(),
+            requesting_device: device("000000000001"),
+            recipient_device: device("000000000002"),
+            created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
+            expires_at: None,
+        };
+
+        let serialized = serde_json::to_value(&request).unwrap();
+        assert!(!serialized.as_object().unwrap().contains_key("expires_at"));
+
+        let restored: SecretGossipRequestBody = serde_json::from_value(serialized).unwrap();
+        assert_eq!(restored, request);
+    }
+
+    #[test]
+    fn secret_backup_descriptor_omitted_last_recovery_at_round_trip() {
+        let descriptor = SecretBackupDescriptor {
+            backup_id: "backup-1".to_owned(),
+            state: SecretBackupState::Enabled,
+            algorithm: "x25519-xsalsa20poly1305".to_owned(),
+            public_key: "base64-public-key".to_owned(),
+            last_recovery_at: None,
+        };
+
+        let serialized = serde_json::to_value(&descriptor).unwrap();
+        assert!(
+            !serialized
+                .as_object()
+                .unwrap()
+                .contains_key("last_recovery_at")
+        );
+
+        let restored: SecretBackupDescriptor = serde_json::from_value(serialized).unwrap();
+        assert_eq!(restored, descriptor);
+    }
 }

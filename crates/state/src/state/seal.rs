@@ -1091,12 +1091,22 @@ mod tests {
         MemoryCellRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
     };
     use crate::state::store::{
-        BottomMode, CellStore, ControlEventStore, SealStore, control_event_digest,
+        AcklessSelfPrincipalIngress, BottomMode, CellStore, ControlEventStore,
+        ControlProposalIngress, SealStore, control_event_digest,
     };
     use crate::{
         Event, EventId, Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, Precondition,
         Predicate, PredicateOp, ProjectedOp, SealBasis, SealKind,
     };
+
+    fn ackless_ingress() -> ControlProposalIngress {
+        ControlProposalIngress::AcklessSelfPrincipal(AcklessSelfPrincipalIngress {
+            device_id: "ak:device:fixture".to_owned(),
+            device_authorize_event_id: "ak:event:fixture".to_owned(),
+            device_generation_ref: 1,
+            seal_basis_digest: "sha256:fixture".to_owned(),
+        })
+    }
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
@@ -1609,7 +1619,9 @@ mod tests {
         event.proofs[0].as_producer_mut().unwrap().event_digest =
             Hash::new(event.event_digest().unwrap()).unwrap();
         let digest = control_event_digest(&event).unwrap();
-        events.put_pending(&event).unwrap();
+        events
+            .put_pending_with_ingress(&event, &ackless_ingress())
+            .unwrap();
         let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
         let seal = signed_seal(
             Vec::new(),
@@ -1672,7 +1684,9 @@ mod tests {
         create.proofs[0].as_producer_mut().unwrap().event_digest =
             Hash::new(create.event_digest().unwrap()).unwrap();
         let create_digest = control_event_digest(&create).unwrap();
-        events.put_pending(&create).unwrap();
+        events
+            .put_pending_with_ingress(&create, &ackless_ingress())
+            .unwrap();
 
         let mut binding = control_move(
             1,
@@ -1693,7 +1707,9 @@ mod tests {
         binding.proofs[0].as_producer_mut().unwrap().event_digest =
             Hash::new(binding.event_digest().unwrap()).unwrap();
         let binding_digest = control_event_digest(&binding).unwrap();
-        events.put_pending(&binding).unwrap();
+        events
+            .put_pending_with_ingress(&binding, &ackless_ingress())
+            .unwrap();
 
         let covered = BTreeSet::from([create_digest.clone(), binding_digest.clone()]);
         let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
@@ -1786,7 +1802,9 @@ mod tests {
         // the sole source of the `invited -> join` write applied below.
         let event = control_move(1, basis, Vec::new(), Vec::new());
         let digest = control_event_digest(&event).unwrap();
-        events.put_pending(&event).unwrap();
+        events
+            .put_pending_with_ingress(&event, &ackless_ingress())
+            .unwrap();
 
         let covered = BTreeSet::from([anchor, digest.clone()]);
         let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
@@ -1831,7 +1849,9 @@ mod tests {
         seals.put(&genesis).unwrap();
         let event = control_move(1, basis, Vec::new(), Vec::new());
         let digest = control_event_digest(&event).unwrap();
-        events.put_pending(&event).unwrap();
+        events
+            .put_pending_with_ingress(&event, &ackless_ingress())
+            .unwrap();
 
         let covered = BTreeSet::from([anchor, digest.clone()]);
         let seal = signed_seal(
@@ -1869,7 +1889,9 @@ mod tests {
         basis.leaves = vec![seal_id(0xee)];
         let event = control_move(1, basis, Vec::new(), Vec::new());
         let digest = control_event_digest(&event).unwrap();
-        events.put_pending(&event).unwrap();
+        events
+            .put_pending_with_ingress(&event, &ackless_ingress())
+            .unwrap();
 
         let covered = BTreeSet::from([anchor, digest.clone()]);
         let seal = signed_seal(

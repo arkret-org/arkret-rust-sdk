@@ -49,7 +49,7 @@ pub struct StrandCreateObject {
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<DidCoreId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -97,5 +97,25 @@ impl StrandCreateObject {
     pub fn with_track(mut self, name: impl Into<String>, track: StrandTrack) -> Self {
         self.tracks.insert(name.into(), track);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strand_create_object_omitted_updated_at_round_trip() {
+        let object = StrandCreateObject::new(
+            RealmId::new("ak:realm:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+        );
+
+        let serialized = serde_json::to_value(&object).unwrap();
+        assert!(!serialized.as_object().unwrap().contains_key("updated_at"));
+
+        let restored: StrandCreateObject = serde_json::from_value(serialized).unwrap();
+        assert!(restored.updated_at.is_none());
+        assert_eq!(restored.realm_id, object.realm_id);
     }
 }

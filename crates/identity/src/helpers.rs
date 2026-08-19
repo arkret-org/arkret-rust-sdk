@@ -5,8 +5,7 @@ use arkret_wire::DidFullId;
 
 use super::*;
 
-/// SSRF guard: reject hosts that resolve to non-public address space before
-/// the SDK makes an outbound `did:web` / `did:webvh` fetch.
+/// SSRF host classification shared by request-layer egress guards.
 ///
 /// DIDs may be supplied by untrusted peers (handshakes, invites, directory
 /// responses), so a host like `169.254.169.254` (cloud metadata),
@@ -15,6 +14,13 @@ use super::*;
 /// static helper; outbound clients must additionally use
 /// `arkret_egress_policy::OutboundPolicy` for scheme, DNS-answer, and
 /// connection-binding checks.
+///
+/// This is a request-layer judgment: the `did:web` / `did:webvh` URL
+/// derivation helpers are pure syntax-to-URL functions and deliberately do
+/// NOT call it. Every network caller applies the shared egress lock —
+/// `arkret_egress_reqwest::EgressGuard` with address pinning on native, or
+/// this static classification where the platform owns DNS and sockets
+/// (wasm browser fetch) — immediately before dispatch instead.
 ///
 /// Public export for downstream crates such as starid, so they reuse the same
 /// outbound SSRF classification instead of duplicating private/metadata/CGN/
@@ -69,14 +75,11 @@ pub(super) fn normalize_handle(handle: &str) -> String {
 }
 
 pub(super) fn did_web_document_url(did: &DidFullId) -> Option<String> {
-    let document_url = arkret_models_identity::did_web_document_url(did).ok()?;
-    let encoded_authority = did.as_str().strip_prefix("did:web:")?.split(':').next()?;
-    let authority = encoded_authority.replace("%3A", ":").replace("%3a", ":");
-    let host = authority.split(':').next()?;
-    if !host_is_safe_for_outbound(host) {
-        return None;
-    }
-    Some(document_url)
+    // Pure syntax-to-URL derivation. Whether the resulting authority may be
+    // connected to is a request-layer decision (shared egress lock with
+    // address pinning immediately before dispatch), not a property of the
+    // DID, so no egress judgment belongs here.
+    arkret_models_identity::did_web_document_url(did).ok()
 }
 
 pub(super) fn is_allowed_did_web_content_type(content_type: &str) -> bool {
@@ -147,13 +150,14 @@ pub(super) fn did_webvh_scid(did: &DidFullId) -> Option<String> {
 
 /// Why a `did:webvh` URL could not be produced.
 ///
-/// The two arms are deliberately distinct. Syntax is a property of the DID and
-/// makes the value permanently unusable; egress policy is a property of the
-/// *deployment* and says nothing about whether the DID is well formed. Folding
-/// them into one "unsupported did:webvh form" message sent at least one
-/// investigation down the wrong path, because a loopback authority — legal
-/// did:webvh syntax that a public-only egress policy declines — reported itself
-/// as a malformed DID.
+/// Every arm is a property of the DID itself: syntax and authority shape
+/// decide whether a value can ever name a `did:webvh` log location. Whether
+/// this deployment may connect to the resulting authority is a separate,
+/// request-layer decision (the shared egress lock applied immediately before
+/// dispatch), so a policy rejection never reaches this enum — folding the two
+/// together once sent an investigation down the wrong path, because a
+/// loopback authority, which is legal did:webvh syntax, reported itself as a
+/// malformed DID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DidWebvhUrlError {
     /// Not a `did:webvh` DID at all.
@@ -164,10 +168,6 @@ pub enum DidWebvhUrlError {
     /// Syntax is well formed but the authority cannot host a `did:webvh` log:
     /// the host is not a registrable domain name.
     InvalidAuthority,
-    /// Syntax and authority are well formed, but this deployment's outbound
-    /// policy declines the host. The DID is not at fault, and a deployment that
-    /// trusts this authority can still resolve it.
-    EgressPolicyDeclined,
 }
 
 impl DidWebvhUrlError {
@@ -176,9 +176,6 @@ impl DidWebvhUrlError {
             Self::UnsupportedMethod => "not a did:webvh DID",
             Self::InvalidSyntax => "malformed did:webvh syntax",
             Self::InvalidAuthority => "did:webvh authority is not a registrable domain name",
-            Self::EgressPolicyDeclined => {
-                "did:webvh authority is declined by the outbound egress policy;                  the DID itself is well formed"
-            }
         }
     }
 }
@@ -193,10 +190,13 @@ pub(super) fn did_webvh_url(did: &DidFullId, leaf: &str) -> Option<String> {
 
 /// Derive a `did:webvh` artifact URL, reporting *why* on failure.
 ///
-/// The egress check still runs here so this change is behaviour-preserving at
-/// the security boundary; it is the classification that improves. Moving the
-/// check out to the request layer is a separate step that first requires every
-/// caller to hold an address-pinned egress guard.
+/// This is a pure syntax-to-URL function: it validates the did:webvh shape
+/// and derives the deterministic HTTPS location, and nothing more. Whether
+/// this deployment may connect to the derived authority is judged by the
+/// caller's request layer — the shared `EgressGuard` lock with the validated
+/// addresses pinned into the client, applied immediately before dispatch —
+/// so deployments with operator-trusted authorities can resolve DIDs that a
+/// public-only posture cannot.
 pub(super) fn try_did_webvh_url(
     did: &DidFullId,
     leaf: &str,
@@ -207,9 +207,6 @@ pub(super) fn try_did_webvh_url(
     let (_, host, port, path) = did_webvh_parts(did).ok_or(DidWebvhUrlError::InvalidSyntax)?;
     if !host.contains('.') {
         return Err(DidWebvhUrlError::InvalidAuthority);
-    }
-    if !host_is_safe_for_outbound(&host) {
-        return Err(DidWebvhUrlError::EgressPolicyDeclined);
     }
     let authority = match port {
         Some(port) => format!("{host}:{port}"),

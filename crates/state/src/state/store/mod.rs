@@ -60,6 +60,75 @@ pub struct SealedControlEventRecord {
     pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
     pub decision_overdue: bool,
+    /// The ingress class this Move was admitted under
+    /// (`event-auth-state-resolution.md` §7.2).
+    pub ingress_class: ControlProposalIngressClass,
+}
+
+/// Stable references the first admission of an Ack-less authority-authored
+/// human self-principal PCR Move was proven against.
+///
+/// Reads replay these references instead of re-judging the Move against
+/// read-time current device generations or notary policy: the class binds the
+/// exact producer device fragment, the accepted `ak.device.authorize` Event
+/// the device authorization was resolved from, the device generation that
+/// authorization was bound to, and the digest of the Event's signed Seal
+/// basis at admission.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AcklessSelfPrincipalIngress {
+    /// Device fragment (`ak:device:<id>`) of the Event's sole producer proof.
+    pub device_id: String,
+    /// The accepted `ak.device.authorize` Event id the producer device
+    /// authorization was resolved against at admission.
+    pub device_authorize_event_id: String,
+    /// The device generation the authorization was bound to at admission.
+    pub device_generation_ref: u64,
+    /// `canonical_sha256` of the Event's signed Seal basis at admission.
+    pub seal_basis_digest: String,
+}
+
+/// How one pending Control Move was admitted at durable ingress
+/// (`event-auth-state-resolution.md` §7.2).
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "class", rename_all = "snake_case")]
+pub enum ControlProposalIngressClass {
+    /// The ordinary rail: the Move is bound to the canonical Control
+    /// Proposal Ack stored on the same row. The Ack is the unique normative
+    /// carrier of the authority set ref, so the class deliberately stores no
+    /// second copy.
+    AckRequired,
+    /// The one Ack-less exception: an authority-authored human
+    /// self-principal PCR Move.
+    AcklessSelfPrincipal(AcklessSelfPrincipalIngress),
+}
+
+/// Ingress binding of one pending Control Move: the admission class plus the
+/// data that class requires. `AckRequired` carries its Ack, so a pending row
+/// missing a mandatory Ack is unrepresentable at the store boundary.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ControlProposalIngress {
+    AckRequired(ControlProposalAck),
+    AcklessSelfPrincipal(AcklessSelfPrincipalIngress),
+}
+
+impl ControlProposalIngress {
+    #[must_use]
+    pub fn class(&self) -> ControlProposalIngressClass {
+        match self {
+            Self::AckRequired(_) => ControlProposalIngressClass::AckRequired,
+            Self::AcklessSelfPrincipal(class) => {
+                ControlProposalIngressClass::AcklessSelfPrincipal(class.clone())
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn ack(&self) -> Option<&ControlProposalAck> {
+        match self {
+            Self::AckRequired(ack) => Some(ack),
+            Self::AcklessSelfPrincipal(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -67,6 +136,9 @@ pub struct PendingControlEventRecord {
     pub event: Event,
     pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
+    /// The ingress class this Move was admitted under
+    /// (`event-auth-state-resolution.md` §7.2).
+    pub ingress_class: ControlProposalIngressClass,
 }
 
 /// Exact durable state for one Control Proposal digest.
@@ -91,20 +163,19 @@ pub struct ControlProposalSnapshot {
 /// so this store holds Events and keys them by [`control_event_digest`].
 pub trait ControlEventStore: Send + Sync {
     /// Stash a control-plane Event that passed local format / proof
-    /// pre-check. Re-`put_pending` of the same digest MUST be idempotent.
-    fn put_pending(&self, event: &Event) -> StoreResult<()> {
-        self.put_pending_with_ack(event, None)
-    }
-
-    /// Atomically bind the first Control Proposal Ack to the pending Event.
+    /// pre-check, together with its durable ingress classification.
+    /// Re-`put_pending_with_ingress` of the same digest with the
+    /// byte-identical ingress MUST be idempotent; a different class or Ack
+    /// for the same digest is a conflict because it would move the
+    /// already-committed admission basis or deadlines.
     ///
-    /// Replays may omit the ack or provide the byte-identical stored
-    /// value. A different ack for the same digest is a conflict because it
-    /// would move the already-committed deadlines.
-    fn put_pending_with_ack(
+    /// The class and its payload are inseparable: `AckRequired` carries the
+    /// canonical Control Proposal Ack and `AcklessSelfPrincipal` carries no
+    /// Ack, so an Ack-required Move without its Ack cannot be written.
+    fn put_pending_with_ingress(
         &self,
         event: &Event,
-        control_proposal_ack: Option<&ControlProposalAck>,
+        ingress: &ControlProposalIngress,
     ) -> StoreResult<()>;
 
     /// Promote a previously-pending Event to sealed under `seal`.

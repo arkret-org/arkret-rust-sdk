@@ -1429,7 +1429,7 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
 
 impl RecoverySessionState {
     pub fn validate(&self) -> Result<()> {
-        if self.schema != arkret_wire::SchemaId::RECOVERY_SESSION_V1 {
+        if self.schema != SchemaId::RECOVERY_SESSION_V1 {
             return Err(Error::Protocol(
                 "recovery session schema must be ak.schema.recovery_session.v1".to_owned(),
             ));

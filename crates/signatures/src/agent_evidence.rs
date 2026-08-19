@@ -143,7 +143,7 @@ pub fn verify_controller_account_gate_attestation(
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let status_active = attestation.status == ControllerAccountStatus::Active;
     let eligibility_active = attestation.eligibility == ControllerAccountEligibility::Active;
-    if attestation.schema.as_str() != arkret_wire::SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
+    if attestation.schema.as_str() != SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
         || &attestation.principal_id != expected_principal_id
         || &attestation.authority_service_id != expected_authority_service_id
         || projected != attestation.authority_service_id

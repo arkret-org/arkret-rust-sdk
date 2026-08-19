@@ -12,9 +12,9 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    Audience, BlobRef, DidCoreId, EncryptionProfile, Error, EventId, Hash, JoinRule,
+    Audience, BlobRef, DidCoreId, DidUrl, EncryptionProfile, Error, EventId, Hash, JoinRule,
     NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId, SealBasis,
-    ServiceOperationId,
+    ServiceOperationId, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -971,16 +971,168 @@ pub struct DirectoryAnnounceOutcome {
     pub warnings: Vec<String>,
 }
 
+/// The only `proof_purpose` the §8.7.1 write surface admits
+/// (`governance_authorization`). A single-variant closed enum, so any other
+/// wire value fails closed at deserialization — before a verifier ever looks
+/// at the signature.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryGovernanceProofPurpose {
+    GovernanceAuthorization,
+}
+
+/// §8.7.1 governance proof for the directory write surface (`withdraw`,
+/// `takedown_appeal`). Mirrors
+/// `service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof`: the
+/// generic non-Event detached-JWS proof leaf with the family's three choices
+/// closed — `proof_purpose` MUST be `governance_authorization`, `audience`
+/// MUST be the target Directory `service_id` as a single `did_core_id`, and
+/// `domain` MUST be absent. `deny_unknown_fields` rejects any undeclared
+/// member outright; the remaining semantic checks run in
+/// [`Self::binding_bytes`] so no caller can assemble the signed transcript
+/// for a non-conforming proof.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectoryGovernanceProof {
+    pub kind: String,
+    pub verification_method: DidUrl,
+    pub payload_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub proof_purpose: DirectoryGovernanceProofPurpose,
+    /// Target Directory `service_id` in `did_core_id` form. Typed `DidCoreId`
+    /// so the full-DID, DID-URL and array shapes fail closed at
+    /// deserialization (§8.7.1 audience shape paragraph).
+    pub audience: DidCoreId,
+    pub jws: String,
+}
+
+impl DirectoryGovernanceProof {
+    /// Registered context stamped into every §8.7.1 binding object
+    /// (`proof-context-registry.json` row
+    /// `DirectoryGovernanceRequestProofV1`, whose `binding_fields` list is the
+    /// field-name truth source this helper follows).
+    pub const CONTEXT: &'static str = ProofContextId::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1;
+
+    /// Canonical §8.7.1 binding-object bytes to verify the detached JWS
+    /// against. Fails closed — before producing any transcript — unless the
+    /// proof carries the production detached-JWS kind, a non-empty `jws`, and
+    /// a `payload_digest` byte-identical to the recomputed digest of the
+    /// closed request body without its top-level `governance_proof` member.
+    /// (`proof_purpose` needs no check here: the closed
+    /// [`DirectoryGovernanceProofPurpose`] enum makes any other value
+    /// unrepresentable.)
+    pub fn binding_bytes(
+        &self,
+        operation_id: &str,
+        resource_id: &str,
+        payload_digest: &Hash,
+    ) -> Result<Vec<u8>> {
+        if self.kind != proof_kind::DETACHED_JWS {
+            return Err(Error::Protocol(format!(
+                "directory governance proof kind must be detached_jws, got {}",
+                self.kind
+            )));
+        }
+        if self.jws.is_empty() {
+            return Err(Error::Protocol(
+                "directory governance proof jws must not be empty".to_owned(),
+            ));
+        }
+        if &self.payload_digest != payload_digest {
+            return Err(Error::Protocol(
+                "directory governance proof payload_digest mismatch".to_owned(),
+            ));
+        }
+        let mut binding = serde_json::Map::new();
+        binding.insert(
+            "context".to_owned(),
+            Value::String(Self::CONTEXT.to_owned()),
+        );
+        binding.insert(
+            "payload_digest".to_owned(),
+            serde_json::to_value(&self.payload_digest)?,
+        );
+        binding.insert(
+            "operation_id".to_owned(),
+            Value::String(operation_id.to_owned()),
+        );
+        binding.insert(
+            "resource_id".to_owned(),
+            Value::String(resource_id.to_owned()),
+        );
+        binding.insert(
+            "verification_method".to_owned(),
+            serde_json::to_value(&self.verification_method)?,
+        );
+        binding.insert(
+            "created_at".to_owned(),
+            Value::String(arkret_canonical::canonical::format_timestamp_canonical(
+                self.created_at,
+            )),
+        );
+        binding.insert(
+            "proof_purpose".to_owned(),
+            serde_json::to_value(&self.proof_purpose)?,
+        );
+        binding.insert("audience".to_owned(), serde_json::to_value(&self.audience)?);
+        Ok(arkret_canonical::canonical::canonical_json_bytes(
+            &Value::Object(binding),
+        )?)
+    }
+}
+
+/// Canonical unsigned §8.7.1 write request: the top-level `governance_proof`
+/// member is removed outright — never set to `null` — and every optional
+/// field that is actually present is retained (`discovery-directory.md`
+/// §8.7.1).
+fn directory_governance_unsigned_request<T: Serialize>(request: &T) -> Result<Value> {
+    let mut value = serde_json::to_value(request)?;
+    value
+        .as_object_mut()
+        .ok_or_else(|| {
+            Error::Protocol(
+                "directory governance request body must serialize as an object".to_owned(),
+            )
+        })?
+        .remove("governance_proof");
+    Ok(value)
+}
+
+/// `ak.find.directory.command.withdraw` request. Mirrors
+/// `service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryWithdrawRequestBody {
     pub resource_id: String,
-    pub governance_proof: BTreeMap<String, Value>,
-    pub reason: String,
+    pub governance_proof: DirectoryGovernanceProof,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
+}
+
+impl DirectoryWithdrawRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        directory_governance_unsigned_request(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        directory_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.governance_proof.binding_bytes(
+            ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+            &self.resource_id,
+            &self.payload_digest()?,
+        )
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1006,6 +1158,7 @@ pub enum DirectoryTakedownAppealOutcomeRequest {
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryTakedownAppealRequestBody {
     /// The operator `takedown_id` from the takedown notice
     /// (`takedown:<token>`).
@@ -1019,7 +1172,25 @@ pub struct DirectoryTakedownAppealRequestBody {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Signature by the resource governance key or an authorized advocate.
-    pub governance_proof: BTreeMap<String, Value>,
+    pub governance_proof: DirectoryGovernanceProof,
+}
+
+impl DirectoryTakedownAppealRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        directory_governance_unsigned_request(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        directory_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.governance_proof.binding_bytes(
+            ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL,
+            &self.resource_id,
+            &self.payload_digest()?,
+        )
+    }
 }
 
 /// `ak.find.directory.command.takedown_appeal` outcome — signed decision
@@ -1301,5 +1472,291 @@ mod directory_requester_proof_binding_tests {
         );
         body.proof_binding_bytes(&multiple)
             .expect_err("audience MUST be single valued");
+    }
+}
+
+#[cfg(test)]
+mod directory_governance_proof_tests {
+    use arkret_wire::{DidCoreId, DidUrl, Hash, ServiceOperationId};
+    use chrono::{TimeZone, Utc};
+    use serde_json::{Value, json};
+
+    use super::{
+        DirectoryGovernanceProof, DirectoryGovernanceProofPurpose, DirectoryWithdrawRequestBody,
+    };
+
+    const DIRECTORY_SERVICE_ID: &str = "ak:did_core:web:directory.example";
+    const VERIFICATION_METHOD: &str = "did:web:alice.example#governance-1";
+    const RESOURCE_ID: &str = "ak:realm:AY0Z0alJlPB4P2wAIOCSTs_yNX_lm1mM5r3mhhQuKIFb";
+
+    fn proof(payload_digest: Hash) -> DirectoryGovernanceProof {
+        DirectoryGovernanceProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: DidUrl::new(VERIFICATION_METHOD).unwrap(),
+            payload_digest,
+            created_at: Utc.timestamp_millis_opt(1_777_777_777_000).unwrap(),
+            proof_purpose: DirectoryGovernanceProofPurpose::GovernanceAuthorization,
+            audience: DidCoreId::new(DIRECTORY_SERVICE_ID).unwrap(),
+            jws: "aaa..bbb".to_owned(),
+        }
+    }
+
+    fn withdraw_body() -> DirectoryWithdrawRequestBody {
+        let mut body = DirectoryWithdrawRequestBody {
+            resource_id: RESOURCE_ID.to_owned(),
+            governance_proof: proof(Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap()),
+            reason: Some("offline".to_owned()),
+            effective_at: None,
+        };
+        let digest = body.payload_digest().unwrap();
+        body.governance_proof.payload_digest = digest;
+        body
+    }
+
+    /// The binding object stamps the registered context and the seven
+    /// `binding_fields` registered for the family
+    /// (`security_strings.rs` `DirectoryGovernanceRequestProofV1` descriptor).
+    #[test]
+    fn binding_object_matches_the_registered_binding_fields() {
+        let body = withdraw_body();
+        let transcript: Value =
+            serde_json::from_slice(&body.proof_binding_bytes().unwrap()).unwrap();
+        assert_eq!(
+            transcript["context"],
+            Value::from(DirectoryGovernanceProof::CONTEXT)
+        );
+        assert_eq!(
+            transcript["operation_id"],
+            Value::from(ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW)
+        );
+        assert_eq!(transcript["resource_id"], Value::from(RESOURCE_ID));
+        assert_eq!(transcript["verification_method"], VERIFICATION_METHOD);
+        assert_eq!(transcript["proof_purpose"], "governance_authorization");
+        assert_eq!(transcript["audience"], DIRECTORY_SERVICE_ID);
+        let mut keys: Vec<String> = transcript
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(ToOwned::to_owned)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            vec![
+                "audience",
+                "context",
+                "created_at",
+                "operation_id",
+                "payload_digest",
+                "proof_purpose",
+                "resource_id",
+                "verification_method",
+            ]
+        );
+    }
+
+    /// `operation_id` is stamped by the operation actually being served, so a
+    /// signature valid for `withdraw` can never verify as `takedown_appeal`.
+    #[test]
+    fn withdraw_and_appeal_stamp_their_own_operation_id() {
+        let body = withdraw_body();
+        let proof = body.governance_proof.clone();
+        let digest = body.payload_digest().unwrap();
+        let withdraw_transcript: Value =
+            serde_json::from_slice(&body.proof_binding_bytes().unwrap()).unwrap();
+        let appeal_transcript: Value = serde_json::from_slice(
+            &proof
+                .binding_bytes(
+                    ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL,
+                    RESOURCE_ID,
+                    &digest,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            withdraw_transcript["operation_id"],
+            "ak.find.directory.command.withdraw"
+        );
+        assert_eq!(
+            appeal_transcript["operation_id"],
+            "ak.find.directory.command.takedown_appeal"
+        );
+    }
+
+    /// The unsigned projection drops the whole `governance_proof` member (not
+    /// just its `jws`) and keeps the remaining optional fields that are
+    /// actually present.
+    #[test]
+    fn unsigned_payload_removes_governance_proof_and_keeps_present_optionals() {
+        let body = withdraw_body();
+        let unsigned = body.unsigned_payload().unwrap();
+        assert!(unsigned.get("governance_proof").is_none());
+        assert_eq!(unsigned["reason"], "offline");
+        assert!(unsigned.get("effective_at").is_none());
+    }
+
+    /// Fail-closed semantic gates run before any transcript is produced. A
+    /// wrong `proof_purpose` is unrepresentable — the closed
+    /// `DirectoryGovernanceProofPurpose` enum rejects it at deserialization
+    /// (covered by `wire_shape_is_closed`).
+    #[test]
+    fn binding_bytes_rejects_non_conforming_proofs() {
+        let body = withdraw_body();
+        let digest = body.payload_digest().unwrap();
+
+        let mut wrong_kind = body.governance_proof.clone();
+        wrong_kind.kind = "attached_jws".to_owned();
+        wrong_kind
+            .binding_bytes(
+                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+                RESOURCE_ID,
+                &digest,
+            )
+            .expect_err("proof kind MUST be detached_jws");
+
+        let mut empty_jws = body.governance_proof.clone();
+        empty_jws.jws = String::new();
+        empty_jws
+            .binding_bytes(
+                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+                RESOURCE_ID,
+                &digest,
+            )
+            .expect_err("jws MUST NOT be empty");
+
+        let other_digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        body.governance_proof
+            .binding_bytes(
+                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+                RESOURCE_ID,
+                &other_digest,
+            )
+            .expect_err("payload_digest MUST be byte-identical to the recomputed digest");
+    }
+
+    /// §8.7.1 closes the wire shape: undeclared members (`domain` included),
+    /// a wrong `proof_purpose`, and any `audience` shape other than a single
+    /// `did_core_id` MUST fail deserialization.
+    #[test]
+    fn wire_shape_is_closed() {
+        let base = json!({
+            "kind": "detached_jws",
+            "verification_method": VERIFICATION_METHOD,
+            "payload_digest": format!("sha256:{}", "0".repeat(64)),
+            "created_at": "2026-05-02T00:00:00.000Z",
+            "proof_purpose": "governance_authorization",
+            "audience": DIRECTORY_SERVICE_ID,
+            "jws": "aaa..bbb",
+        });
+        serde_json::from_value::<DirectoryGovernanceProof>(base.clone())
+            .expect("the closed shape deserializes");
+
+        let mut with_domain = base.clone();
+        with_domain["domain"] = json!("directory.example");
+        serde_json::from_value::<DirectoryGovernanceProof>(with_domain)
+            .expect_err("domain MUST be absent");
+
+        let mut with_extra = base.clone();
+        with_extra["challenge"] = json!("n-1");
+        serde_json::from_value::<DirectoryGovernanceProof>(with_extra)
+            .expect_err("undeclared members MUST be rejected");
+
+        let mut wrong_purpose = base.clone();
+        wrong_purpose["proof_purpose"] = json!("issuer_attestation");
+        serde_json::from_value::<DirectoryGovernanceProof>(wrong_purpose)
+            .expect_err("proof_purpose MUST be governance_authorization");
+
+        let mut full_did_audience = base.clone();
+        full_did_audience["audience"] = json!("did:web:directory.example");
+        serde_json::from_value::<DirectoryGovernanceProof>(full_did_audience)
+            .expect_err("the full DID form is not an accepted audience shape");
+
+        let mut array_audience = base.clone();
+        array_audience["audience"] = json!([DIRECTORY_SERVICE_ID]);
+        serde_json::from_value::<DirectoryGovernanceProof>(array_audience)
+            .expect_err("audience MUST be single valued");
+    }
+
+    /// Byte-level KAT: the 6th directory proof-context vector from
+    /// `fixtures/proof-context-transcript-fixture.json`
+    /// (`ak.vector.proof_context.transcript.directory_governance_request.v1`).
+    #[test]
+    fn spec_vector_directory_governance_request_matches_byte_for_byte() {
+        let fixture =
+            arkret_schema::embedded_json_artifact("fixtures/proof-context-transcript-fixture.json")
+                .expect("embedded fixture");
+        let cases = fixture["cases"].as_array().expect("cases");
+        let vector = cases
+            .iter()
+            .find(|case| {
+                case["vector_id"].as_str()
+                    == Some("ak.vector.proof_context.transcript.directory_governance_request.v1")
+            })
+            .expect("directory governance transcript vector");
+
+        let proof: DirectoryGovernanceProof = serde_json::from_value(json!({
+            "kind": "detached_jws",
+            "verification_method": vector["binding_object"]["verification_method"],
+            "payload_digest": vector["binding_object"]["payload_digest"],
+            "created_at": vector["binding_object"]["created_at"],
+            "proof_purpose": vector["binding_object"]["proof_purpose"],
+            "audience": vector["binding_object"]["audience"],
+            "jws": vector["detached_jws"],
+        }))
+        .expect("vector proof leaf fits the closed wire shape");
+
+        // `canonical_sha256` already returns the typed `sha256:<hex>` form.
+        let recomputed = arkret_canonical::canonical::canonical_sha256(&vector["unsigned_object"])
+            .expect("unsigned digest");
+        assert_eq!(
+            recomputed,
+            vector["unsigned_digest"].as_str().unwrap(),
+            "SHA-256(JCS(request_without_governance_proof)) must match"
+        );
+        assert_eq!(
+            proof.payload_digest.as_str(),
+            vector["unsigned_digest"].as_str().unwrap()
+        );
+
+        let binding = proof
+            .binding_bytes(
+                vector["binding_object"]["operation_id"].as_str().unwrap(),
+                vector["binding_object"]["resource_id"].as_str().unwrap(),
+                &proof.payload_digest.clone(),
+            )
+            .expect("binding bytes");
+        assert_eq!(
+            binding,
+            vector["binding_jcs"].as_str().unwrap().as_bytes(),
+            "canonical binding object must be byte-identical to the spec vector"
+        );
+
+        // The vector signature is a real Ed25519 signature over
+        // `signing_input_ascii` under the shared conformance test key.
+        let public_key_bytes =
+            arkret_canonical::base64url_decode(fixture["test_key"]["public_key"].as_str().unwrap())
+                .expect("test key decode");
+        let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(
+            &<[u8; 32]>::try_from(public_key_bytes.as_slice()).unwrap(),
+        )
+        .unwrap();
+        let jws = vector["detached_jws"].as_str().unwrap();
+        let (header_segment, signature_segment) = jws
+            .split_once("..")
+            .expect("detached JWS has an empty payload segment");
+        let signing_input_ascii = vector["signing_input_ascii"].as_str().unwrap();
+        assert!(
+            signing_input_ascii.starts_with(header_segment),
+            "the signing input starts with the protected header segment"
+        );
+        let signature_bytes =
+            arkret_canonical::base64url_decode(signature_segment).expect("signature decode");
+        let signature =
+            ed25519_dalek::Signature::from_slice(&signature_bytes).expect("64-byte signature");
+        use ed25519_dalek::Verifier as _;
+        verifying_key
+            .verify(signing_input_ascii.as_bytes(), &signature)
+            .expect("vector signature verifies over the reconstructed signing input");
     }
 }

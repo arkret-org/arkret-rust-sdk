@@ -39,11 +39,11 @@ pub struct GrantProposal {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Expiration time.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     /// Resolution time (when status became terminal).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub resolved_at: Option<DateTime<Utc>>,
 }
@@ -237,5 +237,75 @@ impl ApprovalStrandManager {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_models_collaboration::governance::grant_constraint::{
+        CapabilityGrant, CapabilitySubject, IssuerAuthorityRef,
+    };
+    use arkret_wire::{GrantId, RealmId, SchemaId};
+
+    use super::*;
+
+    fn did(name: &str) -> DidCoreId {
+        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture:{name}.example")).unwrap()
+    }
+
+    fn grant() -> CapabilityGrant {
+        CapabilityGrant {
+            id: GrantId::new("ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu").unwrap(),
+            schema: SchemaId::CAPABILITY_V1.to_owned(),
+            realm_id: None,
+            issuer: did("alice"),
+            issuer_principal_server_id: did("alice"),
+            subject: CapabilitySubject::CoreDid(did("bob")),
+            subject_principal_server_id: Some(did("alice")),
+            actions: vec!["ak.message.create".to_owned()],
+            resources: vec![serde_json::from_value(serde_json::json!({"kind": "*"})).unwrap()],
+            capability_action_registry_digest: None,
+            constraints: Vec::new(),
+            issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
+                realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
+                    .unwrap(),
+                cell_ref: arkret_wire::REALM_AUTHORITY_ROOT_CELL.to_owned(),
+                controller_epoch_at_issuance: 0,
+                authority_generation: 0,
+            }],
+            issued_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
+            not_before: None,
+            expires_at: None,
+            updated_by: None,
+            updated_at: None,
+            revoked_by: None,
+            revoked_at: None,
+        }
+    }
+
+    #[test]
+    fn grant_proposal_omitted_optional_timestamps_round_trip() {
+        let proposal = GrantProposal {
+            proposal_id: "proposal-1".to_owned(),
+            grant: grant(),
+            proposer: did("alice"),
+            required_approvers: vec![did("bob")],
+            approval_mode: ApprovalMode::Any,
+            status: ProposalStatus::Pending,
+            approvals: Vec::new(),
+            created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
+            expires_at: None,
+            resolved_at: None,
+        };
+
+        let serialized = serde_json::to_value(&proposal).unwrap();
+        let object = serialized.as_object().unwrap();
+        assert!(!object.contains_key("expires_at"));
+        assert!(!object.contains_key("resolved_at"));
+
+        let restored: GrantProposal = serde_json::from_value(serialized).unwrap();
+        assert!(restored.expires_at.is_none());
+        assert!(restored.resolved_at.is_none());
+        assert_eq!(restored.proposal_id, proposal.proposal_id);
     }
 }
