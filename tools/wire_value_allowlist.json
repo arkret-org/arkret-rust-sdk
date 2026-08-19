@@ -5011,7 +5011,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:teabay/crates/server/src/ingest/receipt.rs::resource_withdrawal_proof:b61142a27ced8cee",
+      "finding": "json_authoring:teabay/crates/server/src/ingest/receipt.rs::resource_withdrawal_proof:b1c00f27dfa21601",
       "classification": "closed_discriminated",
       "lifecycle": "pending_migration",
       "decision": "closed",
