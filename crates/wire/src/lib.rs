@@ -28,6 +28,7 @@ pub mod serde_helpers {
     pub use arkret_canonical::serde_helpers::*;
 }
 
+pub mod accepted_device_possession;
 pub mod applet_revoke_mode;
 pub mod authored_event;
 pub mod authorization_lease_issuance_fixture;
@@ -79,6 +80,7 @@ pub mod webvh_parameters;
 pub mod wire_presence;
 pub mod wire_strings;
 
+pub use accepted_device_possession::*;
 pub use applet_revoke_mode::AppletRevokeMode;
 pub use arkret_identifiers::*;
 pub use authored_event::AuthoredEvent;

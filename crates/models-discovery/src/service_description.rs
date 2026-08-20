@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-pub use arkret_models_identity::session_credential::SessionGrantProofKind;
 use arkret_wire::generated::profile_requirements::requirements_for;
 use arkret_wire::{DidCoreId, DidFullId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
@@ -599,6 +598,19 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
+    fn auth_grant_exchange_is_the_closed_account_handoff_shape() {
+        let exchange: AuthGrantExchange =
+            serde_json::from_value(json!({"kind": "account_handoff"})).unwrap();
+        assert_eq!(exchange.kind, AuthGrantExchangeKind::AccountHandoff);
+        assert!(
+            serde_json::from_value::<AuthGrantExchange>(
+                json!({"proof_kind": "oidc_code_exchange"})
+            )
+            .is_err()
+        );
+    }
+
     fn directory_description() -> ServiceDescribe {
         ServiceDescribe {
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
@@ -870,13 +882,20 @@ pub enum AuthMethodKind {
 }
 
 /// Mirrors `service-describe.schema.json#/$defs/auth_grant_exchange`. The
-/// `proof_kind` reuses the authoritative [`SessionGrantProofKind`] enum so
-/// the describe surface and the session-grant request surface stay in lockstep.
+/// OIDC discovery describes the only authorization-code consumer: account
+/// handoff. SessionGrant issue is a later, separately authenticated operation.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuthGrantExchange {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub proof_kind: SessionGrantProofKind,
+    pub kind: AuthGrantExchangeKind,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AuthGrantExchangeKind {
+    #[serde(rename = "account_handoff")]
+    AccountHandoff,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

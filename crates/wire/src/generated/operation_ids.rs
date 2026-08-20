@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-20.1;
-//! sha256=b95da92c3ed177ae617ff5f1a31b20bd2673d5f1638c8bdc21151171ab84a3f6 Entries: registered=244
+//! Input: registry/operation-registry.json; version=2026-08-20.2;
+//! sha256=25022cde238919dd6772dbae82dc35dc60882c3bfcdbcfe2b0bb2bd10c0a27bc Entries: registered=243
 
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +51,6 @@ pub enum ServiceOperationId {
     GateAccountCommandRegister,
     GateAccountCommandRequestErasure,
     GateAccountCommandRevokeSession,
-    GateAccountExchangeCompleteOidc,
     GateAccountExchangeCreateHandoff,
     GateAccountReadOnboarding,
     OpenAgentPairingCommandSubmitRuntimeKeyRequest,
@@ -298,7 +297,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
-    ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
     ServiceOperationId::GATE_ACCOUNT_READ_ONBOARDING,
     ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST,
@@ -587,7 +585,6 @@ impl ServiceOperationId {
         Self::GateAccountCommandRegister,
         Self::GateAccountCommandRequestErasure,
         Self::GateAccountCommandRevokeSession,
-        Self::GateAccountExchangeCompleteOidc,
         Self::GateAccountExchangeCreateHandoff,
         Self::GateAccountReadOnboarding,
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest,
@@ -865,8 +862,6 @@ impl ServiceOperationId {
         "ak.gate.account.command.request_erasure";
     pub const GATE_ACCOUNT_COMMAND_REVOKE_SESSION: &'static str =
         "ak.gate.account.command.revoke_session";
-    pub const GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC: &'static str =
-        "ak.gate.account.exchange.complete_oidc";
     pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF: &'static str =
         "ak.gate.account.exchange.create_handoff";
     pub const GATE_ACCOUNT_READ_ONBOARDING: &'static str = "ak.gate.account.read.onboarding";
@@ -1254,7 +1249,6 @@ impl ServiceOperationId {
             Self::GateAccountCommandRegister => Self::GATE_ACCOUNT_COMMAND_REGISTER,
             Self::GateAccountCommandRequestErasure => Self::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE,
             Self::GateAccountCommandRevokeSession => Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
-            Self::GateAccountExchangeCompleteOidc => Self::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
             Self::GateAccountExchangeCreateHandoff => Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
             Self::GateAccountReadOnboarding => Self::GATE_ACCOUNT_READ_ONBOARDING,
             Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest => {
@@ -1632,9 +1626,6 @@ impl ServiceOperationId {
             }
             Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION => {
                 Some(Self::GateAccountCommandRevokeSession)
-            }
-            Self::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC => {
-                Some(Self::GateAccountExchangeCompleteOidc)
             }
             Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF => {
                 Some(Self::GateAccountExchangeCreateHandoff)
@@ -2978,31 +2969,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.revoke_session\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
         ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountExchangeCompleteOidc,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/oidc/callback",
-        grpc: Some("GateAccount/OidcCallback"),
-        mq: Some("gate.account.exchange.complete_oidc"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountOidcCallbackRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountOidcCallbackOutcome",
-        ),
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,

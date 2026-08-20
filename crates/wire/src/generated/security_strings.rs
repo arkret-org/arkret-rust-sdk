@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-18.1;
-//! sha256=1c75280f5aa5247c867dc66e4a8a82d5824f5013be77d0f37ff2e9792cd1c7d7 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-20.1;
+//! sha256=ce168a18b3a9ce9d43bef74bd73cd528e1eccb563573e9cee8e63e9a0101e108 Input: registry/
 //! exporter-label-registry.json; version=2026-08-13.2;
 //! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -16,7 +16,7 @@
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=63, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=65, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=23, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -31,6 +31,7 @@ pub enum ProofContextId {
     AgentRequestedScopeDisclosureProofV1,
     AgentRuntimeKeyPossessionProofV1,
     AgentSelectorClaimProofV1,
+    AgentSessionRefreshProofV1,
     AppletPackageProofV1,
     AuditReleaseAttestationProofV1,
     AuditRywReceiptProofV1,
@@ -82,6 +83,7 @@ pub enum ProofContextId {
     ServiceResolutionPublishAckProofV1,
     ServiceResolutionRecordProofV1,
     ServiceRouteHandoverNoticeProofV1,
+    SessionGrantAcceptedDevicePossessionProofV1,
     SignalProofV1,
     SnapshotProofV1,
     SnapshotWitnessAttestationProofV1,
@@ -98,6 +100,7 @@ impl ProofContextId {
         Self::AgentRequestedScopeDisclosureProofV1,
         Self::AgentRuntimeKeyPossessionProofV1,
         Self::AgentSelectorClaimProofV1,
+        Self::AgentSessionRefreshProofV1,
         Self::AppletPackageProofV1,
         Self::AuditReleaseAttestationProofV1,
         Self::AuditRywReceiptProofV1,
@@ -149,6 +152,7 @@ impl ProofContextId {
         Self::ServiceResolutionPublishAckProofV1,
         Self::ServiceResolutionRecordProofV1,
         Self::ServiceRouteHandoverNoticeProofV1,
+        Self::SessionGrantAcceptedDevicePossessionProofV1,
         Self::SignalProofV1,
         Self::SnapshotProofV1,
         Self::SnapshotWitnessAttestationProofV1,
@@ -169,6 +173,7 @@ impl ProofContextId {
     pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1: &'static str =
         "ak.agent-runtime-key-possession-proof-v1";
     pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent-selector-claim-proof-v1";
+    pub const AGENT_SESSION_REFRESH_PROOF_V1: &'static str = "ak.agent-session-refresh-proof-v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet-package-proof-v1";
     pub const AUDIT_RELEASE_ATTESTATION_PROOF_V1: &'static str =
         "ak.audit-release-attestation-proof-v1";
@@ -258,6 +263,8 @@ impl ProofContextId {
         "ak.service-resolution-record-proof-v1";
     pub const SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1: &'static str =
         "ak.service-route-handover-notice-proof-v1";
+    pub const SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
+        "ak.session-grant-accepted-device-possession-proof-v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal-proof-v1";
     pub const SNAPSHOT_PROOF_V1: &'static str = "ak.snapshot-proof-v1";
     pub const SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1: &'static str =
@@ -280,6 +287,7 @@ impl ProofContextId {
             }
             Self::AgentRuntimeKeyPossessionProofV1 => Self::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1,
             Self::AgentSelectorClaimProofV1 => Self::AGENT_SELECTOR_CLAIM_PROOF_V1,
+            Self::AgentSessionRefreshProofV1 => Self::AGENT_SESSION_REFRESH_PROOF_V1,
             Self::AppletPackageProofV1 => Self::APPLET_PACKAGE_PROOF_V1,
             Self::AuditReleaseAttestationProofV1 => Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1,
             Self::AuditRywReceiptProofV1 => Self::AUDIT_RYW_RECEIPT_PROOF_V1,
@@ -369,6 +377,9 @@ impl ProofContextId {
             }
             Self::ServiceResolutionRecordProofV1 => Self::SERVICE_RESOLUTION_RECORD_PROOF_V1,
             Self::ServiceRouteHandoverNoticeProofV1 => Self::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1,
+            Self::SessionGrantAcceptedDevicePossessionProofV1 => {
+                Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
+            }
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
             Self::SnapshotProofV1 => Self::SNAPSHOT_PROOF_V1,
             Self::SnapshotWitnessAttestationProofV1 => Self::SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1,
@@ -396,6 +407,7 @@ impl ProofContextId {
                 Some(Self::AgentRuntimeKeyPossessionProofV1)
             }
             Self::AGENT_SELECTOR_CLAIM_PROOF_V1 => Some(Self::AgentSelectorClaimProofV1),
+            Self::AGENT_SESSION_REFRESH_PROOF_V1 => Some(Self::AgentSessionRefreshProofV1),
             Self::APPLET_PACKAGE_PROOF_V1 => Some(Self::AppletPackageProofV1),
             Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1 => Some(Self::AuditReleaseAttestationProofV1),
             Self::AUDIT_RYW_RECEIPT_PROOF_V1 => Some(Self::AuditRywReceiptProofV1),
@@ -502,6 +514,9 @@ impl ProofContextId {
             Self::SERVICE_RESOLUTION_RECORD_PROOF_V1 => Some(Self::ServiceResolutionRecordProofV1),
             Self::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1 => {
                 Some(Self::ServiceRouteHandoverNoticeProofV1)
+            }
+            Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1 => {
+                Some(Self::SessionGrantAcceptedDevicePossessionProofV1)
             }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
             Self::SNAPSHOT_PROOF_V1 => Some(Self::SnapshotProofV1),
@@ -1004,6 +1019,20 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/agent-selector-claim.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::AgentSessionRefreshProofV1,
+        context: "ak.agent-session-refresh-proof-v1",
+        object_family: "agent_session_refresh_proof",
+        consumer_operation: None,
+        binding_fields: &[
+            "request_canonical_digest",
+            "audience",
+            "issued_at",
+            "expires_at",
+            "verification_method",
+        ],
+        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/AgentSessionRefreshProof",
     },
     ProofContextDescriptor {
         id: ProofContextId::AppletPackageProofV1,
@@ -1869,6 +1898,28 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/identity-resolution.schema.json#/$defs/service_route_handover_notice",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::SessionGrantAcceptedDevicePossessionProofV1,
+        context: "ak.session-grant-accepted-device-possession-proof-v1",
+        object_family: "session_grant_accepted_device_possession",
+        consumer_operation: None,
+        binding_fields: &[
+            "purpose",
+            "request_id?",
+            "account_subject?",
+            "account_handoff_grant_digest?",
+            "predecessor_session_grant_id?",
+            "principal_id",
+            "device_id",
+            "audience",
+            "holder_jkt",
+            "session_intent_digest",
+            "issued_at",
+            "expires_at",
+            "verification_method",
+        ],
+        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/AcceptedDevicePossessionProof",
     },
     ProofContextDescriptor {
         id: ProofContextId::SignalProofV1,

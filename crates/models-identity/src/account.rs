@@ -1389,6 +1389,13 @@ pub const STANDARD_INITIAL_SESSION_GRANT_OPERATIONS: [InitialSessionGrantOperati
     InitialSessionGrantOperation::EventsReadScan,
 ];
 
+pub fn standard_initial_session_grant_scope() -> Vec<String> {
+    STANDARD_INITIAL_SESSION_GRANT_OPERATIONS
+        .iter()
+        .map(|operation| operation.as_str().to_owned())
+        .collect()
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1396,37 +1403,11 @@ pub struct InitialSessionGrantIntent {
     pub device_id: DeviceId,
     pub session_public_key: CanonicalSessionPublicJwk,
     pub audience: DidCoreId,
-    pub requested_scope: Vec<InitialSessionGrantOperation>,
 }
 
 impl InitialSessionGrantIntent {
     pub fn validate(&self) -> Result<()> {
-        if self.requested_scope.is_empty()
-            || self
-                .requested_scope
-                .iter()
-                .collect::<std::collections::BTreeSet<_>>()
-                .len()
-                != self.requested_scope.len()
-        {
-            return Err(Error::Protocol(
-                "initial session requested_scope must be non-empty and unique".to_owned(),
-            ));
-        }
         Ok(())
-    }
-
-    pub fn requested_scope_strings(&self) -> Vec<String> {
-        self.requested_scope
-            .iter()
-            .map(|operation| operation.as_str().to_owned())
-            .collect()
-    }
-
-    pub fn allows_scope(&self, scope: &str) -> bool {
-        self.requested_scope
-            .iter()
-            .any(|operation| operation.as_str() == scope)
     }
 
     pub fn canonical_request_digest(&self) -> Result<Hash> {

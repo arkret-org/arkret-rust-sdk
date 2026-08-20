@@ -150,13 +150,8 @@ impl Client {
                 let proof = auth.proof_for(method, url)?;
                 validate_header_value("DPoP proof", &proof)?;
                 if let Some(token) = auth.access_token() {
-                    builder = match auth.authorization_scheme {
-                        crate::DpopAuthorizationScheme::Bearer => builder.bearer_auth(token),
-                        crate::DpopAuthorizationScheme::Dpop => {
-                            validate_header_value("DPoP authorization credential", token)?;
-                            builder.header("Authorization", format!("DPoP {token}"))
-                        }
-                    };
+                    validate_header_value("DPoP authorization credential", token)?;
+                    builder = builder.header("Authorization", format!("DPoP {token}"));
                 }
                 builder = builder.header("DPoP", proof);
             }

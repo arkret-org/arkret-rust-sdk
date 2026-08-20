@@ -17,7 +17,7 @@ mod push;
 mod security;
 mod signal;
 
-pub use account::{AccountSubscribeFrameStream, login_did_proof};
+pub use account::AccountSubscribeFrameStream;
 pub use agent::AgentRuntimeApprovalStatusResponse;
 pub use applet::SignedAppletTransactionOptions;
 pub use data::{

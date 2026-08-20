@@ -1002,11 +1002,9 @@ impl AccountRegisterOutcome {
                 ),
                 ("grant audience", grant.audience == initial.audience),
                 (
-                    "grant scope ceiling",
-                    grant
-                        .granted_scope
-                        .iter()
-                        .all(|scope| initial.allows_scope(scope)),
+                    "grant fixed scope",
+                    grant.granted_scope
+                        == arkret_models_identity::standard_initial_session_grant_scope(),
                 ),
                 (
                     "receipt principal_id",

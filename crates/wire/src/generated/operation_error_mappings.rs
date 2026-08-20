@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-20.1;
-//! sha256=b95da92c3ed177ae617ff5f1a31b20bd2673d5f1638c8bdc21151171ab84a3f6 Input: registry/
-//! operations-error-mapping.json; version=2026-08-20.1;
-//! sha256=7ed432937e30473f5bbb4ea964674490afca28b717dced09978038fc1a750bd3 Input: registry/
-//! error-code-registry.json; version=2026-08-20.1;
-//! sha256=82051cc7173fab3a583cfa541d41e6c400a9b45413bfa02bc0cd1ba50b78c3e6 Entries: operations=244
+//! Input: registry/operation-registry.json; version=2026-08-20.2;
+//! sha256=25022cde238919dd6772dbae82dc35dc60882c3bfcdbcfe2b0bb2bd10c0a27bc Input: registry/
+//! operations-error-mapping.json; version=2026-08-20.2;
+//! sha256=5e8307d1250f987e6db8738f246ed2652850fbc9a034054aca24877742e177dc Input: registry/
+//! error-code-registry.json; version=2026-08-20.4;
+//! sha256=eb95e75c4c33459ebf274ccc6b586aa9777ab819646c7e561f6b58f5baadaecb Entries: operations=243
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -268,8 +268,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::AgentKeyAuthorizationExpired),
             OperationSpecificError::ReasonCode(ReasonCode::AccountabilityGrantMissing),
             OperationSpecificError::ReasonCode(ReasonCode::AgentRequestedScopeCommitmentInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceUnauthorized),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceGenerationFenced),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -306,10 +308,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayTerminal),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayIndeterminate),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantNotFound),
-            OperationSpecificError::ErrorCode(ErrorCode::DidProofRequired),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceGenerationFenced),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -350,10 +352,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
             OperationSpecificError::ErrorCode(ErrorCode::SessionGrantReplayIndeterminate),
         ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::GateAccountExchangeCompleteOidc,
-        operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::GateAccountExchangeCreateHandoff,

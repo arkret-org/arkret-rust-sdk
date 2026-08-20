@@ -22,7 +22,7 @@ fn device(id: &str) -> DeviceId {
 fn session_grant_payload(now: DateTime<Utc>, device_id: &DeviceId) -> SessionGrantPayload {
     use arkret_models_identity::{
         CanonicalSessionPublicJwk, SESSION_GRANT_CREDENTIAL_KIND, SessionGrantCnf,
-        SessionGrantCredentialClass, SessionGrantIssuanceNonce,
+        SessionGrantCredentialClass, SessionGrantDeviceBinding, SessionGrantIssuanceNonce,
     };
 
     let mut claims = SignedSessionGrantClaims {
@@ -36,10 +36,7 @@ fn session_grant_payload(now: DateTime<Utc>, device_id: &DeviceId) -> SessionGra
         )
         .unwrap(),
         audience: did("soland"),
-        scopes: vec![
-            arkret_device_scope(device_id),
-            "urn:arkret:principal-server:session.bind".to_owned(),
-        ],
+        scopes: vec!["ak.self.account.read.viewer".to_owned()],
         not_before: now,
         expires_at: now + Duration::minutes(10),
         session_id: "browser-session-1".to_owned(),
@@ -50,7 +47,14 @@ fn session_grant_payload(now: DateTime<Utc>, device_id: &DeviceId) -> SessionGra
         holder_binding: arkret_models_identity::SessionGrantHolderBinding::HumanDevice {
             device_binding: device_id.to_string(),
         },
-        device_binding: None,
+        device_binding: Some(SessionGrantDeviceBinding {
+            device_id: device_id.clone(),
+            authorization_event_id: arkret_wire::EventId::new(
+                "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+            )
+            .unwrap(),
+            model_generation_ref: 1,
+        }),
         proof_kind: None,
         scope_details: None,
     };

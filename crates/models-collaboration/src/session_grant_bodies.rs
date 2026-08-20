@@ -6,11 +6,12 @@
 
 use arkret_models_identity::{
     CanonicalSessionPublicJwk, SessionGrantCredentialClass, SessionGrantDeviceBinding,
-    SessionGrantHolderBinding, SessionGrantProofKind,
+    SessionGrantHolderBinding,
 };
+pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
-    DeviceId, DidCoreId, DidUrl, Error, Hash, NonEmptyString, RealmId, Result, ScopeRef,
-    SessionGrantId, StrandId, canonical,
+    AcceptedDevicePossessionProof, Base64UrlString, DeviceId, DidCoreId, DidUrl, Error, Hash,
+    NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,32 +20,131 @@ use serde_json::Value;
 use crate::agent_operations::AgentRequestedScopeDisclosure;
 use crate::governance::agent_participation::AgentParticipationEntry;
 
+#[derive(Serialize)]
+struct HumanSessionGrantIntent<'a> {
+    operation: &'static str,
+    request_id: &'a RequestId,
+    principal_id: &'a DidCoreId,
+    device_id: &'a DeviceId,
+    audience: &'a DidCoreId,
+    holder_jkt: &'a str,
+}
+
+pub fn human_session_grant_intent_digest(
+    request_id: &RequestId,
+    principal_id: &DidCoreId,
+    device_id: &DeviceId,
+    audience: &DidCoreId,
+    holder_jkt: &str,
+) -> Result<Hash> {
+    Ok(Hash::new(canonical::canonical_sha256(
+        &HumanSessionGrantIntent {
+            operation: "issue_session_grant",
+            request_id,
+            principal_id,
+            device_id,
+            audience,
+            holder_jkt,
+        },
+    )?)?)
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantRequestBody {
-    /// Existing principal DID. OIDC verifies a login factor and never mints or
-    /// derives protocol identity.
-    pub principal_id: DidCoreId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub requested_scope: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_key_authorization_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_scope_request: Option<SessionGrantAgentScopeRequest>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_authority: Option<SessionGrantAppletDelegation>,
-    pub proof: SessionGrantRequestProof,
+#[serde(untagged)]
+pub enum SessionGrantRequestBody {
+    Human(HumanSessionGrantRequest),
+    Agent(AgentSessionGrantRequest),
 }
 
 impl SessionGrantRequestBody {
     pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Human(request) => request.validate(),
+            Self::Agent(request) => request.validate(),
+        }
+    }
+}
+
+/// Returning human session issuance authenticated by an account-handoff
+/// credential and a long-term accepted-device possession proof. Human scope is
+/// issuer-owned and therefore deliberately absent from this wire shape.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HumanSessionGrantRequest {
+    pub request_id: RequestId,
+    pub principal_id: DidCoreId,
+    pub device_id: DeviceId,
+    pub audience: DidCoreId,
+    pub accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
+}
+
+impl HumanSessionGrantRequest {
+    pub fn validate(&self) -> Result<()> {
+        let proof = &self.accepted_device_possession_proof;
+        AcceptedDevicePossessionProof::Issue(proof.clone()).validate()?;
+        if proof.request_id != self.request_id
+            || proof.principal_id != self.principal_id
+            || proof.device_id != self.device_id
+            || proof.audience != self.audience
+        {
+            return Err(Error::Protocol(
+                "accepted-device issue proof does not bind the session request".to_owned(),
+            ));
+        }
+        let expected_intent = human_session_grant_intent_digest(
+            &self.request_id,
+            &self.principal_id,
+            &self.device_id,
+            &self.audience,
+            &proof.holder_jkt,
+        )?;
+        if proof.session_intent_digest != expected_intent {
+            return Err(Error::Protocol(
+                "accepted-device issue proof has the wrong session intent digest".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Agent session issuance remains delegated and scope-bearing. Keeping it as a
+/// separate closed variant makes `requested_scope` impossible on human issue.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentSessionGrantRequest {
+    pub principal_id: DidCoreId,
+    pub device_id: DeviceId,
+    pub requested_scope: Vec<String>,
+    pub agent_key_authorization_ref: String,
+    pub agent_scope_request: SessionGrantAgentScopeRequest,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
+    pub dpop_binding_proof: SessionGrantDpopBindingProof,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_authority: Option<SessionGrantAppletDelegation>,
+    pub proof: AgentSessionGrantProof,
+}
+
+impl AgentSessionGrantRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.requested_scope.is_empty()
+            || self
+                .requested_scope
+                .iter()
+                .any(|scope| scope.trim().is_empty())
+        {
+            return Err(Error::Protocol(
+                "agent session grant requested_scope must be non-empty".to_owned(),
+            ));
+        }
+        if self.agent_key_authorization_ref.trim().is_empty() {
+            return Err(Error::Protocol(
+                "agent session grant authorization ref must not be empty".to_owned(),
+            ));
+        }
         Ok(())
     }
 
@@ -56,7 +156,7 @@ impl SessionGrantRequestBody {
         let proof = value
             .get_mut("proof")
             .and_then(Value::as_object_mut)
-            .expect("session grant proof serializes as an object");
+            .expect("agent session grant proof serializes as an object");
         proof.remove("request_canonical_digest");
         proof.remove("signature");
         session_grant_request_digest(&value)
@@ -98,45 +198,19 @@ pub struct SessionGrantAppletDelegation {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantRequestProof {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof_kind: SessionGrantProofKind,
+pub struct AgentSessionGrantProof {
+    pub proof_kind: AgentSessionGrantProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
     pub audience: DidCoreId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
     pub signature: String,
-    // `ak.profile.agent_auth.v1` overlay (AKP-0008 §4.6): the agent runtime
-    // key the proof is signed with. Required at runtime when
-    // `proof_kind == agent_key_proof`; the server enforces presence and binds
-    // it to the active `ak.agent.key.authorize`. Absent for human proof kinds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_method: Option<DidUrl>,
-    // OIDC code-exchange fields. Required at runtime when
-    // `proof_kind == oidc_code_exchange` (per
-    // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`),
-    // but kept `Option` here — validation is the server's job.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub issuer: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub client_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub redirect_uri: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub nonce: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub code_verifier: Option<String>,
+    pub verification_method: DidUrl,
+    pub nonce: String,
 }
 
-impl SessionGrantRequestProof {
-    /// Canonical detached-signature transcript for human proof kinds.
+impl AgentSessionGrantProof {
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
         let mut value = serde_json::to_value(self)?;
         value
@@ -147,90 +221,66 @@ impl SessionGrantRequestProof {
     }
 }
 
-/// Signature-proof members before the self-referential request digest and
-/// detached signature have been derived. This type is not serializable.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentSessionGrantProofKind {
+    #[serde(rename = "agent_key_proof")]
+    AgentKeyProof,
+}
+
+/// Agent proof members before the self-referential request digest and detached
+/// signature have been derived. This type is not serializable.
 #[derive(Clone, Debug)]
-pub struct UnsignedSessionGrantRequestProof {
-    pub proof_kind: SessionGrantProofKind,
+pub struct UnsignedAgentSessionGrantProof {
     pub challenge: String,
     pub audience: DidCoreId,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub verification_method: Option<DidUrl>,
-    pub issuer: Option<String>,
-    pub client_id: Option<String>,
-    pub redirect_uri: Option<String>,
-    pub state: Option<String>,
-    pub nonce: Option<String>,
-    pub authorization_code: Option<String>,
-    pub code_verifier: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub verification_method: DidUrl,
+    pub nonce: String,
 }
 
-/// Non-serializable session-grant authoring state. Only
+/// Non-serializable Agent session-grant authoring state. Only
 /// [`Self::attach_signature`] can produce the outbound wire request.
 #[derive(Clone, Debug)]
-pub struct UnsignedSessionGrantRequestBody {
+pub struct UnsignedAgentSessionGrantRequest {
     pub principal_id: DidCoreId,
-    pub device_id: Option<DeviceId>,
+    pub device_id: DeviceId,
     pub requested_scope: Vec<String>,
-    pub agent_key_authorization_ref: Option<String>,
-    pub agent_scope_request: Option<SessionGrantAgentScopeRequest>,
+    pub agent_key_authorization_ref: String,
+    pub agent_scope_request: SessionGrantAgentScopeRequest,
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
-    pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
+    pub dpop_binding_proof: SessionGrantDpopBindingProof,
     pub applet_authority: Option<SessionGrantAppletDelegation>,
-    pub proof: UnsignedSessionGrantRequestProof,
+    pub proof: UnsignedAgentSessionGrantProof,
 }
 
-impl UnsignedSessionGrantRequestBody {
+impl UnsignedAgentSessionGrantRequest {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         principal_id: DidCoreId,
-        device_id: Option<DeviceId>,
+        device_id: DeviceId,
         requested_scope: Vec<String>,
-        agent_key_authorization_ref: Option<String>,
-        agent_scope_request: Option<SessionGrantAgentScopeRequest>,
+        agent_key_authorization_ref: String,
+        agent_scope_request: SessionGrantAgentScopeRequest,
         requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
-        dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
+        dpop_binding_proof: SessionGrantDpopBindingProof,
         applet_authority: Option<SessionGrantAppletDelegation>,
-        proof: UnsignedSessionGrantRequestProof,
+        proof: UnsignedAgentSessionGrantProof,
     ) -> Result<Self> {
         if proof.challenge.is_empty() {
             return Err(Error::Protocol(
-                "session grant proof challenge must not be empty".to_owned(),
+                "agent session grant proof challenge must not be empty".to_owned(),
             ));
         }
-        let agent = proof.proof_kind == SessionGrantProofKind::AgentKeyProof;
-        if agent
-            != (device_id.is_some()
-                && agent_key_authorization_ref.is_some()
-                && agent_scope_request.is_some()
-                && dpop_binding_proof.is_some()
-                && proof.verification_method.is_some())
+        if requested_scope.is_empty() || requested_scope.iter().any(|scope| scope.trim().is_empty())
         {
             return Err(Error::Protocol(
-                "agent_key_proof session grant requires its complete agent binding".to_owned(),
+                "agent session grant requested_scope must be non-empty".to_owned(),
             ));
         }
-        if !agent
-            && (agent_key_authorization_ref.is_some()
-                || agent_scope_request.is_some()
-                || requested_scope_disclosure.is_some()
-                || proof.verification_method.is_some())
-        {
+        if agent_key_authorization_ref.trim().is_empty() || proof.nonce.trim().is_empty() {
             return Err(Error::Protocol(
-                "human session grant must omit agent-only binding fields".to_owned(),
-            ));
-        }
-        let oidc = proof.proof_kind == SessionGrantProofKind::OidcCodeExchange;
-        let oidc_complete = proof.issuer.is_some()
-            && proof.client_id.is_some()
-            && proof.redirect_uri.is_some()
-            && proof.state.is_some()
-            && proof.nonce.is_some()
-            && proof.authorization_code.is_some()
-            && proof.code_verifier.is_some();
-        if oidc != oidc_complete {
-            return Err(Error::Protocol(
-                "oidc_code_exchange session grant requires exactly its OIDC fields".to_owned(),
+                "agent session grant authorization ref and nonce must not be empty".to_owned(),
             ));
         }
         Ok(Self {
@@ -257,7 +307,7 @@ impl UnsignedSessionGrantRequestBody {
 
     pub fn attach_signature(self, signature: NonEmptyString) -> Result<SessionGrantRequestBody> {
         let request_canonical_digest = self.canonical_request_digest()?;
-        Ok(SessionGrantRequestBody {
+        Ok(SessionGrantRequestBody::Agent(AgentSessionGrantRequest {
             principal_id: self.principal_id,
             device_id: self.device_id,
             requested_scope: self.requested_scope,
@@ -266,23 +316,17 @@ impl UnsignedSessionGrantRequestBody {
             requested_scope_disclosure: self.requested_scope_disclosure,
             dpop_binding_proof: self.dpop_binding_proof,
             applet_authority: self.applet_authority,
-            proof: SessionGrantRequestProof {
-                proof_kind: self.proof.proof_kind,
+            proof: AgentSessionGrantProof {
+                proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
                 challenge: self.proof.challenge,
                 request_canonical_digest,
                 audience: self.proof.audience,
                 expires_at: self.proof.expires_at,
                 signature: signature.into_string(),
                 verification_method: self.proof.verification_method,
-                issuer: self.proof.issuer,
-                client_id: self.proof.client_id,
-                redirect_uri: self.proof.redirect_uri,
-                state: self.proof.state,
                 nonce: self.proof.nonce,
-                authorization_code: self.proof.authorization_code,
-                code_verifier: self.proof.code_verifier,
             },
-        })
+        }))
     }
 
     fn unsigned_request_value(&self) -> Value {
@@ -300,17 +344,7 @@ impl UnsignedSessionGrantRequestBody {
         let object = value
             .as_object_mut()
             .expect("unsigned session grant request is an object");
-        if self.requested_scope.is_empty() {
-            object.remove("requested_scope");
-        }
-        for field in [
-            "device_id",
-            "agent_key_authorization_ref",
-            "agent_scope_request",
-            "requested_scope_disclosure",
-            "dpop_binding_proof",
-            "applet_authority",
-        ] {
+        for field in ["requested_scope_disclosure", "applet_authority"] {
             if object.get(field).is_some_and(Value::is_null) {
                 object.remove(field);
             }
@@ -320,38 +354,22 @@ impl UnsignedSessionGrantRequestBody {
 
     fn unsigned_proof_value(&self, digest: Option<&Hash>) -> Value {
         let mut value = serde_json::json!({
-            "proof_kind": self.proof.proof_kind,
+            "proof_kind": AgentSessionGrantProofKind::AgentKeyProof,
             "challenge": &self.proof.challenge,
             "request_canonical_digest": digest,
             "audience": &self.proof.audience,
-            "expires_at": self.proof.expires_at.map(canonical::format_timestamp_canonical),
+            "expires_at": canonical::format_timestamp_canonical(self.proof.expires_at),
             "verification_method": &self.proof.verification_method,
-            "issuer": &self.proof.issuer,
-            "client_id": &self.proof.client_id,
-            "redirect_uri": &self.proof.redirect_uri,
-            "state": &self.proof.state,
             "nonce": &self.proof.nonce,
-            "authorization_code": &self.proof.authorization_code,
-            "code_verifier": &self.proof.code_verifier,
         });
         let object = value
             .as_object_mut()
             .expect("unsigned session grant proof is an object");
-        for field in [
-            "request_canonical_digest",
-            "expires_at",
-            "verification_method",
-            "issuer",
-            "client_id",
-            "redirect_uri",
-            "state",
-            "nonce",
-            "authorization_code",
-            "code_verifier",
-        ] {
-            if object.get(field).is_some_and(Value::is_null) {
-                object.remove(field);
-            }
+        if object
+            .get("request_canonical_digest")
+            .is_some_and(Value::is_null)
+        {
+            object.remove("request_canonical_digest");
         }
         value
     }
@@ -486,109 +504,254 @@ pub struct SessionGrantIntrospectionProofClaims {
 /// `ak.gate.account.command.refresh_session_grant` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantRefreshRequestBody {
-    pub grant_jwt: String,
-    /// MUST equal the grant's bound audience if present (audience MUST NOT
-    /// change across rotation, else `audience_mismatch`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<DidCoreId>,
-    /// Required when recovering from `soft_logged_out`; binds the signed
-    /// challenge to the concrete authorized device that owns this grant chain.
-    pub device_id: DeviceId,
-    /// Fresh DID/device proof for `soft_logged_out -> active` recovery.
-    pub proof: SessionGrantRefreshProof,
+#[serde(untagged)]
+pub enum SessionGrantRefreshRequestBody {
+    Human(HumanSessionGrantRefreshRequest),
+    Agent(AgentSessionGrantRefreshRequest),
+}
+
+impl SessionGrantRefreshRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Human(request) => request.validate(),
+            Self::Agent(request) => request.validate(),
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantRefreshProof {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof_kind: SessionGrantProofKind,
-    pub challenge: String,
+pub struct HumanSessionGrantRefreshRequest {
+    pub grant_jwt: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<DidCoreId>,
+    pub device_id: DeviceId,
+    pub accepted_device_possession_proof: AcceptedDeviceRefreshPossessionProof,
+}
+
+impl HumanSessionGrantRefreshRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.grant_jwt.trim().is_empty() {
+            return Err(Error::Protocol(
+                "human session refresh grant_jwt must not be empty".to_owned(),
+            ));
+        }
+        let proof = &self.accepted_device_possession_proof;
+        AcceptedDevicePossessionProof::Refresh(proof.clone()).validate()?;
+        if proof.device_id != self.device_id
+            || self
+                .audience
+                .as_ref()
+                .is_some_and(|audience| audience != &proof.audience)
+        {
+            return Err(Error::Protocol(
+                "accepted-device refresh proof does not bind the refresh request".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentSessionGrantRefreshRequest {
+    pub grant_jwt: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<DidCoreId>,
+    pub device_id: DeviceId,
+    pub agent_session_refresh_proof: AgentSessionRefreshProof,
+}
+
+impl AgentSessionGrantRefreshRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.grant_jwt.trim().is_empty() {
+            return Err(Error::Protocol(
+                "agent session refresh grant_jwt must not be empty".to_owned(),
+            ));
+        }
+        self.agent_session_refresh_proof.validate()?;
+        if self
+            .audience
+            .as_ref()
+            .is_some_and(|audience| audience != &self.agent_session_refresh_proof.audience)
+        {
+            return Err(Error::Protocol(
+                "agent session refresh proof audience mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub const AGENT_SESSION_REFRESH_PROOF_CONTEXT: &str = "ak.agent-session-refresh-proof-v1";
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentSessionRefreshProofContext {
+    #[serde(rename = "ak.agent-session-refresh-proof-v1")]
+    V1,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentSessionRefreshProof {
+    pub context: AgentSessionRefreshProofContext,
     pub request_canonical_digest: Hash,
     pub audience: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub signature: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_method: Option<DidUrl>,
+    pub signature: Base64UrlString,
+    pub verification_method: DidUrl,
 }
 
-/// Canonical operation selector bound into every session-grant refresh proof.
-pub const SESSION_GRANT_REFRESH_OPERATION: &str = "resume_soft_logged_out_session";
+impl AgentSessionRefreshProof {
+    pub fn validate(&self) -> Result<()> {
+        validate_agent_session_refresh_proof(self.issued_at, self.expires_at, &self.signature)
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("agent refresh proof serializes as an object")
+            .remove("signature");
+        canonical::canonical_json_bytes(&value).map_err(Into::into)
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct UnsignedAgentSessionRefreshProof {
+    pub context: AgentSessionRefreshProofContext,
+    pub request_canonical_digest: Hash,
+    pub audience: DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub verification_method: DidUrl,
+}
+
+impl UnsignedAgentSessionRefreshProof {
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        validate_agent_session_refresh_window(self.issued_at, self.expires_at)?;
+        canonical::canonical_json_bytes(self).map_err(Into::into)
+    }
+
+    pub fn attach_signature(self, signature: Base64UrlString) -> Result<AgentSessionRefreshProof> {
+        self.canonical_signing_bytes()?;
+        let proof = AgentSessionRefreshProof {
+            context: self.context,
+            request_canonical_digest: self.request_canonical_digest,
+            audience: self.audience,
+            issued_at: self.issued_at,
+            expires_at: self.expires_at,
+            signature,
+            verification_method: self.verification_method,
+        };
+        proof.validate()?;
+        Ok(proof)
+    }
+}
+
+fn validate_agent_session_refresh_proof(
+    issued_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+    signature: &Base64UrlString,
+) -> Result<()> {
+    validate_agent_session_refresh_window(issued_at, expires_at)?;
+    let signature_bytes = arkret_wire::base64url::base64url_decode(signature.as_str())
+        .map_err(|_| Error::Protocol("agent refresh proof signature is invalid".to_owned()))?;
+    if signature_bytes.len() != 64 {
+        return Err(Error::Protocol(
+            "agent refresh proof signature must encode 64 Ed25519 bytes".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_agent_session_refresh_window(
+    issued_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+) -> Result<()> {
+    if expires_at <= issued_at || (expires_at - issued_at).num_seconds() > 300 {
+        return Err(Error::Protocol(
+            "agent refresh proof validity window must be positive and at most 300 seconds"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct AgentSessionRefreshRequestDigestInput<'a> {
+    operation: &'static str,
+    grant_jwt_digest: String,
+    principal_id: &'a DidCoreId,
+    device_id: &'a DeviceId,
+    audience: &'a DidCoreId,
+    verification_method: &'a DidUrl,
+}
+
+pub fn agent_session_refresh_request_digest(
+    grant_jwt: &str,
+    principal_id: &DidCoreId,
+    device_id: &DeviceId,
+    audience: &DidCoreId,
+    verification_method: &DidUrl,
+) -> Result<Hash> {
+    Ok(Hash::new(canonical::canonical_sha256(
+        &AgentSessionRefreshRequestDigestInput {
+            operation: SESSION_GRANT_REFRESH_OPERATION,
+            grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
+            principal_id,
+            device_id,
+            audience,
+            verification_method,
+        },
+    )?)?)
+}
+
+pub const SESSION_GRANT_REFRESH_OPERATION: &str = "refresh_session_grant";
 
 #[derive(Serialize)]
 struct SessionGrantRefreshRequestDigestInput<'a> {
     operation: &'static str,
     grant_jwt_digest: String,
-    principal_id: &'a str,
-    device_id: &'a str,
+    predecessor_session_grant_id: &'a SessionGrantId,
+    principal_id: &'a DidCoreId,
+    device_id: &'a DeviceId,
     audience: &'a str,
-    grant_binding_key_id: &'a str,
+    holder_jkt: &'a str,
 }
 
-#[derive(Serialize)]
-struct SessionGrantRefreshProofSigningInput<'a> {
-    principal_id: &'a str,
-    device_id: &'a str,
-    audience: &'a str,
-    challenge: &'a str,
-    request_canonical_digest: &'a str,
-    #[serde(serialize_with = "arkret_canonical::serialize_canonical_timestamp")]
-    issued_at: DateTime<Utc>,
-    #[serde(serialize_with = "arkret_canonical::serialize_canonical_timestamp")]
-    expires_at: DateTime<Utc>,
-}
-
-/// Compute the single protocol-owned digest for a session-grant refresh
-/// request. Human-device and Agent-runtime refresh branches MUST call this
-/// function rather than defining local signing-input structs.
+/// Compute the human rotation intent digest. The predecessor JWT is hashed,
+/// while its signed stable id is carried separately to prevent cross-chain
+/// replay.
+#[allow(clippy::too_many_arguments)]
 pub fn session_grant_refresh_request_digest(
     grant_jwt: &str,
-    principal_id: &str,
-    device_id: &str,
+    predecessor_session_grant_id: &SessionGrantId,
+    principal_id: &DidCoreId,
+    device_id: &DeviceId,
     audience: &DidCoreId,
-    grant_binding_key_id: &str,
+    holder_jkt: &str,
 ) -> Result<Hash> {
     let input = SessionGrantRefreshRequestDigestInput {
         operation: SESSION_GRANT_REFRESH_OPERATION,
         grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
+        predecessor_session_grant_id,
         principal_id,
         device_id,
         audience: audience.as_str(),
-        grant_binding_key_id,
+        holder_jkt,
     };
     Ok(Hash::new(canonical::canonical_sha256(&input)?)?)
-}
-
-/// Produce the canonical bytes signed by a session-grant refresh proof. This
-/// is shared by every authentication branch so field order, timestamp
-/// encoding, and future transcript changes cannot drift between products.
-#[allow(clippy::too_many_arguments)]
-pub fn session_grant_refresh_proof_signing_bytes(
-    principal_id: &str,
-    device_id: &str,
-    audience: &DidCoreId,
-    challenge: &str,
-    request_canonical_digest: &str,
-    issued_at: DateTime<Utc>,
-    expires_at: DateTime<Utc>,
-) -> Result<Vec<u8>> {
-    Ok(canonical::canonical_json_bytes(
-        &SessionGrantRefreshProofSigningInput {
-            principal_id,
-            device_id,
-            audience: audience.as_str(),
-            challenge,
-            request_canonical_digest,
-            issued_at,
-            expires_at,
-        },
-    )?)
 }
 
 /// `ak.gate.account.command.refresh_session_grant` outcome.
@@ -882,29 +1045,50 @@ mod session_grant_contract_tests {
     }
 
     #[test]
-    fn refresh_request_proof_is_required_and_closed() {
+    fn refresh_request_is_a_closed_agent_or_human_union() {
         let valid = json!({
             "grant_jwt": "signed.jwt",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "proof": {
-                "proof_kind": "did_bound_signature",
-                "challenge": "0123456789abcdef",
+            "agent_session_refresh_proof": {
+                "context": "ak.agent-session-refresh-proof-v1",
                 "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
                 "audience": "ak:did_core:web:service.example",
                 "issued_at": "2026-08-08T11:59:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
-                "signature": "detached.jws"
+                "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "verification_method": "did:web:agent.example#runtime-key-1"
             }
         });
         assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(valid.clone()).is_ok());
 
         let mut missing_proof = valid.clone();
-        missing_proof.as_object_mut().unwrap().remove("proof");
+        missing_proof
+            .as_object_mut()
+            .unwrap()
+            .remove("agent_session_refresh_proof");
         assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(missing_proof).is_err());
 
         let mut open_proof = valid;
-        open_proof["proof"]["retry_nonce"] = json!("must-not-be-accepted");
+        open_proof["agent_session_refresh_proof"]["retry_nonce"] = json!("must-not-be-accepted");
         assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(open_proof).is_err());
+    }
+
+    #[test]
+    fn agent_refresh_unsigned_authoring_matches_the_final_transcript() {
+        let unsigned = UnsignedAgentSessionRefreshProof {
+            context: AgentSessionRefreshProofContext::V1,
+            request_canonical_digest: Hash::new(format!("sha256:{}", "00".repeat(32))).unwrap(),
+            audience: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            issued_at: "2026-08-08T11:59:00Z".parse().unwrap(),
+            expires_at: "2026-08-08T12:04:00Z".parse().unwrap(),
+            verification_method: DidUrl::new("did:web:agent.example#runtime-key-1").unwrap(),
+        };
+        let signing_bytes = unsigned.canonical_signing_bytes().unwrap();
+        let signature =
+            Base64UrlString::new(arkret_wire::base64url::base64url_encode([0u8; 64])).unwrap();
+        let proof = unsigned.attach_signature(signature).unwrap();
+
+        assert_eq!(signing_bytes, proof.canonical_signing_bytes().unwrap());
     }
 
     #[test]

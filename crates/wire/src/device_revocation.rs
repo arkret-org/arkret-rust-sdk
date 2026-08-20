@@ -4,9 +4,10 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ControlProposalAck, ControlProposalDecision, DeviceId, DidFullId, DidUrl, Error, EventId, Hash,
-    PayloadProof, PrincipalAuthorityKey, ProofContextId, Result, SealId, UnsignedPayloadProof,
-    canonical, project_full_id_to_core_id,
+    AcceptedDevicePossessionProof, AcceptedDevicePossessionVerification, ControlProposalAck,
+    ControlProposalDecision, DeviceId, DidFullId, DidUrl, Error, EventId, Hash, PayloadProof,
+    PrincipalAuthorityKey, ProofContextId, Result, SealId, UnsignedPayloadProof, canonical,
+    project_full_id_to_core_id,
 };
 
 pub const MAX_DEVICE_REVOCATION_GATE_RECORDS: usize = 128;
@@ -304,6 +305,7 @@ impl DeviceRevocationGateRecord {
 #[serde(rename_all = "snake_case")]
 pub enum DeviceRevocationGateActionClass {
     SessionGrantIssue,
+    ReturningSessionGrantIssue,
     SessionGrantRefresh,
     KeypackageClaim,
     ToDeviceWrite,
@@ -319,14 +321,21 @@ pub struct DeviceRevocationGateCheckRequestBody {
     pub device_id: DeviceId,
     /// Issuer-held verified binding, never a client-supplied value. Present
     /// together with `expected_device_generation_ref` or not at all, and only
-    /// omittable for `SessionGrantIssue`, which is how a first ordinary human
-    /// grant acquires its binding from the allow receipt.
+    /// omittable only for initial registration/recovery `SessionGrantIssue`
+    /// and returning account-handoff `ReturningSessionGrantIssue`; both learn
+    /// the current binding from the origin-signed allow receipt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_device_generation_ref: Option<u64>,
     pub action_class: DeviceRevocationGateActionClass,
     pub intent_digest: Hash,
+    /// Full accepted-device proof verified by the origin in the same
+    /// linearization as the current authorization decision. Required only for
+    /// returning account-handoff issue and human refresh; initial
+    /// registration/recovery issue and unrelated actions must not carry it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_device_possession_proof: Option<AcceptedDevicePossessionProof>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub requested_at: DateTime<Utc>,
 }
@@ -334,6 +343,46 @@ pub struct DeviceRevocationGateCheckRequestBody {
 impl DeviceRevocationGateCheckRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.principal_authority.validate()?;
+        match (&self.action_class, &self.accepted_device_possession_proof) {
+            (
+                DeviceRevocationGateActionClass::ReturningSessionGrantIssue,
+                Some(AcceptedDevicePossessionProof::Issue(proof)),
+            ) => {
+                AcceptedDevicePossessionProof::Issue(proof.clone()).validate()?;
+            }
+            (
+                DeviceRevocationGateActionClass::SessionGrantRefresh,
+                Some(AcceptedDevicePossessionProof::Refresh(proof)),
+            ) => {
+                AcceptedDevicePossessionProof::Refresh(proof.clone()).validate()?;
+            }
+            (
+                DeviceRevocationGateActionClass::ReturningSessionGrantIssue
+                | DeviceRevocationGateActionClass::SessionGrantRefresh,
+                _,
+            ) => {
+                return Err(Error::Protocol(
+                    "session grant gate action requires its matching accepted-device proof"
+                        .to_owned(),
+                ));
+            }
+            (_, None) => {}
+            (_, Some(_)) => {
+                return Err(Error::Protocol(
+                    "accepted-device proof is forbidden for this gate action".to_owned(),
+                ));
+            }
+        }
+        if let Some(proof) = &self.accepted_device_possession_proof
+            && (proof.principal_id() != &self.principal_authority.principal_id
+                || proof.device_id() != &self.device_id
+                || proof.session_intent_digest() != &self.intent_digest)
+        {
+            return Err(Error::Protocol(
+                "accepted-device proof does not bind the gate principal, device and intent"
+                    .to_owned(),
+            ));
+        }
         match (
             &self.expected_device_authorize_event_id,
             self.expected_device_generation_ref,
@@ -346,9 +395,13 @@ impl DeviceRevocationGateCheckRequestBody {
                 }
             }
             (None, None) => {
-                if self.action_class != DeviceRevocationGateActionClass::SessionGrantIssue {
+                if !matches!(
+                    self.action_class,
+                    DeviceRevocationGateActionClass::SessionGrantIssue
+                        | DeviceRevocationGateActionClass::ReturningSessionGrantIssue
+                ) {
                     return Err(Error::Protocol(
-                        "device revocation gate expected binding is required for every action class other than session_grant_issue"
+                        "device revocation gate expected binding is required outside initial or returning session issue"
                             .to_owned(),
                     ));
                 }
@@ -390,6 +443,8 @@ pub struct DeviceRevocationGateDecisionReceipt {
     pub target_device_generation_ref: Option<u64>,
     pub action_class: DeviceRevocationGateActionClass,
     pub intent_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_device_possession_verification: Option<AcceptedDevicePossessionVerification>,
     pub decision: DeviceRevocationGateDecision,
     pub linearization_seq: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -418,6 +473,8 @@ pub struct UnsignedDeviceRevocationGateDecisionReceipt {
     pub target_device_generation_ref: Option<u64>,
     pub action_class: DeviceRevocationGateActionClass,
     pub intent_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_device_possession_verification: Option<AcceptedDevicePossessionVerification>,
     pub decision: DeviceRevocationGateDecision,
     pub linearization_seq: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -481,6 +538,10 @@ fn validate_gate_decision_witness(
 impl UnsignedDeviceRevocationGateDecisionReceipt {
     pub fn validate(&self) -> Result<()> {
         self.principal_authority.validate()?;
+        validate_possession_verification_presence(
+            self.action_class,
+            self.accepted_device_possession_verification.as_ref(),
+        )?;
         if self.linearization_seq == 0
             || self.expires_at <= self.linearized_at
             || self.expires_at - self.linearized_at > MAX_DEVICE_REVOCATION_RECEIPT_LIFETIME
@@ -558,6 +619,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
             target_device_generation_ref: self.target_device_generation_ref,
             action_class: self.action_class,
             intent_digest: self.intent_digest,
+            accepted_device_possession_verification: self.accepted_device_possession_verification,
             decision: self.decision,
             linearization_seq: self.linearization_seq,
             linearized_at: self.linearized_at,
@@ -579,6 +641,9 @@ impl DeviceRevocationGateDecisionReceipt {
             target_device_generation_ref: self.target_device_generation_ref,
             action_class: self.action_class,
             intent_digest: self.intent_digest.clone(),
+            accepted_device_possession_verification: self
+                .accepted_device_possession_verification
+                .clone(),
             decision: self.decision,
             linearization_seq: self.linearization_seq,
             linearized_at: self.linearized_at,
@@ -590,6 +655,10 @@ impl DeviceRevocationGateDecisionReceipt {
     }
 
     pub fn payload_digest(&self) -> Result<Hash> {
+        validate_possession_verification_presence(
+            self.action_class,
+            self.accepted_device_possession_verification.as_ref(),
+        )?;
         let mut value = serde_json::to_value(self)?;
         value
             .as_object_mut()
@@ -673,6 +742,20 @@ impl DeviceRevocationGateDecisionReceipt {
                 "device revocation gate receipt does not bind the request".to_owned(),
             ));
         }
+        let expected_possession_verification =
+            match request.accepted_device_possession_proof.as_ref() {
+                Some(proof) => Some(AcceptedDevicePossessionVerification {
+                    proof_digest: proof.proof_digest()?,
+                    verification_method: proof.verification_method().clone(),
+                }),
+                None => None,
+            };
+        if self.accepted_device_possession_verification != expected_possession_verification {
+            return Err(Error::Protocol(
+                "device revocation gate receipt does not attest the request's device proof"
+                    .to_owned(),
+            ));
+        }
         if self.linearization_seq == 0
             || self.expires_at <= self.linearized_at
             || self.expires_at - self.linearized_at > MAX_DEVICE_REVOCATION_RECEIPT_LIFETIME
@@ -704,6 +787,24 @@ impl DeviceRevocationGateDecisionReceipt {
     }
 }
 
+fn validate_possession_verification_presence(
+    action_class: DeviceRevocationGateActionClass,
+    verification: Option<&AcceptedDevicePossessionVerification>,
+) -> Result<()> {
+    let required = matches!(
+        action_class,
+        DeviceRevocationGateActionClass::ReturningSessionGrantIssue
+            | DeviceRevocationGateActionClass::SessionGrantRefresh
+    );
+    if required != verification.is_some() {
+        return Err(Error::Protocol(
+            "gate receipt device-possession verification does not match its action class"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -719,10 +820,10 @@ impl DeviceRevocationGateCheckOutcome {
         self.decision_receipt.validate_for_request(request)
     }
 
-    /// Validate the receipt against the request it answered and reduce it to
-    /// the only two issuance outcomes a human session grant has. Every
-    /// blocking decision, and any receipt already past `expires_at`, is an
-    /// error: the caller issues nothing and MUST NOT fall back to its own
+    /// Validate the receipt against the request it answered and reduce the
+    /// origin decision to typed issuer control flow. Only `Authorized` permits
+    /// issuance; setup/block outcomes issue nothing, while a stale or malformed
+    /// receipt is a protocol error. The caller must never fall back to local
     /// device state.
     pub fn session_grant_admission(
         &self,
@@ -735,12 +836,12 @@ impl DeviceRevocationGateCheckOutcome {
                 "device revocation gate receipt is no longer fresh".to_owned(),
             ));
         }
-        match self.decision_receipt.decision {
+        Ok(match self.decision_receipt.decision {
             DeviceRevocationGateDecision::Allow => self
                 .decision_receipt
                 .allowed_binding()
                 .map(|(authorization_event_id, model_generation_ref)| {
-                    SessionGrantGateAdmission::Bound {
+                    SessionGrantGateAdmission::Authorized {
                         authorization_event_id,
                         model_generation_ref,
                     }
@@ -749,36 +850,48 @@ impl DeviceRevocationGateCheckOutcome {
                     Error::Protocol(
                         "device revocation gate allow carries no derived binding".to_owned(),
                     )
-                }),
+                })?,
             DeviceRevocationGateDecision::AuthorityMismatch => {
-                Ok(SessionGrantGateAdmission::FreshDeviceBootstrapOnly)
+                SessionGrantGateAdmission::DeviceSetupRequired
             }
-            decision => Err(Error::Protocol(format!(
-                "device revocation gate did not admit the intent: {decision:?}"
-            ))),
-        }
+            DeviceRevocationGateDecision::RevocationPending => SessionGrantGateAdmission::Blocked {
+                reason: SessionGrantGateBlockReason::RevocationPending,
+            },
+            DeviceRevocationGateDecision::Revoked => SessionGrantGateAdmission::Blocked {
+                reason: SessionGrantGateBlockReason::Revoked,
+            },
+            DeviceRevocationGateDecision::GenerationMismatch => {
+                SessionGrantGateAdmission::Blocked {
+                    reason: SessionGrantGateBlockReason::GenerationMismatch,
+                }
+            }
+        })
     }
 }
 
 /// What a validated, fresh gate receipt lets a human session-grant issuer do.
 ///
-/// There is no third outcome: `revocation_pending`, `revoked` and
-/// `generation_mismatch` issue nothing at all and MUST NOT be degraded into
-/// [`SessionGrantGateAdmission::FreshDeviceBootstrapOnly`], which would let a
-/// revoked or replaced generation regain bootstrap capability by posing as a
-/// new device.
+/// Only `Authorized` permits issuance. Device setup and each current-device
+/// block are typed control-flow results, never restricted-grant fallbacks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SessionGrantGateAdmission<'a> {
     /// The device has an accepted authorization the origin derived. The issued
     /// grant MUST carry exactly this binding.
-    Bound {
+    Authorized {
         authorization_event_id: &'a EventId,
         model_generation_ref: u64,
     },
-    /// The device has no accepted authorization in this account yet. Only a
-    /// fresh-device restricted grant may be issued: no device binding, and
-    /// scope limited to `ak.key.verification.*` bootstrap.
-    FreshDeviceBootstrapOnly,
+    DeviceSetupRequired,
+    Blocked {
+        reason: SessionGrantGateBlockReason,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SessionGrantGateBlockReason {
+    RevocationPending,
+    Revoked,
+    GenerationMismatch,
 }
 
 #[cfg(test)]
@@ -786,7 +899,10 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
-    use crate::DidCoreId;
+    use crate::{
+        AcceptedDeviceIssuePossessionProof, AcceptedDeviceIssuePossessionPurpose,
+        AcceptedDevicePossessionProofContext, Base64UrlString, DidCoreId, RequestId,
+    };
 
     fn at(seconds: i64) -> DateTime<Utc> {
         Utc.timestamp_opt(1_776_000_000 + seconds, 0).unwrap()
@@ -811,6 +927,7 @@ mod tests {
             expected_device_generation_ref: None,
             action_class: DeviceRevocationGateActionClass::SessionGrantIssue,
             intent_digest: hash('a'),
+            accepted_device_possession_proof: None,
             requested_at: at(0),
         }
     }
@@ -824,6 +941,7 @@ mod tests {
             target_device_generation_ref: Some(7),
             action_class: request.action_class,
             intent_digest: request.intent_digest,
+            accepted_device_possession_verification: None,
             decision: DeviceRevocationGateDecision::Allow,
             linearization_seq: 9,
             linearized_at: at(1),
@@ -838,6 +956,25 @@ mod tests {
             .finalize("e30..c2ln")
             .unwrap();
         unsigned.attach_proof(proof).unwrap()
+    }
+
+    fn issue_possession_proof(intent_digest: Hash) -> AcceptedDevicePossessionProof {
+        AcceptedDevicePossessionProof::Issue(AcceptedDeviceIssuePossessionProof {
+            context: AcceptedDevicePossessionProofContext::V1,
+            purpose: AcceptedDeviceIssuePossessionPurpose::SessionGrantIssue,
+            request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
+            account_subject: hash('b'),
+            account_handoff_grant_digest: hash('c'),
+            principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
+            audience: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            holder_jkt: "A".repeat(43),
+            session_intent_digest: intent_digest,
+            issued_at: at(0),
+            expires_at: at(300),
+            verification_method: DidUrl::new("did:web:alice.example#device-1").unwrap(),
+            signature: Base64UrlString::new(crate::base64url::base64url_encode([0u8; 64])).unwrap(),
+        })
     }
 
     #[test]
@@ -902,7 +1039,7 @@ mod tests {
         assert!(value.get("expected_device_authorize_event_id").is_none());
 
         let mut refresh = request();
-        refresh.action_class = DeviceRevocationGateActionClass::SessionGrantRefresh;
+        refresh.action_class = DeviceRevocationGateActionClass::EventWrite;
         assert!(refresh.validate().is_err());
         refresh.expected_device_authorize_event_id = Some(authorize_event());
         refresh.expected_device_generation_ref = Some(7);
@@ -911,6 +1048,23 @@ mod tests {
         let mut half = request();
         half.expected_device_generation_ref = Some(7);
         assert!(half.validate().is_err());
+    }
+
+    #[test]
+    fn returning_issue_requires_a_matching_full_device_possession_proof() {
+        let mut returning = request();
+        returning.action_class = DeviceRevocationGateActionClass::ReturningSessionGrantIssue;
+        returning.accepted_device_possession_proof =
+            Some(issue_possession_proof(returning.intent_digest.clone()));
+        returning.validate().unwrap();
+
+        let mut missing = returning.clone();
+        missing.accepted_device_possession_proof = None;
+        assert!(missing.validate().is_err());
+
+        let mut mismatched = returning;
+        mismatched.intent_digest = hash('d');
+        assert!(mismatched.validate().is_err());
     }
 
     #[test]
@@ -958,7 +1112,7 @@ mod tests {
         refresh.expected_device_generation_ref = Some(6);
 
         let mut upgraded = receipt();
-        upgraded.action_class = DeviceRevocationGateActionClass::SessionGrantRefresh;
+        upgraded.action_class = DeviceRevocationGateActionClass::EventWrite;
         upgraded.proof.payload_digest = upgraded.payload_digest().unwrap();
         assert!(
             upgraded.validate_for_request(&refresh).is_err(),
@@ -974,7 +1128,7 @@ mod tests {
         };
         assert_eq!(
             outcome.session_grant_admission(&request, at(2)).unwrap(),
-            SessionGrantGateAdmission::Bound {
+            SessionGrantGateAdmission::Authorized {
                 authorization_event_id: &authorize_event(),
                 model_generation_ref: 7,
             }
@@ -1007,15 +1161,16 @@ mod tests {
             let outcome = DeviceRevocationGateCheckOutcome {
                 decision_receipt: blocked,
             };
-            assert!(
-                outcome.session_grant_admission(&request, at(2)).is_err(),
-                "{decision:?} issues nothing and never degrades to fresh-device bootstrap"
-            );
+            let admission = outcome.session_grant_admission(&request, at(2)).unwrap();
+            assert!(matches!(
+                admission,
+                SessionGrantGateAdmission::Blocked { .. }
+            ));
         }
     }
 
     #[test]
-    fn only_authority_mismatch_permits_the_fresh_device_bootstrap_grant() {
+    fn authority_mismatch_requires_device_setup_and_never_issues_a_grant() {
         let request = request();
         let mut fresh = receipt();
         fresh.decision = DeviceRevocationGateDecision::AuthorityMismatch;
@@ -1027,7 +1182,7 @@ mod tests {
         };
         assert_eq!(
             outcome.session_grant_admission(&request, at(2)).unwrap(),
-            SessionGrantGateAdmission::FreshDeviceBootstrapOnly
+            SessionGrantGateAdmission::DeviceSetupRequired
         );
     }
 }

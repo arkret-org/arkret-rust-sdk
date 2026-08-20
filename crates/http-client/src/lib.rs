@@ -61,7 +61,6 @@ pub use endpoints::{
     BlobResumableUploadOptions, EventsSubscribeFrameStream, EventsSubscribeOptions,
     JoinApplicationListOptions, RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES,
     SignalSubscribeFrameStream, SignedAppletTransactionOptions, blob_resumable_upload_base_url,
-    login_did_proof,
 };
 pub use error::{Error, Result};
 #[cfg(not(target_arch = "wasm32"))]
@@ -126,14 +125,7 @@ type DpopProofCallback = dyn Fn(DpopProofRequest) -> Result<String> + Send + Syn
 #[derive(Clone)]
 pub struct DpopAuth {
     access_token: Option<String>,
-    authorization_scheme: DpopAuthorizationScheme,
     proof: Arc<DpopProofCallback>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DpopAuthorizationScheme {
-    Bearer,
-    Dpop,
 }
 
 impl std::fmt::Debug for DpopAuth {
@@ -153,33 +145,18 @@ impl DpopAuth {
     ) -> Self {
         Self {
             access_token: None,
-            authorization_scheme: DpopAuthorizationScheme::Bearer,
             proof: Arc::new(proof),
         }
     }
 
-    pub fn with_access_token(
-        access_token: impl Into<String>,
-        proof: impl Fn(DpopProofRequest) -> Result<String> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
-            access_token: Some(access_token.into()),
-            authorization_scheme: DpopAuthorizationScheme::Bearer,
-            proof: Arc::new(proof),
-        }
-    }
-
-    /// Build authentication for credentials whose wire authorization scheme
-    /// is `DPoP`, such as `account_handoff_grant`. This is distinct from an
-    /// Arkret session grant, which uses `Bearer <ak.session.grant>` plus a
-    /// DPoP proof header.
+    /// Present a DPoP-bound credential using the RFC 9449
+    /// `Authorization: DPoP <token>` scheme.
     pub fn with_dpop_token(
-        token: impl Into<String>,
+        dpop_token: impl Into<String>,
         proof: impl Fn(DpopProofRequest) -> Result<String> + Send + Sync + 'static,
     ) -> Self {
         Self {
-            access_token: Some(token.into()),
-            authorization_scheme: DpopAuthorizationScheme::Dpop,
+            access_token: Some(dpop_token.into()),
             proof: Arc::new(proof),
         }
     }
@@ -204,7 +181,7 @@ impl DpopAuth {
 /// The signer is applied immediately before a request is executed so retry
 /// attempts get fresh `created` / `expires` values. It is intentionally
 /// separate from [`Auth`]: Arkret account-client calls commonly present both a
-/// Bearer/DPoP session grant and an HTTP message signature bound to the grant's
+/// DPoP session grant and an HTTP message signature bound to the grant's
 /// signing key.
 #[derive(Clone)]
 pub struct HttpMessageSigner {
@@ -541,17 +518,14 @@ mod tests {
     }
 
     #[test]
-    fn dpop_auth_adds_bearer_and_per_request_proof() {
+    fn dpop_auth_adds_dpop_token_and_per_request_proof() {
         let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
-            .auth(Auth::Dpop(DpopAuth::with_access_token(
-                "grant.jwt",
-                |req| {
-                    assert_eq!(req.method, "POST");
-                    assert_eq!(req.htu, "https://alice.example/arkret/_arkret/self/events");
-                    assert_eq!(req.access_token.as_deref(), Some("grant.jwt"));
-                    Ok("proof.jwt".to_owned())
-                },
-            )))
+            .auth(Auth::Dpop(DpopAuth::with_dpop_token("grant.jwt", |req| {
+                assert_eq!(req.method, "POST");
+                assert_eq!(req.htu, "https://alice.example/arkret/_arkret/self/events");
+                assert_eq!(req.access_token.as_deref(), Some("grant.jwt"));
+                Ok("proof.jwt".to_owned())
+            })))
             .build()
             .unwrap();
         let request = client
@@ -560,12 +534,12 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(request.headers()["authorization"], "Bearer grant.jwt");
+        assert_eq!(request.headers()["authorization"], "DPoP grant.jwt");
         assert_eq!(request.headers()["dpop"], "proof.jwt");
     }
 
     #[test]
-    fn account_handoff_auth_uses_dpop_authorization_scheme() {
+    fn account_handoff_auth_uses_the_same_dpop_authorization_scheme() {
         let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .auth(Auth::Dpop(DpopAuth::with_dpop_token(
                 "handoff-secret",
@@ -1376,7 +1350,7 @@ mod tests {
                 "rate_limit_policy":{}
             }"#;
             let (client, capture) = spawn_capture_server_with(canned, |builder| {
-                builder.auth(Auth::Dpop(DpopAuth::with_access_token(
+                builder.auth(Auth::Dpop(DpopAuth::with_dpop_token(
                     "session-grant",
                     |_| Ok("proof.jwt".to_owned()),
                 )))

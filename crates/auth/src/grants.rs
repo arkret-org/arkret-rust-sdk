@@ -24,9 +24,16 @@ impl SessionGrantPayload {
 
     /// Return the Principal Server session binding represented by this grant.
     pub fn principal_binding(&self) -> Result<SessionPrincipalBinding> {
-        let device_id = primary_device_id_from_scopes(&self.claims.scopes).ok_or_else(|| {
-            Error::Protocol("session grant has no device scope for principal binding".to_owned())
-        })?;
+        let device_id = self
+            .claims
+            .device_binding
+            .as_ref()
+            .map(|binding| binding.device_id.clone())
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "session grant has no signed device_binding for principal binding".to_owned(),
+                )
+            })?;
         Ok(SessionPrincipalBinding {
             session_id: self.claims.session_id.clone(),
             principal_id: self.claims.subject.clone(),

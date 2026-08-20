@@ -1,21 +1,16 @@
-//! Session-grant request builders for the human / OIDC login proof kinds.
+//! Strongly typed session-grant request builders.
 //!
-//! Parallels `agent_key_proof_session_grant_request` (the agent
-//! runtime proof kind) so every signature-based `SessionGrantProofKind` has a
-//! first-class SDK constructor and callers do not hand-assemble
-//! `SessionGrantRequestBody`. The signature-based kinds
-//! (`did_bound_signature`, `paired_device_proof`) share
-//! [`SessionGrantProofFields`]; the OIDC kind
-//! (`oidc_code_exchange`) uses [`oidc_session_grant_request`].
+//! Human issuance is account-handoff + accepted-device proof only. Agent
+//! issuance remains an explicitly scoped runtime-key-signed branch.
 
 use arkret_models_collaboration::agent_operations::AgentRequestedScopeDisclosure;
 use arkret_models_collaboration::session_grant_bodies::{
-    SessionGrantAgentScopeRequest, SessionGrantAppletDelegation, SessionGrantDpopBindingProof,
-    SessionGrantRequestBody, SessionGrantRequestProof, UnsignedSessionGrantRequestBody,
-    UnsignedSessionGrantRequestProof,
+    AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof,
+    HumanSessionGrantRefreshRequest, HumanSessionGrantRequest, SessionGrantAgentScopeRequest,
+    SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
+    UnsignedAgentSessionGrantProof, UnsignedAgentSessionGrantRequest,
 };
-use arkret_models_identity::SessionGrantProofKind;
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString};
+use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RequestId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -24,8 +19,7 @@ use serde_json::Value;
 pub struct AgentKeyProofSigningInput {
     pub audience: DidCoreId,
     pub challenge: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub nonce: Option<String>,
+    pub nonce: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
@@ -47,13 +41,16 @@ impl AgentKeyProofSigningInput {
 pub fn agent_key_proof_request_binding_digest(
     body: &SessionGrantRequestBody,
 ) -> crate::Result<Hash> {
+    let SessionGrantRequestBody::Agent(body) = body else {
+        return Err(crate::AuthError::Protocol(
+            "agent proof binding digest requires an Agent session request".to_owned(),
+        ));
+    };
     let mut value = serde_json::to_value(body)?;
     let proof = value
         .get_mut("proof")
         .and_then(Value::as_object_mut)
-        .ok_or_else(|| {
-            crate::AuthError::Protocol("session grant proof must be an object".to_owned())
-        })?;
+        .ok_or_else(|| crate::AuthError::Protocol("agent proof must be an object".to_owned()))?;
     proof.remove("signature");
     proof.remove("request_canonical_digest");
     Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
@@ -61,46 +58,38 @@ pub fn agent_key_proof_request_binding_digest(
     )?)?)
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn agent_key_proof_signing_input_for_session_grant(
-    principal_id: &DidCoreId,
-    device_id: &DeviceId,
-    requested_scope: &[String],
-    agent_key_authorization_ref: &str,
-    agent_scope_request: &SessionGrantAgentScopeRequest,
-    requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
-    dpop_binding_proof: &SessionGrantDpopBindingProof,
-    verification_method: DidUrl,
-    challenge: impl Into<String>,
-    nonce: impl Into<String>,
+pub fn human_session_grant_request(
+    request_id: RequestId,
+    principal_id: DidCoreId,
+    device_id: DeviceId,
     audience: DidCoreId,
-    expires_at: DateTime<Utc>,
-) -> crate::Result<AgentKeyProofSigningInput> {
-    let challenge = challenge.into();
-    let nonce = nonce.into();
-    let body = agent_key_proof_unsigned_session_grant_request(
-        principal_id.clone(),
-        device_id.clone(),
-        requested_scope.to_vec(),
-        agent_key_authorization_ref,
-        agent_scope_request.clone(),
-        requested_scope_disclosure,
-        dpop_binding_proof.clone(),
-        verification_method.clone(),
-        challenge.clone(),
-        nonce.clone(),
-        audience.clone(),
-        expires_at,
-    )?;
-    let request_canonical_digest = body.canonical_request_digest()?;
-    Ok(AgentKeyProofSigningInput {
+    accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
+) -> crate::Result<SessionGrantRequestBody> {
+    let request = HumanSessionGrantRequest {
+        request_id,
+        principal_id,
+        device_id,
         audience,
-        challenge,
-        nonce: Some(nonce),
-        expires_at,
-        request_canonical_digest,
-        verification_method,
-    })
+        accepted_device_possession_proof,
+    };
+    request.validate()?;
+    Ok(SessionGrantRequestBody::Human(request))
+}
+
+pub fn human_session_grant_refresh_request(
+    grant_jwt: impl Into<String>,
+    audience: Option<DidCoreId>,
+    device_id: DeviceId,
+    accepted_device_possession_proof: AcceptedDeviceRefreshPossessionProof,
+) -> crate::Result<SessionGrantRefreshRequestBody> {
+    let request = HumanSessionGrantRefreshRequest {
+        grant_jwt: grant_jwt.into(),
+        audience,
+        device_id,
+        accepted_device_possession_proof,
+    };
+    request.validate()?;
+    Ok(SessionGrantRefreshRequestBody::Human(request))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -119,442 +108,69 @@ pub fn agent_key_proof_session_grant_request(
     expires_at: DateTime<Utc>,
     signature: impl Into<String>,
 ) -> crate::Result<SessionGrantRequestBody> {
-    let agent_key_authorization_ref = agent_key_authorization_ref.into();
-    let challenge = challenge.into();
-    let nonce = nonce.into();
-    let signing_input = agent_key_proof_signing_input_for_session_grant(
-        &principal_id,
-        &device_id,
-        &requested_scope,
-        &agent_key_authorization_ref,
-        &agent_scope_request,
-        requested_scope_disclosure.clone(),
-        &dpop_binding_proof,
-        verification_method.clone(),
-        challenge.clone(),
-        nonce.clone(),
-        audience.clone(),
-        expires_at,
-    )?;
-    let request = agent_key_proof_unsigned_session_grant_request(
+    let request = UnsignedAgentSessionGrantRequest::new(
         principal_id,
         device_id,
         requested_scope,
-        agent_key_authorization_ref,
+        agent_key_authorization_ref.into(),
         agent_scope_request,
         requested_scope_disclosure,
         dpop_binding_proof,
-        verification_method,
-        challenge,
-        nonce,
-        audience,
-        expires_at,
+        None,
+        UnsignedAgentSessionGrantProof {
+            challenge: challenge.into(),
+            audience,
+            expires_at,
+            verification_method,
+            nonce: nonce.into(),
+        },
     )?;
-    if request.canonical_request_digest()? != signing_input.request_canonical_digest {
-        return Err(crate::AuthError::Protocol(
-            "agent session grant request digest changed during signing".to_owned(),
-        ));
-    }
     let signature = NonEmptyString::new(signature.into())
         .map_err(|reason| crate::AuthError::Protocol(reason.to_owned()))?;
-    Ok(request.attach_signature(signature)?)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn agent_key_proof_unsigned_session_grant_request(
-    principal_id: DidCoreId,
-    device_id: DeviceId,
-    requested_scope: Vec<String>,
-    agent_key_authorization_ref: impl Into<String>,
-    agent_scope_request: SessionGrantAgentScopeRequest,
-    requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
-    dpop_binding_proof: SessionGrantDpopBindingProof,
-    verification_method: DidUrl,
-    challenge: impl Into<String>,
-    nonce: impl Into<String>,
-    audience: DidCoreId,
-    expires_at: DateTime<Utc>,
-) -> crate::Result<UnsignedSessionGrantRequestBody> {
-    Ok(UnsignedSessionGrantRequestBody::new(
-        principal_id,
-        Some(device_id),
-        requested_scope,
-        Some(agent_key_authorization_ref.into()),
-        Some(agent_scope_request),
-        requested_scope_disclosure,
-        Some(dpop_binding_proof),
-        None,
-        UnsignedSessionGrantRequestProof {
-            proof_kind: SessionGrantProofKind::AgentKeyProof,
-            challenge: challenge.into(),
-            audience,
-            expires_at: Some(expires_at),
-            verification_method: Some(verification_method),
-            issuer: None,
-            client_id: None,
-            redirect_uri: None,
-            state: None,
-            nonce: Some(nonce.into()),
-            authorization_code: None,
-            code_verifier: None,
-        },
-    )?)
-}
-
-/// Shared signature-carrying proof fields for the signature-based session-grant
-/// proof kinds. Mirrors the `SessionGrantRequestProof` subset those kinds
-/// populate; the OIDC-only fields (`issuer` / `client_id` / …) are left unset.
-#[derive(Clone, Debug)]
-pub struct SessionGrantProofFields {
-    pub challenge: String,
-    pub request_canonical_digest: Hash,
-    pub audience: DidCoreId,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub signature: String,
-    pub verification_method: Option<DidUrl>,
-}
-
-impl SessionGrantProofFields {
-    /// Lower these fields into a full `SessionGrantRequestProof` under the given
-    /// proof kind, leaving the OIDC-only fields absent.
-    pub fn into_request_proof(self, proof_kind: SessionGrantProofKind) -> SessionGrantRequestProof {
-        SessionGrantRequestProof {
-            proof_kind,
-            challenge: self.challenge,
-            request_canonical_digest: self.request_canonical_digest,
-            audience: self.audience,
-            expires_at: self.expires_at,
-            signature: self.signature,
-            verification_method: self.verification_method,
-            issuer: None,
-            client_id: None,
-            redirect_uri: None,
-            state: None,
-            nonce: None,
-            authorization_code: None,
-            code_verifier: None,
-        }
-    }
-}
-
-/// Build a `paired_device_proof` (holder-key) session-grant request.
-pub fn holder_proof_session_grant_request(
-    principal_id: DidCoreId,
-    device_id: Option<DeviceId>,
-    requested_scope: Vec<String>,
-    dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
-    applet_authority: Option<SessionGrantAppletDelegation>,
-    proof: SessionGrantProofFields,
-) -> SessionGrantRequestBody {
-    SessionGrantRequestBody {
-        principal_id,
-        device_id,
-        requested_scope,
-        agent_key_authorization_ref: None,
-        agent_scope_request: None,
-        requested_scope_disclosure: None,
-        dpop_binding_proof,
-        applet_authority,
-        proof: proof.into_request_proof(SessionGrantProofKind::PairedDeviceProof),
-    }
-}
-
-/// Build a `did_bound_signature` session-grant request.
-pub fn did_proof_session_grant_request(
-    principal_id: DidCoreId,
-    device_id: DeviceId,
-    requested_scope: Vec<String>,
-    dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
-    applet_authority: Option<SessionGrantAppletDelegation>,
-    proof: SessionGrantProofFields,
-) -> SessionGrantRequestBody {
-    SessionGrantRequestBody {
-        principal_id,
-        device_id: Some(device_id),
-        requested_scope,
-        agent_key_authorization_ref: None,
-        agent_scope_request: None,
-        requested_scope_disclosure: None,
-        dpop_binding_proof,
-        applet_authority,
-        proof: proof.into_request_proof(SessionGrantProofKind::DidBoundSignature),
-    }
-}
-
-/// Build an `oidc_code_exchange` session-grant request for an existing principal.
-#[allow(clippy::too_many_arguments)]
-pub fn oidc_session_grant_request(
-    principal_id: DidCoreId,
-    device_id: Option<DeviceId>,
-    requested_scope: Vec<String>,
-    challenge: impl Into<String>,
-    audience: DidCoreId,
-    issuer: impl Into<String>,
-    client_id: impl Into<String>,
-    redirect_uri: impl Into<String>,
-    state: impl Into<String>,
-    nonce: impl Into<String>,
-    authorization_code: impl Into<String>,
-    code_verifier: impl Into<String>,
-) -> crate::Result<UnsignedSessionGrantRequestBody> {
-    Ok(UnsignedSessionGrantRequestBody::new(
-        principal_id,
-        device_id,
-        requested_scope,
-        None,
-        None,
-        None,
-        None,
-        None,
-        UnsignedSessionGrantRequestProof {
-            proof_kind: SessionGrantProofKind::OidcCodeExchange,
-            challenge: challenge.into(),
-            audience,
-            expires_at: None,
-            verification_method: None,
-            issuer: Some(issuer.into()),
-            client_id: Some(client_id.into()),
-            redirect_uri: Some(redirect_uri.into()),
-            state: Some(state.into()),
-            nonce: Some(nonce.into()),
-            authorization_code: Some(authorization_code.into()),
-            code_verifier: Some(code_verifier.into()),
-        },
-    )?)
-}
-
-/// Build the holder-signed session request used immediately after account
-/// binding. The caller signs `request.proof.canonical_signing_bytes()` with
-/// the same Ed25519 key used by the account-handoff DPoP credential.
-pub fn pre_registration_handoff_session_grant_request(
-    principal_id: DidCoreId,
-    device_id: DeviceId,
-    requested_scope: Vec<String>,
-    challenge: impl Into<String>,
-    audience: DidCoreId,
-    expires_at: DateTime<Utc>,
-) -> crate::Result<UnsignedSessionGrantRequestBody> {
-    Ok(UnsignedSessionGrantRequestBody::new(
-        principal_id,
-        Some(device_id),
-        requested_scope,
-        None,
-        None,
-        None,
-        None,
-        None,
-        UnsignedSessionGrantRequestProof {
-            proof_kind: SessionGrantProofKind::PreRegistrationHandoff,
-            challenge: challenge.into(),
-            audience,
-            expires_at: Some(expires_at),
-            verification_method: None,
-            issuer: None,
-            client_id: None,
-            redirect_uri: None,
-            state: None,
-            nonce: None,
-            authorization_code: None,
-            code_verifier: None,
-        },
-    )?)
+    request.attach_signature(signature).map_err(Into::into)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn principal_id() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
-    }
-
-    fn device_id() -> DeviceId {
-        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap()
-    }
-
-    fn digest() -> Hash {
-        Hash::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")
-            .unwrap()
-    }
-
-    fn proof_fields() -> SessionGrantProofFields {
-        SessionGrantProofFields {
-            challenge: "session-grant-challenge-0001".to_owned(),
-            request_canonical_digest: digest(),
-            audience: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            expires_at: "2026-07-08T10:05:00.000Z".parse().ok(),
-            signature: "proof-signature".to_owned(),
-            verification_method: Some(
-                DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap(),
-            ),
-        }
-    }
-
-    fn requested_scope_disclosure() -> AgentRequestedScopeDisclosure {
-        let mut disclosure: AgentRequestedScopeDisclosure =
-            serde_json::from_value(serde_json::json!({
-                "schema": "ak.schema.agent_requested_scope_disclosure.v1",
-                "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
-                "agent_id": principal_id(),
-                "controller_id": "ak:did_core:webvh:z6mkfixturecontroller",
-                "requested_scope": {
-                    "actions": ["ak.message.create"],
-                    "resources": []
-                },
-                "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
-                "verifier_service_id": "ak:did_core:webvh:z6mkfixtureservice",
-                "audience": "ak.gate.account.command.issue_session_grant",
-                "challenge": "agent-disclosure-challenge-0001",
-                "issued_at": "2026-08-08T12:00:00.000Z",
-                "expires_at": "2026-08-08T12:05:00.000Z",
-                "proofs": []
-            }))
-            .unwrap();
-        disclosure.requested_scope_digest =
-            arkret_models_collaboration::agent_operations::agent_requested_scope_digest(
-                &disclosure.agent_id,
-                &disclosure.controller_id,
-                &disclosure.requested_scope,
-            )
-            .unwrap();
-        let payload_digest = disclosure.payload_digest().unwrap();
-        disclosure.proofs.push(arkret_wire::Proof {
-            kind: "DataIntegrityProof".to_owned(),
-            verification_method: DidUrl::new(
-                "did:webvh:z6mkfixture:controller.example#controller-key-1",
-            )
-            .unwrap(),
-            event_digest: payload_digest,
-            created_at: "2026-08-08T12:00:00.000Z".parse().unwrap(),
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "controller-disclosure-proof".to_owned(),
-        });
-        disclosure.validate().unwrap();
-        disclosure
-    }
-
     #[test]
-    fn holder_proof_builds_paired_device_request() {
-        let request = holder_proof_session_grant_request(
-            principal_id(),
-            Some(device_id()),
-            vec!["ak.self.account.read.viewer".to_owned()],
-            Some(SessionGrantDpopBindingProof {
-                proof_jwt: "holder-dpop-proof".to_owned(),
-            }),
-            None,
-            proof_fields(),
-        );
-        assert_eq!(
-            request.proof.proof_kind,
-            SessionGrantProofKind::PairedDeviceProof
-        );
-        assert_eq!(request.principal_id, principal_id());
-        assert_eq!(request.device_id, Some(device_id()));
-        assert_eq!(request.proof.signature, "proof-signature");
-        assert!(request.agent_key_authorization_ref.is_none());
-        assert!(request.proof.issuer.is_none());
-    }
-
-    #[test]
-    fn did_proof_builds_did_bound_request() {
-        let request = did_proof_session_grant_request(
-            principal_id(),
-            device_id(),
-            vec!["ak.self.events.stream.subscribe".to_owned()],
-            None,
-            None,
-            proof_fields(),
-        );
-        assert_eq!(
-            request.proof.proof_kind,
-            SessionGrantProofKind::DidBoundSignature
-        );
-        assert_eq!(request.device_id, Some(device_id()));
-        assert_eq!(
-            request.proof.verification_method.as_deref(),
-            Some("did:webvh:z6mkfixture:alice.example#device-1")
-        );
-    }
-
-    #[test]
-    fn oidc_builds_code_exchange_request() {
-        let request = oidc_session_grant_request(
-            principal_id(),
-            Some(device_id()),
+    fn empty_agent_scope_is_rejected() {
+        let error = agent_key_proof_session_grant_request(
+            DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
             Vec::new(),
-            "oidc-challenge",
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture-service").unwrap(),
-            "https://issuer.example",
-            "client-1",
-            "https://app.example/callback",
-            "state-1",
-            "nonce-1",
-            "code-1",
-            "verifier-1",
-        )
-        .unwrap()
-        .attach_signature(NonEmptyString::new("proof-signature").unwrap())
-        .unwrap();
-        assert_eq!(
-            request.proof.proof_kind,
-            SessionGrantProofKind::OidcCodeExchange
-        );
-        assert_eq!(request.principal_id, principal_id());
-        assert_eq!(
-            request.proof.issuer.as_deref(),
-            Some("https://issuer.example")
-        );
-        assert_eq!(request.proof.authorization_code.as_deref(), Some("code-1"));
-        assert_eq!(request.proof.signature, "proof-signature");
-    }
-
-    #[test]
-    fn agent_disclosure_is_preserved_and_bound_into_the_request_digest() {
-        let disclosure = requested_scope_disclosure();
-        let request = agent_key_proof_session_grant_request(
-            principal_id(),
-            device_id(),
-            vec!["ak.message.create".to_owned()],
             "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
             SessionGrantAgentScopeRequest {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),
                 track_names: Vec::new(),
             },
-            Some(disclosure.clone()),
+            None,
             SessionGrantDpopBindingProof {
-                proof_jwt: "agent-holder-dpop-proof".to_owned(),
+                proof_jwt: "p".into(),
             },
-            DidUrl::new("did:webvh:z6mkfixture:alice.example#runtime-key-1").unwrap(),
-            "agent-session-grant-challenge-0001",
-            "agent-session-grant-nonce-0001",
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture-service").unwrap(),
+            DidUrl::new("did:web:agent.example#runtime-key-1").unwrap(),
+            "challenge",
+            "nonce",
+            DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             "2026-08-08T12:05:00.000Z".parse().unwrap(),
-            "agent-runtime-signature",
+            "signature",
         )
-        .unwrap();
+        .unwrap_err();
+        assert!(error.to_string().contains("requested_scope"));
+    }
 
-        assert_eq!(
-            serde_json::to_value(request.requested_scope_disclosure.as_ref().unwrap()).unwrap(),
-            serde_json::to_value(disclosure).unwrap()
-        );
-        assert_eq!(
-            request.proof.request_canonical_digest,
-            agent_key_proof_request_binding_digest(&request).unwrap()
-        );
-
-        let mut tampered = request.clone();
-        tampered
-            .requested_scope_disclosure
-            .as_mut()
-            .unwrap()
-            .verifier_service_id =
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherverifier").unwrap();
-        let tampered_digest = agent_key_proof_request_binding_digest(&tampered).unwrap();
-        assert_ne!(tampered_digest, request.proof.request_canonical_digest);
-        assert_ne!(tampered_digest, tampered.proof.request_canonical_digest);
+    #[test]
+    fn human_wire_rejects_agent_requested_scope() {
+        let value = serde_json::json!({
+            "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
+            "principal_id": "ak:did_core:web:alice.example",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "audience": "ak:did_core:web:service.example",
+            "requested_scope": ["ak.self.account.read.viewer"],
+            "accepted_device_possession_proof": {}
+        });
+        assert!(serde_json::from_value::<SessionGrantRequestBody>(value).is_err());
     }
 }

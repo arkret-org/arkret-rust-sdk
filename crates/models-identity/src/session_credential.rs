@@ -15,11 +15,7 @@ pub const SESSION_GRANT_ISSUANCE_SCHEMA: &str = "ak.session_grant.issuance.v1";
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantProofKind {
-    DidBoundSignature,
-    PairedDeviceProof,
-    PasskeyAssertion,
-    OidcCodeExchange,
-    PreRegistrationHandoff,
+    AccountHandoff,
     AgentKeyProof,
 }
 
@@ -59,26 +55,26 @@ impl SessionGrantDeviceBinding {
     /// receipt, which is its only lawful source. The issuer never derives the
     /// authorization Event or the generation itself and never accepts them
     /// from client input.
-    ///
-    /// Returns `None` only for the fresh-device case, where the caller MAY
-    /// issue the restricted `ak.key.verification.*` bootstrap grant and
-    /// nothing else. Every blocking, mismatching or stale receipt is an error:
-    /// the issuance fails closed with zero writes.
     pub fn from_gate_outcome(
         outcome: &DeviceRevocationGateCheckOutcome,
         request: &DeviceRevocationGateCheckRequestBody,
         now: DateTime<Utc>,
-    ) -> Result<Option<Self>> {
+    ) -> Result<Self> {
         match outcome.session_grant_admission(request, now)? {
-            SessionGrantGateAdmission::Bound {
+            SessionGrantGateAdmission::Authorized {
                 authorization_event_id,
                 model_generation_ref,
-            } => Ok(Some(Self {
+            } => Ok(Self {
                 device_id: outcome.decision_receipt.device_id.clone(),
                 authorization_event_id: authorization_event_id.clone(),
                 model_generation_ref,
-            })),
-            SessionGrantGateAdmission::FreshDeviceBootstrapOnly => Ok(None),
+            }),
+            SessionGrantGateAdmission::DeviceSetupRequired => Err(Error::Protocol(
+                "device setup is required; no session grant may be issued".to_owned(),
+            )),
+            SessionGrantGateAdmission::Blocked { reason } => Err(Error::Protocol(format!(
+                "current device blocks session issuance: {reason:?}"
+            ))),
         }
     }
 
@@ -445,7 +441,7 @@ impl SessionGrantIssuancePreimage {
 
 /// Signed credential claims carried by an `ak.session.grant` JWT.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, try_from = "RawSignedSessionGrantClaims")]
 pub struct SignedSessionGrantClaims {
     pub kind: String,
     #[serde(rename = "jti")]
@@ -482,6 +478,75 @@ pub struct SignedSessionGrantClaims {
         deserialize_with = "deserialize_optional_non_null"
     )]
     pub scope_details: Option<Map<String, Value>>,
+}
+
+/// Deserialization-only shape. `TryFrom` eliminates conditionally invalid
+/// human/Agent combinations before they can enter the public strong type.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSignedSessionGrantClaims {
+    kind: String,
+    #[serde(rename = "jti")]
+    grant_id: SessionGrantId,
+    issuer: DidCoreId,
+    issuance_nonce: SessionGrantIssuanceNonce,
+    subject: DidCoreId,
+    session_public_key: CanonicalSessionPublicJwk,
+    audience: DidCoreId,
+    scopes: Vec<String>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    not_before: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+    session_id: String,
+    cnf: SessionGrantCnf,
+    credential_class: SessionGrantCredentialClass,
+    holder_binding: SessionGrantHolderBinding,
+    #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    device_binding: Option<SessionGrantDeviceBinding>,
+    #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    proof_kind: Option<SessionGrantProofKind>,
+    #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    scope_details: Option<Map<String, Value>>,
+}
+
+impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
+    type Error = Error;
+
+    fn try_from(raw: RawSignedSessionGrantClaims) -> Result<Self> {
+        validate_issuance_fields(
+            SESSION_GRANT_ISSUANCE_SCHEMA,
+            &raw.audience,
+            &raw.scopes,
+            raw.not_before,
+            raw.expires_at,
+            &raw.session_id,
+            &raw.cnf,
+            raw.credential_class,
+            &raw.holder_binding,
+            raw.device_binding.as_ref(),
+            raw.scope_details.as_ref(),
+        )?;
+        Ok(Self {
+            kind: raw.kind,
+            grant_id: raw.grant_id,
+            issuer: raw.issuer,
+            issuance_nonce: raw.issuance_nonce,
+            subject: raw.subject,
+            session_public_key: raw.session_public_key,
+            audience: raw.audience,
+            scopes: raw.scopes,
+            not_before: raw.not_before,
+            expires_at: raw.expires_at,
+            session_id: raw.session_id,
+            cnf: raw.cnf,
+            credential_class: raw.credential_class,
+            holder_binding: raw.holder_binding,
+            device_binding: raw.device_binding,
+            proof_kind: raw.proof_kind,
+            scope_details: raw.scope_details,
+        })
+    }
 }
 
 impl SignedSessionGrantClaims {
@@ -579,6 +644,35 @@ fn validate_issuance_fields(
             "session grant device generation must be positive".to_owned(),
         ));
     }
+    match holder_binding {
+        SessionGrantHolderBinding::HumanDevice {
+            device_binding: holder_device_id,
+        } => {
+            let binding = device_binding.ok_or_else(|| {
+                Error::Protocol(
+                    "standard human session grant requires a signed device_binding".to_owned(),
+                )
+            })?;
+            if binding.device_id.as_str() != holder_device_id {
+                return Err(Error::Protocol(
+                    "human holder_binding and signed device_binding identify different devices"
+                        .to_owned(),
+                ));
+            }
+            if scope_details.is_some() {
+                return Err(Error::Protocol(
+                    "human session grant must omit Agent scope_details".to_owned(),
+                ));
+            }
+        }
+        SessionGrantHolderBinding::AgentRuntime { .. } => {
+            if device_binding.is_some() {
+                return Err(Error::Protocol(
+                    "Agent runtime session grant must omit human device_binding".to_owned(),
+                ));
+            }
+        }
+    }
     let _ = (
         audience,
         credential_class,
@@ -667,8 +761,18 @@ mod tests {
             holder_binding: SessionGrantHolderBinding::HumanDevice {
                 device_binding: "ak:device:019a0000-0000-7000-8000-000000000001".to_owned(),
             },
-            device_binding: None,
-            proof_kind: Some(SessionGrantProofKind::DidBoundSignature),
+            device_binding: Some(SessionGrantDeviceBinding {
+                device_id: DeviceId::new(
+                    "ak:device:019a0000-0000-7000-8000-000000000001",
+                )
+                .unwrap(),
+                authorization_event_id: EventId::new(
+                    "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+                )
+                .unwrap(),
+                model_generation_ref: 1,
+            }),
+            proof_kind: Some(SessionGrantProofKind::AccountHandoff),
             scope_details: None,
         };
         claims.grant_id = claims.recomputed_grant_id().unwrap();
@@ -807,8 +911,9 @@ mod tests {
                 }
                 mutation => panic!("unhandled session-grant tamper fixture mutation {mutation}"),
             }
-            let tampered: SignedSessionGrantClaims = serde_json::from_value(value).unwrap();
-            assert!(tampered.validate().is_err(), "{name} must fail validation");
+            if let Ok(tampered) = serde_json::from_value::<SignedSessionGrantClaims>(value) {
+                assert!(tampered.validate().is_err(), "{name} must fail validation");
+            }
         }
         let required = "holder_binding_changed_without_jti_change";
         assert!(

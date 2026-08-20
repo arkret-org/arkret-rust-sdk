@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-20.1;
-//! sha256=82051cc7173fab3a583cfa541d41e6c400a9b45413bfa02bc0cd1ba50b78c3e6 Entries: error_codes=283
+//! Input: registry/error-code-registry.json; version=2026-08-20.4;
+//! sha256=eb95e75c4c33459ebf274ccc6b586aa9777ab819646c7e561f6b58f5baadaecb Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -144,7 +144,6 @@ pub enum ErrorCode {
     FirstBackupGateUnsatisfied,
     FrankingProofUnavailable,
     FrankingTampered,
-    FreshDeviceScopeViolation,
     FrontierSequenceExhausted,
     FrontierStale,
     FrontierUnavailable,
@@ -441,7 +440,6 @@ impl ErrorCode {
         Self::FirstBackupGateUnsatisfied,
         Self::FrankingProofUnavailable,
         Self::FrankingTampered,
-        Self::FreshDeviceScopeViolation,
         Self::FrontierSequenceExhausted,
         Self::FrontierStale,
         Self::FrontierUnavailable,
@@ -737,7 +735,6 @@ impl ErrorCode {
     pub const FIRST_BACKUP_GATE_UNSATISFIED: &'static str = "first_backup_gate_unsatisfied";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
-    pub const FRESH_DEVICE_SCOPE_VIOLATION: &'static str = "fresh_device_scope_violation";
     pub const FRONTIER_SEQUENCE_EXHAUSTED: &'static str = "frontier_sequence_exhausted";
     pub const FRONTIER_STALE: &'static str = "frontier_stale";
     pub const FRONTIER_UNAVAILABLE: &'static str = "frontier_unavailable";
@@ -1051,7 +1048,6 @@ impl ErrorCode {
             Self::FirstBackupGateUnsatisfied => "first_backup_gate_unsatisfied",
             Self::FrankingProofUnavailable => "franking_proof_unavailable",
             Self::FrankingTampered => "franking_tampered",
-            Self::FreshDeviceScopeViolation => "fresh_device_scope_violation",
             Self::FrontierSequenceExhausted => "frontier_sequence_exhausted",
             Self::FrontierStale => "frontier_stale",
             Self::FrontierUnavailable => "frontier_unavailable",
@@ -1361,7 +1357,6 @@ impl ErrorCode {
             "first_backup_gate_unsatisfied" => Some(Self::FirstBackupGateUnsatisfied),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "franking_tampered" => Some(Self::FrankingTampered),
-            "fresh_device_scope_violation" => Some(Self::FreshDeviceScopeViolation),
             "frontier_sequence_exhausted" => Some(Self::FrontierSequenceExhausted),
             "frontier_stale" => Some(Self::FrontierStale),
             "frontier_unavailable" => Some(Self::FrontierUnavailable),
@@ -2270,7 +2265,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A soft-logout refresh, OIDC callback, re-auth, or sensitive account transition requires a fresh DID-bound or authorized-device proof; a refresh token alone is insufficient.",
+        description: "An explicitly selected DID-root authentication factor or sensitive account-control transition requires its operation-specific fresh DID proof. Soft logout does not use this code as a refresh challenge: it requires full reauthentication to a fresh AccountHandoff or an explicit account-control action.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidRevoked,
@@ -2479,14 +2474,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The franking tag is tampered or does not verify.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FreshDeviceScopeViolation,
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A fresh device attempted an operation outside its permitted scope.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrontierSequenceExhausted,

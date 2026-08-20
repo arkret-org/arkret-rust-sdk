@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-20.1;
-//! sha256=82051cc7173fab3a583cfa541d41e6c400a9b45413bfa02bc0cd1ba50b78c3e6
-//! Entries: reason_codes=481
+//! Input: registry/error-code-registry.json; version=2026-08-20.4;
+//! sha256=eb95e75c4c33459ebf274ccc6b586aa9777ab819646c7e561f6b58f5baadaecb
+//! Entries: reason_codes=480
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -142,7 +142,6 @@ pub enum ReasonCode {
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
-    DidProofReplayWindowExceeded,
     DirectConversationActivationAuthorInvalid,
     DirectConversationBindingInvalid,
     DirectConversationFoundingUnitInvalid,
@@ -664,7 +663,6 @@ impl ReasonCode {
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
-    pub const DID_PROOF_REPLAY_WINDOW_EXCEEDED: &'static str = "did_proof_replay_window_exceeded";
     pub const DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID: &'static str =
         "direct_conversation_activation_author_invalid";
     pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
@@ -1240,7 +1238,6 @@ impl ReasonCode {
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
-            Self::DidProofReplayWindowExceeded => Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED,
             Self::DirectConversationActivationAuthorInvalid => {
                 Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID
             }
@@ -1825,7 +1822,6 @@ impl ReasonCode {
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
-            Self::DID_PROOF_REPLAY_WINDOW_EXCEEDED => Self::DidProofReplayWindowExceeded,
             Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID => {
                 Self::DirectConversationActivationAuthorInvalid
             }
@@ -2983,11 +2979,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::DEVICE_REANCHOR_FRONTIER_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The re-anchor pre_fence_basis is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DID_PROOF_REPLAY_WINDOW_EXCEEDED,
-        applies_to: &["account_status", "auth_decision"],
-        description: "A soft-logout recovery DID proof was rejected because expires_at is missing or its freshness window exceeded the bound (expires_at - issued_at > 300s, or issued_at skew beyond tolerance); see account-lifecycle.md §4 and identity-did.md §5.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID,

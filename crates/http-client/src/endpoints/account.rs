@@ -23,7 +23,6 @@ use arkret_models_collaboration::http_bodies::{
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantIntrospectOutcome, SessionGrantIntrospectRequestBody, SessionGrantOutcome,
     SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
-    UnsignedSessionGrantRequestBody, UnsignedSessionGrantRequestProof,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
@@ -39,15 +38,13 @@ use arkret_models_identity::{
     AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
     IdentityAbandonmentChallengeRequestBody, IdentityAbandonmentOutcome,
     IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
-    IdentityBindingChallengeRequestBody, SessionGrantProofKind,
+    IdentityBindingChallengeRequestBody,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, NonEmptyString, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
-    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
-    PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
-    PayloadSigner,
+    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
+    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH,
+    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
 };
-use chrono::{Duration, Utc};
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder, Response};
 
@@ -61,68 +58,6 @@ type BoxAccountSubscribeFrameStream =
 #[cfg(target_arch = "wasm32")]
 type BoxAccountSubscribeFrameStream =
     std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>>>>;
-
-const DID_PROOF_FRESHNESS_WINDOW_SECS: i64 = 300;
-
-/// Build and submit the canonical `ak.did.proof` session-grant request.
-///
-/// Challenge acquisition is deployment-local. The request binds the
-/// principal, device, audience, challenge, timestamps and canonical request
-/// digest before signing, then submits the only registered session-grant
-/// issuance operation.
-pub async fn login_did_proof<S>(
-    client: &Client,
-    principal_id: DidCoreId,
-    device_id: DeviceId,
-    signer: &S,
-    challenge: &str,
-    audience: DidCoreId,
-) -> Result<SessionGrantOutcome>
-where
-    S: PayloadSigner + ?Sized,
-{
-    if challenge.len() < 16 {
-        return Err(Error::Protocol(
-            "session grant challenge must be at least 16 characters".to_owned(),
-        ));
-    }
-
-    let expires_at = Utc::now() + Duration::seconds(DID_PROOF_FRESHNESS_WINDOW_SECS);
-    let request = UnsignedSessionGrantRequestBody::new(
-        principal_id,
-        Some(device_id),
-        Vec::new(),
-        None,
-        None,
-        None,
-        None,
-        None,
-        UnsignedSessionGrantRequestProof {
-            proof_kind: SessionGrantProofKind::DidBoundSignature,
-            challenge: challenge.to_owned(),
-            audience,
-            expires_at: Some(expires_at),
-            verification_method: None,
-            issuer: None,
-            client_id: None,
-            redirect_uri: None,
-            state: None,
-            nonce: None,
-            authorization_code: None,
-            code_verifier: None,
-        },
-    )?;
-
-    // Prepare the complete intent once, derive the body-bound request identity,
-    // then finalize its detached proof exactly once. Transport retry below
-    // reuses the resulting canonical body bytes verbatim.
-    let signing_bytes = request.canonical_signing_bytes()?;
-    let signature = NonEmptyString::new(signer.sign_payload(&signing_bytes)?.jws)
-        .map_err(|reason| Error::Protocol(reason.to_owned()))?;
-    let request = request.attach_signature(signature)?;
-
-    client.auth_issue_session_grant(&request).await
-}
 
 /// Validated account-subscribe frame stream bound to its request context.
 pub struct AccountSubscribeFrameStream {
@@ -736,15 +671,21 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_request() -> SessionGrantRequestBody {
         serde_json::from_value(serde_json::json!({
-            "principal_id": "ak:did_core:web:alice.example",
+            "principal_id": "ak:did_core:web:agent.example",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
+            "requested_scope": ["ak.message.create"],
+            "agent_key_authorization_ref": "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+            "agent_scope_request": {},
+            "dpop_binding_proof": {"proof_jwt": "holder.proof.jwt"},
             "proof": {
-                "proof_kind": "did_bound_signature",
+                "proof_kind": "agent_key_proof",
                 "challenge": "0123456789abcdef",
                 "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
                 "audience": "ak:did_core:web:service.example",
                 "expires_at": "2026-08-08T12:04:00.000Z",
-                "signature": "detached.jws"
+                "signature": "detached.jws",
+                "verification_method": "did:web:agent.example#runtime-key-1",
+                "nonce": "agent-nonce"
             }
         }))
         .unwrap()
@@ -768,14 +709,14 @@ mod tests {
         serde_json::from_value(serde_json::json!({
             "grant_jwt": "predecessor.jwt",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "proof": {
-                "proof_kind": "did_bound_signature",
-                "challenge": "0123456789abcdef",
+            "agent_session_refresh_proof": {
+                "context": "ak.agent-session-refresh-proof-v1",
                 "request_canonical_digest": format!("sha256:{}", "11".repeat(32)),
                 "audience": "ak:did_core:web:service.example",
                 "issued_at": "2026-08-08T11:59:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
-                "signature": "refresh.detached.jws"
+                "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "verification_method": "did:web:agent.example#runtime-key-1"
             }
         }))
         .unwrap()
@@ -1225,7 +1166,7 @@ mod tests {
         let expected_htu = format!("http://{addr}/_arkret/gate/account/logout");
         let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
             .allow_insecure_localhost()
-            .auth(Auth::Dpop(DpopAuth::with_access_token(
+            .auth(Auth::Dpop(DpopAuth::with_dpop_token(
                 "grant.jwt",
                 move |request| {
                     assert_eq!(request.method, "POST");
@@ -1250,7 +1191,7 @@ mod tests {
         assert!(
             headers
                 .lines()
-                .any(|line| line.eq_ignore_ascii_case("authorization: Bearer grant.jwt")),
+                .any(|line| line.eq_ignore_ascii_case("authorization: DPoP grant.jwt")),
             "missing Authorization header: {headers}"
         );
         assert!(
