@@ -75,10 +75,11 @@ pub struct HandleClaim {
     pub member_delivery_binding: Option<DeliveryBindingHint>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claims: Vec<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub created_at: Option<DateTime<Utc>>,
+    /// Claim creation timestamp. Required by `handle-claim.schema.json`
+    /// (`required` list): a wire claim without `created_at` fails
+    /// deserialization instead of being silently accepted.
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -91,32 +92,6 @@ pub struct HandleClaim {
     pub source_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<PayloadProof>,
-}
-
-impl Default for HandleClaim {
-    fn default() -> Self {
-        Self {
-            schema: default_handle_claim_schema(),
-            handle: None,
-            handle_aliases: Vec::new(),
-            subject: None,
-            issuer: None,
-            issuer_service_id: None,
-            binding_state: None,
-            claim_kind: None,
-            visibility: None,
-            audience: None,
-            challenge: None,
-            claim_scope: BTreeMap::new(),
-            member_delivery_binding: None,
-            claims: Vec::new(),
-            created_at: None,
-            expires_at: None,
-            verified_at: None,
-            source_refs: Vec::new(),
-            proofs: Vec::new(),
-        }
-    }
 }
 
 impl HandleClaim {
@@ -226,6 +201,33 @@ mod tests {
 
     use super::*;
 
+    /// Claim shell with every field written explicitly: `HandleClaim` has no
+    /// `Default` impl because the schema-required `created_at` must come from
+    /// a real constructor, not a fabricated placeholder.
+    fn fixture_claim() -> HandleClaim {
+        HandleClaim {
+            schema: default_handle_claim_schema(),
+            handle: None,
+            handle_aliases: Vec::new(),
+            subject: None,
+            issuer: None,
+            issuer_service_id: None,
+            binding_state: None,
+            claim_kind: None,
+            visibility: None,
+            audience: None,
+            challenge: None,
+            claim_scope: BTreeMap::new(),
+            member_delivery_binding: None,
+            claims: Vec::new(),
+            created_at: Utc::now(),
+            expires_at: None,
+            verified_at: None,
+            source_refs: Vec::new(),
+            proofs: Vec::new(),
+        }
+    }
+
     fn placeholder_payload_proof() -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
@@ -243,7 +245,7 @@ mod tests {
     fn verified_requires_handle_and_expires() {
         let claim = HandleClaim {
             binding_state: Some(HandleBindingState::Verified),
-            ..Default::default()
+            ..fixture_claim()
         };
         assert!(claim.validate().is_err());
     }
@@ -262,7 +264,7 @@ mod tests {
                 policy_event_ref: None,
             }),
             expires_at: Some(Utc::now()),
-            ..Default::default()
+            ..fixture_claim()
         };
         assert!(claim.validate().is_err());
     }
@@ -275,7 +277,7 @@ mod tests {
             issuer: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             binding_state: Some(HandleBindingState::Verified),
             claim_kind: Some(HandleClaimKind::HandleBinding),
-            created_at: Some(Utc::now()),
+            created_at: Utc::now(),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             proofs: vec![placeholder_payload_proof()],
             member_delivery_binding: Some(DeliveryBindingHint {
@@ -291,7 +293,7 @@ mod tests {
                     "ak:event:Afza12DxrQRj8YMTUh0SADCCuAoyT3X9PH_MYKQ12khk".to_owned(),
                 ),
             }),
-            ..Default::default()
+            ..fixture_claim()
         };
 
         let value = serde_json::to_value(&claim).unwrap();
@@ -319,6 +321,7 @@ mod tests {
             "subject": "ak:did_core:webvh:z6mkfixture",
             "issuer": "ak:did_core:webvh:z6mkfixture",
             "binding_state": "pending",
+            "created_at": "2026-07-15T00:00:00.000Z",
             "x_directory_cache_hint": {"served_at": "2026-07-15T00:00:00.000Z"},
             "server_attested_freshness": 42
         });
@@ -328,6 +331,26 @@ mod tests {
         assert!(reserialized.get("x_directory_cache_hint").is_none());
         assert!(reserialized.get("server_attested_freshness").is_none());
         assert_eq!(reserialized["handle"], "alice:example.com");
+    }
+
+    #[test]
+    fn handle_claim_deserialization_rejects_missing_created_at() {
+        // `created_at` is in the `handle-claim.schema.json` `required` list:
+        // a wire claim omitting it MUST fail deserialization instead of being
+        // silently accepted as a default.
+        let wire = serde_json::json!({
+            "schema": "ak.schema.handle_claim.v1",
+            "handle": "alice:example.com",
+            "subject": "ak:did_core:webvh:z6mkfixture",
+            "issuer": "ak:did_core:webvh:z6mkfixture",
+            "binding_state": "pending"
+        });
+        let err = serde_json::from_value::<HandleClaim>(wire)
+            .expect_err("claim without required created_at must be rejected");
+        assert!(
+            err.to_string().contains("created_at"),
+            "error should name the missing field: {err}"
+        );
     }
 
     #[test]
@@ -350,7 +373,7 @@ mod tests {
                 policy_event_ref: None,
             }),
             proofs: vec![placeholder_payload_proof()],
-            ..Default::default()
+            ..fixture_claim()
         };
 
         assert!(
