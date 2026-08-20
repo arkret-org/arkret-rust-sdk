@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-18.2;
-//! sha256=1d164ca47337fe83c6248fe8175024a17f80fb2ee744f539e624cce2ae9b0ed6 Entries: registered=244
+//! Input: registry/operation-registry.json; version=2026-08-20.1;
+//! sha256=b95da92c3ed177ae617ff5f1a31b20bd2673d5f1638c8bdc21151171ab84a3f6 Entries: registered=244
 
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +49,7 @@ pub enum ServiceOperationId {
     GateAccountCommandPairDevice,
     GateAccountCommandRefreshSessionGrant,
     GateAccountCommandRegister,
+    GateAccountCommandRequestErasure,
     GateAccountCommandRevokeSession,
     GateAccountExchangeCompleteOidc,
     GateAccountExchangeCreateHandoff,
@@ -112,7 +113,6 @@ pub enum ServiceOperationId {
     RootIdentityRegistryReadDescribe,
     RootIdentityServiceRegistrationCommandEnsure,
     RootIdentityServiceRegistrationResourceGet,
-    SelfAccountCommandRequestErasure,
     SelfAccountCommandRevokeCursor,
     SelfAccountCommandUpdateProfile,
     SelfAccountReadDescribe,
@@ -296,6 +296,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
@@ -359,7 +360,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::ROOT_IDENTITY_REGISTRY_READ_DESCRIBE,
     ServiceOperationId::ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE,
     ServiceOperationId::ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET,
-    ServiceOperationId::SELF_ACCOUNT_COMMAND_REQUEST_ERASURE,
     ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR,
     ServiceOperationId::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE,
     ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE,
@@ -585,6 +585,7 @@ impl ServiceOperationId {
         Self::GateAccountCommandPairDevice,
         Self::GateAccountCommandRefreshSessionGrant,
         Self::GateAccountCommandRegister,
+        Self::GateAccountCommandRequestErasure,
         Self::GateAccountCommandRevokeSession,
         Self::GateAccountExchangeCompleteOidc,
         Self::GateAccountExchangeCreateHandoff,
@@ -648,7 +649,6 @@ impl ServiceOperationId {
         Self::RootIdentityRegistryReadDescribe,
         Self::RootIdentityServiceRegistrationCommandEnsure,
         Self::RootIdentityServiceRegistrationResourceGet,
-        Self::SelfAccountCommandRequestErasure,
         Self::SelfAccountCommandRevokeCursor,
         Self::SelfAccountCommandUpdateProfile,
         Self::SelfAccountReadDescribe,
@@ -861,6 +861,8 @@ impl ServiceOperationId {
     pub const GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT: &'static str =
         "ak.gate.account.command.refresh_session_grant";
     pub const GATE_ACCOUNT_COMMAND_REGISTER: &'static str = "ak.gate.account.command.register";
+    pub const GATE_ACCOUNT_COMMAND_REQUEST_ERASURE: &'static str =
+        "ak.gate.account.command.request_erasure";
     pub const GATE_ACCOUNT_COMMAND_REVOKE_SESSION: &'static str =
         "ak.gate.account.command.revoke_session";
     pub const GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC: &'static str =
@@ -967,8 +969,6 @@ impl ServiceOperationId {
         "ak.root.identity.service_registration.command.ensure";
     pub const ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET: &'static str =
         "ak.root.identity.service_registration.resource.get";
-    pub const SELF_ACCOUNT_COMMAND_REQUEST_ERASURE: &'static str =
-        "ak.self.account.command.request_erasure";
     pub const SELF_ACCOUNT_COMMAND_REVOKE_CURSOR: &'static str =
         "ak.self.account.command.revoke_cursor";
     pub const SELF_ACCOUNT_COMMAND_UPDATE_PROFILE: &'static str =
@@ -1252,6 +1252,7 @@ impl ServiceOperationId {
                 Self::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT
             }
             Self::GateAccountCommandRegister => Self::GATE_ACCOUNT_COMMAND_REGISTER,
+            Self::GateAccountCommandRequestErasure => Self::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE,
             Self::GateAccountCommandRevokeSession => Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
             Self::GateAccountExchangeCompleteOidc => Self::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
             Self::GateAccountExchangeCreateHandoff => Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
@@ -1351,7 +1352,6 @@ impl ServiceOperationId {
             Self::RootIdentityServiceRegistrationResourceGet => {
                 Self::ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET
             }
-            Self::SelfAccountCommandRequestErasure => Self::SELF_ACCOUNT_COMMAND_REQUEST_ERASURE,
             Self::SelfAccountCommandRevokeCursor => Self::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR,
             Self::SelfAccountCommandUpdateProfile => Self::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE,
             Self::SelfAccountReadDescribe => Self::SELF_ACCOUNT_READ_DESCRIBE,
@@ -1627,6 +1627,9 @@ impl ServiceOperationId {
                 Some(Self::GateAccountCommandRefreshSessionGrant)
             }
             Self::GATE_ACCOUNT_COMMAND_REGISTER => Some(Self::GateAccountCommandRegister),
+            Self::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE => {
+                Some(Self::GateAccountCommandRequestErasure)
+            }
             Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION => {
                 Some(Self::GateAccountCommandRevokeSession)
             }
@@ -1745,9 +1748,6 @@ impl ServiceOperationId {
             }
             Self::ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET => {
                 Some(Self::RootIdentityServiceRegistrationResourceGet)
-            }
-            Self::SELF_ACCOUNT_COMMAND_REQUEST_ERASURE => {
-                Some(Self::SelfAccountCommandRequestErasure)
             }
             Self::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR => Some(Self::SelfAccountCommandRevokeCursor),
             Self::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE => {
@@ -2930,6 +2930,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.device.authorize",
             ])),
             rationale: None,
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandRequestErasure,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/erasure-requests",
+        grpc: Some("GateAccount/RequestErasure"),
+        mq: Some("gate.account.command.request_erasure"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/account_request_erasure_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/account_request_erasure_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("records_only_a_service_local_erasure_intent_no_event_is_authored"),
             branch_contract_json: None,
         }),
     },
@@ -4357,31 +4382,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAccountCommandRequestErasure,
-        http_method: "POST",
-        http_path: "/_arkret/self/account/erasure-requests",
-        grpc: Some("SelfAccount/RequestErasure"),
-        mq: Some("self.account.command.request_erasure"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_request_erasure_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_request_erasure_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("records_only_a_service_local_erasure_intent_no_event_is_authored"),
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountCommandRevokeCursor,

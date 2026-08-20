@@ -695,7 +695,9 @@ mod tests {
         assert!(is_valid_push_target_id(
             "ak:pseudonym:push:01HYZ8Z000000000000000"
         ));
-        assert!(is_valid_push_target_id("01HYZ8Z000000000000000"));
+        // The schema pattern requires the typed prefix; a bare token is not a
+        // push_target_id.
+        assert!(!is_valid_push_target_id("01HYZ8Z000000000000000"));
     }
 
     #[test]

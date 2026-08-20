@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-18.2;
-//! sha256=1d164ca47337fe83c6248fe8175024a17f80fb2ee744f539e624cce2ae9b0ed6 Input: registry/
-//! operations-error-mapping.json; version=2026-08-18.2;
-//! sha256=53df19dbf1d2b5f9dc828bb858d006b70cb32880f40f59b1985ca5b281a3c978 Input: registry/
-//! error-code-registry.json; version=2026-08-18.6;
-//! sha256=90f8feadf5ff715b2987e160cd2dfd6d66e447d144980f2b07f99b002df72e49 Entries: operations=244
+//! Input: registry/operation-registry.json; version=2026-08-20.1;
+//! sha256=b95da92c3ed177ae617ff5f1a31b20bd2673d5f1638c8bdc21151171ab84a3f6 Input: registry/
+//! operations-error-mapping.json; version=2026-08-20.1;
+//! sha256=7ed432937e30473f5bbb4ea964674490afca28b717dced09978038fc1a750bd3 Input: registry/
+//! error-code-registry.json; version=2026-08-20.1;
+//! sha256=82051cc7173fab3a583cfa541d41e6c400a9b45413bfa02bc0cd1ba50b78c3e6 Entries: operations=244
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -331,6 +331,14 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::GateAccountCommandRequestErasure,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::ReauthenticationRequired),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -742,14 +750,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::ServiceIdentityProviderUnavailable),
             OperationSpecificError::ErrorCode(ErrorCode::DidNotFound),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfAccountCommandRequestErasure,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::ReauthenticationRequired),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
         ],
     },
     OperationErrorMappingDescriptor {

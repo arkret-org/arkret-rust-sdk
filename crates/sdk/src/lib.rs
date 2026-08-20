@@ -74,8 +74,8 @@ pub use arkret_event_draft::{
     OperationSignature, ProjectedEventOperation, ProjectionContext, RsvpAuthoring,
     RsvpResponseBranch, StrandCreateObject, TypedDeviceMessageTarget, TypedEventDraft,
     ValidatedExtensionPayload, accountability_grant_intent, container_rebalance_assignments,
-    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors,
-    rank_between, rank_exhausted,
+    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors, rank_between,
+    rank_exhausted,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,

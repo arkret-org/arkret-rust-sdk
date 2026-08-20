@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-18.1;
-//! sha256=b32b6a7a06cb3df7b3de796591cfd790be98b8bfaa5d1d0051ca6a4ee841777c Entries: schema_ids=188,
-//! active=188
+//! Input: registry/schema-registry.json; version=2026-08-20.1;
+//! sha256=d5df5785acf732207ae2c18958ef078201aa6ce532a5e20fef82e74d4a7b85f6 Entries: schema_ids=189,
+//! active=189
 
 use serde::{Deserialize, Serialize};
 
@@ -101,6 +101,7 @@ pub enum SchemaId {
     IdentityResolutionV1,
     InclusionListV1,
     InviteV1,
+    InviteDeliveryV1,
     InviteDeliveryRequestV1,
     InviteReceivePolicyV1,
     JoinPolicyOperationsV1,
@@ -293,6 +294,7 @@ impl SchemaId {
         Self::IdentityResolutionV1,
         Self::InclusionListV1,
         Self::InviteV1,
+        Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
         Self::InviteReceivePolicyV1,
         Self::JoinPolicyOperationsV1,
@@ -485,6 +487,7 @@ impl SchemaId {
         Self::IdentityResolutionV1,
         Self::InclusionListV1,
         Self::InviteV1,
+        Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
         Self::InviteReceivePolicyV1,
         Self::JoinPolicyOperationsV1,
@@ -846,6 +849,10 @@ impl SchemaId {
     /// Seal MUST include, signed-reject, or prove verification failure for every listed digest
     pub const INCLUSION_LIST_V1: &'static str = "ak.schema.inclusion_list.v1";
     pub const INVITE_V1: &'static str = "ak.schema.invite.v1";
+    /// Actor-private plaintext account-data cell value of ak.account.invite_delivery, the
+    /// holder-private delivered invite credential carrier written by the recipient Principal Server
+    /// on the notify branch. See zh/sync/invite-addressing.md section 7.
+    pub const INVITE_DELIVERY_V1: &'static str = "ak.schema.invite_delivery.v1";
     /// Private service-to-service invite delivery request carrying invite_address and
     /// introduction_evidence.
     pub const INVITE_DELIVERY_REQUEST_V1: &'static str = "ak.schema.invite_delivery_request.v1";
@@ -1197,6 +1204,7 @@ impl SchemaId {
             Self::IdentityResolutionV1 => Self::IDENTITY_RESOLUTION_V1,
             Self::InclusionListV1 => Self::INCLUSION_LIST_V1,
             Self::InviteV1 => Self::INVITE_V1,
+            Self::InviteDeliveryV1 => Self::INVITE_DELIVERY_V1,
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
             Self::InviteReceivePolicyV1 => Self::INVITE_RECEIVE_POLICY_V1,
             Self::JoinPolicyOperationsV1 => Self::JOIN_POLICY_OPERATIONS_V1,
@@ -1414,6 +1422,7 @@ impl SchemaId {
             Self::IdentityResolutionV1 => "schemas/identity-resolution.schema.json",
             Self::InclusionListV1 => "schemas/inclusion-list.schema.json",
             Self::InviteV1 => "schemas/invite.schema.json",
+            Self::InviteDeliveryV1 => "schemas/invite-delivery.schema.json",
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
             Self::InviteReceivePolicyV1 => "schemas/invite-receive-policy.schema.json",
             Self::JoinPolicyOperationsV1 => "schemas/join-policy-operations.schema.json",
@@ -1637,6 +1646,7 @@ impl SchemaId {
             Self::IDENTITY_RESOLUTION_V1 => Some(Self::IdentityResolutionV1),
             Self::INCLUSION_LIST_V1 => Some(Self::InclusionListV1),
             Self::INVITE_V1 => Some(Self::InviteV1),
+            Self::INVITE_DELIVERY_V1 => Some(Self::InviteDeliveryV1),
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),
             Self::INVITE_RECEIVE_POLICY_V1 => Some(Self::InviteReceivePolicyV1),
             Self::JOIN_POLICY_OPERATIONS_V1 => Some(Self::JoinPolicyOperationsV1),

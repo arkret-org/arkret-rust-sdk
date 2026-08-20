@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-18.6;
-//! sha256=90f8feadf5ff715b2987e160cd2dfd6d66e447d144980f2b07f99b002df72e49 Entries: error_codes=283
+//! Input: registry/error-code-registry.json; version=2026-08-20.1;
+//! sha256=82051cc7173fab3a583cfa541d41e6c400a9b45413bfa02bc0cd1ba50b78c3e6 Entries: error_codes=283
 
 use serde::{Deserialize, Serialize};
 
@@ -3174,7 +3174,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A high-risk self-service action (for example ak.self.account.command.request_erasure) requires fresh high-risk action authentication — recent login, WebAuthn, recovery key or a deployment equivalent — and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
+        description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure) requires fresh high-risk action authentication — recent login, WebAuthn, recovery key or a deployment equivalent — and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecordingDenied,

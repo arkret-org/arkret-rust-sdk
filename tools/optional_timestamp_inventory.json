@@ -1,12 +1,12 @@
 {
   "version": 1,
   "spec_root": "D:\\Works\\arkret-org\\arkret-spec\\spec\\v1\\artifacts\\schemas",
-  "total": 239,
+  "total": 237,
   "counts": {
-    "internal": 83,
-    "optional_has_default": 145,
+    "internal": 80,
+    "optional_has_default": 152,
     "required": 1,
-    "schema_field_unknown": 10
+    "schema_field_unknown": 4
   },
   "sites": [
     {
@@ -59,36 +59,12 @@
     },
     {
       "file": "crates/auth/src/lib.rs",
-      "line": 140,
-      "struct_name": "AccountRecoveryRequestBody",
-      "field_name": "completed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": false,
-      "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/auth/src/lib.rs",
-      "line": 174,
+      "line": 87,
       "struct_name": "RenewalCredentialMetadata",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/auth/src/verification.rs",
-      "line": 117,
-      "struct_name": "OidcVerifiedIdentity",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": false,
-      "has_skip": false,
       "schema_pointer": null,
       "schema_source": "none",
       "classification": "internal"
@@ -131,7 +107,7 @@
     },
     {
       "file": "crates/event-draft/src/ghost_profile.rs",
-      "line": 40,
+      "line": 38,
       "struct_name": "GhostActorProfileRequest",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -631,7 +607,7 @@
       "has_skip": true,
       "schema_pointer": "event-payload.schema.json#/$defs/realm_freeze_payload",
       "schema_source": "doc-pointer",
-      "classification": "schema_field_unknown"
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
@@ -643,7 +619,7 @@
       "has_skip": true,
       "schema_pointer": "event-payload.schema.json#/$defs/realm_freeze_payload",
       "schema_source": "doc-pointer",
-      "classification": "schema_field_unknown"
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
@@ -1073,9 +1049,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
@@ -1123,7 +1099,7 @@
       "has_skip": true,
       "schema_pointer": "event-payload.schema.json#/$defs/realm_archive_payload",
       "schema_source": "doc-pointer",
-      "classification": "schema_field_unknown"
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_lifecycle.rs",
@@ -1135,7 +1111,7 @@
       "has_skip": true,
       "schema_pointer": "event-payload.schema.json#/$defs/realm_tombstone_payload",
       "schema_source": "doc-pointer",
-      "classification": "schema_field_unknown"
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_lifecycle.rs",
@@ -1147,7 +1123,7 @@
       "has_skip": true,
       "schema_pointer": "event-payload.schema.json#/$defs/realm_destroy_payload",
       "schema_source": "doc-pointer",
-      "classification": "schema_field_unknown"
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_lifecycle.rs",
@@ -1159,7 +1135,7 @@
       "has_skip": true,
       "schema_pointer": "event-payload.schema.json#/$defs/object_lifecycle_payload",
       "schema_source": "doc-pointer",
-      "classification": "schema_field_unknown"
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance_payloads.rs",
@@ -2327,7 +2303,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 1137,
+      "line": 1146,
       "struct_name": "AccountRequestErasureOutcome",
       "field_name": "withdrawal_window_ends_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2351,7 +2327,7 @@
     },
     {
       "file": "crates/models-identity/src/admin_grant.rs",
-      "line": 85,
+      "line": 90,
       "struct_name": "SessionGrantIntrospection",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2699,7 +2675,7 @@
     },
     {
       "file": "crates/models-integration/src/models_push.rs",
-      "line": 44,
+      "line": 49,
       "struct_name": "PushRegisterDeviceOutcome",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",

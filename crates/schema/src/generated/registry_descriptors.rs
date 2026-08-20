@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-18.1;
 //! sha256=f7fa040a56d24e901635e0c803a8f7b15fe938596b8f590c752d97b354b1848a Input: registry/
-//! capability-action-registry.json; version=2026-08-18.7;
-//! sha256=15e73ee2c5790e76f3253b9447d78c6b7eff8e0871a8650d57e56f9f8726efe6 Input: registry/
-//! schema-registry.json; version=2026-08-18.1;
-//! sha256=b32b6a7a06cb3df7b3de796591cfd790be98b8bfaa5d1d0051ca6a4ee841777c Input: registry/
-//! account-data-key-registry.json; version=2026-08-13.3;
-//! sha256=2c201f2784bdae6fbad412e0c589d209fe30d4280bc77fa08ac89465f201b1c9 Entries: id_kinds=57,
-//! special_forms=13, actions=170, schemas=188, account_data_patterns=23
+//! capability-action-registry.json; version=2026-08-20;
+//! sha256=5b0d4f75840ea4019f4eccc769693b0ef503d9722e6d2db97e107b1ccd86f543 Input: registry/
+//! schema-registry.json; version=2026-08-20.1;
+//! sha256=d5df5785acf732207ae2c18958ef078201aa6ce532a5e20fef82e74d4a7b85f6 Input: registry/
+//! account-data-key-registry.json; version=2026-08-20.1;
+//! sha256=cffb86be564ca10ff8f0b51963cabb48c05052d33986b145b7c6121192987e14 Entries: id_kinds=57,
+//! special_forms=13, actions=170, schemas=189, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3317,6 +3317,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/invite.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::INVITE_DELIVERY_V1,
+        file: "schemas/invite-delivery.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::INVITE_DELIVERY_REQUEST_V1,
         file: "schemas/invite-delivery-request.schema.json",
     },
@@ -3724,6 +3728,15 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
             event_kind_str::ACCOUNT_DATA_SET,
             event_kind_str::ACCOUNT_BLOCKLIST,
         ],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
+    },
+    AccountDataPatternDescriptor {
+        key_pattern: "ak.account.invite_delivery",
+        scope: "actor_private",
+        storage: "plaintext_account_data",
+        plaintext_schema: Some("ak.schema.invite_delivery.v1"),
+        write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
         merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },

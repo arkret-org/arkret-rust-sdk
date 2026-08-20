@@ -32,25 +32,14 @@ pub const ALLOWED_TIMING_PROFILE_HINTS: &[&str] = &["default", "traffic_metadata
 
 /// Return true if `value` is a valid `push_target_id` (opaque pseudonym).
 ///
-/// Accepts either the typed `ak:pseudonym:push:<token>` form **or** a bare
-/// base64url-shaped token (≥ 22 ASCII alphanumeric/`-_` characters, ≤ 128).
-/// Rejects DIDs and any other `ak:` typed-id whose prefix is not
-/// `ak:pseudonym:push:`.
+/// Matches the spec pattern exactly:
+/// `push-operations.schema.json#/$defs/push_target_id` is
+/// `^ak:pseudonym:push:[A-Za-z0-9_-]{22,128}$` — the typed
+/// `ak:pseudonym:push:` prefix is mandatory; a bare base64url token, a DID, or
+/// any other `ak:` typed id is rejected.
 pub fn is_valid_push_target_id(value: &str) -> bool {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
+    let Some(token) = value.strip_prefix("ak:pseudonym:push:") else {
         return false;
-    }
-    let lower = trimmed.to_ascii_lowercase();
-    if lower.contains("did:") {
-        return false;
-    }
-    let token = if let Some(token) = trimmed.strip_prefix("ak:pseudonym:push:") {
-        token
-    } else if trimmed.starts_with("ak:") || trimmed.contains(':') {
-        return false;
-    } else {
-        trimmed
     };
     (22..=128).contains(&token.len())
         && token

@@ -45,17 +45,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "chime/src/push/route.rs::PushRoute.metadata",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "chime",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "chime/src/push/wire.rs::ChimePushRegisterDeviceRequest.proof",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -2917,39 +2906,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/server/src/fixtures.rs::ProtocolGoldenVector.expected",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "crates/server/src/fixtures.rs::ProtocolGoldenVector.input",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "crates/server/src/fixtures.rs::WireConformanceVector.body",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "crates/signatures/src/webvh/inception.rs::ManagedAgentBindingUpdateInput.previous_entries",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -3990,7 +3946,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/composer.rs::ChatComposer:6379cb928644200a",
+      "finding": "json_authoring:inkson/src/views/chat/composer.rs::ChatComposer:a5525d8ff7042b4e",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4013,19 +3969,18 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/controller.rs::toggle_shared_pin:84816070594542aa",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Inkson LocalStateStore RawOperationRecord derived from the typed pin SDK Event",
+      "finding": "json_authoring:inkson/src/views/chat/controller.rs::toggle_shared_pin:4c6d26cf891326d5",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret_wire::event_spec::EventSpec associated Payload",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "kind and payload are copied from one immutable SDK Event after submission solely for local pin projection replay.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/mod.rs::ChatPanel:eccb1081285c02db",
+      "finding": "json_authoring:inkson/src/views/chat/mod.rs::ChatPanel:5b08f4f49a6cb46a",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4036,7 +3991,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/mod.rs::submit_source_routed_sidecar_message:84d3fb05a86c72e7",
+      "finding": "json_authoring:inkson/src/views/chat/mod.rs::submit_source_routed_sidecar_message:049f2a8f616bb3ac",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4081,112 +4036,103 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/assignment.rs::dispatch_card_assignees_update:8624f3b74a32bc8d",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Typed relation SDK Event produced by assignment mutation",
+      "finding": "json_authoring:inkson/src/views/kanban/assignment.rs::dispatch_card_assignees_update:ab1dba2eaad6929d",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The optimistic JSON copies kind and payload from the same typed relation Event and adds local UI bookkeeping only.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/card_detail.rs::dispatch_calendar_rsvp:100c50cb8dfd3364",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Typed RsvpSet SDK Event produced by calendar_rsvp_operation",
+      "finding": "json_authoring:inkson/src/views/kanban/card_detail.rs::dispatch_calendar_rsvp:992068af4ab990ab",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The record is local optimistic replay material copied from one typed RSVP Event; the typed Event, not this JSON, is submitted.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::dispatch_board_archive_cascade:b34c066bbaa32b1a",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Typed archive SDK Events produced by lifecycle builders",
+      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::dispatch_board_archive_cascade:806ec0b755fcc129",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Each local record copies kind and body from the same typed archive Event and is used only to roll back or replay optimistic board state.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::dispatch_space_container_lifecycle:3431c4c3d25fa472",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Typed SpaceArchive/SpaceRestore SDK Event",
+      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::dispatch_space_container_lifecycle:ae911b87f8deab82",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The local optimistic record is derived from one typed lifecycle Event; only that Event reaches event_submitter.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::dispatch_strand_lifecycle:3431c4c3d25fa472",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Typed StrandArchive/StrandRestore SDK Event",
+      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::dispatch_strand_lifecycle:ae911b87f8deab82",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The local optimistic record is derived from one typed lifecycle Event; only that Event reaches event_submitter.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::submit_kanban_card_create:13d20377d1f5db37",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Inkson LocalStateStore optimistic BoardWriteRecord projection",
+      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::submit_kanban_card_create:7a0e05e36e7531cd",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as a local optimistic projection derived from the already-authored typed Event; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The command is first converted through KanbanCardCreateCommand and kanban_card_strand_create into a typed SDK Event. This JSON is only the LocalStateStore activity record and never reaches the wire.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::submit_kanban_operation_event:31743b6252a42492",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Typed SDK Event accepted by submit_kanban_operation_event",
+      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::submit_kanban_operation_event:35341158f27abaca",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The function receives one SDK Event and copies its bound kind and payload into local projection state; the original Event is the sole outbound object.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::submit_strand_position_cas_move_with_attempt:927c6ea49de022ca",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Typed StrandMove/StrandReorder SDK Event built from the CAS effect",
+      "finding": "json_authoring:inkson/src/views/kanban/drag_drop_controller.rs::submit_strand_position_cas_move_with_attempt:345462d0bc4e39e0",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The raw object is local optimistic reducer input derived from the same typed CAS Event and includes UI-only expected and target position summaries.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::dispatch_card_detail_update:6386e1af9154b840",
-      "classification": "internal_or_fixture",
+      "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::dispatch_card_detail_update:da84fd0f50055a5a",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "Typed StrandUpdate SDK Event built before encrypted/plaintext dispatch",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Retain only as the local optimistic projection cache; never submit or sign this JSON.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The JSON is local optimistic projection state copied from the same typed update Event plus local synthesis and encryption flags; it is not outbound.",
-      "adjudication": "manual"
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
       "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::PendingInviteRow:e46bcf7371cb1579",
@@ -4200,7 +4146,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:2f4d253b0d9b4b9b",
+      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:70669a7cbafab394",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4211,7 +4157,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:70669a7cbafab394",
+      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel.rs::RealmMembersPanel:ff66f075cab9d1b5",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4976,18 +4922,6 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:soland/crates/storage-postgres/src/state_resolution.rs::cell_state_to_value:8e287e6b00976640",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret_state::CellState",
-      "owner_repository": "soland",
-      "action": "Retain this exact JSONB storage serialization boundary; construct it only by exhaustive matching over the closed CellState enum and interpret resolved values through the cell-family registry.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "the match serializes an already closed CellState enum to the JSONB storage envelope; resolved value shape belongs to the cell-family registry, not the state tag.",
-      "adjudication": "manual"
-    },
-    {
       "finding": "json_authoring:soland/crates/storage/src/join_applications.rs::join_application_response_body:c256758790f4c7bf",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5698,6 +5632,17 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec protocol schema owning actor_id",
+      "owner_repository": "inkson",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
+    },
+    {
+      "finding": "json_path_mutation:inkson/src/state/to_device_raw.rs::update_raw_operation_body:88bbd7f2344ab93b",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec protocol schema owning body",
       "owner_repository": "inkson",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",

@@ -34,6 +34,11 @@ pub struct PushRegisterDeviceRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceOutcome {
     pub ok: bool,
+    /// Server-derived pairwise pseudonym for this registration
+    /// (`push-operations.schema.json#/$defs/push_target_id`); the caller and the
+    /// device MUST use this exact value as the notify target and MUST NOT mint
+    /// their own.
+    pub push_target_id: PushTargetId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<OpaqueLocalId>,
     #[serde(skip_serializing_if = "Option::is_none")]

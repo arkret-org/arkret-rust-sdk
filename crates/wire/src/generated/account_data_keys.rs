@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-13.3;
-//! sha256=2c201f2784bdae6fbad412e0c589d209fe30d4280bc77fa08ac89465f201b1c9
-//! Entries: account_data_keys=23
+//! Input: registry/account-data-key-registry.json; version=2026-08-20.1;
+//! sha256=cffb86be564ca10ff8f0b51963cabb48c05052d33986b145b7c6121192987e14
+//! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 #[repr(usize)]
 pub enum AccountDataKey {
     AccountBlocklist,
+    AccountInviteDelivery,
     AccountInviteQuarantine,
     AgentDraftV1,
     AgentSidecarViewStateV1,
@@ -41,6 +42,7 @@ pub enum AccountDataKey {
 impl AccountDataKey {
     pub const ALL: &'static [Self] = &[
         Self::AccountBlocklist,
+        Self::AccountInviteDelivery,
         Self::AccountInviteQuarantine,
         Self::AgentDraftV1,
         Self::AgentSidecarViewStateV1,
@@ -69,6 +71,14 @@ impl AccountDataKey {
     /// notifications, contact handling, and trusted holder-side filtering. Key pattern:
     /// `ak.account.blocklist`.
     pub const ACCOUNT_BLOCKLIST: &'static str = "ak.account.blocklist";
+    /// Actor-private holder-side carrier for delivered directed-invite credentials on the notify
+    /// branch (invite-addressing.md section 7). Written by the recipient Principal Server through
+    /// the delivery path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a
+    /// client-encrypted envelope; invite_token is a server-issued private locator that MUST NOT
+    /// enter the Invite object or Realm history. Bounded CAS register: at most 200 entries, expired
+    /// entries purged first, then oldest evicted; accepted writes fan out as ak.account_data.update
+    /// actor-private device updates. Key pattern: `ak.account.invite_delivery`.
+    pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
     /// Actor-private quarantine inbox for invites held by consent gate default profile; MUST NOT
     /// expose contactability signals to the inviter. Key pattern:
     /// `ak.account.invite_quarantine`.
@@ -158,6 +168,7 @@ impl AccountDataKey {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountBlocklist => Self::ACCOUNT_BLOCKLIST,
+            Self::AccountInviteDelivery => Self::ACCOUNT_INVITE_DELIVERY,
             Self::AccountInviteQuarantine => Self::ACCOUNT_INVITE_QUARANTINE,
             Self::AgentDraftV1 => Self::AGENT_DRAFT_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
@@ -196,6 +207,7 @@ impl AccountDataKey {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::ACCOUNT_BLOCKLIST => Some(Self::AccountBlocklist),
+            Self::ACCOUNT_INVITE_DELIVERY => Some(Self::AccountInviteDelivery),
             Self::ACCOUNT_INVITE_QUARANTINE => Some(Self::AccountInviteQuarantine),
             Self::AGENT_DRAFT_V1 => Some(Self::AgentDraftV1),
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),

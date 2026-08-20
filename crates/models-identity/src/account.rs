@@ -1089,8 +1089,8 @@ pub struct IdentityAbandonmentOutcome {
     pub abandoned_at: DateTime<Utc>,
 }
 
-/// Request body of `ak.self.account.command.request_erasure`
-/// (`POST /_arkret/self/account/erasure-requests`; account-lifecycle.md
+/// Request body of `ak.gate.account.command.request_erasure`
+/// (`POST /_arkret/gate/account/erasure-requests`; account-lifecycle.md
 /// section 8.1). Acceptance records the erasure intent only; it is neither
 /// the signed `erasure_pending` AccountStatusRecord nor a completion receipt.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

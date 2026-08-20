@@ -9,8 +9,8 @@ use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    BlobRef, DidCoreId, Error, EventId, Hash, InviteLocatorId, InviteReceiveAction, RealmId,
-    Result, SchemaId, UnknownInviteAction,
+    BlobRef, DidCoreId, Error, EventId, Hash, InviteId, InviteLocatorId, InviteReceiveAction,
+    RealmId, Result, SchemaId, UnknownInviteAction,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -553,6 +553,113 @@ pub enum DisclosedOutcome {
     Blocked,
 }
 
+/// Strong cell value for the `ak.account.invite_delivery` account-data key
+/// ([`arkret_wire::AccountDataKey::ACCOUNT_INVITE_DELIVERY`]), whose wire
+/// schema is `spec/v1/artifacts/schemas/invite-delivery.schema.json`
+/// (`ak.schema.invite_delivery.v1`).
+///
+/// Actor-private plaintext carrier for delivered directed-invite credentials
+/// on the notify branch (invite-addressing.md section 7), written by the
+/// recipient Principal Server through the delivery path. `invite_token` is a
+/// server-issued private locator that MUST NOT enter the Invite object or
+/// Realm history. The cell is a bounded CAS register: at most
+/// [`InviteDelivery::MAX_ENTRIES`] entries, at most one entry per
+/// `invite_id` (a redelivery replaces the previous entry), expired entries
+/// are purged on the next write and overflow evicts the oldest entries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct InviteDelivery {
+    /// `ak.schema.invite_delivery.v1`.
+    pub schema: String,
+    /// Instant of the accepted CAS write that produced this value.
+    #[serde(with = "canonical_timestamp")]
+    pub updated_at: DateTime<Utc>,
+    /// Delivered invite credentials, oldest first.
+    pub entries: Vec<InviteDeliveryEntry>,
+}
+
+impl InviteDelivery {
+    pub const SCHEMA: &'static str = SchemaId::INVITE_DELIVERY_V1;
+    /// Registered `maxItems` bound on `entries`; overflow evicts the oldest.
+    pub const MAX_ENTRIES: usize = 200;
+    /// Schema bounds on `invite_token` (`minLength: 1`, `maxLength: 512`).
+    pub const INVITE_TOKEN_MAX_LENGTH: usize = 512;
+
+    /// Constructor that pins the canonical schema discriminator.
+    pub fn new(updated_at: DateTime<Utc>, entries: Vec<InviteDeliveryEntry>) -> Self {
+        Self {
+            schema: SchemaId::INVITE_DELIVERY_V1.to_owned(),
+            updated_at,
+            entries,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != SchemaId::INVITE_DELIVERY_V1 {
+            return Err(Error::Protocol(
+                "invite_delivery.schema mismatch".to_owned(),
+            ));
+        }
+        if self.entries.len() > Self::MAX_ENTRIES {
+            return Err(Error::Protocol(format!(
+                "invite_delivery.entries exceeds {} entries",
+                Self::MAX_ENTRIES
+            )));
+        }
+        for (index, entry) in self.entries.iter().enumerate() {
+            entry.validate()?;
+            if self.entries[..index]
+                .iter()
+                .any(|prior| prior.invite_id == entry.invite_id)
+            {
+                return Err(Error::Protocol(
+                    "invite_delivery.entries must carry at most one entry per invite_id".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// One delivered directed-invite credential inside [`InviteDelivery`]
+/// (`invite-delivery.schema.json#/$defs/delivery_entry`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct InviteDeliveryEntry {
+    /// Invite ID derived from the accepted `ak.invite.create` Event; the
+    /// deduplication key of the register.
+    pub invite_id: InviteId,
+    pub realm_id: RealmId,
+    /// `did_core_id` of the inviter as bound by the delivery verification
+    /// chain.
+    pub inviter: DidCoreId,
+    /// Opaque server-issued private invite locator token. Clients MUST treat
+    /// it as opaque and MUST NOT persist it outside this cell or equivalent
+    /// holder-private state.
+    pub invite_token: String,
+    /// Instant the recipient Principal Server accepted this delivery.
+    #[serde(with = "canonical_timestamp")]
+    pub received_at: DateTime<Utc>,
+    /// Expiry of the underlying invite credential; a stale entry MUST NOT be
+    /// used to accept the invite.
+    #[serde(with = "canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+impl InviteDeliveryEntry {
+    pub fn validate(&self) -> Result<()> {
+        let token_length = self.invite_token.chars().count();
+        if token_length == 0 || token_length > InviteDelivery::INVITE_TOKEN_MAX_LENGTH {
+            return Err(Error::Protocol(
+                "invite_delivery entry invite_token must be 1..=512 characters".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -973,5 +1080,96 @@ mod tests {
         assert!(value.get("allowed_handle_domains").is_none());
         assert_eq!(value["accepted_subject_did_methods"], serde_json::json!([]));
         assert!(serde_json::from_value::<ReceivePolicyConstraints>(value).is_ok());
+    }
+
+    fn invite_delivery_entry_fixture() -> InviteDeliveryEntry {
+        InviteDeliveryEntry {
+            invite_id: InviteId::new("ak:invite:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD")
+                .unwrap(),
+            realm_id: RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K")
+                .unwrap(),
+            inviter: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            invite_token: "srv-01HYZ8Z000000000000000".to_owned(),
+            received_at: DateTime::parse_from_rfc3339("2026-08-20T01:02:03Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            expires_at: DateTime::parse_from_rfc3339("2026-08-27T01:02:03Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        }
+    }
+
+    #[test]
+    fn invite_delivery_cell_round_trips_and_passes_spec_schema() {
+        let updated_at = DateTime::parse_from_rfc3339("2026-08-20T01:02:04Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let cell = InviteDelivery::new(updated_at, vec![invite_delivery_entry_fixture()]);
+        cell.validate().unwrap();
+        assert_eq!(cell.schema, SchemaId::INVITE_DELIVERY_V1);
+
+        let value = serde_json::to_value(&cell).expect("serialize invite_delivery cell");
+        let parsed: InviteDelivery =
+            serde_json::from_value(value.clone()).expect("deserialize invite_delivery cell");
+        assert_eq!(parsed, cell);
+
+        // SDK output is accepted by the spec schema, with and without entries.
+        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec artifact registry available (live co-checkout or embedded)");
+        registry
+            .validate_value(SchemaId::INVITE_DELIVERY_V1, &value)
+            .unwrap();
+        let empty = InviteDelivery::new(updated_at, Vec::new());
+        registry
+            .validate_value(
+                SchemaId::INVITE_DELIVERY_V1,
+                &serde_json::to_value(&empty).unwrap(),
+            )
+            .unwrap();
+
+        // The closed schema rejects unknown additive keys.
+        let mut leaky = value;
+        leaky["unexpected"] = serde_json::json!(true);
+        assert!(
+            registry
+                .validate_value(SchemaId::INVITE_DELIVERY_V1, &leaky)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn invite_delivery_cell_enforces_bounds() {
+        let updated_at = DateTime::parse_from_rfc3339("2026-08-20T01:02:04Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let mut oversized = InviteDelivery::new(updated_at, Vec::new());
+        oversized.entries = (0..=InviteDelivery::MAX_ENTRIES)
+            .map(|_| invite_delivery_entry_fixture())
+            .collect();
+        assert!(oversized.validate().is_err());
+
+        let mut duplicated = InviteDelivery::new(
+            updated_at,
+            vec![invite_delivery_entry_fixture(), {
+                let mut second = invite_delivery_entry_fixture();
+                second.invite_token = "srv-other-token".to_owned();
+                second
+            }],
+        );
+        assert!(duplicated.validate().is_err());
+        duplicated.entries[1].invite_id =
+            InviteId::new("ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
+        duplicated.validate().unwrap();
+
+        let mut empty_token =
+            InviteDelivery::new(updated_at, vec![invite_delivery_entry_fixture()]);
+        empty_token.entries[0].invite_token = String::new();
+        assert!(empty_token.validate().is_err());
+        let mut long_token = InviteDelivery::new(updated_at, vec![invite_delivery_entry_fixture()]);
+        long_token.entries[0].invite_token =
+            "t".repeat(InviteDelivery::INVITE_TOKEN_MAX_LENGTH + 1);
+        assert!(long_token.validate().is_err());
     }
 }

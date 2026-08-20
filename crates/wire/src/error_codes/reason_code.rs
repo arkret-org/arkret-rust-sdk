@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-18.6;
-//! sha256=90f8feadf5ff715b2987e160cd2dfd6d66e447d144980f2b07f99b002df72e49
+//! Input: registry/error-code-registry.json; version=2026-08-20.1;
+//! sha256=82051cc7173fab3a583cfa541d41e6c400a9b45413bfa02bc0cd1ba50b78c3e6
 //! Entries: reason_codes=481
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3132,7 +3132,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ERASURE_REQUEST_ALREADY_PENDING,
         applies_to: &["account_status"],
-        description: "Sub-reason for failed_precondition on ak.self.account.command.request_erasure: the account already holds a live self-initiated erasure intent whose erasure_pending AccountStatusRecord has not yet been signed. The client MUST NOT submit a second distinct request; it either awaits the recorded intent or withdraws it inside the deployment-granted withdrawal window. Once the record is signed, requests fail at authentication with account_erased instead. See zh/identity/account-lifecycle.md section 8.1.",
+        description: "Sub-reason for failed_precondition on ak.gate.account.command.request_erasure: the account already holds a live self-initiated erasure intent whose erasure_pending AccountStatusRecord has not yet been signed. The client MUST NOT submit a second distinct request; it either awaits the recorded intent or withdraws it inside the deployment-granted withdrawal window. Once the record is signed, requests fail at authentication with account_erased instead. See zh/identity/account-lifecycle.md section 8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::EVENT_ID_DIGEST_MISMATCH,

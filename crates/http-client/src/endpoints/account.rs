@@ -309,8 +309,8 @@ impl Client {
         self.post("/_arkret/self/account/profile", request).await
     }
 
-    /// `POST /_arkret/self/account/erasure-requests`
-    /// (`ak.self.account.command.request_erasure`). Success is an acceptance
+    /// `POST /_arkret/gate/account/erasure-requests`
+    /// (`ak.gate.account.command.request_erasure`). Success is an acceptance
     /// confirmation only: the erasure intent is durably recorded and the
     /// Account Authority starts its existing `erasure_pending` issuance flow.
     /// Exact request-id replay returns the recorded outcome.
@@ -320,7 +320,7 @@ impl Client {
     ) -> Result<AccountRequestErasureOutcome> {
         request.validate()?;
         let outcome: AccountRequestErasureOutcome = self
-            .post("/_arkret/self/account/erasure-requests", request)
+            .post("/_arkret/gate/account/erasure-requests", request)
             .await?;
         outcome.validate()?;
         Ok(outcome)
