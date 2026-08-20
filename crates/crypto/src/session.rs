@@ -1,45 +1,17 @@
-//! Realm session records, request/response bodies, the plan queue, and the
-//! aggregate crypto store binding.
+//! Local crypto bookkeeping records and the aggregate crypto store binding.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
 use arkret_models_crypto::encrypted_envelope::EncryptedPayload;
 use arkret_wire::{BlobRef, DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use crate::device::{DeviceKeyBundle, DeviceTrustState, DeviceVerificationStrand};
+use crate::device::{DeviceKeyBundle, DeviceTrustState};
 use crate::errors::{
-    Error, MAX_ALGORITHM_NAME_LEN, MAX_IDENTIFIER_LEN, MAX_KEY_FIELD_LEN,
-    MAX_ONE_TIME_KEY_CLAIM_COUNT, MAX_REASON_LEN, Result, validate_max_length,
-    validate_nonempty_key,
+    Error, MAX_ALGORITHM_NAME_LEN, MAX_IDENTIFIER_LEN, MAX_KEY_FIELD_LEN, MAX_REASON_LEN, Result,
+    validate_max_length, validate_nonempty_key,
 };
-
-/// Discriminator for the request variants the crypto-machine plan
-/// queue dispatches on. One variant per `CryptoMachineRequestBody` arm.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CryptoMachineRequestKind {
-    /// `ak.keys.upload_device_keys` — publish this device's keys.
-    UploadDeviceKeys,
-    /// `ak.keys.query_device_keys` — fetch peers' keys.
-    QueryDeviceKeys,
-    /// `ak.keys.claim_one_time_keys` — claim peers' one-time keys.
-    ClaimOneTimeKeys,
-    /// `ak.event.encrypt` — encrypt an event into a Realm session.
-    EncryptEvent,
-    /// `ak.event.decrypt` — decrypt a received encrypted event.
-    DecryptEvent,
-    /// `ak.keys.share_room_key` — distribute a Realm session key.
-    ShareRoomKey,
-    /// `ak.keys.request_room_key` — request a missing session key.
-    RequestRoomKey,
-    /// `ak.keys.backup_secrets` — push to secret backup storage.
-    BackupSecrets,
-    /// `ak.keys.restore_secrets` — pull from secret backup storage.
-    RestoreSecrets,
-}
 
 /// Lifecycle state of a Realm E2EE session key tracked locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -59,6 +31,15 @@ pub enum CryptoSessionState {
 
 /// Local record of a single Realm session — key id, sender device key,
 /// algorithm, current state and replay watermark.
+///
+/// Boundary: this is **local bookkeeping only**. It is not the MLS group
+/// state (Arkret has no per-sender ratchet session; group key material
+/// evolves with the MLS group state and epoch — see
+/// `guides/migrating-from-matrix.md` §4.5.3), not the HPKE to-device
+/// secret-transfer path (`crate::secret_share`, `ak.secret.request` /
+/// `ak.secret.send`), and not the realm_key history delivery
+/// (`arkret_models_collaboration::events_payloads::realm_key`,
+/// `ak.realm_key.request` / `ak.realm_key.share`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CryptoSessionRecord {
     pub realm_id: RealmId,
@@ -109,106 +90,6 @@ impl CryptoSessionRecord {
         }
         self.message_index_high_watermark = Some(index);
         self.last_used_at = now;
-        Ok(())
-    }
-}
-
-/// Sender-explicit refusal to share a Realm session key with this
-/// device (e.g. via `m.blacklisted` or recipient-not-trusted).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WithheldKeyRecord {
-    /// Realm the withheld session belongs to.
-    pub realm_id: RealmId,
-    /// Session that the sender refused to share.
-    pub session_id: String,
-    /// Sending principal.
-    pub sender: DidCoreId,
-    /// Wire `code` (e.g. `m.blacklisted`).
-    pub code: String,
-    /// Mapped `UnableToDecryptReason` for renderer convenience.
-    pub reason: UnableToDecryptReason,
-    /// Time the withheld notice was observed locally.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub received_at: DateTime<Utc>,
-}
-
-impl WithheldKeyRecord {
-    /// Validate the structural invariants beyond what `serde` enforces.
-    pub fn validate(&self) -> Result<()> {
-        validate_nonempty_key("withheld session id", &self.session_id)?;
-        validate_max_length("withheld session id", &self.session_id, MAX_IDENTIFIER_LEN)?;
-        validate_nonempty_key("withheld code", &self.code)?;
-        validate_max_length("withheld code", &self.code, MAX_IDENTIFIER_LEN)?;
-        Ok(())
-    }
-}
-
-/// Inbound device-to-device secret-gossip request body.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecretGossipRequestBody {
-    pub request_id: String,
-    pub name: String,
-    pub requesting_device: DeviceId,
-    pub recipient_device: DeviceId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-impl SecretGossipRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        validate_nonempty_key("secret gossip request_id", &self.request_id)?;
-        validate_max_length(
-            "secret gossip request_id",
-            &self.request_id,
-            MAX_IDENTIFIER_LEN,
-        )?;
-        validate_nonempty_key("secret gossip name", &self.name)?;
-        validate_max_length("secret gossip name", &self.name, MAX_IDENTIFIER_LEN)?;
-        if self.requesting_device == self.recipient_device {
-            return Err(Error::Protocol(
-                "secret gossip request requires distinct devices".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Request to claim `count` one-time keys for a (user, device) pair on a
-/// specific algorithm.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OneTimeKeyClaim {
-    /// Target principal.
-    pub user_id: DidCoreId,
-    /// Target device.
-    pub device_id: DeviceId,
-    /// One-time key algorithm (e.g. `signed_curve25519`).
-    pub algorithm: String,
-    /// How many keys to claim in this batch.
-    pub count: u32,
-}
-
-impl OneTimeKeyClaim {
-    pub fn validate(&self) -> Result<()> {
-        validate_nonempty_key("one-time key algorithm", &self.algorithm)?;
-        validate_max_length(
-            "one-time key algorithm",
-            &self.algorithm,
-            MAX_ALGORITHM_NAME_LEN,
-        )?;
-        if self.count == 0 {
-            return Err(Error::Protocol(
-                "one-time key claim count must be non-zero".to_owned(),
-            ));
-        }
-        if self.count > MAX_ONE_TIME_KEY_CLAIM_COUNT {
-            return Err(Error::Protocol(format!(
-                "one-time key claim count {} exceeds {}",
-                self.count, MAX_ONE_TIME_KEY_CLAIM_COUNT
-            )));
-        }
         Ok(())
     }
 }
@@ -275,7 +156,7 @@ pub enum KeyLifecyclePhase {
     Uploaded,
     /// One-time key claimed by a peer.
     Claimed,
-    /// Session key shared via `share_room_key`.
+    /// Session key delivered to authorized recipients.
     Shared,
     /// Replaced as part of a rotation cadence.
     Rotated,
@@ -348,11 +229,11 @@ pub enum UnableToDecryptReason {
     UnknownSender,
     /// Sender device key is not known to the local store.
     UnknownDevice,
-    /// Olm/Megolm message-index key is missing.
-    MissingMegolmKey,
+    /// Per-message decryption key material for the session is missing.
+    MissingMessageKey,
     /// Ciphertext failed MAC / shape validation.
     BadCiphertext,
-    /// Sender withheld the session key (`m.withheld`).
+    /// Sender withheld the session key.
     Withheld,
 }
 
@@ -370,202 +251,19 @@ pub struct UnableToDecryptRecord {
     pub first_seen_at: DateTime<Utc>,
 }
 
-/// Request body the crypto-machine plan queue dispatches on. Each
-/// variant corresponds 1:1 with a [`CryptoMachineRequestKind`].
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-// Plan-queue dispatch union: the variants mirror `CryptoMachineRequestKind`
-// 1:1, and boxing one of them would break that correspondence for callers.
-#[allow(clippy::large_enum_variant)]
-pub enum CryptoMachineRequestBody {
-    UploadDeviceKeys(DeviceKeyBundle),
-    QueryDeviceKeys {
-        users: Vec<DidCoreId>,
-    },
-    ClaimOneTimeKeys(Vec<OneTimeKeyClaim>),
-    EncryptEvent {
-        realm_id: RealmId,
-        event_kind: String,
-        content: Value,
-    },
-    DecryptEvent {
-        event_id: EventId,
-        payload: EncryptedPayload,
-    },
-    /// Matrix/MIMI compat name. The v1 concept is sharing a Realm
-    /// E2EE session key — the `ShareRoomKey` variant name maps to the
-    /// `ak.keys.room_key` interop device-message kind.
-    ShareRoomKey {
-        realm_id: RealmId,
-        session_id: String,
-        recipients: Vec<DeviceId>,
-    },
-    /// Matrix/MIMI compat name. Requests a Realm E2EE session key
-    /// re-share from peers; maps to the interop `ak.keys.room_key`
-    /// device-message kind.
-    RequestRoomKey {
-        event_id: EventId,
-        realm_id: RealmId,
-        session_id: String,
-        requesting_device_id: DeviceId,
-    },
-    BackupSecrets(SecretBackupDescriptor),
-    RestoreSecrets {
-        backup_id: String,
-    },
-}
-
-impl CryptoMachineRequestBody {
-    pub fn kind(&self) -> CryptoMachineRequestKind {
-        match self {
-            Self::UploadDeviceKeys(_) => CryptoMachineRequestKind::UploadDeviceKeys,
-            Self::QueryDeviceKeys { .. } => CryptoMachineRequestKind::QueryDeviceKeys,
-            Self::ClaimOneTimeKeys(_) => CryptoMachineRequestKind::ClaimOneTimeKeys,
-            Self::EncryptEvent { .. } => CryptoMachineRequestKind::EncryptEvent,
-            Self::DecryptEvent { .. } => CryptoMachineRequestKind::DecryptEvent,
-            Self::ShareRoomKey { .. } => CryptoMachineRequestKind::ShareRoomKey,
-            Self::RequestRoomKey { .. } => CryptoMachineRequestKind::RequestRoomKey,
-            Self::BackupSecrets(_) => CryptoMachineRequestKind::BackupSecrets,
-            Self::RestoreSecrets { .. } => CryptoMachineRequestKind::RestoreSecrets,
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        match self {
-            Self::UploadDeviceKeys(bundle) => bundle.validate(),
-            Self::QueryDeviceKeys { users } if users.is_empty() => Err(Error::Protocol(
-                "device-key query must include users".to_owned(),
-            )),
-            Self::ClaimOneTimeKeys(claims) if claims.is_empty() => Err(Error::Protocol(
-                "one-time key claim must include requests".to_owned(),
-            )),
-            Self::ClaimOneTimeKeys(claims) => {
-                for claim in claims {
-                    claim.validate()?;
-                }
-                Ok(())
-            }
-            Self::EncryptEvent { event_kind, .. } if event_kind.trim().is_empty() => Err(
-                Error::Protocol("encrypt event request must include event kind".to_owned()),
-            ),
-            Self::ShareRoomKey {
-                session_id,
-                recipients,
-                ..
-            } => {
-                if session_id.trim().is_empty() || recipients.is_empty() {
-                    Err(Error::Protocol(
-                        "share room key request requires session id and recipients".to_owned(),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            Self::RequestRoomKey { session_id, .. } if session_id.trim().is_empty() => Err(
-                Error::Protocol("room key request requires session id".to_owned()),
-            ),
-            Self::BackupSecrets(descriptor) => descriptor.validate(),
-            Self::RestoreSecrets { backup_id } if backup_id.trim().is_empty() => Err(
-                Error::Protocol("restore request must include backup id".to_owned()),
-            ),
-            _ => Ok(()),
-        }
-    }
-}
-
-/// Response body the crypto-machine plan returns once a request is
-/// processed (or queued for processing).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum CryptoMachineResponseBody {
-    /// Request accepted and queued for asynchronous processing.
-    Queued {
-        request_id: String,
-        kind: CryptoMachineRequestKind,
-    },
-    /// `UploadDeviceKeys` accepted.
-    DeviceKeysUploaded { device_id: DeviceId },
-    /// `QueryDeviceKeys` result set.
-    DeviceKeys(Vec<DeviceKeyBundle>),
-    /// `ClaimOneTimeKeys` result set (one per claimed device).
-    OneTimeKeysClaimed(Vec<DeviceKeyBundle>),
-    /// `EncryptEvent` produced this payload.
-    Encrypted(EncryptedPayload),
-    /// `DecryptEvent` resolved to this plaintext value.
-    Decrypted(Value),
-    /// `DecryptEvent` could not decrypt — caller should display a placeholder.
-    UnableToDecrypt(UnableToDecryptRecord),
-    /// `ShareRoomKey` fanned out to this many recipients.
-    RoomKeyShared {
-        realm_id: RealmId,
-        session_id: String,
-        recipients: usize,
-    },
-    /// `RequestRoomKey` was emitted on the wire.
-    RoomKeyRequested {
-        event_id: EventId,
-        session_id: String,
-    },
-    /// `BackupSecrets` flushed this descriptor to storage.
-    BackupReady(SecretBackupDescriptor),
-    /// `RestoreSecrets` pulled the named backup and recovered this many secrets.
-    Restored {
-        backup_id: String,
-        recovered_secrets: usize,
-    },
-}
-
-/// In-memory FIFO queue of pending crypto-machine requests.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct CryptoMachinePlan {
-    queue: VecDeque<(String, CryptoMachineRequestBody)>,
-}
-
-impl CryptoMachinePlan {
-    pub fn push(
-        &mut self,
-        request_id: impl Into<String>,
-        request: CryptoMachineRequestBody,
-    ) -> Result<CryptoMachineResponseBody> {
-        request.validate()?;
-        let request_id = request_id.into();
-        if request_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "crypto request id must not be empty".to_owned(),
-            ));
-        }
-        let kind = request.kind();
-        self.queue.push_back((request_id.clone(), request));
-        Ok(CryptoMachineResponseBody::Queued { request_id, kind })
-    }
-
-    pub fn pop(&mut self) -> Option<(String, CryptoMachineRequestBody)> {
-        self.queue.pop_front()
-    }
-
-    pub fn pending_len(&self) -> usize {
-        self.queue.len()
-    }
-
-    pub fn pending_kinds(&self) -> Vec<CryptoMachineRequestKind> {
-        self.queue
-            .iter()
-            .map(|(_, request)| request.kind())
-            .collect()
-    }
-}
-
 /// Aggregate local cache of every per-device crypto fact this client
-/// has observed (device keys, trust verdicts, verification strands,
-/// sessions, secret backup, withheld notices, UTD records, lifecycle
-/// journal).
+/// has observed (device keys, trust verdicts, sessions, secret backup,
+/// UTD records, lifecycle journal).
+///
+/// Interactive device verification (SAS) is not tracked here — it lives
+/// in `crate::key_verification` (`ak.key.verification.*`), which inkson
+/// consumes directly.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CryptoStoreBinding {
     pub device_keys: BTreeMap<DeviceId, DeviceKeyBundle>,
     pub device_trust: BTreeMap<DeviceId, DeviceTrustState>,
-    pub verification_strands: BTreeMap<String, DeviceVerificationStrand>,
     pub sessions: BTreeMap<String, CryptoSessionRecord>,
     pub backup: Option<SecretBackupDescriptor>,
-    pub withheld_keys: BTreeMap<String, WithheldKeyRecord>,
     pub unable_to_decrypt: BTreeMap<EventId, UnableToDecryptRecord>,
     pub lifecycle: Vec<KeyLifecycleEvent>,
 }
@@ -581,13 +279,6 @@ impl CryptoStoreBinding {
         self.device_trust.insert(device_id, trust);
     }
 
-    pub fn record_verification_strand(&mut self, strand: DeviceVerificationStrand) -> Result<()> {
-        strand.validate()?;
-        self.verification_strands
-            .insert(strand.transaction_id.clone(), strand);
-        Ok(())
-    }
-
     pub fn record_session(&mut self, session: CryptoSessionRecord) -> Result<()> {
         session.validate()?;
         self.sessions
@@ -601,11 +292,6 @@ impl CryptoStoreBinding {
         session_id: &str,
     ) -> Option<&mut CryptoSessionRecord> {
         self.sessions.get_mut(&session_key(realm_id, session_id))
-    }
-
-    pub fn record_withheld_key(&mut self, record: WithheldKeyRecord) {
-        self.withheld_keys
-            .insert(session_key(&record.realm_id, &record.session_id), record);
     }
 
     pub fn record_unable_to_decrypt(&mut self, record: UnableToDecryptRecord) {
@@ -627,28 +313,6 @@ pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn device(id: &str) -> DeviceId {
-        DeviceId::new(format!("ak:device:01904100-0000-7000-8000-{id}")).unwrap()
-    }
-
-    #[test]
-    fn secret_gossip_request_omitted_expires_at_round_trip() {
-        let request = SecretGossipRequestBody {
-            request_id: "gossip-1".to_owned(),
-            name: "backup-key".to_owned(),
-            requesting_device: device("000000000001"),
-            recipient_device: device("000000000002"),
-            created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
-            expires_at: None,
-        };
-
-        let serialized = serde_json::to_value(&request).unwrap();
-        assert!(!serialized.as_object().unwrap().contains_key("expires_at"));
-
-        let restored: SecretGossipRequestBody = serde_json::from_value(serialized).unwrap();
-        assert_eq!(restored, request);
-    }
 
     #[test]
     fn secret_backup_descriptor_omitted_last_recovery_at_round_trip() {

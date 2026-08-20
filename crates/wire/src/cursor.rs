@@ -482,6 +482,43 @@ mod tests {
     }
 
     #[test]
+    fn cursor_decode_rejects_short_handle_below_min_len() {
+        // 21 chars is one below CURSOR_HANDLE_MIN_LEN (22): the decoded handle
+        // would carry <128 bits of entropy, so the wire layer must reject it
+        // outright (encoding.md §handle: minLength 22).
+        let encode_with_handle = |handle: &str| {
+            let json = arkret_canonical::canonical::canonical_json_bytes(&serde_json::json!({
+                "v": "1",
+                "purpose": "stream",
+                "issued_at": "2026-07-18T12:34:56.789Z",
+                "expires_at": "2026-07-18T13:34:56.789Z",
+                "h": handle,
+            }))
+            .unwrap();
+            format!(
+                "ak:cursor:{}",
+                arkret_canonical::base64url::base64url_encode(&json)
+            )
+        };
+
+        let now_ms = chrono::DateTime::parse_from_rfc3339("2026-07-18T12:34:56.789Z")
+            .unwrap()
+            .timestamp_millis();
+
+        let short_handle = "A".repeat(CURSOR_HANDLE_MIN_LEN - 1);
+        assert_eq!(short_handle.len(), 21);
+        let err = Cursor::decode_at(&encode_with_handle(&short_handle), now_ms).unwrap_err();
+        assert!(
+            matches!(&err, Error::Protocol(message) if message.contains("invalid cursor handle")),
+            "{err}"
+        );
+
+        // Positive control: the same token with a 22-char handle decodes.
+        let ok_handle = "A".repeat(CURSOR_HANDLE_MIN_LEN);
+        assert!(Cursor::decode_at(&encode_with_handle(&ok_handle), now_ms).is_ok());
+    }
+
+    #[test]
     fn cursor_decode_rejects_oversized_token() {
         // 6000 chars of valid base64url alphabet — over the encoded form
         // of MAX_ENCODED_SIZE, must be rejected before any decode work.

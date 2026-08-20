@@ -1,20 +1,18 @@
-//! Per-device key bundles, trust state, and interactive verification strands.
+//! Per-device key bundles and trust state.
 
 use std::collections::BTreeMap;
 
 use arkret_signatures::DetachedSignature;
 use arkret_wire::{DeviceId, DidCoreId};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::{
     Error, MAX_ALGORITHM_NAME_LEN, MAX_ALGORITHM_VALUE_LEN, MAX_ALGORITHMS_PER_BUNDLE,
-    MAX_IDENTIFIER_LEN, MAX_KEY_FIELD_LEN, MAX_VERIFICATION_METHODS, Result, validate_max_length,
-    validate_nonempty_key,
+    MAX_KEY_FIELD_LEN, Result, validate_max_length, validate_nonempty_key,
 };
 
-/// Per-device public key bundle published via
-/// `ak.keys.upload_device_keys`.
+/// Per-device public key bundle cached locally alongside the trust
+/// verdict (`CryptoStoreBinding::device_keys`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceKeyBundle {
     pub user_id: DidCoreId,
@@ -66,132 +64,4 @@ pub enum DeviceTrustState {
     /// `authorized` or `verified` again.
     NeedsReverification,
     Blocked,
-}
-
-/// Interactive verification-strand state machine
-/// (`ak.device.verification.v1`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum VerificationStrandState {
-    /// Initial state — request sent, awaiting peer ready.
-    Requested,
-    /// Peer accepted; negotiation can start.
-    Ready,
-    /// SAS (short-authentication-string) leg started.
-    SasStarted,
-    /// QR-code leg scanned.
-    QrScanned,
-    /// Verification completed successfully.
-    Done,
-    /// Either party cancelled.
-    Cancelled,
-    /// Window expired before completion.
-    TimedOut,
-}
-
-/// Active interactive-verification strand between two of the principal's
-/// own devices (or a peer and a verifier).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeviceVerificationStrand {
-    pub transaction_id: String,
-    pub user_id: DidCoreId,
-    pub from_device: DeviceId,
-    pub to_device: DeviceId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub methods: Vec<String>,
-    pub state: VerificationStrandState,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-impl DeviceVerificationStrand {
-    pub fn validate(&self) -> Result<()> {
-        validate_nonempty_key("verification transaction id", &self.transaction_id)?;
-        validate_max_length(
-            "verification transaction id",
-            &self.transaction_id,
-            MAX_IDENTIFIER_LEN,
-        )?;
-        if self.from_device == self.to_device {
-            return Err(Error::Protocol(
-                "verification requires two distinct devices".to_owned(),
-            ));
-        }
-        if self.methods.len() > MAX_VERIFICATION_METHODS {
-            return Err(Error::Protocol(format!(
-                "verification methods count {} exceeds {}",
-                self.methods.len(),
-                MAX_VERIFICATION_METHODS
-            )));
-        }
-        for method in &self.methods {
-            validate_nonempty_key("verification method", method)?;
-            validate_max_length("verification method", method, MAX_IDENTIFIER_LEN)?;
-        }
-        Ok(())
-    }
-
-    pub fn advance(&mut self, next: VerificationStrandState) -> Result<()> {
-        let allowed = matches!(
-            (self.state, next),
-            (
-                VerificationStrandState::Requested,
-                VerificationStrandState::Ready
-            ) | (
-                VerificationStrandState::Ready,
-                VerificationStrandState::SasStarted
-            ) | (
-                VerificationStrandState::Ready,
-                VerificationStrandState::QrScanned
-            ) | (
-                VerificationStrandState::SasStarted,
-                VerificationStrandState::Done
-            ) | (
-                VerificationStrandState::QrScanned,
-                VerificationStrandState::Done
-            ) | (_, VerificationStrandState::Cancelled)
-                | (_, VerificationStrandState::TimedOut)
-        );
-        if allowed {
-            self.state = next;
-            Ok(())
-        } else {
-            Err(Error::Protocol(format!(
-                "invalid verification transition from {:?} to {:?}",
-                self.state, next
-            )))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn device(id: &str) -> DeviceId {
-        DeviceId::new(format!("ak:device:01904100-0000-7000-8000-{id}")).unwrap()
-    }
-
-    #[test]
-    fn device_verification_strand_omitted_expires_at_round_trip() {
-        let strand = DeviceVerificationStrand {
-            transaction_id: "txn-1".to_owned(),
-            user_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
-            from_device: device("000000000001"),
-            to_device: device("000000000002"),
-            methods: vec!["sas".to_owned()],
-            state: VerificationStrandState::Requested,
-            created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
-            expires_at: None,
-        };
-
-        let serialized = serde_json::to_value(&strand).unwrap();
-        assert!(!serialized.as_object().unwrap().contains_key("expires_at"));
-
-        let restored: DeviceVerificationStrand = serde_json::from_value(serialized).unwrap();
-        assert_eq!(restored, strand);
-    }
 }

@@ -69,54 +69,6 @@ mod tests {
     }
 
     #[test]
-    fn crypto_machine_plan_validates_and_orders_requests() {
-        let mut plan = CryptoMachinePlan::default();
-        let queued = plan
-            .push(
-                "r1",
-                CryptoMachineRequestBody::QueryDeviceKeys {
-                    users: vec![did("alice")],
-                },
-            )
-            .unwrap();
-        assert_eq!(
-            queued,
-            CryptoMachineResponseBody::Queued {
-                request_id: "r1".to_owned(),
-                kind: CryptoMachineRequestKind::QueryDeviceKeys
-            }
-        );
-        assert_eq!(
-            plan.pending_kinds(),
-            vec![CryptoMachineRequestKind::QueryDeviceKeys]
-        );
-        assert!(matches!(
-            plan.push(
-                "bad",
-                CryptoMachineRequestBody::QueryDeviceKeys { users: Vec::new() }
-            ),
-            Err(Error::Protocol(_))
-        ));
-        plan.push(
-            "share",
-            CryptoMachineRequestBody::ShareRoomKey {
-                realm_id: RealmId::new("ak:realm:ATkXzcQvyxfe91pWo53Tg9imMLwlTme1cbCFc5G-lymH")
-                    .unwrap(),
-                session_id: "sess1".to_owned(),
-                recipients: vec![device()],
-            },
-        )
-        .unwrap();
-        assert_eq!(
-            plan.pending_kinds(),
-            vec![
-                CryptoMachineRequestKind::QueryDeviceKeys,
-                CryptoMachineRequestKind::ShareRoomKey
-            ]
-        );
-    }
-
-    #[test]
     fn store_binding_records_device_keys_and_unable_to_decrypt() {
         let mut binding = CryptoStoreBinding::default();
         let bundle = DeviceKeyBundle {
@@ -157,22 +109,8 @@ mod tests {
     }
 
     #[test]
-    fn verification_session_and_withheld_key_state_are_tracked() {
+    fn device_trust_and_session_replay_state_are_tracked() {
         let mut binding = CryptoStoreBinding::default();
-        let mut strand = DeviceVerificationStrand {
-            transaction_id: "verif1".to_owned(),
-            user_id: did("alice"),
-            from_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            to_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000004").unwrap(),
-            methods: vec!["sas".to_owned(), "qr".to_owned()],
-            state: VerificationStrandState::Requested,
-            created_at: Utc::now(),
-            expires_at: None,
-        };
-        strand.advance(VerificationStrandState::Ready).unwrap();
-        strand.advance(VerificationStrandState::SasStarted).unwrap();
-        strand.advance(VerificationStrandState::Done).unwrap();
-        binding.record_verification_strand(strand).unwrap();
         binding.set_device_trust(
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000004").unwrap(),
             DeviceTrustState::Verified,
@@ -204,16 +142,6 @@ mod tests {
             session.accept_message_index(7, Utc::now()),
             Err(Error::Protocol(_))
         ));
-
-        binding.record_withheld_key(WithheldKeyRecord {
-            realm_id,
-            session_id: "sess1".to_owned(),
-            sender: did("alice"),
-            code: "m.blacklisted".to_owned(),
-            reason: UnableToDecryptReason::Withheld,
-            received_at: Utc::now(),
-        });
-        assert_eq!(binding.withheld_keys.len(), 1);
     }
 
     #[test]
@@ -240,60 +168,6 @@ mod tests {
             Error::Protocol(message) => message,
             other => panic!("expected Error::Protocol, got {other:?}"),
         }
-    }
-
-    #[test]
-    fn validate_rejects_invalid_device_verification_strand() {
-        let mut strand = DeviceVerificationStrand {
-            transaction_id: String::new(),
-            user_id: did("alice"),
-            from_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            to_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
-            methods: Vec::new(),
-            state: VerificationStrandState::Requested,
-            created_at: Utc::now(),
-            expires_at: None,
-        };
-
-        // Empty transaction id.
-        assert!(strand.validate().is_err());
-
-        // Same device on both sides.
-        strand.transaction_id = "tx".to_owned();
-        strand.to_device = strand.from_device.clone();
-        let message = protocol_message(strand.validate().unwrap_err());
-        assert!(message.contains("two distinct devices"), "{message}");
-
-        // Too many methods → bounds error.
-        strand.to_device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap();
-        strand.methods = (0..(MAX_VERIFICATION_METHODS + 1))
-            .map(|i| format!("m{i}"))
-            .collect();
-        let message = protocol_message(strand.validate().unwrap_err());
-        assert!(message.contains("verification methods"), "{message}");
-    }
-
-    #[test]
-    fn validate_rejects_invalid_withheld_key_record() {
-        let realm_id =
-            RealmId::new("ak:realm:ATkXzcQvyxfe91pWo53Tg9imMLwlTme1cbCFc5G-lymH").unwrap();
-        let mut record = WithheldKeyRecord {
-            realm_id,
-            session_id: String::new(),
-            sender: did("alice"),
-            code: "m.blacklisted".to_owned(),
-            reason: UnableToDecryptReason::Withheld,
-            received_at: Utc::now(),
-        };
-        assert!(record.validate().is_err());
-
-        record.session_id = "sess1".to_owned();
-        record.code = String::new();
-        assert!(record.validate().is_err());
-
-        record.code = "x".repeat(MAX_IDENTIFIER_LEN + 1);
-        let message = protocol_message(record.validate().unwrap_err());
-        assert!(message.contains("withheld code"), "{message}");
     }
 
     #[test]
