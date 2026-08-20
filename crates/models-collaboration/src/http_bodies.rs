@@ -1217,7 +1217,7 @@ impl MimiRequestConsentRequestBody {
             Some(serde_json::to_value(&self.requester_id)?),
             vec![
                 ("target", serde_json::to_value(&self.target)?),
-                ("purpose", serde_json::to_value(&self.purpose)?),
+                ("purpose", serde_json::to_value(self.purpose)?),
             ],
             &self.payload_digest()?,
             proof,
@@ -1685,7 +1685,7 @@ mod mimi_consent_tests {
             privacy_profile: None,
             proofs: Vec::new(),
         };
-        let mut proof = request.signature.clone();
+        let mut proof = request.signature;
         proof.payload_digest = identifier_query.payload_digest().unwrap();
         identifier_query.proofs = vec![proof.clone()];
 
@@ -3085,7 +3085,7 @@ mod event_delivery_status_tests {
     #[test]
     fn delivery_status_requires_exact_sorted_pending_aggregate() {
         let outcome = EventDeliveryStatusOutcome {
-            event_id: request().event_id.clone(),
+            event_id: request().event_id,
             delivery_state: EventDeliveryState::Pending,
             pending_delivery_count: 1,
             targets: vec![

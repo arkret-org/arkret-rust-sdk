@@ -1562,6 +1562,7 @@ impl Event {
     /// is the deterministic authoring entry point for callers that need an
     /// object timestamp and its containing Event to share one exact instant.
     #[cfg(any(test, feature = "test-support"))]
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
