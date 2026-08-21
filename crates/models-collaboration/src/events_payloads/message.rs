@@ -856,8 +856,6 @@ pub struct MessageCreatePayload {
     pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub blob_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_sidecar_digest: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -895,7 +893,6 @@ impl MessageCreatePayload {
             metadata: None,
             encrypted_metadata: None,
             blob_refs: Vec::new(),
-            mention_sidecar_digest: Vec::new(),
             reply_to: None,
             agent_context: None,
         }
@@ -926,7 +923,6 @@ impl MessageCreatePayload {
             metadata: None,
             encrypted_metadata: None,
             blob_refs: Vec::new(),
-            mention_sidecar_digest: Vec::new(),
             reply_to: None,
             agent_context: None,
         }

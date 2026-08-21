@@ -35,24 +35,13 @@ fn agent_pair_activation_state_has_closed_two_phase_wire_values() {
 
 fn encrypted_envelope() -> EncryptedEnvelope {
     serde_json::from_value(json!({
-        "scheme": "mls_rfc9420",
         "version": "1.0",
-        "group_id": "AA",
-        "epoch": 1,
         "content_type": "application/vnd.arkret.message+json",
-        "ciphertext": "AA",
-        "aad_visibility_event_id_kind": "hidden",
-        "aad": {
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "event_kind": "ak.message.create"
-        },
-        "key_ref": {
-            "algorithm": "MLS",
+        "encryption_context": {
+            "epoch": 1,
             "group_state_ref": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM"
         },
-        "payload_digest": format!("sha256:{}", "a".repeat(64)),
-        "aad_digest": format!("sha256:{}", "b".repeat(64))
+        "ciphertext": "AA",
     }))
     .unwrap()
 }

@@ -1,17 +1,15 @@
-//! MLS-Exporter AEAD nonce derivation + encrypted-envelope AAD digest helpers.
+//! MLS-Exporter AEAD nonce derivation helpers.
 //!
 //! v1 deterministic AEAD sender-nonce construction
 //! (`nonce = I2OSP(durable_sender_counter, AEAD.Nn)`, per
 //! `crypto-media/encryption-and-audit.md`) plus the canonical
-//! encrypted-envelope AAD digest. These moved here from the SDK so the MLS
-//! behavior layer can reach them without a dependency cycle back through the
-//! umbrella crate; the SDK keeps the `arkret::crypto::*` surface via re-export.
+//! These moved here from the SDK so the MLS behavior layer can reach them
+//! without a dependency cycle back through the umbrella crate.
 
 use std::collections::{BTreeMap, VecDeque};
 
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_bytes, sha256_digest};
-use arkret_models_crypto::EncryptedEnvelopeAad;
-use arkret_wire::{EventId, RealmId, ReasonCode};
+use arkret_wire::ReasonCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -39,8 +37,6 @@ pub const AEAD_PROFILE_XCHACHA20_POLY1305: &str = "mls_exporter_aead_xchacha20po
 /// `alg` value of the AES-256-GCM **blob** AEAD scheme. Same domain caveat as
 /// [`AEAD_PROFILE_XCHACHA20_POLY1305`].
 pub const AEAD_PROFILE_AES_256_GCM: &str = "mls_exporter_aead_aes_256_gcm";
-/// Domain separator for the privacy-preserving AAD Event reference digest.
-pub const AAD_EVENT_REF_DIGEST_CONTEXT: &str = "ak.aad-event-ref-v1";
 
 /// Canonical replay scope for a v1 full-width AEAD sender counter.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,14 +127,6 @@ impl AeadNonceReplayTracker {
     }
 }
 
-/// Digest report used by callers that store AAD digest separately from ciphertext.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EncryptedEnvelopeDigestReport {
-    pub ciphertext_sha256: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aad_sha256: Option<String>,
-}
-
 fn protocol_error(reason: &str, detail: &str) -> Error {
     Error::Protocol(format!("{reason}: {detail}"))
 }
@@ -223,75 +211,9 @@ pub fn verify_aead_sender_nonce(
     Ok(counter)
 }
 
-/// Canonicalize encrypted-envelope AAD exactly as specified by the v1 KAT.
-pub fn canonical_envelope_aad(aad: &EncryptedEnvelopeAad) -> Result<Vec<u8>> {
-    canonical_json_bytes(aad).map_err(Into::into)
-}
-
-/// Compute a SHA-256 digest over canonical encrypted-envelope AAD.
-pub fn envelope_aad_digest(aad: &EncryptedEnvelopeAad) -> Result<String> {
-    Ok(sha256_prefixed(&canonical_envelope_aad(aad)?))
-}
-
 /// Compute a SHA-256 digest over arbitrary JSON AAD using canonical JSON.
 pub fn json_aad_digest(aad: &Value) -> Result<String> {
     Ok(sha256_prefixed(&canonical_json_bytes(aad)?))
-}
-
-/// Compute the privacy-preserving AAD reference for one canonical Event id.
-///
-/// The preimage is exactly
-/// `utf8("ak.aad-event-ref-v1") || 0x00 || utf8(event_id) || 0x00 || utf8(realm_id)`.
-pub fn event_ref_digest(event_id: &EventId, realm_id: &RealmId) -> String {
-    let mut preimage = Vec::with_capacity(
-        AAD_EVENT_REF_DIGEST_CONTEXT.len() + 2 + event_id.as_str().len() + realm_id.as_str().len(),
-    );
-    preimage.extend_from_slice(AAD_EVENT_REF_DIGEST_CONTEXT.as_bytes());
-    preimage.push(0);
-    preimage.extend_from_slice(event_id.as_str().as_bytes());
-    preimage.push(0);
-    preimage.extend_from_slice(realm_id.as_str().as_bytes());
-    sha256_prefixed(&preimage)
-}
-
-/// Fail closed unless an AAD Event reference digest matches its typed inputs.
-pub fn verify_event_ref_digest(
-    event_id: &EventId,
-    realm_id: &RealmId,
-    expected: &str,
-) -> Result<()> {
-    if constant_time_eq(&event_ref_digest(event_id, realm_id), expected) {
-        Ok(())
-    } else {
-        Err(Error::Protocol(
-            "encrypted envelope event_ref_digest mismatch".to_owned(),
-        ))
-    }
-}
-
-/// Fail closed if the supplied AAD digest does not match the canonical AAD.
-pub fn verify_envelope_aad_digest(aad: &EncryptedEnvelopeAad, expected: &str) -> Result<()> {
-    let actual = envelope_aad_digest(aad)?;
-    let actual_digest = sha256_bytes(actual.as_bytes());
-    let expected_digest = sha256_bytes(expected.as_bytes());
-    if bool::from(actual_digest.ct_eq(&expected_digest)) {
-        Ok(())
-    } else {
-        Err(Error::Protocol(
-            "encrypted envelope AAD digest mismatch".to_owned(),
-        ))
-    }
-}
-
-/// Produce ciphertext and optional AAD digests for encrypted-envelope compliance checks.
-pub fn encrypted_envelope_digest_report(
-    ciphertext: &[u8],
-    aad: Option<&EncryptedEnvelopeAad>,
-) -> Result<EncryptedEnvelopeDigestReport> {
-    Ok(EncryptedEnvelopeDigestReport {
-        ciphertext_sha256: sha256_prefixed(ciphertext),
-        aad_sha256: aad.map(envelope_aad_digest).transpose()?,
-    })
 }
 
 /// Compare two strings in constant time after reducing both to fixed-size digests.
@@ -303,8 +225,6 @@ pub fn constant_time_eq(left: &str, right: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{EventId, RealmId, ScopeRef};
-
     use super::*;
 
     fn fixture_nonce_context(sender_domain: &str) -> AeadNonceContext {
@@ -364,70 +284,4 @@ mod tests {
         assert_eq!(tracker.lru.len(), 2);
     }
 
-    #[test]
-    fn encrypted_envelope_aad_digest_is_canonical() {
-        let realm_id =
-            RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
-        let aad = EncryptedEnvelopeAad {
-            scope_digest: arkret_models_crypto::encrypted_envelope_scope_digest(
-                &ScopeRef::Realm {
-                    realm_id: realm_id.clone(),
-                },
-                &realm_id,
-            )
-            .unwrap(),
-            realm_id,
-            event_kind: "ak.message.create".to_owned(),
-            event_id: Some(
-                EventId::new("ak:event:ARVUUS5MsgtJTHxDUnT_24cP4k86XFFUI-95GFfyLv6j").unwrap(),
-            ),
-            event_ref_digest: None,
-            causal_refs: Some(vec![
-                EventId::new("ak:event:AYoviZ1XjwFy7zH14Su8a_9FmsyO_vGq1qCW6mLmLP10").unwrap(),
-            ]),
-            causal_ref_digests: None,
-        };
-        let digest = envelope_aad_digest(&aad).unwrap();
-        verify_envelope_aad_digest(&aad, &digest).unwrap();
-        assert!(verify_envelope_aad_digest(&aad, "sha256:bad").is_err());
-
-        let report = encrypted_envelope_digest_report(b"ciphertext", Some(&aad)).unwrap();
-        assert_eq!(report.aad_sha256, Some(digest));
-        assert!(report.ciphertext_sha256.starts_with("sha256:"));
-    }
-
-    #[test]
-    fn aad_and_event_ref_helpers_match_the_registered_encoding_vectors() {
-        let fixture = arkret_schema::embedded_json_artifact("fixtures/encoding-fixture.json")
-            .expect("encoding fixture must be embedded");
-        let case = fixture["vectors"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|case| {
-                case["vector_id"].as_str()
-                    == Some("ak.vector.encoding.encrypted_envelope_digest.v1")
-            })
-            .expect("fixture must contain the encrypted payload vector");
-        let kat = &case["event_ref_digest_kat"];
-        let event_id = EventId::new(kat["event_id"].as_str().unwrap()).unwrap();
-        let realm_id = RealmId::new(kat["realm_id"].as_str().unwrap()).unwrap();
-        let expected = kat["expected_digest"].as_str().unwrap();
-
-        assert_eq!(AAD_EVENT_REF_DIGEST_CONTEXT, kat["domain_separator_utf8"]);
-        assert_eq!(event_ref_digest(&event_id, &realm_id), expected);
-        verify_event_ref_digest(&event_id, &realm_id, expected).unwrap();
-        assert!(verify_event_ref_digest(&event_id, &realm_id, "sha256:bad").is_err());
-
-        let aad: EncryptedEnvelopeAad =
-            serde_json::from_value(case["payload_metadata"]["aad"].clone()).unwrap();
-        assert_eq!(
-            envelope_aad_digest(&aad).unwrap(),
-            case["aad_digest"].as_str().unwrap()
-        );
-        assert_eq!(
-            json_aad_digest(&case["payload_metadata"]["aad"]).unwrap(),
-            case["aad_digest"].as_str().unwrap()
-        );
-    }
 }

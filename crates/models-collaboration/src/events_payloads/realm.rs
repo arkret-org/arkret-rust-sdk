@@ -2,9 +2,6 @@
 
 use std::collections::BTreeSet;
 
-use arkret_models_crypto::encrypted_envelope::{
-    AadVisibilityCeiling, EncryptedEnvelopeAadVisibility,
-};
 use arkret_wire::{DidCoreId, DomainSeparationId};
 
 use crate::events_payloads::device_identity::{
@@ -201,22 +198,6 @@ pub struct RealmPreauthPolicy {
     pub consent_required: bool,
 }
 
-/// `aad_visibility` component of [`RealmPolicyBundlePayload`].
-///
-/// One registered axis in v1, matching the single encrypted-envelope
-/// discriminator `aad_visibility_event_id_kind`. Closed, so an unregistered axis
-/// name is a wire-parse `schema_violation`: a new axis needs a real envelope
-/// field, not just a policy key.
-///
-/// The value is a **ceiling**, not an equality. Resolve it through
-/// [`AadVisibilityCeiling::from_declared`] so the absent-component case is the
-/// `hidden` ceiling rather than an unchecked one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAadVisibilityPolicy {
-    pub event_id_kind: EncryptedEnvelopeAadVisibility,
-}
-
 /// Absolute ceiling on `relaxed_window_max_ms`
 /// (`crypto-media/encryption-and-audit.md` §2.4.1).
 ///
@@ -265,8 +246,6 @@ pub struct RealmPolicyBundlePayload {
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub aad_visibility: Option<RealmAadVisibilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -335,7 +314,6 @@ impl RealmPolicyBundlePayload {
             content_encryption_floor: None,
             metadata_encryption_floor: None,
             federation_policy: None,
-            aad_visibility: None,
             durability_policy: None,
             mls_send_pause: None,
             relaxed_window_max_ms: None,
@@ -366,22 +344,11 @@ impl RealmPolicyBundlePayload {
     /// This is the only safe way to author a follow-up revision. Because
     /// `ak.component.realm.policy_bundle.v1` is a `cas_register`, a revision
     /// that writes only the components it means to change **clears** the rest.
-    /// For `aad_visibility` that failure is especially quiet: dropping it
-    /// lowers the ceiling back to `hidden`, every `routing_digest` envelope
-    /// starts being rejected, and it presents as "dedupe suddenly broke"
-    /// rather than as a policy edit.
     pub fn restate(&self, policy_revision: u64) -> Self {
         Self {
             policy_revision,
             ..self.clone()
         }
-    }
-
-    /// Resolved Realm ceiling for encrypted-envelope `aad_visibility_event_id_kind`.
-    ///
-    /// An absent component is the `hidden` ceiling, never "unchecked".
-    pub fn aad_visibility_ceiling(&self) -> AadVisibilityCeiling {
-        AadVisibilityCeiling::from_declared(self.aad_visibility.map(|policy| policy.event_id_kind))
     }
 
     /// Effective removed-member decryption window.
@@ -1449,9 +1416,6 @@ mod realm_policy_bundle_tests {
 
     fn declared_bundle() -> RealmPolicyBundlePayload {
         let mut bundle = RealmPolicyBundlePayload::new(3);
-        bundle.aad_visibility = Some(RealmAadVisibilityPolicy {
-            event_id_kind: EncryptedEnvelopeAadVisibility::RoutingDigest,
-        });
         bundle.media_service_decrypts = Some(true);
         bundle
     }
@@ -1463,42 +1427,7 @@ mod realm_policy_bundle_tests {
         let accepted = declared_bundle();
         let next = accepted.restate(4);
         assert_eq!(next.policy_revision, 4);
-        assert_eq!(next.aad_visibility, accepted.aad_visibility);
         assert!(next.media_service_decrypts());
-
-        // Dropping `aad_visibility` silently lowers the ceiling to hidden, and
-        // presents downstream as "dedupe suddenly broke" rather than as a
-        // policy edit — which is exactly why `restate` exists.
-        let mut forgetful = RealmPolicyBundlePayload::new(4);
-        forgetful.media_service_decrypts = Some(true);
-        assert_eq!(
-            forgetful.aad_visibility_ceiling().value(),
-            EncryptedEnvelopeAadVisibility::Hidden
-        );
-    }
-
-    #[test]
-    fn an_undeclared_aad_visibility_component_is_the_hidden_ceiling() {
-        let bundle = declared_bundle();
-        bundle
-            .aad_visibility_ceiling()
-            .check(EncryptedEnvelopeAadVisibility::RoutingDigest)
-            .expect("at the declared ceiling");
-        assert!(
-            bundle
-                .aad_visibility_ceiling()
-                .check(EncryptedEnvelopeAadVisibility::OpaqueId)
-                .is_err()
-        );
-
-        let mut undeclared = RealmPolicyBundlePayload::new(1);
-        undeclared.mls_send_pause = Some(MlsSendPause::Advisory);
-        let error = undeclared
-            .aad_visibility_ceiling()
-            .check(EncryptedEnvelopeAadVisibility::RoutingDigest)
-            .unwrap_err()
-            .to_string();
-        assert!(error.contains("aad_visibility_policy_violation"), "{error}");
     }
 
     #[test]

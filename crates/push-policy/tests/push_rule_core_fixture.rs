@@ -41,45 +41,10 @@ fn context_from_event(event: &Value) -> EventContext {
 fn push_rule_core_fixture_cases_all_match_shared_core() {
     let fixture = fixture();
     let cases = fixture["cases"].as_array().expect("fixture cases array");
-    assert_eq!(cases.len(), 14, "case inventory pinned to the spec fixture");
+    assert_eq!(cases.len(), 13, "case inventory pinned to the spec fixture");
 
     for case in cases {
         let name = case["name"].as_str().expect("case name");
-        if name == "hardened_realm_disables_recipient_registered_mention_routing" {
-            let variants = case["variants"].as_array().expect("hardened variants");
-            assert_eq!(variants.len(), 5);
-            for variant in variants {
-                let hardened = variant["realm_profiles"]
-                    .as_array()
-                    .expect("realm profiles")
-                    .iter()
-                    .any(|profile| {
-                        matches!(
-                            profile.as_str(),
-                            Some(
-                                "ak.profile.mls.minimal_metadata_realm.v1"
-                                    | "ak.profile.attested_audit.e2ee.v1"
-                                    | "ak.profile.disclosed_audit.e2ee.v1"
-                            )
-                        )
-                    });
-                let declared = variant["declared_mention_routing_hint"]
-                    .as_str()
-                    .expect("declared mention routing hint");
-                let effective = if hardened || declared != "recipient_registered_token" {
-                    "disabled"
-                } else {
-                    declared
-                };
-                assert_eq!(
-                    effective,
-                    variant["expected_effective_hint"]
-                        .as_str()
-                        .expect("expected effective hint")
-                );
-            }
-            continue;
-        }
         let level = WatchLevel::from_wire(case["watch_level"].as_str().expect("watch_level"))
             .unwrap_or_else(|| panic!("case {name}: unknown watch_level"));
         let ctx = context_from_event(&case["event"]);
@@ -163,7 +128,6 @@ fn push_rule_core_fixture_case_inventory_is_pinned() {
             "mentions_only_assigned_to_actor_delivers",
             "broadcast_mention_controls_authorized_audience_delivers",
             "strand_engaged_here_maps_to_receiver_side_mention",
-            "hardened_realm_disables_recipient_registered_mention_routing",
             "participating_plain_non_participant_is_filtered",
             "participating_thread_update_delivers",
             "all_plain_non_directed_delivers",

@@ -141,8 +141,6 @@ const REDACTION_DERIVED_FIELD_KEYS: &[&str] = &[
     "blob_refs",
     "encrypted_content",
     "media",
-    "mention_routing_hint",
-    "mention_sidecar_digest",
     "mentions",
     "poll",
     "preview",

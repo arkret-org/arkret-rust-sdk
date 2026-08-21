@@ -114,8 +114,8 @@ pub(crate) fn direct_projection(
 /// are always present; an `initial_resolution` adds the registered
 /// identity-resolution singleton, and the three create-locked Realm purposes
 /// add the registered history-access singleton. Profile, membership and policy
-/// cells are separate registered Events in branches whose bootstrap unit includes them. Only the targets are asserted:
-/// the lattice ops come from the registered `effect_projection` and restating
+/// cells are separate registered Events in branches whose bootstrap unit includes them. Only the
+/// targets are asserted: the lattice ops come from the registered `effect_projection` and restating
 /// them here would rebuild the producer-side effect table v1 removed.
 pub(crate) fn validate_realm_create_projection(
     event: &Event,

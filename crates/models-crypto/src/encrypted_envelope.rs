@@ -1,188 +1,235 @@
 //! Encrypted event envelope counterpart for `encrypted-envelope.schema.json`.
 //!
-//! The envelope is payload-agnostic: the ciphertext is opaque and the AAD
-//! carries only routing metadata.
+//! The wire envelope is intentionally minimal. Cryptographic code reconstructs
+//! the closed pre-encryption header from the signed outer Event, the exact
+//! winning MLS group state, and the envelope's small encryption context.
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result, SchemaId, ScopeRef,
+    EncryptedPayloadScheme, Error, EventId, Hash, Result, SchemaId, ScopeRef, event_kind_str,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
-/// AEAD purpose fixed by `encryption-and-audit.md` §2.10.2.
-pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
+/// Purpose fixed by `encryption-and-audit.md` §2.3 for both content schemes.
+pub const EVENT_CONTENT_ENCRYPTION_PURPOSE: &str = "arkret_event_content";
 
-/// Domain separator for the unconditional encrypted-envelope scope commitment.
-pub const AAD_SCOPE_DIGEST_DOMAIN: &str = "ak.aad-scope-v1";
-
-/// Derive the exact `aad.scope_digest` required by
-/// `encryption-and-audit.md` section 2.3.2.1.
-pub fn encrypted_envelope_scope_digest(scope_ref: &ScopeRef, realm_id: &RealmId) -> Result<Hash> {
-    let carried_realm = scope_ref.realm_id_opt().ok_or_else(|| {
-        Error::Protocol("encrypted envelope scope must carry a realm_id".to_owned())
-    })?;
-    if carried_realm != realm_id {
-        return Err(Error::Protocol(
-            "encrypted envelope scope realm_id does not match aad.realm_id".to_owned(),
-        ));
-    }
-    let canonical_scope = canonical::canonical_json_bytes(scope_ref)?;
-    let mut hasher = Sha256::new();
-    hasher.update(AAD_SCOPE_DIGEST_DOMAIN.as_bytes());
-    hasher.update([0]);
-    hasher.update(canonical_scope);
-    hasher.update([0]);
-    hasher.update(realm_id.as_str().as_bytes());
-    Ok(Hash::new(format!(
-        "sha256:{}",
-        hex::encode(hasher.finalize())
-    ))?)
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
+/// Reaction-only routing fields carried by the minimal encrypted envelope.
+///
+/// The reaction kind and hourly routing window are derived from the signed
+/// outer Event and therefore are deliberately absent here.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EncryptedEnvelopeAad {
-    pub realm_id: RealmId,
-    pub scope_digest: Hash,
-    pub event_kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_ref_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub causal_refs: Option<Vec<EventId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub causal_ref_digests: Option<Vec<Hash>>,
+pub struct EncryptedEnvelopeRoutingContext {
+    pub target_ref: EventId,
+    pub routing_tag: String,
 }
 
-impl EncryptedEnvelopeAad {
-    /// Build the minimal AAD allowed for hidden event-id visibility.
-    pub fn hidden(scope_ref: &ScopeRef, event_kind: impl Into<String>) -> Result<Self> {
-        let realm_id = scope_ref.realm_id_opt().cloned().ok_or_else(|| {
-            Error::Protocol("encrypted envelope scope must carry a realm_id".to_owned())
-        })?;
-        Ok(Self {
-            scope_digest: encrypted_envelope_scope_digest(scope_ref, &realm_id)?,
-            realm_id,
+/// Routing branch reconstructed into the authenticated pre-encryption header.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum EventContentRoutingContext {
+    None,
+    Reaction {
+        target_ref: EventId,
+        routing_window: u64,
+        routing_tag: String,
+    },
+}
+
+/// Closed authenticated-data object reconstructed before both seal and open.
+///
+/// None of these fields, other than the minimal encryption context, is copied
+/// into the encrypted-envelope wire object.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventContentPreEncryptionHeader {
+    pub purpose: String,
+    pub envelope_version: String,
+    pub content_type: String,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub scheme: EncryptedPayloadScheme,
+    pub effective_scope: ScopeRef,
+    pub event_kind: String,
+    pub mls_group_id: String,
+    pub epoch: u64,
+    pub group_state_ref: EventId,
+    pub sender_domain: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counter: Option<u64>,
+    pub routing_context: EventContentRoutingContext,
+}
+
+impl EventContentPreEncryptionHeader {
+    #[allow(clippy::too_many_arguments)]
+    pub fn reconstruct(
+        envelope_version: impl Into<String>,
+        content_type: impl Into<String>,
+        scheme: EncryptedPayloadScheme,
+        effective_scope: ScopeRef,
+        event_kind: impl Into<String>,
+        epoch: u64,
+        group_state_ref: EventId,
+        sender_domain: impl Into<String>,
+        counter: Option<u64>,
+        routing_context: EventContentRoutingContext,
+    ) -> Result<Self> {
+        let header = Self {
+            purpose: EVENT_CONTENT_ENCRYPTION_PURPOSE.to_owned(),
+            envelope_version: envelope_version.into(),
+            content_type: content_type.into(),
+            mls_group_id: effective_scope.canonical_mls_group_id()?,
+            scheme,
+            effective_scope,
             event_kind: event_kind.into(),
-            event_id: None,
-            event_ref_digest: None,
-            causal_refs: None,
-            causal_ref_digests: None,
-        })
+            epoch,
+            group_state_ref,
+            sender_domain: sender_domain.into(),
+            counter,
+            routing_context,
+        };
+        header.validate()?;
+        Ok(header)
     }
 
-    /// Verify the authenticated AAD commitment against the Event's exact scope.
-    pub fn validate_for_scope(&self, scope_ref: &ScopeRef) -> Result<()> {
-        let expected = encrypted_envelope_scope_digest(scope_ref, &self.realm_id)?;
-        if self.scope_digest != expected {
+    pub fn validate(&self) -> Result<()> {
+        if self.purpose != EVENT_CONTENT_ENCRYPTION_PURPOSE {
             return Err(Error::Protocol(
-                "encrypted envelope aad.scope_digest does not match the Event scope_ref".to_owned(),
+                "event-content pre-encryption purpose mismatch".to_owned(),
             ));
+        }
+        if self.envelope_version != "1.0" || !content_type_token(&self.content_type) {
+            return Err(Error::Protocol(
+                "event-content pre-encryption envelope metadata is invalid".to_owned(),
+            ));
+        }
+        if self.mls_group_id != self.effective_scope.canonical_mls_group_id()? {
+            return Err(Error::Protocol(
+                "event-content pre-encryption mls_group_id does not match effective_scope"
+                    .to_owned(),
+            ));
+        }
+        if self.event_kind.trim().is_empty() || self.sender_domain.trim().is_empty() {
+            return Err(Error::Protocol(
+                "event-content pre-encryption Event kind and sender domain are required"
+                    .to_owned(),
+            ));
+        }
+        match self.scheme {
+            EncryptedPayloadScheme::MlsRfc9420 if self.counter.is_none() => {}
+            EncryptedPayloadScheme::MlsExporterAeadV1 if self.counter.is_some() => {}
+            _ => {
+                return Err(Error::Protocol(
+                    "event-content pre-encryption counter does not match the content scheme"
+                        .to_owned(),
+                ));
+            }
+        }
+        let reaction_kind = matches!(
+            self.event_kind.as_str(),
+            event_kind_str::REACTION_ADD | event_kind_str::REACTION_REMOVE
+        );
+        match (&self.routing_context, reaction_kind) {
+            (EventContentRoutingContext::None, false) => {}
+            (
+                EventContentRoutingContext::Reaction { routing_tag, .. },
+                true,
+            ) if fixed_base64url_token(routing_tag, 43) => {}
+            _ => {
+                return Err(Error::Protocol(
+                    "event-content routing context does not match the outer Event kind"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        canonical::canonical_json_bytes(self)
+    }
 }
 
-/// Disclosure axis of `encrypted-envelope.schema.json#/properties/
-/// aad_visibility_event_id_kind`.
+/// Closed encryption-context branch selected solely by `counter` presence.
 ///
-/// The derived `Ord` **is** the normative disclosure order
-/// `hidden < routing_digest < opaque_id`
-/// (`crypto-media/encryption-and-audit.md` §2.8), so variant declaration order
-/// is wire-significant here and is pinned by
-/// `aad_visibility_disclosure_order_is_normative`. Everything that compares two
-/// visibilities MUST go through this ordering rather than re-deriving a rank.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EncryptedEnvelopeAadVisibility {
-    /// Fail-closed default: what a Realm that has not declared the
-    /// `aad_visibility` policy component permits.
-    #[default]
-    Hidden,
-    RoutingDigest,
-    OpaqueId,
-}
-
-/// Realm ceiling on [`EncryptedEnvelopeAadVisibility`], resolved from the
-/// `aad_visibility` component of the accepted `ak.realm.policy_bundle`.
-///
-/// This is the shared judgement entry for services and clients
-/// (`crypto-media/encryption-and-audit.md` §§2.3.2 / 2.8). It exists as a
-/// distinct type so the absent-component case has to be *resolved* rather than
-/// skipped: [`Self::from_declared`] takes an `Option` and maps `None` to
-/// [`EncryptedEnvelopeAadVisibility::Hidden`], so "the Realm did not declare a
-/// ceiling" can never be spelled as "do not check". An envelope narrower than
-/// the ceiling is always fine; only a wider one is a violation, and it MUST be
-/// rejected rather than silently downgraded.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct AadVisibilityCeiling(EncryptedEnvelopeAadVisibility);
-
-impl AadVisibilityCeiling {
-    /// Resolve the ceiling from the Realm's declared component value.
-    ///
-    /// `None` means the Realm carries no `aad_visibility` component, which is
-    /// the `hidden` ceiling — not an exemption.
-    pub fn from_declared(declared: Option<EncryptedEnvelopeAadVisibility>) -> Self {
-        Self(declared.unwrap_or_default())
-    }
-
-    pub fn value(self) -> EncryptedEnvelopeAadVisibility {
-        self.0
-    }
-
-    /// Whether `envelope` is at or below this ceiling.
-    pub fn permits(self, envelope: EncryptedEnvelopeAadVisibility) -> bool {
-        envelope <= self.0
-    }
-
-    /// Reject an envelope that discloses more than the Realm declared.
-    ///
-    /// The error text carries `aad_visibility_policy_violation` so every
-    /// enforcement point reports the one registered sub-reason of
-    /// `failed_precondition`. Callers MUST NOT recover by rewriting the
-    /// envelope to `hidden`: a silent downgrade leaves the sender believing its
-    /// disclosure level took effect and the receiver believing policy held.
-    pub fn check(self, envelope: EncryptedEnvelopeAadVisibility) -> Result<()> {
-        if self.permits(envelope) {
-            return Ok(());
-        }
-        Err(Error::Protocol(format!(
-            "{}: encrypted envelope aad_visibility_event_id_kind {:?} is wider than the Realm ceiling \
-             {:?}",
-            "aad_visibility_policy_violation", envelope, self.0
-        )))
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum EncryptedEnvelopeKeyAlgorithm {
-    #[serde(rename = "MLS")]
-    Mls,
-    #[serde(rename = "MLS-EXPORTER-AEAD")]
-    MlsExporterAead,
-}
-
+/// The branch is cross-checked against the `content_scheme` frozen by the
+/// exact winning `group_state_ref`; no caller-supplied scheme selector exists
+/// on the wire.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EncryptedEnvelopeGroupStateRef {
-    Event(EventId),
-    Digest(Hash),
+pub enum EncryptedEnvelopeEncryptionContext {
+    StandardMls {
+        epoch: u64,
+        group_state_ref: EventId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        routing_context: Option<EncryptedEnvelopeRoutingContext>,
+    },
+    ExporterMls {
+        epoch: u64,
+        group_state_ref: EventId,
+        counter: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        routing_context: Option<EncryptedEnvelopeRoutingContext>,
+    },
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EncryptedEnvelopeKeyRef {
-    pub algorithm: EncryptedEnvelopeKeyAlgorithm,
-    pub group_state_ref: EncryptedEnvelopeGroupStateRef,
+impl EncryptedEnvelopeEncryptionContext {
+    pub fn standard(epoch: u64, group_state_ref: EventId) -> Self {
+        Self::StandardMls {
+            epoch,
+            group_state_ref,
+            routing_context: None,
+        }
+    }
+
+    pub fn exporter(epoch: u64, group_state_ref: EventId, counter: u64) -> Self {
+        Self::ExporterMls {
+            epoch,
+            group_state_ref,
+            counter,
+            routing_context: None,
+        }
+    }
+
+    pub fn epoch(&self) -> u64 {
+        match self {
+            Self::StandardMls { epoch, .. } | Self::ExporterMls { epoch, .. } => *epoch,
+        }
+    }
+
+    pub fn group_state_ref(&self) -> &EventId {
+        match self {
+            Self::StandardMls {
+                group_state_ref, ..
+            }
+            | Self::ExporterMls {
+                group_state_ref, ..
+            } => group_state_ref,
+        }
+    }
+
+    pub fn counter(&self) -> Option<u64> {
+        match self {
+            Self::StandardMls { .. } => None,
+            Self::ExporterMls { counter, .. } => Some(*counter),
+        }
+    }
+
+    pub fn routing_context(&self) -> Option<&EncryptedEnvelopeRoutingContext> {
+        match self {
+            Self::StandardMls {
+                routing_context, ..
+            }
+            | Self::ExporterMls {
+                routing_context, ..
+            } => routing_context.as_ref(),
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -190,44 +237,18 @@ pub struct EncryptedEnvelopeKeyRef {
 #[serde(deny_unknown_fields)]
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
 pub struct EncryptedEnvelope {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub scheme: EncryptedPayloadScheme,
     pub version: String,
-    pub group_id: String,
-    pub epoch: u64,
     pub content_type: String,
+    pub encryption_context: EncryptedEnvelopeEncryptionContext,
     pub ciphertext: String,
-    pub aad_visibility_event_id_kind: EncryptedEnvelopeAadVisibility,
-    pub aad: EncryptedEnvelopeAad,
-    pub key_ref: EncryptedEnvelopeKeyRef,
-    /// AEAD purpose. Required for `mls_exporter_aead_v1` and forbidden for
-    /// `mls_rfc9420`, per `encryption-and-audit.md` §2.10.2.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub purpose: Option<String>,
-    /// `canonical_id` of the ciphersuite the group at `key_ref.group_state_ref`
-    /// negotiated. Required for `mls_exporter_aead_v1` and forbidden for
-    /// `mls_rfc9420`.
-    ///
-    /// §2.10.2 closes by noting that every member of the AEAD header except
-    /// `aad` is already on the envelope, which is what lets a receiver rebuild
-    /// `aead_aad_bytes` — that only holds if this is carried.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub aead_profile: Option<String>,
-    pub payload_digest: Hash,
-    pub aad_digest: Hash,
 }
 
 impl EncryptedEnvelope {
     pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
-        if !major_minor_version(&self.version) {
+        if self.version != "1.0" {
             return Err(Error::Protocol(
-                "encrypted envelope version must be major.minor".to_owned(),
-            ));
-        }
-        if !base64url_token(&self.group_id) {
-            return Err(Error::Protocol(
-                "encrypted envelope group_id is invalid".to_owned(),
+                "encrypted envelope version must equal 1.0".to_owned(),
             ));
         }
         if !content_type_token(&self.content_type) {
@@ -240,79 +261,77 @@ impl EncryptedEnvelope {
                 "encrypted envelope ciphertext is invalid".to_owned(),
             ));
         }
-        let expected_algorithm = match self.scheme {
-            EncryptedPayloadScheme::MlsRfc9420 => EncryptedEnvelopeKeyAlgorithm::Mls,
-            EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                EncryptedEnvelopeKeyAlgorithm::MlsExporterAead
-            }
-        };
-        if self.key_ref.algorithm != expected_algorithm {
+        if let Some(routing) = self.encryption_context.routing_context()
+            && !fixed_base64url_token(&routing.routing_tag, 43)
+        {
             return Err(Error::Protocol(
-                "encrypted envelope key_ref.algorithm does not match scheme".to_owned(),
+                "encrypted envelope routing_tag must be 43 base64url characters".to_owned(),
             ));
-        }
-        // `encryption-and-audit.md` §2.10.2. Both directions matter: without
-        // aead_profile a receiver cannot derive AEAD.Nk or N_AEAD and has to
-        // assume a suite, and carrying either member under mls_rfc9420 claims
-        // an exporter AEAD that scheme does not have.
-        match self.scheme {
-            EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                if self.purpose.as_deref().unwrap_or_default().is_empty() {
-                    return Err(Error::Protocol(
-                        "mls_exporter_aead_v1 envelope requires purpose".to_owned(),
-                    ));
-                }
-                if self.aead_profile.as_deref().unwrap_or_default().is_empty() {
-                    return Err(Error::Protocol(
-                        "mls_exporter_aead_v1 envelope requires aead_profile".to_owned(),
-                    ));
-                }
-            }
-            EncryptedPayloadScheme::MlsRfc9420 => {
-                if self.purpose.is_some() || self.aead_profile.is_some() {
-                    return Err(Error::Protocol(
-                        "mls_rfc9420 envelope must not carry purpose or aead_profile".to_owned(),
-                    ));
-                }
-            }
-        }
-        if self.aad.causal_refs.is_some() && self.aad.causal_ref_digests.is_some() {
-            return Err(Error::Protocol(
-                "encrypted envelope aad cannot carry both causal_refs and causal_ref_digests"
-                    .to_owned(),
-            ));
-        }
-        match self.aad_visibility_event_id_kind {
-            EncryptedEnvelopeAadVisibility::Hidden => {
-                if self.aad.event_id.is_some() || self.aad.event_ref_digest.is_some() {
-                    return Err(Error::Protocol(
-                        "hidden encrypted envelope aad forbids event identifiers".to_owned(),
-                    ));
-                }
-            }
-            EncryptedEnvelopeAadVisibility::RoutingDigest => {
-                if self.aad.event_ref_digest.is_none() || self.aad.event_id.is_some() {
-                    return Err(Error::Protocol(
-                        "routing_digest encrypted envelope aad requires event_ref_digest only"
-                            .to_owned(),
-                    ));
-                }
-            }
-            EncryptedEnvelopeAadVisibility::OpaqueId => {
-                if self.aad.event_id.is_none() || self.aad.event_ref_digest.is_some() {
-                    return Err(Error::Protocol(
-                        "opaque_id encrypted envelope aad requires event_id only".to_owned(),
-                    ));
-                }
-            }
         }
         Ok(())
     }
 
-    /// Validate the closed envelope and its unconditional exact-scope binding.
-    pub fn validate_for_scope(&self, scope_ref: &ScopeRef) -> Result<()> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn reconstruct_pre_encryption_header(
+        &self,
+        scheme: EncryptedPayloadScheme,
+        effective_scope: ScopeRef,
+        event_kind: impl Into<String>,
+        sender_domain: impl Into<String>,
+        reaction_routing_window: Option<u64>,
+    ) -> Result<EventContentPreEncryptionHeader> {
         self.validate()?;
-        self.aad.validate_for_scope(scope_ref)
+        let event_kind = event_kind.into();
+        let routing_context = match (
+            self.encryption_context.routing_context(),
+            reaction_routing_window,
+        ) {
+            (None, None) => EventContentRoutingContext::None,
+            (Some(wire), Some(routing_window)) => EventContentRoutingContext::Reaction {
+                target_ref: wire.target_ref.clone(),
+                routing_window,
+                routing_tag: wire.routing_tag.clone(),
+            },
+            _ => {
+                return Err(Error::Protocol(
+                    "encrypted envelope routing context is incomplete or unexpected".to_owned(),
+                ));
+            }
+        };
+        EventContentPreEncryptionHeader::reconstruct(
+            self.version.clone(),
+            self.content_type.clone(),
+            scheme,
+            effective_scope,
+            event_kind,
+            self.encryption_context.epoch(),
+            self.encryption_context.group_state_ref().clone(),
+            sender_domain,
+            self.encryption_context.counter(),
+            routing_context,
+        )
+    }
+
+    /// Digest used only for local ciphertext caching and content-addressed
+    /// references. It is not a field of the minimal wire envelope.
+    pub fn payload_digest(&self) -> Result<Hash> {
+        #[derive(Serialize)]
+        struct Metadata<'a> {
+            version: &'a str,
+            content_type: &'a str,
+            encryption_context: &'a EncryptedEnvelopeEncryptionContext,
+        }
+
+        self.validate()?;
+        let mut preimage = canonical::canonical_json_bytes(&Metadata {
+            version: &self.version,
+            content_type: &self.content_type,
+            encryption_context: &self.encryption_context,
+        })?;
+        let ciphertext = arkret_canonical::base64url::base64url_decode(&self.ciphertext)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        preimage.extend_from_slice(&ciphertext);
+        Hash::new(canonical::sha256_digest(&preimage))
     }
 }
 
@@ -345,6 +364,10 @@ pub fn base64url_token(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
 }
 
+pub fn fixed_base64url_token(value: &str, expected_len: usize) -> bool {
+    value.len() == expected_len && base64url_token(value)
+}
+
 /// `type/constraint_subkind` content-type token with restricted byte alphabet. Shared
 /// wire-token validator (reused by `arkret-sdk`).
 pub fn content_type_token(value: &str) -> bool {
@@ -372,149 +395,84 @@ pub struct EncryptedPayload {
     pub epoch: u64,
     pub content_type: String,
     pub ciphertext: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aad: Option<EncryptedEnvelopeAad>,
+    /// Durable full-width exporter counter. Present only for
+    /// `mls_exporter_aead_v1`; copied into the minimal wire
+    /// `encryption_context` while the nonce itself remains derived.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counter: Option<u64>,
+    pub pre_encryption_header: EventContentPreEncryptionHeader,
     pub payload_digest: Hash,
-    /// Reference to the key material that decrypts `ciphertext`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_ref: Option<KeyRefObject>,
-    /// AEAD purpose, present only for `mls_exporter_aead_v1`.
-    ///
-    /// A nonce-derivation and AAD input, so it separates a content nonce from
-    /// every other AEAD domain under the same key and epoch.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub purpose: Option<String>,
-    /// `canonical_id` of an ACTIVE MLS ciphersuite, present only for
-    /// `mls_exporter_aead_v1`.
-    ///
-    /// `encryption-and-audit.md` §2.10.2 requires it to equal the ciphersuite
-    /// the group at `key_ref.group_state_ref` actually negotiated. It is what
-    /// fixes `AEAD.Nk` for the content key and `N_AEAD` for the nonce, so a
-    /// receiver that reads a payload without a local group snapshot cannot
-    /// derive either without it — which is why the standalone decrypt path
-    /// takes it rather than assuming a suite.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub aead_profile: Option<String>,
-}
-
-/// Typed `key_ref` per `media-and-blob.md` §encrypted-payload (B-22).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct KeyRefObject {
-    pub algorithm: String,
-    pub group_state_ref: String,
-}
-
-/// Closed pre-encryption immutable header for `mls_exporter_aead_v1`.
-///
-/// Its JCS bytes are the AEAD AAD.  Post-encryption fields such as
-/// `payload_digest`, ciphertext, tags and proofs deliberately cannot be
-/// represented here.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct MlsExporterAeadHeader<'a> {
-    pub scheme: EncryptedPayloadScheme,
-    pub key_ref: &'a KeyRefObject,
-    pub epoch: u64,
-    pub nonce: String,
-    pub purpose: &'static str,
-    pub aead_profile: &'a str,
-    pub aad: &'a EncryptedEnvelopeAad,
-}
-
-impl<'a> MlsExporterAeadHeader<'a> {
-    pub fn new(
-        key_ref: &'a KeyRefObject,
-        epoch: u64,
-        nonce: &[u8],
-        aead_profile: &'a str,
-        aad: &'a EncryptedEnvelopeAad,
-    ) -> Self {
-        Self {
-            scheme: EncryptedPayloadScheme::MlsExporterAeadV1,
-            key_ref,
-            epoch,
-            nonce: arkret_canonical::base64url::base64url_encode(nonce),
-            purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE,
-            aead_profile,
-            aad,
-        }
-    }
-
-    /// JCS bytes passed directly to AEAD seal/open.
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        Ok(canonical::canonical_json_bytes(self)?)
-    }
-}
-
-impl KeyRefObject {
-    /// Build an MLS-RFC9420 typed `key_ref` from a group id and epoch.
-    pub fn mls_rfc9420(group_id: impl Into<String>, epoch: u64) -> Self {
-        Self {
-            algorithm: EncryptedPayloadScheme::MlsRfc9420.as_str().to_owned(),
-            group_state_ref: format!("{}:{}", group_id.into(), epoch),
-        }
-    }
-
-    /// Build an MLS-EXPORTER-AEAD typed `key_ref` (§2.10) from a group id and
-    /// epoch. The `algorithm` token `MLS-EXPORTER-AEAD` is bound by the
-    /// `encrypted-envelope.schema.json` if/then to `scheme=mls_exporter_aead_v1`.
-    pub fn mls_exporter_aead(group_id: impl Into<String>, epoch: u64) -> Self {
-        Self {
-            algorithm: "MLS-EXPORTER-AEAD".to_owned(),
-            group_state_ref: format!("{}:{}", group_id.into(), epoch),
-        }
-    }
 }
 
 impl EncryptedPayload {
-    pub fn mls_payload_digest(
-        epoch: u64,
-        content_type: &str,
-        aad: Option<&EncryptedEnvelopeAad>,
-        ciphertext_bytes: &[u8],
-    ) -> Result<Hash> {
-        Self::payload_digest_for_scheme(
-            EncryptedPayloadScheme::MlsRfc9420,
-            epoch,
-            content_type,
-            aad,
-            ciphertext_bytes,
-        )
-    }
-
-    /// §2.3.3 content payload digest, parameterized by `scheme`. The digest binds
-    /// the `scheme` token into the metadata (`encryption` field) so a payload
-    /// authored under `mls_exporter_aead_v1` (§2.10) and one under `mls_rfc9420`
-    /// never collide, and the receiver's verification is scheme-bound.
-    /// `ciphertext_bytes` are the raw decoded ciphertext bytes (for
-    /// `mls_exporter_aead_v1` that is the `nonce || AEAD_ct` blob).
-    pub fn payload_digest_for_scheme(
-        scheme: EncryptedPayloadScheme,
-        epoch: u64,
-        content_type: &str,
-        aad: Option<&EncryptedEnvelopeAad>,
-        ciphertext_bytes: &[u8],
-    ) -> Result<Hash> {
-        let metadata = EncryptedPayloadDigestMetadata {
-            content_type,
-            encryption: scheme.as_str(),
-            epoch,
-            aad,
+    fn envelope_from_parts(
+        header: &EventContentPreEncryptionHeader,
+        ciphertext: String,
+    ) -> Result<EncryptedEnvelope> {
+        header.validate()?;
+        let routing_context = match &header.routing_context {
+            EventContentRoutingContext::None => None,
+            EventContentRoutingContext::Reaction {
+                target_ref,
+                routing_tag,
+                ..
+            } => Some(EncryptedEnvelopeRoutingContext {
+                target_ref: target_ref.clone(),
+                routing_tag: routing_tag.clone(),
+            }),
         };
-        let mut input = canonical::canonical_json_bytes(&metadata)?;
-        input.extend_from_slice(ciphertext_bytes);
-        Ok(Hash::new(canonical::sha256_digest(&input))?)
+        let encryption_context = match header.scheme {
+            EncryptedPayloadScheme::MlsRfc9420 => {
+                EncryptedEnvelopeEncryptionContext::StandardMls {
+                    epoch: header.epoch,
+                    group_state_ref: header.group_state_ref.clone(),
+                    routing_context,
+                }
+            }
+            EncryptedPayloadScheme::MlsExporterAeadV1 => {
+                EncryptedEnvelopeEncryptionContext::ExporterMls {
+                    epoch: header.epoch,
+                    group_state_ref: header.group_state_ref.clone(),
+                    counter: header.counter.ok_or_else(|| {
+                        Error::Protocol("exporter payload requires a counter".to_owned())
+                    })?,
+                    routing_context,
+                }
+            }
+        };
+        let envelope = EncryptedEnvelope {
+            version: header.envelope_version.clone(),
+            content_type: header.content_type.clone(),
+            encryption_context,
+            ciphertext,
+        };
+        envelope.validate()?;
+        Ok(envelope)
     }
 
-    pub fn verify_mls_payload_digest(&self, ciphertext_bytes: &[u8]) -> Result<()> {
-        let expected = Self::payload_digest_for_scheme(
-            self.scheme.clone(),
-            self.epoch,
-            &self.content_type,
-            self.aad.as_ref(),
-            ciphertext_bytes,
-        )?;
+    pub fn to_envelope(&self) -> Result<EncryptedEnvelope> {
+        if self.scheme != self.pre_encryption_header.scheme
+            || self.group_id != self.pre_encryption_header.mls_group_id
+            || self.epoch != self.pre_encryption_header.epoch
+            || self.content_type != self.pre_encryption_header.content_type
+            || self.counter != self.pre_encryption_header.counter
+        {
+            return Err(Error::Protocol(
+                "internal encrypted payload does not match its pre-encryption header".to_owned(),
+            ));
+        }
+        Self::envelope_from_parts(&self.pre_encryption_header, self.ciphertext.clone())
+    }
+
+    pub fn payload_digest_for_header(
+        header: &EventContentPreEncryptionHeader,
+        ciphertext: String,
+    ) -> Result<Hash> {
+        Self::envelope_from_parts(header, ciphertext)?.payload_digest()
+    }
+
+    pub fn verify_payload_digest(&self) -> Result<()> {
+        let expected = self.to_envelope()?.payload_digest()?;
         if expected == self.payload_digest {
             Ok(())
         } else {
@@ -524,125 +482,4 @@ impl EncryptedPayload {
         }
     }
 
-    /// Validate that the key reference, when present, is usable for lookup.
-    pub fn validate_key_ref(&self) -> Result<()> {
-        if let Some(key_ref) = &self.key_ref
-            && key_ref.algorithm.trim().is_empty()
-        {
-            return Err(Error::Protocol(
-                "key_ref.algorithm must not be empty".to_owned(),
-            ));
-        }
-        if let Some(key_ref) = &self.key_ref
-            && key_ref.group_state_ref.trim().is_empty()
-        {
-            return Err(Error::Protocol(
-                "key_ref.group_state_ref must not be empty".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Serialize)]
-struct EncryptedPayloadDigestMetadata<'a> {
-    pub content_type: &'a str,
-    pub encryption: &'a str,
-    pub epoch: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aad: Option<&'a EncryptedEnvelopeAad>,
-}
-
-#[cfg(test)]
-mod aad_visibility_tests {
-    use super::*;
-
-    fn fixture_realm() -> RealmId {
-        RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap()
-    }
-
-    #[test]
-    fn scope_digest_matches_normative_realm_and_sidecar_kats() {
-        let realm_id = fixture_realm();
-        let realm_scope = ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        };
-        let sidecar_scope = ScopeRef::Sidecar {
-            realm_id: realm_id.clone(),
-            sidecar_id: arkret_wire::SidecarId::new(
-                "ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d",
-            )
-            .unwrap(),
-        };
-        assert_eq!(
-            encrypted_envelope_scope_digest(&realm_scope, &realm_id)
-                .unwrap()
-                .as_str(),
-            "sha256:1ab18cba8cdb5f932820849de9cc736457eebbceffe27fb7a3f63a47f33fd1dc"
-        );
-        assert_eq!(
-            encrypted_envelope_scope_digest(&sidecar_scope, &realm_id)
-                .unwrap()
-                .as_str(),
-            "sha256:56c61cc8c251ac5e050abff7f52e2c99fb3bec8e96ccf01affee217c9bfa9760"
-        );
-    }
-
-    #[test]
-    fn aad_rejects_cross_scope_replay_and_realm_mismatch() {
-        let realm_id = fixture_realm();
-        let realm_scope = ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        };
-        let sidecar_scope = ScopeRef::Sidecar {
-            realm_id,
-            sidecar_id: arkret_wire::SidecarId::new(
-                "ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d",
-            )
-            .unwrap(),
-        };
-        let aad = EncryptedEnvelopeAad::hidden(&realm_scope, "ak.message.create").unwrap();
-        aad.validate_for_scope(&realm_scope).unwrap();
-        assert!(aad.validate_for_scope(&sidecar_scope).is_err());
-
-        let other_realm = ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0")
-                .unwrap(),
-        };
-        assert!(aad.validate_for_scope(&other_realm).is_err());
-    }
-
-    #[test]
-    fn aad_visibility_disclosure_order_is_normative() {
-        use EncryptedEnvelopeAadVisibility::{Hidden, OpaqueId, RoutingDigest};
-        // `encryption-and-audit.md` §2.8: hidden < routing_digest < opaque_id.
-        // The derived Ord is the only spelling of this order, so pin it here
-        // rather than letting a variant reshuffle silently widen a ceiling.
-        assert!(Hidden < RoutingDigest);
-        assert!(RoutingDigest < OpaqueId);
-        assert_eq!(EncryptedEnvelopeAadVisibility::default(), Hidden);
-    }
-
-    #[test]
-    fn absent_component_resolves_to_the_hidden_ceiling() {
-        use EncryptedEnvelopeAadVisibility::{Hidden, OpaqueId, RoutingDigest};
-        let undeclared = AadVisibilityCeiling::from_declared(None);
-        assert_eq!(undeclared.value(), Hidden);
-        undeclared
-            .check(Hidden)
-            .expect("hidden is at the default ceiling");
-        for wider in [RoutingDigest, OpaqueId] {
-            let error = undeclared.check(wider).unwrap_err().to_string();
-            assert!(error.contains("aad_visibility_policy_violation"), "{error}");
-        }
-    }
-
-    #[test]
-    fn a_narrower_envelope_is_always_accepted() {
-        use EncryptedEnvelopeAadVisibility::{Hidden, OpaqueId, RoutingDigest};
-        let ceiling = AadVisibilityCeiling::from_declared(Some(RoutingDigest));
-        ceiling.check(Hidden).expect("narrower discloses less");
-        ceiling.check(RoutingDigest).expect("at the ceiling");
-        assert!(ceiling.check(OpaqueId).is_err());
-    }
 }

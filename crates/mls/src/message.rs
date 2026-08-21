@@ -1,9 +1,6 @@
 use arkret_models_crypto::{
-    AadVisibilityCeiling, EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
-    EncryptedEnvelopeGroupStateRef, EncryptedEnvelopeKeyAlgorithm, EncryptedEnvelopeKeyRef,
-    EncryptedPayload,
+    EncryptedEnvelope, EncryptedPayload, EventContentPreEncryptionHeader,
 };
-use arkret_wire::{EncryptedPayloadScheme, EventId, Hash};
 use serde::{Deserialize, Serialize};
 
 use crate::group::{ArkretMlsGroup, decode};
@@ -19,84 +16,41 @@ pub use arkret_models_crypto::parse_and_validate_encrypted_envelope;
 
 /// Assemble the encrypted envelope for an already-sealed payload.
 ///
-/// `ceiling` is the Realm's accepted `aad_visibility` ceiling. It is a required
-/// parameter, not an option with a permissive default: a caller that has not
-/// resolved the Realm component passes
-/// `AadVisibilityCeiling::from_declared(None)`, which is the `hidden` ceiling.
-/// An envelope wider than the ceiling fails construction here rather than
-/// travelling and being rejected by the peer — the sender is the one party that
-/// can still choose a narrower disclosure.
 pub fn encrypted_envelope_from_payload(
     payload: &EncryptedPayload,
-    aad: EncryptedEnvelopeAad,
-    visibility: EncryptedEnvelopeAadVisibility,
-    ceiling: AadVisibilityCeiling,
-    group_state_ref: impl Into<String>,
 ) -> Result<EncryptedEnvelope> {
-    ceiling.check(visibility)?;
-    if payload.aad.as_ref() != Some(&aad) {
-        return Err(Error::Protocol(
-            "encrypted envelope aad does not match the aad bound at encryption time".to_owned(),
-        ));
-    }
-    let group_state_ref = group_state_ref.into();
-    let group_state_ref = match EventId::new(group_state_ref.clone()) {
-        Ok(event_id) => EncryptedEnvelopeGroupStateRef::Event(event_id),
-        Err(_) => EncryptedEnvelopeGroupStateRef::Digest(Hash::new(group_state_ref)?),
-    };
-    let algorithm = match payload.scheme {
-        EncryptedPayloadScheme::MlsRfc9420 => EncryptedEnvelopeKeyAlgorithm::Mls,
-        EncryptedPayloadScheme::MlsExporterAeadV1 => EncryptedEnvelopeKeyAlgorithm::MlsExporterAead,
-    };
-    let envelope = EncryptedEnvelope {
-        scheme: payload.scheme.clone(),
-        version: "1.0".to_owned(),
-        group_id: payload.group_id.clone(),
-        epoch: payload.epoch,
-        content_type: payload.content_type.clone(),
-        ciphertext: payload.ciphertext.clone(),
-        aad_visibility_event_id_kind: visibility,
-        aad_digest: Hash::new(arkret_crypto::envelope_aad_digest(&aad)?)?,
-        aad,
-        key_ref: EncryptedEnvelopeKeyRef {
-            algorithm,
-            group_state_ref,
-        },
-        // Carried through rather than re-derived: the payload was produced by
-        // the group that knows its own ciphersuite, and re-deriving here would
-        // let the envelope disagree with the bytes it describes.
-        purpose: payload.purpose.clone(),
-        aead_profile: payload.aead_profile.clone(),
-        payload_digest: payload.payload_digest.clone(),
-    };
-    envelope.validate()?;
-    Ok(envelope)
+    payload.to_envelope().map_err(Into::into)
 }
 
-pub fn encrypted_envelope_to_payload(envelope: &EncryptedEnvelope) -> Result<EncryptedPayload> {
+/// Rebuild the internal decryption payload from a validated minimal envelope
+/// and context already verified from the signed outer Event and exact winning
+/// group state.
+pub fn encrypted_envelope_to_payload_with_verified_header(
+    envelope: &EncryptedEnvelope,
+    header: EventContentPreEncryptionHeader,
+) -> Result<EncryptedPayload> {
     envelope.validate()?;
+    header.validate()?;
+    let epoch = envelope.encryption_context.epoch();
+    if header.envelope_version != envelope.version
+        || header.content_type != envelope.content_type
+        || header.epoch != epoch
+        || &header.group_state_ref != envelope.encryption_context.group_state_ref()
+        || header.counter != envelope.encryption_context.counter()
+    {
+        return Err(Error::Protocol(
+            "reconstructed pre-encryption header does not match the minimal envelope".to_owned(),
+        ));
+    }
     Ok(EncryptedPayload {
-        scheme: envelope.scheme.clone(),
-        group_id: envelope.group_id.clone(),
-        epoch: envelope.epoch,
+        scheme: header.scheme.clone(),
+        group_id: header.mls_group_id.clone(),
+        epoch,
         content_type: envelope.content_type.clone(),
         ciphertext: envelope.ciphertext.clone(),
-        aad: Some(envelope.aad.clone()),
-        purpose: envelope.purpose.clone(),
-        aead_profile: envelope.aead_profile.clone(),
-        payload_digest: envelope.payload_digest.clone(),
-        key_ref: Some(match &envelope.scheme {
-            EncryptedPayloadScheme::MlsRfc9420 => arkret_models_crypto::KeyRefObject::mls_rfc9420(
-                envelope.group_id.clone(),
-                envelope.epoch,
-            ),
-            EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                arkret_models_crypto::KeyRefObject::mls_exporter_aead(
-                    envelope.group_id.clone(),
-                    envelope.epoch,
-                )
-            }
-        }),
+        pre_encryption_header: header,
+        payload_digest: envelope.payload_digest()?,
+        counter: envelope.encryption_context.counter(),
     })
 }
 
@@ -135,55 +89,17 @@ impl MessageCrypto {
     pub fn encrypt(
         group: &mut ArkretMlsGroup,
         message_id: impl Into<String>,
-        content_type: impl Into<String>,
+        header: EventContentPreEncryptionHeader,
         plaintext: &[u8],
     ) -> Result<EncryptedMessage> {
         Ok(EncryptedMessage {
             message_id: message_id.into(),
-            payload: group.encrypt_payload(content_type, plaintext)?,
-        })
-    }
-
-    pub fn encrypt_with_aad(
-        group: &mut ArkretMlsGroup,
-        message_id: impl Into<String>,
-        content_type: impl Into<String>,
-        aad: EncryptedEnvelopeAad,
-        plaintext: &[u8],
-    ) -> Result<EncryptedMessage> {
-        Ok(EncryptedMessage {
-            message_id: message_id.into(),
-            payload: group.encrypt_payload_with_aad(content_type, Some(aad), plaintext)?,
+            payload: group.encrypt_payload(header, plaintext)?,
         })
     }
 
     pub fn verify_opaque_payload_digest(message: &EncryptedMessage) -> Result<()> {
-        let ciphertext_bytes = decode(&message.payload.ciphertext)?;
-        message
-            .payload
-            .verify_mls_payload_digest(&ciphertext_bytes)
-            .map_err(Into::into)
-    }
-
-    pub fn verify_payload_and_aad_digest(
-        message: &EncryptedMessage,
-        expected_aad_digest: Option<&str>,
-    ) -> Result<()> {
-        Self::verify_opaque_payload_digest(message)?;
-        if let Some(expected) = expected_aad_digest {
-            let aad =
-                message.payload.aad.as_ref().ok_or_else(|| {
-                    Error::Protocol("encrypted payload AAD is missing".to_owned())
-                })?;
-            let aad = serde_json::to_value(aad)?;
-            let actual = arkret_crypto::json_aad_digest(&aad)?;
-            if actual != expected {
-                return Err(Error::Protocol(
-                    "encrypted payload AAD digest mismatch".to_owned(),
-                ));
-            }
-        }
-        Ok(())
+        message.payload.verify_payload_digest().map_err(Into::into)
     }
 
     pub fn decrypt(group: &mut ArkretMlsGroup, message: &EncryptedMessage) -> Result<Vec<u8>> {

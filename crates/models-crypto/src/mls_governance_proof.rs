@@ -373,7 +373,6 @@ impl MlsGovernanceFrontierBranchProjection {
             .entries
             .windows(2)
             .any(|pair| pair[0].cell.as_str() >= pair[1].cell.as_str())
-            || (self.entries.is_empty() != self.range_witnesses.is_empty())
             || self.range_witnesses.windows(2).any(|pair| {
                 (
                     pair[0].cell_family.as_str(),

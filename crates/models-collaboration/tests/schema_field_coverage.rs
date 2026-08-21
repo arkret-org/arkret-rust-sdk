@@ -174,10 +174,9 @@ const EVENT_PAYLOAD: &str = "schemas/event-payload.schema.json";
 /// does not merely fail to express a component — it **clears** it on every
 /// write. The set comparison is therefore a correctness gate, not tidiness.
 ///
-/// The 2026-08-01 ruling is exactly this failure: the payload carried five of
-/// the fifteen declared components, so `join_policy`, `audit_policy`,
-/// `aad_visibility` and the rest were unwritable and any bundle authored
-/// through the SDK wiped them.
+/// The 2026-08-01 ruling is exactly this failure: the payload carried only a
+/// subset of the declared components, so later writes could erase fields that
+/// were unwritable through the SDK.
 #[test]
 fn realm_policy_bundle_payload_matches_its_schema_definition() {
     let fully_populated: arkret_models_collaboration::events_payloads::RealmPolicyBundlePayload =
@@ -187,7 +186,6 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "content_encryption_floor": "e2ee_required",
             "metadata_encryption_floor": "e2ee_required",
             "federation_policy": "restricted",
-            "aad_visibility": { "event_id_kind": "routing_digest" },
             "durability_policy": { "mode": "none" },
             "mls_send_pause": "advisory",
             "relaxed_window_max_ms": 60000,

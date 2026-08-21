@@ -1,13 +1,11 @@
-use arkret_wire::ProfileId;
 /// Profile id whose Realms are subject to the SEC-08 minimal-metadata
-/// hardening (epoch lifetime ≤ 1h MUST + `aad_visibility=hidden` MUST).
-use arkret_wire::{Error, Result};
+/// hardening (epoch lifetime ≤ 1h MUST).
 use chrono::Utc;
 
 /// SEC-08 — maximum MLS epoch lifetime for a `minimal_metadata_realm` Realm,
 /// per `crypto-media/encryption-and-audit.md` §2.9.
 ///
-/// For Realms declaring [`ProfileId::MLS_MINIMAL_METADATA_REALM_V1`] the §2.9 SHOULD on
+/// For Realms declaring `ak.profile.mls.minimal_metadata_realm.v1` the §2.9 SHOULD on
 /// epoch lifetime is raised to a MUST: a commit MUST be forced at least every
 /// hour to bound within-epoch reaction-frequency observability. Stored as whole
 /// seconds (3600), matching the core crate's numeric-ceiling convention. An
@@ -18,33 +16,6 @@ pub const MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS: i64 = 3600;
 /// [`chrono::Duration`] (1 hour).
 pub fn minimal_metadata_max_epoch_lifetime() -> chrono::Duration {
     chrono::Duration::seconds(MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS)
-}
-
-/// SEC-08 — fail-closed enforcement that a `minimal_metadata_realm` Realm uses
-/// `aad_visibility=hidden`, per `crypto-media/encryption-and-audit.md` §2.9.
-///
-/// When `is_minimal_metadata_realm` is true the §2.9 SHOULD on hidden AAD is a
-/// MUST: any visibility other than [`arkret_models_crypto::EncryptedEnvelopeAadVisibility::Hidden`]
-/// is rejected with [`Error::Protocol`] so message-id exposure cannot widen reaction-frequency
-/// correlation from per-`target_ref` to per-message. Non-minimal Realms are
-/// unaffected (this helper returns `Ok(())`).
-pub fn enforce_minimal_metadata_aad(
-    visibility: &arkret_models_crypto::EncryptedEnvelopeAadVisibility,
-    is_minimal_metadata_realm: bool,
-) -> Result<()> {
-    if is_minimal_metadata_realm
-        && !matches!(
-            visibility,
-            arkret_models_crypto::EncryptedEnvelopeAadVisibility::Hidden
-        )
-    {
-        return Err(Error::Protocol(format!(
-            "{profileid_mls_minimal_metadata_realm_v1} Realm MUST use aad_visibility=hidden \
-             (encryption-and-audit.md §2.9); got {visibility:?}",
-            profileid_mls_minimal_metadata_realm_v1 = ProfileId::MLS_MINIMAL_METADATA_REALM_V1
-        )));
-    }
-    Ok(())
 }
 
 /// SEC-08 — has a `minimal_metadata_realm` epoch outlived the 1h MUST cap, per

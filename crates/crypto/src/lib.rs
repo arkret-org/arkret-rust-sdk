@@ -51,9 +51,11 @@ pub use session::*;
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_models_crypto::encrypted_envelope::EncryptedPayload;
+    use arkret_models_crypto::encrypted_envelope::{
+        EncryptedPayload, EventContentPreEncryptionHeader, EventContentRoutingContext,
+    };
     use arkret_wire::{
-        BlobRef, DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash, RealmId,
+        BlobRef, DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash, RealmId, ScopeRef,
     };
     use chrono::Utc;
 
@@ -66,6 +68,38 @@ mod tests {
 
     fn device() -> DeviceId {
         DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap()
+    }
+
+    fn test_encrypted_payload(ciphertext: &str, payload_digest: Hash) -> EncryptedPayload {
+        let effective_scope = ScopeRef::Realm {
+            realm_id: RealmId::new(
+                "ak:realm:ATkXzcQvyxfe91pWo53Tg9imMLwlTme1cbCFc5G-lymH",
+            )
+            .unwrap(),
+        };
+        let header = EventContentPreEncryptionHeader::reconstruct(
+            "1.0",
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            effective_scope,
+            "ak.message.create",
+            1,
+            EventId::new("ak:event:AUCZEGB_x2E4y_cYPOWqzZD7nQWdSdPF9DDge4lVvqYt").unwrap(),
+            device().as_str(),
+            None,
+            EventContentRoutingContext::None,
+        )
+        .unwrap();
+        EncryptedPayload {
+            scheme: EncryptedPayloadScheme::MlsRfc9420,
+            group_id: header.mls_group_id.clone(),
+            epoch: 1,
+            content_type: "application/json".to_owned(),
+            ciphertext: ciphertext.to_owned(),
+            counter: None,
+            pre_encryption_header: header,
+            payload_digest,
+        }
     }
 
     #[test]
@@ -82,19 +116,8 @@ mod tests {
         binding.record_device_keys(bundle).unwrap();
         assert_eq!(binding.device_keys.len(), 1);
 
-        let payload = EncryptedPayload {
-            scheme: EncryptedPayloadScheme::MlsRfc9420,
-            group_id: "group".to_owned(),
-            epoch: 1,
-            content_type: "application/json".to_owned(),
-            ciphertext: "abc".to_owned(),
-            aad: None,
-            payload_digest: Hash::new(sha256_prefixed(b"abc")).unwrap(),
-            key_ref: None,
-            // mls_rfc9420 has no exporter AEAD, so the schema forbids both.
-            purpose: None,
-            aead_profile: None,
-        };
+        let payload =
+            test_encrypted_payload("abc", Hash::new(sha256_prefixed(b"abc")).unwrap());
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
             event_id: EventId::new("ak:event:AY2gmtVpH4CNWqvZ25JTuYdzI56aAbxr3k-TrqvZfsKv")
                 .unwrap(),
@@ -318,20 +341,10 @@ mod tests {
             EventId::new("ak:event:AY2gmtVpH4CNWqvZ25JTuYdzI56aAbxr3k-TrqvZfsKv").unwrap();
         let realm_id =
             RealmId::new("ak:realm:ATkXzcQvyxfe91pWo53Tg9imMLwlTme1cbCFc5G-lymH").unwrap();
-        let payload = EncryptedPayload {
-            scheme: EncryptedPayloadScheme::MlsRfc9420,
-            group_id: "group".to_owned(),
-            epoch: 1,
-            content_type: "application/json".to_owned(),
-            // intentionally non-decryptable: empty ciphertext + mismatched digest
-            ciphertext: String::new(),
-            aad: None,
-            payload_digest: Hash::new(sha256_prefixed(b"not-the-ciphertext")).unwrap(),
-            key_ref: None,
-            // mls_rfc9420 has no exporter AEAD, so the schema forbids both.
-            purpose: None,
-            aead_profile: None,
-        };
+        let payload = test_encrypted_payload(
+            "",
+            Hash::new(sha256_prefixed(b"not-the-ciphertext")).unwrap(),
+        );
         let record = UnableToDecryptRecord {
             event_id: event_id.clone(),
             realm_id: realm_id.clone(),

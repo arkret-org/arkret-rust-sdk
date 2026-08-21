@@ -502,37 +502,18 @@ mod tests {
     fn payload_accessor_parses_encrypted_message_payload() {
         let mut event = base_event();
         let strand_id = StrandId::from_event_id(&event_id(0x6c));
-        let realm_id = realm();
-        let scope_digest = arkret_models_crypto::encrypted_envelope_scope_digest(
-            &ScopeRef::Realm {
-                realm_id: realm_id.clone(),
-            },
-            &realm_id,
-        )
-        .unwrap();
         let group_state_ref = event_id(4);
         event.payload = serde_json::from_value(json!({
             "strand_id": strand_id,
             "track_name": "discussion",
             "encrypted_content": {
-                "scheme": "mls_rfc9420",
                 "version": "1.0",
-                "group_id": "AA",
-                "epoch": 1,
                 "content_type": "application/vnd.arkret.message+json",
-                "ciphertext": "b3BhcXVl",
-                "aad_visibility_event_id_kind": "hidden",
-                "aad": {
-                    "realm_id": realm_id,
-                    "scope_digest": scope_digest,
-                    "event_kind": event_spec::MessageCreate::KIND_STR
-                },
-                "key_ref": {
-                    "algorithm": "MLS",
+                "encryption_context": {
+                    "epoch": 1,
                     "group_state_ref": group_state_ref
                 },
-                "payload_digest": format!("sha256:{}", "a".repeat(64)),
-                "aad_digest": format!("sha256:{}", "b".repeat(64))
+                "ciphertext": "b3BhcXVl",
             }
         }))
         .unwrap();

@@ -439,7 +439,6 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "audience_mention"
             | "audience_mentions"
             | "audience_mention_policy"
-            | "audience_mention_routing_hint"
             | "audience_recipient_count"
             | "recipient_count"
             | "recipient_counts"
@@ -615,7 +614,6 @@ mod tests {
         for field in [
             "audience",
             "audience_mentions",
-            "audience_mention_routing_hint",
             "recipient_count",
             "expanded_recipients",
         ] {

@@ -252,7 +252,7 @@ impl ObjectLifecyclePayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryAccessPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub from: Option<HistoryAccess>,
     pub to: HistoryAccess,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -310,7 +310,7 @@ impl HistoryAccessPayload {
 #[serde(deny_unknown_fields)]
 pub struct CircleHistoryAccessPayload {
     pub circle_id: CircleId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub from: Option<HistoryAccess>,
     pub to: HistoryAccess,
     #[serde(default, skip_serializing_if = "Option::is_none")]

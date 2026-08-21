@@ -1,14 +1,11 @@
 //! Byte-exact RFC 9420 exporter helpers shared by clients and conformance KATs.
 
-use arkret_wire::{DeviceId, DidFullId, RealmId, canonical};
-use hmac::{Hmac, KeyInit, Mac};
-use sha2::Sha256;
+use arkret_wire::{DeviceId, RealmId, canonical};
 use zeroize::Zeroizing;
 
 use crate::{MlsError as Error, Result};
 
 const MLS_HASH_LEN: usize = arkret_crypto::mls_exporter::MLS_HASH_LEN;
-pub const MENTION_ROUTING_EXPORTER_LABEL: &str = "arkret-mention-routing-v1";
 
 fn expand_with_label(
     secret: &[u8],
@@ -70,37 +67,6 @@ pub(crate) fn derive_signal_key_from_history_secret(
     )
 }
 
-pub fn derive_mention_routing_key(
-    exporter_secret: &[u8],
-    realm_id: &RealmId,
-) -> Result<Zeroizing<Vec<u8>>> {
-    mls_exporter_from_secret(
-        exporter_secret,
-        MENTION_ROUTING_EXPORTER_LABEL,
-        realm_id.as_str().as_bytes(),
-        MLS_HASH_LEN,
-    )
-}
-
-pub fn mention_routing_hmac(
-    exporter_secret: &[u8],
-    realm_id: &RealmId,
-    mentioned_did: &DidFullId,
-) -> Result<[u8; MLS_HASH_LEN]> {
-    let key = derive_mention_routing_key(exporter_secret, realm_id)?;
-    mention_routing_hmac_from_key(&key, mentioned_did)
-}
-
-pub fn mention_routing_hmac_from_key(
-    routing_key: &[u8],
-    mentioned_did: &DidFullId,
-) -> Result<[u8; MLS_HASH_LEN]> {
-    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(routing_key)
-        .map_err(|_| Error::Crypto("mention routing HMAC key is invalid".to_owned()))?;
-    mac.update(mentioned_did.as_str().as_bytes());
-    Ok(mac.finalize().into_bytes().into())
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::Value;
@@ -148,28 +114,6 @@ mod tests {
         assert_eq!(
             hex(&signal),
             case["expected"]["signal_key_hex"].as_str().unwrap()
-        );
-    }
-
-    #[test]
-    fn mention_routing_hmac_matches_the_registered_vector() {
-        let case = fixture_case("mention_routing_hmac_did");
-        let secret = case_exporter_secret(&case);
-        let realm_id = RealmId::new(case["input"]["realm_id_utf8"].as_str().unwrap()).unwrap();
-        let did = DidFullId::new(case["input"]["mentioned_did_utf8"].as_str().unwrap()).unwrap();
-        assert_eq!(
-            MENTION_ROUTING_EXPORTER_LABEL,
-            case["input"]["exporter_label"].as_str().unwrap()
-        );
-
-        let mention_key = derive_mention_routing_key(&secret, &realm_id).unwrap();
-        assert_eq!(
-            hex(&mention_key),
-            case["expected"]["routing_hmac_key_hex"].as_str().unwrap()
-        );
-        assert_eq!(
-            hex(&mention_routing_hmac(&secret, &realm_id, &did).unwrap()),
-            case["expected"]["routing_tag_hex"].as_str().unwrap()
         );
     }
 }

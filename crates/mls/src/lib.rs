@@ -21,7 +21,7 @@ pub use arkret_policy::{
     AgentMlsLeafBindingError, AgentMlsSignerClaim, AgentMlsSignerView, AuthorGroupStateView,
     AuthorLeaf, AuthorLeafCredential, MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS,
     MinimalMetadataAuthorClaim, MinimalMetadataAuthorError, MinimalMetadataAuthorViolation,
-    VerifiedAuthorLeaf, enforce_minimal_metadata_aad, minimal_metadata_epoch_overdue,
+    VerifiedAuthorLeaf, minimal_metadata_epoch_overdue,
     minimal_metadata_max_epoch_lifetime, verify_minimal_metadata_author,
     verify_ordinary_agent_mls_binding,
 };
@@ -50,8 +50,8 @@ pub const ARKRET_MLS_ALGORITHM: &str = "ak.mls.v1";
 mod tests {
     use arkret_canonical::base64url_encode;
     use arkret_models_crypto::{
-        AadVisibilityCeiling, EncryptedEnvelope, EncryptedEnvelopeAadVisibility,
-        EncryptedEnvelopeKeyAlgorithm, MlsCommitEnvelope, MlsCommitSource,
+        EncryptedEnvelope, EncryptedEnvelopeEncryptionContext, EventContentPreEncryptionHeader,
+        EventContentRoutingContext, MlsCommitEnvelope, MlsCommitSource,
         MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
         MlsGroupStateSink,
     };
@@ -63,6 +63,31 @@ mod tests {
 
     use super::*;
     use crate::MlsError as Error;
+
+    fn content_header(
+        group: &ArkretMlsGroup,
+        realm_id: &str,
+        sender_device_id: &str,
+        content_type: &str,
+        scheme: EncryptedPayloadScheme,
+        counter: Option<u64>,
+    ) -> EventContentPreEncryptionHeader {
+        EventContentPreEncryptionHeader::reconstruct(
+            "1.0",
+            content_type,
+            scheme,
+            ScopeRef::Realm {
+                realm_id: RealmId::new(realm_id).unwrap(),
+            },
+            "ak.message.create",
+            group.epoch(),
+            EventId::new("ak:event:ARKEyrg59dN-i97Pleo3vwwRkZomIcqPiuK9PtjzGLdh").unwrap(),
+            sender_device_id,
+            counter,
+            EventContentRoutingContext::None,
+        )
+        .unwrap()
+    }
 
     /// Minimal in-crate store test double implementing the two persistence
     /// ports the MLS layer inverts on. The SDK `MemoryCryptoStore` lives in the
@@ -138,23 +163,6 @@ mod tests {
             minimal_metadata_max_epoch_lifetime(),
             chrono::Duration::hours(1)
         );
-    }
-
-    #[test]
-    fn enforce_minimal_metadata_aad_rejects_non_hidden_in_minimal_realm() {
-        // Minimal-metadata Realm: only Hidden is allowed.
-        enforce_minimal_metadata_aad(&EncryptedEnvelopeAadVisibility::Hidden, true).unwrap();
-        for v in [
-            EncryptedEnvelopeAadVisibility::RoutingDigest,
-            EncryptedEnvelopeAadVisibility::OpaqueId,
-        ] {
-            let err = enforce_minimal_metadata_aad(&v, true).unwrap_err();
-            assert!(err.to_string().contains("aad_visibility=hidden"));
-        }
-        // Non-minimal Realm: any visibility is permitted by this helper.
-        enforce_minimal_metadata_aad(&EncryptedEnvelopeAadVisibility::RoutingDigest, false)
-            .unwrap();
-        enforce_minimal_metadata_aad(&EncryptedEnvelopeAadVisibility::OpaqueId, false).unwrap();
     }
 
     #[test]
@@ -703,8 +711,16 @@ mod tests {
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
+        let header = content_header(
+            &alice_group,
+            "ak:realm:AdmAewBnEWLWSp60CpdI_JXwYiZGNCIDYLEnjYTgaNz3",
+            "ak:device:01904100-0000-7000-8000-000000000006",
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
         let encrypted = alice_group
-            .encrypt_payload("application/json", br#"{"body":"hello"}"#)
+            .encrypt_payload(header, br#"{"body":"hello"}"#)
             .unwrap();
         let decrypted = bob_group.decrypt_payload(&encrypted).unwrap();
 
@@ -750,8 +766,16 @@ mod tests {
         assert_eq!(bob_group.epoch(), alice_group.epoch());
         assert_eq!(charlie_group.epoch(), alice_group.epoch());
 
+        let header = content_header(
+            &alice_group,
+            "ak:realm:AV7nJulkpf6nOMIJK3BgQk9k47SVPYURKMguZQZNofn9",
+            "ak:device:01904100-0000-7000-8000-000000000006",
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
         let encrypted = alice_group
-            .encrypt_payload("application/json", br#"{"body":"hello batch"}"#)
+            .encrypt_payload(header, br#"{"body":"hello batch"}"#)
             .unwrap();
         assert_eq!(
             bob_group.decrypt_payload(&encrypted).unwrap(),
@@ -783,10 +807,18 @@ mod tests {
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
+        let header = content_header(
+            &alice_group,
+            "ak:realm:ASZ1iAvlGxgLC_-P6WHoR9vfijpaxbI5hoSwBx8zWTcT",
+            "ak:device:01904100-0000-7000-8000-000000000006",
+            "application/vnd.arkret.message+json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
             "ak:message:01",
-            "application/vnd.arkret.message+json",
+            header,
             br#"{"body":"hello secure workflow"}"#,
         )
         .unwrap();
@@ -797,7 +829,7 @@ mod tests {
     }
 
     #[test]
-    fn message_crypto_encrypts_with_aad_and_verifies_digest() {
+    fn message_crypto_binds_the_reconstructed_header() {
         let alice = ArkretMlsIdentity::new_basic(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
@@ -815,37 +847,26 @@ mod tests {
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
-        let aad_realm_id =
-            RealmId::new("ak:realm:AWiUh2Jt07erLjzV_goRCJr5oCGRYAFLRxHdmS-gobPx").unwrap();
-        let aad_scope = ScopeRef::Realm {
-            realm_id: aad_realm_id.clone(),
-        };
-        let aad = arkret_models_crypto::EncryptedEnvelopeAad {
-            scope_digest: arkret_models_crypto::encrypted_envelope_scope_digest(
-                &aad_scope,
-                &aad_realm_id,
-            )
-            .unwrap(),
-            realm_id: aad_realm_id,
-            event_kind: "ak.message.create".to_owned(),
-            event_id: Some(
-                EventId::new("ak:event:AUCZEGB_x2E4y_cYPOWqzZD7nQWdSdPF9DDge4lVvqYt").unwrap(),
-            ),
-            event_ref_digest: None,
-            causal_refs: Some(Vec::new()),
-            causal_ref_digests: None,
-        };
-        let aad_digest = arkret_crypto::envelope_aad_digest(&aad).unwrap();
-
-        let encrypted = MessageCrypto::encrypt_with_aad(
+        let header = content_header(
+            &alice_group,
+            "ak:realm:AWiUh2Jt07erLjzV_goRCJr5oCGRYAFLRxHdmS-gobPx",
+            "ak:device:01904100-0000-7000-8000-000000000006",
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
+        let expected_aad = header.canonical_bytes().unwrap();
+        let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
             "ak:message:aad",
-            "application/json",
-            aad,
+            header,
             br#"{"body":"aad bound"}"#,
         )
         .unwrap();
-        MessageCrypto::verify_payload_and_aad_digest(&encrypted, Some(&aad_digest)).unwrap();
+        assert_eq!(
+            encrypted.payload.pre_encryption_header.canonical_bytes().unwrap(),
+            expected_aad
+        );
         assert_eq!(
             MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap(),
             br#"{"body":"aad bound"}"#
@@ -881,8 +902,16 @@ mod tests {
             record.epoch
         );
 
+        let header = content_header(
+            &alice_group,
+            "ak:realm:Ac1nMpkxYEro_Sv9809TCqs5pW2WSpBGuQnQAybKkSoz",
+            "ak:device:01904100-0000-7000-8000-000000000006",
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
         let encrypted = alice_group
-            .encrypt_payload("application/json", br#"{"body":"after restore"}"#)
+            .encrypt_payload(header, br#"{"body":"after restore"}"#)
             .unwrap();
         assert_eq!(
             restored_bob.decrypt_payload(&encrypted).unwrap(),
@@ -1195,89 +1224,42 @@ mod tests {
             .unwrap();
 
         let realm_id = "ak:realm:AQrLXlUoN8Yu4yFfjpTeWmFPwkfMdNKe-u-gY3PcdhSy";
-        let aad_scope = ScopeRef::Realm {
-            realm_id: RealmId::new(realm_id).unwrap(),
-        };
-        let aad =
-            arkret_models_crypto::EncryptedEnvelopeAad::hidden(&aad_scope, "ak.message.create")
-                .unwrap();
+        let header = content_header(
+            &group,
+            realm_id,
+            "ak:device:01904100-0000-7000-8000-00000000abcd",
+            "application/vnd.arkret.message+json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
-        let payload = group
-            .encrypt_payload_with_aad(
-                "application/vnd.arkret.message+json",
-                Some(aad.clone()),
-                plaintext,
-            )
-            .unwrap();
+        let payload = group.encrypt_payload(header.clone(), plaintext).unwrap();
+        let envelope = encrypted_envelope_from_payload(&payload).unwrap();
 
-        let commit_ref = "ak:event:AaqE448KfXV9nfpjXIKvrwEBkkF6PEePwRrDiXTaOqKW";
-        let envelope = encrypted_envelope_from_payload(
-            &payload,
-            aad,
-            EncryptedEnvelopeAadVisibility::Hidden,
-            AadVisibilityCeiling::from_declared(None),
-            commit_ref,
-        )
-        .unwrap();
-
-        // Conformance with ak.schema.encrypted_envelope.v1: required fields,
-        // fixed consts, hidden-visibility AAD discipline, no forbidden extras.
+        // Conformance with ak.schema.encrypted_envelope.v1: the wire is the
+        // minimal four-field object and does not duplicate reconstructible
+        // header fields.
         let json = serde_json::to_value(&envelope).unwrap();
         let obj = json.as_object().unwrap();
-        for field in [
-            "scheme",
-            "version",
-            "group_id",
-            "epoch",
-            "content_type",
-            "ciphertext",
-            "aad_visibility_event_id_kind",
-            "aad",
-            "key_ref",
-            "aad_digest",
-            "payload_digest",
-        ] {
+        for field in ["version", "content_type", "encryption_context", "ciphertext"] {
             assert!(obj.contains_key(field), "missing required field {field}");
         }
-        assert_eq!(obj["scheme"], "mls_rfc9420");
+        assert_eq!(obj.len(), 4);
         assert_eq!(obj["version"], "1.0");
-        assert_eq!(obj["aad_visibility_event_id_kind"], "hidden");
-        assert_eq!(obj["key_ref"]["algorithm"], "MLS");
-        assert_eq!(obj["key_ref"]["group_state_ref"], commit_ref);
-        assert_eq!(obj["aad"]["realm_id"], realm_id);
-        assert_eq!(obj["aad"]["event_kind"], "ak.message.create");
-        let aad_obj = obj["aad"].as_object().unwrap();
-        assert!(!aad_obj.contains_key("event_id"));
-        assert!(!aad_obj.contains_key("event_ref_digest"));
-        assert!(obj["aad_digest"].as_str().unwrap().starts_with("sha256:"));
-        assert!(
-            obj["payload_digest"]
-                .as_str()
-                .unwrap()
-                .starts_with("sha256:")
+        assert_eq!(obj["encryption_context"]["epoch"], payload.epoch);
+        assert_eq!(
+            obj["encryption_context"]["group_state_ref"],
+            header.group_state_ref.as_str()
         );
-        assert!(!obj.contains_key("authentication_tag"));
-        assert!(!obj.contains_key("digests"));
-        assert!(!obj.contains_key("cleartext_commitment"));
+        assert!(obj["encryption_context"].get("counter").is_none());
 
-        // Wire round-trip is stable and to_payload reconstructs the exact MLS
-        // payload (lossless for every field decrypt_payload relies on).
+        // Wire round-trip is stable. Internal decryption state is reconstructed
+        // only after the caller has verified outer Event and group-state data.
         let wire = serde_json::to_string(&envelope).unwrap();
         let parsed: EncryptedEnvelope = serde_json::from_str(&wire).unwrap();
         assert_eq!(parsed, envelope);
-        assert_eq!(encrypted_envelope_to_payload(&parsed).unwrap(), payload);
-
-        // Fail closed when the supplied AAD doesn't match the AAD bound into
-        // payload_digest at encryption time.
-        let mismatch = encrypted_envelope_from_payload(
-            &payload,
-            arkret_models_crypto::EncryptedEnvelopeAad::hidden(&aad_scope, "ak.strand.update")
-                .unwrap(),
-            EncryptedEnvelopeAadVisibility::Hidden,
-            AadVisibilityCeiling::from_declared(None),
-            commit_ref,
-        );
-        assert!(mismatch.is_err());
+        let rebuilt = encrypted_envelope_to_payload_with_verified_header(&parsed, header).unwrap();
+        assert_eq!(rebuilt, payload);
     }
 
     /// T31 — `remove_member_by_leaf` accepts a raw OpenMLS leaf index and
@@ -1348,30 +1330,27 @@ mod tests {
         assert_ne!(identity, principal.as_bytes());
     }
 
-    fn exporter_aead_key_ref() -> arkret_models_crypto::KeyRefObject {
-        arkret_models_crypto::KeyRefObject {
-            algorithm: "MLS-EXPORTER-AEAD".to_owned(),
-            group_state_ref: "ak:event:ARKEyrg59dN-i97Pleo3vwwRkZomIcqPiuK9PtjzGLdh".to_owned(),
-        }
-    }
-
-    fn exporter_aead_aad() -> arkret_models_crypto::EncryptedEnvelopeAad {
-        let scope = ScopeRef::Realm {
-            realm_id: RealmId::new(HISTORY_REALM).unwrap(),
-        };
-        arkret_models_crypto::EncryptedEnvelopeAad::hidden(&scope, "ak.message.create").unwrap()
+    fn exporter_aead_header(group: &ArkretMlsGroup, counter: u64) -> EventContentPreEncryptionHeader {
+        content_header(
+            group,
+            HISTORY_REALM,
+            HISTORY_SENDER_DEVICE,
+            "application/vnd.arkret.message+json",
+            EncryptedPayloadScheme::MlsExporterAeadV1,
+            Some(counter),
+        )
     }
 
     #[test]
     fn exporter_aead_content_round_trips_for_local_epoch() {
         let mut group = exporter_aead_founder();
-        let key_ref = exporter_aead_key_ref();
-        let aad = exporter_aead_aad();
+        let header = exporter_aead_header(&group, 0);
         let plaintext = b"hello encrypted history";
 
-        let sealed = group
-            .encrypt_content_exporter_aead(HISTORY_REALM, &key_ref, &aad, plaintext)
+        let (counter, sealed) = group
+            .encrypt_content_exporter_aead(HISTORY_REALM, &header, plaintext)
             .unwrap();
+        assert_eq!(counter, 0);
         // The retained history_secret for the current epoch decrypts it.
         let history_secret = group
             .derive_and_retain_history_secret(HISTORY_REALM)
@@ -1380,65 +1359,47 @@ mod tests {
             .decrypt_content_exporter_aead(
                 &history_secret,
                 HISTORY_SENDER_DEVICE.as_bytes(),
-                &key_ref,
-                group.epoch(),
+                &header,
                 &sealed,
-                &aad,
             )
             .unwrap();
         assert_eq!(recovered, plaintext);
 
         // Wrong AAD fails the tag check.
-        let mut wrong_aad = aad;
-        wrong_aad.event_kind = "ak.message.revise".to_owned();
+        let mut wrong_header = header;
+        wrong_header.event_kind = "ak.message.revise".to_owned();
         assert!(
             group
                 .decrypt_content_exporter_aead(
                     &history_secret,
                     HISTORY_SENDER_DEVICE.as_bytes(),
-                    &key_ref,
-                    group.epoch(),
+                    &wrong_header,
                     &sealed,
-                    &wrong_aad,
                 )
                 .is_err()
         );
     }
 
     #[test]
-    fn encrypted_envelope_v1_binds_exporter_scheme_to_exporter_key_algorithm() {
+    fn encrypted_envelope_v1_uses_counter_as_the_exporter_branch_discriminator() {
         let mut group = exporter_aead_founder();
-        let envelope_aad = exporter_aead_aad();
-        let key_ref = exporter_aead_key_ref();
+        let header = exporter_aead_header(&group, 0);
         let payload = group
             .encrypt_payload_exporter_aead(
-                "application/vnd.arkret.message+json",
                 HISTORY_REALM,
-                key_ref,
-                envelope_aad.clone(),
+                header,
                 b"hello encrypted history",
             )
             .unwrap();
         assert_eq!(payload.scheme, EncryptedPayloadScheme::MlsExporterAeadV1);
 
-        let group_state_ref = "ak:event:ARKEyrg59dN-i97Pleo3vwwRkZomIcqPiuK9PtjzGLdh";
-        let envelope = encrypted_envelope_from_payload(
-            &payload,
-            envelope_aad,
-            EncryptedEnvelopeAadVisibility::Hidden,
-            AadVisibilityCeiling::from_declared(None),
-            group_state_ref,
-        )
-        .unwrap();
-        assert_eq!(
-            envelope.key_ref.algorithm,
-            EncryptedEnvelopeKeyAlgorithm::MlsExporterAead
-        );
+        let envelope = encrypted_envelope_from_payload(&payload).unwrap();
+        assert!(matches!(
+            envelope.encryption_context,
+            EncryptedEnvelopeEncryptionContext::ExporterMls { .. }
+        ));
+        assert_eq!(envelope.encryption_context.counter(), payload.counter);
         envelope.validate().unwrap();
-
-        let mut mismatched = envelope;
-        mismatched.key_ref.algorithm = EncryptedEnvelopeKeyAlgorithm::Mls;
-        assert!(mismatched.validate().is_err());
     }
 
     #[test]

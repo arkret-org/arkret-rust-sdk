@@ -30,9 +30,9 @@ pub type NullableTimestamp = Option<DateTime<Utc>>;
 pub type PlaintextDataClass = String;
 
 pub use arkret_models_crypto::encrypted_envelope::{
-    EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
-    EncryptedEnvelopeGroupStateRef, EncryptedEnvelopeKeyAlgorithm, EncryptedEnvelopeKeyRef,
-    base64url_token, content_type_byte, content_type_token, major_minor_version,
+    EncryptedEnvelope, EncryptedEnvelopeEncryptionContext, EncryptedEnvelopeRoutingContext,
+    EventContentPreEncryptionHeader, EventContentRoutingContext, base64url_token,
+    content_type_byte, content_type_token, fixed_base64url_token, major_minor_version,
 };
 pub use arkret_wire::event_receipt::{
     DeviceReanchorReceiptScope, DeviceReanchorReceiptScopeKind, EventBatchOrdinaryReceiptScope,

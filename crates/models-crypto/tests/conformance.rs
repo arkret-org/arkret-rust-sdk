@@ -1,6 +1,6 @@
 use arkret_canonical::{base64url, canonical};
 use arkret_models_crypto::{
-    EncryptedPayload, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
+    EncryptedEnvelope, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
 };
 use arkret_schema::{embedded_json_artifact, event_payload_validator_catalog};
 use arkret_wire::{EventId, Hash, ProfileId, RealmId};
@@ -42,25 +42,12 @@ fn encrypted_envelope_digest_matches_spec_encoding_vector() {
         canonical::sha256_digest(&digest_input),
         vector["expected_digest"].as_str().unwrap()
     );
+    let mut envelope = metadata.clone();
+    envelope["ciphertext"] = vector["ciphertext_base64url"].clone();
+    let envelope: EncryptedEnvelope = serde_json::from_value(envelope).unwrap();
     assert_eq!(
-        canonical::canonical_sha256(&metadata["aad"]).unwrap(),
-        vector["aad_digest"].as_str().unwrap()
-    );
-}
-
-#[test]
-fn mls_payload_digest_regression_anchor() {
-    let digest = EncryptedPayload::mls_payload_digest(
-        7,
-        "application/json",
-        None,
-        b"ciphertext-example-001",
-    )
-    .unwrap();
-
-    assert_eq!(
-        digest.as_str(),
-        "sha256:ef078c8adf8433d7b3df36c58966acacbd53f8294d5223e9621d79b176644764"
+        envelope.payload_digest().unwrap().as_str(),
+        vector["expected_digest"].as_str().unwrap()
     );
 }
 
