@@ -41,17 +41,25 @@ pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
     ]
     .into_iter()
     .collect::<BTreeSet<_>>();
-    if event
+    let purpose = event
         .payload
         .get("object")
         .and_then(|object| object.get("purpose"))
-        .and_then(serde_json::Value::as_str)
-        == Some("managed_agent_control")
-    {
+        .and_then(serde_json::Value::as_str);
+    if purpose == Some("managed_agent_control") {
         cells.insert(format!(
             "ak:cell:{}:{}",
             arkret_wire::CellFamilyId::AGENT_STATUS_V1,
             event.actor_id
+        ));
+    }
+    if matches!(
+        purpose,
+        Some("direct_conversation" | "principal_control" | "managed_agent_control")
+    ) {
+        cells.insert(format!(
+            "ak:cell:{}:null",
+            arkret_wire::CellFamilyId::REALM_HISTORY_ACCESS_V1
         ));
     }
     if event
@@ -103,9 +111,10 @@ pub(crate) fn direct_projection(
 ///
 /// Self PCR, managed Agent PCR and ordinary Realm producers all reach the
 /// receiver through the same contract. The five Realm security-root writes
-/// are always present, and an `initial_resolution` adds the registered
-/// identity-resolution singleton. Profile, membership and policy cells are separate
-/// registered Events in branches whose bootstrap unit includes them. Only the targets are asserted:
+/// are always present; an `initial_resolution` adds the registered
+/// identity-resolution singleton, and the three create-locked Realm purposes
+/// add the registered history-access singleton. Profile, membership and policy
+/// cells are separate registered Events in branches whose bootstrap unit includes them. Only the targets are asserted:
 /// the lattice ops come from the registered `effect_projection` and restating
 /// them here would rebuild the producer-side effect table v1 removed.
 pub(crate) fn validate_realm_create_projection(

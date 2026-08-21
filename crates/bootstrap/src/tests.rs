@@ -80,7 +80,7 @@ impl PayloadSigner for FixtureSigner {
             verification_method: self.verification_method.clone(),
             payload_digest: Hash::new(arkret_canonical::canonical::sha256_digest(canonical_bytes))?,
             created_at: Utc::now(),
-            jws: "fixture.detached-signature".to_owned(),
+            jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
             extra: Default::default(),
         })
     }
@@ -104,7 +104,7 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
             domain: None,
             audience: None,
             proof_purpose: None,
-            jws: "fixture.signature".to_owned(),
+            jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
         }
         .into(),
     ];
@@ -131,7 +131,7 @@ fn attach_fixture_admission_proof(event: &mut Event) {
         signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
             .unwrap(),
         accepted_at: event.created_at,
-        jws: "fixture.admission-signature".to_owned(),
+        jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
     };
     event
         .proofs
@@ -214,8 +214,12 @@ fn input() -> SelfPrincipalPcrCreateInput {
 }
 
 fn fixture_notary(actor_id: &DidCoreId, actor_full_id: &DidFullId, fragment: &str) -> NotaryValue {
-    let public_key = arkret_canonical::decode_ed25519_multibase(founding_device_public_key())
-        .expect("fixture public key is valid");
+    let public_key = arkret_canonical::decode_ed25519_multibase(
+        founding_device_public_key()
+            .strip_prefix("did:key:")
+            .expect("fixture public key is a did:key identifier"),
+    )
+    .expect("fixture public key is valid");
     NotaryValue::single_signer(NotarySignerDescriptor {
         actor_id: actor_id.clone(),
         verification_method: DidUrl::new(format!("{actor_full_id}#{fragment}")).unwrap(),
@@ -331,6 +335,10 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
             REALM_NOTARY_CELL.to_owned(),
             REALM_REDUCER_PROFILE_CELL.to_owned(),
             REALM_AUTHORITY_ROOT_CELL.to_owned(),
+            format!(
+                "ak:cell:{}:null",
+                arkret_wire::CellFamilyId::REALM_HISTORY_ACCESS_V1
+            ),
             format!(
                 "ak:cell:{}:null",
                 arkret_wire::CellFamilyId::IDENTITY_RESOLUTION_V1
@@ -588,6 +596,10 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
             REALM_AUTHORITY_ROOT_CELL.to_owned(),
             REALM_CREATE_CELL.to_owned(),
             REALM_GENESIS_CELL.to_owned(),
+            format!(
+                "ak:cell:{}:null",
+                arkret_wire::CellFamilyId::REALM_HISTORY_ACCESS_V1
+            ),
             REALM_REDUCER_PROFILE_CELL.to_owned(),
         ]
     );
@@ -804,7 +816,7 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     );
 
     assert_eq!(
-        serde_json::to_value(&event).unwrap()["created_at"],
+        serde_json::to_value(event.as_ref()).unwrap()["created_at"],
         "2026-07-18T01:02:03.000Z"
     );
 }
