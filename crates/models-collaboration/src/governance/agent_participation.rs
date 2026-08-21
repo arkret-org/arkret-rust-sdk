@@ -466,7 +466,7 @@ mod tests {
                 value
             },
             {
-                let mut value = value.clone();
+                let mut value = value;
                 value["next_replace_input"]["expected_version"] = serde_json::json!("7");
                 value
             },

@@ -178,7 +178,6 @@ pub struct ServiceRequirements {
     service_kind: Option<ServiceKind>,
     profiles: Vec<String>,
     reducer_profiles: Vec<String>,
-    schema_profiles: Vec<String>,
     operations: Vec<String>,
 }
 
@@ -199,11 +198,6 @@ impl ServiceRequirements {
 
     pub fn reducer_profile(mut self, profile: impl Into<String>) -> Self {
         self.reducer_profiles.push(profile.into());
-        self
-    }
-
-    pub fn schema_profile(mut self, profile: impl Into<String>) -> Self {
-        self.schema_profiles.push(profile.into());
         self
     }
 
@@ -260,18 +254,6 @@ impl ServiceRequirements {
             {
                 return Err(Error::Protocol(format!(
                     "service does not support reducer profile {profile}"
-                )));
-            }
-        }
-
-        for profile in &self.schema_profiles {
-            if !description
-                .supported_schema_profiles
-                .iter()
-                .any(|actual| actual == profile)
-            {
-                return Err(Error::Protocol(format!(
-                    "service does not support schema profile {profile}"
                 )));
             }
         }
@@ -363,7 +345,6 @@ mod tests {
             takedown_contact: None,
             rate_limits: Some(BTreeMap::new()),
             supported_reducer_profiles: vec![arkret_wire::CORE_REDUCER_PROFILE.to_owned()],
-            supported_schema_profiles: Vec::new(),
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
             last_materialized_at: None,
@@ -444,7 +425,6 @@ mod tests {
             takedown_contact: None,
             rate_limits: Some(BTreeMap::new()),
             supported_reducer_profiles: vec![],
-            supported_schema_profiles: vec![],
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
             last_materialized_at: None,

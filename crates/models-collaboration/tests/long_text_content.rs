@@ -7,8 +7,8 @@
 
 use arkret_models_collaboration::events_payloads::message::{
     CONTENT_KIND_LONG_TEXT, CONTENT_TEXT_INLINE_MAX_BYTES, ContentBlock, ContentBlockKind,
-    LONG_TEXT_FALLBACK_MAX_BYTES, LongTextBodyKind, LongTextFormat, long_text_line_count,
-    long_text_prefix, normalize_long_text,
+    LONG_TEXT_FALLBACK_MAX_BYTES, LongTextBodyKind, LongTextFormat, TextFormat,
+    long_text_line_count, long_text_prefix, normalize_long_text,
 };
 use serde_json::json;
 
@@ -233,6 +233,47 @@ fn inline_text_boundary_is_measured_in_utf8_bytes() {
     let multibyte = ContentBlock::text("\u{4e2d}".repeat(100_000));
     assert!(multibyte.body.chars().count() < CONTENT_TEXT_INLINE_MAX_BYTES);
     assert!(multibyte.validate_inline_text().is_err());
+}
+
+#[test]
+fn text_format_has_typed_authoring_and_reading_apis() {
+    let plain = ContentBlock::text("**literal**");
+    assert_eq!(plain.text_format(), Some(TextFormat::Plain));
+    assert_eq!(plain.to_value().unwrap()["format"], "plain");
+
+    let markdown = ContentBlock::markdown_text("# heading");
+    assert_eq!(markdown.text_format(), Some(TextFormat::Markdown));
+    assert_eq!(markdown.to_value().unwrap()["format"], "markdown");
+
+    let structured = ContentBlock::text_with_format("fallback", TextFormat::ProsemirrorJson)
+        .with_formatted_body(json!({"type": "doc", "content": []}))
+        .unwrap();
+    assert_eq!(structured.text_format(), Some(TextFormat::ProsemirrorJson));
+    assert!(structured.formatted_body().unwrap().is_object());
+
+    let missing = ContentBlock::new(ContentBlockKind::Text, "remote fallback");
+    assert_eq!(missing.text_format(), None);
+    missing.validate_inline_text().unwrap();
+}
+
+#[test]
+fn text_format_rejects_invalid_combinations() {
+    assert!(
+        ContentBlock::text("plain")
+            .with_formatted_body(json!("rich"))
+            .is_err()
+    );
+    assert!(
+        ContentBlock::new(ContentBlockKind::Text, "body")
+            .with_field("format", json!("html"))
+            .validate_inline_text()
+            .is_err()
+    );
+    assert!(
+        ContentBlock::markdown_text("body")
+            .with_formatted_body(json!(42))
+            .is_err()
+    );
 }
 
 #[test]

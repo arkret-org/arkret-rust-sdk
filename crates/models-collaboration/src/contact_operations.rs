@@ -1237,6 +1237,7 @@ pub struct PeerContactControlDeferredOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum PeerContactSubmitOutcome {
     Event(PeerContactEventSubmitOutcome),
     Control(PeerContactControlSubmitOutcome),

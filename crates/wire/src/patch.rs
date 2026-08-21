@@ -50,9 +50,7 @@ pub const PATCH_PATH_MAX_SEGMENTS: usize = 16;
 /// patch the only way to reach its terminal state. An unregistered object kind
 /// falls back to the universal minimum set.
 pub fn reducer_managed_patch_reason(object_kind: &str, path: &str) -> Option<&'static str> {
-    let Some(normalized) = normalized_patch_path(path) else {
-        return None;
-    };
+    let normalized = normalized_patch_path(path)?;
     if let Some(object) = REDUCER_MANAGED_OBJECTS
         .iter()
         .find(|descriptor| descriptor.object_kind == object_kind)

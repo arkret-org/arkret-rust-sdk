@@ -1021,10 +1021,24 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let claim = HandleClaim {
+            schema: HandleClaim::SCHEMA.to_owned(),
             handle: Some(handle.clone()),
+            handle_aliases: Vec::new(),
             subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
+            issuer: None,
+            issuer_service_id: None,
             binding_state: Some(HandleBindingState::Verified),
+            claim_kind: None,
+            visibility: None,
+            audience: None,
+            challenge: None,
+            claim_scope: Default::default(),
+            member_delivery_binding: None,
+            claims: Vec::new(),
+            created_at: resolved_at,
             expires_at: Some(expires_at),
+            verified_at: None,
+            source_refs: Vec::new(),
             proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1")
@@ -1036,7 +1050,6 @@ mod tests {
                 proof_purpose: None,
                 jws: "header..sig".to_owned(),
             }],
-            ..Default::default()
         };
         let evidence = IntroductionEvidence::HandleClaim {
             handle,

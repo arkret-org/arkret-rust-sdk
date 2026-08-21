@@ -52,6 +52,7 @@ pub fn human_session_grant_intent_digest(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum SessionGrantRequestBody {
     Human(HumanSessionGrantRequest),
     Agent(AgentSessionGrantRequest),

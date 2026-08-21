@@ -169,7 +169,54 @@ impl ContentBlock {
     }
 
     pub fn text(body: impl Into<String>) -> Self {
+        Self::text_with_format(body, TextFormat::Plain)
+    }
+
+    /// Build an `ak.content.text` block with an explicit, closed-set format.
+    pub fn text_with_format(body: impl Into<String>, format: TextFormat) -> Self {
         Self::new(ContentBlockKind::Text, body)
+            .with_field("format", Value::String(format.as_str().to_owned()))
+    }
+
+    /// Build an `ak.content.text` block whose body is Markdown source.
+    pub fn markdown_text(body: impl Into<String>) -> Self {
+        Self::text_with_format(body, TextFormat::Markdown)
+    }
+
+    /// Read the declared format of an `ak.content.text` block.
+    ///
+    /// `None` covers both non-text blocks and valid remote text blocks that
+    /// omit the protocol's SHOULD-level discriminator.
+    pub fn text_format(&self) -> Option<TextFormat> {
+        (self.kind == ContentBlockKind::Text)
+            .then(|| self.extra_str("format").and_then(TextFormat::parse))
+            .flatten()
+    }
+
+    pub fn formatted_body(&self) -> Option<&Value> {
+        self.extra.get("formatted_body")
+    }
+
+    /// Attach the structured rich-text representation for a non-plain text block.
+    pub fn with_formatted_body(mut self, formatted_body: Value) -> Result<Self> {
+        let Some(format) = self.text_format() else {
+            return Err(Error::Protocol(
+                "formatted_body requires ak.content.text with an explicit format".to_owned(),
+            ));
+        };
+        if format == TextFormat::Plain {
+            return Err(Error::Protocol(
+                "format=plain must not carry formatted_body".to_owned(),
+            ));
+        }
+        if !formatted_body.is_string() && !formatted_body.is_object() {
+            return Err(Error::Protocol(
+                "formatted_body must be a string or object".to_owned(),
+            ));
+        }
+        self.extra
+            .insert("formatted_body".to_owned(), formatted_body);
+        Ok(self)
     }
 
     pub fn from_value(value: Value) -> Result<Self> {
@@ -362,6 +409,34 @@ impl LongTextBodyKind {
         match value {
             "prefix" => Some(Self::Prefix),
             "summary" => Some(Self::Summary),
+            _ => None,
+        }
+    }
+}
+
+/// Closed `format` set for `ak.content.text`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TextFormat {
+    Plain,
+    Markdown,
+    ProsemirrorJson,
+}
+
+impl TextFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Plain => "plain",
+            Self::Markdown => "markdown",
+            Self::ProsemirrorJson => "prosemirror_json",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "plain" => Some(Self::Plain),
+            "markdown" => Some(Self::Markdown),
+            "prosemirror_json" => Some(Self::ProsemirrorJson),
             _ => None,
         }
     }
@@ -721,6 +796,26 @@ impl ContentBlock {
                 self.body.len()
             )));
         }
+        if let Some(raw_format) = self.extra_str("format")
+            && TextFormat::parse(raw_format).is_none()
+        {
+            return Err(Error::Protocol(
+                "ak.content.text format must be plain | markdown | prosemirror_json".to_owned(),
+            ));
+        }
+        if self.text_format() == Some(TextFormat::Plain) && self.formatted_body().is_some() {
+            return Err(Error::Protocol(
+                "ak.content.text format=plain must not carry formatted_body".to_owned(),
+            ));
+        }
+        if self
+            .formatted_body()
+            .is_some_and(|value| !value.is_string() && !value.is_object())
+        {
+            return Err(Error::Protocol(
+                "ak.content.text formatted_body must be a string or object".to_owned(),
+            ));
+        }
         Ok(())
     }
 }
@@ -1037,7 +1132,9 @@ fn validate_text_content_block(block: &Value) -> ContentBlockValidationResult<()
             "text content block requires text",
         ));
     }
-    Ok(())
+    ContentBlock::from_value(block.clone())
+        .and_then(|parsed| parsed.validate_inline_text())
+        .map_err(|_| ContentBlockValidationError::new("text content block is invalid"))
 }
 
 fn validate_code_content_block(block: &Value) -> ContentBlockValidationResult<()> {

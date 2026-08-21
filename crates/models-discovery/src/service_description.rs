@@ -223,8 +223,6 @@ pub struct ServiceDescribe {
     /// This is a capability set, not a selected Realm profile.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub supported_reducer_profiles: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub supported_schema_profiles: Vec<String>,
     /// Current causal frontier exposed by the service. Clients SHOULD
     /// use this to detect a service that has fallen behind a known
     /// snapshot.
@@ -337,7 +335,6 @@ impl ServiceDescribe {
             takedown_contact: None,
             rate_limits: None,
             supported_reducer_profiles: Vec::new(),
-            supported_schema_profiles: Vec::new(),
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
             last_materialized_at: None,
@@ -673,7 +670,6 @@ mod tests {
                 json!(60),
             )])),
             supported_reducer_profiles: vec![],
-            supported_schema_profiles: vec![],
             frontier: vec![],
             snapshot_frontier: vec![],
             last_materialized_at: None,

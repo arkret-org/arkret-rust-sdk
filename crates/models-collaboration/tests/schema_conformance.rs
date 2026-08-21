@@ -78,7 +78,7 @@ fn relation_create_object() -> arkret_models_collaboration::objects::relation::R
     arkret_models_collaboration::objects::relation::Relation {
         schema: SchemaId::RELATION_V1.to_owned(),
         id: None,
-        realm_id: arkret_wire::RealmId::new(FIXTURE_REALM_ID.to_owned()).unwrap(),
+        realm_id: RealmId::new(FIXTURE_REALM_ID.to_owned()).unwrap(),
         scope_circle_id: None,
         effective_scope: None,
         relation_kind: arkret_wire::RelationKind::Contains,
@@ -88,8 +88,7 @@ fn relation_create_object() -> arkret_models_collaboration::objects::relation::R
         fields: Default::default(),
         state: None,
         state_changed_at: None,
-        created_by: arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned())
-            .unwrap(),
+        created_by: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
         created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
         updated_by: None,
         updated_at: None,

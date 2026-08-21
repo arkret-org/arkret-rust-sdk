@@ -215,12 +215,12 @@ impl MembershipPayload {
                 "membership payload reason exceeds 256 characters".to_owned(),
             ));
         }
-        if let Some(authority) = &self.principal_authority {
-            if self.actor_id.as_ref() != Some(&authority.principal_id) {
-                return Err(Error::Protocol(
-                    "membership principal_authority does not bind actor_id".to_owned(),
-                ));
-            }
+        if let Some(authority) = &self.principal_authority
+            && self.actor_id.as_ref() != Some(&authority.principal_id)
+        {
+            return Err(Error::Protocol(
+                "membership principal_authority does not bind actor_id".to_owned(),
+            ));
         }
         if self.membership == MembershipPayloadState::Join {
             if self.realm_id.is_none() || self.actor_id.is_none() || self.delivery_status.is_none()

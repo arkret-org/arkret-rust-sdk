@@ -41,6 +41,33 @@ fn arb_handle() -> impl Strategy<Value = String> {
     (arb_localpart(), arb_domain()).prop_map(|(local, domain)| format!("{local}:{domain}"))
 }
 
+/// Claim shell with every field written explicitly: `HandleClaim` has no
+/// `Default` impl because the schema-required `created_at` must come from a
+/// real constructor, not a fabricated placeholder.
+fn base_claim() -> HandleClaim {
+    HandleClaim {
+        schema: HandleClaim::SCHEMA.to_owned(),
+        handle: None,
+        handle_aliases: Vec::new(),
+        subject: None,
+        issuer: None,
+        issuer_service_id: None,
+        binding_state: None,
+        claim_kind: None,
+        visibility: None,
+        audience: None,
+        challenge: None,
+        claim_scope: Default::default(),
+        member_delivery_binding: None,
+        claims: Vec::new(),
+        created_at: Utc::now(),
+        expires_at: None,
+        verified_at: None,
+        source_refs: Vec::new(),
+        proofs: Vec::new(),
+    }
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(PROPTEST_CASES))]
 
@@ -81,7 +108,7 @@ proptest! {
     ) {
         let mut claim = HandleClaim {
             binding_state: Some(HandleBindingState::Verified),
-            ..Default::default()
+            ..base_claim()
         };
         if has_handle {
             claim.handle = Some(Handle::parse(&handle).unwrap());
@@ -119,7 +146,7 @@ proptest! {
                 service_acceptance_ref: None,
                 policy_event_ref: None,
             }),
-            ..Default::default()
+            ..base_claim()
         };
         if has_handle {
             claim.handle = Some(Handle::parse(&handle).unwrap());

@@ -145,14 +145,6 @@ pub const MAX_ALGORITHM_VALUE_LEN: usize = 256;
 /// Maximum number of algorithm entries inside a single `DeviceKeyBundle`.
 pub const MAX_ALGORITHMS_PER_BUNDLE: usize = 32;
 
-/// Maximum number of one-time keys a single `OneTimeKeyClaim` may request.
-/// Protects the server claim path from unbounded per-claim allocation.
-pub const MAX_ONE_TIME_KEY_CLAIM_COUNT: u32 = 1000;
-
-/// Maximum number of verification-method names attached to a single
-/// `DeviceVerificationStrand`.
-pub const MAX_VERIFICATION_METHODS: usize = 32;
-
 /// Helper: reject empty / whitespace-only key strings with a uniform error.
 pub(crate) fn validate_nonempty_key(field: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {

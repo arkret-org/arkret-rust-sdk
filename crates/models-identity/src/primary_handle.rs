@@ -139,10 +139,10 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
     if !matches!(c.binding_state, Some(HandleBindingState::Verified)) {
         return false;
     }
-    // created_at MUST be <= resolution_as_of.
-    match c.created_at {
-        Some(created) if created <= input.resolution_as_of => {}
-        _ => return false,
+    // created_at MUST be <= resolution_as_of. `created_at` is schema-required,
+    // so it is always present on a parsed claim.
+    if c.created_at > input.resolution_as_of {
+        return false;
     }
     // expires_at MUST be > resolution_as_of.
     match c.expires_at {
@@ -361,14 +361,25 @@ mod tests {
         audience: Option<&str>,
     ) -> HandleClaim {
         HandleClaim {
+            schema: HandleClaim::SCHEMA.to_owned(),
             handle: Some(Handle::parse(handle).unwrap()),
+            handle_aliases: Vec::new(),
             subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
             issuer: Some(DidCoreId::new(issuer_did).unwrap()),
+            issuer_service_id: None,
             binding_state: Some(HandleBindingState::Verified),
+            claim_kind: None,
+            visibility: None,
             audience: audience.map(str::to_owned),
-            created_at: Some(created),
+            challenge: None,
+            claim_scope: Default::default(),
+            member_delivery_binding: None,
+            claims: Vec::new(),
+            created_at: created,
             expires_at: Some(expires),
-            ..Default::default()
+            verified_at: None,
+            source_refs: Vec::new(),
+            proofs: Vec::new(),
         }
     }
 

@@ -604,6 +604,7 @@ pub enum IdentityCreationGoal {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "goal", rename_all = "snake_case", deny_unknown_fields)]
+#[allow(clippy::large_enum_variant)]
 pub enum AccountOnboardingGoal {
     CompleteIdentity,
     AbandonProvisionalIdentity {
