@@ -37,9 +37,7 @@ pub enum CryptoSessionState {
 /// evolves with the MLS group state and epoch — see
 /// `guides/migrating-from-matrix.md` §4.5.3), not the HPKE to-device
 /// secret-transfer path (`crate::secret_share`, `ak.secret.request` /
-/// `ak.secret.send`), and not the realm_key history delivery
-/// (`arkret_models_collaboration::events_payloads::realm_key`,
-/// `ak.realm_key.request` / `ak.realm_key.share`).
+/// `ak.secret.send`), and not the receipt-bound history recovery path.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CryptoSessionRecord {
     pub realm_id: RealmId,
