@@ -11,10 +11,12 @@ use arkret_models_crypto::{
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, EncryptedPayloadScheme, Hash, MLS_CIPHERSUITES, ReasonCode, canonical,
+    DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash, MLS_CIPHERSUITES, ReasonCode,
+    ScopeRef, canonical,
 };
 use chrono::Utc;
 use hkdf::Hkdf;
+use hmac::{Hmac, Mac};
 use openmls::prelude::{
     BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
     GroupContext, GroupId, LeafNodeIndex, LeafNodeParameters, MlsGroup, MlsGroupJoinConfig,
@@ -26,6 +28,7 @@ use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
+use unicode_normalization::UnicodeNormalization;
 use zeroize::Zeroizing;
 
 use crate::identity::{
@@ -40,6 +43,8 @@ const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 pub(crate) const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
 /// HKDF-Expand label deriving the content key from the history secret.
 const CONTENT_KEY_LABEL: &str = arkret_wire::ExporterLabelId::CONTENT_V1;
+const REACTION_ROUTING_ROOT_LABEL: &str = arkret_wire::ExporterLabelId::REACTION_ROUTING_ROOT_V1;
+const REACTION_ROUTING_LABEL: &str = arkret_wire::ExporterLabelId::REACTION_ROUTING_V1;
 
 /// AEAD parameters an `aead_profile` fixes, shared by both MLS-exporter-derived
 /// AEAD domains: `mls_exporter_aead_v1` content (this module) and
@@ -451,8 +456,8 @@ impl ArkretMlsGroup {
     /// exchanging material.
     ///
     /// Used for spec-defined key derivations layered on the group secret —
-    /// e.g. the reaction routing tag (`encryption-and-audit.md` §2.9, label
-    /// `arkret-reaction-routing-v1`, context = `realm_id`) and SFrame media
+    /// e.g. the reaction routing root (`encryption-and-audit.md` §2.9, label
+    /// `ak.reaction-routing-root-v1`, canonical effective-scope context) and SFrame media
     /// keys (`media-service-binding.md` §8.1). Callers MUST treat the returned
     /// bytes as secret key material (never log or persist them in the clear).
     /// The returned buffer is [`Zeroizing`] — it is wiped on drop.
@@ -466,6 +471,37 @@ impl ArkretMlsGroup {
             .export_secret(self.identity.provider.crypto(), label, context, length)
             .map(Zeroizing::new)
             .map_err(mls_error)
+    }
+
+    /// Derive the current epoch's reaction routing tag from the protocol's
+    /// complete routing context. The returned value is the 32-byte HMAC output
+    /// encoded as 43-character base64url without padding.
+    pub fn reaction_routing_tag(
+        &mut self,
+        realm_id: &str,
+        scheme: EncryptedPayloadScheme,
+        effective_scope: &ScopeRef,
+        target_ref: &EventId,
+        routing_window: u64,
+        canonical_emoji: &str,
+    ) -> Result<String> {
+        let routing_root = match scheme {
+            EncryptedPayloadScheme::MlsExporterAeadV1 => {
+                self.derive_and_retain_history_secret(realm_id)?
+            }
+            EncryptedPayloadScheme::MlsRfc9420 => self.export_secret(
+                REACTION_ROUTING_ROOT_LABEL,
+                &effective_scope.canonical_effective_scope_key_bytes()?,
+                32,
+            )?,
+        };
+        reaction_routing_tag_from_root(
+            &routing_root,
+            effective_scope,
+            target_ref,
+            routing_window,
+            canonical_emoji,
+        )
     }
 
     // ── `mls_exporter_aead_v1` history-shareable content scheme ──────────────
@@ -526,8 +562,7 @@ impl ArkretMlsGroup {
         header: &EventContentPreEncryptionHeader,
         plaintext: &[u8],
     ) -> Result<(u64, Vec<u8>)> {
-        let sender_domain = self
-            .verified_local_content_sender_domain(&header.sender_domain)?;
+        let sender_domain = self.verified_local_content_sender_domain(&header.sender_domain)?;
         header.validate()?;
         if header.scheme != EncryptedPayloadScheme::MlsExporterAeadV1
             || header.mls_group_id != self.group_id()
@@ -624,7 +659,7 @@ impl ArkretMlsGroup {
     /// third-party `Ciphersuite` `Debug` form; the OpenMLS value is only
     /// compared, so an unexpected suite fails closed instead of being
     /// stringified onto the wire.
-    pub(crate) fn group_ciphersuite_canonical_id(&self) -> Result<&'static str> {
+    pub fn group_ciphersuite_canonical_id(&self) -> Result<&'static str> {
         if self.group.ciphersuite() == ARKRET_MLS_CIPHERSUITE {
             Ok(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID)
         } else {
@@ -656,7 +691,10 @@ impl ArkretMlsGroup {
         self.content_nonce_counter
     }
 
-    fn verified_local_content_sender_domain(&self, declared: &str) -> Result<Vec<u8>> {
+    /// Return the sender-domain string derived from the unique active local
+    /// BasicCredential leaf. Callers use this value when freezing the
+    /// pre-encryption header; they must not infer it from UI profile state.
+    pub fn local_content_sender_domain(&self) -> Result<String> {
         let mut own_leaves = self
             .group
             .members()
@@ -682,13 +720,17 @@ impl ArkretMlsGroup {
             .rsplit_once('#')
             .map(|(_, device)| device)
             .unwrap_or(identity);
+        Ok(derived_sender_domain.to_owned())
+    }
+
+    fn verified_local_content_sender_domain(&self, declared: &str) -> Result<Vec<u8>> {
+        let derived_sender_domain = self.local_content_sender_domain()?;
         if derived_sender_domain != declared {
             return Err(Error::Protocol(
-                "pre-encryption sender domain does not match the active local MLS leaf"
-                    .to_owned(),
+                "pre-encryption sender domain does not match the active local MLS leaf".to_owned(),
             ));
         }
-        Ok(declared.as_bytes().to_vec())
+        Ok(derived_sender_domain.into_bytes())
     }
 
     fn content_nonce_context(
@@ -1412,7 +1454,8 @@ impl ArkretMlsGroup {
         header: EventContentPreEncryptionHeader,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
-        let (counter, ciphertext) = self.encrypt_content_exporter_aead(realm_id, &header, plaintext)?;
+        let (counter, ciphertext) =
+            self.encrypt_content_exporter_aead(realm_id, &header, plaintext)?;
         let epoch = self.epoch();
         let ciphertext = encode(&ciphertext);
         let payload_digest =
@@ -1608,6 +1651,47 @@ impl ArkretMlsGroup {
     }
 }
 
+/// Derive the registered reaction routing tag from a replay-verified epoch
+/// routing root. This is the group-free counterpart used by KAT runners and
+/// history receivers that already verified the exact epoch state.
+pub fn reaction_routing_tag_from_root(
+    routing_root: &[u8],
+    effective_scope: &ScopeRef,
+    target_ref: &EventId,
+    routing_window: u64,
+    canonical_emoji: &str,
+) -> Result<String> {
+    #[derive(Serialize)]
+    struct RoutingContext<'a> {
+        effective_scope: &'a ScopeRef,
+        target_ref: &'a EventId,
+        routing_window: u64,
+    }
+
+    let normalized: String = canonical_emoji.nfc().collect();
+    if normalized.is_empty() {
+        return Err(Error::Protocol(
+            "reaction routing emoji must not be empty".to_owned(),
+        ));
+    }
+    let context = canonical::canonical_json_bytes(&RoutingContext {
+        effective_scope,
+        target_ref,
+        routing_window,
+    })?;
+    let routing_key = arkret_crypto::mls_exporter::mls_expand_with_label(
+        routing_root,
+        REACTION_ROUTING_LABEL,
+        &context,
+        32,
+    )
+    .map_err(|error| Error::Crypto(error.to_string()))?;
+    let mut mac = <Hmac<Sha256> as hmac::KeyInit>::new_from_slice(&routing_key)
+        .map_err(|_| Error::Crypto("reaction routing HMAC key is invalid".to_owned()))?;
+    mac.update(normalized.as_bytes());
+    Ok(base64url_encode(mac.finalize().into_bytes()))
+}
+
 fn validate_commit_backfill<'a>(
     expected_group_id: &str,
     current_epoch: u64,
@@ -1657,11 +1741,9 @@ fn validate_commit_backfill<'a>(
 /// decrypt `mls_exporter_aead_v1` content with this. `header` MUST be
 /// reconstructed from the verified outer Event and exact winning group state.
 ///
-/// `aead_profile` is a parameter here and not on the group method because this
-/// path has no group to ask: it is the envelope's declared `aead_profile`
-/// (§2.10.2), and it fixes both the key length and where the nonce ends. It is
-/// resolved through `mls-ciphersuite-registry.json`, so an unregistered or
-/// not-yet-active suite fails closed before any key material is derived.
+/// `aead_profile` is a parameter here because this path has no group to ask.
+/// It MUST come from the exact verified historical group state; the minimal
+/// encrypted-envelope wire does not carry an algorithm selector.
 pub fn decrypt_content_exporter_aead_standalone(
     history_secret: &[u8],
     verified_sender_domain: &[u8],
@@ -2008,14 +2090,15 @@ mod content_scheme_anchor_tests {
         assert_eq!(nonce.len(), suite.nonce_len());
         assert_eq!(&nonce[4..], 7u64.to_be_bytes(), "counter suffix drifted");
 
-        let header: EventContentPreEncryptionHeader = serde_json::from_value(
-            case["expected"]["reconstructed_pre_encryption_header"].clone(),
-        )
-        .unwrap();
+        let header: EventContentPreEncryptionHeader =
+            serde_json::from_value(case["expected"]["reconstructed_pre_encryption_header"].clone())
+                .unwrap();
         let aad = header.canonical_bytes().unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            case["expected"]["aead_aad_canonical_json"].as_str().unwrap(),
+            case["expected"]["aead_aad_canonical_json"]
+                .as_str()
+                .unwrap(),
             "canonical content AAD drifted"
         );
 
@@ -2023,7 +2106,9 @@ mod content_scheme_anchor_tests {
         let ciphertext = suite.seal(&content_key, &nonce, &aad, &plaintext).unwrap();
         assert_eq!(
             hex(&ciphertext),
-            case["expected"]["ciphertext_with_tag_hex"].as_str().unwrap(),
+            case["expected"]["ciphertext_with_tag_hex"]
+                .as_str()
+                .unwrap(),
             "exporter-aead ciphertext drifted"
         );
 
@@ -2110,5 +2195,44 @@ mod content_scheme_anchor_tests {
             .as_ref()),
             case["expected"]["content_key_hex"].as_str().unwrap()
         );
+    }
+
+    #[test]
+    fn reaction_routing_tag_matches_registered_spec_vector() {
+        let fixture =
+            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
+                .unwrap();
+        let case = fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| {
+                case["vector_id"].as_str() == Some("ak.vector.reaction.routing_hmac_kat.v1")
+            })
+            .unwrap();
+        let routing_root = hex::decode(case["input"]["routing_root_hex"].as_str().unwrap())
+            .expect("routing root hex");
+        let effective_scope: ScopeRef =
+            serde_json::from_value(case["input"]["effective_scope"].clone()).unwrap();
+        let target_ref =
+            EventId::new(case["input"]["target_ref"].as_str().unwrap().to_owned()).unwrap();
+        let routing_window = case["input"]["routing_window"].as_u64().unwrap();
+        let emoji = ["e\u{301}", "é", "👍🏽"];
+        let expected = case["expected"]["tags_hex"].as_array().unwrap();
+
+        for (emoji, expected) in emoji.into_iter().zip(expected) {
+            let tag = reaction_routing_tag_from_root(
+                &routing_root,
+                &effective_scope,
+                &target_ref,
+                routing_window,
+                emoji,
+            )
+            .unwrap();
+            assert_eq!(
+                hex(base64url_decode(tag.as_bytes()).unwrap()),
+                expected.as_str().unwrap()
+            );
+        }
     }
 }

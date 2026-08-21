@@ -21,9 +21,8 @@ pub use arkret_policy::{
     AgentMlsLeafBindingError, AgentMlsSignerClaim, AgentMlsSignerView, AuthorGroupStateView,
     AuthorLeaf, AuthorLeafCredential, MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS,
     MinimalMetadataAuthorClaim, MinimalMetadataAuthorError, MinimalMetadataAuthorViolation,
-    VerifiedAuthorLeaf, minimal_metadata_epoch_overdue,
-    minimal_metadata_max_epoch_lifetime, verify_minimal_metadata_author,
-    verify_ordinary_agent_mls_binding,
+    VerifiedAuthorLeaf, minimal_metadata_epoch_overdue, minimal_metadata_max_epoch_lifetime,
+    verify_minimal_metadata_author, verify_ordinary_agent_mls_binding,
 };
 pub use error::MlsError;
 // `Result` stays crate-internal because public signatures resolve it to the
@@ -864,7 +863,11 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            encrypted.payload.pre_encryption_header.canonical_bytes().unwrap(),
+            encrypted
+                .payload
+                .pre_encryption_header
+                .canonical_bytes()
+                .unwrap(),
             expected_aad
         );
         assert_eq!(
@@ -1241,7 +1244,12 @@ mod tests {
         // header fields.
         let json = serde_json::to_value(&envelope).unwrap();
         let obj = json.as_object().unwrap();
-        for field in ["version", "content_type", "encryption_context", "ciphertext"] {
+        for field in [
+            "version",
+            "content_type",
+            "encryption_context",
+            "ciphertext",
+        ] {
             assert!(obj.contains_key(field), "missing required field {field}");
         }
         assert_eq!(obj.len(), 4);
@@ -1330,7 +1338,10 @@ mod tests {
         assert_ne!(identity, principal.as_bytes());
     }
 
-    fn exporter_aead_header(group: &ArkretMlsGroup, counter: u64) -> EventContentPreEncryptionHeader {
+    fn exporter_aead_header(
+        group: &ArkretMlsGroup,
+        counter: u64,
+    ) -> EventContentPreEncryptionHeader {
         content_header(
             group,
             HISTORY_REALM,
@@ -1385,11 +1396,7 @@ mod tests {
         let mut group = exporter_aead_founder();
         let header = exporter_aead_header(&group, 0);
         let payload = group
-            .encrypt_payload_exporter_aead(
-                HISTORY_REALM,
-                header,
-                b"hello encrypted history",
-            )
+            .encrypt_payload_exporter_aead(HISTORY_REALM, header, b"hello encrypted history")
             .unwrap();
         assert_eq!(payload.scheme, EncryptedPayloadScheme::MlsExporterAeadV1);
 

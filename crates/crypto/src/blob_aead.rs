@@ -25,20 +25,18 @@
 //! (the SDK does not depend on an MLS runtime). Each attachment object MUST use
 //! a fresh content key (§3.3.4); callers are responsible for that contract.
 //!
-//! # `key_ref` deviation from §3 prose
+//! # `key_ref`
 //!
-//! The §3 JSON prose shows `key_ref` as an object
-//! (`{algorithm, group_state_ref}`). The normative wire schema
-//! (`blob.schema.json#/$defs/encrypted_attachment`) declares `key_ref` as a
-//! `string` with `minLength: 1`. This module follows the **schema**: `key_ref`
-//! is an opaque caller-supplied string. The AAD binds the string verbatim, so
-//! callers that need the object form simply pass its canonical serialization.
+//! `key_ref` is the closed MLS group-state object from
+//! `blob.schema.json#/$defs/encrypted_attachment`. The attachment transcript
+//! binds its canonical typed representation; it is never an opaque string and
+//! is independent from the minimal Event-content encrypted envelope.
 
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_hex};
-use arkret_models_crypto::{EncryptedAttachment, KeyRefObject};
+use arkret_models_crypto::{EncryptedAttachment, EncryptedAttachmentKeyRef};
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use serde::{Deserialize, Serialize};
@@ -128,8 +126,8 @@ struct AttachmentEnvelopeFields {
     /// AEAD algorithm id.
     pub encryption_algorithm: String,
     /// MLS group-binding key reference (`{algorithm, group_state_ref}`),
-    /// identical to `encrypted-envelope.schema.json#/properties/key_ref`.
-    pub key_ref: KeyRefObject,
+    /// defined by `blob.schema.json#/$defs/encrypted_attachment`.
+    pub key_ref: EncryptedAttachmentKeyRef,
     /// Key epoch.
     pub epoch: u64,
     /// `<algo>:<lowercase_hex>` digest over the concatenated ciphertext.
@@ -174,27 +172,13 @@ fn envelope_fields(envelope: &EncryptedAttachment) -> Result<AttachmentEnvelopeF
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StreamEncryptParams {
     /// MLS group-binding key reference bound into the AAD.
-    pub key_ref: KeyRefObject,
+    pub key_ref: EncryptedAttachmentKeyRef,
     /// Key epoch recorded in the envelope.
     pub epoch: u64,
     /// Declared media type.
     pub media_type: String,
     /// Segment size; use [`DEFAULT_SEGMENT_SIZE`] for the v1 default.
     pub segment_bytes: u32,
-}
-
-impl Default for StreamEncryptParams {
-    fn default() -> Self {
-        Self {
-            key_ref: KeyRefObject {
-                algorithm: String::new(),
-                group_state_ref: String::new(),
-            },
-            epoch: 0,
-            media_type: "application/octet-stream".to_owned(),
-            segment_bytes: DEFAULT_SEGMENT_SIZE,
-        }
-    }
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────
@@ -223,7 +207,7 @@ fn segment_nonce(
 
 /// Canonical per-segment AAD (§3.3.3). Keys are sorted by `canonical_json_bytes`.
 fn stream_segment_aad(
-    key_ref: &KeyRefObject,
+    key_ref: &EncryptedAttachmentKeyRef,
     nonce_prefix_b64: &str,
     segment_index: u32,
     last: bool,
@@ -249,7 +233,7 @@ fn stream_segment_aad(
 
 /// Canonical whole-file AAD (§3.3.3 whole-file binding).
 fn whole_file_aad(
-    key_ref: &KeyRefObject,
+    key_ref: &EncryptedAttachmentKeyRef,
     nonce_b64: &str,
     media_type: &str,
     size_bytes: u64,
@@ -372,7 +356,7 @@ struct StreamContext {
     cipher: XChaCha20Poly1305,
     nonce_prefix: [u8; NONCE_PREFIX_LEN],
     nonce_prefix_b64: String,
-    key_ref: KeyRefObject,
+    key_ref: EncryptedAttachmentKeyRef,
     media_type: String,
     size_bytes: u64,
     segment_bytes: u32,
@@ -674,7 +658,7 @@ pub fn decrypt_stream(
 pub fn encrypt_whole_file(
     plaintext: &[u8],
     content_key: &[u8; 32],
-    key_ref: KeyRefObject,
+    key_ref: EncryptedAttachmentKeyRef,
     epoch: u64,
     media_type: String,
 ) -> Result<(Vec<u8>, EncryptedAttachment)> {
@@ -782,10 +766,15 @@ mod tests {
         k
     }
 
-    fn test_key_ref() -> KeyRefObject {
-        KeyRefObject {
-            algorithm: "MLS".to_owned(),
-            group_state_ref: "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB".to_owned(),
+    fn test_key_ref() -> EncryptedAttachmentKeyRef {
+        EncryptedAttachmentKeyRef {
+            algorithm: arkret_models_crypto::EncryptedAttachmentKeyAlgorithm::Mls,
+            group_state_ref: arkret_models_crypto::EncryptedAttachmentGroupStateRef::Event(
+                arkret_wire::EventId::new(
+                    "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB".to_owned(),
+                )
+                .unwrap(),
+            ),
         }
     }
 

@@ -1,9 +1,7 @@
-use arkret_models_crypto::{
-    EncryptedEnvelope, EncryptedPayload, EventContentPreEncryptionHeader,
-};
+use arkret_models_crypto::{EncryptedEnvelope, EncryptedPayload, EventContentPreEncryptionHeader};
 use serde::{Deserialize, Serialize};
 
-use crate::group::{ArkretMlsGroup, decode};
+use crate::group::ArkretMlsGroup;
 use crate::{MlsError as Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,10 +13,7 @@ pub struct EncryptedMessage {
 pub use arkret_models_crypto::parse_and_validate_encrypted_envelope;
 
 /// Assemble the encrypted envelope for an already-sealed payload.
-///
-pub fn encrypted_envelope_from_payload(
-    payload: &EncryptedPayload,
-) -> Result<EncryptedEnvelope> {
+pub fn encrypted_envelope_from_payload(payload: &EncryptedPayload) -> Result<EncryptedEnvelope> {
     payload.to_envelope().map_err(Into::into)
 }
 

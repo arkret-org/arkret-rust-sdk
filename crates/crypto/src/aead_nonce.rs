@@ -283,5 +283,4 @@ mod tests {
         assert_eq!(tracker.scopes.len(), 2);
         assert_eq!(tracker.lru.len(), 2);
     }
-
 }

@@ -114,8 +114,7 @@ impl EventContentPreEncryptionHeader {
         }
         if self.event_kind.trim().is_empty() || self.sender_domain.trim().is_empty() {
             return Err(Error::Protocol(
-                "event-content pre-encryption Event kind and sender domain are required"
-                    .to_owned(),
+                "event-content pre-encryption Event kind and sender domain are required".to_owned(),
             ));
         }
         match self.scheme {
@@ -134,14 +133,11 @@ impl EventContentPreEncryptionHeader {
         );
         match (&self.routing_context, reaction_kind) {
             (EventContentRoutingContext::None, false) => {}
-            (
-                EventContentRoutingContext::Reaction { routing_tag, .. },
-                true,
-            ) if fixed_base64url_token(routing_tag, 43) => {}
+            (EventContentRoutingContext::Reaction { routing_tag, .. }, true)
+                if fixed_base64url_token(routing_tag, 43) => {}
             _ => {
                 return Err(Error::Protocol(
-                    "event-content routing context does not match the outer Event kind"
-                        .to_owned(),
+                    "event-content routing context does not match the outer Event kind".to_owned(),
                 ));
             }
         }
@@ -150,7 +146,7 @@ impl EventContentPreEncryptionHeader {
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        canonical::canonical_json_bytes(self)
+        Ok(canonical::canonical_json_bytes(self)?)
     }
 }
 
@@ -331,7 +327,7 @@ impl EncryptedEnvelope {
         let ciphertext = arkret_canonical::base64url::base64url_decode(&self.ciphertext)
             .map_err(|error| Error::Protocol(error.to_string()))?;
         preimage.extend_from_slice(&ciphertext);
-        Hash::new(canonical::sha256_digest(&preimage))
+        Ok(Hash::new(canonical::sha256_digest(&preimage))?)
     }
 }
 
@@ -422,13 +418,11 @@ impl EncryptedPayload {
             }),
         };
         let encryption_context = match header.scheme {
-            EncryptedPayloadScheme::MlsRfc9420 => {
-                EncryptedEnvelopeEncryptionContext::StandardMls {
-                    epoch: header.epoch,
-                    group_state_ref: header.group_state_ref.clone(),
-                    routing_context,
-                }
-            }
+            EncryptedPayloadScheme::MlsRfc9420 => EncryptedEnvelopeEncryptionContext::StandardMls {
+                epoch: header.epoch,
+                group_state_ref: header.group_state_ref.clone(),
+                routing_context,
+            },
             EncryptedPayloadScheme::MlsExporterAeadV1 => {
                 EncryptedEnvelopeEncryptionContext::ExporterMls {
                     epoch: header.epoch,
@@ -481,5 +475,4 @@ impl EncryptedPayload {
             ))
         }
     }
-
 }

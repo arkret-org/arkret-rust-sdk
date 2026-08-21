@@ -72,10 +72,8 @@ mod tests {
 
     fn test_encrypted_payload(ciphertext: &str, payload_digest: Hash) -> EncryptedPayload {
         let effective_scope = ScopeRef::Realm {
-            realm_id: RealmId::new(
-                "ak:realm:ATkXzcQvyxfe91pWo53Tg9imMLwlTme1cbCFc5G-lymH",
-            )
-            .unwrap(),
+            realm_id: RealmId::new("ak:realm:ATkXzcQvyxfe91pWo53Tg9imMLwlTme1cbCFc5G-lymH")
+                .unwrap(),
         };
         let header = EventContentPreEncryptionHeader::reconstruct(
             "1.0",
@@ -116,8 +114,7 @@ mod tests {
         binding.record_device_keys(bundle).unwrap();
         assert_eq!(binding.device_keys.len(), 1);
 
-        let payload =
-            test_encrypted_payload("abc", Hash::new(sha256_prefixed(b"abc")).unwrap());
+        let payload = test_encrypted_payload("abc", Hash::new(sha256_prefixed(b"abc")).unwrap());
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
             event_id: EventId::new("ak:event:AY2gmtVpH4CNWqvZ25JTuYdzI56aAbxr3k-TrqvZfsKv")
                 .unwrap(),
