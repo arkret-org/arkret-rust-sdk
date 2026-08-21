@@ -34,15 +34,6 @@ pub enum CallSignalKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CallMode {
-    P2p,
-    Mesh,
-    Sfu,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum SessionDescriptionType {
     Offer,
     Answer,
@@ -72,7 +63,6 @@ pub struct CallMediaSelection {
 #[serde(deny_unknown_fields)]
 pub struct CallInviteSignalData {
     pub lifetime_ms: u64,
-    pub mode: CallMode,
     pub offer: SessionDescription,
     pub media: CallMediaSelection,
 }
