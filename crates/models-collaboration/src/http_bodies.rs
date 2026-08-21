@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 
+use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
     Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey,
     Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
@@ -417,6 +418,8 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub control_proposal_acks: Vec<ControlProposalAck>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agent_event_admission_receipts: Vec<AgentEventAdmissionReceipt>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<EventsSubmitRejectedRow>,
@@ -470,6 +473,30 @@ impl EventsSubmitOutcome {
                 ));
             }
             original.validate_delivery_state()?;
+        }
+        let accepted_or_duplicate = self
+            .accepted
+            .iter()
+            .chain(&self.duplicate)
+            .collect::<std::collections::BTreeSet<_>>();
+        let mut receipt_keys = std::collections::BTreeSet::new();
+        for receipt in &self.agent_event_admission_receipts {
+            if !accepted_or_duplicate.contains(&receipt.event_id) {
+                return Err(Error::Protocol(
+                    "Agent Event admission receipt does not match an accepted or duplicate Event"
+                        .to_owned(),
+                ));
+            }
+            let key = (
+                &receipt.event_id,
+                &receipt.event_digest,
+                &receipt.receiver_service_id,
+            );
+            if !receipt_keys.insert(key) {
+                return Err(Error::Protocol(
+                    "Agent Event admission receipts contain a duplicate selector".to_owned(),
+                ));
+            }
         }
         Ok(())
     }

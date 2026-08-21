@@ -1085,6 +1085,10 @@ pub struct PrincipalServerAdmissionProof {
     pub producer_proof_digest: Hash,
     pub producer_verification_method: DidUrl,
     pub producer_signing_key: DidKey,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_signer_resolution_evidence_digest: Option<Hash>,
     pub signer_resolution_evidence_ref: SignerEvidenceRef,
     pub signer_resolution_evidence_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -1157,11 +1161,25 @@ impl PrincipalServerAdmissionProof {
                 Error::Protocol("admission verification method has no fragment".to_owned())
             })?;
         let controller = DidFullId::new(controller.to_owned())?;
+        let producer_evidence_pair_valid = match (
+            &self.producer_signer_resolution_evidence_ref,
+            &self.producer_signer_resolution_evidence_digest,
+        ) {
+            (None, None) => true,
+            (Some(reference), Some(digest)) => {
+                reference
+                    .content_digest()
+                    .is_ok_and(|value| value == *digest)
+                    && digest.as_ref().starts_with("sha256:")
+            }
+            _ => false,
+        };
         if fragment.is_empty()
             || project_full_id_to_core_id(&controller)? != *expected_principal_server_id
             || self.event_digest != *expected_event_digest
             || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
             || self.producer_verification_method != producer_proof.verification_method
+            || !producer_evidence_pair_valid
             || self.signer_resolution_evidence_ref.content_digest()?
                 != self.signer_resolution_evidence_digest
             || !self
@@ -1178,18 +1196,56 @@ impl PrincipalServerAdmissionProof {
     }
 
     pub fn canonical_binding_bytes(&self) -> Result<Vec<u8>> {
-        canonical::canonical_json_bytes(&serde_json::json!({
-            "context": PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT,
-            "verification_method": &self.verification_method,
-            "event_digest": &self.event_digest,
-            "producer_proof_digest": &self.producer_proof_digest,
-            "producer_verification_method": &self.producer_verification_method,
-            "producer_signing_key": &self.producer_signing_key,
-            "signer_resolution_evidence_ref": &self.signer_resolution_evidence_ref,
-            "signer_resolution_evidence_digest": &self.signer_resolution_evidence_digest,
-            "accepted_at": canonical::format_timestamp_canonical(self.accepted_at),
-        }))
-        .map_err(Into::into)
+        let mut binding = serde_json::Map::new();
+        binding.insert(
+            "context".to_owned(),
+            Value::String(PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT.to_owned()),
+        );
+        binding.insert(
+            "verification_method".to_owned(),
+            serde_json::to_value(&self.verification_method)?,
+        );
+        binding.insert(
+            "event_digest".to_owned(),
+            serde_json::to_value(&self.event_digest)?,
+        );
+        binding.insert(
+            "producer_proof_digest".to_owned(),
+            serde_json::to_value(&self.producer_proof_digest)?,
+        );
+        binding.insert(
+            "producer_verification_method".to_owned(),
+            serde_json::to_value(&self.producer_verification_method)?,
+        );
+        binding.insert(
+            "producer_signing_key".to_owned(),
+            serde_json::to_value(&self.producer_signing_key)?,
+        );
+        if let Some(reference) = &self.producer_signer_resolution_evidence_ref {
+            binding.insert(
+                "producer_signer_resolution_evidence_ref".to_owned(),
+                serde_json::to_value(reference)?,
+            );
+        }
+        if let Some(digest) = &self.producer_signer_resolution_evidence_digest {
+            binding.insert(
+                "producer_signer_resolution_evidence_digest".to_owned(),
+                serde_json::to_value(digest)?,
+            );
+        }
+        binding.insert(
+            "signer_resolution_evidence_ref".to_owned(),
+            serde_json::to_value(&self.signer_resolution_evidence_ref)?,
+        );
+        binding.insert(
+            "signer_resolution_evidence_digest".to_owned(),
+            serde_json::to_value(&self.signer_resolution_evidence_digest)?,
+        );
+        binding.insert(
+            "accepted_at".to_owned(),
+            Value::String(canonical::format_timestamp_canonical(self.accepted_at)),
+        );
+        canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
     }
 }
 
