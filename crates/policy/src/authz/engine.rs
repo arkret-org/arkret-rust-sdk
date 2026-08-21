@@ -46,8 +46,8 @@ pub struct AuthzContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption_level: Option<String>,
     /// Effective `history_access` of the target scope at the current
-    /// causal frontier (`world_readable` / `shared` / `invited` / `joined` /
-    /// `restricted`). Used by `Constraint::VisibilityControl`.
+    /// causal frontier (`since_join` / `all_history_for_current_members`).
+    /// Used by `Constraint::VisibilityControl`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history_access: Option<String>,
     /// Byte count of the blob being uploaded (single-call), if any.

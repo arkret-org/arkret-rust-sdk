@@ -182,7 +182,7 @@ Wire shape ownership is strict:
 - Do not redefine protocol enums such as `ErrorCode`, `EventKind`,
   `Discoverability`, `JoinRule`, `FederationPolicy`, `ActorKind`,
   `RelationKind`, `ViewKind`, `Facet`, `EncryptionProfile`, `SecurityClass`,
-  or `HistoryVisibility`; add local behavior with traits or newtypes.
+  or `HistoryAccess`; add local behavior with traits or newtypes.
 
 ## Naming Conventions
 
