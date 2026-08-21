@@ -451,6 +451,61 @@ fn io_protocol_error(action: &str, path: &Path, error: std::io::Error) -> Identi
     IdentityError::Protocol(format!("failed to {action} {}: {error}", path.display()))
 }
 
+/// Verify the Provider proof of a service-registration receipt exactly as
+/// `identity/identity-did.md` §3.7 receipt transcript step 4 requires of every
+/// consumer, including the offline identity-bundle restore path.
+///
+/// `provider_full_id` MUST have been obtained independently of the receipt —
+/// from the Provider's own resolution surface or an operator pin — and
+/// `provider_log_bytes` MUST be the `did.jsonl` published for it. The complete
+/// method-native history is verified here (SCID derivation from entry 0, the
+/// entry hash chain, every entry proof and the update-key rotation
+/// authorization), so no part of this decision rests on the transport that
+/// delivered either input.
+///
+/// The steps follow the normative order: method-native history verification,
+/// `project(provider_full_id) == provider_service_id` together with the bare
+/// controller DID of `verificationMethod`, `assertionMethod` membership in the
+/// DID Document that was effective at `issued_at`, then the Ed25519 detached
+/// JWS itself. The verified history is returned so callers can additionally
+/// pin the head against a separately obtained resolution commitment.
+pub fn verify_registration_receipt_provider_proof(
+    receipt: &ServiceRegistrationReceipt,
+    provider_full_id: &DidFullId,
+    provider_log_bytes: &[u8],
+) -> Result<crate::VerifiedDidWebvhLog> {
+    let verified = crate::verify_did_webvh_v1_chain_bytes(provider_full_id, provider_log_bytes)?;
+    receipt.validate_provider_full_id(provider_full_id)?;
+    let mut previous_version_time: Option<DateTime<Utc>> = None;
+    for entry in &verified.entries {
+        if previous_version_time.is_some_and(|previous| entry.version_time <= previous) {
+            return Err(IdentityError::Protocol(
+                "provider did:webvh history versionTime is not strictly increasing".to_owned(),
+            ));
+        }
+        previous_version_time = Some(entry.version_time);
+    }
+    let effective = verified
+        .entries
+        .iter()
+        .rev()
+        .find(|entry| entry.version_time <= receipt.issued_at)
+        .ok_or_else(|| {
+            IdentityError::Protocol(
+                "provider did:webvh history has no version effective when the receipt was issued"
+                    .to_owned(),
+            )
+        })?;
+    let document: ServiceDidDocument = serde_json::from_value(effective.state.clone())?;
+    if document.id != *provider_full_id {
+        return Err(IdentityError::Protocol(
+            "provider did:webvh state at issuance is not the resolved provider DID".to_owned(),
+        ));
+    }
+    arkret_signatures::service_identity::verify_registration_receipt_proof(receipt, &document)?;
+    Ok(verified)
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -467,6 +522,7 @@ mod tests {
         proof_kind,
     };
     use chrono::{DateTime, Utc};
+    use rand_core::SeedableRng;
 
     use super::{
         DidCoreIdentityBundle, DidCoreIdentityKeyRef, DidCoreIdentityProviderRef,
@@ -793,5 +849,189 @@ mod tests {
 
         let restored: super::ResolvedService = serde_json::from_value(serialized).unwrap();
         assert_eq!(restored, service);
+    }
+
+    const PROVIDER_ASSERTION_FRAGMENT: &str = "service-key";
+
+    /// A real, self-certifying Provider `did:webvh` inception whose DID
+    /// assertion key is `assertion_seed`.
+    fn provider_history(
+        assertion_seed: &[u8; 32],
+        update_entropy: [u8; 32],
+    ) -> arkret_signatures::webvh::PreparedInception {
+        let mut rng = rand_chacha::ChaCha20Rng::from_seed(update_entropy);
+        arkret_signatures::webvh::prepare_service_registration_inception_with_did_key_seed(
+            &mut rng,
+            &arkret_signatures::webvh::ServiceRegistrationInceptionInput {
+                provider_endpoint: &url::Url::parse("https://identity.example/").unwrap(),
+                registration_key: &ServiceRegistrationKey::new(
+                    ServiceKind::PrincipalServer,
+                    CanonicalServiceUrl::new("https://identity.example/").unwrap(),
+                )
+                .unwrap(),
+                also_known_as: &[],
+                version_time: "2026-07-15T00:00:00Z".parse().unwrap(),
+                did_key_fragment: Some(PROVIDER_ASSERTION_FRAGMENT),
+            },
+            assertion_seed,
+        )
+        .unwrap()
+    }
+
+    fn did_jsonl(prepared: &arkret_signatures::webvh::PreparedInception) -> Vec<u8> {
+        format!("{}\n", serde_json::to_string(&prepared.log_entry).unwrap()).into_bytes()
+    }
+
+    /// A receipt for the registered auth server, issued and signed by the
+    /// Provider whose history is `provider`.
+    fn provider_signed_receipt(
+        provider: &arkret_signatures::webvh::PreparedInception,
+        provider_assertion_seed: &[u8; 32],
+        issued_at: DateTime<Utc>,
+    ) -> ServiceRegistrationReceipt {
+        let provider_full_id = DidFullId::new(provider.did.clone()).unwrap();
+        let operation = inception();
+        let mut receipt = ServiceRegistrationReceipt {
+            registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
+                "ak:service_registration_receipt:{}",
+                "a".repeat(64)
+            ))
+            .unwrap(),
+            registration_key: registration_key(),
+            service_id: project_full_id_to_core_id(&operation.state.id).unwrap(),
+            full_id: operation.state.id.clone(),
+            version_id: operation.version_id.clone(),
+            log_head_digest: operation.log_head_digest().unwrap(),
+            control_key_digest: operation.control_key_digest().unwrap(),
+            issued_at,
+            provider_service_id: project_full_id_to_core_id(&provider_full_id).unwrap(),
+            proof: PayloadProof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new(format!(
+                    "{provider_full_id}#{PROVIDER_ASSERTION_FRAGMENT}"
+                ))
+                .unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: issued_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "placeholder".to_owned(),
+            },
+        };
+        receipt.registration_receipt_id = receipt.expected_registration_receipt_id().unwrap();
+        receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
+        receipt.proof = arkret_signatures::service_identity::sign_registration_receipt_proof(
+            &receipt,
+            &ed25519_dalek::SigningKey::from_bytes(provider_assertion_seed),
+        )
+        .unwrap();
+        receipt
+    }
+
+    /// `identity-did.md` §3.7 transcript step 4: the Provider proof is only
+    /// accepted after its method-native history has been verified and the
+    /// receipt's `provider_service_id` projects from the resolved DID.
+    #[test]
+    fn provider_proof_verifies_against_the_resolved_method_native_history() {
+        let seed = [11_u8; 32];
+        let provider = provider_history(&seed, [21_u8; 32]);
+        let provider_full_id = DidFullId::new(provider.did.clone()).unwrap();
+        let receipt =
+            provider_signed_receipt(&provider, &seed, "2026-07-15T00:00:01Z".parse().unwrap());
+
+        let verified = super::verify_registration_receipt_provider_proof(
+            &receipt,
+            &provider_full_id,
+            &did_jsonl(&provider),
+        )
+        .expect("a receipt signed by the resolved provider assertion key must verify");
+        assert_eq!(verified.head_version_id, provider.version_id);
+    }
+
+    /// A forged signature is rejected even though every structural binding in
+    /// the receipt still recomputes.
+    #[test]
+    fn forged_provider_signature_is_rejected() {
+        let seed = [11_u8; 32];
+        let provider = provider_history(&seed, [21_u8; 32]);
+        let provider_full_id = DidFullId::new(provider.did.clone()).unwrap();
+        let mut receipt =
+            provider_signed_receipt(&provider, &seed, "2026-07-15T00:00:01Z".parse().unwrap());
+        let forged = provider_signed_receipt(
+            &provider,
+            &[12_u8; 32],
+            "2026-07-15T00:00:01Z".parse().unwrap(),
+        );
+        receipt.proof.jws = forged.proof.jws;
+
+        assert!(
+            super::verify_registration_receipt_provider_proof(
+                &receipt,
+                &provider_full_id,
+                &did_jsonl(&provider),
+            )
+            .is_err()
+        );
+    }
+
+    /// Swapping the Provider's controlling key material mints a different DID,
+    /// so the receipt no longer projects onto the resolved provider.
+    #[test]
+    fn receipt_from_a_different_provider_controller_is_rejected() {
+        let seed = [11_u8; 32];
+        let provider = provider_history(&seed, [21_u8; 32]);
+        let other_seed = [12_u8; 32];
+        let other = provider_history(&other_seed, [22_u8; 32]);
+        let receipt =
+            provider_signed_receipt(&other, &other_seed, "2026-07-15T00:00:01Z".parse().unwrap());
+
+        assert!(
+            super::verify_registration_receipt_provider_proof(
+                &receipt,
+                &DidFullId::new(provider.did.clone()).unwrap(),
+                &did_jsonl(&provider),
+            )
+            .is_err()
+        );
+    }
+
+    /// The history that mattered is the one effective when the receipt was
+    /// issued; a receipt predating the Provider's inception has none.
+    #[test]
+    fn receipt_issued_before_the_provider_history_begins_is_rejected() {
+        let seed = [11_u8; 32];
+        let provider = provider_history(&seed, [21_u8; 32]);
+        let receipt =
+            provider_signed_receipt(&provider, &seed, "2026-07-14T23:59:59Z".parse().unwrap());
+
+        assert!(
+            super::verify_registration_receipt_provider_proof(
+                &receipt,
+                &DidFullId::new(provider.did.clone()).unwrap(),
+                &did_jsonl(&provider),
+            )
+            .is_err()
+        );
+    }
+
+    /// A history served for a different DID than the one the consumer
+    /// independently resolved never verifies.
+    #[test]
+    fn provider_history_for_a_different_did_is_rejected() {
+        let seed = [11_u8; 32];
+        let provider = provider_history(&seed, [21_u8; 32]);
+        let other = provider_history(&[12_u8; 32], [22_u8; 32]);
+        let receipt =
+            provider_signed_receipt(&provider, &seed, "2026-07-15T00:00:01Z".parse().unwrap());
+
+        assert!(
+            super::verify_registration_receipt_provider_proof(
+                &receipt,
+                &DidFullId::new(provider.did.clone()).unwrap(),
+                &did_jsonl(&other),
+            )
+            .is_err()
+        );
     }
 }

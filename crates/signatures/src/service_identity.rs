@@ -122,8 +122,9 @@ mod tests {
         receipt
     }
 
-    #[test]
-    fn receipt_proof_round_trips_and_rejects_tampering() {
+    /// A signed receipt together with the Provider DID Document that
+    /// authorizes its `verificationMethod`.
+    fn signed_receipt_and_document() -> (ServiceRegistrationReceipt, ServiceDidDocument) {
         let signing_key = SigningKey::from_bytes(&[42_u8; 32]);
         let mut receipt = receipt();
         receipt.proof = sign_registration_receipt_proof(&receipt, &signing_key).unwrap();
@@ -153,9 +154,37 @@ mod tests {
             assertion_method: vec![receipt.proof.verification_method.as_str().to_owned()],
             service: Vec::new(),
         };
+        (receipt, provider_document)
+    }
+
+    #[test]
+    fn receipt_proof_round_trips_and_rejects_tampering() {
+        let (mut receipt, provider_document) = signed_receipt_and_document();
         verify_registration_receipt_proof(&receipt, &provider_document).unwrap();
 
         receipt.version_id.push_str("-tampered");
+        assert!(verify_registration_receipt_proof(&receipt, &provider_document).is_err());
+    }
+
+    /// `identity-did.md` §3.7 transcript step 4: the signing method must be an
+    /// `assertionMethod` of the Provider DID Document. Publishing the same key
+    /// for authentication only is not enough.
+    #[test]
+    fn method_outside_the_provider_assertion_method_set_is_rejected() {
+        let (receipt, mut provider_document) = signed_receipt_and_document();
+        provider_document.assertion_method.clear();
+
+        assert!(verify_registration_receipt_proof(&receipt, &provider_document).is_err());
+    }
+
+    /// The method must be controlled by the Provider DID itself; a document
+    /// that delegates it to another controller never authorizes the receipt.
+    #[test]
+    fn method_controlled_by_another_did_is_rejected() {
+        let (receipt, mut provider_document) = signed_receipt_and_document();
+        provider_document.verification_method[0].controller =
+            DidFullId::new("did:webvh:QmOther:identity.example:webvh:service").unwrap();
+
         assert!(verify_registration_receipt_proof(&receipt, &provider_document).is_err());
     }
 }
